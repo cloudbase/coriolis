@@ -42,40 +42,40 @@ class ConductorServerEndpoint(object):
         migration.destination = json.dumps(destination)
 
         for instance in instances:
-            op = models.Operation()
+            op = models.Task()
             op.id = str(uuid.uuid4())
             op.migration = migration
             op.instance = instance
-            op.status = constants.OPERATION_STATUS_STARTED
-            op.operation_type = constants.OPERATION_TYPE_EXPORT
+            op.status = constants.TASK_STATUS_STARTED
+            op.task_type = constants.TASK_TYPE_EXPORT
 
         db_api.add(ctxt, migration)
 
-        for op in migration.operations:
+        for op in migration.tasks:
             self._rpc_worker_client.begin_export_instance(
                 ctxt.to_dict(), op.id, origin, instance)
 
-    def set_operation_host(self, ctxt, operation_id, host):
+    def set_task_host(self, ctxt, task_id, host):
         # TODO: fix context
         from coriolis import context
         ctxt = context.CoriolisContext()
-        db_api.set_operation_host(ctxt, operation_id, host)
+        db_api.set_task_host(ctxt, task_id, host)
 
-    def export_completed(self, ctxt, operation_id, export_info):
+    def export_completed(self, ctxt, task_id, export_info):
         # TODO: fix context
         from coriolis import context
         ctxt = context.CoriolisContext()
 
-        db_api.update_operation_status(
-            ctxt, operation_id, constants.OPERATION_STATUS_COMPLETE)
-        op_export = db_api.get_operation(ctxt, operation_id)
+        db_api.update_task_status(
+            ctxt, task_id, constants.TASK_STATUS_COMPLETE)
+        op_export = db_api.get_task(ctxt, task_id)
 
-        op_import = models.Operation()
+        op_import = models.Task()
         op_import.id = str(uuid.uuid4())
         op_import.migration = op_export.migration
         op_import.instance = op_export.instance
-        op_import.status = constants.OPERATION_STATUS_STARTED
-        op_import.operation_type = constants.OPERATION_TYPE_IMPORT
+        op_import.status = constants.TASK_STATUS_STARTED
+        op_import.task_type = constants.TASK_TYPE_IMPORT
 
         db_api.add(ctxt, op_import)
 
@@ -85,10 +85,10 @@ class ConductorServerEndpoint(object):
             op_import.instance,
             export_info)
 
-    def import_completed(self, ctxt, operation_id):
+    def import_completed(self, ctxt, task_id):
         # TODO: fix context
         from coriolis import context
         ctxt = context.CoriolisContext()
 
-        db_api.update_operation_status(
-            ctxt, operation_id, constants.OPERATION_STATUS_COMPLETE)
+        db_api.update_task_status(
+            ctxt, task_id, constants.TASK_STATUS_COMPLETE)

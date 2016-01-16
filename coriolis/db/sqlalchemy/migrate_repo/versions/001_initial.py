@@ -22,8 +22,8 @@ def upgrade(migrate_engine):
         mysql_charset='utf8'
     )
 
-    operation = sqlalchemy.Table(
-        'operation', meta,
+    task = sqlalchemy.Table(
+        'task', meta,
         sqlalchemy.Column('id', sqlalchemy.String(36), primary_key=True,
                           default=lambda: str(uuid.uuid4())),
         sqlalchemy.Column('created_at', sqlalchemy.DateTime),
@@ -34,7 +34,7 @@ def upgrade(migrate_engine):
         sqlalchemy.Column("instance", sqlalchemy.String(1024), nullable=False),
         sqlalchemy.Column("host", sqlalchemy.String(1024), nullable=True),
         sqlalchemy.Column("status", sqlalchemy.String(100), nullable=False),
-        sqlalchemy.Column("operation_type", sqlalchemy.String(100)
+        sqlalchemy.Column("task_type", sqlalchemy.String(100),
                           nullable=False),
         mysql_engine='InnoDB',
         mysql_charset='utf8'
@@ -42,7 +42,7 @@ def upgrade(migrate_engine):
 
     tables = (
         migration,
-        operation,
+        task,
     )
 
     for index, table in enumerate(tables):

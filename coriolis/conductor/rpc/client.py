@@ -26,14 +26,14 @@ class ConductorClient(object):
             ctxt, 'migrate_instances', origin=origin, destination=destination,
             instances=instances)
 
-    def set_operation_host(self, ctxt, operation_id, host):
+    def set_task_host(self, ctxt, task_id, host):
         self._client.call(
-            ctxt, 'set_operation_host', operation_id=operation_id, host=host)
+            ctxt, 'set_task_host', task_id=task_id, host=host)
 
-    def export_completed(self, ctxt, operation_id, export_info):
+    def export_completed(self, ctxt, task_id, export_info):
         self._client.call(
-            ctxt, 'export_completed', operation_id=operation_id,
+            ctxt, 'export_completed', task_id=task_id,
             export_info=export_info)
 
-    def import_completed(self, ctxt, operation_id):
-        self._client.call(ctxt, 'import_completed', operation_id=operation_id)
+    def import_completed(self, ctxt, task_id):
+        self._client.call(ctxt, 'import_completed', task_id=task_id)

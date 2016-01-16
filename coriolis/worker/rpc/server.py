@@ -29,36 +29,41 @@ class WorkerServerEndpoint(object):
         self._server = utils.get_hostname()
         self._rpc_conductor_client = rpc_conductor_client.ConductorClient()
 
-    def _get_operation_export_path(self, operation_id):
-        path = os.path.join(CONF.worker.export_base_path, operation_id)
+    def _get_task_export_path(self, task_id):
+        path = os.path.join(CONF.worker.export_base_path, task_id)
         if not os.path.exists(path):
             os.makedirs(path)
         return path
 
-    def export_instance(self, ctxt, operation_id, origin, instance):
-        self._rpc_conductor_client.set_operation_host(
-            ctxt, operation_id, self._server)
+    def _cleanup_task_export_path(self, export_path):
+        if os.path.exists(export_path):
+            shtutil.rmtree(export_path)
+
+    def export_instance(self, ctxt, task_id, origin, instance):
+        self._rpc_conductor_client.set_task_host(
+            ctxt, task_id, self._server)
 
         try:
             export_provider = factory.get_provider(
                 origin["type"], constants.PROVIDER_TYPE_EXPORT)
-            export_path = self._get_operation_export_path(operation_id)
+            export_path = self._get_task_export_path(task_id)
             vm_info = export_provider.export_instance(
                 origin["connection_info"], instance, export_path)
             LOG.info("Exported VM: %s" % vm_info)
 
             self._rpc_conductor_client.export_completed(
-                ctxt, operation_id, vm_info)
+                ctxt, task_id, vm_info)
         except Exception as ex:
             LOG.exception(ex)
+            self._cleanup_task_export_path(export_path)
             # TODO: set error state
-            # self._rpc_conductor_client.set_operation_error(ctxt,
-            # operation_id, ex)
+            # self._rpc_conductor_client.set_task_error(ctxt,
+            # task_id, ex)
 
-    def import_instance(self, ctxt, operation_id, destination, instance,
+    def import_instance(self, ctxt, task_id, destination, instance,
                         export_info):
-        self._rpc_conductor_client.set_operation_host(
-            ctxt, operation_id, self._server)
+        self._rpc_conductor_client.set_task_host(
+            ctxt, task_id, self._server)
 
         try:
             import_provider = factory.get_provider(
@@ -68,9 +73,9 @@ class WorkerServerEndpoint(object):
                 destination["target_environment"],
                 instance, export_info)
 
-            self._rpc_conductor_client.import_completed(ctxt, operation_id)
+            self._rpc_conductor_client.import_completed(ctxt, task_id)
         except Exception as ex:
             LOG.exception(ex)
             # TODO: set error state
-            # self._rpc_conductor_client.set_operation_error(
-            # ctxt, operation_id, ex)
+            # self._rpc_conductor_client.set_task_error(
+            # ctxt, task_id, ex)

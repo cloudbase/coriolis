@@ -35,14 +35,14 @@ def db_version(engine):
 @enginefacade.reader
 def get_migrations(context):
     return context.session.query(models.Migration).options(
-        orm.joinedload("operations")).filter_by(
+        orm.joinedload("tasks")).filter_by(
         user_id=context.user_id).all()
 
 
 @enginefacade.reader
 def get_migration(context, migration_id):
     return context.session.query(models.Migration).options(
-        orm.joinedload("operations")).filter_by(
+        orm.joinedload("tasks")).filter_by(
         user_id=context.user_id, id=migration_id).first()
 
 
@@ -52,24 +52,21 @@ def add(context, migration):
 
 
 @enginefacade.writer
-def update_operation_status(context, operation_id, status):
-    op = context.session.query(models.Operation).filter_by(
-        id=operation_id).first()
+def update_task_status(context, task_id, status):
+    op = context.session.query(models.Task).filter_by(
+        id=task_id).first()
     op.status = status
 
 
 @enginefacade.writer
-def set_operation_host(context, operation_id, host):
-    op = context.session.query(models.Operation).filter_by(
-        id=operation_id).first()
+def set_task_host(context, task_id, host):
+    op = context.session.query(models.Task).filter_by(
+        id=task_id).first()
     op.host = host
 
 
 @enginefacade.reader
-def get_operation(context, operation_id):
-    return context.session.query(models.Operation).options(
+def get_task(context, task_id):
+    return context.session.query(models.Task).options(
         orm.joinedload("migration")).filter_by(
-        id=operation_id).first()
-
-# TODO: move from here
-db_sync(get_engine())
+        id=task_id).first()
