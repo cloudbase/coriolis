@@ -5,6 +5,7 @@ from oslo_db import options as db_options
 from oslo_db.sqlalchemy import session as db_session
 
 from coriolis.db.sqlalchemy import migration
+from coriolis.i18n import _
 
 CONF = cfg.CONF
 db_options.set_defaults(CONF)

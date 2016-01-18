@@ -1,5 +1,3 @@
-from oslo_service import wsgi
-
 from coriolis.api import wsgi as api_wsgi
 from coriolis.api.v1.views import migration_view
 from coriolis import constants
@@ -51,7 +49,7 @@ class MigrationController(object):
         self._migration_api.start(origin, destination, instances)
 
     def delete(self, req, id):
-        print("Delete: %s" % id)
+        self._migration_api.stop(id)
 
 
 def create_resource():

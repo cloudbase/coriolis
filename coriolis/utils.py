@@ -1,5 +1,6 @@
 import socket
 import subprocess
+import traceback
 
 
 def exec_process(args):
@@ -14,3 +15,7 @@ def exec_process(args):
 
 def get_hostname():
     return socket.gethostname()
+
+
+def get_exception_details():
+    return traceback.format_exc()

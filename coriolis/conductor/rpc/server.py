@@ -2,6 +2,7 @@ import uuid
 
 import json
 
+from oslo_log import log as logging
 import oslo_messaging as messaging
 
 from coriolis import constants
@@ -10,6 +11,8 @@ from coriolis.db.sqlalchemy import models
 from coriolis.worker.rpc import client as rpc_worker_client
 
 VERSION = "1.0"
+
+LOG = logging.getLogger(__name__)
 
 
 class ConductorServerEndpoint(object):
@@ -42,24 +45,36 @@ class ConductorServerEndpoint(object):
         migration.destination = json.dumps(destination)
 
         for instance in instances:
-            op = models.Task()
-            op.id = str(uuid.uuid4())
-            op.migration = migration
-            op.instance = instance
-            op.status = constants.TASK_STATUS_STARTED
-            op.task_type = constants.TASK_TYPE_EXPORT
+            task = models.Task()
+            task.id = str(uuid.uuid4())
+            task.migration = migration
+            task.instance = instance
+            task.status = constants.TASK_STATUS_STARTED
+            task.task_type = constants.TASK_TYPE_EXPORT
 
         db_api.add(ctxt, migration)
+        LOG.info("Migration created: %s", migration.id)
 
-        for op in migration.tasks:
+        for task in migration.tasks:
             self._rpc_worker_client.begin_export_instance(
-                ctxt.to_dict(), op.id, origin, instance)
+                ctxt.to_dict(), task.id, origin, instance)
 
-    def set_task_host(self, ctxt, task_id, host):
+    def stop_instances_migration(self, ctxt, migration_id):
         # TODO: fix context
         from coriolis import context
         ctxt = context.CoriolisContext()
-        db_api.set_task_host(ctxt, task_id, host)
+
+        migration = db_api.get_migration(ctxt, migration_id)
+        for task in migration.tasks:
+            if task.status == constants.TASK_STATUS_STARTED:
+                self._rpc_worker_client.stop_task(
+                    ctxt.to_dict(), task.host, task.process_id)
+
+    def set_task_host(self, ctxt, task_id, host, process_id):
+        # TODO: fix context
+        from coriolis import context
+        ctxt = context.CoriolisContext()
+        db_api.set_task_host(ctxt, task_id, host, process_id)
 
     def export_completed(self, ctxt, task_id, export_info):
         # TODO: fix context
@@ -92,3 +107,13 @@ class ConductorServerEndpoint(object):
 
         db_api.update_task_status(
             ctxt, task_id, constants.TASK_STATUS_COMPLETE)
+
+    def set_task_error(self, ctxt, task_id, exception_details):
+        # TODO: fix context
+        from coriolis import context
+        ctxt = context.CoriolisContext()
+
+        db_api.update_task_status(
+            ctxt, task_id, constants.TASK_STATUS_ERROR,
+            exception_details)
+        # TODO: set migration in error state and canel other tasks

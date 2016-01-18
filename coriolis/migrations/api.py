@@ -11,6 +11,11 @@ class API(object):
         self._rpc_client.begin_migrate_instances(
             ctxt.to_dict(), origin, destination, instances)
 
+    def stop(self, migration_id):
+        ctxt = context.CoriolisContext()
+        self._rpc_client.stop_instances_migration(
+            ctxt.to_dict(), migration_id)
+
     def get_migrations(self):
         ctxt = context.CoriolisContext()
         return self._rpc_client.get_migrations(ctxt.to_dict())

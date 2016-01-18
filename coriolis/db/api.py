@@ -52,17 +52,19 @@ def add(context, migration):
 
 
 @enginefacade.writer
-def update_task_status(context, task_id, status):
-    op = context.session.query(models.Task).filter_by(
+def update_task_status(context, task_id, status, exception_details=None):
+    task = context.session.query(models.Task).filter_by(
         id=task_id).first()
-    op.status = status
+    task.status = status
+    task.exception_details = exception_details
 
 
 @enginefacade.writer
-def set_task_host(context, task_id, host):
-    op = context.session.query(models.Task).filter_by(
+def set_task_host(context, task_id, host, process_id):
+    task = context.session.query(models.Task).filter_by(
         id=task_id).first()
-    op.host = host
+    task.host = host
+    task.process_id = process_id
 
 
 @enginefacade.reader

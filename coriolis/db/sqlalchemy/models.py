@@ -1,3 +1,5 @@
+import uuid
+
 from oslo_db.sqlalchemy import models
 from sqlalchemy.ext import declarative
 from sqlalchemy.orm import relationship, backref
@@ -20,8 +22,10 @@ class Task(BASE, models.TimestampMixin, models.ModelBase):
     # backref=backref("tasks"), lazy='joined')
     instance = Column(String(1024), nullable=False)
     host = Column(String(1024), nullable=True)
+    process_id = Column(Integer, nullable=True)
     status = Column(String(100), nullable=False)
     task_type = Column(String(100), nullable=False)
+    exception_details = Column(Text, nullable=True)
 
 
 class Migration(BASE, models.TimestampMixin, models.ModelBase):

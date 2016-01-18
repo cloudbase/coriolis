@@ -9,6 +9,7 @@ from oslo_log import log as logging
 from pyVim import connect
 from pyVmomi import vim
 
+from coriolis import constants
 from coriolis.providers import base
 from coriolis import utils
 
@@ -96,7 +97,7 @@ class ExportProvider(base.BaseExportProvider):
                 vm.ShutdownGuest()
             else:
                 task = vm.PowerOff()
-                _wait_for_task(task)
+                self._wait_for_task(task)
 
         disk_ctrls = []
         devices = [d for d in vm.config.hardware.device if
@@ -234,8 +235,9 @@ class ExportProvider(base.BaseExportProvider):
             self._convert_disk_type(path, tmp_path)
             os.remove(path)
             os.rename(tmp_path, path)
-            [d for d in disks if
-             d["id"] == disk_path["id"]][0]["path"] = os.path.abspath(path)
+            disk_info = [d for d in disks if d["id"] == disk_path["id"]][0]
+            disk_info["path"] = os.path.abspath(path)
+            disk_info["format"] = constants.DISK_FORMAT_VMDK
 
         vm_info["devices"] = {
             "nics": nics,

@@ -26,9 +26,14 @@ class ConductorClient(object):
             ctxt, 'migrate_instances', origin=origin, destination=destination,
             instances=instances)
 
-    def set_task_host(self, ctxt, task_id, host):
+    def stop_instances_migration(self, ctxt, migration_id):
         self._client.call(
-            ctxt, 'set_task_host', task_id=task_id, host=host)
+            ctxt, 'stop_instances_migration', migration_id=migration_id)
+
+    def set_task_host(self, ctxt, task_id, host, process_id):
+        self._client.call(
+            ctxt, 'set_task_host', task_id=task_id, host=host,
+            process_id=process_id)
 
     def export_completed(self, ctxt, task_id, export_info):
         self._client.call(
@@ -37,3 +42,7 @@ class ConductorClient(object):
 
     def import_completed(self, ctxt, task_id):
         self._client.call(ctxt, 'import_completed', task_id=task_id)
+
+    def set_task_error(self, ctxt, task_id, exception_details):
+        self._client.call(ctxt, 'set_task_error', task_id=task_id,
+                          exception_details=exception_details)

@@ -33,9 +33,11 @@ def upgrade(migrate_engine):
                           nullable=False),
         sqlalchemy.Column("instance", sqlalchemy.String(1024), nullable=False),
         sqlalchemy.Column("host", sqlalchemy.String(1024), nullable=True),
+        sqlalchemy.Column("process_id", sqlalchemy.Integer, nullable=True),
         sqlalchemy.Column("status", sqlalchemy.String(100), nullable=False),
         sqlalchemy.Column("task_type", sqlalchemy.String(100),
                           nullable=False),
+        sqlalchemy.Column("exception_details", sqlalchemy.Text, nullable=True),
         mysql_engine='InnoDB',
         mysql_charset='utf8'
     )

@@ -229,3 +229,7 @@ ObjectFieldInvalid = obj_exc.ObjectFieldInvalid
 class NotSupportedOperation(Invalid):
     message = _("Operation not supported: %(operation)s.")
     code = 405
+
+
+class TaskProcessException(CoriolisException):
+    pass
