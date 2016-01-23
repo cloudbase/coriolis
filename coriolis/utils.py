@@ -23,7 +23,7 @@ CONF.register_opts(opts)
 LOG = logging.getLogger(__name__)
 
 
-def retry_on_error(max_attempts=5, sleep_seconds=1):
+def retry_on_error(max_attempts=5, sleep_seconds=0):
     def _retry_on_error(func):
         @functools.wraps(func)
         def _exec_retry(*args, **kwargs):
@@ -50,6 +50,14 @@ def get_linux_os_info(ssh):
         return (dist_id[0], release[0])
 
 
+def test_ssh_path(ssh, remote_path):
+    try:
+        exec_ssh_cmd(ssh, "test -f %s" % remote_path)
+        return True
+    except Exception:
+        return False
+
+
 @retry_on_error()
 def exec_ssh_cmd(ssh, cmd):
     stdin, stdout, stderr = ssh.exec_command(cmd)
@@ -73,20 +81,18 @@ def _check_port_open(host, port):
         s.settimeout(1)
         s.connect((host, port))
         return True
-    except ConnectionRefusedError:
-        return False
-    except socket.timeout:
+    except (ConnectionRefusedError, socket.timeout, OSError):
         return False
     finally:
         s.close()
 
 
-def wait_for_port_connectivity(address, port):
+def wait_for_port_connectivity(address, port, max_wait=300):
     i = 0
-    while not _check_port_open(address, port) and i < 120:
+    while not _check_port_open(address, port) and i < max_wait:
         time.sleep(1)
         i += 1
-    if i == 120:
+    if i == max_wait:
         raise Exception("Connection failed on port %s" % port)
 
 

@@ -29,6 +29,7 @@ class ExportProvider(base.BaseExportProvider):
     def validate_connection_info(self, connection_info):
         return True
 
+    @utils.retry_on_error()
     def _convert_disk_type(self, disk_path, target_disk_path, target_type=0):
         utils.exec_process([CONF.vmware_vsphere.vdiskmanager_path, "-r",
                             disk_path, "-t", str(target_type),
@@ -41,29 +42,25 @@ class ExportProvider(base.BaseExportProvider):
         if task.info.state == vim.TaskInfo.State.error:
             raise Exception(task.info.error.msg)
 
-    def export_instance(self, connection_info, instance_name, export_path):
-        host = connection_info["host"]
-        port = connection_info.get("port", 443)
-        username = connection_info["username"]
-        password = connection_info["password"]
-        allow_untrusted = connection_info.get("allow_untrusted", False)
-
-        # pyVmomi locks otherwise
-        sys.modules['socket'] = eventlet.patcher.original('socket')
-        ssl = eventlet.patcher.original('ssl')
-
-        context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
-        if allow_untrusted:
-            context.verify_mode = ssl.CERT_NONE
-
+    @utils.retry_on_error()
+    def _connect(self, host, username, password, port, context):
         LOG.info("Connecting to: %s:%s" % (host, port))
-
-        si = connect.SmartConnect(
+        return connect.SmartConnect(
             host=host,
             user=username,
             pwd=password,
             port=port,
             sslContext=context)
+
+    def _wait_for_vm_status(self, vm, status, max_wait=120):
+        i = 0
+        while i < max_wait and vm.runtime.powerState != status:
+            time.sleep(1)
+            i += 1
+        return i < max_wait
+
+    @utils.retry_on_error()
+    def _get_vm_info(self, si, instance_name):
 
         LOG.info("Retrieving data for VM: %s" % instance_name)
 
@@ -92,10 +89,15 @@ class ExportProvider(base.BaseExportProvider):
         LOG.info("vm info: %s" % str(vm_info))
 
         if vm.runtime.powerState != vim.VirtualMachinePowerState.poweredOff:
+            power_off = True
             if (vm.guest.toolsRunningStatus !=
                     vim.vm.GuestInfo.ToolsRunningStatus.guestToolsNotRunning):
                 vm.ShutdownGuest()
-            else:
+                if self._wait_for_vm_status(
+                        vm, vim.VirtualMachinePowerState.poweredOff):
+                    power_off = False
+
+            if power_off:
                 task = vm.PowerOff()
                 self._wait_for_task(task)
 
@@ -172,6 +174,19 @@ class ExportProvider(base.BaseExportProvider):
                             vim.vm.BootOptions.BootableFloppyDevice):
                 boot_order.append({"type": "floppy", "id": None})
 
+        vm_info["devices"] = {
+            "nics": nics,
+            "controllers": disk_ctrls,
+            "disks": disks,
+            "cdroms": cdroms,
+            "floppy": floppy,
+        }
+        vm_info["boot_order"] = boot_order
+
+        return vm_info, vm
+
+    @utils.retry_on_error()
+    def _export_disks(self, vm, export_path, context):
         disk_paths = []
         lease = vm.ExportVm()
         while True:
@@ -217,7 +232,7 @@ class ExportProvider(base.BaseExportProvider):
                                          1024)))
 
                     lease.HttpNfcLeaseComplete()
-                    break
+                    return disk_paths
                 except:
                     lease.HttpNfcLeaseAbort()
                     raise
@@ -226,7 +241,27 @@ class ExportProvider(base.BaseExportProvider):
             else:
                 time.sleep(.1)
 
-        connect.Disconnect(si)
+    def export_instance(self, connection_info, instance_name, export_path):
+        host = connection_info["host"]
+        port = connection_info.get("port", 443)
+        username = connection_info["username"]
+        password = connection_info["password"]
+        allow_untrusted = connection_info.get("allow_untrusted", False)
+
+        # pyVmomi locks otherwise
+        sys.modules['socket'] = eventlet.patcher.original('socket')
+        ssl = eventlet.patcher.original('ssl')
+
+        context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+        if allow_untrusted:
+            context.verify_mode = ssl.CERT_NONE
+
+        si = self._connect(host, username, password, port, context)
+        try:
+            vm_info, vm = self._get_vm_info(si, instance_name)
+            disk_paths = self._export_disks(vm, export_path, context)
+        finally:
+            connect.Disconnect(si)
 
         for disk_path in disk_paths:
             path = disk_path["path"]
@@ -235,17 +270,10 @@ class ExportProvider(base.BaseExportProvider):
             self._convert_disk_type(path, tmp_path)
             os.remove(path)
             os.rename(tmp_path, path)
+
+            disks = vm_info["devices"]["disks"]
             disk_info = [d for d in disks if d["id"] == disk_path["id"]][0]
             disk_info["path"] = os.path.abspath(path)
             disk_info["format"] = constants.DISK_FORMAT_VMDK
-
-        vm_info["devices"] = {
-            "nics": nics,
-            "controllers": disk_ctrls,
-            "disks": disks,
-            "cdroms": cdroms,
-            "floppy": floppy,
-        }
-        vm_info["boot_order"] = boot_order
 
         return vm_info

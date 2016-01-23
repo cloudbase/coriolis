@@ -1,5 +1,4 @@
 import math
-import os
 import time
 import uuid
 
@@ -237,6 +236,10 @@ class ImportProvider(base.BaseExportProvider):
                 from_port=SSH_PORT,
                 to_port=SSH_PORT)
             instance.add_security_group(sec_group.id)
+
+            LOG.info("Waiting for connectivity on host: %s:%s",
+                     (floating_ip.ip, SSH_PORT))
+            utils.wait_for_port_connectivity(floating_ip.ip, SSH_PORT)
 
             return _MigrationResources(nova, neutron, keypair, instance, port,
                                        floating_ip, sec_group, k)

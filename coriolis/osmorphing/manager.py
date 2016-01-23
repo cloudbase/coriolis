@@ -22,8 +22,10 @@ def morph_image(connection_info, target_hypervisor, target_platform,
 
     os_mount_tools = osmount_factory.get_os_mount_tools(ssh)
     os_root_dir = os_mount_tools.mount_os(ssh, volume_devs)
-    os_morphing_tools = osmorphing_factory.get_os_morphing_tools(
+    os_morphing_tools, os_info = osmorphing_factory.get_os_morphing_tools(
         ssh, os_root_dir)
+
+    LOG.info('OS being migrated: %s', str(os_info))
 
     os_morphing_tools.set_dhcp(ssh)
 
