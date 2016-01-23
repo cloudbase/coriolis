@@ -22,7 +22,6 @@ worker_opts = [
 CONF = cfg.CONF
 CONF.register_opts(worker_opts, 'worker')
 
-
 LOG = logging.getLogger(__name__)
 
 VERSION = "1.0"
@@ -53,8 +52,9 @@ class WorkerServerEndpoint(object):
             LOG.info("Task process not found: %s", process_id)
 
     def _exec_task_process(self, ctxt, task_id, target, args):
-        mp_q = multiprocessing.Queue()
-        p = multiprocessing.Process(target=target, args=(args + (mp_q,)))
+        mp_ctx = multiprocessing.get_context('spawn')
+        mp_q = mp_ctx.Queue()
+        p = mp_ctx.Process(target=target, args=(args + (mp_q,)))
 
         p.start()
         LOG.info("Task process started: %s", task_id)
@@ -63,26 +63,15 @@ class WorkerServerEndpoint(object):
 
         p.join()
 
-        try:
-            result = mp_q.get(False)
-        except queue.Empty:
+        if mp_q.empty():
             raise Exception("Task process terminated")
+        result = mp_q.get(False)
 
         if isinstance(result, str):
             raise exception.TaskProcessException(result)
         return result
 
     def export_instance(self, ctxt, task_id, origin, instance):
-        def _export_instance(export_provider, connection_info,
-                             instance, export_path, mp_q):
-            try:
-                vm_info = export_provider.export_instance(
-                    connection_info, instance, export_path)
-                mp_q.put(vm_info)
-            except Exception as ex:
-                mp_q.put(utils.get_exception_details())
-                LOG.exception(ex)
-
         try:
             export_provider = factory.get_provider(
                 origin["type"], constants.PROVIDER_TYPE_EXPORT)
@@ -111,16 +100,6 @@ class WorkerServerEndpoint(object):
 
     def import_instance(self, ctxt, task_id, destination, instance,
                         export_info):
-        def _import_instance(import_provider, connection_info,
-                             target_environment, instance, export_info, mp_q):
-            try:
-                import_provider.import_instance(
-                    connection_info, target_environment, instance, export_info)
-                mp_q.put(None)
-            except Exception as ex:
-                mp_q.put(utils.get_exception_details())
-                LOG.exception(ex)
-
         try:
             import_provider = factory.get_provider(
                 destination["type"], constants.PROVIDER_TYPE_IMPORT)
@@ -144,3 +123,25 @@ class WorkerServerEndpoint(object):
                 ctxt, task_id, stack_trace)
         finally:
             self._cleanup_task_resources(task_id)
+
+
+def _export_instance(export_provider, connection_info,
+                     instance, export_path, mp_q):
+    try:
+        vm_info = export_provider.export_instance(
+            connection_info, instance, export_path)
+        mp_q.put(vm_info)
+    except Exception as ex:
+        mp_q.put(utils.get_exception_details())
+        LOG.exception(ex)
+
+
+def _import_instance(import_provider, connection_info,
+                     target_environment, instance, export_info, mp_q):
+    try:
+        import_provider.import_instance(
+            connection_info, target_environment, instance, export_info)
+        mp_q.put(None)
+    except Exception as ex:
+        mp_q.put(utils.get_exception_details())
+        LOG.exception(ex)
