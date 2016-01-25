@@ -1,12 +1,10 @@
-import os
 import re
 
 from coriolis import constants
 from coriolis.osmorphing import debian
-from coriolis import utils
 
 
-class UbuntuOSMorphingTools(debian.DebianOSMorphingTools):
+class UbuntuMorphingTools(debian.DebianMorphingTools):
     _packages = {
         (constants.HYPERVISOR_VMWARE, None): [("open-vm-tools", True)],
         # TODO: sudo agt-get install linux-tool-<kernel release>
@@ -16,12 +14,10 @@ class UbuntuOSMorphingTools(debian.DebianOSMorphingTools):
         (None, constants.PLATFORM_OPENSTACK): [("cloud-init", True)],
     }
 
-    @staticmethod
-    def check_os(ssh, os_root_dir):
-        lsb_release_path = os.path.join(os_root_dir, "etc/lsb-release")
-        if utils.test_ssh_path(ssh, lsb_release_path):
-            out = utils.exec_ssh_cmd(
-                ssh, "cat %s" % lsb_release_path).decode()
+    def check_os(self):
+        lsb_release_path = "etc/lsb-release"
+        if self._test_path(lsb_release_path):
+            out = self._read_file(lsb_release_path).decode()
 
             dist_id = re.findall('^DISTRIB_ID=(.*)$', out, re.MULTILINE)
             release = re.findall('^DISTRIB_RELEASE=(.*)$', out, re.MULTILINE)

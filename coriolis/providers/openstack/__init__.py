@@ -237,8 +237,8 @@ class ImportProvider(base.BaseExportProvider):
                 to_port=SSH_PORT)
             instance.add_security_group(sec_group.id)
 
-            LOG.info("Waiting for connectivity on host: %s:%s",
-                     (floating_ip.ip, SSH_PORT))
+            LOG.info("Waiting for connectivity on host: %(ip)s:%(port)s",
+                     {"ip": floating_ip.ip, "port": SSH_PORT})
             utils.wait_for_port_connectivity(floating_ip.ip, SSH_PORT)
 
             return _MigrationResources(nova, neutron, keypair, instance, port,

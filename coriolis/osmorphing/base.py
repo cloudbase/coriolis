@@ -1,26 +1,75 @@
 import abc
+import itertools
+import os
+
+from coriolis import utils
 
 
 class BaseOSMorphingTools(object):
-    def __init__(self, os_root_dir):
-        self._os_root_dir = os_root_dir
+    _packages = {}
 
-    @staticmethod
-    def check_os(ssh, os_root_dir):
-        raise NotImplementedError()
+    def __init__(self, ssh, os_root_dir, hypervisor, platform):
+        self._ssh = ssh
+        self._os_root_dir = os_root_dir
+        self._hypervisor = hypervisor
+        self._platform = platform
+
+    def _test_path(self, chroot_path):
+        path = os.path.join(self._os_root_dir, chroot_path)
+        return utils.test_ssh_path(self._ssh, path)
+
+    def _read_file(self, chroot_path):
+        path = os.path.join(self._os_root_dir, chroot_path)
+        return utils.read_ssh_file(self._ssh, path)
+
+    def _write_file(self, chroot_path, content):
+        path = os.path.join(self._os_root_dir, chroot_path)
+        utils.write_ssh_file(self._ssh, path, content)
+
+    def _exec_cmd(self, cmd):
+        return utils.exec_ssh_cmd(self._ssh, cmd)
+
+    def _exec_cmd_chroot(self, cmd):
+        return utils.exec_ssh_cmd_chroot(self._ssh, self._os_root_dir, cmd)
+
+    def _check_user_exists(self, username):
+        try:
+            self._exec_cmd_chroot("id -u %s" % username)
+            return True
+        except:
+            return False
 
     @abc.abstractmethod
-    def set_dhcp(self, ssh):
+    def check_os(self):
         pass
 
-    def get_packages(self, hypervisor, platform):
+    def get_packages(self):
+        k_add = [(h, p) for (h, p) in self._packages.keys() if
+                 (h is None or h == self._hypervisor) and
+                 (p is None or p == self._platform)]
+
+        add = [p[0] for p in itertools.chain.from_iterable(
+               [l for k, l in self._packages.items() if k in k_add])]
+
+        k_remove = set(self._packages.keys()) - set(k_add)
+        remove = [p[0] for p in itertools.chain.from_iterable(
+                  [l for k, l in self._packages.items() if k in k_remove])
+                  if p[1]]
+
+        return add, remove
+
+    @abc.abstractmethod
+    def set_dhcp(self):
         pass
 
-    def update_packages_list(self, ssh):
+    def pre_packages_install(self):
         pass
 
-    def install_packages(self, ssh, package_names):
+    def install_packages(self, package_names):
         pass
 
-    def uninstall_packages(self, ssh, package_names):
+    def uninstall_packages(self, package_names):
+        pass
+
+    def post_packages_install(self):
         pass

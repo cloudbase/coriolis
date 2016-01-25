@@ -50,12 +50,28 @@ def get_linux_os_info(ssh):
         return (dist_id[0], release[0])
 
 
+@retry_on_error()
 def test_ssh_path(ssh, remote_path):
+    sftp = ssh.open_sftp()
     try:
-        exec_ssh_cmd(ssh, "test -f %s" % remote_path)
+        sftp.stat(remote_path)
         return True
-    except Exception:
-        return False
+    except IOError as ex:
+        if ex.args[0] == 2:
+            return False
+        raise
+
+
+@retry_on_error()
+def read_ssh_file(ssh, remote_path):
+    sftp = ssh.open_sftp()
+    return sftp.open(remote_path, 'rb').read()
+
+
+@retry_on_error()
+def write_ssh_file(ssh, remote_path, content):
+    sftp = ssh.open_sftp()
+    sftp.open(remote_path, 'wb').write(content)
 
 
 @retry_on_error()
