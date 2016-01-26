@@ -332,6 +332,8 @@ class ImportProvider(base.BaseExportProvider):
             nova, glance, neutron, migr_image_name, migr_flavor_name,
             migr_network_name, migr_fip_pool_name)
 
+        nics_info = export_info["devices"].get("nics", [])
+
         try:
             for i, volume in enumerate(volumes):
                 self._wait_for_volume(nova, volume, 'available')
@@ -345,15 +347,15 @@ class ImportProvider(base.BaseExportProvider):
 
                 guest_conn_info = migr_resources.get_guest_connection_info()
 
-                osmorphing_manager.morph_image(guest_conn_info,
-                                               hypervisor_type,
-                                               constants.PLATFORM_OPENSTACK,
-                                               volume_devs)
+            osmorphing_manager.morph_image(guest_conn_info,
+                                           hypervisor_type,
+                                           constants.PLATFORM_OPENSTACK,
+                                           volume_devs,
+                                           nics_info)
         finally:
             migr_resources.delete()
 
         ports = []
-        nics_info = export_info["devices"].get("nics", [])
         for nic_info in nics_info:
             ports.append(self._create_neutron_port(
                 neutron, network_name, nic_info.get("mac_address")))

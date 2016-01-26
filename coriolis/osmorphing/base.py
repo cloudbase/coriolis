@@ -71,7 +71,7 @@ class BaseOSMorphingTools(object):
         return add, remove
 
     @abc.abstractmethod
-    def set_dhcp(self):
+    def set_net_config(self, nics_info, dhcp):
         pass
 
     def pre_packages_install(self):

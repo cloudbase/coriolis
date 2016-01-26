@@ -9,7 +9,7 @@ LOG = logging.getLogger(__name__)
 
 
 def morph_image(connection_info, target_hypervisor, target_platform,
-                volume_devs):
+                volume_devs, nics_info):
     (ip, port, username, pkey) = connection_info
 
     LOG.info("Waiting for connectivity on host: %(ip)s:%(port)s",
@@ -29,7 +29,7 @@ def morph_image(connection_info, target_hypervisor, target_platform,
 
     LOG.info('OS being migrated: %s', str(os_info))
 
-    os_morphing_tools.set_dhcp()
+    os_morphing_tools.set_net_config(nics_info, dhcp=True)
     LOG.info("Pre packages")
     os_morphing_tools.pre_packages_install()
 

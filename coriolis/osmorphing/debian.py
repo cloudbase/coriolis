@@ -25,12 +25,13 @@ class DebianMorphingTools(base.BaseOSMorphingTools):
             release = self._read_file(debian_version_path).decode()
             return ('Debian', release)
 
-    def set_dhcp(self):
-        # NOTE: doesn't work with chroot
-        interfaces_path = os.path.join(
-            self._os_root_dir, "etc/network/interfaces")
-        self._exec_cmd('sudo sed -i.bak "s/static/dhcp/g" %s' %
-                       interfaces_path)
+    def set_net_config(self, nics_info, dhcp):
+        if dhcp:
+            # NOTE: doesn't work with chroot
+            interfaces_path = os.path.join(
+                self._os_root_dir, "etc/network/interfaces")
+            self._exec_cmd('sudo sed -i.bak "s/static/dhcp/g" %s' %
+                           interfaces_path)
 
     def pre_packages_install(self):
         apt_get_cmd = 'apt-get update -y'

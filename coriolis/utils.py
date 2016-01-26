@@ -91,6 +91,7 @@ def list_ssh_dir(ssh, remote_path):
 
 @retry_on_error()
 def exec_ssh_cmd(ssh, cmd):
+    LOG.debug("Executing SSH command: %s", cmd)
     stdin, stdout, stderr = ssh.exec_command(cmd)
     exit_code = stdout.channel.recv_exit_status()
     std_out = stdout.read()
