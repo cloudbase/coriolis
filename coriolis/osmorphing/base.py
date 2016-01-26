@@ -1,6 +1,7 @@
 import abc
 import itertools
 import os
+import uuid
 
 from coriolis import utils
 
@@ -26,6 +27,10 @@ class BaseOSMorphingTools(object):
         path = os.path.join(self._os_root_dir, chroot_path)
         utils.write_ssh_file(self._ssh, path, content)
 
+    def _list_dir(self, chroot_path):
+        path = os.path.join(self._os_root_dir, chroot_path)
+        return utils.list_ssh_dir(self._ssh, path)
+
     def _exec_cmd(self, cmd):
         return utils.exec_ssh_cmd(self._ssh, cmd)
 
@@ -38,6 +43,13 @@ class BaseOSMorphingTools(object):
             return True
         except:
             return False
+
+    def _write_file_sudo(self, chroot_path, content):
+        # NOTE: writes the file to a temp location due to permission issues
+        tmp_file = 'tmp/%s' % str(uuid.uuid4())
+        self._write_file(tmp_file, content)
+        self._exec_cmd_chroot("cp /%s /%s" % (tmp_file, chroot_path))
+        self._exec_cmd_chroot("rm /%s" % tmp_file)
 
     @abc.abstractmethod
     def check_os(self):

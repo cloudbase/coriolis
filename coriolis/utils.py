@@ -42,6 +42,15 @@ def retry_on_error(max_attempts=5, sleep_seconds=0):
     return _retry_on_error
 
 
+def get_udev_net_rules(net_ifaces_info):
+    content = ""
+    for name, mac_address in net_ifaces_info:
+        content += ('SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*", '
+                    'ATTR{address}=="%(mac_address)s", NAME="%(name)s"\n' %
+                    {"name": name, "mac_address": mac_address.lower()})
+    return content
+
+
 def get_linux_os_info(ssh):
     out = exec_ssh_cmd(ssh, "lsb_release -a || true").decode()
     dist_id = re.findall('^Distributor ID:\s(.*)$', out, re.MULTILINE)
@@ -72,6 +81,12 @@ def read_ssh_file(ssh, remote_path):
 def write_ssh_file(ssh, remote_path, content):
     sftp = ssh.open_sftp()
     sftp.open(remote_path, 'wb').write(content)
+
+
+@retry_on_error()
+def list_ssh_dir(ssh, remote_path):
+    sftp = ssh.open_sftp()
+    return sftp.listdir(remote_path)
 
 
 @retry_on_error()
