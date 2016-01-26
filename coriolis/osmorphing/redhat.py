@@ -132,8 +132,12 @@ class RedHatMorphingTools(base.BaseOSMorphingTools):
                 net_ifaces_info.append((name, mac_address))
         return net_ifaces_info
 
+    def _set_selinux_autorelabel(self):
+        self._exec_cmd_chroot("touch /.autorelabel")
+
     def post_packages_install(self):
         self._add_net_udev_rules()
         self._add_hyperv_ballooning_udev_rules()
         self._run_dracut()
         self._add_cloud_init_user()
+        self._set_selinux_autorelabel()

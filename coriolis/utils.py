@@ -106,6 +106,15 @@ def exec_ssh_cmd_chroot(ssh, chroot_dir, cmd):
     return exec_ssh_cmd(ssh, "sudo chroot %s %s" % (chroot_dir, cmd))
 
 
+def check_fs(ssh, fs_type, dev_path):
+    try:
+        out = exec_ssh_cmd(
+            ssh, "sudo fsck -p -t %s %s" % (fs_type, dev_path)).decode()
+        LOG.debug("File system checked:\n%s", out)
+    except Exception as ex:
+        LOG.warn("Checking file system returned an error:\n%s", str(ex))
+
+
 def _check_port_open(host, port):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:

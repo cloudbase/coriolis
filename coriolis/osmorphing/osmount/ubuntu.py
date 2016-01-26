@@ -51,6 +51,7 @@ class UbuntuOSMountTools(object):
                 ssh, "sudo blkid -o value -s TYPE %s || true" %
                 dev_path).decode().split('\n')[0]
             if fs_type in valid_filesystems:
+                utils.check_fs(ssh, fs_type, dev_path)
                 dev_paths_to_mount.append(dev_path)
 
         os_root_dir = None
