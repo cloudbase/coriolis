@@ -95,7 +95,7 @@ class RedHatMorphingTools(base.BaseOSMorphingTools):
         return ifcfgs
 
     def set_net_config(self, nics_info, dhcp):
-        ifcfgs_ethernet = self._get_ifcfgs_by_type(self, "Ethernet")
+        ifcfgs_ethernet = self._get_ifcfgs_by_type("Ethernet")
 
         if dhcp:
             self._set_dhcp_net_config(ifcfgs_ethernet)
