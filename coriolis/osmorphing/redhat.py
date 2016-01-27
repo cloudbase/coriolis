@@ -32,7 +32,7 @@ class RedHatMorphingTools(base.BaseOSMorphingTools):
     }
     _NETWORK_SCRIPTS_PATH = "etc/sysconfig/network-scripts"
 
-    def check_os(self):
+    def _check_os(self):
         redhat_release_path = "etc/redhat-release"
         if self._test_path(redhat_release_path):
             release_info = self._read_file(
@@ -97,6 +97,13 @@ class RedHatMorphingTools(base.BaseOSMorphingTools):
 
                 self._write_config_file(ifcfg_file, ifcfg)
 
+        network_cfg_file = "etc/sysconfig/network"
+        network_cfg = self._read_config_file(network_cfg_file,
+                                             check_exists=True)
+        if "GATEWAY" in network_cfg:
+            del network_cfg["GATEWAY"]
+            self._write_config_file(network_cfg_file, network_cfg)
+
     def _get_ifcfgs_by_type(self, ifcfg_type):
         ifcfgs = []
         for ifcfg_file in self._get_net_config_files():
@@ -133,7 +140,9 @@ class RedHatMorphingTools(base.BaseOSMorphingTools):
             if m:
                 kernel_version = m.groups()[0]
                 LOG.info("Generating initrd for kernel: %s", kernel_version)
-                self._exec_cmd_chroot("dracut -f --kver %s" % kernel_version)
+                self._exec_cmd_chroot(
+                    "dracut -f /boot/initramfs-%(version)s.img %(version)s" %
+                    {"version": kernel_version})
 
     def _get_default_cloud_user(self):
         cloud_cfg_path = os.path.join(self._os_root_dir, 'etc/cloud/cloud.cfg')

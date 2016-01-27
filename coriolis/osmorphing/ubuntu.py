@@ -14,7 +14,7 @@ class UbuntuMorphingTools(debian.DebianMorphingTools):
         (None, constants.PLATFORM_OPENSTACK): [("cloud-init", True)],
     }
 
-    def check_os(self):
+    def _check_os(self):
         lsb_release_path = "etc/lsb-release"
         if self._test_path(lsb_release_path):
             out = self._read_file(lsb_release_path).decode()

@@ -14,6 +14,8 @@ class BaseOSMorphingTools(object):
         self._os_root_dir = os_root_dir
         self._hypervisor = hypervisor
         self._platform = platform
+        self._distro = None
+        self._version = None
 
     def _test_path(self, chroot_path):
         path = os.path.join(self._os_root_dir, chroot_path)
@@ -51,8 +53,16 @@ class BaseOSMorphingTools(object):
         self._exec_cmd_chroot("cp /%s /%s" % (tmp_file, chroot_path))
         self._exec_cmd_chroot("rm /%s" % tmp_file)
 
-    @abc.abstractmethod
     def check_os(self):
+        if not self._distro:
+            os_info = self._check_os()
+            if os_info:
+                self._distro, self._version = os_info
+        if self._distro:
+            return self._distro, self._version
+
+    @abc.abstractmethod
+    def _check_os(self):
         pass
 
     def get_packages(self):
