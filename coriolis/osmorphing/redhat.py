@@ -25,6 +25,9 @@ class RedHatMorphingTools(base.BaseOSMorphingTools):
         (constants.HYPERVISOR_HYPERV, None): [("hyperv-daemons", True)],
         (None, constants.PLATFORM_OPENSTACK): [
             ("cloud-init", True),
+            ("cloud-utils", False),
+            ("parted", False),
+            ("git", False),
             ("cloud-utils-growpart", False)],
     }
     _NETWORK_SCRIPTS_PATH = "etc/sysconfig/network-scripts"
@@ -67,6 +70,16 @@ class RedHatMorphingTools(base.BaseOSMorphingTools):
                 content = utils.get_udev_net_rules(net_ifaces_info)
                 self._write_file_sudo(udev_file, content)
 
+    def _has_systemd(self):
+        try:
+            self._exec_cmd_chroot("rpm -q systemd")
+            return True
+        except:
+            return False
+
+    def _enable_systemd_service(self, service_name):
+        self._exec_cmd_chroot("systemctl enable %s.service" % service_name)
+
     def _set_dhcp_net_config(self, ifcfgs_ethernet):
         for ifcfg_file, ifcfg in ifcfgs_ethernet:
             if ifcfg.get("BOOTPROTO") == "none":
@@ -82,14 +95,12 @@ class RedHatMorphingTools(base.BaseOSMorphingTools):
                 if 'NETWORK' in ifcfg:
                     del ifcfg['NETWORK']
 
-                ifcfg_updated_content = self._get_config_file_content(ifcfg)
-                self._write_file_sudo(ifcfg_file, ifcfg_updated_content)
+                self._write_config_file(ifcfg_file, ifcfg)
 
     def _get_ifcfgs_by_type(self, ifcfg_type):
         ifcfgs = []
         for ifcfg_file in self._get_net_config_files():
-            ifcfg_content = self._read_file(ifcfg_file).decode()
-            ifcfg = self._get_config(ifcfg_content)
+            ifcfg = self._read_config_file(ifcfg_file)
             if ifcfg.get("TYPE") == ifcfg_type:
                 ifcfgs.append((ifcfg_file, ifcfg))
         return ifcfgs
@@ -134,11 +145,21 @@ class RedHatMorphingTools(base.BaseOSMorphingTools):
         return cloud_cfg.get('system_info', {}).get('default_user', {}).get(
             'name', DEFAULT_CLOUD_USER)
 
-    def _add_cloud_init_user(self):
+    def _set_network_nozeroconf_config(self):
+        network_cfg_file = "etc/sysconfig/network"
+        network_cfg = self._read_config_file(network_cfg_file,
+                                             check_exists=True)
+        network_cfg["NOZEROCONF"] = "yes"
+        self._write_config_file(network_cfg_file, network_cfg)
+
+    def _configure_cloud_init(self):
         if "cloud-init" in self.get_packages()[0]:
             cloud_user = self._get_default_cloud_user()
             if not self._check_user_exists(cloud_user):
                 self._exec_cmd_chroot("useradd %s" % cloud_user)
+            self._set_network_nozeroconf_config()
+            if self._has_systemd():
+                self._enable_systemd_service("cloud-init")
 
     def _add_hyperv_ballooning_udev_rules(self):
         udev_file = "etc/udev/rules.d/100-balloon.rules"
@@ -147,6 +168,17 @@ class RedHatMorphingTools(base.BaseOSMorphingTools):
         if (self._hypervisor == constants.HYPERVISOR_HYPERV and
                 not self._test_path(udev_file)):
             self._write_file_sudo(udev_file, content)
+
+    def _read_config_file(self, chroot_path, check_exists=False):
+        if not check_exists or self._test_path(chroot_path):
+            content = self._read_file(chroot_path).decode()
+            return self._get_config(content)
+        else:
+            return {}
+
+    def _write_config_file(self, chroot_path, config_data):
+        content = self._get_config_file_content(config_data)
+        self._write_file_sudo(chroot_path, content)
 
     def _get_config_file_content(self, config):
         return "%s\n" % "\n".join(
@@ -182,5 +214,5 @@ class RedHatMorphingTools(base.BaseOSMorphingTools):
     def post_packages_install(self):
         self._add_hyperv_ballooning_udev_rules()
         self._run_dracut()
-        self._add_cloud_init_user()
+        self._configure_cloud_init()
         self._set_selinux_autorelabel()
