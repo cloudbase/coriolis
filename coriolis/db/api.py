@@ -36,18 +36,21 @@ def db_version(engine):
 def get_migrations(context):
     return context.session.query(models.Migration).options(
         orm.joinedload("tasks")).filter_by(
-        user_id=context.user_id).all()
+        project_id=context.tenant).all()
 
 
 @enginefacade.reader
 def get_migration(context, migration_id):
     return context.session.query(models.Migration).options(
         orm.joinedload("tasks")).filter_by(
-        user_id=context.user_id, id=migration_id).first()
+        project_id=context.tenant, id=migration_id).first()
 
 
 @enginefacade.writer
-def add(context, migration):
+def add_migration(context, migration):
+    migration.user_id = context.user
+    migration.project_id = context.tenant
+
     context.session.add(migration)
 
 

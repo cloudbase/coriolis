@@ -26,7 +26,7 @@ class ConductorServerEndpoint(object):
 
     def migrate_instances(self, ctxt, origin, destination, instances):
         migration = models.Migration()
-        migration.user_id = "todo"
+        migration.id = str(uuid.uuid4())
         migration.status = constants.MIGRATION_STATUS_STARTED
         migration.origin = json.dumps(origin)
         migration.destination = json.dumps(destination)
@@ -39,7 +39,7 @@ class ConductorServerEndpoint(object):
             task.status = constants.TASK_STATUS_STARTED
             task.task_type = constants.TASK_TYPE_EXPORT
 
-        db_api.add(ctxt, migration)
+        db_api.add_migration(ctxt, migration)
         LOG.info("Migration created: %s", migration.id)
 
         for task in migration.tasks:
