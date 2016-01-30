@@ -23,6 +23,11 @@ CONF.register_opts(opts)
 LOG = logging.getLogger(__name__)
 
 
+def setup_logging():
+    logging.register_options(CONF)
+    logging.setup(CONF, 'coriolis')
+
+
 def retry_on_error(max_attempts=5, sleep_seconds=0):
     def _retry_on_error(func):
         @functools.wraps(func)

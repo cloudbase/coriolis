@@ -4,17 +4,15 @@ eventlet.monkey_patch()
 import sys
 
 from coriolis import service
+from coriolis import utils
 
 from oslo_config import cfg
-from oslo_log import log as logging
 
 CONF = cfg.CONF
 
 
 def main():
-    logging.register_options(CONF)
-    logging.setup(CONF, 'coriolis')
-
+    utils.setup_logging()
     CONF(sys.argv[1:], project='coriolis',
          version="1.0.0")
 
