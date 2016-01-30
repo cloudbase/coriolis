@@ -20,24 +20,12 @@ class ConductorServerEndpoint(object):
         self._rpc_worker_client = rpc_worker_client.WorkerClient()
 
     def get_migrations(self, ctxt):
-        # TODO: fix context
-        from coriolis import context
-        ctxt = context.CoriolisContext()
-
         return db_api.get_migrations(ctxt)
 
     def get_migration(self, ctxt, migration_id):
-        # TODO: fix context
-        from coriolis import context
-        ctxt = context.CoriolisContext()
-
         return db_api.get_migration(ctxt, migration_id)
 
     def migrate_instances(self, ctxt, origin, destination, instances):
-        # TODO: fix context
-        from coriolis import context
-        ctxt = context.CoriolisContext()
-
         migration = models.Migration()
         migration.user_id = "todo"
         migration.status = constants.MIGRATION_STATUS_STARTED
@@ -60,10 +48,6 @@ class ConductorServerEndpoint(object):
                 ctxt.to_dict(), task.id, origin, instance)
 
     def stop_instances_migration(self, ctxt, migration_id):
-        # TODO: fix context
-        from coriolis import context
-        ctxt = context.CoriolisContext()
-
         migration = db_api.get_migration(ctxt, migration_id)
         for task in migration.tasks:
             if task.status == constants.TASK_STATUS_STARTED:
@@ -71,16 +55,9 @@ class ConductorServerEndpoint(object):
                     ctxt.to_dict(), task.host, task.process_id)
 
     def set_task_host(self, ctxt, task_id, host, process_id):
-        # TODO: fix context
-        from coriolis import context
-        ctxt = context.CoriolisContext()
         db_api.set_task_host(ctxt, task_id, host, process_id)
 
     def export_completed(self, ctxt, task_id, export_info):
-        # TODO: fix context
-        from coriolis import context
-        ctxt = context.CoriolisContext()
-
         db_api.update_task_status(
             ctxt, task_id, constants.TASK_STATUS_COMPLETE)
         op_export = db_api.get_task(ctxt, task_id)
@@ -101,18 +78,10 @@ class ConductorServerEndpoint(object):
             export_info)
 
     def import_completed(self, ctxt, task_id):
-        # TODO: fix context
-        from coriolis import context
-        ctxt = context.CoriolisContext()
-
         db_api.update_task_status(
             ctxt, task_id, constants.TASK_STATUS_COMPLETE)
 
     def set_task_error(self, ctxt, task_id, exception_details):
-        # TODO: fix context
-        from coriolis import context
-        ctxt = context.CoriolisContext()
-
         db_api.update_task_status(
             ctxt, task_id, constants.TASK_STATUS_ERROR,
             exception_details)

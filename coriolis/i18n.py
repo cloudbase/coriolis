@@ -20,7 +20,7 @@ See http://docs.openstack.org/developer/oslo.i18n/usage.html .
 
 import oslo_i18n as i18n
 
-DOMAIN = 'cinder'
+DOMAIN = 'coriolis'
 
 _translators = i18n.TranslatorFactory(domain=DOMAIN)
 

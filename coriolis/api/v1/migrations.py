@@ -12,15 +12,18 @@ class MigrationController(object):
 
     def show(self, req, id):
         return migration_view.format_migration(
-            req, self._migration_api.get_migration(id))
+            req, self._migration_api.get_migration(
+                req.environ["coriolis.context"], id))
 
     def index(self, req):
         return migration_view.collection(
-            req, self._migration_api.get_migrations())
+            req, self._migration_api.get_migrations(
+                req.environ['coriolis.context']))
 
     def detail(self, req):
         return migration_view.collection(
-            req, self._migration_api.get_migrations())
+            req, self._migration_api.get_migrations(
+                req.environ['coriolis.context']))
 
     def _validate_create_body(self, body):
         migration = body["migration"]
@@ -46,10 +49,11 @@ class MigrationController(object):
 
     def create(self, req, body):
         origin, destination, instances = self._validate_create_body(body)
-        self._migration_api.start(origin, destination, instances)
+        self._migration_api.start(
+            req.environ['coriolis.context'], origin, destination, instances)
 
     def delete(self, req, id):
-        self._migration_api.stop(id)
+        self._migration_api.stop(req.environ['coriolis.context'], id)
 
 
 def create_resource():

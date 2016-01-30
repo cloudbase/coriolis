@@ -19,7 +19,6 @@ import math
 import time
 
 from oslo_log import log as logging
-from oslo_log import versionutils
 from oslo_serialization import jsonutils
 from oslo_utils import excutils
 import six
@@ -56,11 +55,11 @@ class Application(object):
 
             [app:wadl]
             latest_version = 1.3
-            paste.app_factory = cinder.api.fancy_api:Wadl.factory
+            paste.app_factory = coriolis.api.fancy_api:Wadl.factory
 
         which would result in a call to the `Wadl` class as
 
-            import cinder.api.fancy_api
+            import coriolis.api.fancy_api
             fancy_api.Wadl(latest_version='1.3')
 
         You could of course re-implement the `factory` method in subclasses,
@@ -316,6 +315,58 @@ class Request(webob.Request):
             return None
         all_languages = i18n.get_available_languages()
         return self.accept_language.best_match(all_languages)
+
+
+class Middleware(Application):
+    """Base WSGI middleware.
+    These classes require an application to be
+    initialized that will be called next.  By default the middleware will
+    simply call its wrapped app, or you can override __call__ to customize its
+    behavior.
+    """
+
+    @classmethod
+    def factory(cls, global_config, **local_config):
+        """Used for paste app factories in paste.deploy config files.
+        Any local configuration (that is, values under the [filter:APPNAME]
+        section of the paste config) will be passed into the `__init__` method
+        as kwargs.
+        A hypothetical configuration would look like:
+            [filter:analytics]
+            redis_host = 127.0.0.1
+            paste.filter_factory = coriolis.api.analytics:Analytics.factory
+        which would result in a call to the `Analytics` class as
+            import coriolis.api.analytics
+            analytics.Analytics(app_from_paste, redis_host='127.0.0.1')
+        You could of course re-implement the `factory` method in subclasses,
+        but using the kwarg passing it shouldn't be necessary.
+        """
+        def _factory(app):
+            return cls(app, **local_config)
+        return _factory
+
+    def __init__(self, application):
+        self.application = application
+
+    def process_request(self, req):
+        """Called on each request.
+        If this returns None, the next application down the stack will be
+        executed. If it returns a response then that response will be returned
+        and execution will stop here.
+        """
+        return None
+
+    def process_response(self, response):
+        """Do whatever you'd like to the response."""
+        return response
+
+    @webob.dec.wsgify(RequestClass=Request)
+    def __call__(self, req):
+        response = self.process_request(req)
+        if response:
+            return response
+        response = req.get_response(self.application)
+        return self.process_response(response)
 
 
 class ActionDispatcher(object):
@@ -852,7 +903,7 @@ class Resource(Application):
 
         project_id = action_args.pop("project_id", None)
         context = request.environ.get('coriolis.context')
-        if (context and project_id and (project_id != context.project_id)):
+        if (context and project_id and (project_id != context.tenant)):
             msg = _("Malformed request url")
             return Fault(webob.exc.HTTPBadRequest(explanation=msg))
 

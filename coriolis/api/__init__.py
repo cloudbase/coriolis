@@ -20,6 +20,7 @@ WSGI middleware for OpenStack API controllers.
 
 from oslo_log import log as logging
 from oslo_service import wsgi as base_wsgi
+from paste import urlmap
 import routes
 
 from coriolis.api import wsgi
@@ -27,6 +28,10 @@ from coriolis.i18n import _, _LW
 
 
 LOG = logging.getLogger(__name__)
+
+
+def root_app_factory(loader, global_conf, **local_conf):
+    return urlmap.urlmap_factory(loader, global_conf, **local_conf)
 
 
 class APIMapper(routes.Mapper):
@@ -68,7 +73,6 @@ class APIRouter(base_wsgi.Router):
 
     @classmethod
     def factory(cls, global_config, **local_config):
-        """Simple paste factory, :class:`cinder.wsgi.Router` doesn't have."""
         return cls()
 
     def __init__(self, ext_mgr=None):

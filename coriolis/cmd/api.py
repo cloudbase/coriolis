@@ -19,7 +19,7 @@ def main():
          version="1.0.0")
 
     launcher = service.get_process_launcher()
-    server = service.WSGIService('osapi_migration')
+    server = service.WSGIService('coriolis-api')
     launcher.launch_service(server, workers=server.get_workers_count())
     launcher.wait()
 
