@@ -3,7 +3,6 @@ import uuid
 import json
 
 from oslo_log import log as logging
-import oslo_messaging as messaging
 
 from coriolis import constants
 from coriolis.db import api as db_api
@@ -45,14 +44,14 @@ class ConductorServerEndpoint(object):
 
         for task in migration.tasks:
             self._rpc_worker_client.begin_export_instance(
-                ctxt.to_dict(), task.id, origin, instance)
+                ctxt, task.id, origin, instance)
 
     def stop_instances_migration(self, ctxt, migration_id):
         migration = db_api.get_migration(ctxt, migration_id)
         for task in migration.tasks:
             if task.status == constants.TASK_STATUS_STARTED:
                 self._rpc_worker_client.stop_task(
-                    ctxt.to_dict(), task.host, task.process_id)
+                    ctxt, task.host, task.process_id)
 
     def set_task_host(self, ctxt, task_id, host, process_id):
         db_api.set_task_host(ctxt, task_id, host, process_id)
@@ -72,7 +71,7 @@ class ConductorServerEndpoint(object):
         db_api.add(ctxt, op_import)
 
         self._rpc_worker_client.begin_import_instance(
-            ctxt.to_dict(), op_export.host, op_import.id,
+            ctxt, op_export.host, op_import.id,
             json.loads(op_import.migration.destination),
             op_import.instance,
             export_info)

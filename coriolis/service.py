@@ -7,6 +7,7 @@ import oslo_messaging as messaging
 from oslo_service import service
 from oslo_service import wsgi
 
+from coriolis import rpc
 from coriolis import utils
 
 
@@ -20,9 +21,6 @@ service_opts = [
     cfg.IntOpt('api_migration_workers',
                help='Number of workers for the Migration API service. '
                     'The default is equal to the number of CPUs available.'),
-    cfg.StrOpt('messaging_transport_url',
-               default="rabbit://guest:guest@127.0.0.1:5672/",
-               help='Messaging transport url'),
     cfg.IntOpt('messaging_workers',
                help='Number of workers for the messaging service. '
                     'The default is equal to the number of CPUs available.'),
@@ -67,12 +65,10 @@ class WSGIService(service.ServiceBase):
 
 class MessagingService(service.ServiceBase):
     def __init__(self, topic, endpoints, version):
-        target = messaging.Target(
-            topic=topic, server=utils.get_hostname(), version=version)
-        transport = messaging.get_transport(CONF, CONF.messaging_transport_url)
-
-        self._server = messaging.get_rpc_server(
-            transport, target, endpoints, executor='eventlet')
+        target = messaging.Target(topic=topic,
+                                  server=utils.get_hostname(),
+                                  version=version)
+        self._server = rpc.get_server(target, endpoints)
 
         self._workers = (CONF.messaging_workers or
                          processutils.get_worker_count())

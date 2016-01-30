@@ -1,8 +1,6 @@
-from oslo_config import cfg
 import oslo_messaging as messaging
 
-CONF = cfg.CONF
-CONF.import_opt("messaging_transport_url", "coriolis.service")
+from coriolis import rpc
 
 VERSION = "1.0"
 
@@ -10,9 +8,7 @@ VERSION = "1.0"
 class ConductorClient(object):
     def __init__(self):
         target = messaging.Target(topic='coriolis_conductor', version=VERSION)
-        transport = messaging.get_transport(
-            cfg.CONF, CONF.messaging_transport_url)
-        self._client = messaging.RPCClient(transport, target)
+        self._client = rpc.get_client(target)
 
     def get_migrations(self, ctxt):
         return self._client.call(ctxt, 'get_migrations')
