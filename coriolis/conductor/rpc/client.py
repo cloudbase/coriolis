@@ -18,7 +18,7 @@ class ConductorClient(object):
             ctxt, 'get_migration', migration_id=migration_id)
 
     def begin_migrate_instances(self, ctxt, origin, destination, instances):
-        self._client.call(
+        return self._client.call(
             ctxt, 'migrate_instances', origin=origin, destination=destination,
             instances=instances)
 

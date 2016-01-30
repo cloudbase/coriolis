@@ -6,8 +6,8 @@ class API(object):
         self._rpc_client = rpc_client.ConductorClient()
 
     def start(self, ctxt, origin, destination, instances):
-        self._rpc_client.begin_migrate_instances(ctxt, origin, destination,
-                                                 instances)
+        return self._rpc_client.begin_migrate_instances(
+            ctxt, origin, destination, instances)
 
     def stop(ctxt, self, migration_id):
         self._rpc_client.stop_instances_migration(ctxt, migration_id)

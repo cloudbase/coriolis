@@ -46,6 +46,8 @@ class ConductorServerEndpoint(object):
             self._rpc_worker_client.begin_export_instance(
                 ctxt, task.id, origin, instance)
 
+        return self.get_migration(ctxt, migration.id)
+
     def stop_instances_migration(self, ctxt, migration_id):
         migration = db_api.get_migration(ctxt, migration_id)
         for task in migration.tasks:

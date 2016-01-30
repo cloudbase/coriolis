@@ -1,7 +1,7 @@
 import itertools
 
 
-def format_migration(req, migration, keys=None):
+def _format_migration(req, migration, keys=None):
     def transform(key, value):
         if keys and key not in keys:
             return
@@ -11,7 +11,11 @@ def format_migration(req, migration, keys=None):
         transform(k, v) for k, v in migration.items()))
 
 
+def single(req, migration):
+    return {"migration": _format_migration(req, migration)}
+
+
 def collection(req, migrations):
-    formatted_migrations = [format_migration(req, m)
+    formatted_migrations = [_format_migration(req, m)
                             for m in migrations]
     return {'migrations': formatted_migrations}
