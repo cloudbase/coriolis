@@ -128,6 +128,10 @@ class WorkerServerEndpoint(object):
 def _export_instance(export_provider, connection_info,
                      instance, export_path, mp_q):
     try:
+        # Setting up logging, needed since this is a new process
+        logging.register_options(CONF)
+        logging.setup(CONF, 'coriolis')
+
         vm_info = export_provider.export_instance(
             connection_info, instance, export_path)
         mp_q.put(vm_info)
@@ -139,6 +143,10 @@ def _export_instance(export_provider, connection_info,
 def _import_instance(import_provider, connection_info,
                      target_environment, instance, export_info, mp_q):
     try:
+        # Setting up logging, needed since this is a new process
+        logging.register_options(CONF)
+        logging.setup(CONF, 'coriolis')
+
         import_provider.import_instance(
             connection_info, target_environment, instance, export_info)
         mp_q.put(None)

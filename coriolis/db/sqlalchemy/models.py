@@ -17,8 +17,6 @@ class Task(BASE, models.TimestampMixin, models.ModelBase):
     migration_id = sqlalchemy.Column(sqlalchemy.String(36),
                                      sqlalchemy.ForeignKey('migration.id'),
                                      nullable=False)
-    # migration = relationship("Migration",
-    # backref=backref("tasks"), lazy='joined')
     instance = sqlalchemy.Column(sqlalchemy.String(1024), nullable=False)
     host = sqlalchemy.Column(sqlalchemy.String(1024), nullable=True)
     process_id = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
