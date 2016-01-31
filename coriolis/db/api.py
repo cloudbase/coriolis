@@ -50,12 +50,18 @@ def get_migration(context, migration_id):
 def add_migration(context, migration):
     migration.user_id = context.user
     migration.project_id = context.tenant
-
     context.session.add(migration)
 
 
 @enginefacade.writer
-def update_task_status(context, task_id, status, exception_details=None):
+def set_migration_status(context, migration_id, status):
+    migration = context.session.query(models.Migration).filter_by(
+        project_id=context.tenant, id=migration_id).first()
+    migration.status = status
+
+
+@enginefacade.writer
+def set_task_status(context, task_id, status, exception_details=None):
     task = context.session.query(models.Task).filter_by(
         id=task_id).first()
     task.status = status
@@ -71,7 +77,10 @@ def set_task_host(context, task_id, host, process_id):
 
 
 @enginefacade.reader
-def get_task(context, task_id):
-    return context.session.query(models.Task).options(
-        orm.joinedload("migration")).filter_by(
+def get_task(context, task_id, include_migration_tasks=False):
+    join_options = orm.joinedload("migration")
+    if include_migration_tasks:
+        join_options = join_options.joinedload("tasks")
+
+    return context.session.query(models.Task).options(join_options).filter_by(
         id=task_id).first()

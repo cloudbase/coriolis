@@ -36,3 +36,21 @@ class Json(LongText):
         if value is None:
             return None
         return jsonutils.loads(value)
+
+
+class List(types.TypeDecorator):
+    impl = types.Text
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == 'mysql':
+            return dialect.type_descriptor(mysql.LONGTEXT())
+        else:
+            return self.impl
+
+    def process_bind_param(self, value, dialect):
+        return jsonutils.dumps(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        return jsonutils.loads(value)

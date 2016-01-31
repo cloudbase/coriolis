@@ -30,19 +30,28 @@ class ConductorServerEndpoint(object):
         migration.destination = destination
 
         for instance in instances:
-            task = models.Task()
-            task.id = str(uuid.uuid4())
-            task.migration = migration
-            task.instance = instance
-            task.status = constants.TASK_STATUS_STARTED
-            task.task_type = constants.TASK_TYPE_EXPORT
+            task_export = models.Task()
+            task_export.id = str(uuid.uuid4())
+            task_export.migration = migration
+            task_export.instance = instance
+            task_export.status = constants.TASK_STATUS_WAITING
+            task_export.task_type = constants.TASK_TYPE_EXPORT
+
+            task_import = models.Task()
+            task_import.id = str(uuid.uuid4())
+            task_import.migration = migration
+            task_import.instance = instance
+            task_import.status = constants.TASK_STATUS_WAITING
+            task_import.task_type = constants.TASK_TYPE_IMPORT
+            task_import.depends_on = [task_export.id]
 
         db_api.add_migration(ctxt, migration)
         LOG.info("Migration created: %s", migration.id)
 
         for task in migration.tasks:
-            self._rpc_worker_client.begin_export_instance(
-                ctxt, task.id, origin, instance)
+            if not task.depends_on:
+                self._rpc_worker_client.begin_export_instance(
+                    ctxt, task.id, origin, instance)
 
         return self.get_migration(ctxt, migration.id)
 
@@ -55,33 +64,64 @@ class ConductorServerEndpoint(object):
 
     def set_task_host(self, ctxt, task_id, host, process_id):
         db_api.set_task_host(ctxt, task_id, host, process_id)
+        db_api.set_task_status(
+            ctxt, task_id, constants.TASK_STATUS_STARTED)
+
+    def _start_pending_tasks(self, ctxt, migration, parent_task, task_info):
+        has_pending_tasks = False
+        for task in migration.tasks:
+            if (task.depends_on and parent_task.id in task.depends_on and
+                    task.status == constants.TASK_STATUS_WAITING):
+                has_pending_tasks = True
+                if task.task_type == constants.TASK_TYPE_IMPORT:
+                    # Needs to be executed on the same host
+                    self._rpc_worker_client.begin_import_instance(
+                        ctxt, parent_task.host, task.id,
+                        migration.destination,
+                        task.instance,
+                        task_info)
+        return has_pending_tasks
 
     def export_completed(self, ctxt, task_id, export_info):
-        db_api.update_task_status(
-            ctxt, task_id, constants.TASK_STATUS_COMPLETE)
-        op_export = db_api.get_task(ctxt, task_id)
+        self._task_completed(ctxt, task_id, export_info)
 
-        op_import = models.Task()
-        op_import.id = str(uuid.uuid4())
-        op_import.migration = op_export.migration
-        op_import.instance = op_export.instance
-        op_import.status = constants.TASK_STATUS_STARTED
-        op_import.task_type = constants.TASK_TYPE_IMPORT
+    def _task_completed(self, ctxt, task_id, task_info):
+        LOG.info("Task completed: %s", task_id)
 
-        db_api.add(ctxt, op_import)
+        db_api.set_task_status(
+            ctxt, task_id, constants.TASK_STATUS_COMPLETED)
 
-        self._rpc_worker_client.begin_import_instance(
-            ctxt, op_export.host, op_import.id,
-            op_import.migration.destination,
-            op_import.instance,
-            export_info)
+        task = db_api.get_task(
+            ctxt, task_id, include_migration_tasks=True)
+
+        migration = task.migration
+        has_pending_tasks = self._start_pending_tasks(ctxt, migration, task,
+                                                      task_info)
+
+        if not has_pending_tasks:
+            LOG.info("Migration completed: %s", migration.id)
+            db_api.set_migration_status(
+                ctxt, migration.id, constants.MIGRATION_STATUS_COMPLETED)
 
     def import_completed(self, ctxt, task_id):
-        db_api.update_task_status(
-            ctxt, task_id, constants.TASK_STATUS_COMPLETE)
+        self._task_completed(ctxt, task_id, None)
 
     def set_task_error(self, ctxt, task_id, exception_details):
-        db_api.update_task_status(
-            ctxt, task_id, constants.TASK_STATUS_ERROR,
-            exception_details)
-        # TODO: set migration in error state and canel other tasks
+        LOG.error("Task error: %(task_id)s - %(ex)s",
+                  {"task_id": task_id, "ex": exception_details})
+
+        db_api.set_task_status(
+            ctxt, task_id, constants.TASK_STATUS_ERROR, exception_details)
+
+        task = db_api.get_task(
+            ctxt, task_id, include_migration_tasks=True)
+        migration = task.migration
+
+        for task in migration.tasks:
+            if task.status == constants.TASK_STATUS_WAITING:
+                db_api.set_task_status(
+                    ctxt, task_id, constants.TASK_STATUS_CANCELED)
+
+        LOG.error("Migration failed: %s", migration.id)
+        db_api.set_migration_status(
+            ctxt, migration.id, constants.MIGRATION_STATUS_ERROR)

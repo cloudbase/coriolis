@@ -25,6 +25,7 @@ class Task(BASE, models.TimestampMixin, models.ModelBase):
     status = sqlalchemy.Column(sqlalchemy.String(100), nullable=False)
     task_type = sqlalchemy.Column(sqlalchemy.String(100), nullable=False)
     exception_details = sqlalchemy.Column(sqlalchemy.Text, nullable=True)
+    depends_on = sqlalchemy.Column(types.List, nullable=True)
 
 
 class Migration(BASE, models.TimestampMixin, models.ModelBase):

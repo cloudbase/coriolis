@@ -40,6 +40,7 @@ def upgrade(migrate_engine):
         sqlalchemy.Column("task_type", sqlalchemy.String(100),
                           nullable=False),
         sqlalchemy.Column("exception_details", sqlalchemy.Text, nullable=True),
+        sqlalchemy.Column("depends_on", sqlalchemy.Text, nullable=True),
         mysql_engine='InnoDB',
         mysql_charset='utf8'
     )
