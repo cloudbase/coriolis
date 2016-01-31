@@ -34,14 +34,14 @@ class ConductorServerEndpoint(object):
             task_export.id = str(uuid.uuid4())
             task_export.migration = migration
             task_export.instance = instance
-            task_export.status = constants.TASK_STATUS_WAITING
+            task_export.status = constants.TASK_STATUS_PENDING
             task_export.task_type = constants.TASK_TYPE_EXPORT_INSTANCE
 
             task_import = models.Task()
             task_import.id = str(uuid.uuid4())
             task_import.migration = migration
             task_import.instance = instance
-            task_import.status = constants.TASK_STATUS_WAITING
+            task_import.status = constants.TASK_STATUS_PENDING
             task_import.task_type = constants.TASK_TYPE_IMPORT_INSTANCE
             task_import.depends_on = [task_export.id]
 
@@ -77,7 +77,7 @@ class ConductorServerEndpoint(object):
         has_pending_tasks = False
         for task in migration.tasks:
             if (task.depends_on and parent_task.id in task.depends_on and
-                    task.status == constants.TASK_STATUS_WAITING):
+                    task.status == constants.TASK_STATUS_PENDING):
                 has_pending_tasks = True
                 # instance imports needs to be executed on the same host
                 server = None
@@ -124,9 +124,9 @@ class ConductorServerEndpoint(object):
         migration = task.migration
 
         for task in migration.tasks:
-            if task.status == constants.TASK_STATUS_WAITING:
+            if task.status == constants.TASK_STATUS_PENDING:
                 db_api.set_task_status(
-                    ctxt, task_id, constants.TASK_STATUS_CANCELED)
+                    ctxt, task.id, constants.TASK_STATUS_CANCELED)
 
         LOG.error("Migration failed: %s", migration.id)
         db_api.set_migration_status(
