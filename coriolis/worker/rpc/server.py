@@ -108,13 +108,7 @@ class WorkerServerEndpoint(object):
                 self._cleanup_task_resources(task_id)
         except Exception as ex:
             LOG.exception(ex)
-            if isinstance(ex, exception.TaskProcessException):
-                stack_trace = ex.msg
-            else:
-                stack_trace = utils.get_exception_details()
-
-            self._rpc_conductor_client.set_task_error(
-                ctxt, task_id, stack_trace)
+            self._rpc_conductor_client.set_task_error(ctxt, task_id, str(ex))
 
             self._cleanup_task_resources(task_id)
 
@@ -129,7 +123,7 @@ def _export_instance(export_provider, connection_info,
             connection_info, instance, export_path)
         mp_q.put(vm_info)
     except Exception as ex:
-        mp_q.put(utils.get_exception_details())
+        mp_q.put(str(ex))
         LOG.exception(ex)
 
 
@@ -143,5 +137,5 @@ def _import_instance(import_provider, connection_info,
             connection_info, target_environment, instance, export_info)
         mp_q.put(None)
     except Exception as ex:
-        mp_q.put(utils.get_exception_details())
+        mp_q.put(str(ex))
         LOG.exception(ex)
