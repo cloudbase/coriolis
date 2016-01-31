@@ -1,6 +1,5 @@
 import os
 import multiprocessing
-import queue
 import shutil
 
 from oslo_config import cfg
@@ -71,47 +70,42 @@ class WorkerServerEndpoint(object):
             raise exception.TaskProcessException(result)
         return result
 
-    def export_instance(self, ctxt, task_id, origin, instance):
+    def exec_task(self, ctxt, task_id, task_type, origin, destination,
+                  instance, task_info):
         try:
-            export_provider = factory.get_provider(
-                origin["type"], constants.PROVIDER_TYPE_EXPORT)
-            export_path = self._get_task_export_path(task_id)
-            if not os.path.exists(export_path):
-                os.makedirs(export_path)
+            task_info = None
 
-            vm_info = self._exec_task_process(
-                ctxt, task_id, _export_instance,
-                (export_provider, origin["connection_info"],
-                 instance, export_path))
+            if task_type == constants.TASK_TYPE_EXPORT_INSTANCE:
+                provider = factory.get_provider(
+                    origin["type"], constants.PROVIDER_TYPE_EXPORT)
+                export_path = self._get_task_export_path(task_id)
+                if not os.path.exists(export_path):
+                    os.makedirs(export_path)
 
-            LOG.info("Exported VM: %s" % vm_info)
-            self._rpc_conductor_client.export_completed(
-                ctxt, task_id, vm_info)
-        except Exception as ex:
-            LOG.exception(ex)
-            if isinstance(ex, exception.TaskProcessException):
-                stack_trace = ex.message
+                task_info = self._exec_task_process(
+                    ctxt, task_id, _export_instance,
+                    (provider, origin["connection_info"],
+                     instance, export_path))
+
+            elif task_type == constants.TASK_TYPE_IMPORT_INSTANCE:
+                provider = factory.get_provider(
+                    destination["type"], constants.PROVIDER_TYPE_IMPORT)
+
+                self._exec_task_process(
+                    ctxt, task_id, _import_instance,
+                    (provider, destination["connection_info"],
+                     destination["target_environment"],
+                     instance, task_info))
             else:
-                stack_trace = utils.get_exception_details()
+                raise Exception("Unknown task type: %s" % task_type)
 
-            self._cleanup_task_resources(task_id)
-            self._rpc_conductor_client.set_task_error(
-                ctxt, task_id, stack_trace)
+            LOG.info("Task completed: %s", task_id)
+            LOG.info("Task info: %s", task_info)
+            self._rpc_conductor_client.task_completed(ctxt, task_id, task_info)
 
-    def import_instance(self, ctxt, task_id, destination, instance,
-                        export_info):
-        try:
-            import_provider = factory.get_provider(
-                destination["type"], constants.PROVIDER_TYPE_IMPORT)
-
-            self._exec_task_process(
-                ctxt, task_id, _import_instance,
-                (import_provider, destination["connection_info"],
-                 destination["target_environment"],
-                 instance, export_info))
-
-            LOG.info("Import completed")
-            self._rpc_conductor_client.import_completed(ctxt, task_id)
+            # Resources are needed by dependent import tasks
+            if task_type != constants.TASK_TYPE_EXPORT_INSTANCE:
+                self._cleanup_task_resources(task_id)
         except Exception as ex:
             LOG.exception(ex)
             if isinstance(ex, exception.TaskProcessException):
@@ -121,7 +115,7 @@ class WorkerServerEndpoint(object):
 
             self._rpc_conductor_client.set_task_error(
                 ctxt, task_id, stack_trace)
-        finally:
+
             self._cleanup_task_resources(task_id)
 
 

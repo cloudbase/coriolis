@@ -31,13 +31,9 @@ class ConductorClient(object):
             ctxt, 'set_task_host', task_id=task_id, host=host,
             process_id=process_id)
 
-    def export_completed(self, ctxt, task_id, export_info):
+    def task_completed(self, ctxt, task_id, task_info):
         self._client.call(
-            ctxt, 'export_completed', task_id=task_id,
-            export_info=export_info)
-
-    def import_completed(self, ctxt, task_id):
-        self._client.call(ctxt, 'import_completed', task_id=task_id)
+            ctxt, 'task_completed', task_id=task_id, task_info=task_info)
 
     def set_task_error(self, ctxt, task_id, exception_details):
         self._client.call(ctxt, 'set_task_error', task_id=task_id,
