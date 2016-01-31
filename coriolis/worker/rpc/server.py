@@ -109,7 +109,7 @@ class WorkerServerEndpoint(object):
         except Exception as ex:
             LOG.exception(ex)
             if isinstance(ex, exception.TaskProcessException):
-                stack_trace = ex.message
+                stack_trace = ex.msg
             else:
                 stack_trace = utils.get_exception_details()
 
