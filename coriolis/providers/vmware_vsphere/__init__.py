@@ -257,13 +257,19 @@ class ExportProvider(base.BaseExportProvider):
         if allow_untrusted:
             context.verify_mode = ssl.CERT_NONE
 
+        self._set_total_progress_steps(4)
+
+        self._progress_update("Connecting to vSphere host")
         si = self._connect(host, username, password, port, context)
         try:
+            self._progress_update("Getting VM info")
             vm_info, vm = self._get_vm_info(si, instance_name)
+            self._progress_update("Exporting disks")
             disk_paths = self._export_disks(vm, export_path, context)
         finally:
             connect.Disconnect(si)
 
+        self._progress_update("Converting virtual disks format")
         for disk_path in disk_paths:
             path = disk_path["path"]
             LOG.info("Converting VMDK type: %s" % path)

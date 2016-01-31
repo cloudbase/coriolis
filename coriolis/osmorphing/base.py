@@ -7,6 +7,8 @@ from coriolis import utils
 
 
 class BaseOSMorphingTools(object):
+    __metaclass__ = abc.ABCMeta
+
     _packages = {}
 
     def __init__(self, ssh, os_root_dir, hypervisor, platform):

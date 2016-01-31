@@ -131,3 +131,9 @@ class ConductorServerEndpoint(object):
         LOG.error("Migration failed: %s", migration.id)
         db_api.set_migration_status(
             ctxt, migration.id, constants.MIGRATION_STATUS_ERROR)
+
+    def task_progress_update(self, ctxt, task_id, current_step, total_steps,
+                             message):
+        LOG.info("Task progress update: %s", task_id)
+        db_api.add_task_progress_update(ctxt, task_id, current_step,
+                                        total_steps, message)

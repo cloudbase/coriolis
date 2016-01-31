@@ -212,9 +212,14 @@ class ImportProvider(base.BaseExportProvider):
         try:
             migr_keypair_name = self._get_unique_name()
 
+            self._progress_update("Creating migration worker instance keypair")
+
             k = paramiko.RSAKey.generate(2048)
             public_key = "ssh-rsa %s tmp@migration" % k.get_base64()
             keypair = self._create_keypair(nova, migr_keypair_name, public_key)
+
+            self._progress_update(
+                "Creating migration worker instance Neutron port")
 
             port = self._create_neutron_port(neutron, migr_network_name)
             userdata = MIGR_USER_DATA % (MIGR_GUEST_USERNAME, public_key)
@@ -226,11 +231,17 @@ class ImportProvider(base.BaseExportProvider):
                 userdata=userdata,
                 nics=[{'port-id': port['id']}])
 
+            self._progress_update(
+                "Adding migration worker instance floating IP")
+
             floating_ip = nova.floating_ips.create(pool=migr_fip_pool_name)
             self._wait_for_instance(nova, instance, 'ACTIVE')
 
             LOG.info("Floating IP: %s", floating_ip.ip)
             instance.add_floating_ip(floating_ip)
+
+            self._progress_update(
+                "Adding migration worker instance security group")
 
             migr_sec_group_name = self._get_unique_name()
             sec_group = nova.security_groups.create(
@@ -242,8 +253,10 @@ class ImportProvider(base.BaseExportProvider):
                 to_port=SSH_PORT)
             instance.add_security_group(sec_group.id)
 
-            LOG.info("Waiting for connectivity on host: %(ip)s:%(port)s",
-                     {"ip": floating_ip.ip, "port": SSH_PORT})
+            self._progress_update(
+                "Waiting for connectivity on host: %(ip)s:%(port)s" %
+                {"ip": floating_ip.ip, "port": SSH_PORT})
+
             utils.wait_for_port_connectivity(floating_ip.ip, SSH_PORT)
 
             return _MigrationResources(nova, neutron, keypair, instance, port,
@@ -315,6 +328,8 @@ class ImportProvider(base.BaseExportProvider):
                 #    utils.convert_disk_format(disk_path, target_disk_path,
                 #                              target_disk_format)
 
+                self._progress_update("Uploading Glance image")
+
                 disk_format = disk_file_info["format"]
                 image = self._create_image(
                     glance, self._get_unique_name(),
@@ -325,6 +340,8 @@ class ImportProvider(base.BaseExportProvider):
                 virtual_disk_size = disk_file_info["virtual-size"]
                 if disk_format != constants.DISK_FORMAT_RAW:
                     virtual_disk_size += DISK_HEADER_SIZE
+
+                self._progress_update("Creating Cinder volume")
 
                 volume_size_gb = math.ceil(virtual_disk_size / units.Gi)
                 volume = nova.volumes.create(
@@ -342,7 +359,12 @@ class ImportProvider(base.BaseExportProvider):
         try:
             for i, volume in enumerate(volumes):
                 self._wait_for_volume(nova, volume, 'available')
+
+                self._progress_update("Deleting Glance image")
+
                 glance.images.delete(images[i].id)
+
+                self._progress_update("Attaching volume to worker instance")
 
                 # TODO: improve device assignment
                 volume_dev = "/dev/sd%s" % chr(ord('a') + i + 1)
@@ -352,18 +374,27 @@ class ImportProvider(base.BaseExportProvider):
 
                 guest_conn_info = migr_resources.get_guest_connection_info()
 
+            self._progress_update("Preparing instance for target platform")
             osmorphing_manager.morph_image(guest_conn_info,
                                            hypervisor_type,
                                            constants.PLATFORM_OPENSTACK,
                                            volume_devs,
                                            nics_info)
         finally:
+            self._progress_update("Removing worker instance resources")
+
             migr_resources.delete()
 
         ports = []
         for nic_info in nics_info:
+            self._progress_update(
+                "Creating Neutron port for migrated instance")
+
             ports.append(self._create_neutron_port(
                 neutron, network_name, nic_info.get("mac_address")))
+
+        self._progress_update(
+            "Creating migrated instance")
 
         instance = self._create_target_instance(
             nova, flavor_name, instance_name, keypair_name, ports, volumes,

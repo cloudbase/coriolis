@@ -10,6 +10,20 @@ from coriolis.db.sqlalchemy import types
 BASE = declarative.declarative_base()
 
 
+class TaskProgressUpdate(BASE, models.TimestampMixin, models.ModelBase):
+    __tablename__ = 'task_progress_update'
+
+    id = sqlalchemy.Column(sqlalchemy.String(36),
+                           default=lambda: str(uuid.uuid4()),
+                           primary_key=True)
+    task_id = sqlalchemy.Column(sqlalchemy.String(36),
+                                sqlalchemy.ForeignKey('task.id'),
+                                nullable=False)
+    current_step = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)
+    total_steps = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
+    message = sqlalchemy.Column(sqlalchemy.String(1024), nullable=True)
+
+
 class Task(BASE, models.TimestampMixin, models.ModelBase):
     __tablename__ = 'task'
 
@@ -26,6 +40,9 @@ class Task(BASE, models.TimestampMixin, models.ModelBase):
     task_type = sqlalchemy.Column(sqlalchemy.String(100), nullable=False)
     exception_details = sqlalchemy.Column(sqlalchemy.Text, nullable=True)
     depends_on = sqlalchemy.Column(types.List, nullable=True)
+    progress_updates = orm.relationship(TaskProgressUpdate,
+                                        cascade="all,delete",
+                                        backref=orm.backref('task'))
 
 
 class Migration(BASE, models.TimestampMixin, models.ModelBase):

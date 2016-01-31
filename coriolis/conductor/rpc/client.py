@@ -38,3 +38,9 @@ class ConductorClient(object):
     def set_task_error(self, ctxt, task_id, exception_details):
         self._client.call(ctxt, 'set_task_error', task_id=task_id,
                           exception_details=exception_details)
+
+    def task_progress_update(self, ctxt, task_id, current_step, total_steps,
+                             message):
+        self._client.cast(ctxt, 'task_progress_update', task_id=task_id,
+                          current_step=current_step, total_steps=total_steps,
+                          message=message)

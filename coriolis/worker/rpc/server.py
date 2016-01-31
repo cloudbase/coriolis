@@ -9,6 +9,7 @@ import psutil
 from coriolis.conductor.rpc import client as rpc_conductor_client
 from coriolis import constants
 from coriolis import exception
+from coriolis.providers import base
 from coriolis.providers import factory
 from coriolis import utils
 
@@ -23,7 +24,21 @@ CONF.register_opts(worker_opts, 'worker')
 
 LOG = logging.getLogger(__name__)
 
+TMP_DIRS_KEY = "__tmp_dirs"
+
 VERSION = "1.0"
+
+
+class _ConductorProgressUpdateManager(base.BaseProgressUpdateManager):
+    def __init__(self, ctxt, task_id):
+        self._ctxt = ctxt
+        self._task_id = task_id
+        self._rpc_conductor_client = rpc_conductor_client.ConductorClient()
+
+    def progress_update(self, current_step, total_steps, message):
+        LOG.info("Progress update: %s", message)
+        self._rpc_conductor_client.task_progress_update(
+            self._ctxt, self._task_id, current_step, total_steps, message)
 
 
 class WorkerServerEndpoint(object):
@@ -34,14 +49,27 @@ class WorkerServerEndpoint(object):
     def _get_task_export_path(self, task_id):
         return os.path.join(CONF.worker.export_base_path, task_id)
 
-    def _cleanup_task_resources(self, task_id):
+    def _cleanup_task_resources(self, task_id, task_info=None):
         try:
             export_path = self._get_task_export_path(task_id)
-            if os.path.exists(export_path):
-                shutil.rmtree(export_path)
+            if (not task_info or export_path not in
+                    task_info.get(TMP_DIRS_KEY, [])):
+                # Don't remove folder if it's needed by the dependent tasks
+                if os.path.exists(export_path):
+                    shutil.rmtree(export_path)
         except Exception as ex:
             # Ignore the exception
             LOG.exception(ex)
+
+    def _remove_tmp_dirs(self, task_info):
+        if task_info:
+            for tmp_dir in task_info.get(TMP_DIRS_KEY, []):
+                if os.path.exists(tmp_dir):
+                    try:
+                        shutil.rmtree(tmp_dir)
+                    except Exception as ex:
+                        # Ignore exception
+                        LOG.exception(ex)
 
     def stop_task(self, ctxt, process_id):
         try:
@@ -53,7 +81,7 @@ class WorkerServerEndpoint(object):
     def _exec_task_process(self, ctxt, task_id, target, args):
         mp_ctx = multiprocessing.get_context('spawn')
         mp_q = mp_ctx.Queue()
-        p = mp_ctx.Process(target=target, args=(args + (mp_q,)))
+        p = mp_ctx.Process(target=target, args=(args + (ctxt, task_id, mp_q,)))
 
         p.start()
         LOG.info("Task process started: %s", task_id)
@@ -73,7 +101,7 @@ class WorkerServerEndpoint(object):
     def exec_task(self, ctxt, task_id, task_type, origin, destination,
                   instance, task_info):
         try:
-            task_info = None
+            new_task_info = None
 
             if task_type == constants.TASK_TYPE_EXPORT_INSTANCE:
                 provider = factory.get_provider(
@@ -82,10 +110,12 @@ class WorkerServerEndpoint(object):
                 if not os.path.exists(export_path):
                     os.makedirs(export_path)
 
-                task_info = self._exec_task_process(
+                new_task_info = self._exec_task_process(
                     ctxt, task_id, _export_instance,
                     (provider, origin["connection_info"],
                      instance, export_path))
+
+                new_task_info[TMP_DIRS_KEY] = [export_path]
 
             elif task_type == constants.TASK_TYPE_IMPORT_INSTANCE:
                 provider = factory.get_provider(
@@ -101,41 +131,48 @@ class WorkerServerEndpoint(object):
                                                   task_type)
 
             LOG.info("Task completed: %s", task_id)
-            LOG.info("Task info: %s", task_info)
-            self._rpc_conductor_client.task_completed(ctxt, task_id, task_info)
+            LOG.info("Task info: %s", new_task_info)
+            self._rpc_conductor_client.task_completed(ctxt, task_id,
+                                                      new_task_info)
 
-            # Resources are needed by dependent import tasks
-            if task_type != constants.TASK_TYPE_EXPORT_INSTANCE:
-                self._cleanup_task_resources(task_id)
+            self._cleanup_task_resources(task_id, new_task_info)
         except Exception as ex:
             LOG.exception(ex)
             self._rpc_conductor_client.set_task_error(ctxt, task_id, str(ex))
 
             self._cleanup_task_resources(task_id)
+        finally:
+            self._remove_tmp_dirs(task_info)
 
 
-def _export_instance(export_provider, connection_info,
-                     instance, export_path, mp_q):
+def _export_instance(provider, connection_info, instance, export_path,
+                     ctxt, task_id, mp_q):
     try:
         # Setting up logging, needed since this is a new process
         utils.setup_logging()
 
-        vm_info = export_provider.export_instance(
-            connection_info, instance, export_path)
+        progress_update_manager = _ConductorProgressUpdateManager(ctxt,
+                                                                  task_id)
+        provider.set_progress_update_manager(progress_update_manager)
+        vm_info = provider.export_instance(connection_info, instance,
+                                           export_path)
         mp_q.put(vm_info)
     except Exception as ex:
         mp_q.put(str(ex))
         LOG.exception(ex)
 
 
-def _import_instance(import_provider, connection_info,
-                     target_environment, instance, export_info, mp_q):
+def _import_instance(provider, connection_info, target_environment, instance,
+                     export_info, ctxt, task_id, mp_q):
     try:
         # Setting up logging, needed since this is a new process
         utils.setup_logging()
 
-        import_provider.import_instance(
-            connection_info, target_environment, instance, export_info)
+        progress_update_manager = _ConductorProgressUpdateManager(ctxt,
+                                                                  task_id)
+        provider.set_progress_update_manager(progress_update_manager)
+        provider.import_instance(connection_info, target_environment,
+                                 instance, export_info)
         mp_q.put(None)
     except Exception as ex:
         mp_q.put(str(ex))

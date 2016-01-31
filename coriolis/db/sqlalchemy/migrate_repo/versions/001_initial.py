@@ -45,9 +45,26 @@ def upgrade(migrate_engine):
         mysql_charset='utf8'
     )
 
+    task_progress_update = sqlalchemy.Table(
+        'task_progress_update', meta,
+        sqlalchemy.Column('id', sqlalchemy.String(36), primary_key=True,
+                          default=lambda: str(uuid.uuid4())),
+        sqlalchemy.Column('created_at', sqlalchemy.DateTime),
+        sqlalchemy.Column('updated_at', sqlalchemy.DateTime),
+        sqlalchemy.Column("task_id", sqlalchemy.String(36),
+                          sqlalchemy.ForeignKey('task.id'),
+                          nullable=False),
+        sqlalchemy.Column("current_step", sqlalchemy.Integer, nullable=False),
+        sqlalchemy.Column("total_steps", sqlalchemy.Integer, nullable=True),
+        sqlalchemy.Column("message", sqlalchemy.String(1024), nullable=True),
+        mysql_engine='InnoDB',
+        mysql_charset='utf8'
+    )
+
     tables = (
         migration,
         task,
+        task_progress_update,
     )
 
     for index, table in enumerate(tables):

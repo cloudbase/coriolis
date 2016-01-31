@@ -42,7 +42,7 @@ def get_migrations(context):
 @enginefacade.reader
 def get_migration(context, migration_id):
     return context.session.query(models.Migration).options(
-        orm.joinedload("tasks")).filter_by(
+        orm.joinedload("tasks").joinedload("progress_updates")).filter_by(
         project_id=context.tenant, id=migration_id).first()
 
 
@@ -84,3 +84,14 @@ def get_task(context, task_id, include_migration_tasks=False):
 
     return context.session.query(models.Task).options(join_options).filter_by(
         id=task_id).first()
+
+
+@enginefacade.writer
+def add_task_progress_update(context, task_id, current_step, total_steps,
+                             message):
+    task_progress_update = models.TaskProgressUpdate()
+    task_progress_update.task_id = task_id
+    task_progress_update.current_step = current_step
+    task_progress_update.total_steps = total_steps
+    task_progress_update.message = message
+    context.session.add(task_progress_update)
