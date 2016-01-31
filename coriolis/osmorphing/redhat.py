@@ -6,6 +6,7 @@ from oslo_log import log as logging
 import yaml
 
 from coriolis import constants
+from coriolis import exception
 from coriolis.osmorphing import base
 from coriolis import utils
 
@@ -147,8 +148,8 @@ class RedHatMorphingTools(base.BaseOSMorphingTools):
     def _get_default_cloud_user(self):
         cloud_cfg_path = os.path.join(self._os_root_dir, 'etc/cloud/cloud.cfg')
         if not self._test_path(cloud_cfg_path):
-            raise Exception("cloud-init config file not found: %s" %
-                            cloud_cfg_path)
+            raise exception.CoriolisException(
+                "cloud-init config file not found: %s" % cloud_cfg_path)
         cloud_cfg_content = self._read_file(cloud_cfg_path)
         cloud_cfg = yaml.load(cloud_cfg_content)
         return cloud_cfg.get('system_info', {}).get('default_user', {}).get(

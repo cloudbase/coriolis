@@ -24,6 +24,7 @@ from paste import urlmap
 import routes
 
 from coriolis.api import wsgi
+from coriolis import exception
 from coriolis.i18n import _, _LW
 
 
@@ -80,7 +81,8 @@ class APIRouter(base_wsgi.Router):
             if self.ExtensionManager:
                 ext_mgr = self.ExtensionManager()
             else:
-                raise Exception(_("Must specify an ExtensionManager class"))
+                raise exception.CoriolisException(
+                    _("Must specify an ExtensionManager class"))
 
         mapper = ProjectMapper()
         self.resources = {}

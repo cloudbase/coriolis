@@ -40,7 +40,7 @@ class WorkerServerEndpoint(object):
             if os.path.exists(export_path):
                 shutil.rmtree(export_path)
         except Exception as ex:
-            # Swallow the exception
+            # Ignore the exception
             LOG.exception(ex)
 
     def stop_task(self, ctxt, process_id):
@@ -63,7 +63,7 @@ class WorkerServerEndpoint(object):
         p.join()
 
         if mp_q.empty():
-            raise Exception("Task process terminated")
+            raise exception.CoriolisException("Task process terminated")
         result = mp_q.get(False)
 
         if isinstance(result, str):
@@ -97,7 +97,8 @@ class WorkerServerEndpoint(object):
                      destination["target_environment"],
                      instance, task_info))
             else:
-                raise Exception("Unknown task type: %s" % task_type)
+                raise exception.CoriolisException("Unknown task type: %s" %
+                                                  task_type)
 
             LOG.info("Task completed: %s", task_id)
             LOG.info("Task info: %s", task_info)

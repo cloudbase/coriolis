@@ -10,6 +10,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 
 from coriolis import constants
+from coriolis import exception
 
 opts = [
     cfg.StrOpt('qemu_img_path',
@@ -102,9 +103,10 @@ def exec_ssh_cmd(ssh, cmd):
     std_out = stdout.read()
     std_err = stderr.read()
     if exit_code:
-        raise Exception("Command \"%s\" failed with exit code: %s\n"
-                        "stdout: %s\nstd_err: %s" %
-                        (cmd, exit_code, std_out, std_err))
+        raise exception.CoriolisException(
+            "Command \"%s\" failed with exit code: %s\n"
+            "stdout: %s\nstd_err: %s" %
+            (cmd, exit_code, std_out, std_err))
     return std_out
 
 
@@ -139,14 +141,15 @@ def wait_for_port_connectivity(address, port, max_wait=300):
         time.sleep(1)
         i += 1
     if i == max_wait:
-        raise Exception("Connection failed on port %s" % port)
+        raise exception.CoriolisException("Connection failed on port %s" %
+                                          port)
 
 
 def exec_process(args):
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     std_out, std_err = p.communicate()
     if p.returncode:
-        raise Exception(
+        raise exception.CoriolisException(
             "Command \"%s\" failed with exit code: %s\nstdout: %s\nstd_err: %s"
             % (args, p.returncode, std_out, std_err))
     return std_out

@@ -10,6 +10,7 @@ from pyVim import connect
 from pyVmomi import vim
 
 from coriolis import constants
+from coriolis import exception
 from coriolis.providers import base
 from coriolis import utils
 
@@ -40,7 +41,7 @@ class ExportProvider(base.BaseExportProvider):
                                       vim.TaskInfo.State.error]:
             time.sleep(.1)
         if task.info.state == vim.TaskInfo.State.error:
-            raise Exception(task.info.error.msg)
+            raise exception.CoriolisException(task.info.error.msg)
 
     @utils.retry_on_error()
     def _connect(self, host, username, password, port, context):
@@ -237,7 +238,7 @@ class ExportProvider(base.BaseExportProvider):
                     lease.HttpNfcLeaseAbort()
                     raise
             elif lease.state == vim.HttpNfcLease.State.error:
-                raise Exception(lease.error.msg)
+                raise exception.CoriolisException(lease.error.msg)
             else:
                 time.sleep(.1)
 

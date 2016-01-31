@@ -1,6 +1,7 @@
 import os
 import re
 
+from coriolis import exception
 from coriolis import utils
 
 
@@ -80,7 +81,7 @@ class UbuntuOSMountTools(object):
                 break
 
         if not os_root_dir:
-            raise Exception("root partition not found")
+            raise exception.CoriolisException("root partition not found")
 
         for dir in set(dirs).intersection(['proc', 'sys', 'dev', 'run']):
             mount_dir = os.path.join(os_root_dir, dir)

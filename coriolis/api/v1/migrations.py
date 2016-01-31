@@ -1,6 +1,7 @@
 from coriolis.api import wsgi as api_wsgi
 from coriolis.api.v1.views import migration_view
 from coriolis import constants
+from coriolis import exception
 from coriolis.migrations import api
 from coriolis.providers import factory
 
@@ -35,14 +36,14 @@ class MigrationController(object):
         if not export_provider.validate_connection_info(
                 origin["connection_info"]):
             # TODO: use a decent exception
-            raise Exception("Invalid connection info")
+            raise exception.CoriolisException("Invalid connection info")
 
         import_provider = factory.get_provider(
             destination["type"], constants.PROVIDER_TYPE_IMPORT)
         if not import_provider.validate_connection_info(
                 destination["connection_info"]):
             # TODO: use a decent exception
-            raise Exception("Invalid connection info")
+            raise exception.CoriolisException("Invalid connection info")
 
         return origin, destination, migration["instances"]
 

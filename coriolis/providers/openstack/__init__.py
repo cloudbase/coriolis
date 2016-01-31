@@ -13,6 +13,7 @@ from oslo_utils import units
 import paramiko
 
 from coriolis import constants
+from coriolis import exception
 from coriolis.osmorphing import manager as osmorphing_manager
 from coriolis.providers import base
 from coriolis import utils
@@ -66,7 +67,8 @@ class _MigrationResources(object):
             time.sleep(2)
             instances = self._nova.servers.findall(id=instance_id)
         if instances:
-            raise Exception("VM is in status: %s" % instances[0].status)
+            raise exception.CoriolisException(
+                "VM is in status: %s" % instances[0].status)
 
     def get_instance(self):
         return self._instance
@@ -147,7 +149,8 @@ class ImportProvider(base.BaseExportProvider):
             time.sleep(2)
             volume = nova.volumes.get(volume.id)
         if volume.status != expected_status:
-            raise Exception("Volume is in status: %s" % volume.status)
+            raise exception.CoriolisException(
+                "Volume is in status: %s" % volume.status)
 
     @utils.retry_on_error()
     def _wait_for_instance(self, nova, instance, expected_status='ACTIVE'):
@@ -156,7 +159,8 @@ class ImportProvider(base.BaseExportProvider):
             time.sleep(2)
             instance = nova.servers.get(instance.id)
         if instance.status != expected_status:
-            raise Exception("VM is in status: %s" % instance.status)
+            raise exception.CoriolisException(
+                "VM is in status: %s" % instance.status)
 
     def _get_unique_name(self):
         return MIGRATION_TMP_FORMAT % str(uuid.uuid4())
@@ -193,7 +197,8 @@ class ImportProvider(base.BaseExportProvider):
                                     migr_image_name, migr_flavor_name,
                                     migr_network_name, migr_fip_pool_name):
         if not glance.images.findall(name=migr_image_name):
-            raise Exception("Glance image \"%s\" not found" % migr_image_name)
+            raise exception.CoriolisException(
+                "Glance image \"%s\" not found" % migr_image_name)
 
         image = nova.images.find(name=migr_image_name)
         flavor = nova.flavors.find(name=migr_flavor_name)
