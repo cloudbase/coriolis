@@ -5,6 +5,8 @@ import sqlalchemy
 from sqlalchemy.ext import declarative
 from sqlalchemy import orm
 
+from coriolis.db.sqlalchemy import types
+
 BASE = declarative.declarative_base()
 
 
@@ -33,8 +35,8 @@ class Migration(BASE, models.TimestampMixin, models.ModelBase):
                            primary_key=True)
     user_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
     project_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
-    origin = sqlalchemy.Column(sqlalchemy.String(1024), nullable=False)
-    destination = sqlalchemy.Column(sqlalchemy.String(1024), nullable=False)
+    origin = sqlalchemy.Column(types.Json, nullable=False)
+    destination = sqlalchemy.Column(types.Json, nullable=False)
     status = sqlalchemy.Column(sqlalchemy.String(100), nullable=False)
     tasks = orm.relationship(Task, cascade="all,delete",
                              backref=orm.backref('migration'))

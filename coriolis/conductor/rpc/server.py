@@ -1,7 +1,5 @@
 import uuid
 
-import json
-
 from oslo_log import log as logging
 
 from coriolis import constants
@@ -28,8 +26,8 @@ class ConductorServerEndpoint(object):
         migration = models.Migration()
         migration.id = str(uuid.uuid4())
         migration.status = constants.MIGRATION_STATUS_STARTED
-        migration.origin = json.dumps(origin)
-        migration.destination = json.dumps(destination)
+        migration.origin = origin
+        migration.destination = destination
 
         for instance in instances:
             task = models.Task()
@@ -74,7 +72,7 @@ class ConductorServerEndpoint(object):
 
         self._rpc_worker_client.begin_import_instance(
             ctxt, op_export.host, op_import.id,
-            json.loads(op_import.migration.destination),
+            op_import.migration.destination,
             op_import.instance,
             export_info)
 
