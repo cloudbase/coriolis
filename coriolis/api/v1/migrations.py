@@ -1,3 +1,5 @@
+from webob import exc
+
 from coriolis.api import wsgi as api_wsgi
 from coriolis.api.v1.views import migration_view
 from coriolis import constants
@@ -12,8 +14,12 @@ class MigrationController(object):
         super(MigrationController, self).__init__()
 
     def show(self, req, id):
-        return migration_view.single(req, self._migration_api.get_migration(
-            req.environ["coriolis.context"], id))
+        migration = self._migration_api.get_migration(
+            req.environ["coriolis.context"], id)
+        if not migration:
+            raise exc.HTTPNotFound()
+
+        return migration_view.single(req, migration)
 
     def index(self, req):
         return migration_view.collection(
@@ -54,6 +60,7 @@ class MigrationController(object):
 
     def delete(self, req, id):
         self._migration_api.stop(req.environ['coriolis.context'], id)
+        raise exc.HTTPNoContent()
 
 
 def create_resource():
