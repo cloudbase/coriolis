@@ -296,17 +296,24 @@ class ImportProvider(base.BaseExportProvider):
             "container_format", DEFAULT_CONTAINER_FORMAT)
         hypervisor_type = target_environment.get("hypervisor_type")
         fip_pool_name = target_environment.get("fip_pool_name")
-        network_name = target_environment.get("network_name")
+        network_map = target_environment.get("network_map", {})
         flavor_name = target_environment.get("flavor_name")
         keypair_name = target_environment.get("keypair_name")
 
         migr_image_name = target_environment.get("migr_image_name")
         migr_flavor_name = target_environment.get("migr_flavor_name",
                                                   flavor_name)
-        migr_network_name = target_environment.get("migr_network_name",
-                                                   network_name)
+
         migr_fip_pool_name = target_environment.get("migr_fip_pool_name",
                                                     fip_pool_name)
+        migr_network_name = target_environment.get("migr_network_name")
+
+        if not migr_network_name:
+            if len(network_map) != 1:
+                raise exception.CoriolisException(
+                    "If migr_network_name is not provided, network_map must "
+                    "contain exactly one entry")
+            migr_network_name = network_map.values()[0]
 
         disks_info = export_info["devices"]["disks"]
 
@@ -389,6 +396,18 @@ class ImportProvider(base.BaseExportProvider):
         for nic_info in nics_info:
             self._progress_update(
                 "Creating Neutron port for migrated instance")
+
+            origin_network_name = nic_info.get("network_name")
+            if not origin_network_name:
+                LOG.warn("Origin network name not provided for for nic: %s, "
+                         "skipping", nic_info.get("name"))
+                continue
+
+            network_name = network_map.get(origin_network_name)
+            if not network_name:
+                raise exception.CoriolisException(
+                    "Network not mapped in network_map: %s" %
+                    origin_network_name)
 
             ports.append(self._create_neutron_port(
                 neutron, network_name, nic_info.get("mac_address")))

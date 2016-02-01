@@ -151,7 +151,7 @@ class ExportProvider(base.BaseExportProvider):
         for device in devices:
             nics.append({'mac_address': device.macAddress, 'id': device.key,
                          'name': device.deviceInfo.label,
-                         'network_id': device.backing.network.name})
+                         'network_name': device.backing.network.name})
 
         serial_ports = []
         devices = [d for d in vm.config.hardware.device if
