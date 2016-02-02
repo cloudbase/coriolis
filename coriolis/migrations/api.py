@@ -9,7 +9,10 @@ class API(object):
         return self._rpc_client.begin_migrate_instances(
             ctxt, origin, destination, instances)
 
-    def stop(ctxt, self, migration_id):
+    def delete(self, ctxt, migration_id):
+        self._rpc_client.delete_migration(ctxt, migration_id)
+
+    def stop(self, ctxt, migration_id):
         self._rpc_client.stop_instances_migration(ctxt, migration_id)
 
     def get_migrations(self, ctxt):

@@ -61,6 +61,14 @@ class ConductorServerEndpoint(object):
 
         return self.get_migration(ctxt, migration.id)
 
+    def delete_migration(self, ctxt, migration_id):
+        migration = db_api.get_migration(ctxt, migration_id)
+        for task in migration.tasks:
+            if task.status == constants.TASK_STATUS_STARTED:
+                raise exception.CoriolisException(
+                    "Cannot delete a running migration")
+        db_api.delete_migration(ctxt, migration_id)
+
     def stop_instances_migration(self, ctxt, migration_id):
         migration = db_api.get_migration(ctxt, migration_id)
         for task in migration.tasks:

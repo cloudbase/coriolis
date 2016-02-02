@@ -59,7 +59,7 @@ class MigrationController(object):
             req.environ['coriolis.context'], origin, destination, instances))
 
     def delete(self, req, id):
-        self._migration_api.stop(req.environ['coriolis.context'], id)
+        self._migration_api.delete(req.environ['coriolis.context'], id)
         raise exc.HTTPNoContent()
 
 

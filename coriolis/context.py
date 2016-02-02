@@ -9,7 +9,7 @@ class RequestContext(context.RequestContext):
                  roles=None, project_name=None, remote_address=None,
                  timestamp=None, request_id=None, auth_token=None,
                  overwrite=True, domain=None, user_domain=None,
-                 project_domain=None, **kwargs):
+                 project_domain=None, show_deleted=None, **kwargs):
 
         super(RequestContext, self).__init__(auth_token=auth_token,
                                              user=user,
@@ -18,6 +18,7 @@ class RequestContext(context.RequestContext):
                                              user_domain=user_domain,
                                              project_domain=project_domain,
                                              is_admin=is_admin,
+                                             show_deleted=show_deleted,
                                              request_id=request_id,
                                              overwrite=overwrite)
         self.roles = roles or []
@@ -39,6 +40,7 @@ class RequestContext(context.RequestContext):
         result['remote_address'] = self.remote_address
         result['timestamp'] = self.timestamp.isoformat()
         result['request_id'] = self.request_id
+        result['show_deleted'] = self.show_deleted
         return result
 
     @classmethod

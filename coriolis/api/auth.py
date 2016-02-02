@@ -32,6 +32,9 @@ class CoriolisKeystoneContext(wsgi.Middleware):
         project_name = req.headers.get('X_TENANT_NAME')
 
         req_id = req.environ.get(request_id.ENV_REQUEST_ID)
+        # TODO(alexpilotti): Check why it's not str
+        if isinstance(req_id, bytes):
+            req_id = req_id.decode()
 
         # Get the auth token
         auth_token = req.headers.get('X_AUTH_TOKEN',

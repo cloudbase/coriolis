@@ -22,6 +22,10 @@ class ConductorClient(object):
             ctxt, 'migrate_instances', origin=origin, destination=destination,
             instances=instances)
 
+    def delete_migration(self, ctxt, migration_id):
+        self._client.call(
+            ctxt, 'delete_migration', migration_id=migration_id)
+
     def stop_instances_migration(self, ctxt, migration_id):
         self._client.call(
             ctxt, 'stop_instances_migration', migration_id=migration_id)

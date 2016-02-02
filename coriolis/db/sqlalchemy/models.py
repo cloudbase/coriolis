@@ -10,7 +10,8 @@ from coriolis.db.sqlalchemy import types
 BASE = declarative.declarative_base()
 
 
-class TaskProgressUpdate(BASE, models.TimestampMixin, models.ModelBase):
+class TaskProgressUpdate(BASE, models.TimestampMixin, models.SoftDeleteMixin,
+                         models.ModelBase):
     __tablename__ = 'task_progress_update'
 
     id = sqlalchemy.Column(sqlalchemy.String(36),
@@ -24,7 +25,8 @@ class TaskProgressUpdate(BASE, models.TimestampMixin, models.ModelBase):
     message = sqlalchemy.Column(sqlalchemy.String(1024), nullable=True)
 
 
-class Task(BASE, models.TimestampMixin, models.ModelBase):
+class Task(BASE, models.TimestampMixin, models.SoftDeleteMixin,
+           models.ModelBase):
     __tablename__ = 'task'
 
     id = sqlalchemy.Column(sqlalchemy.String(36),
@@ -45,7 +47,8 @@ class Task(BASE, models.TimestampMixin, models.ModelBase):
                                         backref=orm.backref('task'))
 
 
-class Migration(BASE, models.TimestampMixin, models.ModelBase):
+class Migration(BASE, models.TimestampMixin, models.ModelBase,
+                models.SoftDeleteMixin):
     __tablename__ = 'migration'
 
     id = sqlalchemy.Column(sqlalchemy.String(36),
