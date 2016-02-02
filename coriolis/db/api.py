@@ -5,6 +5,7 @@ from oslo_db.sqlalchemy import enginefacade
 from sqlalchemy import orm
 
 from coriolis.db.sqlalchemy import models
+from coriolis import exception
 
 CONF = cfg.CONF
 db_options.set_defaults(CONF)
@@ -79,7 +80,7 @@ def delete_migration(context, migration_id):
     count = _soft_delete_aware_query(context, models.Migration).filter_by(
         project_id=context.tenant, id=migration_id).soft_delete()
     if count == 0:
-        raise exception.CoriolisException("0 entries were soft deleted")
+        raise exception.NotFound("0 entries were soft deleted")
 
 
 @enginefacade.writer

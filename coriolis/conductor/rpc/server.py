@@ -5,6 +5,7 @@ from oslo_log import log as logging
 from coriolis import constants
 from coriolis.db import api as db_api
 from coriolis.db.sqlalchemy import models
+from coriolis import exception
 from coriolis.worker.rpc import client as rpc_worker_client
 
 VERSION = "1.0"
@@ -61,8 +62,14 @@ class ConductorServerEndpoint(object):
 
         return self.get_migration(ctxt, migration.id)
 
-    def delete_migration(self, ctxt, migration_id):
+    def _get_migration(self, ctxt, migration_id):
         migration = db_api.get_migration(ctxt, migration_id)
+        if not migration:
+            raise exception.NotFound("Migration not found: %s" % migration_id)
+        return migration
+
+    def delete_migration(self, ctxt, migration_id):
+        migration = self._get_migration(ctxt, migration_id)
         for task in migration.tasks:
             if task.status == constants.TASK_STATUS_STARTED:
                 raise exception.CoriolisException(
@@ -70,7 +77,7 @@ class ConductorServerEndpoint(object):
         db_api.delete_migration(ctxt, migration_id)
 
     def stop_instances_migration(self, ctxt, migration_id):
-        migration = db_api.get_migration(ctxt, migration_id)
+        migration = self._get_migration(ctxt, migration_id)
         for task in migration.tasks:
             if task.status == constants.TASK_STATUS_STARTED:
                 self._rpc_worker_client.stop_task(
