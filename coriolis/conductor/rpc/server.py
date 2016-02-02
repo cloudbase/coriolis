@@ -70,10 +70,9 @@ class ConductorServerEndpoint(object):
 
     def delete_migration(self, ctxt, migration_id):
         migration = self._get_migration(ctxt, migration_id)
-        for task in migration.tasks:
-            if task.status == constants.TASK_STATUS_RUNNING:
-                raise exception.CoriolisException(
-                    "Cannot delete a running migration")
+        if migration.status == constants.MIGRATION_STATUS_RUNNING:
+            raise exception.CoriolisException(
+                "Cannot delete a running migration")
         db_api.delete_migration(ctxt, migration_id)
 
     def cancel_migration(self, ctxt, migration_id):
@@ -82,10 +81,19 @@ class ConductorServerEndpoint(object):
             raise exception.InvalidParameterValue(
                 "The migration is not running: %s" % migration_id)
 
+        has_running_tasks = False
         for task in migration.tasks:
             if task.status == constants.TASK_STATUS_RUNNING:
                 self._rpc_worker_client.cancel_task(
                     ctxt, task.host, task.process_id)
+                has_running_tasks = True
+            elif task.status == constants.TASK_STATUS_PENDING:
+                db_api.set_task_status(
+                    ctxt, task.id, constants.TASK_STATUS_CANCELED)
+
+        if not has_running_tasks:
+            db_api.set_migration_status(
+                ctxt, migration_id, constants.MIGRATION_STATUS_ERROR)
 
     def set_task_host(self, ctxt, task_id, host, process_id):
         db_api.set_task_host(ctxt, task_id, host, process_id)
