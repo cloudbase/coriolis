@@ -30,6 +30,8 @@ class CoriolisKeystoneContext(wsgi.Middleware):
             tenant = req.headers['X_TENANT']
 
         project_name = req.headers.get('X_TENANT_NAME')
+        project_domain_name = req.headers.get('X-Project-Domain-Name')
+        user_domain_name = req.headers.get('X-User-Domain-Name')
 
         req_id = req.environ.get(request_id.ENV_REQUEST_ID)
         # TODO(alexpilotti): Check why it's not str
@@ -37,8 +39,7 @@ class CoriolisKeystoneContext(wsgi.Middleware):
             req_id = req_id.decode()
 
         # Get the auth token
-        auth_token = req.headers.get('X_AUTH_TOKEN',
-                                     req.headers.get('X_STORAGE_TOKEN'))
+        auth_token = req.headers.get('X_AUTH_TOKEN')
 
         # Build a context, including the auth_token...
         remote_address = req.remote_addr
@@ -55,6 +56,8 @@ class CoriolisKeystoneContext(wsgi.Middleware):
         ctx = context.RequestContext(user,
                                      tenant,
                                      project_name=project_name,
+                                     project_domain=project_domain_name,
+                                     user_domain=user_domain_name,
                                      roles=roles,
                                      auth_token=auth_token,
                                      remote_address=remote_address,

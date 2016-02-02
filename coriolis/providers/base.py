@@ -30,7 +30,7 @@ class BaseImportProvider(Baseprovider):
     __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
-    def import_instance(self, connection_info, target_environment,
+    def import_instance(self, ctxt, connection_info, target_environment,
                         instance_name, export_info):
         pass
 
@@ -39,7 +39,8 @@ class BaseExportProvider(Baseprovider):
     __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
-    def export_instance(self, connection_info, instance_name, export_path):
+    def export_instance(self, ctxt, connection_info, instance_name,
+                        export_path):
         pass
 
 

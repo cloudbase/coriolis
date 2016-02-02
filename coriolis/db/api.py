@@ -87,21 +87,30 @@ def delete_migration(context, migration_id):
 def set_migration_status(context, migration_id, status):
     migration = _soft_delete_aware_query(context, models.Migration).filter_by(
         project_id=context.tenant, id=migration_id).first()
+    if not migration:
+        raise exception.NotFound("Migration not found: %s" % migration_id)
+
     migration.status = status
+
+
+def _get_task(context, task_id):
+    task = _soft_delete_aware_query(context, models.Task).filter_by(
+        id=task_id).first()
+    if not task:
+        raise exception.NotFound("Task not found: %s" % task_id)
+    return task
 
 
 @enginefacade.writer
 def set_task_status(context, task_id, status, exception_details=None):
-    task = _soft_delete_aware_query(context, models.Task).filter_by(
-        id=task_id).first()
+    task = _get_task(context, task_id)
     task.status = status
     task.exception_details = exception_details
 
 
 @enginefacade.writer
 def set_task_host(context, task_id, host, process_id):
-    task = _soft_delete_aware_query(context, models.Task).filter_by(
-        id=task_id).first()
+    task = _get_task(context, task_id)
     task.host = host
     task.process_id = process_id
 

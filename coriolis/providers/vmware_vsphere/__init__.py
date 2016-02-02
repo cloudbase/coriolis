@@ -242,7 +242,8 @@ class ExportProvider(base.BaseExportProvider):
             else:
                 time.sleep(.1)
 
-    def export_instance(self, connection_info, instance_name, export_path):
+    def export_instance(self, ctxt, connection_info, instance_name,
+                        export_path):
         host = connection_info["host"]
         port = connection_info.get("port", 443)
         username = connection_info["username"]

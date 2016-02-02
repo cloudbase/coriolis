@@ -112,7 +112,7 @@ class WorkerServerEndpoint(object):
 
                 new_task_info = self._exec_task_process(
                     ctxt, task_id, _export_instance,
-                    (provider, origin["connection_info"],
+                    (provider, origin.get("connection_info", {}),
                      instance, export_path))
 
                 new_task_info[TMP_DIRS_KEY] = [export_path]
@@ -123,7 +123,7 @@ class WorkerServerEndpoint(object):
 
                 self._exec_task_process(
                     ctxt, task_id, _import_instance,
-                    (provider, destination["connection_info"],
+                    (provider, destination.get("connection_info", {}),
                      destination["target_environment"],
                      instance, task_info))
             else:
@@ -154,9 +154,9 @@ def _export_instance(provider, connection_info, instance, export_path,
         progress_update_manager = _ConductorProgressUpdateManager(ctxt,
                                                                   task_id)
         provider.set_progress_update_manager(progress_update_manager)
-        vm_info = provider.export_instance(connection_info, instance,
-                                           export_path)
-        mp_q.put(vm_info)
+        result = provider.export_instance(ctxt, connection_info, instance,
+                                          export_path)
+        mp_q.put(result)
     except Exception as ex:
         mp_q.put(str(ex))
         LOG.exception(ex)
@@ -171,9 +171,10 @@ def _import_instance(provider, connection_info, target_environment, instance,
         progress_update_manager = _ConductorProgressUpdateManager(ctxt,
                                                                   task_id)
         provider.set_progress_update_manager(progress_update_manager)
-        provider.import_instance(connection_info, target_environment,
-                                 instance, export_info)
-        mp_q.put(None)
+        result = provider.import_instance(ctxt, connection_info,
+                                          target_environment, instance,
+                                          export_info)
+        mp_q.put(result)
     except Exception as ex:
         mp_q.put(str(ex))
         LOG.exception(ex)

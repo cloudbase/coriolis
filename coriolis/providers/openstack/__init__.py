@@ -8,6 +8,7 @@ from keystoneauth1 import loading
 from keystoneauth1 import session
 from neutronclient.neutron import client as neutron_client
 from novaclient import client as nova_client
+from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import units
 import paramiko
@@ -17,6 +18,16 @@ from coriolis import exception
 from coriolis.osmorphing import manager as osmorphing_manager
 from coriolis.providers import base
 from coriolis import utils
+
+opts = [
+    cfg.StrOpt('default_auth_url',
+               default=None,
+               help='Default auth URL to be used when not specified in the'
+               ' migration\'s connection info.'),
+]
+
+CONF = cfg.CONF
+CONF.register_opts(opts, 'openstack_migration_provider')
 
 NOVA_API_VERSION = 2
 GLANCE_API_VERSION = 1
@@ -95,39 +106,52 @@ class _MigrationResources(object):
 
 class ImportProvider(base.BaseExportProvider):
     def validate_connection_info(self, connection_info):
-        keys = ["auth_url", "username", "password", "project_name"]
-        if connection_info.get("identity_api_version", 2) >= 3:
-            keys.append("domain_name")
-        return all(k in connection_info for k in keys)
+        return True
 
-    def _create_keystone_session(self, connection_info):
+    def _create_keystone_session(self, ctxt, connection_info):
         keystone_version = connection_info.get("identity_api_version", 2)
-        auth_url = connection_info["auth_url"]
-        username = connection_info["username"]
-        password = connection_info["password"]
-        project_name = connection_info["project_name"]
-        domain_name = connection_info.get("domain_name")
+        auth_url = connection_info.get(
+            "auth_url", CONF.openstack_migration_provider.default_auth_url)
+
+        if not auth_url:
+            raise exception.CoriolisException(
+                '"auth_url" not provided in "connection_info" and option '
+                '"default_auth_url" in group "[openstack_migration_provider]" '
+                'not set')
+
+        username = connection_info.get("username")
+        password = connection_info.get("password")
+        project_name = connection_info.get("project_name", ctxt.project_name)
+        project_domain_name = connection_info.get(
+            "project_domain_name", ctxt.project_domain)
+        user_domain_name = connection_info.get(
+            "user_domain_name", ctxt.user_domain)
         allow_untrusted = connection_info.get("allow_untrusted", False)
 
         # TODO: add "ca_cert" to connection_info
         verify = not allow_untrusted
 
-        if keystone_version == 3:
-            loader = loading.get_plugin_loader('v3password')
-            auth = loader.load_from_options(
-                auth_url=auth_url,
-                username=username,
-                password=password,
-                user_domain_name=domain_name,
-                project_domain_name=domain_name,
-                project_name=project_name)
+        plugin_args = {
+            "auth_url": auth_url,
+            "project_name": project_name,
+        }
+
+        if username:
+            plugin_name = "password"
+            plugin_args["username"] = username
+            plugin_args["password"] = password
         else:
-            loader = loading.get_plugin_loader('password')
-            auth = loader.load_from_options(
-                auth_url=auth_url,
-                username=username,
-                password=password,
-                project_name=project_name)
+            plugin_name = "token"
+            plugin_args["token"] = ctxt.auth_token
+
+        if keystone_version == 3:
+            plugin_name = "v3" + plugin_name
+            plugin_args["project_domain_name"] = project_domain_name
+            if username:
+                plugin_args["user_domain_name"] = user_domain_name
+
+        loader = loading.get_plugin_loader(plugin_name)
+        auth = loader.load_from_options(**plugin_args)
 
         return session.Session(auth=auth, verify=verify)
 
@@ -280,9 +304,9 @@ class ImportProvider(base.BaseExportProvider):
             instance.id, volume.id, volume_dev)
         self._wait_for_volume(nova, volume, 'in-use')
 
-    def import_instance(self, connection_info, target_environment,
+    def import_instance(self, ctxt, connection_info, target_environment,
                         instance_name, export_info):
-        session = self._create_keystone_session(connection_info)
+        session = self._create_keystone_session(ctxt, connection_info)
 
         nova = nova_client.Client(NOVA_API_VERSION, session=session)
         glance = glance_client.Client(GLANCE_API_VERSION, session=session)
