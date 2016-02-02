@@ -26,7 +26,7 @@ class ConductorServerEndpoint(object):
     def migrate_instances(self, ctxt, origin, destination, instances):
         migration = models.Migration()
         migration.id = str(uuid.uuid4())
-        migration.status = constants.MIGRATION_STATUS_STARTED
+        migration.status = constants.MIGRATION_STATUS_RUNNING
         migration.origin = origin
         migration.destination = destination
 
@@ -71,7 +71,7 @@ class ConductorServerEndpoint(object):
     def delete_migration(self, ctxt, migration_id):
         migration = self._get_migration(ctxt, migration_id)
         for task in migration.tasks:
-            if task.status == constants.TASK_STATUS_STARTED:
+            if task.status == constants.TASK_STATUS_RUNNING:
                 raise exception.CoriolisException(
                     "Cannot delete a running migration")
         db_api.delete_migration(ctxt, migration_id)
@@ -79,14 +79,14 @@ class ConductorServerEndpoint(object):
     def stop_instances_migration(self, ctxt, migration_id):
         migration = self._get_migration(ctxt, migration_id)
         for task in migration.tasks:
-            if task.status == constants.TASK_STATUS_STARTED:
+            if task.status == constants.TASK_STATUS_RUNNING:
                 self._rpc_worker_client.stop_task(
                     ctxt, task.host, task.process_id)
 
     def set_task_host(self, ctxt, task_id, host, process_id):
         db_api.set_task_host(ctxt, task_id, host, process_id)
         db_api.set_task_status(
-            ctxt, task_id, constants.TASK_STATUS_STARTED)
+            ctxt, task_id, constants.TASK_STATUS_RUNNING)
 
     def _start_pending_tasks(self, ctxt, migration, parent_task, task_info):
         has_pending_tasks = False
