@@ -8,7 +8,7 @@ from coriolis.migrations import api
 from coriolis.providers import factory
 
 
-class MigrationController(object):
+class MigrationController(api_wsgi.Controller):
     def __init__(self):
         self._migration_api = api.API()
         super(MigrationController, self).__init__()
@@ -59,8 +59,11 @@ class MigrationController(object):
             req.environ['coriolis.context'], origin, destination, instances))
 
     def delete(self, req, id):
-        self._migration_api.delete(req.environ['coriolis.context'], id)
-        raise exc.HTTPNoContent()
+        try:
+            self._migration_api.delete(req.environ['coriolis.context'], id)
+            raise exc.HTTPNoContent()
+        except exception.NotFound as ex:
+            raise exc.HTTPNotFound(explanation=ex.msg)
 
 
 def create_resource():

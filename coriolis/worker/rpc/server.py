@@ -71,7 +71,7 @@ class WorkerServerEndpoint(object):
                         # Ignore exception
                         LOG.exception(ex)
 
-    def stop_task(self, ctxt, process_id):
+    def cancel_task(self, ctxt, process_id):
         try:
             p = psutil.Process(process_id)
             p.kill()
@@ -91,7 +91,7 @@ class WorkerServerEndpoint(object):
         p.join()
 
         if mp_q.empty():
-            raise exception.CoriolisException("Task process terminated")
+            raise exception.CoriolisException("Task canceled")
         result = mp_q.get(False)
 
         if isinstance(result, str):

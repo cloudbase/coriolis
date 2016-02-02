@@ -18,10 +18,10 @@ class WorkerClient(object):
             origin=origin, destination=destination, instance=instance,
             task_info=task_info)
 
-    def stop_task(self, ctxt, server, process_id):
+    def cancel_task(self, ctxt, server, process_id):
         # Needs to be executed on the same server
         cctxt = self._client.prepare(server=server)
-        cctxt.call(ctxt, 'stop_task', process_id=process_id)
+        cctxt.call(ctxt, 'cancel_task', process_id=process_id)
 
     def update_migration_status(self, ctxt, task_id, status):
         self._client.call(ctxt, "update_migration_status", status=status)

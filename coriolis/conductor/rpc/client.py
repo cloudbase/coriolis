@@ -26,9 +26,9 @@ class ConductorClient(object):
         self._client.call(
             ctxt, 'delete_migration', migration_id=migration_id)
 
-    def stop_instances_migration(self, ctxt, migration_id):
+    def cancel_migration(self, ctxt, migration_id):
         self._client.call(
-            ctxt, 'stop_instances_migration', migration_id=migration_id)
+            ctxt, 'cancel_migration', migration_id=migration_id)
 
     def set_task_host(self, ctxt, task_id, host, process_id):
         self._client.call(

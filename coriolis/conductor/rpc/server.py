@@ -76,11 +76,15 @@ class ConductorServerEndpoint(object):
                     "Cannot delete a running migration")
         db_api.delete_migration(ctxt, migration_id)
 
-    def stop_instances_migration(self, ctxt, migration_id):
+    def cancel_migration(self, ctxt, migration_id):
         migration = self._get_migration(ctxt, migration_id)
+        if migration.status != constants.MIGRATION_STATUS_RUNNING:
+            raise exception.InvalidParameterValue(
+                "The migration is not running: %s" % migration_id)
+
         for task in migration.tasks:
             if task.status == constants.TASK_STATUS_RUNNING:
-                self._rpc_worker_client.stop_task(
+                self._rpc_worker_client.cancel_task(
                     ctxt, task.host, task.process_id)
 
     def set_task_host(self, ctxt, task_id, host, process_id):
