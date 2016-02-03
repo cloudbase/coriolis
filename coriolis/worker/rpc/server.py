@@ -1,6 +1,7 @@
 import os
 import multiprocessing
 import shutil
+import sys
 
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -130,11 +131,16 @@ def _get_task_export_path(task_id, create=False):
     return export_path
 
 
+def _setup_task_process():
+    # Setting up logging and cfg, needed since this is a new process
+    utils.setup_logging()
+    cfg.CONF(sys.argv[1:], project='coriolis', version="1.0.0")
+
+
 def _task_process(ctxt, task_id, task_type, origin, destination, instance,
                   task_info, mp_q):
     try:
-        # Setting up logging, needed since this is a new process
-        utils.setup_logging()
+        _setup_task_process()
 
         if task_type == constants.TASK_TYPE_EXPORT_INSTANCE:
             provider_type = constants.PROVIDER_TYPE_EXPORT
