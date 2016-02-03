@@ -23,7 +23,7 @@ def morph_image(connection_info, target_hypervisor, target_platform,
 
     os_mount_tools = osmount_factory.get_os_mount_tools(ssh)
     LOG.info("Discovering and mounting OS partitions")
-    os_root_dir, other_mounted_dirs = os_mount_tools.mount_os(ssh, volume_devs)
+    os_root_dir, other_mounted_dirs = os_mount_tools.mount_os(volume_devs)
     os_morphing_tools, os_info = osmorphing_factory.get_os_morphing_tools(
         ssh, os_root_dir, target_hypervisor, target_platform)
 
@@ -48,4 +48,4 @@ def morph_image(connection_info, target_hypervisor, target_platform,
     os_morphing_tools.post_packages_install()
 
     LOG.info("Dismounting OS partitions")
-    os_mount_tools.dismount_os(ssh, other_mounted_dirs + [os_root_dir])
+    os_mount_tools.dismount_os(other_mounted_dirs + [os_root_dir])
