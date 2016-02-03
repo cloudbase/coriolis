@@ -20,10 +20,44 @@ from coriolis.providers import base
 from coriolis import utils
 
 opts = [
-    cfg.StrOpt('default_auth_url',
+    cfg.StrOpt('auth_url',
                default=None,
                help='Default auth URL to be used when not specified in the'
                ' migration\'s connection info.'),
+    cfg.StrOpt('identity_api_version',
+               default=2,
+               help='Default Keystone API version.'),
+    cfg.StrOpt('disk_format',
+               default=constants.DISK_FORMAT_QCOW2,
+               help='Default image disk format.'),
+    cfg.StrOpt('container_format',
+               default='bare',
+               help='Default image container format.'),
+    cfg.StrOpt('hypervisor_type',
+               default=None,
+               help='Default hypervisor type.'),
+    cfg.StrOpt('boot_from_volume',
+               default=True,
+               help='Set to "True" to boot from volume by default instead of '
+               'using local storage.'),
+    cfg.StrOpt('glance_upload',
+               default=True,
+               help='Set to "True" to use Glance to upload images.'),
+    cfg.StrOpt('migr_image_name',
+               default=None,
+               help='Default image name used for worker instances '
+               'during migrations.'),
+    cfg.StrOpt('migr_flavor_name',
+               default='m1.small',
+               help='Default flavor name used for worker instances '
+               'during migrations.'),
+    cfg.StrOpt('migr_network_name',
+               default='private',
+               help='Default network name used for worker instances '
+               'during migrations.'),
+    cfg.StrOpt('fip_pool_name',
+               default='public',
+               help='Default floating ip pool name.'),
 ]
 
 CONF = cfg.CONF
@@ -35,7 +69,6 @@ NEUTRON_API_VERSION = '2.0'
 CINDER_API_VERSION = 2
 
 MIGRATION_TMP_FORMAT = "migration_tmp_%s"
-DEFAULT_CONTAINER_FORMAT = "bare"
 
 DISK_HEADER_SIZE = 10 * units.Mi
 
@@ -109,14 +142,16 @@ class ImportProvider(base.BaseExportProvider):
         return True
 
     def _create_keystone_session(self, ctxt, connection_info):
-        keystone_version = connection_info.get("identity_api_version", 2)
+        keystone_version = connection_info.get(
+            "identity_api_version",
+            CONF.openstack_migration_provider.identity_api_version)
         auth_url = connection_info.get(
-            "auth_url", CONF.openstack_migration_provider.default_auth_url)
+            "auth_url", CONF.openstack_migration_provider.auth_url)
 
         if not auth_url:
             raise exception.CoriolisException(
                 '"auth_url" not provided in "connection_info" and option '
-                '"default_auth_url" in group "[openstack_migration_provider]" '
+                '"auth_url" in group "[openstack_migration_provider]" '
                 'not set')
 
         username = connection_info.get("username")
@@ -158,12 +193,17 @@ class ImportProvider(base.BaseExportProvider):
     @utils.retry_on_error()
     def _create_image(self, glance, name, disk_path, disk_format,
                       container_format, hypervisor_type):
+
+        properties = {}
+        if hypervisor_type:
+            properties["hypervisor_type"] = hypervisor_type
+
         with open(disk_path, 'rb') as f:
             return glance.images.create(
                 name=name,
                 disk_format=disk_format,
                 container_format=container_format,
-                properties={"hypervisor_type": hypervisor_type},
+                properties=properties,
                 data=f)
 
     @utils.retry_on_error()
@@ -314,30 +354,42 @@ class ImportProvider(base.BaseExportProvider):
         neutron = neutron_client.Client(NEUTRON_API_VERSION, session=session)
         cinder = cinder_client.Client(CINDER_API_VERSION, session=session)
 
-        glance_upload = target_environment.get("glance_upload", False)
+        glance_upload = target_environment.get(
+            "glance_upload", CONF.openstack_migration_provider.glance_upload)
         target_disk_format = target_environment.get(
-            "disk_format", constants.DISK_FORMAT_QCOW2)
+            "disk_format", CONF.openstack_migration_provider.disk_format)
         container_format = target_environment.get(
-            "container_format", DEFAULT_CONTAINER_FORMAT)
-        hypervisor_type = target_environment.get("hypervisor_type")
-        fip_pool_name = target_environment.get("fip_pool_name")
+            "container_format",
+            CONF.openstack_migration_provider.container_format)
+        hypervisor_type = target_environment.get(
+            "hypervisor_type",
+            CONF.openstack_migration_provider.hypervisor_type)
+        fip_pool_name = target_environment.get(
+            "fip_pool_name", CONF.openstack_migration_provider.fip_pool_name)
         network_map = target_environment.get("network_map", {})
-        flavor_name = target_environment.get("flavor_name")
         keypair_name = target_environment.get("keypair_name")
 
-        migr_image_name = target_environment.get("migr_image_name")
-        migr_flavor_name = target_environment.get("migr_flavor_name",
-                                                  flavor_name)
+        migr_image_name = target_environment.get(
+            "migr_image_name",
+            CONF.openstack_migration_provider.migr_image_name)
+        migr_flavor_name = target_environment.get(
+            "migr_flavor_name",
+            CONF.openstack_migration_provider.migr_flavor_name)
 
-        migr_fip_pool_name = target_environment.get("migr_fip_pool_name",
-                                                    fip_pool_name)
-        migr_network_name = target_environment.get("migr_network_name")
+        migr_fip_pool_name = target_environment.get(
+            "migr_fip_pool_name",
+            CONF.openstack_migration_provider.fip_pool_name or fip_pool_name)
+        migr_network_name = target_environment.get(
+            "migr_network_name",
+            CONF.openstack_migration_provider.migr_network_name)
+
+        flavor_name = target_environment.get("flavor_name", migr_flavor_name)
 
         if not migr_network_name:
             if len(network_map) != 1:
                 raise exception.CoriolisException(
-                    "If migr_network_name is not provided, network_map must "
-                    "contain exactly one entry")
+                    'If "migr_network_name" is not provided, "network_map" '
+                    'must contain exactly one entry')
             migr_network_name = network_map.values()[0]
 
         disks_info = export_info["devices"]["disks"]
