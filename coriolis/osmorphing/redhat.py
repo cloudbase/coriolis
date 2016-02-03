@@ -55,7 +55,8 @@ class RedHatMorphingTools(base.BaseOSMorphingTools):
                              "configuration mac_address: %s",
                              ifcfg_file, mac_address)
             if not mac_address:
-                LOG.warn("HWADDR not defined, skipping: %s", ifcfg_file)
+                self._event_manager.warn(
+                    "HWADDR not defined, skipping: %s" % ifcfg_file)
                 continue
             name = ifcfg.get("NAME")
             if not name:
@@ -140,7 +141,8 @@ class RedHatMorphingTools(base.BaseOSMorphingTools):
             m = re.match('^kernel-(.*)$', package_name)
             if m:
                 kernel_version = m.groups()[0]
-                LOG.info("Generating initrd for kernel: %s", kernel_version)
+                self._event_manager.progress_update(
+                    "Generating initrd for kernel: %s" % kernel_version)
                 self._exec_cmd_chroot(
                     "dracut -f /boot/initramfs-%(version)s.img %(version)s" %
                     {"version": kernel_version})
@@ -217,7 +219,8 @@ class RedHatMorphingTools(base.BaseOSMorphingTools):
             major_version = version.split(".")[0]
             repo_name = "rhel-%s-server-rh-common-rpms" % major_version
             # This is necessary for cloud-init
-            LOG.info("Enabling repository: %s" % repo_name)
+            self._event_manager.progress_update(
+                "Enabling repository: %s" % repo_name)
             self._exec_cmd_chroot(
                 "subscription-manager repos --enable %s" % repo_name)
 

@@ -13,7 +13,7 @@ IMPORT_PROVIDERS = {
 }
 
 
-def get_provider(platform_name, provider_type):
+def get_provider(platform_name, provider_type, event_handler):
     if provider_type == constants.PROVIDER_TYPE_EXPORT:
         cls = EXPORT_PROVIDERS.get(platform_name)
     elif provider_type == constants.PROVIDER_TYPE_IMPORT:
@@ -21,4 +21,4 @@ def get_provider(platform_name, provider_type):
 
     if not cls:
         raise exception.NotFound("Provider not found: %s" % platform_name)
-    return cls()
+    return cls(event_handler)

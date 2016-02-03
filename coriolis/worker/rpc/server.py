@@ -9,8 +9,8 @@ import psutil
 
 from coriolis.conductor.rpc import client as rpc_conductor_client
 from coriolis import constants
+from coriolis import events
 from coriolis import exception
-from coriolis.providers import base
 from coriolis.providers import factory
 from coriolis import utils
 
@@ -30,7 +30,7 @@ TMP_DIRS_KEY = "__tmp_dirs"
 VERSION = "1.0"
 
 
-class _ConductorProviderEventHandler(base.BaseProviderEventHandler):
+class _ConductorProviderEventHandler(events.BaseEventHandler):
     def __init__(self, ctxt, task_id):
         self._ctxt = ctxt
         self._task_id = task_id
@@ -167,9 +167,9 @@ def _task_process(ctxt, task_id, task_type, origin, destination, instance,
             raise exception.NotFound(
                 "Unknown task type: %s" % task_type)
 
-        provider = factory.get_provider(data["type"], provider_type)
         event_handler = _ConductorProviderEventHandler(ctxt, task_id)
-        provider.set_event_handler(event_handler)
+        provider = factory.get_provider(data["type"], provider_type,
+                                        event_handler)
 
         connection_info = data.get("connection_info", {})
         target_environment = data.get("target_environment", {})

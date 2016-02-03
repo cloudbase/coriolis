@@ -38,14 +38,14 @@ class MigrationController(api_wsgi.Controller):
         destination = migration["destination"]
 
         export_provider = factory.get_provider(
-            origin["type"], constants.PROVIDER_TYPE_EXPORT)
+            origin["type"], constants.PROVIDER_TYPE_EXPORT, None)
         if not export_provider.validate_connection_info(
                 origin.get("connection_info", {})):
             # TODO: use a decent exception
             raise exception.CoriolisException("Invalid connection info")
 
         import_provider = factory.get_provider(
-            destination["type"], constants.PROVIDER_TYPE_IMPORT)
+            destination["type"], constants.PROVIDER_TYPE_IMPORT, None)
         if not import_provider.validate_connection_info(
                 destination.get("connection_info", {})):
             # TODO: use a decent exception

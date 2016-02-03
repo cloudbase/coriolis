@@ -11,13 +11,14 @@ class BaseOSMorphingTools(object):
 
     _packages = {}
 
-    def __init__(self, ssh, os_root_dir, hypervisor, platform):
+    def __init__(self, ssh, os_root_dir, hypervisor, platform, event_manager):
         self._ssh = ssh
         self._os_root_dir = os_root_dir
         self._hypervisor = hypervisor
         self._platform = platform
         self._distro = None
         self._version = None
+        self._event_manager = event_manager
 
     def _test_path(self, chroot_path):
         path = os.path.join(self._os_root_dir, chroot_path)
