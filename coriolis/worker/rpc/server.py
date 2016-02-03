@@ -30,7 +30,7 @@ TMP_DIRS_KEY = "__tmp_dirs"
 VERSION = "1.0"
 
 
-class _ConductorProgressUpdateManager(base.BaseProgressUpdateManager):
+class _ConductorProviderEventHandler(base.BaseProviderEventHandler):
     def __init__(self, ctxt, task_id):
         self._ctxt = ctxt
         self._task_id = task_id
@@ -40,6 +40,21 @@ class _ConductorProgressUpdateManager(base.BaseProgressUpdateManager):
         LOG.info("Progress update: %s", message)
         self._rpc_conductor_client.task_progress_update(
             self._ctxt, self._task_id, current_step, total_steps, message)
+
+    def info(self, message):
+        LOG.info(message)
+        self._rpc_conductor_client.task_event(
+            self._ctxt, self._task_id, constants.TASK_EVENT_INFO, message)
+
+    def warn(self, message):
+        LOG.warn(message)
+        self._rpc_conductor_client.task_event(
+            self._ctxt, self._task_id, constants.TASK_EVENT_WARNING, message)
+
+    def error(self, message):
+        LOG.error(message)
+        self._rpc_conductor_client.task_event(
+            self._ctxt, self._task_id, constants.TASK_EVENT_ERROR, message)
 
 
 class WorkerServerEndpoint(object):
@@ -153,9 +168,8 @@ def _task_process(ctxt, task_id, task_type, origin, destination, instance,
                 "Unknown task type: %s" % task_type)
 
         provider = factory.get_provider(data["type"], provider_type)
-        progress_update_manager = _ConductorProgressUpdateManager(ctxt,
-                                                                  task_id)
-        provider.set_progress_update_manager(progress_update_manager)
+        event_handler = _ConductorProviderEventHandler(ctxt, task_id)
+        provider.set_event_handler(event_handler)
 
         connection_info = data.get("connection_info", {})
         target_environment = data.get("target_environment", {})

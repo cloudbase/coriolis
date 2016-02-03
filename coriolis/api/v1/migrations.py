@@ -24,12 +24,12 @@ class MigrationController(api_wsgi.Controller):
     def index(self, req):
         return migration_view.collection(
             req, self._migration_api.get_migrations(
-                req.environ['coriolis.context']))
+                req.environ['coriolis.context'], include_tasks=False))
 
     def detail(self, req):
         return migration_view.collection(
             req, self._migration_api.get_migrations(
-                req.environ['coriolis.context']))
+                req.environ['coriolis.context'], include_tasks=True))
 
     def _validate_create_body(self, body):
         migration = body["migration"]

@@ -10,6 +10,20 @@ from coriolis.db.sqlalchemy import types
 BASE = declarative.declarative_base()
 
 
+class TaskEvent(BASE, models.TimestampMixin, models.SoftDeleteMixin,
+                models.ModelBase):
+    __tablename__ = 'task_event'
+
+    id = sqlalchemy.Column(sqlalchemy.String(36),
+                           default=lambda: str(uuid.uuid4()),
+                           primary_key=True)
+    task_id = sqlalchemy.Column(sqlalchemy.String(36),
+                                sqlalchemy.ForeignKey('task.id'),
+                                nullable=False)
+    level = sqlalchemy.Column(sqlalchemy.String(20), nullable=False)
+    message = sqlalchemy.Column(sqlalchemy.String(1024), nullable=False)
+
+
 class TaskProgressUpdate(BASE, models.TimestampMixin, models.SoftDeleteMixin,
                          models.ModelBase):
     __tablename__ = 'task_progress_update'
@@ -42,6 +56,8 @@ class Task(BASE, models.TimestampMixin, models.SoftDeleteMixin,
     task_type = sqlalchemy.Column(sqlalchemy.String(100), nullable=False)
     exception_details = sqlalchemy.Column(sqlalchemy.Text, nullable=True)
     depends_on = sqlalchemy.Column(types.List, nullable=True)
+    events = orm.relationship(TaskEvent, cascade="all,delete",
+                              backref=orm.backref('task'))
     progress_updates = orm.relationship(TaskProgressUpdate,
                                         cascade="all,delete",
                                         backref=orm.backref('task'))

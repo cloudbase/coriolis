@@ -423,8 +423,8 @@ class ImportProvider(base.BaseExportProvider):
 
             origin_network_name = nic_info.get("network_name")
             if not origin_network_name:
-                LOG.warn("Origin network name not provided for for nic: %s, "
-                         "skipping", nic_info.get("name"))
+                self._warn("Origin network name not provided for for nic: %s, "
+                           "skipping", nic_info.get("name"))
                 continue
 
             network_name = network_map.get(origin_network_name)

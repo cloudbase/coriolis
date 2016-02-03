@@ -17,8 +17,8 @@ class ConductorServerEndpoint(object):
     def __init__(self):
         self._rpc_worker_client = rpc_worker_client.WorkerClient()
 
-    def get_migrations(self, ctxt):
-        return db_api.get_migrations(ctxt)
+    def get_migrations(self, ctxt, include_tasks):
+        return db_api.get_migrations(ctxt, include_tasks)
 
     def get_migration(self, ctxt, migration_id):
         return db_api.get_migration(ctxt, migration_id)
@@ -158,6 +158,10 @@ class ConductorServerEndpoint(object):
         LOG.error("Migration failed: %s", migration.id)
         db_api.set_migration_status(
             ctxt, migration.id, constants.MIGRATION_STATUS_ERROR)
+
+    def task_event(self, ctxt, task_id, level, message):
+        LOG.info("Task event: %s", task_id)
+        db_api.add_task_event(ctxt, task_id, level, message)
 
     def task_progress_update(self, ctxt, task_id, current_step, total_steps,
                              message):

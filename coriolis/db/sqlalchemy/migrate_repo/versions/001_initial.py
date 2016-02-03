@@ -67,10 +67,28 @@ def upgrade(migrate_engine):
         mysql_charset='utf8'
     )
 
+    task_events = sqlalchemy.Table(
+        'task_event', meta,
+        sqlalchemy.Column('id', sqlalchemy.String(36), primary_key=True,
+                          default=lambda: str(uuid.uuid4())),
+        sqlalchemy.Column('created_at', sqlalchemy.DateTime),
+        sqlalchemy.Column('updated_at', sqlalchemy.DateTime),
+        sqlalchemy.Column('deleted_at', sqlalchemy.DateTime),
+        sqlalchemy.Column('deleted', sqlalchemy.String(36)),
+        sqlalchemy.Column("task_id", sqlalchemy.String(36),
+                          sqlalchemy.ForeignKey('task.id'),
+                          nullable=False),
+        sqlalchemy.Column("level", sqlalchemy.String(50), nullable=False),
+        sqlalchemy.Column("message", sqlalchemy.String(1024), nullable=False),
+        mysql_engine='InnoDB',
+        mysql_charset='utf8'
+    )
+
     tables = (
         migration,
         task,
         task_progress_update,
+        task_events,
     )
 
     for index, table in enumerate(tables):

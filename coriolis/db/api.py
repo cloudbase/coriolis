@@ -55,17 +55,24 @@ def _soft_delete_aware_query(context, *args, **kwargs):
 
 
 @enginefacade.reader
-def get_migrations(context):
-    return _soft_delete_aware_query(context, models.Migration).options(
-        orm.joinedload("tasks")).filter_by(
-        project_id=context.tenant).all()
+def get_migrations(context, include_tasks=False):
+    q = _soft_delete_aware_query(context, models.Migration)
+    if include_tasks:
+        q = _get_migration_task_query_options(q)
+    return q.filter_by(project_id=context.tenant).all()
+
+
+def _get_migration_task_query_options(query):
+    return query.options(
+        orm.joinedload("tasks").joinedload("progress_updates")).options(
+            orm.joinedload("tasks").joinedload("events"))
 
 
 @enginefacade.reader
 def get_migration(context, migration_id):
-    return _soft_delete_aware_query(context, models.Migration).options(
-        orm.joinedload("tasks").joinedload("progress_updates")).filter_by(
-        project_id=context.tenant, id=migration_id).first()
+    q = _soft_delete_aware_query(context, models.Migration)
+    q = _get_migration_task_query_options(q)
+    return q.filter_by(project_id=context.tenant, id=migration_id).first()
 
 
 @enginefacade.writer
@@ -123,6 +130,15 @@ def get_task(context, task_id, include_migration_tasks=False):
 
     return _soft_delete_aware_query(context, models.Task).options(
         join_options).filter_by(id=task_id).first()
+
+
+@enginefacade.writer
+def add_task_event(context, task_id, level, message):
+    task_event = models.TaskEvent()
+    task_event.task_id = task_id
+    task_event.level = level
+    task_event.message = message
+    context.session.add(task_event)
 
 
 @enginefacade.writer

@@ -10,8 +10,9 @@ class ConductorClient(object):
         target = messaging.Target(topic='coriolis_conductor', version=VERSION)
         self._client = rpc.get_client(target)
 
-    def get_migrations(self, ctxt):
-        return self._client.call(ctxt, 'get_migrations')
+    def get_migrations(self, ctxt, include_tasks=False):
+        return self._client.call(ctxt, 'get_migrations',
+                                 include_tasks=include_tasks)
 
     def get_migration(self, ctxt, migration_id):
         return self._client.call(
@@ -42,6 +43,10 @@ class ConductorClient(object):
     def set_task_error(self, ctxt, task_id, exception_details):
         self._client.call(ctxt, 'set_task_error', task_id=task_id,
                           exception_details=exception_details)
+
+    def task_event(self, ctxt, task_id, level, message):
+        self._client.cast(ctxt, 'task_event', task_id=task_id, level=level,
+                          message=message)
 
     def task_progress_update(self, ctxt, task_id, current_step, total_steps,
                              message):
