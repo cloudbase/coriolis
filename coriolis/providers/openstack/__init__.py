@@ -473,6 +473,12 @@ class ImportProvider(base.BaseExportProvider):
 
             migr_resources.delete()
 
+        self._event_manager.progress_update("Renaming volumes")
+
+        for i, volume in enumerate(volumes):
+            new_volume_name = "%s %s" % (instance_name, i + 1)
+            cinder.volumes.update(volume.id, name=new_volume_name)
+
         ports = []
         for nic_info in nics_info:
             self._event_manager.progress_update(
