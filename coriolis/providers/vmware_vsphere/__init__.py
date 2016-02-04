@@ -212,7 +212,8 @@ class ExportProvider(base.BaseExportProvider):
                                     d for d in vm.config.hardware.device if
                                     isinstance(
                                         d, vim.vm.device.VirtualDisk) and
-                                    d.controllerKey == ctrl.key][0].key
+                                    d.controllerKey == ctrl.key and
+                                    d.unitNumber == int(address)][0].key
                                 break
 
                         response = request.urlopen(du.url, context=context)
