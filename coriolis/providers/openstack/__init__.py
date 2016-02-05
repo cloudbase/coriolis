@@ -452,7 +452,12 @@ class ImportProvider(base.BaseExportProvider):
                     "Attaching volume to worker instance")
 
                 # TODO: improve device assignment
-                volume_dev = "/dev/sd%s" % chr(ord('a') + i + 1)
+                if hypervisor_type == constants.HYPERVISOR_HYPERV:
+                    volume_dev_base = "/dev/sd%s"
+                else:
+                    volume_dev_base = "/dev/vd%s"
+
+                volume_dev = volume_dev_base % chr(ord('a') + i + 1)
                 volume_devs.append(volume_dev)
                 self._attach_volume(nova, migr_resources.get_instance(),
                                     volume, volume_dev)
@@ -514,7 +519,9 @@ class ImportProvider(base.BaseExportProvider):
 
         block_device_mapping = {}
         for i, volume in enumerate(volumes):
-            block_device_mapping['vd%s' % chr(ord('a') + i)] = volume.id
+            # Delete volume on termination
+            block_device_mapping[
+                'vd%s' % chr(ord('a') + i)] = "%s:volume::True" % volume.id
 
         nics = [{'port-id': p['id']} for p in ports]
 
