@@ -12,6 +12,7 @@ from coriolis import constants
 from coriolis import events
 from coriolis import exception
 from coriolis.providers import factory
+from coriolis import secrets
 from coriolis import utils
 
 worker_opts = [
@@ -173,6 +174,11 @@ def _task_process(ctxt, task_id, task_type, origin, destination, instance,
 
         connection_info = data.get("connection_info", {})
         target_environment = data.get("target_environment", {})
+
+        secret_ref = connection_info.get("secret_ref")
+        if secret_ref:
+            LOG.info("Retrieving connection info from secret: %s", secret_ref)
+            connection_info = secrets.get_secret(ctxt, secret_ref)
 
         if provider_type == constants.PROVIDER_TYPE_EXPORT:
             export_path = _get_task_export_path(task_id, create=True)

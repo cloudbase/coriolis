@@ -4,8 +4,6 @@ import uuid
 
 from cinderclient import client as cinder_client
 from glanceclient import client as glance_client
-from keystoneauth1 import loading
-from keystoneauth1 import session
 from neutronclient.neutron import client as neutron_client
 from novaclient import client as nova_client
 from oslo_config import cfg
@@ -15,18 +13,12 @@ import paramiko
 
 from coriolis import constants
 from coriolis import exception
+from coriolis import keystone
 from coriolis.osmorphing import manager as osmorphing_manager
 from coriolis.providers import base
 from coriolis import utils
 
 opts = [
-    cfg.StrOpt('auth_url',
-               default=None,
-               help='Default auth URL to be used when not specified in the'
-               ' migration\'s connection info.'),
-    cfg.StrOpt('identity_api_version',
-               default=2,
-               help='Default Keystone API version.'),
     cfg.StrOpt('disk_format',
                default=constants.DISK_FORMAT_QCOW2,
                help='Default image disk format.'),
@@ -140,55 +132,6 @@ class _MigrationResources(object):
 class ImportProvider(base.BaseExportProvider):
     def validate_connection_info(self, connection_info):
         return True
-
-    def _create_keystone_session(self, ctxt, connection_info):
-        keystone_version = connection_info.get(
-            "identity_api_version",
-            CONF.openstack_migration_provider.identity_api_version)
-        auth_url = connection_info.get(
-            "auth_url", CONF.openstack_migration_provider.auth_url)
-
-        if not auth_url:
-            raise exception.CoriolisException(
-                '"auth_url" not provided in "connection_info" and option '
-                '"auth_url" in group "[openstack_migration_provider]" '
-                'not set')
-
-        username = connection_info.get("username")
-        password = connection_info.get("password")
-        project_name = connection_info.get("project_name", ctxt.project_name)
-        project_domain_name = connection_info.get(
-            "project_domain_name", ctxt.project_domain)
-        user_domain_name = connection_info.get(
-            "user_domain_name", ctxt.user_domain)
-        allow_untrusted = connection_info.get("allow_untrusted", False)
-
-        # TODO: add "ca_cert" to connection_info
-        verify = not allow_untrusted
-
-        plugin_args = {
-            "auth_url": auth_url,
-            "project_name": project_name,
-        }
-
-        if username:
-            plugin_name = "password"
-            plugin_args["username"] = username
-            plugin_args["password"] = password
-        else:
-            plugin_name = "token"
-            plugin_args["token"] = ctxt.auth_token
-
-        if keystone_version == 3:
-            plugin_name = "v3" + plugin_name
-            plugin_args["project_domain_name"] = project_domain_name
-            if username:
-                plugin_args["user_domain_name"] = user_domain_name
-
-        loader = loading.get_plugin_loader(plugin_name)
-        auth = loader.load_from_options(**plugin_args)
-
-        return session.Session(auth=auth, verify=verify)
 
     @utils.retry_on_error()
     def _create_image(self, glance, name, disk_path, disk_format,
@@ -347,7 +290,7 @@ class ImportProvider(base.BaseExportProvider):
 
     def import_instance(self, ctxt, connection_info, target_environment,
                         instance_name, export_info):
-        session = self._create_keystone_session(ctxt, connection_info)
+        session = keystone.create_keystone_session(ctxt, connection_info)
 
         nova = nova_client.Client(NOVA_API_VERSION, session=session)
         glance = glance_client.Client(GLANCE_API_VERSION, session=session)
