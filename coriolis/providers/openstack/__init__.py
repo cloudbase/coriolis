@@ -129,7 +129,7 @@ class _MigrationResources(object):
             self._keypair = None
 
 
-class ImportProvider(base.BaseExportProvider):
+class ImportProvider(base.BaseImportProvider):
     def validate_connection_info(self, connection_info):
         return True
 
