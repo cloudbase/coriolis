@@ -233,3 +233,7 @@ class NotSupportedOperation(Invalid):
 
 class TaskProcessException(CoriolisException):
     pass
+
+
+class OperatingSystemNotFound(NotFound):
+    pass

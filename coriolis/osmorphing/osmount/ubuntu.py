@@ -6,11 +6,14 @@ from coriolis.osmorphing.osmount import base
 from coriolis import utils
 
 
-class UbuntuOSMountTools(base.BaseOSMountTools):
+class UbuntuOSMountTools(base.BaseSSHOSMountTools):
     def check_os(self):
         os_info = utils.get_linux_os_info(self._ssh)
         if os_info and os_info[0] == 'Ubuntu':
             return True
+
+    def _exec_cmd(self, cmd):
+        return utils.exec_ssh_cmd(self._ssh, cmd)
 
     def _get_vgnames(self):
         vg_names = []
@@ -78,7 +81,7 @@ class UbuntuOSMountTools(base.BaseOSMountTools):
                 break
 
         if not os_root_dir:
-            raise exception.CoriolisException("root partition not found")
+            raise exception.OperatingSystemNotFound("root partition not found")
 
         for dir in set(dirs).intersection(['proc', 'sys', 'dev', 'run']):
             mount_dir = os.path.join(os_root_dir, dir)

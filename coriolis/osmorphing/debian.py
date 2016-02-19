@@ -5,7 +5,7 @@ from coriolis import constants
 from coriolis.osmorphing import base
 
 
-class DebianMorphingTools(base.BaseOSMorphingTools):
+class DebianMorphingTools(base.BaseLinuxOSMorphingTools):
     _packages = {
         (constants.HYPERVISOR_VMWARE, None): [("open-vm-tools", True)],
         # TODO: add cloud-initramfs-growroot

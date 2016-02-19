@@ -19,7 +19,7 @@ RELEASE_FEDORA = "Fedora"
 DEFAULT_CLOUD_USER = "cloud-user"
 
 
-class RedHatMorphingTools(base.BaseOSMorphingTools):
+class RedHatMorphingTools(base.BaseLinuxOSMorphingTools):
     _packages = {
         (None, None): [("dracut-config-generic", False)],
         (constants.HYPERVISOR_VMWARE, None): [("open-vm-tools", True)],

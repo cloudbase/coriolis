@@ -94,7 +94,12 @@ class _MigrationResources(object):
         self._k = k
 
     def get_guest_connection_info(self):
-        return (self._floating_ip.ip, SSH_PORT, MIGR_GUEST_USERNAME, self._k)
+        return {
+            "ip": self._floating_ip.ip,
+            "port": SSH_PORT,
+            "username": MIGR_GUEST_USERNAME,
+            "pkey": self._k,
+            }
 
     @utils.retry_on_error()
     def _wait_for_instance_deletion(self, instance_id):
@@ -407,9 +412,13 @@ class ImportProvider(base.BaseImportProvider):
 
                 guest_conn_info = migr_resources.get_guest_connection_info()
 
+
+            os_type = None
+
             self._event_manager.progress_update(
                 "Preparing instance for target platform")
             osmorphing_manager.morph_image(guest_conn_info,
+                                           os_type,
                                            hypervisor_type,
                                            constants.PLATFORM_OPENSTACK,
                                            volume_devs,
