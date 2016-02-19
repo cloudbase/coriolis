@@ -412,13 +412,10 @@ class ImportProvider(base.BaseImportProvider):
 
                 guest_conn_info = migr_resources.get_guest_connection_info()
 
-
-            os_type = None
-
             self._event_manager.progress_update(
                 "Preparing instance for target platform")
             osmorphing_manager.morph_image(guest_conn_info,
-                                           os_type,
+                                           export_info.get('os_type'),
                                            hypervisor_type,
                                            constants.PLATFORM_OPENSTACK,
                                            volume_devs,

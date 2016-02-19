@@ -12,6 +12,7 @@ from pyVmomi import vim
 from coriolis import constants
 from coriolis import exception
 from coriolis.providers import base
+from coriolis.providers.vmware_vsphere import guestid
 from coriolis import utils
 
 vmware_vsphere_opts = [
@@ -84,6 +85,7 @@ class ExportProvider(base.BaseExportProvider):
                 not vm.config.memoryReservationLockedToMax,
             'name': vm.config.name,
             'guest_id': vm.config.guestId,
+            'os_type': guestid.GUEST_ID_OS_TYPE_MAP.get(vm.config.guestId),
             'id': vm._moId,
         }
 
