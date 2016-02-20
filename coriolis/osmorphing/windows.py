@@ -31,7 +31,8 @@ class WindowsMorphingTools(base.BaseOSMorphingTools):
             pass
 
     def pre_packages_install(self):
-        if self._hypervisor == constants.HYPERVISOR_KVM:
+        if (not self._hypervisor or
+                self._hypervisor == constants.HYPERVISOR_KVM):
             self._add_virtio_drivers()
 
         if self._platform == constants.PLATFORM_OPENSTACK:
@@ -73,8 +74,6 @@ class WindowsMorphingTools(base.BaseOSMorphingTools):
                                    ignore_stdout=True)
 
     def _add_virtio_drivers(self):
-        self._event_manager.progress_update("Adding virtio-win drivers")
-
         # TODO: add support for x86
         arch = "amd64"
 
@@ -96,9 +95,13 @@ class WindowsMorphingTools(base.BaseOSMorphingTools):
         drivers = ["Balloon", "NetKVM", "qxldod", "pvpanic", "viorng",
                    "vioscsi", "vioserial", "viostor"]
 
+        self._event_manager.progress_update("Downloading virtio-win drivers")
+
         virtio_iso_path = "c:\\virtio-win.iso"
         self._conn.download_file(
             CONF.windows_images.virtio_iso_url, virtio_iso_path)
+
+        self._event_manager.progress_update("Adding virtio-win drivers")
 
         virtio_drive = self._mount_disk_image(virtio_iso_path)
         try:

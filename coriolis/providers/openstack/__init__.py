@@ -1,4 +1,6 @@
 import math
+import os
+import tempfile
 import time
 import uuid
 
@@ -35,10 +37,10 @@ opts = [
     cfg.StrOpt('glance_upload',
                default=True,
                help='Set to "True" to use Glance to upload images.'),
-    cfg.StrOpt('migr_image_name',
-               default=None,
-               help='Default image name used for worker instances '
-               'during migrations.'),
+    cfg.DictOpt('migr_image_name_map',
+                default={},
+                help='Default image names used for worker instances during '
+                'migrations.'),
     cfg.StrOpt('migr_flavor_name',
                default='m1.small',
                help='Default flavor name used for worker instances '
@@ -65,6 +67,7 @@ MIGRATION_TMP_FORMAT = "migration_tmp_%s"
 DISK_HEADER_SIZE = 10 * units.Mi
 
 SSH_PORT = 22
+WINRM_HTTPS_PORT = 5986
 
 MIGR_USER_DATA = (
     "#cloud-config\n"
@@ -77,27 +80,32 @@ MIGR_USER_DATA = (
     "    shell: /bin/bash\n"
 )
 MIGR_GUEST_USERNAME = 'cloudbase'
+MIGR_GUEST_USERNAME_WINDOWS = "admin"
 
 LOG = logging.getLogger(__name__)
 
 
 class _MigrationResources(object):
     def __init__(self, nova, neutron, keypair, instance, port,
-                 floating_ip, sec_group, k):
+                 floating_ip, guest_port, sec_group, username, password, k):
         self._nova = nova
         self._neutron = neutron
         self._instance = instance
         self._port = port
         self._floating_ip = floating_ip
+        self._guest_port = guest_port
         self._sec_group = sec_group
         self._keypair = keypair
         self._k = k
+        self._username = username
+        self._password = password
 
     def get_guest_connection_info(self):
         return {
             "ip": self._floating_ip.ip,
-            "port": SSH_PORT,
-            "username": MIGR_GUEST_USERNAME,
+            "port": self._guest_port,
+            "username": self._username,
+            "password": self._password,
             "pkey": self._k,
             }
 
@@ -204,9 +212,20 @@ class ImportProvider(base.BaseImportProvider):
             nova.keypairs.delete(name)
         return nova.keypairs.create(name=name, public_key=public_key)
 
+    @utils.retry_on_error(max_attempts=10, sleep_seconds=10)
+    def _get_instance_password(self, instance, k):
+        self._event_manager.progress_update("Getting instance password")
+        fd, key_path = tempfile.mkstemp()
+        try:
+            k.write_private_key_file(key_path)
+            return instance.get_password(private_key=key_path).decode()
+        finally:
+            os.close(fd)
+            os.remove(key_path)
+
     @utils.retry_on_error()
     def _deploy_migration_resources(self, nova, glance, neutron,
-                                    migr_image_name, migr_flavor_name,
+                                    os_type, migr_image_name, migr_flavor_name,
                                     migr_network_name, migr_fip_pool_name):
         if not glance.images.findall(name=migr_image_name):
             raise exception.CoriolisException(
@@ -235,7 +254,14 @@ class ImportProvider(base.BaseImportProvider):
                 "Creating migration worker instance Neutron port")
 
             port = self._create_neutron_port(neutron, migr_network_name)
-            userdata = MIGR_USER_DATA % (MIGR_GUEST_USERNAME, public_key)
+
+            # TODO(alexpilotti): use a single username
+            if os_type == constants.OS_TYPE_WINDOWS:
+                username = MIGR_GUEST_USERNAME_WINDOWS
+            else:
+                username = MIGR_GUEST_USERNAME
+
+            userdata = MIGR_USER_DATA % (username, public_key)
             instance = nova.servers.create(
                 name=self._get_unique_name(),
                 image=image,
@@ -256,24 +282,35 @@ class ImportProvider(base.BaseImportProvider):
             self._event_manager.progress_update(
                 "Adding migration worker instance security group")
 
+            if os_type == constants.OS_TYPE_WINDOWS:
+                guest_port = WINRM_HTTPS_PORT
+            else:
+                guest_port = SSH_PORT
+
             migr_sec_group_name = self._get_unique_name()
             sec_group = nova.security_groups.create(
                 name=migr_sec_group_name, description=migr_sec_group_name)
             nova.security_group_rules.create(
                 sec_group.id,
                 ip_protocol="tcp",
-                from_port=SSH_PORT,
-                to_port=SSH_PORT)
+                from_port=guest_port,
+                to_port=guest_port)
             instance.add_security_group(sec_group.id)
 
             self._event_manager.progress_update(
                 "Waiting for connectivity on host: %(ip)s:%(port)s" %
-                {"ip": floating_ip.ip, "port": SSH_PORT})
+                {"ip": floating_ip.ip, "port": guest_port})
 
-            utils.wait_for_port_connectivity(floating_ip.ip, SSH_PORT)
+            utils.wait_for_port_connectivity(floating_ip.ip, guest_port)
+
+            if os_type == constants.OS_TYPE_WINDOWS:
+                password = self._get_instance_password(instance, k)
+            else:
+                password = None
 
             return _MigrationResources(nova, neutron, keypair, instance, port,
-                                       floating_ip, sec_group, k)
+                                       floating_ip, guest_port, sec_group,
+                                       username, password, k)
         except:
             if instance:
                 nova.servers.delete(instance)
@@ -302,6 +339,9 @@ class ImportProvider(base.BaseImportProvider):
         neutron = neutron_client.Client(NEUTRON_API_VERSION, session=session)
         cinder = cinder_client.Client(CINDER_API_VERSION, session=session)
 
+        os_type = export_info.get('os_type')
+        LOG.info("os_type: %s", os_type)
+
         glance_upload = target_environment.get(
             "glance_upload", CONF.openstack_migration_provider.glance_upload)
         target_disk_format = target_environment.get(
@@ -319,7 +359,9 @@ class ImportProvider(base.BaseImportProvider):
 
         migr_image_name = target_environment.get(
             "migr_image_name",
-            CONF.openstack_migration_provider.migr_image_name)
+            target_environment.get("migr_image_name_map", {}).get(os_type,
+                CONF.openstack_migration_provider.migr_image_name_map.get(
+                    os_type)))
         migr_flavor_name = target_environment.get(
             "migr_flavor_name",
             CONF.openstack_migration_provider.migr_flavor_name)
@@ -332,6 +374,12 @@ class ImportProvider(base.BaseImportProvider):
             CONF.openstack_migration_provider.migr_network_name)
 
         flavor_name = target_environment.get("flavor_name", migr_flavor_name)
+
+        if not migr_image_name:
+            raise exception.CoriolisException(
+                "No matching migration image type found")
+
+        LOG.info("Migration image name: %s", migr_image_name)
 
         if not migr_network_name:
             if len(network_map) != 1:
@@ -383,7 +431,7 @@ class ImportProvider(base.BaseImportProvider):
                 volumes.append(volume)
 
         migr_resources = self._deploy_migration_resources(
-            nova, glance, neutron, migr_image_name, migr_flavor_name,
+            nova, glance, neutron, os_type, migr_image_name, migr_flavor_name,
             migr_network_name, migr_fip_pool_name)
 
         nics_info = export_info["devices"].get("nics", [])
@@ -415,7 +463,7 @@ class ImportProvider(base.BaseImportProvider):
             self._event_manager.progress_update(
                 "Preparing instance for target platform")
             osmorphing_manager.morph_image(guest_conn_info,
-                                           export_info.get('os_type'),
+                                           os_type,
                                            hypervisor_type,
                                            constants.PLATFORM_OPENSTACK,
                                            volume_devs,

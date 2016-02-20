@@ -1,8 +1,11 @@
 import abc
 
+from oslo_log import log as logging
 import paramiko
 
 from coriolis import utils
+
+LOG = logging.getLogger(__name__)
 
 
 class BaseOSMountTools(object):
@@ -33,8 +36,7 @@ class BaseOSMountTools(object):
         pass
 
 
-class BaseSSHOSMountTools(object):
-
+class BaseSSHOSMountTools(BaseOSMountTools):
     def _connect(self, connection_info):
         ip = connection_info["ip"]
         port = connection_info.get("port", 22)
