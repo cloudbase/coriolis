@@ -80,7 +80,7 @@ class WSManConnection(object):
         else:
             cmd_fmt = "\"%s\""
 
-        std_out = self.exec_command("powershell.exe", [cmd_fmt % cmd])
+        self.exec_command("powershell.exe", [cmd_fmt % cmd])
 
         if not ignore_stdout:
             return self.exec_command("cmd.exe", ["/c", "type", "out.txt"])[:-2]

@@ -21,6 +21,8 @@ class WindowsMountTools(base.BaseOSMountTools):
         cert_key_pem = connection_info.get("cert_key_pem")
         url = "https://%s:%s/wsman" % (host, port)
 
+        LOG.info("Connection info: %s", str(connection_info))
+
         LOG.info("Waiting for connectivity on host: %(host)s:%(port)s",
                  {"host": host, "port": port})
         utils.wait_for_port_connectivity(host, port)
@@ -51,8 +53,15 @@ class WindowsMountTools(base.BaseOSMountTools):
             "Update-HostStorageCache", ignore_stdout=True)
 
     def _bring_all_disks_online(self):
+        LOG.info("Bringing offline disks online")
         self._conn.exec_ps_command(
             "Get-Disk |? IsOffline | Set-Disk -IsOffline $False",
+            ignore_stdout=True)
+
+    def _set_all_disks_rw_mode(self):
+        LOG.info("Setting RW mode on RO disks")
+        self._conn.exec_ps_command(
+            "Get-Disk |? IsReadOnly | Set-Disk -IsReadOnly $False",
             ignore_stdout=True)
 
     def _bring_disk_offline(self, drive_letter):
@@ -71,6 +80,7 @@ class WindowsMountTools(base.BaseOSMountTools):
     def mount_os(self, volume_devs):
         self._refresh_storage()
         self._bring_all_disks_online()
+        self._set_all_disks_rw_mode()
         fs_roots = self._get_fs_roots()
         system_drive = self._get_system_drive()
 

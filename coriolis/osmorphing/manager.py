@@ -2,7 +2,6 @@ from oslo_log import log as logging
 
 from coriolis.osmorphing import factory as osmorphing_factory
 from coriolis.osmorphing.osmount import factory as osmount_factory
-from coriolis import utils
 
 LOG = logging.getLogger(__name__)
 

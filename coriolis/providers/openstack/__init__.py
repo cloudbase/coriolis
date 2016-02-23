@@ -359,7 +359,8 @@ class ImportProvider(base.BaseImportProvider):
 
         migr_image_name = target_environment.get(
             "migr_image_name",
-            target_environment.get("migr_image_name_map", {}).get(os_type,
+            target_environment.get("migr_image_name_map", {}).get(
+                os_type,
                 CONF.openstack_migration_provider.migr_image_name_map.get(
                     os_type)))
         migr_flavor_name = target_environment.get(
