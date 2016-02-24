@@ -506,14 +506,12 @@ class ImportProvider(base.BaseImportProvider):
             "Creating migrated instance")
 
         instance = self._create_target_instance(
-            nova, flavor_name, instance_name, keypair_name, ports, volumes,
-            migr_image_name)
+            nova, flavor_name, instance_name, keypair_name, ports, volumes)
 
     @utils.retry_on_error()
     def _create_target_instance(self, nova, flavor_name, instance_name,
-                                keypair_name, ports, volumes, image_name):
+                                keypair_name, ports, volumes):
         flavor = nova.flavors.find(name=flavor_name)
-        image = nova.images.find(name=image_name)
 
         block_device_mapping = {}
         for i, volume in enumerate(volumes):
@@ -527,7 +525,7 @@ class ImportProvider(base.BaseImportProvider):
         LOG.info('Creating target instance...')
         instance = nova.servers.create(
             name=instance_name,
-            image=image,
+            image='',
             flavor=flavor,
             key_name=keypair_name,
             block_device_mapping=block_device_mapping,
