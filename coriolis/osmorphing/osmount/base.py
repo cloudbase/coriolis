@@ -28,7 +28,7 @@ class BaseOSMountTools(object):
         pass
 
     @abc.abstractmethod
-    def mount_os(self, volume_devs):
+    def mount_os(self):
         pass
 
     @abc.abstractmethod

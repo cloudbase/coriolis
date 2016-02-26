@@ -77,7 +77,7 @@ class WindowsMountTools(base.BaseOSMountTools):
         return self._conn.exec_ps_command(
             "(get-psdrive -PSProvider FileSystem).Root").split(self._conn.EOL)
 
-    def mount_os(self, volume_devs):
+    def mount_os(self):
         self._refresh_storage()
         self._bring_all_disks_online()
         self._set_all_disks_rw_mode()

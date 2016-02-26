@@ -325,7 +325,7 @@ class ImportProvider(base.BaseImportProvider):
             raise
 
     @utils.retry_on_error()
-    def _attach_volume(self, nova, instance, volume, volume_dev):
+    def _attach_volume(self, nova, instance, volume, volume_dev=None):
         nova.volumes.create_server_volume(
             instance.id, volume.id, volume_dev)
         self._wait_for_volume(nova, volume, 'in-use')
@@ -448,16 +448,8 @@ class ImportProvider(base.BaseImportProvider):
                 self._event_manager.progress_update(
                     "Attaching volume to worker instance")
 
-                # TODO: improve device assignment
-                if hypervisor_type == constants.HYPERVISOR_HYPERV:
-                    volume_dev_base = "/dev/sd%s"
-                else:
-                    volume_dev_base = "/dev/vd%s"
-
-                volume_dev = volume_dev_base % chr(ord('a') + i + 1)
-                volume_devs.append(volume_dev)
                 self._attach_volume(nova, migr_resources.get_instance(),
-                                    volume, volume_dev)
+                                    volume)
 
                 guest_conn_info = migr_resources.get_guest_connection_info()
 
@@ -467,7 +459,6 @@ class ImportProvider(base.BaseImportProvider):
                                            os_type,
                                            hypervisor_type,
                                            constants.PLATFORM_OPENSTACK,
-                                           volume_devs,
                                            nics_info,
                                            self._event_manager)
         finally:

@@ -1,9 +1,13 @@
 import os
 import re
 
+from oslo_log import log as logging
+
 from coriolis import exception
 from coriolis.osmorphing.osmount import base
 from coriolis import utils
+
+LOG = logging.getLogger(__name__)
 
 
 class UbuntuOSMountTools(base.BaseSSHOSMountTools):
@@ -27,18 +31,30 @@ class UbuntuOSMountTools(base.BaseSSHOSMountTools):
                 vg_names.append(m.groups()[0])
         return vg_names
 
-    def mount_os(self, volume_devs):
+    def _get_volume_block_devices(self):
+        volume_devs = self._exec_cmd(
+            "lsblk -lnao NAME").decode().split('\n')[:-1]
+        LOG.debug("All block devices: %s", str(volume_devs))
+
+        # Skip this instance's current root device (first in the list)
+        volume_devs = ["/dev/%s" % d for d in volume_devs if
+                       not re.match(r"^.*\d+$", d)][1:]
+        LOG.info("Volume block devices: %s", str(volume_devs))
+        return volume_devs
+
+    def mount_os(self):
         dev_paths = []
         other_mounted_dirs = []
-
-        for volume_dev in volume_devs:
-            self._exec_cmd("sudo partx -v -a %s || true" % volume_dev)
-            dev_paths += self._exec_cmd(
-                "sudo ls %s*" % volume_dev).decode().split('\n')[:-1]
 
         self._exec_cmd("sudo apt-get update -y")
         self._exec_cmd("sudo apt-get install lvm2 -y")
         self._exec_cmd("sudo modprobe dm-mod")
+
+        volume_devs = self._get_volume_block_devices()
+        for volume_dev in volume_devs:
+            self._exec_cmd("sudo partx -v -a %s || true" % volume_dev)
+            dev_paths += self._exec_cmd(
+                "sudo ls %s*" % volume_dev).decode().split('\n')[:-1]
 
         for vg_name in self._get_vgnames():
             self._exec_cmd("sudo vgchange -ay %s" % vg_name)
@@ -68,12 +84,14 @@ class UbuntuOSMountTools(base.BaseSSHOSMountTools):
             if (not os_root_dir and 'etc' in dirs and 'bin' in dirs and
                     'sbin' in dirs):
                 os_root_dir = tmp_dir
+                LOG.info("OS root device: %s", dev_path)
             # TODO: better ways to check for a linux boot dir?
             else:
                 # TODO: better ways to check for a linux boot dir?
                 if not boot_dev_path and ('grub' in dirs or 'grub2' in dirs):
                     # Needs to be remounted under os_root_dir
                     boot_dev_path = dev_path
+                    LOG.info("OS boot device: %s", dev_path)
 
                 self._exec_cmd('sudo umount %s' % tmp_dir)
 
