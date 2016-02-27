@@ -1,9 +1,13 @@
 import itertools
 
+from oslo_log import log as logging
+
 from coriolis import constants
 from coriolis import exception
 from coriolis.osmorphing.osmount import ubuntu
 from coriolis.osmorphing.osmount import windows
+
+LOG = logging.getLogger(__name__)
 
 
 def get_os_mount_tools(os_type, connection_info, event_manager):
@@ -16,6 +20,7 @@ def get_os_mount_tools(os_type, connection_info, event_manager):
     for cls in os_mount_tools.get(os_type,
                                   itertools.chain(*os_mount_tools.values())):
         tools = cls(connection_info, event_manager)
+        LOG.debug("Testing OS mount tools: %s", cls.__name__)
         if tools.check_os():
             return tools
     raise exception.CoriolisException("OS mount tools not found")

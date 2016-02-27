@@ -1,11 +1,15 @@
 import itertools
 
+from oslo_log import log as logging
+
 from coriolis import constants
 from coriolis import exception
 from coriolis.osmorphing import debian
 from coriolis.osmorphing import redhat
 from coriolis.osmorphing import ubuntu
 from coriolis.osmorphing import windows
+
+LOG = logging.getLogger(__name__)
 
 
 def get_os_morphing_tools(conn, os_type, os_root_dir, target_hypervisor,
@@ -24,6 +28,7 @@ def get_os_morphing_tools(conn, os_type, os_root_dir, target_hypervisor,
             os_type, itertools.chain(*os_morphing_tools_clss.values())):
         tools = cls(conn, os_root_dir, target_hypervisor, target_platform,
                     event_manager)
+        LOG.debug("Testing OS morphing tools: %s", cls.__name__)
         os_info = tools.check_os()
         if os_info:
             return (tools, os_info)

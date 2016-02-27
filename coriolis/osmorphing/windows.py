@@ -31,8 +31,8 @@ class WindowsMorphingTools(base.BaseOSMorphingTools):
              self._installation_type,
              self._product_name) = self._get_image_version_info()
             return ('Windows', self._product_name)
-        except exception.CoriolisException:
-            pass
+        except exception.CoriolisException as ex:
+            LOG.debug("Exception during OS detection: %s", ex)
 
     def pre_packages_install(self):
         if (not self._hypervisor or
