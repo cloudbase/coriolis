@@ -393,7 +393,6 @@ class ImportProvider(base.BaseImportProvider):
 
         images = []
         volumes = []
-        volume_devs = []
 
         if glance_upload:
             for disk_info in disks_info:
@@ -496,7 +495,7 @@ class ImportProvider(base.BaseImportProvider):
         self._event_manager.progress_update(
             "Creating migrated instance")
 
-        instance = self._create_target_instance(
+        self._create_target_instance(
             nova, flavor_name, instance_name, keypair_name, ports, volumes)
 
     @utils.retry_on_error()
