@@ -49,6 +49,21 @@ class WindowsMorphingTools(base.BaseOSMorphingTools):
     def _get_dism_path(self):
         return "c:\\Windows\\System32\\dism.exe"
 
+    def _get_sid(self):
+        sid = self._conn.exec_ps_command(
+            "(New-Object System.Security.Principal.NTAccount($ENV:USERNAME))."
+            "Translate([System.Security.Principal.SecurityIdentifier]).Value")
+        LOG.debug("Current user's SID: %s", sid)
+        return sid
+
+    def _grant_permissions(self, path, user, perm="(OI)(CI)F"):
+        self._conn.exec_command(
+            "icacls.exe", [path, "/grant", "%s:%s" % (user, perm)])
+
+    def _revoke_permissions(self, path, user):
+        self._conn.exec_command(
+            "icacls.exe", [path, "/remove", user])
+
     def _load_registry_hive(self, subkey, path):
         self._conn.exec_command("reg.exe", ["load", subkey, path])
 
@@ -174,9 +189,18 @@ class WindowsMorphingTools(base.BaseOSMorphingTools):
             driver_paths = ["%s:\\%s\\%s\\%s" % (
                             virtio_drive, d, virtio_dir, arch)
                             for d in drivers]
-            for driver_path in driver_paths:
-                if self._conn.test_path(driver_path):
-                    self._add_dism_driver(driver_path)
+
+            sid = self._get_sid()
+            # Fails on Nano Server without explicitly granting permissions
+            file_repo_path = ("%sWindows\System32\DriverStore\FileRepository" %
+                              self._os_root_dir)
+            self._grant_permissions(file_repo_path, "*%s" % sid)
+            try:
+                for driver_path in driver_paths:
+                    if self._conn.test_path(driver_path):
+                        self._add_dism_driver(driver_path)
+            finally:
+                self._revoke_permissions(file_repo_path, "*%s" % sid)
         finally:
             self._dismount_disk_image(virtio_iso_path)
 
