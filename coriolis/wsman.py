@@ -16,7 +16,6 @@ LOG = logging.getLogger(__name__)
 class WSManConnection(object):
     def __init__(self):
         self._protocol = None
-        self._shell_id = None
 
     EOL = "\r\n"
 
@@ -43,23 +42,25 @@ class WSManConnection(object):
             cert_pem=cert_pem,
             cert_key_pem=cert_key_pem)
 
-        self._shell_id = self._protocol.open_shell(codepage=CODEPAGE_UTF8)
-
     def disconnect(self):
-        self._protocol.close_shell(self._shell_id)
-        self._shell_id = None
         self._protocol = None
 
     @utils.retry_on_error()
     def _exec_command(self, cmd, args=[]):
-        command_id = self._protocol.run_command(self._shell_id, cmd, args)
+        shell_id = self._protocol.open_shell(codepage=CODEPAGE_UTF8)
         try:
-            std_out, std_err, exit_code = self._protocol.get_command_output(
-                self._shell_id, command_id)
-        finally:
-            self._protocol.cleanup_command(self._shell_id, command_id)
+            command_id = self._protocol.run_command(shell_id, cmd, args)
+            try:
+                (std_out,
+                 std_err,
+                 exit_code) = self._protocol.get_command_output(
+                    shell_id, command_id)
+            finally:
+                self._protocol.cleanup_command(shell_id, command_id)
 
-        return (std_out, std_err, exit_code)
+            return (std_out, std_err, exit_code)
+        finally:
+            self._protocol.close_shell(shell_id)
 
     def exec_command(self, cmd, args=[]):
         LOG.debug("Executing WSMAN command: %s", str([cmd] + args))
