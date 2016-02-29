@@ -15,12 +15,27 @@ opts = [
                default='https://fedorapeople.org/groups/virt/virtio-win/'
                'direct-downloads/stable-virtio/virtio-win.iso',
                help="Location of the virtio-win ISO"),
+    cfg.StrOpt('cloudbaseinit_x64_url',
+               default="https://www.cloudbase.it/downloads/"
+               "CloudbaseInitSetup_x64.zip",
+               help="Location of the Cloudbase-Init ZIP for amd64 systems"),
+    cfg.StrOpt('cloudbaseinit_x86_url',
+               default="https://www.cloudbase.it/downloads/"
+               "CloudbaseInitSetup_x86.zip",
+               help="Location of the Cloudbase-Init ZIP for amd64 systems"),
 ]
 
 CONF = cfg.CONF
 CONF.register_opts(opts, 'windows_images')
 
 LOG = logging.getLogger(__name__)
+
+SERVICE_START_AUTO = 2
+SERVICE_START_MANUAL = 3
+SERVICE_START_DISABLED = 4
+
+SERVICE_PATH_FORMAT = "HKLM:\\%s\\ControlSet001\\Services\\%s"
+CLOUDBASEINIT_SERVICE_NAME = "cloudbase-init"
 
 
 class WindowsMorphingTools(base.BaseOSMorphingTools):
@@ -41,6 +56,8 @@ class WindowsMorphingTools(base.BaseOSMorphingTools):
 
         if self._platform == constants.PLATFORM_OPENSTACK:
             self._add_cloudbase_init()
+        else:
+            self._disable_cloudbase_init()
 
     def set_net_config(self, nics_info, dhcp):
         # TODO: implement
@@ -204,5 +221,176 @@ class WindowsMorphingTools(base.BaseOSMorphingTools):
         finally:
             self._dismount_disk_image(virtio_iso_path)
 
+    def _expand_archive(self, path, destination):
+        LOG.info("Expanding archive \"%(path)s\" in \"%(destination)s\"",
+                 {"path": path, "destination": destination})
+        self._conn.exec_ps_command(
+            "if(([System.Management.Automation.PSTypeName]"
+            "'System.IO.Compression.ZipFile').Type -or "
+            "[System.Reflection.Assembly]::LoadWithPartialName("
+            "'System.IO.Compression.FileSystem')) {"
+            "[System.IO.Compression.ZipFile]::ExtractToDirectory('%(path)s', "
+            "'%(destination)s')} else {mkdir -Force '%(destination)s'; "
+            "$shell = New-Object -ComObject Shell.Application;"
+            "$shell.Namespace('%(destination)s').copyhere(($shell.NameSpace("
+            "'%(path)s')).items())}" %
+            {"path": path, "destination": destination},
+            ignore_stdout=True)
+
+    def _set_service_start_mode(self, key_name, service_name, start_mode):
+        LOG.info("Setting service start mode: %(service_name)s, "
+                 "%(start_mode)s", {"service_name": service_name,
+                                    "start_mode": start_mode})
+        registry_path = SERVICE_PATH_FORMAT % (key_name, service_name)
+        self._conn.exec_ps_command(
+            "Set-ItemProperty -Path '%(path)s' -Name 'Start' -Value "
+            "%(start_mode)s" %
+            {"path": registry_path, "start_mode": start_mode})
+
+    def _create_service(self, key_name, service_name, image_path,
+                        display_name, description,
+                        start_mode=SERVICE_START_AUTO,
+                        service_account="LocalSystem",
+                        depends_on=[]):
+        LOG.info("Creating service: %s", service_name)
+        registry_path = SERVICE_PATH_FORMAT % (key_name, service_name)
+        depends_on_ps = "@(%s)" % (",".join(["'%s'" % v for v in depends_on]))
+
+        self._conn.exec_ps_command(
+            "$ErrorActionPreference = 'Stop';"
+            "New-Item -Path '%(path)s' -Force;"
+            "New-ItemProperty -Path '%(path)s' -Name 'ImagePath' -Value "
+            "'%(image_path)s' -Type ExpandString -Force;"
+            "New-ItemProperty -Path '%(path)s' -Name 'DisplayName' -Value "
+            "'%(display_name)s' -Type String -Force;"
+            "New-ItemProperty -Path '%(path)s' -Name 'Description' -Value "
+            "'%(description)s' -Type String -Force;"
+            "New-ItemProperty -Path '%(path)s' -Name 'DependOnService' -Value "
+            "%(depends_on)s -Type MultiString -Force;"
+            "New-ItemProperty -Path '%(path)s' -Name 'ObjectName' -Value "
+            "'%(service_account)s' -Type String -Force;"
+            "New-ItemProperty -Path '%(path)s' -Name 'Start' -Value "
+            "%(start_mode)s -Type DWord -Force;"
+            "New-ItemProperty -Path '%(path)s' -Name 'Type' -Value "
+            "16 -Type DWord -Force;"
+            "New-ItemProperty -Path '%(path)s' -Name 'ErrorControl' -Value "
+            "0 -Type DWord -Force" %
+            {"path": registry_path,
+             "image_path": image_path,
+             "display_name": display_name,
+             "description": description,
+             "depends_on": depends_on_ps,
+             "service_account": service_account,
+             "start_mode": start_mode},
+            ignore_stdout=True)
+
+    def _write_cloudbase_init_conf(self, cloudbaseinit_base_dir,
+                                   local_base_dir, com_port="COM1"):
+        LOG.info("Writing Cloudbase-Init configuration files")
+        conf_dir = "%s\\conf" % cloudbaseinit_base_dir
+        self._conn.exec_ps_command("mkdir '%s' -Force" % conf_dir,
+                                   ignore_stdout=True)
+
+        conf_file_path = "%s\\cloudbase-init.conf" % conf_dir
+
+        conf_content = (
+            "[DEFAULT]\n"
+            "username = Admin\n"
+            "groups = Administrators\n"
+            "inject_user_password = true\n"
+            "config_drive_raw_hhd = true\n"
+            "config_drive_cdrom = true\n"
+            "config_drive_vfat = true\n"
+            "bsdtar_path = %(bin_path)s\\bsdtar.exe\n"
+            "mtools_path = %(bin_path)s\n"
+            "logdir = %(log_path)s\n"
+            "logfile = cloudbase-init.log\n"
+            "default_log_levels = "
+            "comtypes=INFO,suds=INFO,iso8601=WARN,requests=WARN\n"
+            "mtu_use_dhcp_config = true\n"
+            "ntp_use_dhcp_config = true\n"
+            "allow_reboot = true\n"
+            "debug = true\n"
+            "logging_serial_port_settings = %(com_port)s,115200,N,8\n" %
+            {"bin_path": "%s\\Bin" % local_base_dir,
+             "log_path": "%s\\Log" % local_base_dir,
+             "com_port": com_port})
+
+        self._conn.write_file(conf_file_path, conf_content.encode())
+
+    def _check_cloudbase_init_exists(self, key_name):
+        reg_service_path = (SERVICE_PATH_FORMAT %
+                            (key_name, CLOUDBASEINIT_SERVICE_NAME))
+        return self._conn.exec_ps_command(
+            "Test-Path %s" % reg_service_path) == "True"
+
+    def _disable_cloudbase_init(self):
+        key_name = str(uuid.uuid4())
+        self._load_registry_hive(
+            "HKLM\%s" % key_name,
+            "%sWindows\\System32\\config\\SYSTEM" % self._os_root_dir)
+        try:
+            if self._check_cloudbase_init_exists(key_name):
+                self._event_manager.progress_update(
+                    "Disabling cloudbase-init")
+                self._set_service_start_mode(
+                    key_name, CLOUDBASEINIT_SERVICE_NAME,
+                    SERVICE_START_DISABLED)
+        finally:
+            self._unload_registry_hive("HKLM\%s" % key_name)
+
     def _add_cloudbase_init(self):
+        # TODO: add support for x86
+        arch = "amd64"
+        arch_url_map = {"amd64": CONF.windows_images.cloudbaseinit_x64_url,
+                        "x86": CONF.windows_images.cloudbaseinit_x86_url}
+
         self._event_manager.progress_update("Adding cloudbase-init")
+
+        key_name = str(uuid.uuid4())
+        self._load_registry_hive(
+            "HKLM\%s" % key_name,
+            "%sWindows\\System32\\config\\SYSTEM" % self._os_root_dir)
+        try:
+            if self._check_cloudbase_init_exists(key_name):
+                self._event_manager.progress_update(
+                    "Enabling cloudbase-init")
+                self._set_service_start_mode(
+                    key_name, CLOUDBASEINIT_SERVICE_NAME, SERVICE_START_AUTO)
+            else:
+                cloudbaseinit_zip_path = "c:\\cloudbaseinit.zip"
+                cloudbaseinit_base_dir = "%sCloudbase-Init" % self._os_root_dir
+
+                self._event_manager.progress_update(
+                    "Downloading cloudbase-init")
+                self._conn.download_file(arch_url_map[arch],
+                                         cloudbaseinit_zip_path)
+
+                self._event_manager.progress_update(
+                    "Installing cloudbase-init")
+                self._expand_archive(cloudbaseinit_zip_path,
+                                     cloudbaseinit_base_dir)
+
+                log_dir = "%s\\Log" % cloudbaseinit_base_dir
+                self._conn.exec_ps_command("mkdir '%s' -Force" % log_dir,
+                                           ignore_stdout=True)
+
+                local_base_dir = "C%s" % cloudbaseinit_base_dir[1:]
+                self._write_cloudbase_init_conf(
+                    cloudbaseinit_base_dir, local_base_dir)
+
+                image_path = (
+                    '""""%(path)s\\Bin\\OpenStackService.exe"""" '
+                    'cloudbase-init """"%(path)s\\Python\\Python.exe"""" -c '
+                    '""""from cloudbaseinit import shell;shell.main()"""" '
+                    '--config-file """"%(path)s\\conf\\cloudbase-init.conf""""'
+                    % {'path': local_base_dir})
+
+                self._create_service(
+                    key_name=key_name,
+                    service_name=CLOUDBASEINIT_SERVICE_NAME,
+                    image_path=image_path,
+                    display_name="Cloud Initialization Service",
+                    description="Service wrapper for cloudbase-init")
+        finally:
+            self._unload_registry_hive("HKLM\%s" % key_name)

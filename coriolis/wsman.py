@@ -1,3 +1,5 @@
+import base64
+
 from oslo_log import log as logging
 from winrm import protocol
 
@@ -103,4 +105,10 @@ class WSManConnection(object):
             "GetStreamAsync('%(url)s').Result.CopyTo("
             "(New-Object IO.FileStream '%(outfile)s', Create, Write, None), "
             "1MB)" % {"url": url, "outfile": remote_path},
+            ignore_stdout=True)
+
+    def write_file(self, remote_path, content):
+        self.exec_ps_command(
+            "[IO.File]::WriteAllBytes('%s', [Convert]::FromBase64String('%s'))"
+            % (remote_path, base64.b64encode(content).decode()),
             ignore_stdout=True)
