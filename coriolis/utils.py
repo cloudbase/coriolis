@@ -19,13 +19,13 @@ opts = [
 ]
 
 CONF = cfg.CONF
+logging.register_options(CONF)
 CONF.register_opts(opts)
 
 LOG = logging.getLogger(__name__)
 
 
 def setup_logging():
-    logging.register_options(CONF)
     logging.setup(CONF, 'coriolis')
 
 

@@ -13,9 +13,9 @@ CONF = cfg.CONF
 
 
 def main():
-    utils.setup_logging()
     CONF(sys.argv[1:], project='coriolis',
          version="1.0.0")
+    utils.setup_logging()
 
     launcher = service.get_process_launcher()
     server = service.MessagingService(
