@@ -20,7 +20,8 @@ class WorkerClient(object):
 
     def cancel_task(self, ctxt, server, process_id):
         # Needs to be executed on the same server
-        cctxt = self._client.prepare(server=server)
+        cctxt = self._client.prepare(server=server,
+                                     topic="coriolis_worker_delete_task")
         cctxt.call(ctxt, 'cancel_task', process_id=process_id)
 
     def update_migration_status(self, ctxt, task_id, status):
