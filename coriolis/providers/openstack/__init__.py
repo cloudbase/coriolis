@@ -452,11 +452,14 @@ class ImportProvider(base.BaseImportProvider):
 
                 guest_conn_info = migr_resources.get_guest_connection_info()
 
+            osmorphing_hypervisor_type = self._get_osmorphing_hypervisor_type(
+                hypervisor_type)
+
             self._event_manager.progress_update(
                 "Preparing instance for target platform")
             osmorphing_manager.morph_image(guest_conn_info,
                                            os_type,
-                                           hypervisor_type,
+                                           osmorphing_hypervisor_type,
                                            constants.PLATFORM_OPENSTACK,
                                            nics_info,
                                            self._event_manager)
@@ -497,6 +500,13 @@ class ImportProvider(base.BaseImportProvider):
 
         self._create_target_instance(
             nova, flavor_name, instance_name, keypair_name, ports, volumes)
+
+    def _get_osmorphing_hypervisor_type(self, hypervisor_type):
+        if (hypervisor_type and
+                hypervisor_type.lower() == constants.HYPERVISOR_QEMU):
+            return constants.HYPERVISOR_KVM
+        elif hypervisor_type:
+            return hypervisor_type.lower()
 
     @utils.retry_on_error()
     def _create_target_instance(self, nova, flavor_name, instance_name,
