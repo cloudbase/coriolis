@@ -22,13 +22,6 @@ def main():
         'coriolis_worker', [rpc_server.WorkerServerEndpoint()],
         rpc_server.VERSION)
     launcher.launch_service(server, workers=server.get_workers_count())
-
-    # Use separate workers to kill tasks
-    server_delete_task = service.MessagingService(
-        'coriolis_worker_delete_task', [rpc_server.WorkerServerEndpoint()],
-        rpc_server.VERSION)
-    launcher.launch_service(server_delete_task,
-                            workers=server.get_workers_count())
     launcher.wait()
 
 
