@@ -62,7 +62,7 @@ class UbuntuOSMountTools(base.BaseSSHOSMountTools):
                 "sudo ls /dev/%s/*" % vg_name).decode().split('\n')[:-1]
             dev_paths += lvm_dev_paths
 
-        valid_filesystems = ['ext2', 'ext3', 'ext4', 'xfs']
+        valid_filesystems = ['ext2', 'ext3', 'ext4', 'xfs', 'btrfs']
 
         dev_paths_to_mount = []
         for dev_path in dev_paths:

@@ -1,6 +1,7 @@
 import abc
 import itertools
 import os
+import re
 import uuid
 
 from coriolis import utils
@@ -110,3 +111,25 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         self._write_file(tmp_file, content)
         self._exec_cmd_chroot("cp /%s /%s" % (tmp_file, chroot_path))
         self._exec_cmd_chroot("rm /%s" % tmp_file)
+
+    def _enable_systemd_service(self, service_name):
+        self._exec_cmd_chroot("systemctl enable %s.service" % service_name)
+
+    def _get_os_release(self):
+        return self._read_config_file("etc/os-release", check_exists=True)
+
+    def _read_config_file(self, chroot_path, check_exists=False):
+        if not check_exists or self._test_path(chroot_path):
+            content = self._read_file(chroot_path).decode()
+            return self._get_config(content)
+        else:
+            return {}
+
+    def _get_config(self, config_content):
+        config = {}
+        for config_line in config_content.split('\n'):
+            m = re.match('(.*)="?([^"]*)"?', config_line)
+            if m:
+                name, value = m.groups()
+                config[name] = value
+        return config

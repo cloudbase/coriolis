@@ -79,9 +79,6 @@ class RedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         except:
             return False
 
-    def _enable_systemd_service(self, service_name):
-        self._exec_cmd_chroot("systemctl enable %s.service" % service_name)
-
     def _set_dhcp_net_config(self, ifcfgs_ethernet):
         for ifcfg_file, ifcfg in ifcfgs_ethernet:
             if ifcfg.get("BOOTPROTO") == "none":
@@ -181,13 +178,6 @@ class RedHatMorphingTools(base.BaseLinuxOSMorphingTools):
                 not self._test_path(udev_file)):
             self._write_file_sudo(udev_file, content)
 
-    def _read_config_file(self, chroot_path, check_exists=False):
-        if not check_exists or self._test_path(chroot_path):
-            content = self._read_file(chroot_path).decode()
-            return self._get_config(content)
-        else:
-            return {}
-
     def _write_config_file(self, chroot_path, config_data):
         content = self._get_config_file_content(config_data)
         self._write_file_sudo(chroot_path, content)
@@ -195,15 +185,6 @@ class RedHatMorphingTools(base.BaseLinuxOSMorphingTools):
     def _get_config_file_content(self, config):
         return "%s\n" % "\n".join(
             ['%s="%s"' % (k, v) for k, v in config.items()])
-
-    def _get_config(self, config_content):
-        config = {}
-        for config_line in config_content.split('\n'):
-            m = re.match('(.*)="?([^"]*)"?', config_line)
-            if m:
-                name, value = m.groups()
-                config[name] = value
-        return config
 
     def _get_net_config_files(self):
         dir_content = self._list_dir(self._NETWORK_SCRIPTS_PATH)
