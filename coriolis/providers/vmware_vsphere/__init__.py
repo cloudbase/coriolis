@@ -95,12 +95,15 @@ class ExportProvider(base.BaseExportProvider):
             power_off = True
             if (vm.guest.toolsRunningStatus !=
                     vim.vm.GuestInfo.ToolsRunningStatus.guestToolsNotRunning):
+                self._event_manager.progress_update("Shutting down guest OS")
                 vm.ShutdownGuest()
                 if self._wait_for_vm_status(
                         vm, vim.VirtualMachinePowerState.poweredOff):
                     power_off = False
 
             if power_off:
+                self._event_manager.progress_update(
+                    "Powering off the virtual machine")
                 task = vm.PowerOff()
                 self._wait_for_task(task)
 
@@ -266,7 +269,8 @@ class ExportProvider(base.BaseExportProvider):
         self._event_manager.progress_update("Connecting to vSphere host")
         si = self._connect(host, username, password, port, context)
         try:
-            self._event_manager.progress_update("Getting VM info")
+            self._event_manager.progress_update(
+                "Retrieving virtual machine data")
             vm_info, vm = self._get_vm_info(si, instance_name)
             self._event_manager.progress_update("Exporting disks")
             disk_paths = self._export_disks(vm, export_path, context)
