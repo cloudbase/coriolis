@@ -393,113 +393,135 @@ class ImportProvider(base.BaseImportProvider):
 
         images = []
         volumes = []
-
-        if glance_upload:
-            for disk_info in disks_info:
-                disk_path = disk_info["path"]
-                disk_file_info = utils.get_disk_info(disk_path)
-
-                # if target_disk_format == disk_file_info["format"]:
-                #    target_disk_path = disk_path
-                # else:
-                #    target_disk_path = (
-                #        "%s.%s" % (os.path.splitext(disk_path)[0],
-                #                   target_disk_format))
-                #    utils.convert_disk_format(disk_path, target_disk_path,
-                #                              target_disk_format)
-
-                self._event_manager.progress_update("Uploading Glance image")
-
-                disk_format = disk_file_info["format"]
-                image = self._create_image(
-                    glance, self._get_unique_name(),
-                    disk_path, disk_format,
-                    container_format, hypervisor_type)
-                images.append(image)
-
-                virtual_disk_size = disk_file_info["virtual-size"]
-                if disk_format != constants.DISK_FORMAT_RAW:
-                    virtual_disk_size += DISK_HEADER_SIZE
-
-                self._event_manager.progress_update("Creating Cinder volume")
-
-                volume_size_gb = math.ceil(virtual_disk_size / units.Gi)
-                volume = nova.volumes.create(
-                    size=volume_size_gb,
-                    display_name=self._get_unique_name(),
-                    imageRef=image.id)
-                volumes.append(volume)
-
-        migr_resources = self._deploy_migration_resources(
-            nova, glance, neutron, os_type, migr_image_name, migr_flavor_name,
-            migr_network_name, migr_fip_pool_name)
-
-        nics_info = export_info["devices"].get("nics", [])
+        ports = []
 
         try:
-            for i, volume in enumerate(volumes):
-                self._wait_for_volume(nova, volume, 'available')
+            if glance_upload:
+                for disk_info in disks_info:
+                    disk_path = disk_info["path"]
+                    disk_file_info = utils.get_disk_info(disk_path)
 
-                self._event_manager.progress_update("Deleting Glance image")
+                    # if target_disk_format == disk_file_info["format"]:
+                    #    target_disk_path = disk_path
+                    # else:
+                    #    target_disk_path = (
+                    #        "%s.%s" % (os.path.splitext(disk_path)[0],
+                    #                   target_disk_format))
+                    #    utils.convert_disk_format(disk_path, target_disk_path,
+                    #                              target_disk_format)
 
-                glance.images.delete(images[i].id)
+                    self._event_manager.progress_update(
+                        "Uploading Glance image")
+
+                    disk_format = disk_file_info["format"]
+                    image = self._create_image(
+                        glance, self._get_unique_name(),
+                        disk_path, disk_format,
+                        container_format, hypervisor_type)
+                    images.append(image)
+
+                    virtual_disk_size = disk_file_info["virtual-size"]
+                    if disk_format != constants.DISK_FORMAT_RAW:
+                        virtual_disk_size += DISK_HEADER_SIZE
+
+                    self._event_manager.progress_update(
+                        "Creating Cinder volume")
+
+                    volume_size_gb = math.ceil(virtual_disk_size / units.Gi)
+                    volume = nova.volumes.create(
+                        size=volume_size_gb,
+                        display_name=self._get_unique_name(),
+                        imageRef=image.id)
+                    volumes.append(volume)
+
+            migr_resources = self._deploy_migration_resources(
+                nova, glance, neutron, os_type, migr_image_name,
+                migr_flavor_name, migr_network_name, migr_fip_pool_name)
+
+            nics_info = export_info["devices"].get("nics", [])
+
+            try:
+                for i, volume in enumerate(volumes):
+                    self._wait_for_volume(nova, volume, 'available')
+
+                    self._event_manager.progress_update(
+                        "Attaching volume to worker instance")
+
+                    self._attach_volume(nova, migr_resources.get_instance(),
+                                        volume)
+
+                    conn_info = migr_resources.get_guest_connection_info()
+
+                osmorphing_hv_type = self._get_osmorphing_hypervisor_type(
+                    hypervisor_type)
 
                 self._event_manager.progress_update(
-                    "Attaching volume to worker instance")
+                    "Preparing instance for target platform")
+                osmorphing_manager.morph_image(conn_info,
+                                               os_type,
+                                               osmorphing_hv_type,
+                                               constants.PLATFORM_OPENSTACK,
+                                               nics_info,
+                                               self._event_manager)
+            finally:
+                self._event_manager.progress_update(
+                    "Removing worker instance resources")
+                migr_resources.delete()
 
-                self._attach_volume(nova, migr_resources.get_instance(),
-                                    volume)
+            self._event_manager.progress_update("Renaming volumes")
 
-                guest_conn_info = migr_resources.get_guest_connection_info()
+            for i, volume in enumerate(volumes):
+                new_volume_name = "%s %s" % (instance_name, i + 1)
+                cinder.volumes.update(volume.id, name=new_volume_name)
 
-            osmorphing_hypervisor_type = self._get_osmorphing_hypervisor_type(
-                hypervisor_type)
+            for nic_info in nics_info:
+                self._event_manager.progress_update(
+                    "Creating Neutron port for migrated instance")
+
+                origin_network_name = nic_info.get("network_name")
+                if not origin_network_name:
+                    self._warn("Origin network name not provided for for nic: "
+                               "%s, skipping", nic_info.get("name"))
+                    continue
+
+                network_name = network_map.get(origin_network_name)
+                if not network_name:
+                    raise exception.CoriolisException(
+                        "Network not mapped in network_map: %s" %
+                        origin_network_name)
+
+                ports.append(self._create_neutron_port(
+                    neutron, network_name, nic_info.get("mac_address")))
 
             self._event_manager.progress_update(
-                "Preparing instance for target platform")
-            osmorphing_manager.morph_image(guest_conn_info,
-                                           os_type,
-                                           osmorphing_hypervisor_type,
-                                           constants.PLATFORM_OPENSTACK,
-                                           nics_info,
-                                           self._event_manager)
+                "Creating migrated instance")
+
+            self._create_target_instance(
+                nova, flavor_name, instance_name, keypair_name, ports, volumes)
+        except Exception:
+            self._event_manager.progress_update("Deleting volumes")
+            for volume in volumes:
+                @utils.ignore_exceptions
+                @utils.retry_on_error()
+                def _del_volume():
+                    volume.delete()
+                _del_volume()
+            self._event_manager.progress_update("Deleting Neutron ports")
+            for port in ports:
+                @utils.ignore_exceptions
+                @utils.retry_on_error()
+                def _del_port():
+                    neutron.delete_port(port["id"])
+                _del_port()
+            raise
         finally:
-            self._event_manager.progress_update(
-                "Removing worker instance resources")
-
-            migr_resources.delete()
-
-        self._event_manager.progress_update("Renaming volumes")
-
-        for i, volume in enumerate(volumes):
-            new_volume_name = "%s %s" % (instance_name, i + 1)
-            cinder.volumes.update(volume.id, name=new_volume_name)
-
-        ports = []
-        for nic_info in nics_info:
-            self._event_manager.progress_update(
-                "Creating Neutron port for migrated instance")
-
-            origin_network_name = nic_info.get("network_name")
-            if not origin_network_name:
-                self._warn("Origin network name not provided for for nic: %s, "
-                           "skipping", nic_info.get("name"))
-                continue
-
-            network_name = network_map.get(origin_network_name)
-            if not network_name:
-                raise exception.CoriolisException(
-                    "Network not mapped in network_map: %s" %
-                    origin_network_name)
-
-            ports.append(self._create_neutron_port(
-                neutron, network_name, nic_info.get("mac_address")))
-
-        self._event_manager.progress_update(
-            "Creating migrated instance")
-
-        self._create_target_instance(
-            nova, flavor_name, instance_name, keypair_name, ports, volumes)
+            self._event_manager.progress_update("Deleting Glance images")
+            for image in images:
+                @utils.ignore_exceptions
+                @utils.retry_on_error()
+                def _del_image():
+                    image.delete()
+                _del_image()
 
     def _get_osmorphing_hypervisor_type(self, hypervisor_type):
         if (hypervisor_type and

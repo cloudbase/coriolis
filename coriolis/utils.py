@@ -29,6 +29,16 @@ def setup_logging():
     logging.setup(CONF, 'coriolis')
 
 
+def ignore_exceptions(func):
+    @functools.wraps(func)
+    def _ignore_exceptions(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as ex:
+            LOG.exception(ex)
+    return _ignore_exceptions
+
+
 def retry_on_error(max_attempts=5, sleep_seconds=0):
     def _retry_on_error(func):
         @functools.wraps(func)
