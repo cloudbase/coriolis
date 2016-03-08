@@ -21,7 +21,7 @@ class ConductorServerEndpoint(object):
         return db_api.get_migrations(ctxt, include_tasks)
 
     def get_migration(self, ctxt, migration_id):
-        return db_api.get_migration(ctxt, migration_id)
+        return self._get_migration(ctxt, migration_id)
 
     def migrate_instances(self, ctxt, origin, destination, instances):
         migration = models.Migration()
@@ -65,21 +65,21 @@ class ConductorServerEndpoint(object):
     def _get_migration(self, ctxt, migration_id):
         migration = db_api.get_migration(ctxt, migration_id)
         if not migration:
-            raise exception.NotFound("Migration not found: %s" % migration_id)
+            raise exception.NotFound("Migration not found")
         return migration
 
     def delete_migration(self, ctxt, migration_id):
         migration = self._get_migration(ctxt, migration_id)
         if migration.status == constants.MIGRATION_STATUS_RUNNING:
-            raise exception.CoriolisException(
+            raise exception.InvalidMigrationState(
                 "Cannot delete a running migration")
         db_api.delete_migration(ctxt, migration_id)
 
     def cancel_migration(self, ctxt, migration_id):
         migration = self._get_migration(ctxt, migration_id)
         if migration.status != constants.MIGRATION_STATUS_RUNNING:
-            raise exception.InvalidParameterValue(
-                "The migration is not running: %s" % migration_id)
+            raise exception.InvalidMigrationState(
+                "The migration is not running")
 
         has_running_tasks = False
         for task in migration.tasks:

@@ -166,6 +166,10 @@ class InvalidConfigurationValue(Invalid):
                 'configuration option "%(option)s"')
 
 
+class InvalidMigrationState(Invalid):
+    message = _("Invalid migration state: %(reason)s")
+
+
 class ServiceUnavailable(Invalid):
     message = _("Service is unavailable at this time.")
 
