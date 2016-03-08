@@ -74,7 +74,6 @@ class CoriolisException(Exception):
 
     def __init__(self, message=None, **kwargs):
         self.kwargs = kwargs
-        self.kwargs['message'] = message
 
         if 'code' not in self.kwargs:
             try:
@@ -86,7 +85,7 @@ class CoriolisException(Exception):
             if isinstance(v, Exception):
                 self.kwargs[k] = six.text_type(v)
 
-        if self._should_format():
+        if self._should_format(message):
             try:
                 message = self.message % kwargs
 
@@ -111,8 +110,8 @@ class CoriolisException(Exception):
         self.msg = message
         super(CoriolisException, self).__init__(message)
 
-    def _should_format(self):
-        return self.kwargs['message'] is None or '%(message)' in self.message
+    def _should_format(self, message):
+        return message is None or '%(message)' in self.message
 
     def __unicode__(self):
         return six.text_type(self.msg)
