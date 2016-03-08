@@ -7,9 +7,9 @@ LOG = logging.getLogger(__name__)
 
 
 def morph_image(connection_info, os_type, target_hypervisor, target_platform,
-                nics_info, event_manager):
+                nics_info, event_manager, ignore_devices=[]):
     os_mount_tools = osmount_factory.get_os_mount_tools(
-        os_type, connection_info, event_manager)
+        os_type, connection_info, event_manager, ignore_devices)
 
     event_manager.progress_update("Discovering and mounting OS partitions")
     os_root_dir, other_mounted_dirs = os_mount_tools.mount_os()

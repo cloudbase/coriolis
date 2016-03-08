@@ -11,8 +11,9 @@ LOG = logging.getLogger(__name__)
 class BaseOSMountTools(object):
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, connection_info, event_manager):
+    def __init__(self, connection_info, event_manager, ignore_devices):
         self._event_manager = event_manager
+        self._ignore_devices = ignore_devices
         self._connect(connection_info)
 
     @abc.abstractmethod

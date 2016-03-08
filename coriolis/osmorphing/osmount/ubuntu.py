@@ -39,7 +39,12 @@ class UbuntuOSMountTools(base.BaseSSHOSMountTools):
         # Skip this instance's current root device (first in the list)
         volume_devs = ["/dev/%s" % d for d in volume_devs if
                        not re.match(r"^.*\d+$", d)][1:]
-        LOG.info("Volume block devices: %s", str(volume_devs))
+
+        LOG.debug("Ignoring block devices: %s", self._ignore_devices)
+        volume_devs = [d for d in volume_devs if d
+                       not in self._ignore_devices]
+
+        LOG.info("Volume block devices: %s", volume_devs)
         return volume_devs
 
     def mount_os(self):

@@ -10,7 +10,8 @@ from coriolis.osmorphing.osmount import windows
 LOG = logging.getLogger(__name__)
 
 
-def get_os_mount_tools(os_type, connection_info, event_manager):
+def get_os_mount_tools(os_type, connection_info, event_manager,
+                       ignore_devices):
     os_mount_tools = {constants.OS_TYPE_LINUX: [ubuntu.UbuntuOSMountTools],
                       constants.OS_TYPE_WINDOWS: [windows.WindowsMountTools]}
 
@@ -19,7 +20,7 @@ def get_os_mount_tools(os_type, connection_info, event_manager):
 
     for cls in os_mount_tools.get(os_type,
                                   itertools.chain(*os_mount_tools.values())):
-        tools = cls(connection_info, event_manager)
+        tools = cls(connection_info, event_manager, ignore_devices)
         LOG.debug("Testing OS mount tools: %s", cls.__name__)
         if tools.check_os():
             return tools
