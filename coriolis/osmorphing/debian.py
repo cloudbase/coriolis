@@ -1,5 +1,4 @@
 import os
-import re
 
 from coriolis import constants
 from coriolis.osmorphing import base
@@ -16,13 +15,14 @@ class DebianMorphingTools(base.BaseLinuxOSMorphingTools):
         lsb_release_path = "etc/lsb-release"
         debian_version_path = "etc/debian_version"
         if self._test_path(lsb_release_path):
-            out = self._read_file(lsb_release_path).decode()
-            dist_id = re.findall('^DISTRIB_ID=(.*)$', out, re.MULTILINE)
-            release = re.findall('^DISTRIB_RELEASE=(.*)$', out, re.MULTILINE)
-            if 'Debian' in dist_id:
+            config = self._read_config_file("etc/lsb-release")
+            dist_id = config.get('DISTRIB_ID')
+            if dist_id == 'Debian':
+                release = config.get('DISTRIB_RELEASE')
                 return (dist_id, release)
         elif self._test_path(debian_version_path):
-            release = self._read_file(debian_version_path).decode()
+            release = self._read_file(
+                debian_version_path).decode().split('\n')[0]
             return ('Debian', release)
 
     def set_net_config(self, nics_info, dhcp):

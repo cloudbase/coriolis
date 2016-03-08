@@ -1,5 +1,3 @@
-import re
-
 from coriolis import constants
 from coriolis.osmorphing import debian
 
@@ -15,11 +13,8 @@ class UbuntuMorphingTools(debian.DebianMorphingTools):
     }
 
     def _check_os(self):
-        lsb_release_path = "etc/lsb-release"
-        if self._test_path(lsb_release_path):
-            out = self._read_file(lsb_release_path).decode()
-
-            dist_id = re.findall('^DISTRIB_ID=(.*)$', out, re.MULTILINE)
-            release = re.findall('^DISTRIB_RELEASE=(.*)$', out, re.MULTILINE)
-            if 'Ubuntu' in dist_id:
-                return (dist_id, release)
+        config = self._read_config_file("etc/lsb-release", check_exists=True)
+        dist_id = config.get('DISTRIB_ID')
+        if dist_id == 'Ubuntu':
+            release = config.get('DISTRIB_RELEASE')
+            return (dist_id, release)
