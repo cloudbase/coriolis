@@ -81,19 +81,17 @@ class ConductorServerEndpoint(object):
             raise exception.InvalidMigrationState(
                 "The migration is not running")
 
-        has_running_tasks = False
         for task in migration.tasks:
-            if task.status == constants.TASK_STATUS_RUNNING:
-                self._rpc_worker_client.cancel_task(
-                    ctxt, task.host, task.process_id)
-                has_running_tasks = True
-            elif task.status == constants.TASK_STATUS_PENDING:
+            if task.status in [constants.TASK_STATUS_PENDING,
+                               constants.TASK_STATUS_RUNNING]:
+                if task.status == constants.TASK_STATUS_RUNNING:
+                    self._rpc_worker_client.cancel_task(
+                        ctxt, task.host, task.process_id)
                 db_api.set_task_status(
                     ctxt, task.id, constants.TASK_STATUS_CANCELED)
 
-        if not has_running_tasks:
-            db_api.set_migration_status(
-                ctxt, migration_id, constants.MIGRATION_STATUS_ERROR)
+        db_api.set_migration_status(
+            ctxt, migration_id, constants.MIGRATION_STATUS_ERROR)
 
     def set_task_host(self, ctxt, task_id, host, process_id):
         db_api.set_task_host(ctxt, task_id, host, process_id)
