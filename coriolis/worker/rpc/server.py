@@ -194,8 +194,8 @@ def _task_process(ctxt, task_id, task_type, origin, destination, instance,
         provider = factory.get_provider(data["type"], provider_type,
                                         event_handler)
 
-        connection_info = data.get("connection_info", {})
-        target_environment = data.get("target_environment", {})
+        connection_info = data.get("connection_info") or {}
+        target_environment = data.get("target_environment") or {}
 
         secret_ref = connection_info.get("secret_ref")
         if secret_ref:
