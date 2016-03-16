@@ -28,15 +28,15 @@ def morph_image(connection_info, os_type, target_hypervisor, target_platform,
     (packages_add,
      packages_remove) = os_morphing_tools.get_packages()
 
-    if packages_add:
-        event_manager.progress_update(
-            "Adding packages: %s" % str(packages_add))
-        os_morphing_tools.install_packages(packages_add)
-
     if packages_remove:
         event_manager.progress_update(
             "Removing packages: %s" % str(packages_remove))
         os_morphing_tools.uninstall_packages(packages_remove)
+
+    if packages_add:
+        event_manager.progress_update(
+            "Adding packages: %s" % str(packages_add))
+        os_morphing_tools.install_packages(packages_add)
 
     LOG.info("Post packages")
     os_morphing_tools.post_packages_install()
