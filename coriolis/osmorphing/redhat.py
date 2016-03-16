@@ -195,6 +195,8 @@ class RedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         self._exec_cmd_chroot("touch /.autorelabel")
 
     def pre_packages_install(self):
+        super(RedHatMorphingTools, self).pre_packages_install()
+
         distro, version = self.check_os()
         if distro == RELEASE_RHEL and "cloud-init" in self.get_packages()[0]:
             major_version = version.split(".")[0]
@@ -210,3 +212,4 @@ class RedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         self._run_dracut()
         self._configure_cloud_init()
         self._set_selinux_autorelabel()
+        super(RedHatMorphingTools, self).post_packages_install()

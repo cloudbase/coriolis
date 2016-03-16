@@ -34,6 +34,7 @@ class DebianMorphingTools(base.BaseLinuxOSMorphingTools):
                            interfaces_path)
 
     def pre_packages_install(self):
+        super(DebianMorphingTools, self).pre_packages_install()
         apt_get_cmd = 'apt-get update -y'
         self._exec_cmd_chroot(apt_get_cmd)
 

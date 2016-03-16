@@ -37,12 +37,8 @@ class SUSEMorphingTools(base.BaseLinuxOSMorphingTools):
         # TODO: add networking support
         pass
 
-    def _copy_resolv_conf(self):
-        resolv_conf_path = os.path.join(self._os_root_dir, "etc/resolv.conf")
-        self._exec_cmd("sudo cp -f /etc/resolv.conf %s" % resolv_conf_path)
-
     def pre_packages_install(self):
-        self._copy_resolv_conf()
+        super(SUSEMorphingTools, self).pre_packages_install()
 
         if self._platform == constants.PLATFORM_OPENSTACK:
             # TODO: use OS version to choose the right repo
@@ -103,3 +99,4 @@ class SUSEMorphingTools(base.BaseLinuxOSMorphingTools):
     def post_packages_install(self):
         self._run_dracut()
         self._configure_cloud_init()
+        super(SUSEMorphingTools, self).post_packages_install()
