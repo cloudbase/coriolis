@@ -197,6 +197,10 @@ class FileNotFound(NotFound):
     message = _("File %(file_path)s could not be found.")
 
 
+class InstanceNotFound(NotFound):
+    message = _("Instance \"%(instance_name)s\" could not be found.")
+
+
 class Duplicate(CoriolisException):
     pass
 

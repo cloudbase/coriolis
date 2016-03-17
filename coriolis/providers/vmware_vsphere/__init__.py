@@ -69,7 +69,10 @@ class ExportProvider(base.BaseExportProvider):
         # TODO: provide path selection
         datacenter = si.content.rootFolder.childEntity[0]
         vms = datacenter.vmFolder.childEntity
-        vm = [vm for vm in vms if vm.name == instance_name][0]
+        l = [vm for vm in vms if vm.name == instance_name]
+        if not l:
+            raise exception.InstanceNotFound(instance_name=instance_name)
+        vm = l[0]
 
         firmware_type_map = {
             vim.vm.GuestOsDescriptor.FirmwareType.bios: 'BIOS',
