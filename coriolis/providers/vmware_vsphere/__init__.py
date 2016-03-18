@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import time
 from urllib import request
@@ -61,18 +62,44 @@ class ExportProvider(base.BaseExportProvider):
             i += 1
         return i < max_wait
 
+    def _get_vm(self, si, instance_path):
+        vm = None
+        container = si.content.rootFolder
+        path_items = [p.replace('\\/', '/') for p in
+                      re.split(r'(?<!\\)/', instance_path)]
+        if len(path_items) == 1:
+            if len(container.childEntity) > 1:
+                raise exception.InvalidInput(
+                    "There's more than one container in the VMWare root "
+                    "folder, please specify the full path for the VM, e.g. "
+                    "\"Datacenter1/VM1\"")
+            else:
+                container = container.childEntity[0].vmFolder
+
+        LOG.debug("VM path items:", path_items)
+        for i, path_item in enumerate(path_items):
+            l = [o for o in container.childEntity if o.name == path_item]
+            if not l:
+                raise exception.InstanceNotFound(instance_name=instance_path)
+            item = l[0]
+            if (i + 1 == len(path_items) and
+                    isinstance(item, vim.VirtualMachine)):
+                vm = item
+            elif isinstance(item, vim.Datacenter):
+                container = item.vmFolder
+            else:
+                container = item
+
+        if vm is None:
+            raise exception.InstanceNotFound(instance_name=instance_path)
+
+        return vm
+
     @utils.retry_on_error()
-    def _get_vm_info(self, si, instance_name):
+    def _get_vm_info(self, si, instance_path):
 
-        LOG.info("Retrieving data for VM: %s" % instance_name)
-
-        # TODO: provide path selection
-        datacenter = si.content.rootFolder.childEntity[0]
-        vms = datacenter.vmFolder.childEntity
-        l = [vm for vm in vms if vm.name == instance_name]
-        if not l:
-            raise exception.InstanceNotFound(instance_name=instance_name)
-        vm = l[0]
+        LOG.info("Retrieving data for VM: %s" % instance_path)
+        vm = self._get_vm(si, instance_path)
 
         firmware_type_map = {
             vim.vm.GuestOsDescriptor.FirmwareType.bios: 'BIOS',
