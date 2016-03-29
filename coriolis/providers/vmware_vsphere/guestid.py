@@ -160,6 +160,8 @@ GUEST_ID_OS_TYPE_MAP = {
     constants.OS_TYPE_LINUX,
     vim.vm.GuestOsDescriptor.GuestOsIdentifier.oracleLinuxGuest:
     constants.OS_TYPE_LINUX,
+    vim.vm.GuestOsDescriptor.GuestOsIdentifier.oracleLinux64Guest:
+    constants.OS_TYPE_LINUX,
     vim.vm.GuestOsDescriptor.GuestOsIdentifier.os2Guest:
     None,
     vim.vm.GuestOsDescriptor.GuestOsIdentifier.debian4Guest:

@@ -122,20 +122,31 @@ class RedHatMorphingTools(base.BaseLinuxOSMorphingTools):
                                                     mac_addresses)
         self._add_net_udev_rules(net_ifaces_info)
 
-    def install_packages(self, package_names):
-        yum_cmd = 'yum install %s -y' % " ".join(package_names)
+    def _yum_install(self, package_names, enable_repos=[]):
+        yum_cmd = 'yum install %s -y%s' % (
+            " ".join(package_names),
+            "".join([" --enablerepo=%s" % r for r in enable_repos]))
         self._exec_cmd_chroot(yum_cmd)
 
-    def uninstall_packages(self, package_names):
+    def _yum_uninstall(self, package_names):
         for package_name in package_names:
             yum_cmd = 'yum remove %s -y' % package_name
             self._exec_cmd_chroot(yum_cmd)
 
+    def install_packages(self, package_names):
+        self._yum_install(package_names)
+
+    def uninstall_packages(self, package_names):
+        self._yum_uninstall(package_names)
+
     def _run_dracut(self):
+        self._run_dracut_base('kernel')
+
+    def _run_dracut_base(self, rpm_base_name):
         package_names = self._exec_cmd_chroot(
-            'rpm -q kernel').decode().split('\n')[:-1]
+            'rpm -q %s' % rpm_base_name).decode().split('\n')[:-1]
         for package_name in package_names:
-            m = re.match('^kernel-(.*)$', package_name)
+            m = re.match('^%s-(.*)$' % rpm_base_name, package_name)
             if m:
                 kernel_version = m.groups()[0]
                 self._event_manager.progress_update(

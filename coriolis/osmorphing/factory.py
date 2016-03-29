@@ -5,6 +5,7 @@ from oslo_log import log as logging
 from coriolis import constants
 from coriolis import exception
 from coriolis.osmorphing import debian
+from coriolis.osmorphing import oracle
 from coriolis.osmorphing import redhat
 from coriolis.osmorphing import suse
 from coriolis.osmorphing import ubuntu
@@ -18,6 +19,7 @@ def get_os_morphing_tools(conn, os_type, os_root_dir, target_hypervisor,
     os_morphing_tools_clss = {
         constants.OS_TYPE_LINUX: [debian.DebianMorphingTools,
                                   ubuntu.UbuntuMorphingTools,
+                                  oracle.OracleMorphingTools,
                                   redhat.RedHatMorphingTools,
                                   suse.SUSEMorphingTools],
         constants.OS_TYPE_WINDOWS: [windows.WindowsMorphingTools],
