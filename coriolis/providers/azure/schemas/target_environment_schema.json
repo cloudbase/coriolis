@@ -1,0 +1,60 @@
+{
+  "$schema": "http://cloudbase.it/coriolis/schemas/arm_target_environment#",
+  "type": "object",
+  "properties": {
+    "secret_ref": {
+      "type": "string"
+    },
+    "size": {
+      "type": "string"
+    },
+    "location": {
+      "type": "string"
+    },
+    "resource_group": {
+      "type": "string"
+    },
+    "storage": {
+      "type": "object",
+      "properties": {
+        "account": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        },
+        "container": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "account",
+        "key",
+        "container"
+      ]
+    },
+    "network": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "subnet": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "subnet"
+      ]
+    }
+  },
+  "oneOf": [
+    {
+      "required": ["secret_ref"]
+    },
+    {
+      "required": ["size", "location", "resource_group", "storage", "network"]
+    }
+  ]
+}

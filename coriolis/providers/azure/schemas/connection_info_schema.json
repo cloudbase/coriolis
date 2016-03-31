@@ -1,0 +1,57 @@
+{
+  "$schema": "http://cloudbase.it/coriolis/schemas/arm_connection#",
+  "type": "object",
+  "properties": {
+    "secret_ref": {
+      "type": "string"
+    },
+    "subscription_id": {
+      "type": "string"
+    },
+    "user_credentials": {
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "username",
+        "password"
+      ]
+    },
+    "service_principal_credentials": {
+      "type": "object",
+      "properties": {
+        "client_id": {
+          "type": "string"
+        },
+        "client_secret": {
+          "type": "string"
+        },
+        "tenant_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "client_id",
+        "client_secret",
+        "tenant_id"
+      ]
+    }
+  },
+  "oneOf": [
+    {
+      "required": ["secret_ref"]
+    },
+    {
+      "required": ["subscription_id", "user_credentials"]
+    },
+    {
+      "required": ["subscription_id", "service_principal_credentials"]
+    }
+  ]
+}

@@ -30,3 +30,9 @@ PyYAML
 requests
 sqlalchemy
 webob
+msrestazure
+azure-mgmt-compute
+azure-mgmt-network
+azure-mgmt-resource
+azure-mgmt-storage
+azure-storage
