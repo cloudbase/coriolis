@@ -146,14 +146,40 @@ class ImportProvider(base.BaseImportProvider):
     def validate_connection_info(self, connection_info):
         return True
 
-    @utils.retry_on_error()
     def _create_image(self, glance, name, disk_path, disk_format,
                       container_format, hypervisor_type):
-
         properties = {}
         if hypervisor_type:
             properties["hypervisor_type"] = hypervisor_type
 
+        if glance.version == 1:
+            return self._create_image_v1(glance, name, disk_path, disk_format,
+                                         container_format, properties)
+        elif glance.version == 2:
+            return self._create_image_v2(glance, name, disk_path, disk_format,
+                                         container_format, properties)
+        else:
+            raise NotImplementedError("Unsupported Glance version")
+
+    @utils.retry_on_error()
+    def _create_image_v2(self, glance, name, disk_path, disk_format,
+                         container_format, properties):
+        image = glance.images.create(
+            name=name,
+            disk_format=disk_format,
+            container_format=container_format,
+            **properties)
+        try:
+            with open(disk_path, 'rb') as f:
+                glance.images.upload(image.id, f)
+            return image
+        except:
+            glance.images.delete(image.id)
+            raise
+
+    @utils.retry_on_error()
+    def _create_image_v1(self, glance, name, disk_path, disk_format,
+                         container_format, properties):
         with open(disk_path, 'rb') as f:
             return glance.images.create(
                 name=name,
@@ -171,6 +197,16 @@ class ImportProvider(base.BaseImportProvider):
         if volume.status != expected_status:
             raise exception.CoriolisException(
                 "Volume is in status: %s" % volume.status)
+
+    @utils.retry_on_error()
+    def _wait_for_image(self, nova, image, expected_status='ACTIVE'):
+        image = nova.images.get(image.id)
+        while image.status not in [expected_status, 'ERROR']:
+            time.sleep(2)
+            image = nova.images.get(image.id)
+        if image.status != expected_status:
+            raise exception.CoriolisException(
+                "Image is in status: %s" % image.status)
 
     @utils.retry_on_error()
     def _wait_for_instance(self, nova, instance, expected_status='ACTIVE'):
@@ -334,8 +370,11 @@ class ImportProvider(base.BaseImportProvider):
                         instance_name, export_info):
         session = keystone.create_keystone_session(ctxt, connection_info)
 
+        glance_api_version = connection_info.get("image_api_version",
+                                                 GLANCE_API_VERSION)
+
         nova = nova_client.Client(NOVA_API_VERSION, session=session)
-        glance = glance_client.Client(GLANCE_API_VERSION, session=session)
+        glance = glance_client.Client(glance_api_version, session=session)
         neutron = neutron_client.Client(NEUTRON_API_VERSION, session=session)
         cinder = cinder_client.Client(CINDER_API_VERSION, session=session)
 
@@ -369,7 +408,7 @@ class ImportProvider(base.BaseImportProvider):
 
         migr_fip_pool_name = target_environment.get(
             "migr_fip_pool_name",
-            CONF.openstack_migration_provider.fip_pool_name or fip_pool_name)
+            fip_pool_name or CONF.openstack_migration_provider.fip_pool_name)
         migr_network_name = target_environment.get(
             "migr_network_name",
             CONF.openstack_migration_provider.migr_network_name)
@@ -419,6 +458,10 @@ class ImportProvider(base.BaseImportProvider):
                         disk_path, disk_format,
                         container_format, hypervisor_type)
                     images.append(image)
+
+                    self._event_manager.progress_update(
+                        "Waiting for Glance image to become active")
+                    self._wait_for_image(nova, image)
 
                     virtual_disk_size = disk_file_info["virtual-size"]
                     if disk_format != constants.DISK_FORMAT_RAW:
