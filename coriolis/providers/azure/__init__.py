@@ -154,9 +154,11 @@ AzureWorkerInstance = collections.namedtuple(
 class ImportProvider(BaseImportProvider):
     """ Provides import capabilities. """
 
-    connection_info_schema = schemas.ARM_CONNECTION_SCHEMA
+    connection_info_schema = schemas.get_schema(
+        __name__, schemas.PROVIDER_CONNECTION_INFO_SCHEMA_NAME)
 
-    target_environment_schema = schemas.ARM_TARGET_ENVIRONMENT_SCHEMA
+    target_environment_schema = schemas.get_schema(
+        __name__, schemas.PROVIDER_TARGET_ENVIRONMENT_SCHEMA_NAME)
 
     def validate_connection_info(self, connection_info):
         """ Validates the provided connection information. """
@@ -594,7 +596,7 @@ class ImportProvider(BaseImportProvider):
         self._event_manager.progress_update(
             "Begun defining migration worker '%s'." % worker_name)
 
-        awaited = azutils.awaited(timeout=300)
+        awaited = azutils.awaited(timeout=600)
         location = target_environment.get(
             "location", CONF.azure_migration_provider.migr_location)
         location = azutils.normalize_location(location)

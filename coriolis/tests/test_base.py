@@ -1,7 +1,5 @@
 """ Defines base class for all tests. """
 
-import mock
-
 from oslotest import base
 
 
