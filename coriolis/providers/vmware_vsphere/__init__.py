@@ -202,8 +202,8 @@ class ExportProvider(base.BaseExportProvider):
             elif isinstance(boot_device,
                             vim.vm.BootOptions.BootableCdromDevice):
                 boot_order.append({"type": "cdrom", "id": None})
-            elif isinstance.append(boot_device,
-                                   vim.vm.BootOptions.BootableEthernetDevice):
+            elif isinstance(boot_device,
+                            vim.vm.BootOptions.BootableEthernetDevice):
                 boot_order.append({"type": "ethernet",
                                    "id": boot_device.deviceKey})
             elif isinstance(boot_device,
@@ -216,6 +216,7 @@ class ExportProvider(base.BaseExportProvider):
             "disks": disks,
             "cdroms": cdroms,
             "floppy": floppy,
+            "serial_ports": serial_ports
         }
         vm_info["boot_order"] = boot_order
 
