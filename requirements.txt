@@ -1,6 +1,7 @@
 eventlet
 keystoneauth1
 keystonemiddleware
+jsonschema
 PyMySQL
 oslo.concurrency
 oslo.config

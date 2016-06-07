@@ -1,0 +1,50 @@
+{
+  "$schema": "http://cloudbase.it/coriolis/schemas/openstack_connection#",
+  "type": "object",
+  "properties": {
+    "secret_ref": {
+      "type": "string"
+    },
+    "identity_api_version": {
+      "type": "integer"
+    },
+    "username": {
+      "type": "string"
+    },
+    "password": {
+      "type": "string"
+    },
+    "project_name": {
+      "type": "string"
+    },
+    "user_domain_name": {
+      "type": "string"
+    },
+    "project_domain_name": {
+      "type": "string"
+    },
+    "auth_url": {
+      "type": "string"
+    },
+    "allow_untrusted": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "oneOf": [
+    {
+      "required": ["secret_ref"]
+    },
+    {
+      "required": [
+        "identity_api_version",
+        "username",
+        "password",
+        "project_name",
+        "user_domain_name",
+        "project_domain_name",
+        "auth_url"
+      ]
+    }
+  ]
+}

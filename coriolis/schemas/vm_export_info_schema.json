@@ -1,0 +1,251 @@
+{
+  "$schema": "http://cloudbase.it/coriolis/schemas/vm_export_info#",
+  "type": "object",
+  "properties": {
+    "num_cpu": {
+      "type": "integer",
+      "description": "Number of CPUs of the VM."
+    },
+    "num_cores_per_socket": {
+      "type": "integer",
+      "description": "Number of CPU cores per socket, if applicable."
+    },
+    "memory_mb": {
+      "type": "integer",
+      "description": "Memory of the VM in MegaBytes."
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name of th VM."
+    },
+    "id": {
+      "type": "string",
+      "description": "Unique identifier of the VM."
+    },
+    "dynamic_memory_enabled": {
+      "type": "boolean",
+      "description": "Indicates whether not the VM's physical memory was allocated dynamically."
+    },
+    "os_type": {
+      "type": "string",
+      "description": "The generic type of the operating system installed on the VM.",
+      "enum": ["bsd", "linux", "osx", "solaris", "windows"]
+    },
+    "firmware_type": {
+      "type": "string",
+      "description": "The type of firmware of the VM.",
+      "enum": ["BIOS", "EFI"]
+    },
+    "nested_virtualization": {
+      "type": "boolean",
+      "description": "Indicates whether or not nested hardware accelerated virtualization is possible on the VM."
+    },
+    "guest_id": {
+      "type": "string",
+      "description": "Extra IS field for added categorisation."
+    },
+    "devices": {
+      "type": "object",
+      "description": "Contains information about all of the VM's devices.",
+      "properties": {
+        "disks": {
+          "type": "array",
+          "description": "List of all disks attached to the VM.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "$ref": "#/definitions/numberOrString"
+              },
+              "format": {
+                "type": "string",
+                "enum": ["vmdk", "raw", "qcow", "qcow2", "vhd", "vhdx"]
+              },
+              "unit_number": {
+                "$ref": "#/definitions/numberOrString"
+              },
+              "size_bytes": {
+                "type": "integer"
+              },
+              "path": {
+                "type": "string"
+              },
+              "controller_id": {
+                "$ref": "#/definitions/numberOrString"
+              }
+            },
+            "required": [
+              "format",
+              "size_bytes",
+              "path"
+            ]
+          }
+        },
+        "cdroms": {
+          "type": "array",
+          "description": "List of all CDROM devices attached to the VM.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "$ref": "#/definitions/numberOrString"
+              },
+              "unit_number": {
+                "$ref": "#/definitions/numberOrString"
+              },
+              "controller_id": {
+                "$ref": "#/definitions/numberOrString"
+              }
+            },
+            "required": [
+              "unit_number"
+            ]
+          }
+        },
+        "nics": {
+          "type": "array",
+          "description": "List of the network interface devices attached to the VM",
+          "items": {
+            "type": "object",
+            "properties": {
+              "network_name": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "id": {
+                "$ref": "#/definitions/numberOrString"
+              },
+              "mac_address": {
+                "$ref": "#/definitions/nullableString"
+              }
+            },
+            "required": [
+              "network_name",
+              "mac_address"
+            ]
+          }
+        },
+        "serial_ports": {
+          "type": "array",
+          "description": "List of additional serial ports attached to the VM.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "$ref": "#/definitions/numberOrString"
+              }
+            }
+          },
+          "required": [
+            "id"
+          ]
+        },
+        "floppies": {
+          "type": "array",
+          "description": "List of all floppy devices attached to the VM.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "$ref": "#/definitions/numberOrString"
+              },
+              "unit_number": {
+                "$ref": "#/definitions/numberOrString"
+              },
+              "controller_id": {
+                "$ref": "#/definitions/numberOrString"
+              }
+            },
+            "required": [
+              "unit_number"
+            ]
+          }
+        },
+        "controllers": {
+          "type": "array",
+          "description": "List of all disk controllers available to the VM.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "bus_number": {
+                "$ref": "#/definitions/numberOrString"
+              },
+              "id": {
+                "$ref": "#/definitions/numberOrString"
+              }
+            },
+            "required": [
+              "type",
+              "bus_number",
+              "id"
+            ]
+          }
+        }
+      },
+      "required": [
+        "disks",
+        "cdroms",
+        "nics",
+        "serial_ports",
+        "floppies",
+        "controllers"
+      ]
+    },
+    "boot_order": {
+      "type": "array",
+      "description": "List specifying the boot order of the VM.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "id": {
+            "$ref": "#/definitions/numberOrString"
+          }
+        },
+        "required": [
+          "type",
+          "id"
+        ]
+      }
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "num_cpu",
+    "memory_mb",
+    "os_type",
+    "nested_virtualization",
+    "devices"
+  ],
+  "definitions": {
+    "numberOrString": {
+      "oneOf": [{
+        "type": "number"
+      }, {
+        "type": "string"
+      }]
+    },
+    "nullableNumber": {
+      "oneOf": [{
+        "type": "number"
+      }, {
+        "type": "null"
+      }]
+    },
+    "nullableString": {
+      "oneOf": [{
+        "type": "string"
+      }, {
+        "type": "null"
+      }]
+    }
+  }
+}

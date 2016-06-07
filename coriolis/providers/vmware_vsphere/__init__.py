@@ -14,6 +14,7 @@ from coriolis import constants
 from coriolis import exception
 from coriolis.providers import base
 from coriolis.providers.vmware_vsphere import guestid
+from coriolis import schemas
 from coriolis import utils
 
 vmware_vsphere_opts = [
@@ -29,8 +30,9 @@ LOG = logging.getLogger(__name__)
 
 
 class ExportProvider(base.BaseExportProvider):
-    def validate_connection_info(self, connection_info):
-        return True
+
+    connection_info_schema = schemas.get_schema(
+        __name__, schemas.PROVIDER_CONNECTION_INFO_SCHEMA_NAME)
 
     @utils.retry_on_error()
     def _convert_disk_type(self, disk_path, target_disk_path, target_type=0):
@@ -102,8 +104,11 @@ class ExportProvider(base.BaseExportProvider):
         vm = self._get_vm(si, instance_path)
 
         firmware_type_map = {
-            vim.vm.GuestOsDescriptor.FirmwareType.bios: 'BIOS',
-            vim.vm.GuestOsDescriptor.FirmwareType.efi: 'EFI'}
+            vim.vm.GuestOsDescriptor.FirmwareType.bios:
+                constants.FIRMWARE_TYPE_BIOS,
+            vim.vm.GuestOsDescriptor.FirmwareType.efi:
+                constants.FIRMWARE_TYPE_EFI
+        }
 
         vm_info = {
             'num_cpu': vm.config.hardware.numCPU,
@@ -161,8 +166,8 @@ class ExportProvider(base.BaseExportProvider):
         devices = [d for d in vm.config.hardware.device if
                    isinstance(d, vim.vm.device.VirtualDisk)]
         for device in devices:
-            disks.append({'size': device.capacityInBytes,
-                          'address': device.unitNumber,
+            disks.append({'size_bytes': device.capacityInBytes,
+                          'unit_number': device.unitNumber,
                           'id': device.key,
                           'controller_id': device.controllerKey})
 
@@ -170,15 +175,15 @@ class ExportProvider(base.BaseExportProvider):
         devices = [d for d in vm.config.hardware.device if
                    isinstance(d, vim.vm.device.VirtualCdrom)]
         for device in devices:
-            cdroms.append({'address': device.unitNumber, 'id': device.key,
+            cdroms.append({'unit_number': device.unitNumber, 'id': device.key,
                            'controller_id': device.controllerKey})
 
-        floppy = []
+        floppies = []
         devices = [d for d in vm.config.hardware.device if
                    isinstance(d, vim.vm.device.VirtualFloppy)]
         for device in devices:
-            floppy.append({'address': device.unitNumber, 'id': device.key,
-                           'controller_id': device.controllerKey})
+            floppies.append({'unit_number': device.unitNumber, 'id': device.key,
+                             'controller_id': device.controllerKey})
 
         nics = []
         devices = [d for d in vm.config.hardware.device if
@@ -215,7 +220,7 @@ class ExportProvider(base.BaseExportProvider):
             "controllers": disk_ctrls,
             "disks": disks,
             "cdroms": cdroms,
-            "floppy": floppy,
+            "floppies": floppies,
             "serial_ports": serial_ports
         }
         vm_info["boot_order"] = boot_order

@@ -18,6 +18,7 @@ from coriolis import exception
 from coriolis import keystone
 from coriolis.osmorphing import manager as osmorphing_manager
 from coriolis.providers import base
+from coriolis import schemas
 from coriolis import utils
 
 opts = [
@@ -180,8 +181,12 @@ class _MigrationResources(object):
 
 
 class ImportProvider(base.BaseImportProvider):
-    def validate_connection_info(self, connection_info):
-        return True
+
+    connection_info_schema = schemas.get_schema(
+        __name__, schemas.PROVIDER_CONNECTION_INFO_SCHEMA_NAME)
+
+    target_environment_schema = schemas.get_schema(
+        __name__, schemas.PROVIDER_TARGET_ENVIRONMENT_SCHEMA_NAME)
 
     def _create_image(self, glance, name, disk_path, disk_format,
                       container_format, hypervisor_type):

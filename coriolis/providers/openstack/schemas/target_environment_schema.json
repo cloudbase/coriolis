@@ -1,0 +1,50 @@
+{
+  "$schema": "http://cloudbase.it/coriolis/schemas/openstack_target_environment#",
+  "type": "object",
+  "properties": {
+    "secret_ref": {
+      "type": "string"
+    },
+    "network_map": {
+      "type": "object",
+      "properties": {
+        "VM Network Local": {
+          "type": "string"
+        },
+        "VM Network": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "VM Network Local",
+        "VM Network"
+      ]
+    },
+    "flavor_name": {
+      "type": "string"
+    },
+    "fip_pool_name": {
+      "type": "string"
+    },
+    "migr_fip_pool_name": {
+      "type": "string"
+    },
+    "keypair_name": {
+      "type": "string"
+    }
+  },
+  "oneOf": [
+    {
+      "required": ["secret_ref"]
+    },
+    {
+      "required": [
+        "network_map",
+        "flavor_name",
+        "fip_pool_name",
+        "migr_fip_pool_name",
+        "keypair_name"
+      ]
+    }
+  ]
+}
