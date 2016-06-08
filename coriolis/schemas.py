@@ -10,12 +10,15 @@ import jsonschema
 LOG = logging.getLogger(__name__)
 
 
+DEFAULT_SCHEMAS_DIRECTORY = "schemas"
+
 PROVIDER_CONNECTION_INFO_SCHEMA_NAME = "connection_info_schema.json"
 
 PROVIDER_TARGET_ENVIRONMENT_SCHEMA_NAME = "target_environment_schema.json"
 
 
-def get_schema(package_name, schema_name, schemas_directory="schemas"):
+def get_schema(package_name, schema_name,
+               schemas_directory=DEFAULT_SCHEMAS_DIRECTORY):
     """ Loads the schema with the given 'schema_name' using jinja2 template
     loading from the provided 'package_name' under the given
     'schemas_directory'.
