@@ -1,4 +1,5 @@
 import os
+import platform
 
 from oslo_concurrency import processutils
 from oslo_config import cfg
@@ -35,8 +36,12 @@ class WSGIService(service.ServiceBase):
     def __init__(self, name):
         self._host = CONF.api_migration_listen
         self._port = CONF.api_migration_listen_port
-        self._workers = (CONF.api_migration_workers or
-                         processutils.get_worker_count())
+
+        if platform.system() == "Windows":
+            self._workers = 1
+        else:
+            self._workers = (
+                CONF.api_migration_workers or processutils.get_worker_count())
 
         self._loader = wsgi.Loader(CONF)
         self._app = self._loader.load_app(name)
@@ -88,9 +93,6 @@ class MessagingService(service.ServiceBase):
     def reset(self):
         self._server.reset()
 
-
-def get_process_launcher():
-    return service.ProcessLauncher(CONF)
 
 '''
 _launcher = None
