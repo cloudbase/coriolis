@@ -11,7 +11,7 @@ oslo.log
 oslo.messaging
 oslo.middleware
 oslo.serialization
-oslo.service
+oslo.service>=1.12.0
 oslo.versionedobjects
 paramiko
 paste

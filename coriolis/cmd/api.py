@@ -16,9 +16,9 @@ def main():
          version="1.0.0")
     utils.setup_logging()
 
-    launcher = service.get_process_launcher()
     server = service.WSGIService('coriolis-api')
-    launcher.launch_service(server, workers=server.get_workers_count())
+    launcher = service.service.launch(
+        CONF, server, workers=server.get_workers_count())
     launcher.wait()
 
 

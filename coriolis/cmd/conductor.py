@@ -17,11 +17,11 @@ def main():
          version="1.0.0")
     utils.setup_logging()
 
-    launcher = service.get_process_launcher()
     server = service.MessagingService(
         'coriolis_conductor', [rpc_server.ConductorServerEndpoint()],
         rpc_server.VERSION)
-    launcher.launch_service(server, workers=server.get_workers_count())
+    launcher = service.service.launch(
+        CONF, server, workers=server.get_workers_count())
     launcher.wait()
 
 
