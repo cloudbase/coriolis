@@ -85,6 +85,43 @@ MIGR_GUEST_USERNAME_WINDOWS = "admin"
 LOG = logging.getLogger(__name__)
 
 
+def _get_unique_name():
+    return MIGRATION_TMP_FORMAT % str(uuid.uuid4())
+
+
+@utils.retry_on_error()
+def _wait_for_image(nova, image_id, expected_status='ACTIVE'):
+    image = nova.images.get(image_id)
+    while image.status not in [expected_status, 'ERROR']:
+        time.sleep(2)
+        image = nova.images.get(image.id)
+    if image.status != expected_status:
+        raise exception.CoriolisException(
+            "Image is in status: %s" % image.status)
+
+
+@utils.retry_on_error()
+def _wait_for_instance(nova, instance, expected_status='ACTIVE'):
+    instance = nova.servers.get(instance.id)
+    while instance.status not in [expected_status, 'ERROR']:
+        time.sleep(2)
+        instance = nova.servers.get(instance.id)
+    if instance.status != expected_status:
+        raise exception.CoriolisException(
+            "VM is in status: %s" % instance.status)
+
+
+@utils.retry_on_error()
+def _wait_for_volume(nova, volume, expected_status='in-use'):
+    volume = nova.volumes.findall(id=volume.id)[0]
+    while volume.status not in [expected_status, 'error']:
+        time.sleep(2)
+        volume = nova.volumes.get(volume.id)
+    if volume.status != expected_status:
+        raise exception.CoriolisException(
+            "Volume is in status: %s" % volume.status)
+
+
 class _MigrationResources(object):
     def __init__(self, nova, neutron, keypair, instance, port,
                  floating_ip, guest_port, sec_group, username, password, k):
@@ -107,7 +144,7 @@ class _MigrationResources(object):
             "username": self._username,
             "password": self._password,
             "pkey": self._k,
-            }
+        }
 
     @utils.retry_on_error()
     def _wait_for_instance_deletion(self, instance_id):
@@ -189,39 +226,6 @@ class ImportProvider(base.BaseImportProvider):
                 data=f)
 
     @utils.retry_on_error()
-    def _wait_for_volume(self, nova, volume, expected_status='in-use'):
-        volume = nova.volumes.findall(id=volume.id)[0]
-        while volume.status not in [expected_status, 'error']:
-            time.sleep(2)
-            volume = nova.volumes.get(volume.id)
-        if volume.status != expected_status:
-            raise exception.CoriolisException(
-                "Volume is in status: %s" % volume.status)
-
-    @utils.retry_on_error()
-    def _wait_for_image(self, nova, image, expected_status='ACTIVE'):
-        image = nova.images.get(image.id)
-        while image.status not in [expected_status, 'ERROR']:
-            time.sleep(2)
-            image = nova.images.get(image.id)
-        if image.status != expected_status:
-            raise exception.CoriolisException(
-                "Image is in status: %s" % image.status)
-
-    @utils.retry_on_error()
-    def _wait_for_instance(self, nova, instance, expected_status='ACTIVE'):
-        instance = nova.servers.get(instance.id)
-        while instance.status not in [expected_status, 'ERROR']:
-            time.sleep(2)
-            instance = nova.servers.get(instance.id)
-        if instance.status != expected_status:
-            raise exception.CoriolisException(
-                "VM is in status: %s" % instance.status)
-
-    def _get_unique_name(self):
-        return MIGRATION_TMP_FORMAT % str(uuid.uuid4())
-
-    @utils.retry_on_error()
     def _create_neutron_port(self, neutron, network_name, mac_address=None):
         networks = neutron.list_networks(name=network_name)
         network_id = networks['networks'][0]['id']
@@ -277,7 +281,7 @@ class ImportProvider(base.BaseImportProvider):
         port = None
 
         try:
-            migr_keypair_name = self._get_unique_name()
+            migr_keypair_name = _get_unique_name()
 
             self._event_manager.progress_update(
                 "Creating migration worker instance keypair")
@@ -299,7 +303,7 @@ class ImportProvider(base.BaseImportProvider):
 
             userdata = MIGR_USER_DATA % (username, public_key)
             instance = nova.servers.create(
-                name=self._get_unique_name(),
+                name=_get_unique_name(),
                 image=image,
                 flavor=flavor,
                 key_name=migr_keypair_name,
@@ -310,7 +314,7 @@ class ImportProvider(base.BaseImportProvider):
                 "Adding migration worker instance floating IP")
 
             floating_ip = nova.floating_ips.create(pool=migr_fip_pool_name)
-            self._wait_for_instance(nova, instance, 'ACTIVE')
+            _wait_for_instance(nova, instance, 'ACTIVE')
 
             LOG.info("Floating IP: %s", floating_ip.ip)
             instance.add_floating_ip(floating_ip)
@@ -323,7 +327,7 @@ class ImportProvider(base.BaseImportProvider):
             else:
                 guest_port = SSH_PORT
 
-            migr_sec_group_name = self._get_unique_name()
+            migr_sec_group_name = _get_unique_name()
             sec_group = nova.security_groups.create(
                 name=migr_sec_group_name, description=migr_sec_group_name)
             nova.security_group_rules.create(
@@ -364,7 +368,7 @@ class ImportProvider(base.BaseImportProvider):
     def _attach_volume(self, nova, instance, volume, volume_dev=None):
         nova.volumes.create_server_volume(
             instance.id, volume.id, volume_dev)
-        self._wait_for_volume(nova, volume, 'in-use')
+        _wait_for_volume(nova, volume, 'in-use')
 
     def import_instance(self, ctxt, connection_info, target_environment,
                         instance_name, export_info):
@@ -454,14 +458,14 @@ class ImportProvider(base.BaseImportProvider):
 
                     disk_format = disk_file_info["format"]
                     image = self._create_image(
-                        glance, self._get_unique_name(),
+                        glance, _get_unique_name(),
                         disk_path, disk_format,
                         container_format, hypervisor_type)
                     images.append(image)
 
                     self._event_manager.progress_update(
                         "Waiting for Glance image to become active")
-                    self._wait_for_image(nova, image)
+                    _wait_for_image(nova, image.id)
 
                     virtual_disk_size = disk_file_info["virtual-size"]
                     if disk_format != constants.DISK_FORMAT_RAW:
@@ -473,7 +477,7 @@ class ImportProvider(base.BaseImportProvider):
                     volume_size_gb = math.ceil(virtual_disk_size / units.Gi)
                     volume = nova.volumes.create(
                         size=volume_size_gb,
-                        display_name=self._get_unique_name(),
+                        display_name=_get_unique_name(),
                         imageRef=image.id)
                     volumes.append(volume)
 
@@ -485,7 +489,7 @@ class ImportProvider(base.BaseImportProvider):
 
             try:
                 for i, volume in enumerate(volumes):
-                    self._wait_for_volume(nova, volume, 'available')
+                    _wait_for_volume(nova, volume, 'available')
 
                     self._event_manager.progress_update(
                         "Attaching volume to worker instance")
@@ -597,9 +601,178 @@ class ImportProvider(base.BaseImportProvider):
             nics=nics)
 
         try:
-            self._wait_for_instance(nova, instance, 'ACTIVE')
+            _wait_for_instance(nova, instance, 'ACTIVE')
             return instance
         except:
             if instance:
                 nova.servers.delete(instance)
             raise
+
+
+class ExportProvider(base.BaseExportProvider):
+    _OS_DISTRO_MAP = {
+        'windows': constants.OS_TYPE_WINDOWS,
+        'freebsd': constants.OS_TYPE_BSD,
+        'netbsd': constants.OS_TYPE_BSD,
+        'openbsd': constants.OS_TYPE_BSD,
+        'opensolaris': constants.OS_TYPE_SOLARIS,
+        'arch': constants.OS_TYPE_LINUX,
+        'centos': constants.OS_TYPE_LINUX,
+        'debian': constants.OS_TYPE_LINUX,
+        'fedora': constants.OS_TYPE_LINUX,
+        'gentoo': constants.OS_TYPE_LINUX,
+        'mandrake': constants.OS_TYPE_LINUX,
+        'mandriva': constants.OS_TYPE_LINUX,
+        'mes': constants.OS_TYPE_LINUX,
+        'opensuse': constants.OS_TYPE_LINUX,
+        'rhel': constants.OS_TYPE_LINUX,
+        'sled': constants.OS_TYPE_LINUX,
+        'ubuntu': constants.OS_TYPE_LINUX,
+    }
+
+    def validate_connection_info(self, connection_info):
+        return True
+
+    @utils.retry_on_error()
+    def _get_instance(self, nova, instance_name):
+        instances = nova.servers.list(search_opts={'name': instance_name})
+        if len(instances) > 1:
+            raise exception.CoriolisException(
+                'More than one instance exists with name: %s' % instance_name)
+        elif not instances:
+            raise exception.CoriolisException(
+                'Instance not found: %s' % instance_name)
+        return instances[0]
+
+    def _get_os_type(self, image):
+        os_type = constants.OS_TYPE_LINUX
+        os_distro = image.properties.get('os_distro')
+        if not os_distro:
+            if 'os_type' in image.properties:
+                os_type = image.properties['os_type']
+            else:
+                self._event_manager.progress_update(
+                    "Image os_distro not set, defaulting to Linux")
+        elif os_distro not in self._OS_DISTRO_MAP:
+            self._event_manager.progress_update(
+                "Image os_distro \"%s\" not found, defaulting to Linux" %
+                os_distro)
+        else:
+            os_type = self._OS_DISTRO_MAP[os_distro]
+        return os_type
+
+    @utils.retry_on_error()
+    def _export_image(self, glance, export_path, image_id):
+        path = os.path.join(export_path, image_id)
+        LOG.debug('Saving snapshot to path: %s', export_path)
+        with open(path, 'wb') as f:
+            for chunk in glance.images.data(image_id):
+                f.write(chunk)
+
+        disk_info = utils.get_disk_info(path)
+        new_path = path + "." + disk_info['format']
+        os.rename(path, new_path)
+        LOG.debug('Renamed snapshot path: %s', new_path)
+        return new_path, disk_info['format']
+
+    @utils.retry_on_error()
+    def _create_snapshot(self, nova, glance, instance, export_path):
+        image_id = instance.create_image(_get_unique_name())
+        try:
+            image = glance.images.get(image_id)
+            if image.container_format != 'bare':
+                raise exception.CoriolisException(
+                    "Unsupported container format: %s" %
+                    image.container_format)
+
+            self._event_manager.progress_update(
+                "Waiting for instance snapshot to complete")
+
+            _wait_for_image(nova, image_id)
+
+            self._event_manager.progress_update(
+                "Exporting instance snapshot")
+
+            image_path, image_format = self._export_image(
+                glance, export_path, image_id)
+        finally:
+            self._event_manager.progress_update("Removing instance snapshot")
+
+            @utils.ignore_exceptions
+            @utils.retry_on_error()
+            def _del_image():
+                glance.images.delete(image_id)
+            _del_image()
+
+        os_type = self._get_os_type(image)
+        return image_id, image_path, image_format, os_type
+
+    def export_instance(self, ctxt, connection_info, instance_name,
+                        export_path):
+        session = keystone.create_keystone_session(ctxt, connection_info)
+
+        glance_api_version = connection_info.get("image_api_version",
+                                                 GLANCE_API_VERSION)
+
+        nova = nova_client.Client(NOVA_API_VERSION, session=session)
+        glance = glance_client.Client(glance_api_version, session=session)
+
+        self._event_manager.progress_update("Retrieving OpenStack instance")
+        instance = self._get_instance(nova, instance_name)
+
+        @utils.retry_on_error()
+        def _get_flavor():
+            return nova.flavors.get(instance.flavor["id"])
+
+        flavor = _get_flavor()
+
+        nics = []
+        for iface in instance.interface_list():
+            ips = set([ip['ip_address'] for ip in iface.fixed_ips])
+            net_name = [
+                n for n, v in instance.networks.items() if set(v) & ips][0]
+
+            nics.append({'name': iface.port_id,
+                         'id': iface.port_id,
+                         'mac_address': iface.mac_addr,
+                         'fixed_ips': iface.fixed_ips,
+                         'network_id': iface.net_id,
+                         'network_name': net_name})
+
+        if instance.status != 'SHUTOFF':
+            self._event_manager.progress_update(
+                "Shutting down instance")
+
+            @utils.retry_on_error()
+            def _stop_instance():
+                instance.stop()
+
+            _stop_instance()
+            _wait_for_instance(nova, instance, 'SHUTOFF')
+
+        self._event_manager.progress_update("Creating instance snapshot")
+
+        image_id, image_path, image_format, os_type = self._create_snapshot(
+            nova, glance, instance, export_path)
+
+        disks = []
+        disks.append({'format': image_format,
+                      'path': image_path,
+                      'id': image_id})
+
+        vm_info = {
+            'num_cpu': flavor.vcpus,
+            'num_cores_per_socket': 1,
+            'memory_mb': flavor.ram,
+            'name': instance_name,
+            'os_type': os_type,
+            'id': instance.id,
+            'flavor_name': flavor.name,
+            'devices': {
+                "nics": nics,
+                "disks": disks,
+            }
+        }
+
+        LOG.info("vm info: %s" % str(vm_info))
+        return vm_info
