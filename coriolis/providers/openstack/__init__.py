@@ -1,3 +1,4 @@
+import collections
 import math
 import os
 import tempfile
@@ -84,6 +85,10 @@ MIGR_GUEST_USERNAME = 'cloudbase'
 MIGR_GUEST_USERNAME_WINDOWS = "admin"
 
 LOG = logging.getLogger(__name__)
+
+
+GlanceImage = collections.namedtuple(
+    "GlanceImage", "id format size path os_type")
 
 
 def _get_unique_name():
@@ -635,8 +640,8 @@ class ExportProvider(base.BaseExportProvider):
         'ubuntu': constants.OS_TYPE_LINUX,
     }
 
-    def validate_connection_info(self, connection_info):
-        return True
+    connection_info_schema = schemas.get_schema(
+        __name__, schemas.PROVIDER_CONNECTION_INFO_SCHEMA_NAME)
 
     @utils.retry_on_error()
     def _get_instance(self, nova, instance_name):
@@ -685,6 +690,8 @@ class ExportProvider(base.BaseExportProvider):
         image_id = instance.create_image(_get_unique_name())
         try:
             image = glance.images.get(image_id)
+            image_size = image.size
+
             if image.container_format != 'bare':
                 raise exception.CoriolisException(
                     "Unsupported container format: %s" %
@@ -710,7 +717,13 @@ class ExportProvider(base.BaseExportProvider):
             _del_image()
 
         os_type = self._get_os_type(image)
-        return image_id, image_path, image_format, os_type
+        return GlanceImage(
+            id=image_id,
+            path=image_path,
+            format=image_format,
+            os_type=os_type,
+            size=image_size
+        )
 
     def export_instance(self, ctxt, connection_info, instance_name,
                         export_path):
@@ -740,7 +753,7 @@ class ExportProvider(base.BaseExportProvider):
             nics.append({'name': iface.port_id,
                          'id': iface.port_id,
                          'mac_address': iface.mac_addr,
-                         'fixed_ips': iface.fixed_ips,
+                         'ip_addresses': [ip[0] for ip in ips],
                          'network_id': iface.net_id,
                          'network_name': net_name})
 
@@ -757,25 +770,33 @@ class ExportProvider(base.BaseExportProvider):
 
         self._event_manager.progress_update("Creating instance snapshot")
 
-        image_id, image_path, image_format, os_type = self._create_snapshot(
+        image = self._create_snapshot(
             nova, glance, instance, export_path)
 
         disks = []
-        disks.append({'format': image_format,
-                      'path': image_path,
-                      'id': image_id})
+        disks.append({
+            'format': image.format,
+            'path': image.path,
+            'size_bytes': image.size,
+            'id': image.id
+        })
 
         vm_info = {
             'num_cpu': flavor.vcpus,
             'num_cores_per_socket': 1,
             'memory_mb': flavor.ram,
+            'nested_virtualization': False,
             'name': instance_name,
-            'os_type': os_type,
+            'os_type': image.os_type,
             'id': instance.id,
             'flavor_name': flavor.name,
             'devices': {
                 "nics": nics,
                 "disks": disks,
+                "cdroms": [],
+                "serial_ports": [],
+                "floppies": [],
+                "controllers": []
             }
         }
 

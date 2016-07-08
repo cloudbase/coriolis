@@ -42,7 +42,11 @@
     },
     "guest_id": {
       "type": "string",
-      "description": "Extra IS field for added categorisation."
+      "description": "Extra ID field for added categorisation."
+    },
+    "flavor_name": {
+      "type": "string",
+      "description": "Name of the exported VM's flavor."
     },
     "devices": {
       "type": "object",
@@ -111,8 +115,17 @@
               "network_name": {
                 "type": "string"
               },
+              "network_id": {
+                "type": "string"
+              },
               "name": {
                 "type": "string"
+              },
+              "ip_addresses": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
               },
               "id": {
                 "$ref": "#/definitions/numberOrString"
