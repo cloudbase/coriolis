@@ -1,18 +1,5 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
-#
-#    Licensed under the Apache License, Version 2.0 (the "License"); you may
-#    not use this file except in compliance with the License. You may obtain
-#    a copy of the License at
-#
-#         http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-#    License for the specific language governing permissions and limitations
-#    under the License.
-#
 
 """
 General utility functions for performing Azure operations.
@@ -49,7 +36,7 @@ def normalize_location(location):
 
 
 def checked(operation):
-    """ Forces raw status code check on Azure operation. """
+    """ Forces raw status code check on an Azure operation. """
     @functools.wraps(operation)
     def _checked(*args, **kwargs):
         resp = operation(*args, raw=True, **kwargs)
@@ -65,10 +52,10 @@ def awaited(timeout=90):
     def _awaited(operation):
         @functools.wraps(operation)
         def _await(*args, **kwargs):
-            resp = operation(*args, raw=True, **kwargs)
-            res = resp.result(timeout=timeout)
+            resp = operation(*args, raw=True,
+                             long_running_operation_timeout=timeout, **kwargs)
 
-            return res.output
+            return resp.output
         return _await
 
     return _awaited

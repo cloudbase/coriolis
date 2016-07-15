@@ -30,9 +30,9 @@ PyYAML
 requests
 sqlalchemy
 webob
-msrestazure
-azure-mgmt-compute
-azure-mgmt-network
-azure-mgmt-resource
-azure-mgmt-storage
-azure-storage
+msrestazure==0.4.0
+azure-mgmt-compute==0.30.0rc5
+azure-mgmt-network==0.30.0rc5
+azure-mgmt-resource==0.30.0rc5
+azure-mgmt-storage==0.30.0rc5
+azure-storage==0.32.0

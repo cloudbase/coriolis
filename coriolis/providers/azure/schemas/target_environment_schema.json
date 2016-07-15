@@ -29,9 +29,11 @@
       },
       "required": [
         "account",
-        "key",
-        "container"
+        "key"
       ]
+    },
+    "network_map": {
+      "type": "object"
     },
     "network": {
       "type": "object",
@@ -54,7 +56,7 @@
       "required": ["secret_ref"]
     },
     {
-      "required": ["size", "location", "resource_group", "storage", "network"]
+      "required": ["size", "location", "resource_group", "storage"]
     }
   ]
 }

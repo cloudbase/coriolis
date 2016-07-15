@@ -276,7 +276,6 @@ class ArmImportProviderUnitTestsCase(test_providers.ImportProviderTestCase):
         test_ip_configs = mock.sentinel.test_ip_configs
 
         test_nic = network.models.NetworkInterface(
-            name=test_nic_name,
             location=self._test_location,
             ip_configurations=test_ip_configs
         )
@@ -297,7 +296,7 @@ class ArmImportProviderUnitTestsCase(test_providers.ImportProviderTestCase):
         self._mock_awaited_inner.assert_called_once_with(
             mock_nicc.create_or_update)
         mock_nicc.create_or_update.assert_called_once_with(
-            self._test_resource_group, test_nic_name, parameters=test_nic)
+            self._test_resource_group, test_nic_name, test_nic)
 
         self._mock_checked.assert_called_once_with(mock_nicc.get)
         mock_nicc.get.assert_called_once_with(

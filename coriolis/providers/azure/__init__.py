@@ -1,23 +1,11 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
-#
-#    Licensed under the Apache License, Version 2.0 (the "License"); you may
-#    not use this file except in compliance with the License. You may obtain
-#    a copy of the License at
-#
-#         http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-#    License for the specific language governing permissions and limitations
-#    under the License.
-#
 
 """ This module defines the Azure Resource Manager Importer and Exporter. """
 
 import collections
 import contextlib
+import math
 import os
 import os.path as path
 import re
@@ -46,8 +34,8 @@ from coriolis import utils
 
 
 OPTIONS = [
-    cfg.StrOpt("default_auth_url",
     # TODO: AzureStack soon: default for "auth_url", used in client creation.
+    cfg.StrOpt("default_auth_url",
                default="https://management.core.windows.net/",
                help="The API endpoint to authenticate and perform operations"
                     "against."),
@@ -73,6 +61,8 @@ LOG = logging.getLogger(__name__)
 MIGRATION_RESGROUP_NAME_FORMAT = "coriolis-migration-%s"
 MIGRATION_WORKER_NAME_FORMAT = "coriolis-worker-%s"
 MIGRATION_WORKER_DISK_FORMAT = "%s.vhd"
+MIGRATION_WORKER_NIC_NAME_FORMAT = "coriolis-worker-nic-%s"
+MIGRATION_WORKER_PIP_NAME_FORMAT = "coriolis-worker-pip-%s"
 MIGRATION_NETWORK_NAME_FORMAT = "coriolis-migrnet-%s"
 
 BLOB_PATH_FORMAT = "https://%s.blob.core.windows.net/%s/%s"
@@ -93,7 +83,6 @@ WORKER_IMAGES_MAP = {
         "publisher": "canonical",
         "offer": "UbuntuServer",
         "sku": "14.04.3-LTS"
-        # "sku": "15.10"
     },
     "windows": {
         "version": WORKER_VM_IMAGE_VERSION,
@@ -108,7 +97,7 @@ AZURE_OSTYPES_MAP = {
     "windows": compute.models.OperatingSystemTypes.windows
 }
 
-AZURE_VM_VOLUMENOS_MAPPING = collections.OrderedDict([
+AZURE_VMSIZE_VOLUMENOS_MAPPING = collections.OrderedDict([
     # NOTE: this instance size is absolutely useless:
     # (1, compute.models.VirtualMachineSizeTypes.standard_a0),
     (2, compute.models.VirtualMachineSizeTypes.standard_a1),
@@ -177,12 +166,14 @@ class ImportProvider(BaseImportProvider):
             # NOTE: attempt to register to a provider to ensure credentials
             # are indeed actually valid.
             resc = self._get_resource_client(connection_info)
-            azutils.checked(resc.providers.register)(PROVIDERS_NAME_MAP["compute"])
+            azutils.checked(resc.providers.register)(
+                PROVIDERS_NAME_MAP["compute"])
         except (KeyError, azure_exceptions.CloudError,
                 azexceptions.AzureOperationException) as ex:
 
-            LOG.info("Invalid or incomplete Azure credentials provided: %s\n%s",
-                     connection_info, ex)
+            LOG.info(
+                "Invalid or incomplete Azure credentials provided: %s\n%s",
+                connection_info, ex)
             return False
         else:
             return True
@@ -215,38 +206,34 @@ class ImportProvider(BaseImportProvider):
         # validation; but allows for another layer of validation considering
         # a possible discrepancy between the schema and the code...
         raise azexceptions.AzureOperationException(
-            msg="Either 'user_credentials' or 'service_principal_credentials' must"
-            " be specified in 'connection_info'.",
+            msg="Either 'user_credentials' or 'service_principal_credentials' "
+            "must be specified in 'connection_info'.",
             code=-1)
 
     def _get_compute_client(self, connection_info):
         """ Returns an azure.mgmt.compute.ComputeManagementClient.
         """
         return compute.ComputeManagementClient(
-            compute.ComputeManagementClientConfiguration(
-                self._get_cloud_credentials(connection_info),
-                connection_info["subscription_id"]))
+            self._get_cloud_credentials(connection_info),
+            connection_info["subscription_id"])
 
     def _get_network_client(self, connection_info):
         """ Returns an azure.mgmt.network.NetworkResourceProviderClient. """
         return network.NetworkManagementClient(
-            network.NetworkManagementClientConfiguration(
-                self._get_cloud_credentials(connection_info),
-                connection_info["subscription_id"]))
+            self._get_cloud_credentials(connection_info),
+            connection_info["subscription_id"])
 
     def _get_storage_client(self, connection_info):
         """ Returns an azure.mgmt.storage.StorageManagementClient. """
         return storage.StorageManagementClient(
-            storage.StorageManagementClientConfiguration(
-                self._get_cloud_credentials(connection_info),
-                connection_info["subscription_id"]))
+            self._get_cloud_credentials(connection_info),
+            connection_info["subscription_id"])
 
     def _get_resource_client(self, connection_info):
         """ Returns an azure.mgmt.resource.ResourceManagementClient. """
         return resources.ResourceManagementClient(
-            resources.ResourceManagementClientConfiguration(
-                self._get_cloud_credentials(connection_info),
-                connection_info["subscription_id"]))
+            self._get_cloud_credentials(connection_info),
+            connection_info["subscription_id"])
 
     def _get_page_blob_client(self, target_environment):
         """ Returns an azure.storage.blob.PageBlobService client. """
@@ -264,8 +251,8 @@ class ImportProvider(BaseImportProvider):
 
     def _delete_recovery_disk(self, target_environment, vm_name):
         """ Removes the recovery disk block blob for the given
-        instance name. If more than one such recovery disk exists,
-        raises an exception so as to prevent damage. """
+        instance name.
+        """
         blobd = self._get_block_blob_client(target_environment)
         cont_name = CONF.azure_migration_provider.migr_container_name
 
@@ -287,8 +274,9 @@ class ImportProvider(BaseImportProvider):
         """
         self._event_manager.progress_update(
             "Uploading disk from '%s' as '%s'." % (disk_path, upload_name))
+
         def progressf(curr, total):
-            LOG.info("Uploading '%s': %d/%d.", upload_name, curr, total)
+            LOG.debug("Uploading '%s': %d/%d.", upload_name, curr, total)
 
         blobd = self._get_page_blob_client(target_environment)
 
@@ -326,12 +314,13 @@ class ImportProvider(BaseImportProvider):
                     "location",
                     CONF.azure_migration_provider.migr_location),
                 address_space=network.models.AddressSpace(
-                    # TODO: move hard-codes to CONF?
+                    # NOTE: can safely be completely arbitrary:
                     address_prefixes=["10.0.0.0/16"]
                 ),
                 subnets=[
                     network.models.Subnet(
                         name=CONF.azure_migration_provider.migr_subnet_name,
+                        # NOTE: can safely be completely arbitrary:
                         address_prefix='10.0.0.0/24'
                     )
                 ]
@@ -376,8 +365,10 @@ class ImportProvider(BaseImportProvider):
             return self._get_windows_worker_osprofile(
                 location, worker_name)
 
-        raise NotImplementedError(
-            "Unsupported migration OS type '%s'." % os_type)
+        raise azexceptions.FatalAzureOperationException(
+            code=-1,
+            msg="Unsupported migration OS type '%s'." % os_type
+        )
 
     def _get_linux_worker_osprofile(self, worker_name):
         """ Returns the AzureWorkerOSProfile afferent to a Linux worker. """
@@ -405,7 +396,7 @@ class ImportProvider(BaseImportProvider):
         return AzureWorkerOSProfile(
             profile=os_profile,
             token=key,
-            port=22, # NOTE: default one used.
+            port=22,  # NOTE: default port used on Azure-provided images.
             extensions=[]
         )
 
@@ -427,9 +418,8 @@ class ImportProvider(BaseImportProvider):
             )
         )
 
-        extension = compute.models.VirtualMachineExtension(
+        winrm_extension = compute.models.VirtualMachineExtension(
             location,
-            name="worker-winrm-setup-extension",
             publisher=PROVIDERS_NAME_MAP["compute"],
             virtual_machine_extension_type="CustomScriptExtension",
             type_handler_version="1.4",
@@ -444,8 +434,8 @@ class ImportProvider(BaseImportProvider):
         return AzureWorkerOSProfile(
             profile=os_profile,
             token=password,
-            port=5986, # NOTE: default used.
-            extensions=[extension]
+            port=5986,  # NOTE: default port opened via the extension
+            extensions=[winrm_extension]
         )
 
     @utils.retry_on_error()
@@ -455,28 +445,25 @@ class ImportProvider(BaseImportProvider):
 
         NOTE: Azure does unfortunately not allow for the setting of MAC
         addresses. A NIC's MAC is determined when the VM the NIC is attached
-        to is booted; and is NOT persistent between boots...
+        to is booted.
         """
 
         awaited = azutils.awaited(timeout=200)
         net_client = self._get_network_client(connection_info)
 
         nic = network.models.NetworkInterface(
-            name=nic_name,
             location=location,
             ip_configurations=ip_configs
         )
 
-        # NOTE: pointless; read docstring...
-        # nic.mac_address = mac_address
-
         awaited(net_client.network_interfaces.create_or_update)(
             resgroup,
             nic_name,
-            parameters=nic
+            nic
         )
 
-        return azutils.checked(net_client.network_interfaces.get)(resgroup, nic_name)
+        return azutils.checked(net_client.network_interfaces.get)(
+            resgroup, nic_name)
 
     @utils.retry_on_error()
     def _create_public_ip(self, connection_info, resgroup, ip_name, location):
@@ -488,8 +475,7 @@ class ImportProvider(BaseImportProvider):
             ip_name,
             network.models.PublicIPAddress(
                 location=location,
-                public_ip_allocation_method=
-                network.models.IPAllocationMethod.dynamic,
+                public_ip_allocation_method=network.models.IPAllocationMethod.dynamic,
             ),
         )
 
@@ -502,20 +488,28 @@ class ImportProvider(BaseImportProvider):
 
         Does NOT check if it already is a VHD.
         """
-        newpath = path.join(
-            tempfile.gettempdir(), azutils.get_unique_id())
-
-        utils.convert_disk_format(
-            disk_path, newpath,
-            constants.DISK_FORMAT_VHD,
-            preallocated=True
+        newpath = "%s.%s" % (
+            path.splitext(disk_path)[0],
+            constants.DISK_FORMAT_VHD
         )
+
+        try:
+            utils.convert_disk_format(
+                disk_path, newpath,
+                constants.DISK_FORMAT_VHD,
+                preallocated=True
+            )
+        except Exception as ex:
+            raise azexceptions.FatalAzureOperationException(
+                code=-1,
+                msg="Unable to convert disk '%s' to fixed VHD." % disk_path
+            ) from ex
 
         return newpath
 
     def _migrate_disk(self, target_environment, lun,
                       disk_path, upload_name):
-        """ Moves the given disk file to Azure as a page blob. """
+        """ Moves the given disk file to Azure storage as a page blob. """
         disk_file_info = utils.get_disk_info(disk_path)
 
         upload_path = disk_path
@@ -533,12 +527,11 @@ class ImportProvider(BaseImportProvider):
             blb = self._upload_disk(
                 target_environment, upload_path, upload_name)
         except Exception as ex:
-            # disk upload too expensive to retry:
+            # NOTE: _upload_disk is set to retry, so it's game over here:
             raise azexceptions.FatalAzureOperationException(
                 code=-1,
-                msg="Failed to upload disk '%s' to Azure: '%s'" % (
-                    upload_name, ex)
-            )
+                msg="Failed to upload disk '%s' to Azure." % upload_name
+            ) from ex
         finally:
             os.remove(upload_path)
 
@@ -547,13 +540,14 @@ class ImportProvider(BaseImportProvider):
             name=blb.name,
             caching=compute.models.CachingTypes.none,
             vhd=compute.models.VirtualHardDisk(uri=blb.uri),
-            # NOTE: here we force Azure to resize the disk itself to ensure the
-            # 1MB internal size alignment without which the VM will not boot...
-            # Sadly we're limited to a max granularity of 1GB here...
-            disk_size_gb=disk_file_info["virtual-size"] / units.Gi + 1,
+            # NOTE: we must force Azure to resize the disk itself to ensure the
+            # 1MB internal size alignment without which the VM will not boot.
+            # Maximum granularity for specifying disk size on Azure is 1GB.
+            disk_size_gb=math.ceil(disk_file_info["virtual-size"] / units.Gi) + 2,
             create_option=compute.models.DiskCreateOptionTypes.attach,
         )
 
+    @utils.retry_on_error()
     def _get_subnet(self, connection_info, resgroup, vn_name, sub_name):
         """ Fetches information for the specified subnet. """
         net_client = self._get_network_client(connection_info)
@@ -561,6 +555,7 @@ class ImportProvider(BaseImportProvider):
         return azutils.checked(net_client.subnets.get)(
             resgroup, vn_name, sub_name)
 
+    @utils.retry_on_error()
     def _get_pub_ip(self, connection_info, resgroup, ip_name):
         """ Fetches information for the given public IP address. """
         net_client = self._get_network_client(connection_info)
@@ -570,8 +565,8 @@ class ImportProvider(BaseImportProvider):
 
     def _get_worker_size(self, worker_name, ndisks):
         """ Returns the required size of the worker needed to handle
-        the migation/transformation of the data disks. """
-        for maxvols, size in AZURE_VM_VOLUMENOS_MAPPING.items():
+        the migration/transformation of the data disks. """
+        for maxvols, size in AZURE_VMSIZE_VOLUMENOS_MAPPING.items():
             if ndisks <= maxvols:
                 self._event_manager.progress_update(
                     "Worker '%s' size chosen as '%s'." %
@@ -585,6 +580,8 @@ class ImportProvider(BaseImportProvider):
                  "as it has too many volumes (%d).", ndisks)
         )
 
+    @utils.retry_on_error(
+        terminal_exceptions=[azexceptions.FatalAzureOperationException])
     def _create_migration_worker(self, connection_info, target_environment,
                                  export_info, migration_id, datadisks):
         """ Creates and returns the connection information of the worker which
@@ -594,7 +591,7 @@ class ImportProvider(BaseImportProvider):
         worker_name = MIGRATION_WORKER_NAME_FORMAT % migration_id
 
         self._event_manager.progress_update(
-            "Begun defining migration worker '%s'." % worker_name)
+            "Defining migration worker '%s'." % worker_name)
 
         awaited = azutils.awaited(timeout=600)
         location = target_environment.get(
@@ -605,14 +602,14 @@ class ImportProvider(BaseImportProvider):
         self._event_manager.progress_update(
             "Creating Public IP for '%s'." % worker_name)
 
-        ip_name = "coriolis-ws-pubip-" + migration_id
+        ip_name = MIGRATION_WORKER_PIP_NAME_FORMAT % migration_id
         pub_ip = self._create_public_ip(connection_info, resgroup,
                                         ip_name, location)
 
         self._event_manager.progress_update(
             "Creating NIC for '%s'." % worker_name)
 
-        nic_name = "coriolis-ws-nic-" + migration_id
+        nic_name = MIGRATION_WORKER_NIC_NAME_FORMAT % migration_id
         nic = self._create_nic(
             connection_info, resgroup, nic_name, location,
             ip_configs=[
@@ -624,11 +621,8 @@ class ImportProvider(BaseImportProvider):
                         MIGRATION_NETWORK_NAME_FORMAT % migration_id,
                         CONF.azure_migration_provider.migr_subnet_name
                     ),
-                    private_ip_allocation_method=
-                    network.models.IPAllocationMethod.dynamic,
-                    public_ip_address=network.models.Resource(
-                        id=pub_ip.id
-                    ),
+                    private_ip_allocation_method=network.models.IPAllocationMethod.dynamic,
+                    public_ip_address=pub_ip,
                 )
             ]
         )
@@ -645,7 +639,7 @@ class ImportProvider(BaseImportProvider):
         awaited(computec.virtual_machines.create_or_update)(
             resgroup,
             worker_name,
-            parameters=compute.models.VirtualMachine(
+            compute.models.VirtualMachine(
                 location=location,
                 os_profile=worker_osprofile.profile,
                 hardware_profile=compute.models.HardwareProfile(
@@ -823,27 +817,74 @@ class ImportProvider(BaseImportProvider):
 
             nics = []
             for i, nic in enumerate(export_info["devices"].get("nics", [])):
-                nic_name = "%s-NIC-%d" % (instance_name, i)
+                nic_name = nic.get("name", i)
+                net_name = nic.get("network_name", None)
+                subnet_name = nic.get("subnet_name", None)
+                if not net_name:
+                    net = target_environment.get("network", {})
+                    net_name = net.get("name", None)
 
+                    if not net or not net_name:
+                        raise azexceptions.FatalAzureOperationException(
+                            code=-1,
+                            msg="A network to which to perform the migration "
+                                "must be specified within the target "
+                                "environment in order to add NIC '%s' to "
+                                "instance '%s'." % (
+                                    nic_name, instance_name)
+                        )
+
+                    LOG.info("'network_name' not provided for NIC '%s'. "
+                             "Attempting to attach to migration network '%s'.",
+                             nic_name, net_name)
+                    net_name = target_environment["network"]["name"]
+                    subnet_name = target_environment["network"]["subnet"]
+                else:
+                    network_map = target_environment.get("network_map", {})
+                    if not network_map:
+                        raise azexceptions.FatalAzureOperationException(
+                            code=-1,
+                            msg="A network map must be specified within the "
+                                "target environment in order to map the "
+                                "network of nic '%s', namely '%s'." % (
+                                    nic_name, net_name
+                                )
+                        )
+
+                    net_name = network_map.get(net_name, None)
+                    if not net_name:
+                        raise azexceptions.FatalAzureOperationException(
+                            code=-1,
+                            msg="Cannot find suitable network name "
+                                "for attaching nic '%s' within the network "
+                                "map under the name '%s'" % (
+                                    nic_name, nic.get("network_name")
+                                )
+                        )
+
+                    subnet_name = "default"
+                    LOG.info(
+                        "Subnet for nic '%s' within '%s' defaulting to "
+                        "'default'.", nic_name, net_name)
+
+                nic_name = "%s-NIC-%d" % (instance_name, i)
                 nics.append(self._create_nic(
                     connection_info,
                     target_environment["resource_group"],
-                    nic_name, location,
+                    nic_name,
+                    location,
                     ip_configs=[
                         network.models.NetworkInterfaceIPConfiguration(
                             name=nic_name + "-ipconf",
                             subnet=self._get_subnet(
                                 connection_info,
                                 target_environment["resource_group"],
-                                target_environment["network"]["name"],
-                                target_environment["network"]["subnet"]
+                                net_name,
+                                subnet_name
                             ),
-                            private_ip_allocation_method=
-                            network.models.IPAllocationMethod.dynamic,
+                            private_ip_allocation_method=network.models.IPAllocationMethod.dynamic,
                             # TOREINST:
-                            public_ip_address=network.models.Resource(
-                                id=pub_ip.id
-                            ),
+                            public_ip_address=pub_ip,
                         )
                     ],
                 ))
@@ -862,9 +903,8 @@ class ImportProvider(BaseImportProvider):
             awaited(vmclient.create_or_update)(
                 target_environment["resource_group"],
                 instance_name,
-                parameters=compute.models.VirtualMachine(
+                compute.models.VirtualMachine(
                     location=location,
-                    name=instance_name,
                     os_profile=vm_profile,
                     hardware_profile=compute.models.HardwareProfile(
                         vm_size=compute.models.VirtualMachineSizeTypes(
@@ -872,9 +912,8 @@ class ImportProvider(BaseImportProvider):
                         )
                     ),
                     network_profile=compute.models.NetworkProfile(
-                        network_interfaces=
-                        [compute.models.NetworkInterfaceReference(x.id)
-                         for x in nics]
+                        network_interfaces=[compute.models.NetworkInterfaceReference(x.id)
+                                            for x in nics]
                     ),
                     storage_profile=compute.models.StorageProfile(
                         os_disk=compute.models.OSDisk(
@@ -933,7 +972,9 @@ class ImportProvider(BaseImportProvider):
         # first; ensure the worker is properly gone:
         computec = self._get_compute_client(connection_info).virtual_machines
         try:
-            awaited(computec.delete)(migration_resgroup, worker_name)
+            worker_vm = computec.get(migration_resgroup, worker_name)
+            if worker_vm:
+                awaited(computec.delete)(migration_resgroup, worker_name)
         except:
             pass
 
