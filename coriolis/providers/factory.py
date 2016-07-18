@@ -5,7 +5,8 @@ from coriolis.providers import vmware_vsphere
 
 
 EXPORT_PROVIDERS = {
-    constants.PLATFORM_VMWARE_VSPHERE: vmware_vsphere.ExportProvider
+    constants.PLATFORM_VMWARE_VSPHERE: vmware_vsphere.ExportProvider,
+    constants.PLATFORM_OPENSTACK: openstack.ExportProvider
 }
 
 IMPORT_PROVIDERS = {
