@@ -1,3 +1,6 @@
+# Copyright 2016 Cloudbase Solutions Srl
+# All Rights Reserved.
+
 from logging import handlers
 import multiprocessing
 import os

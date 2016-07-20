@@ -1,3 +1,6 @@
+# Copyright 2016 Cloudbase Solutions Srl
+# All Rights Reserved.
+
 """ Defines various schemas used for validation throughout the project. """
 
 import json

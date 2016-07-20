@@ -1,3 +1,6 @@
+# Copyright 2016 Cloudbase Solutions Srl
+# All Rights Reserved.
+
 import sys
 
 from oslo_config import cfg

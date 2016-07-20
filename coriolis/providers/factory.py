@@ -1,3 +1,6 @@
+# Copyright 2016 Cloudbase Solutions Srl
+# All Rights Reserved.
+
 from coriolis import constants
 from coriolis import exception
 from coriolis.providers import openstack

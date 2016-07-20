@@ -1,3 +1,6 @@
+# Copyright 2016 Cloudbase Solutions Srl
+# All Rights Reserved.
+
 from oslo_config import cfg
 import oslo_messaging as messaging
 

@@ -1,3 +1,6 @@
+# Copyright 2016 Cloudbase Solutions Srl
+# All Rights Reserved.
+
 from webob import exc
 
 from coriolis.api import wsgi as api_wsgi
