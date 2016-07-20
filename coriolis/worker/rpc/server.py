@@ -5,15 +5,16 @@ import queue
 import shutil
 import sys
 
+import psutil
 from oslo_config import cfg
 from oslo_log import log as logging
-import psutil
 
 from coriolis.conductor.rpc import client as rpc_conductor_client
 from coriolis import constants
 from coriolis import events
 from coriolis import exception
 from coriolis.providers import factory
+from coriolis import schemas
 from coriolis import secrets
 from coriolis import utils
 
@@ -208,6 +209,10 @@ def _task_process(ctxt, task_id, task_type, origin, destination, instance,
             result = provider.export_instance(ctxt, connection_info, instance,
                                               export_path)
             result[TMP_DIRS_KEY] = [export_path]
+
+            # validate the outputted VM info:
+            schemas.validate_value(
+                result, schemas.CORIOLIS_VM_EXPORT_INFO_SCHEMA)
         else:
             result = provider.import_instance(ctxt, connection_info,
                                               target_environment, instance,

@@ -51,6 +51,10 @@ class MigrationController(api_wsgi.Controller):
             # TODO: use a decent exception
             raise exception.CoriolisException("Invalid connection info")
 
+        if not import_provider.validate_target_environment(
+                destination.get("target_environment", {})):
+            raise exception.CoriolisException("Invalid target environment")
+
         return origin, destination, migration["instances"]
 
     def create(self, req, body):
