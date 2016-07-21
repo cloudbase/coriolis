@@ -92,10 +92,10 @@ def awaited(timeout=90):
     def _awaited(operation):
         @functools.wraps(operation)
         def _await(*args, **kwargs):
-            resp = operation(*args, raw=True,
-                             long_running_operation_timeout=timeout, **kwargs)
+            resp = operation(
+                *args, long_running_operation_timeout=timeout, **kwargs)
 
-            return resp.output
+            return resp.result()
         return _await
 
     return _awaited
