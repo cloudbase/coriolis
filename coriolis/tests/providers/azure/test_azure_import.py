@@ -8,17 +8,18 @@ from azure.mgmt import compute, network
 
 from coriolis import constants
 from coriolis.providers import azure
+from coriolis.providers.azure import exceptions
 from coriolis.tests import testutils
-from coriolis.tests.providers import test_providers
+from coriolis.tests.providers import base
 
 
-class ArmImportProviderUnitTestsCase(test_providers.ImportProviderTestCase):
+class AzureImportProviderUnitTestsCase(base.ImportProviderTestCase):
 
     _platform = constants.PLATFORM_AZURE_RM
     _hypervisor = constants.HYPERVISOR_HYPERV
 
     def setUp(self):
-        super(ArmImportProviderUnitTestsCase, self).setUp()
+        super(AzureImportProviderUnitTestsCase, self).setUp()
 
         self._patch_utils_retry()
 
@@ -262,7 +263,7 @@ class ArmImportProviderUnitTestsCase(test_providers.ImportProviderTestCase):
         mock_get_linux_osprofile.reset_mock()
 
         self.assertRaises(
-            NotImplementedError,
+            exceptions.FatalAzureOperationException,
             self._provider._get_worker_osprofile,
             random_export_info, self._test_location, worker_name)
 
@@ -339,26 +340,22 @@ class ArmImportProviderUnitTestsCase(test_providers.ImportProviderTestCase):
         self.assertEqual(res, test_pip)
 
     @mock.patch.object(os, 'remove')
-    @mock.patch.object(os.path, 'join')
-    @mock.patch.object(tempfile, 'gettempdir')
-    def test_convert_to_vhd(self, mock_gettempdir, mock_pathjoin, mock_osremove):
+    @mock.patch.object(os.path, 'splitext')
+    def test_convert_to_vhd(self, mock_splitext, mock_osremove):
         self._patch_utils_disk_functions()
         self._patch_azure_utils()
 
         test_disk_path = mock.sentinel.test_disk_path
 
-        test_tempdir = mock.sentinel.test_temporaries_directory
-        mock_gettempdir.return_value = test_tempdir
+        test_newpath = mock.sentinel.test_new_diskpath
+        mock_splitext.return_value = ["testdiskname"]
 
-        test_newpath = mock.sentinel.test_new_path
-        mock_pathjoin.return_value = test_newpath
+        test_newpath = "%s.%s" % (
+            mock_splitext.return_value[0],
+            constants.DISK_FORMAT_VHD
+        )
 
         res = self._provider._convert_to_vhd(test_disk_path)
-
-        mock_gettempdir.asset_called_once()
-        self._mock_azutils_uniqueid.assert_called_once()
-        mock_pathjoin.assert_called_once_with(
-            test_tempdir, self._test_unique_id)
 
         self._mock_utils_convert_disk.assert_called_once_with(
             test_disk_path, test_newpath, constants.DISK_FORMAT_VHD,

@@ -1,5 +1,5 @@
 {
-  "$schema": "http://cloudbase.it/coriolis/schemas/arm_target_environment#",
+  "$schema": "http://cloudbase.it/coriolis/schemas/azure_target_environment#",
   "type": "object",
   "properties": {
     "secret_ref": {
