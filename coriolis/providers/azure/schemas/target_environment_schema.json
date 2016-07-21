@@ -32,6 +32,12 @@
         "key"
       ]
     },
+    "migr_image_sku": {
+        "type": "string"
+    },
+    "migr_image_sku_map": {
+        "type": "object"
+    },
     "network_map": {
       "type": "array",
       "items": {

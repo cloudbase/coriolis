@@ -55,7 +55,27 @@ OPTIONS = [
                default="migratedinst",
                help="Default hostname to be used in case the hostname of the "
                     "instance being migrated does not conform with Azure's "
-                    "standards (no special characters of maximum length 15).")
+                    "standards (no special characters of maximum length 15)."),
+    cfg.DictOpt("worker_volume_count_to_size_map",
+                default=collections.OrderedDict([
+                    (2, compute.models.VirtualMachineSizeTypes.standard_d1),
+                    (4, compute.models.VirtualMachineSizeTypes.standard_d2),
+                    (8, compute.models.VirtualMachineSizeTypes.standard_d3),
+                    (16, compute.models.VirtualMachineSizeTypes.standard_d4),
+                    (32, compute.models.VirtualMachineSizeTypes.standard_d5_v2)
+                ]),
+                help="Mapping between the number of volumes supported by "
+                     "an Azure instance size and its name (with correct "
+                     "capitalization and underscores) as show here: "
+                     "https://azure.microsoft.com/en-us/documentation/"
+                     "articles/virtual-machines-windows-sizes/"),
+    cfg.DictOpt("migr_image_sku_map",
+                default={
+                    constants.OS_TYPE_LINUX: "14.04.3-LTS",
+                    constants.OS_TYPE_WINDOWS: "2012-R2-Datacenter"
+                },
+                help="Mapping of image SKUs to be used for migration workers "
+                     "with respect to the type of OS being migrated.")
 ]
 
 CONF = cfg.CONF
@@ -83,17 +103,15 @@ PROVIDERS_NAME_MAP = {
 WORKER_VM_IMAGE_VERSION = "latest"
 
 WORKER_IMAGES_MAP = {
-    "linux": {
+    constants.OS_TYPE_LINUX: {
         "version": WORKER_VM_IMAGE_VERSION,
         "publisher": "canonical",
-        "offer": "UbuntuServer",
-        "sku": "14.04.3-LTS"
+        "offer": "UbuntuServer"
     },
-    "windows": {
+    constants.OS_TYPE_WINDOWS: {
         "version": WORKER_VM_IMAGE_VERSION,
         "publisher": "MicrosoftWindowsServer",
-        "offer": "WindowsServer",
-        "sku": "2012-R2-Datacenter"
+        "offer": "WindowsServer"
     },
 }
 
@@ -102,19 +120,9 @@ AZURE_OSTYPES_MAP = {
     "windows": compute.models.OperatingSystemTypes.windows
 }
 
-WORKER_VOLUME_COUNT_VMSIZE_MAP = collections.OrderedDict([
-    # NOTE: this instance size is absolutely useless:
-    # (1, compute.models.VirtualMachineSizeTypes.standard_a0),
-    (2, compute.models.VirtualMachineSizeTypes.standard_a1),
-    (4, compute.models.VirtualMachineSizeTypes.standard_a2),
-    (8, compute.models.VirtualMachineSizeTypes.standard_a3),
-    (16, compute.models.VirtualMachineSizeTypes.standard_a4)
-])
-
 WINRM_EXTENSION_FILES_BASE_URI = (
     # TODO: not fetch off github
-    "https://raw.githubusercontent.com/cloudbase/coriolis-resources/master/azure/"
-    "/master/201-vm-winrm-windows/")
+    "https://raw.githubusercontent.com/cloudbase/coriolis-resources/master/azure/")
 
 WINRM_EXTENSION_FILE_URIS = [
     WINRM_EXTENSION_FILES_BASE_URI + f
@@ -267,7 +275,7 @@ class ImportProvider(BaseImportProvider):
         if len(blob_names) > 1:
             self._event_manager.progress_update(
                 "VM '%s' has more than one recovery disk. "
-                "Skipped deleting any to avoid adverse loss.")
+                "Skipped deleting any to avoid adverse loss")
 
         if len(blob_names) == 1:
             blobd.delete_blob(cont_name, blob_names[0])
@@ -278,7 +286,7 @@ class ImportProvider(BaseImportProvider):
         and returns the corresponding AzureStorageBlob.
         """
         self._event_manager.progress_update(
-            "Uploading disk from '%s' as '%s'." % (disk_path, upload_name))
+            "Uploading disk from '%s' as '%s'" % (disk_path, upload_name))
 
         def progressf(curr, total):
             LOG.debug("Uploading '%s': %d/%d.", upload_name, curr, total)
@@ -304,7 +312,7 @@ class ImportProvider(BaseImportProvider):
         returns the response from its creation operation.
         """
         self._event_manager.progress_update(
-            "Creating migration network.")
+            "Creating migration network")
 
         awaited = azutils.awaited(timeout=150)
         netc = self._get_network_client(connection_info)
@@ -339,9 +347,6 @@ class ImportProvider(BaseImportProvider):
         vmclient = self._get_compute_client(connection_info).virtual_machines
         state = azutils.checked(vmclient.get)(resgroup, vm_name)
 
-        self._event_manager.progress_update(
-            "Waiting for '%s' to start." % vm_name)
-
         while state.provisioning_state != "Succeeded":
             if state.provisioning_state not in ("Creating", "Updating"):
                 raise azexceptions.FatalAzureOperationException(
@@ -352,9 +357,6 @@ class ImportProvider(BaseImportProvider):
 
             time.sleep(period)
             state = azutils.checked(vmclient.get)(resgroup, vm_name)
-
-        self._event_manager.progress_update(
-            "VM '%s' has started succesfully." % vm_name)
 
         return state
 
@@ -377,8 +379,7 @@ class ImportProvider(BaseImportProvider):
 
     def _get_linux_worker_osprofile(self, worker_name):
         """ Returns the AzureWorkerOSProfile afferent to a Linux worker. """
-        self._event_manager.progress_update(
-            "Linux chosen as worker '%s' OS." % worker_name)
+        LOG.info("Linux chosen as worker '%s' OS.", worker_name)
 
         key = paramiko.RSAKey.generate(2048)
 
@@ -407,8 +408,7 @@ class ImportProvider(BaseImportProvider):
 
     def _get_windows_worker_osprofile(self, location, worker_name):
         """ Returns the AzureWorkerOSProfile afferent to a Windows worker. """
-        self._event_manager.progress_update(
-            "Windows was chosen as worker '%s' OS." % worker_name)
+        LOG.info("Windows was chosen as worker '%s' OS.", worker_name)
 
         password = azutils.get_random_password()
         os_profile = compute.models.OSProfile(
@@ -520,7 +520,7 @@ class ImportProvider(BaseImportProvider):
         # convert disk if necessary:
         if disk_file_info["format"] != constants.DISK_FORMAT_VHD:
             self._event_manager.progress_update(
-                "Converting disk '%s' from '%s' to vhd." %
+                "Converting disk '%s' from '%s' to VHD" %
                 (upload_name, disk_file_info["format"]))
 
             upload_path = self._convert_to_vhd(disk_path)
@@ -569,10 +569,14 @@ class ImportProvider(BaseImportProvider):
     def _get_worker_size(self, worker_name, ndisks):
         """ Returns the required size of the worker needed to handle
         the migration/transformation of the data disks. """
-        for maxvols, size in WORKER_VOLUME_COUNT_VMSIZE_MAP.items():
+        mapping = CONF.azure_migration_provider.worker_volume_count_to_size_map
+        volsmap = collections.OrderedDict(
+            [(n, mapping[n]) for n in sorted(mapping.keys())])
+
+        for maxvols, size in volsmap.items():
             if ndisks <= maxvols:
                 self._event_manager.progress_update(
-                    "Worker '%s' size chosen as '%s'." %
+                    "Worker '%s' size chosen as '%s'" %
                     (worker_name, str(size).split(".")[-1]))
 
                 return size
@@ -594,7 +598,7 @@ class ImportProvider(BaseImportProvider):
         worker_name = MIGRATION_WORKER_NAME_FORMAT % migration_id
 
         self._event_manager.progress_update(
-            "Defining migration worker '%s'." % worker_name)
+            "Defining migration worker '%s'" % worker_name)
 
         awaited = azutils.awaited(timeout=600)
         location = target_environment.get(
@@ -603,14 +607,14 @@ class ImportProvider(BaseImportProvider):
 
         # create the NIC and public IP:
         self._event_manager.progress_update(
-            "Creating Public IP for '%s'." % worker_name)
+            "Creating Public IP for '%s'" % worker_name)
 
         ip_name = MIGRATION_WORKER_PIP_NAME_FORMAT % migration_id
         pub_ip = self._create_public_ip(connection_info, resgroup,
                                         ip_name, location)
 
         self._event_manager.progress_update(
-            "Creating NIC for '%s'." % worker_name)
+            "Creating NIC for '%s'" % worker_name)
 
         nic_name = MIGRATION_WORKER_NIC_NAME_FORMAT % migration_id
         nic = self._create_nic(
@@ -632,13 +636,17 @@ class ImportProvider(BaseImportProvider):
 
         # create the worker:
         worker_img = WORKER_IMAGES_MAP[export_info["os_type"]]
+        target_env_sku_map = target_environment.get("migr_image_sku_map", {})
+        conf_sku = CONF.azure_migration_provider.migr_image_sku_map.get(
+            export_info["os_type"])
+        worker_img_sku = target_environment.get(
+            "migr_image_sku",
+            target_env_sku_map.get(export_info["os_type"], conf_sku))
         worker_disk_name = AZURE_DISK_NAME_FORMAT % worker_name
         computec = self._get_compute_client(connection_info)
         worker_osprofile = self._get_worker_osprofile(
             export_info["os_type"], location, worker_name)
 
-        self._event_manager.progress_update(
-            "Creating migration worker '%s'." % worker_name)
         awaited(computec.virtual_machines.create_or_update)(
             resgroup,
             worker_name,
@@ -672,18 +680,21 @@ class ImportProvider(BaseImportProvider):
                     image_reference=compute.models.ImageReference(
                         publisher=worker_img["publisher"],
                         offer=worker_img["offer"],
-                        sku=worker_img["sku"],
+                        sku=worker_img_sku,
                         version=worker_img["version"]
                     )
                 )
             )
         )
+
+        self._event_manager.progress_update("Waiting for Coriolis Worker to start")
         self._wait_for_vm(connection_info, resgroup, worker_name)
+        self._event_manager.progress_update("Coriolis Worker has started succesfully")
 
         # add any neccessary extensions to the Worker:
         for ext in worker_osprofile.extensions:
             self._event_manager.progress_update(
-                "Creating Worker VM extensions '%s'." % ext.name)
+                "Creating Worker VM extensions '%s'" % ext.name)
 
             awaited(computec.virtual_machine_extensions.create_or_update)(
                 resgroup,
@@ -734,7 +745,7 @@ class ImportProvider(BaseImportProvider):
                         instance_name, export_info):
         """ Runs the process of importing the instance to Azure. """
         self._event_manager.progress_update(
-            "Importing instance '%s' to Azure." % instance_name)
+            "Importing instance '%s' to Azure" % instance_name)
 
         awaited = azutils.awaited(300)
         location = target_environment.get(
@@ -750,17 +761,17 @@ class ImportProvider(BaseImportProvider):
             # setup storage container:
             cont_name = CONF.azure_migration_provider.migr_container_name
             self._event_manager.progress_update(
-                "Creating migration storage container '%s'." % cont_name)
+                "Creating migration storage container '%s'" % cont_name)
 
             blobd = self._get_page_blob_client(target_environment)
-            blobd.create_container(cont_name,
-                                   public_access=blob.PublicAccess.Container)
+            utils.retry_on_error()(blobd.create_container)(
+                cont_name, public_access=blob.PublicAccess.Container)
 
             # migrate the instance's attached volumes:
             datadisks = []
             for lun, disk in enumerate(export_info["devices"]["disks"]):
                 self._event_manager.progress_update(
-                    "Processing instance disk number %d." % (lun + 1))
+                    "Processing instance disk number %d" % (lun + 1))
 
                 disk_name = AZURE_DISK_NAME_FORMAT % (
                     instance_name + "_" + str(lun))
@@ -774,12 +785,13 @@ class ImportProvider(BaseImportProvider):
 
             # setup migration resource group:
             self._event_manager.progress_update(
-                "Creating migration resource group '%s'." % resgroup)
+                "Creating migration resource group '%s'" % resgroup)
 
             resc = self._get_resource_client(connection_info)
-            azutils.checked(resc.resource_groups.create_or_update)(
-                resgroup,
-                resources.models.ResourceGroup(location))
+            utils.retry_on_error()(
+                azutils.checked(resc.resource_groups.create_or_update))(
+                    resgroup,
+                    resources.models.ResourceGroup(location))
 
             # create the migration network:
             self._create_migration_network(
@@ -792,7 +804,7 @@ class ImportProvider(BaseImportProvider):
 
             # morph the images:
             self._event_manager.progress_update(
-                "Morphing instance '%s' on Azure." % instance_name)
+                "Preparing instance" % instance_name)
 
             osmorpher.morph_image(
                 worker_info._asdict(),
@@ -806,15 +818,15 @@ class ImportProvider(BaseImportProvider):
 
             # delete the worker:
             self._event_manager.progress_update(
-                "Deleting migration worker '%s'." % worker_info.name)
+                "Deleting migration worker" % worker_info.name)
             vmclient = self._get_compute_client(
                 connection_info).virtual_machines
-            awaited(vmclient.delete)(resgroup, MIGRATION_WORKER_NAME_FORMAT %
-                                     migration_id)
+            utils.retry_on_error()(awaited(vmclient.delete))(
+                resgroup, worker_info.name)
 
             # setup vm nics:
             self._event_manager.progress_update(
-                "Setting up instance '%s's NICs." % instance_name)
+                "Setting up NICs" % instance_name)
 
             nics = []
             for i, nic in enumerate(export_info["devices"].get("nics", [])):
@@ -876,9 +888,6 @@ class ImportProvider(BaseImportProvider):
                     net_name = net["destination_network"]
                     subnet_name = net["destination_subnet"]
                     add_public_ip = net["is_public_network"]
-                    LOG.info(
-                        "Subnet for nic '%s' within '%s' defaulting to "
-                        "'default'.", nic_name, net_name)
 
                 nic_name = azutils.normalize_resource_name(nic_name)
 
@@ -913,7 +922,7 @@ class ImportProvider(BaseImportProvider):
 
             # create the VM:
             self._event_manager.progress_update(
-                "Starting instance '%s' on Azure." % instance_name)
+                "Starting migrated instance" % instance_name)
 
             disk_name = AZURE_DISK_NAME_FORMAT % (
                 "".join(instance_name) + "_os_disk")
@@ -922,7 +931,7 @@ class ImportProvider(BaseImportProvider):
 
             vmclient = self._get_compute_client(
                 connection_info).virtual_machines
-            awaited(vmclient.create_or_update)(
+            utils.retry_on_error()(awaited(vmclient.create_or_update))(
                 target_environment["resource_group"],
                 azutils.normalize_resource_name(instance_name),
                 compute.models.VirtualMachine(
@@ -964,12 +973,12 @@ class ImportProvider(BaseImportProvider):
         except:
             self._cleanup(connection_info, target_environment,
                           resgroup, worker_info)
-            self._event_manager.progress_update(
+            LOG.error(
                 "Exception occurred during import:\n" + traceback.format_exc())
             raise
-
-        self._cleanup(connection_info, target_environment,
-                      resgroup, worker_info)
+        finally:
+            self._cleanup(connection_info, target_environment,
+                          resgroup, worker_info)
 
     def _cleanup(self, connection_info, target_environment,
                  migration_resgroup, worker_info):
@@ -977,7 +986,7 @@ class ImportProvider(BaseImportProvider):
         awaited = azutils.awaited()
 
         self._event_manager.progress_update(
-            "Cleaning up migration resource group '%s'." % migration_resgroup)
+            "Cleaning up migration resource group '%s'" % migration_resgroup)
         resc = self._get_resource_client(connection_info)
 
         # check if the migration resource group still exists:
@@ -992,10 +1001,7 @@ class ImportProvider(BaseImportProvider):
         worker_name = worker_info.name
 
         # lastly, delete the worker's disks:
-        self._event_manager.progress_update(
-            "Cleaning up after '%s' and its associated disks." % worker_name)
-
-        # first; ensure the worker is properly gone:
+        # ensure the worker is properly gone:
         @utils.ignore_exceptions
         def cleanupw():
             computec = self._get_compute_client(

@@ -186,7 +186,8 @@ def convert_disk_format(disk_path, target_disk_path, target_format,
 
     if preallocated:
         if target_format != constants.DISK_FORMAT_VHD:
-            raise NotImplementedError("Only VHD's may be preallocated.")
+            raise NotImplementedError(
+                "Preallocation is supported only for the VHD format.")
 
         allocation_args = ['-o', 'subformat=fixed']
 
