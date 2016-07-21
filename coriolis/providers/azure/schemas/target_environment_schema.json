@@ -33,9 +33,32 @@
       ]
     },
     "network_map": {
-      "type": "object"
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "source_network": {
+            "type": "string"
+          },
+          "destination_network": {
+            "type": "string"
+          },
+          "destination_subnet_name": {
+            "type": "string"
+          },
+          "is_public_network": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "source_network",
+          "destination_network",
+          "destination_subnet",
+          "is_public_network"
+        ]
+      }
     },
-    "network": {
+    "destination_network": {
       "type": "object",
       "properties": {
         "name": {
@@ -43,11 +66,15 @@
         },
         "subnet": {
           "type": "string"
+        },
+        "is_public_network": {
+          "type": "boolean"
         }
       },
       "required": [
         "name",
-        "subnet"
+        "subnet",
+        "is_public_network"
       ]
     }
   },
@@ -56,7 +83,10 @@
       "required": ["secret_ref"]
     },
     {
-      "required": ["size", "location", "resource_group", "storage"]
+      "required": ["size", "location", "resource_group", "storage", "destination_network"]
+    },
+    {
+      "required": ["size", "location", "resource_group", "storage", "network_map"]
     }
   ]
 }
