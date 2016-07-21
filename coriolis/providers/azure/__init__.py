@@ -102,7 +102,7 @@ AZURE_OSTYPES_MAP = {
     "windows": compute.models.OperatingSystemTypes.windows
 }
 
-AZURE_VMSIZE_VOLUMENOS_MAPPING = collections.OrderedDict([
+WORKER_VOLUME_COUNT_VMSIZE_MAP = collections.OrderedDict([
     # NOTE: this instance size is absolutely useless:
     # (1, compute.models.VirtualMachineSizeTypes.standard_a0),
     (2, compute.models.VirtualMachineSizeTypes.standard_a1),
@@ -113,7 +113,7 @@ AZURE_VMSIZE_VOLUMENOS_MAPPING = collections.OrderedDict([
 
 WINRM_EXTENSION_FILES_BASE_URI = (
     # TODO: not fetch off github
-    "https://raw.githubusercontent.com/aznashwan/azure-quickstart-templates"
+    "https://raw.githubusercontent.com/cloudbase/coriolis-resources/master/azure/"
     "/master/201-vm-winrm-windows/")
 
 WINRM_EXTENSION_FILE_URIS = [
@@ -569,7 +569,7 @@ class ImportProvider(BaseImportProvider):
     def _get_worker_size(self, worker_name, ndisks):
         """ Returns the required size of the worker needed to handle
         the migration/transformation of the data disks. """
-        for maxvols, size in AZURE_VMSIZE_VOLUMENOS_MAPPING.items():
+        for maxvols, size in WORKER_VOLUME_COUNT_VMSIZE_MAP.items():
             if ndisks <= maxvols:
                 self._event_manager.progress_update(
                     "Worker '%s' size chosen as '%s'." %
