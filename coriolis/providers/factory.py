@@ -1,5 +1,6 @@
 from coriolis import constants
 from coriolis import exception
+from coriolis.providers import azure
 from coriolis.providers import openstack
 from coriolis.providers import vmware_vsphere
 
@@ -10,7 +11,8 @@ EXPORT_PROVIDERS = {
 }
 
 IMPORT_PROVIDERS = {
-    constants.PLATFORM_OPENSTACK: openstack.ImportProvider
+    constants.PLATFORM_OPENSTACK: openstack.ImportProvider,
+    constants.PLATFORM_AZURE_RM: azure.ImportProvider
 }
 
 

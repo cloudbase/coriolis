@@ -30,6 +30,7 @@ HYPERVISOR_QEMU = "qemu"
 HYPERVISOR_KVM = "kvm"
 HYPERVISOR_XENSERVER = "xenserver"
 
+PLATFORM_AZURE_RM = "azure"
 PLATFORM_OPENSTACK = "openstack"
 PLATFORM_VMWARE_VSPHERE = "vmware_vsphere"
 

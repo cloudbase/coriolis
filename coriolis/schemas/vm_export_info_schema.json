@@ -132,6 +132,9 @@
               },
               "mac_address": {
                 "$ref": "#/definitions/nullableString"
+              },
+              "subnet_name": {
+                "type": "string"
               }
             },
             "required": [

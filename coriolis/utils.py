@@ -39,7 +39,8 @@ def ignore_exceptions(func):
     return _ignore_exceptions
 
 
-def retry_on_error(max_attempts=5, sleep_seconds=0):
+def retry_on_error(max_attempts=5, sleep_seconds=0,
+                   terminal_exceptions=[]):
     def _retry_on_error(func):
         @functools.wraps(func)
         def _exec_retry(*args, **kwargs):
@@ -48,6 +49,10 @@ def retry_on_error(max_attempts=5, sleep_seconds=0):
                 try:
                     return func(*args, **kwargs)
                 except Exception as ex:
+                    if any([isinstance(ex, tex)
+                            for tex in terminal_exceptions]):
+                        raise
+
                     i += 1
                     if i < max_attempts:
                         LOG.warn("Exception occurred, retrying: %s", ex)
@@ -175,11 +180,25 @@ def get_disk_info(disk_path):
     return disk_info
 
 
-def convert_disk_format(disk_path, target_disk_path, target_format):
+def convert_disk_format(disk_path, target_disk_path, target_format,
+                        preallocated=False):
+    allocation_args = []
+
+    if preallocated:
+        if target_format != constants.DISK_FORMAT_VHD:
+            raise NotImplementedError(
+                "Preallocation is supported only for the VHD format.")
+
+        allocation_args = ['-o', 'subformat=fixed']
+
     if target_format == constants.DISK_FORMAT_VHD:
         target_format = "vpc"
-    exec_process([CONF.qemu_img_path, 'convert', '-O', target_format,
-                  disk_path, target_disk_path])
+
+    args = ([CONF.qemu_img_path, 'convert', '-O', target_format] +
+            allocation_args +
+            [disk_path, target_disk_path])
+
+    exec_process(args)
 
 
 def get_hostname():
