@@ -1,3 +1,6 @@
+# Copyright 2016 Cloudbase Solutions Srl
+# All Rights Reserved.
+
 import oslo_messaging as messaging
 
 from coriolis import rpc

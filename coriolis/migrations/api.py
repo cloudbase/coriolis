@@ -1,3 +1,6 @@
+# Copyright 2016 Cloudbase Solutions Srl
+# All Rights Reserved.
+
 from coriolis.conductor.rpc import client as rpc_client
 
 

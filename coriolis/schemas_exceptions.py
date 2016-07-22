@@ -1,3 +1,6 @@
+# Copyright 2016 Cloudbase Solutions Srl
+# All Rights Reserved.
+
 """ Defines a set of exceptions possible during schema loading/validation. """
 
 import json
