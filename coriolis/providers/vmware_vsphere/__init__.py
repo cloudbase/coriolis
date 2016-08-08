@@ -1,11 +1,13 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+import contextlib
 import os
 import re
 import sys
 import time
 from urllib import request
+import uuid
 
 import eventlet
 from oslo_config import cfg
@@ -18,6 +20,7 @@ from coriolis import exception
 from coriolis.providers import base
 from coriolis.providers.vmware_vsphere import guestid
 from coriolis import schemas
+from coriolis.providers.vmware_vsphere import vixdisklib
 from coriolis import utils
 
 vmware_vsphere_opts = [
@@ -101,34 +104,7 @@ class ExportProvider(base.BaseExportProvider):
         return vm
 
     @utils.retry_on_error()
-    def _get_vm_info(self, si, instance_path):
-
-        LOG.info("Retrieving data for VM: %s" % instance_path)
-        vm = self._get_vm(si, instance_path)
-
-        firmware_type_map = {
-            vim.vm.GuestOsDescriptor.FirmwareType.bios:
-                constants.FIRMWARE_TYPE_BIOS,
-            vim.vm.GuestOsDescriptor.FirmwareType.efi:
-                constants.FIRMWARE_TYPE_EFI
-        }
-
-        vm_info = {
-            'num_cpu': vm.config.hardware.numCPU,
-            'num_cores_per_socket': vm.config.hardware.numCoresPerSocket,
-            'memory_mb':  vm.config.hardware.memoryMB,
-            'firmware_type':  firmware_type_map[vm.config.firmware],
-            'nested_virtualization': vm.config.nestedHVEnabled,
-            'dynamic_memory_enabled':
-                not vm.config.memoryReservationLockedToMax,
-            'name': vm.config.name,
-            'guest_id': vm.config.guestId,
-            'os_type': guestid.GUEST_ID_OS_TYPE_MAP.get(vm.config.guestId),
-            'id': vm._moId,
-        }
-
-        LOG.info("vm info: %s" % str(vm_info))
-
+    def _shutdown_vm(self, vm):
         if vm.runtime.powerState != vim.VirtualMachinePowerState.poweredOff:
             power_off = True
             if (vm.guest.toolsRunningStatus !=
@@ -144,6 +120,35 @@ class ExportProvider(base.BaseExportProvider):
                     "Powering off the virtual machine")
                 task = vm.PowerOff()
                 self._wait_for_task(task)
+
+    @utils.retry_on_error()
+    def _get_vm_info(self, si, instance_path):
+
+        LOG.info("Retrieving data for VM: %s" % instance_path)
+        vm = self._get_vm(si, instance_path)
+
+        firmware_type_map = {
+            vim.vm.GuestOsDescriptor.FirmwareType.bios:
+                constants.FIRMWARE_TYPE_BIOS,
+            vim.vm.GuestOsDescriptor.FirmwareType.efi:
+                constants.FIRMWARE_TYPE_EFI
+        }
+
+        vm_info = {
+            'num_cpu': vm.config.hardware.numCPU,
+            'num_cores_per_socket': vm.config.hardware.numCoresPerSocket,
+            'memory_mb': vm.config.hardware.memoryMB,
+            'firmware_type': firmware_type_map[vm.config.firmware],
+            'nested_virtualization': vm.config.nestedHVEnabled,
+            'dynamic_memory_enabled':
+                not vm.config.memoryReservationLockedToMax,
+            'name': vm.config.name,
+            'guest_id': vm.config.guestId,
+            'os_type': guestid.GUEST_ID_OS_TYPE_MAP.get(vm.config.guestId),
+            'id': vm._moId,
+        }
+
+        LOG.info("vm info: %s" % str(vm_info))
 
         disk_ctrls = []
         devices = [d for d in vm.config.hardware.device if
@@ -233,6 +238,8 @@ class ExportProvider(base.BaseExportProvider):
     @utils.retry_on_error()
     def _export_disks(self, vm, export_path, context):
         disk_paths = []
+
+        self._shutdown_vm(vm)
         lease = vm.ExportVm()
         while True:
             if lease.state == vim.HttpNfcLease.State.ready:
@@ -262,7 +269,10 @@ class ExportProvider(base.BaseExportProvider):
 
                         response = request.urlopen(du.url, context=context)
                         path = os.path.join(export_path, du.targetId)
-                        disk_paths.append({'path': path, 'id': disk_key})
+                        disk_paths.append({
+                            'path': path,
+                            'id': disk_key,
+                            'format': constants.DISK_FORMAT_VMDK})
 
                         LOG.info("Downloading: %s" % path)
                         with open(path, 'wb') as f:
@@ -287,6 +297,134 @@ class ExportProvider(base.BaseExportProvider):
             else:
                 time.sleep(.1)
 
+    def _connect_vixdisklib(self, connection_info, context,
+                            vmx_spec, snapshot_ref):
+        host = connection_info["host"]
+        port = connection_info.get("port", 443)
+        username = connection_info["username"]
+        password = connection_info["password"]
+
+        thumbprint = utils.get_ssl_cert_thumbprint(context, host, port)
+
+        return vixdisklib.connect(
+            server_name=host,
+            port=port,
+            thumbprint=thumbprint,
+            username=username,
+            password=password,
+            vmx_spec=vmx_spec,
+            snapshot_ref=snapshot_ref)
+
+    def _take_vm_snapshot(self, vm, snapshot_name, memory=False, quiesce=True):
+        task = vm.CreateSnapshot_Task(
+            name=snapshot_name, memory=False, quiesce=True)
+        self._wait_for_task(task)
+        return task.info.result
+
+    def _remove_vm_snapshot(self, snapshot, remove_children=False):
+        self._wait_for_task(snapshot.RemoveSnapshot_Task(remove_children))
+
+    @contextlib.contextmanager
+    def _take_temp_vm_snapshot(self, vm, snapshot_name, memory=False,
+                               quiesce=True):
+        self._event_manager.progress_update("Creating backup snapshot")
+        snapshot = self._take_vm_snapshot(vm, snapshot_name, memory, quiesce)
+        try:
+            yield snapshot
+        finally:
+            self._event_manager.progress_update("Removing backup snapshot")
+            self._remove_vm_snapshot(snapshot)
+
+    @utils.retry_on_error()
+    def _backup_snapshot_disks(self, snapshot, export_path, connection_info,
+                               context, disk_paths):
+        vm = snapshot.vm
+        vmx_spec = "moref=%s" % vm._GetMoId()
+        snapshot_ref = snapshot._GetMoId()
+        pos = 0
+        sector_size = vixdisklib.VIXDISKLIB_SECTOR_SIZE
+        max_sectors_per_read = 40 * 2048
+
+        with self._connect_vixdisklib(connection_info, context,
+                                      vmx_spec, snapshot_ref) as conn:
+            for disk in [d for d in snapshot.config.hardware.device
+                         if isinstance(d, vim.vm.device.VirtualDisk)]:
+
+                l = [d for d in disk_paths if d['id'] == disk.key]
+                if l:
+                    disk_path = l[0]
+                    change_id = disk_path["change_id"]
+                    path = disk_path["path"]
+                    disk_path['change_id'] = disk.backing.changeId
+                else:
+                    change_id = '*'
+                    path = os.path.join(export_path, "disk-%s.raw" % disk.key)
+                    disk_paths.append({
+                        'path': path,
+                        'id': disk.key,
+                        'format': constants.DISK_FORMAT_RAW,
+                        'change_id': disk.backing.changeId})
+
+                LOG.debug("CBT change id: %s", change_id)
+                changed_disk_areas = vm.QueryChangedDiskAreas(
+                    snapshot_ref, disk.key, pos, change_id)
+
+                backup_disk_path = disk.backing.fileName
+                with vixdisklib.open(
+                        conn, backup_disk_path) as disk_handle:
+
+                    with open(path, "wb") as f:
+                        # Create a sparse file
+                        f.truncate(disk.capacityInBytes)
+
+                        for area in changed_disk_areas.changedArea:
+                            start_sector = area.start // sector_size
+                            num_sectors = area.length // sector_size
+
+                            f.seek(area.start)
+
+                            i = 0
+                            while i < num_sectors:
+                                curr_num_sectors = min(
+                                    num_sectors - i, max_sectors_per_read)
+
+                                buf = vixdisklib.get_buffer(
+                                    curr_num_sectors * sector_size)
+
+                                vixdisklib.read(
+                                    disk_handle, start_sector + i,
+                                    curr_num_sectors, buf)
+                                i += curr_num_sectors
+
+                                f.write(buf.raw)
+
+    def _backup_disks(self, vm, export_path, connection_info, context):
+        if not vm.config.changeTrackingEnabled:
+            raise exception.CoriolisException("Change Tracking not enabled")
+
+        disk_paths = []
+        vixdisklib.init()
+        try:
+            LOG.info("First backup pass")
+            snapshot_name = str(uuid.uuid4())
+            with self._take_temp_vm_snapshot(vm, snapshot_name) as snapshot:
+                self._backup_snapshot_disks(
+                    snapshot, export_path, connection_info, context,
+                    disk_paths)
+
+            self._shutdown_vm(vm)
+
+            LOG.info("Second backup pass")
+            snapshot_name = str(uuid.uuid4())
+            with self._take_temp_vm_snapshot(vm, snapshot_name) as snapshot:
+                self._backup_snapshot_disks(
+                    snapshot, export_path, connection_info, context,
+                    disk_paths)
+
+            return disk_paths
+        finally:
+            vixdisklib.exit()
+
     def export_instance(self, ctxt, connection_info, instance_name,
                         export_path):
         host = connection_info["host"]
@@ -294,6 +432,8 @@ class ExportProvider(base.BaseExportProvider):
         username = connection_info["username"]
         password = connection_info["password"]
         allow_untrusted = connection_info.get("allow_untrusted", False)
+
+        backup_disks = False
 
         # pyVmomi locks otherwise
         sys.modules['socket'] = eventlet.patcher.original('socket')
@@ -312,22 +452,34 @@ class ExportProvider(base.BaseExportProvider):
                 "Retrieving virtual machine data")
             vm_info, vm = self._get_vm_info(si, instance_name)
             self._event_manager.progress_update("Exporting disks")
-            disk_paths = self._export_disks(vm, export_path, context)
+
+            # Take advantage of CBT if available
+            backup_disks = vm.config.changeTrackingEnabled
+
+            if backup_disks:
+                disk_paths = self._backup_disks(
+                    vm, export_path, connection_info, context)
+            else:
+                disk_paths = self._export_disks(vm, export_path, context)
         finally:
             connect.Disconnect(si)
 
-        self._event_manager.progress_update("Converting virtual disks format")
-        for disk_path in disk_paths:
-            path = disk_path["path"]
-            LOG.info("Converting VMDK type: %s" % path)
-            tmp_path = "%s.tmp" % path
-            self._convert_disk_type(path, tmp_path)
-            os.remove(path)
-            os.rename(tmp_path, path)
+        if not backup_disks:
+            self._event_manager.progress_update(
+                "Converting virtual disks format")
+            for disk_path in disk_paths:
+                path = disk_path["path"]
+                LOG.info("Converting VMDK type: %s" % path)
+                tmp_path = "%s.tmp" % path
+                self._convert_disk_type(path, tmp_path)
+                os.remove(path)
+                os.rename(tmp_path, path)
 
-            disks = vm_info["devices"]["disks"]
+        disks = vm_info["devices"]["disks"]
+
+        for disk_path in disk_paths:
             disk_info = [d for d in disks if d["id"] == disk_path["id"]][0]
-            disk_info["path"] = os.path.abspath(path)
-            disk_info["format"] = constants.DISK_FORMAT_VMDK
+            disk_info["format"] = disk_path["format"]
+            disk_info["path"] = os.path.abspath(disk_path["path"])
 
         return vm_info
