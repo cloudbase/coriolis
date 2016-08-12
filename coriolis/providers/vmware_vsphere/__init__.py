@@ -373,7 +373,10 @@ class ExportProvider(base.BaseExportProvider):
                 with vixdisklib.open(
                         conn, backup_disk_path) as disk_handle:
 
-                    with open(path, "wb") as f:
+                    # Create file if it doesn't exist
+                    open(path, "ab").close()
+
+                    with open(path, "rb+") as f:
                         # Create a sparse file
                         f.truncate(disk.capacityInBytes)
 
