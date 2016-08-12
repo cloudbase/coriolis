@@ -227,11 +227,12 @@ def walk_class_hierarchy(clazz, encountered=None):
 
 
 def get_ssl_cert_thumbprint(context, host, port=443, digest_algorithm="sha1"):
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        ssl_sock = context.wrap_socket(sock, server_hostname=host)
-        ssl_sock.connect((host, port))
-        # binary_form is the only option when the certificate is not validated
-        cert = ssl_sock.getpeercert(binary_form=True)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    ssl_sock = context.wrap_socket(sock, server_hostname=host)
+    ssl_sock.connect((host, port))
+    # binary_form is the only option when the certificate is not validated
+    cert = ssl_sock.getpeercert(binary_form=True)
+    sock.close()
 
     x509 = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_ASN1, cert)
     return x509.digest('sha1').decode()
