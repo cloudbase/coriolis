@@ -284,6 +284,9 @@ class ImportProvider(base.BaseImportProvider):
             raise exception.CoriolisException(
                 "Glance image \"%s\" not found" % migr_image_name)
 
+        LOG.debug("Migration image name: %s", migr_image_name)
+        LOG.debug("Migration flavor name: %s", migr_flavor_name)
+
         image = nova.images.find(name=migr_image_name)
         flavor = nova.flavors.find(name=migr_flavor_name)
 
@@ -383,6 +386,70 @@ class ImportProvider(base.BaseImportProvider):
             instance.id, volume.id, volume_dev)
         _wait_for_volume(nova, volume, 'in-use')
 
+    def _get_import_config(self, target_environment, os_type):
+        config = collections.namedtuple(
+            "glance_upload",
+            "target_disk_format",
+            "container_format",
+            "hypervisor_type",
+            "fip_pool_name",
+            "network_map",
+            "keypair_name",
+            "migr_image_name",
+            "migr_flavor_name",
+            "migr_fip_pool_name",
+            "migr_network_name",
+            "flavor_name")
+
+        config.glance_upload = target_environment.get(
+            "glance_upload", CONF.openstack_migration_provider.glance_upload)
+        config.target_disk_format = target_environment.get(
+            "disk_format", CONF.openstack_migration_provider.disk_format)
+        config.container_format = target_environment.get(
+            "container_format",
+            CONF.openstack_migration_provider.container_format)
+        config.hypervisor_type = target_environment.get(
+            "hypervisor_type",
+            CONF.openstack_migration_provider.hypervisor_type)
+        config.fip_pool_name = target_environment.get(
+            "fip_pool_name", CONF.openstack_migration_provider.fip_pool_name)
+        config.network_map = target_environment.get("network_map", {})
+        config.keypair_name = target_environment.get("keypair_name")
+
+        config.migr_image_name = target_environment.get(
+            "migr_image_name",
+            target_environment.get("migr_image_name_map", {}).get(
+                os_type,
+                CONF.openstack_migration_provider.migr_image_name_map.get(
+                    os_type)))
+        config.migr_flavor_name = target_environment.get(
+            "migr_flavor_name",
+            CONF.openstack_migration_provider.migr_flavor_name)
+
+        config.migr_fip_pool_name = target_environment.get(
+            "migr_fip_pool_name",
+            config.fip_pool_name or
+            CONF.openstack_migration_provider.fip_pool_name)
+        config.migr_network_name = target_environment.get(
+            "migr_network_name",
+            CONF.openstack_migration_provider.migr_network_name)
+
+        config.flavor_name = target_environment.get(
+            "flavor_name", config.migr_flavor_name)
+
+        if not config.migr_image_name:
+            raise exception.CoriolisException(
+                "No matching migration image type found")
+
+        if not config.migr_network_name:
+            if len(config.network_map) != 1:
+                raise exception.CoriolisException(
+                    'If "migr_network_name" is not provided, "network_map" '
+                    'must contain exactly one entry')
+            config.migr_network_name = config.network_map.values()[0]
+
+        return config
+
     def import_instance(self, ctxt, connection_info, target_environment,
                         instance_name, export_info):
         session = keystone.create_keystone_session(ctxt, connection_info)
@@ -398,52 +465,7 @@ class ImportProvider(base.BaseImportProvider):
         os_type = export_info.get('os_type')
         LOG.info("os_type: %s", os_type)
 
-        glance_upload = target_environment.get(
-            "glance_upload", CONF.openstack_migration_provider.glance_upload)
-        target_disk_format = target_environment.get(
-            "disk_format", CONF.openstack_migration_provider.disk_format)
-        container_format = target_environment.get(
-            "container_format",
-            CONF.openstack_migration_provider.container_format)
-        hypervisor_type = target_environment.get(
-            "hypervisor_type",
-            CONF.openstack_migration_provider.hypervisor_type)
-        fip_pool_name = target_environment.get(
-            "fip_pool_name", CONF.openstack_migration_provider.fip_pool_name)
-        network_map = target_environment.get("network_map", {})
-        keypair_name = target_environment.get("keypair_name")
-
-        migr_image_name = target_environment.get(
-            "migr_image_name",
-            target_environment.get("migr_image_name_map", {}).get(
-                os_type,
-                CONF.openstack_migration_provider.migr_image_name_map.get(
-                    os_type)))
-        migr_flavor_name = target_environment.get(
-            "migr_flavor_name",
-            CONF.openstack_migration_provider.migr_flavor_name)
-
-        migr_fip_pool_name = target_environment.get(
-            "migr_fip_pool_name",
-            fip_pool_name or CONF.openstack_migration_provider.fip_pool_name)
-        migr_network_name = target_environment.get(
-            "migr_network_name",
-            CONF.openstack_migration_provider.migr_network_name)
-
-        flavor_name = target_environment.get("flavor_name", migr_flavor_name)
-
-        if not migr_image_name:
-            raise exception.CoriolisException(
-                "No matching migration image type found")
-
-        LOG.info("Migration image name: %s", migr_image_name)
-
-        if not migr_network_name:
-            if len(network_map) != 1:
-                raise exception.CoriolisException(
-                    'If "migr_network_name" is not provided, "network_map" '
-                    'must contain exactly one entry')
-            migr_network_name = network_map.values()[0]
+        config = self._get_import_config(target_environment, os_type)
 
         disks_info = export_info["devices"]["disks"]
 
@@ -452,19 +474,19 @@ class ImportProvider(base.BaseImportProvider):
         ports = []
 
         try:
-            if glance_upload:
+            if config.glance_upload:
                 for disk_info in disks_info:
                     disk_path = disk_info["path"]
                     disk_file_info = utils.get_disk_info(disk_path)
 
-                    # if target_disk_format == disk_file_info["format"]:
+                    # if config.target_disk_format == disk_file_info["format"]:
                     #    target_disk_path = disk_path
                     # else:
                     #    target_disk_path = (
                     #        "%s.%s" % (os.path.splitext(disk_path)[0],
-                    #                   target_disk_format))
+                    #                   config.target_disk_format))
                     #    utils.convert_disk_format(disk_path, target_disk_path,
-                    #                              target_disk_format)
+                    #                              config.target_disk_format)
 
                     self._event_manager.progress_update(
                         "Uploading Glance image")
@@ -473,7 +495,8 @@ class ImportProvider(base.BaseImportProvider):
                     image = self._create_image(
                         glance, _get_unique_name(),
                         disk_path, disk_format,
-                        container_format, hypervisor_type)
+                        config.container_format,
+                        config.hypervisor_type)
                     images.append(image)
 
                     self._event_manager.progress_update(
@@ -495,8 +518,9 @@ class ImportProvider(base.BaseImportProvider):
                     volumes.append(volume)
 
             migr_resources = self._deploy_migration_resources(
-                nova, glance, neutron, os_type, migr_image_name,
-                migr_flavor_name, migr_network_name, migr_fip_pool_name)
+                nova, glance, neutron, os_type, config.migr_image_name,
+                config.migr_flavor_name, config.migr_network_name,
+                config.migr_fip_pool_name)
 
             nics_info = export_info["devices"].get("nics", [])
 
@@ -513,7 +537,7 @@ class ImportProvider(base.BaseImportProvider):
                     conn_info = migr_resources.get_guest_connection_info()
 
                 osmorphing_hv_type = self._get_osmorphing_hypervisor_type(
-                    hypervisor_type)
+                    config.hypervisor_type)
 
                 self._event_manager.progress_update(
                     "Preparing instance for target platform")
@@ -544,7 +568,7 @@ class ImportProvider(base.BaseImportProvider):
                                "%s, skipping", nic_info.get("name"))
                     continue
 
-                network_name = network_map.get(origin_network_name)
+                network_name = config.network_map.get(origin_network_name)
                 if not network_name:
                     raise exception.CoriolisException(
                         "Network not mapped in network_map: %s" %
@@ -557,7 +581,8 @@ class ImportProvider(base.BaseImportProvider):
                 "Creating migrated instance")
 
             self._create_target_instance(
-                nova, flavor_name, instance_name, keypair_name, ports, volumes)
+                nova, config.flavor_name, instance_name,
+                config.keypair_name, ports, volumes)
         except Exception:
             self._event_manager.progress_update("Deleting volumes")
             for volume in volumes:

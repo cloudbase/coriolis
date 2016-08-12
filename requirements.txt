@@ -18,6 +18,7 @@ paramiko
 paste
 pbr
 psutil
+pyOpenSSL
 python-cinderclient
 python-glanceclient>=2.0.0
 python-keystoneclient
