@@ -3,6 +3,7 @@
 
 import functools
 import json
+import os
 import re
 import socket
 import subprocess
@@ -236,3 +237,11 @@ def get_ssl_cert_thumbprint(context, host, port=443, digest_algorithm="sha1"):
 
     x509 = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_ASN1, cert)
     return x509.digest('sha1').decode()
+
+
+def _get_base_dir():
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def get_resources_dir():
+    return os.path.join(_get_base_dir(), "resources")
