@@ -37,6 +37,8 @@ CONF.register_opts(vmware_vsphere_opts, 'vmware_vsphere')
 
 LOG = logging.getLogger(__name__)
 
+vixdisklib.init()
+
 
 class _BaseBackupWriter(metaclass=abc.ABCMeta):
     @abc.abstractmethod
@@ -525,11 +527,12 @@ class ExportProvider(base.BaseReplicaExportProvider):
                         'format': constants.DISK_FORMAT_RAW}
                     disk_paths.append(disk_path)
 
-                LOG.debug("CBT change id: %s", change_id)
+                LOG.info("CBT change id: %s", change_id)
                 changed_disk_areas = vm.QueryChangedDiskAreas(
                     snapshot, disk.key, pos, change_id)
 
                 backup_disk_path = disk.backing.fileName
+
                 with vixdisklib.open(
                         conn, backup_disk_path) as disk_handle:
 
@@ -565,27 +568,24 @@ class ExportProvider(base.BaseReplicaExportProvider):
             raise exception.CoriolisException("Change Tracking not enabled")
 
         disk_paths = []
-        vixdisklib.init()
-        try:
-            LOG.info("First backup pass")
-            snapshot_name = str(uuid.uuid4())
-            with self._take_temp_vm_snapshot(vm, snapshot_name) as snapshot:
-                self._backup_snapshot_disks(
-                    snapshot, export_path, connection_info, context,
-                    disk_paths, _FileBackupWriter(), incremental=False)
 
-            self._shutdown_vm(vm)
+        LOG.info("First backup pass")
+        snapshot_name = str(uuid.uuid4())
+        with self._take_temp_vm_snapshot(vm, snapshot_name) as snapshot:
+            self._backup_snapshot_disks(
+                snapshot, export_path, connection_info, context,
+                disk_paths, _FileBackupWriter(), incremental=False)
 
-            LOG.info("Second backup pass")
-            snapshot_name = str(uuid.uuid4())
-            with self._take_temp_vm_snapshot(vm, snapshot_name) as snapshot:
-                self._backup_snapshot_disks(
-                    snapshot, export_path, connection_info, context,
-                    disk_paths, _FileBackupWriter(), incremental=True)
+        self._shutdown_vm(vm)
 
-            return disk_paths
-        finally:
-            vixdisklib.exit()
+        LOG.info("Second backup pass")
+        snapshot_name = str(uuid.uuid4())
+        with self._take_temp_vm_snapshot(vm, snapshot_name) as snapshot:
+            self._backup_snapshot_disks(
+                snapshot, export_path, connection_info, context,
+                disk_paths, _FileBackupWriter(), incremental=True)
+
+        return disk_paths
 
     def export_instance(self, ctxt, connection_info, instance_name,
                         export_path):
@@ -672,13 +672,9 @@ class ExportProvider(base.BaseReplicaExportProvider):
                      "path": ""})
 
             with self._take_temp_vm_snapshot(vm, snapshot_name) as snapshot:
-                vixdisklib.init()
-                try:
-                    self._backup_snapshot_disks(
-                        snapshot, "", connection_info, context,
-                        disk_paths, backup_writer, incremental)
-                finally:
-                    vixdisklib.exit()
+                self._backup_snapshot_disks(
+                    snapshot, "", connection_info, context,
+                    disk_paths, backup_writer, incremental)
 
             for volume_info in volumes_info:
                 change_id = [d["change_id"] for d in disk_paths
