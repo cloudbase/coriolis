@@ -2,8 +2,10 @@
 # All Rights Reserved.
 
 import functools
+import io
 import json
 import os
+import pickle
 import re
 import socket
 import subprocess
@@ -13,6 +15,8 @@ import traceback
 import OpenSSL
 from oslo_config import cfg
 from oslo_log import log as logging
+from oslo_serialization import jsonutils
+import paramiko
 
 from coriolis import constants
 from coriolis import exception
@@ -245,3 +249,28 @@ def _get_base_dir():
 
 def get_resources_dir():
     return os.path.join(_get_base_dir(), "resources")
+
+
+def serialize_key(key):
+    key_io = io.StringIO()
+    key.write_private_key(key_io)
+    return key_io.getvalue()
+
+
+def deserialize_key(key_bytes):
+    key_io = io.StringIO(key_bytes)
+    return paramiko.RSAKey.from_private_key(key_io)
+
+
+def is_serializable(obj):
+    pickle.dumps(obj)
+
+
+def to_dict(obj, max_depth=10):
+    # jsonutils.dumps() has a max_depth of 3 by default
+    def _to_primitive(value, convert_instances=False,
+                      convert_datetime=True, level=0,
+                      max_depth=max_depth):
+        return jsonutils.to_primitive(
+            value, convert_instances, convert_datetime, level, max_depth)
+    return jsonutils.loads(jsonutils.dumps(obj, default=_to_primitive))

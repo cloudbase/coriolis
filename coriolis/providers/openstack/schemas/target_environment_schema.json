@@ -40,10 +40,7 @@
     {
       "required": [
         "network_map",
-        "flavor_name",
-        "fip_pool_name",
-        "migr_fip_pool_name",
-        "keypair_name"
+        "flavor_name"
       ]
     }
   ]

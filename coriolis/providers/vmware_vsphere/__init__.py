@@ -7,6 +7,7 @@ import os
 import re
 import struct
 import sys
+import threading
 import time
 from urllib import request
 import uuid
@@ -173,7 +174,8 @@ class _SSHBackupWriter(_BaseBackupWriter):
         ret_val = self._stdout.channel.recv_exit_status()
         if ret_val:
             raise exception.CoriolisException(
-                "An exception occurred while writing data on target")
+                "An exception occurred while writing data on target. "
+                "Error code: %s" % ret_val)
         self._ssh.close()
 
 
@@ -194,6 +196,17 @@ class ExportProvider(base.BaseReplicaExportProvider):
             time.sleep(.1)
         if task.info.state == vim.TaskInfo.State.error:
             raise exception.CoriolisException(task.info.error.msg)
+
+    @staticmethod
+    def _keep_alive_vmware_conn(si, exit_event):
+        try:
+            while True:
+                LOG.debug("VMware connection keep alive")
+                si.CurrentTime()
+                if exit_event.wait(60):
+                    return
+        finally:
+            LOG.debug("Exiting VMware connection keep alive thread")
 
     @utils.retry_on_error()
     @contextlib.contextmanager
@@ -219,10 +232,21 @@ class ExportProvider(base.BaseReplicaExportProvider):
             pwd=password,
             port=port,
             sslContext=context)
+
+        thread = None
         try:
+            thread_exit_event = threading.Event()
+            thread = threading.Thread(
+                target=self._keep_alive_vmware_conn,
+                args=(si, thread_exit_event))
+            thread.start()
+
             yield context, si
         finally:
             connect.Disconnect(si)
+            if thread:
+                thread_exit_event.set()
+                thread.join()
 
     def _wait_for_vm_status(self, vm, status, max_wait=120):
         i = 0
@@ -245,7 +269,7 @@ class ExportProvider(base.BaseReplicaExportProvider):
             else:
                 container = container.childEntity[0].vmFolder
 
-        LOG.debug("VM path items:", path_items)
+        LOG.debug("VM path items: %s", path_items)
         for i, path_item in enumerate(path_items):
             l = [o for o in container.childEntity if o.name == path_item]
             if not l:
@@ -338,7 +362,9 @@ class ExportProvider(base.BaseReplicaExportProvider):
             disks.append({'size_bytes': device.capacityInBytes,
                           'unit_number': device.unitNumber,
                           'id': device.key,
-                          'controller_id': device.controllerKey})
+                          'controller_id': device.controllerKey,
+                          'path': device.backing.fileName,
+                          'format': constants.DISK_FORMAT_VMDK})
 
         cdroms = []
         devices = [d for d in vm.config.hardware.device if
@@ -351,7 +377,8 @@ class ExportProvider(base.BaseReplicaExportProvider):
         devices = [d for d in vm.config.hardware.device if
                    isinstance(d, vim.vm.device.VirtualFloppy)]
         for device in devices:
-            floppies.append({'unit_number': device.unitNumber, 'id': device.key,
+            floppies.append({'unit_number': device.unitNumber,
+                             'id': device.key,
                              'controller_id': device.controllerKey})
 
         nics = []
@@ -488,12 +515,12 @@ class ExportProvider(base.BaseReplicaExportProvider):
     @contextlib.contextmanager
     def _take_temp_vm_snapshot(self, vm, snapshot_name, memory=False,
                                quiesce=True):
-        self._event_manager.progress_update("Creating backup snapshot")
+        self._event_manager.progress_update("Creating snapshot")
         snapshot = self._take_vm_snapshot(vm, snapshot_name, memory, quiesce)
         try:
             yield snapshot
         finally:
-            self._event_manager.progress_update("Removing backup snapshot")
+            self._event_manager.progress_update("Removing snapshot")
             self._remove_vm_snapshot(snapshot)
 
     @utils.retry_on_error()
@@ -533,6 +560,15 @@ class ExportProvider(base.BaseReplicaExportProvider):
 
                 backup_disk_path = disk.backing.fileName
 
+                if change_id == '*':
+                    self._event_manager.progress_update(
+                        "Performing full CBT replica for disk: %s" %
+                        backup_disk_path)
+                else:
+                    self._event_manager.progress_update(
+                        "Performing incremental CBT replica for disk: %s" %
+                        backup_disk_path)
+
                 with vixdisklib.open(
                         conn, backup_disk_path) as disk_handle:
 
@@ -553,6 +589,10 @@ class ExportProvider(base.BaseReplicaExportProvider):
 
                                 buf = vixdisklib.get_buffer(
                                     curr_num_sectors * sector_size)
+
+                                LOG.debug(
+                                    "Read start sector: %s, num sectors: %s" %
+                                    (start_sector + i, curr_num_sectors))
 
                                 vixdisklib.read(
                                     disk_handle, start_sector + i,

@@ -34,9 +34,7 @@ class MigrationController(api_wsgi.Controller):
             req, self._migration_api.get_migrations(
                 req.environ['coriolis.context'], include_tasks=True))
 
-    def _validate_create_body(self, body):
-        migration = body["migration"]
-
+    def _validate_migration_input(self, migration):
         origin = migration["origin"]
         destination = migration["destination"]
 
@@ -61,9 +59,24 @@ class MigrationController(api_wsgi.Controller):
         return origin, destination, migration["instances"]
 
     def create(self, req, body):
-        origin, destination, instances = self._validate_create_body(body)
-        return migration_view.single(req, self._migration_api.start(
-            req.environ['coriolis.context'], origin, destination, instances))
+        # TODO: validate body
+
+        migration_body = body["migration"]
+        context = req.environ['coriolis.context']
+
+        replica_id = migration_body.get("replica_id")
+        if replica_id:
+            forced = migration_body.get("forced", False)
+
+            migration = self._migration_api.deploy_replica_instances(
+                context, replica_id, forced)
+        else:
+            origin, destination, instances = self._validate_migration_input(
+                migration_body)
+            migration = self._migration_api.migrate_instances(
+                context, origin, destination, instances)
+
+        return migration_view.single(req, migration)
 
     def delete(self, req, id):
         try:

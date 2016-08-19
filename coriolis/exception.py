@@ -166,8 +166,16 @@ class InvalidConfigurationValue(Invalid):
                 'configuration option "%(option)s"')
 
 
+class InvalidActionTasksExecutionState(Invalid):
+    message = _("Invalid tasks execution state: %(reason)s")
+
+
 class InvalidMigrationState(Invalid):
     message = _("Invalid migration state: %(reason)s")
+
+
+class InvalidReplicaState(Invalid):
+    message = _("Invalid replica state: %(reason)s")
 
 
 class ServiceUnavailable(Invalid):

@@ -124,6 +124,19 @@ def _wait_for_instance(nova, instance, expected_status='ACTIVE'):
 
 
 @utils.retry_on_error()
+def _find_volume(cinder, volume_id):
+    volumes = cinder.volumes.findall(id=volume_id)
+    if volumes:
+        return volumes[0]
+
+
+@utils.retry_on_error()
+def _extend_volume(cinder, volume_id, new_size):
+    volume_size_gb = math.ceil(new_size / units.Gi)
+    cinder.volumes.extend(volume_id, volume_size_gb)
+
+
+@utils.retry_on_error()
 def _create_volume(cinder, size, name, image_ref=None):
     volume_size_gb = math.ceil(size / units.Gi)
     return cinder.volumes.create(
@@ -133,8 +146,12 @@ def _create_volume(cinder, size, name, image_ref=None):
 
 
 @utils.retry_on_error()
-def _wait_for_volume(cinder, volume, expected_status='in-use'):
-    volume = cinder.volumes.findall(id=volume.id)[0]
+def _wait_for_volume(cinder, volume_id, expected_status='available'):
+    volumes = cinder.volumes.findall(id=volume_id)
+    if not volumes:
+        raise exception.CoriolisException("Volume not found")
+    volume = volumes[0]
+
     while volume.status not in [expected_status, 'error']:
         time.sleep(2)
         volume = cinder.volumes.get(volume.id)
@@ -148,6 +165,35 @@ def _delete_volume(cinder, volume_id):
     volumes = cinder.volumes.findall(id=volume_id)
     for volume in volumes:
         volume.delete()
+
+
+@utils.retry_on_error()
+def _create_volume_snapshot(cinder, volume_id, name):
+    return cinder.volume_snapshots.create(volume_id, name=name)
+
+
+@utils.retry_on_error()
+def _wait_for_volume_snapshot(cinder, snapshot_id,
+                              expected_status='available'):
+    snapshots = cinder.volume_snapshots.findall(id=snapshot_id)
+
+    if not snapshots:
+        raise exception.CoriolisException("Volume snapshot not found")
+    snapshot = snapshots[0]
+
+    while snapshot.status not in [expected_status, 'error']:
+        time.sleep(2)
+        snapshot = cinder.volume_snapshots.get(snapshot.id)
+    if snapshot.status != expected_status:
+        raise exception.CoriolisException(
+            "Volume snapshot is in status: %s" % snapshot.status)
+
+
+@utils.retry_on_error()
+def _delete_volume_snapshot(cinder, snapshot_id):
+    snapshots = cinder.volume_snapshots.findall(id=snapshot_id)
+    for snapshot in snapshots:
+        return cinder.volume_snapshots.delete(snapshot.id)
 
 
 class _MigrationResources(object):
@@ -452,7 +498,7 @@ class ImportProvider(base.BaseReplicaImportProvider):
         # volume can be either a Volume object or an id
         volume = nova.volumes.create_server_volume(
             instance.id, volume_id, volume_dev)
-        _wait_for_volume(cinder, volume, 'in-use')
+        _wait_for_volume(cinder, volume.id, 'in-use')
         return volume
 
     def _get_import_config(self, target_environment, os_type):
@@ -520,7 +566,8 @@ class ImportProvider(base.BaseReplicaImportProvider):
 
         return config
 
-    def _create_images_and_volumes(self, glance, nova, config, disks_info):
+    def _create_images_and_volumes(self, glance, nova, cinder, config,
+                                   disks_info):
         if not config.glance_upload:
             raise exception.CoriolisException(
                 "Glance upload is currently required for migrations")
@@ -637,7 +684,7 @@ class ImportProvider(base.BaseReplicaImportProvider):
                 # Migration
                 disks_info = export_info["devices"]["disks"]
                 images, volumes = self._create_images_and_volumes(
-                    glance, nova, config, disks_info)
+                    glance, nova, cinder, config, disks_info)
             else:
                 # Replica
                 volumes = self._get_replica_volumes(cinder, volumes_info)
@@ -651,7 +698,7 @@ class ImportProvider(base.BaseReplicaImportProvider):
 
             try:
                 for i, volume in enumerate(volumes):
-                    _wait_for_volume(cinder, volume, 'available')
+                    _wait_for_volume(cinder, volume.id, 'available')
 
                     self._event_manager.progress_update(
                         "Attaching volume to worker instance")
@@ -769,44 +816,109 @@ class ImportProvider(base.BaseReplicaImportProvider):
         self._deploy_instance(ctxt, connection_info, target_environment,
                               instance_name, export_info, volumes_info)
 
+    def _update_existing_disk_volumes(self, cinder, disks_info, volumes_info):
+        for disk_info in disks_info:
+            disk_id = disk_info["id"]
+
+            vi = [v for v in volumes_info
+                  if v["disk_id"] == disk_id and v.get("volume_id")]
+            if vi:
+                volume_info = vi[0]
+                volume_id = volume_info["volume_id"]
+
+                volume = _find_volume(cinder, volume_id)
+                if volume:
+                    virtual_disk_size_gb = math.ceil(
+                        disk_info["size_bytes"] / units.Gi)
+
+                    if virtual_disk_size_gb > volume.size:
+                        LOG.info(
+                            "Extending volume %(volume_id)s. "
+                            "Current size: %(curr_size)s GB, "
+                            "Requested size: %(requested_size)s GB",
+                            {"volume_id": volume_id,
+                             "curr_size": virtual_disk_size_gb,
+                             "requested_size": volume.size})
+                        self._event_manager.progress_update("Extending volume")
+                        _extend_volume(
+                            cinder, volume_id, virtual_disk_size_gb * units.Gi)
+                    elif virtual_disk_size_gb < volume.size:
+                        LOG.warning(
+                            "Cannot shrink volume %(volume_id)s. "
+                            "Current size: %(curr_size)s GB, "
+                            "Requested size: %(requested_size)s GB",
+                            {"volume_id": volume_id,
+                             "curr_size": volume.size,
+                             "requested_size": virtual_disk_size_gb})
+                else:
+                    volumes_info.remove(volume_info)
+
+        return volumes_info
+
+    def _delete_removed_disk_volumes(self, cinder, disks_info, volumes_info):
+        for volume_info in volumes_info:
+            if volume_info["disk_id"] not in [
+                    d["id"] for d in disks_info if d["id"]]:
+
+                volume_id = volume_info["volume_id"]
+                volume = _find_volume(cinder, volume_id)
+                if volume:
+                    self._event_manager.progress_update("Deleting volume")
+                    _delete_volume(cinder, volume_id)
+                volumes_info.remove(volume_info)
+        return volumes_info
+
+    def _create_new_disk_volumes(self, cinder, disks_info, volumes_info,
+                                 instance_name):
+        try:
+            new_volumes = []
+            for i, disk_info in enumerate(disks_info):
+                disk_id = disk_info["id"]
+                virtual_disk_size = disk_info["size_bytes"]
+
+                if not [v for v in volumes_info if v["disk_id"] == disk_id]:
+                    self._event_manager.progress_update(
+                        "Creating volume")
+
+                    volume_name = REPLICA_VOLUME_NAME_FORMAT % {
+                        "instance_name": instance_name, "num": i + 1}
+                    volume = _create_volume(
+                        cinder, virtual_disk_size, volume_name)
+
+                    new_volumes.append(volume)
+                    volumes_info.append({
+                        "volume_id": volume.id,
+                        "disk_id": disk_id})
+                else:
+                    self._event_manager.progress_update(
+                        "Using previously deployed volume")
+
+            for volume in new_volumes:
+                _wait_for_volume(cinder, volume.id, 'available')
+
+            return volumes_info
+        except:
+            for volume in new_volumes:
+                _delete_volume(cinder, volume)
+            raise
+
     def deploy_replica_disks(self, ctxt, connection_info, target_environment,
-                             instance_name, export_info):
+                             instance_name, export_info, volumes_info):
         session = keystone.create_keystone_session(ctxt, connection_info)
 
         cinder = cinder_client.Client(CINDER_API_VERSION, session=session)
 
-        try:
-            disks_info = export_info["devices"]["disks"]
-            volumes_info = []
-            volumes = []
-            for i, disk_info in enumerate(disks_info):
-                self._event_manager.progress_update(
-                    "Creating volume")
+        disks_info = export_info["devices"]["disks"]
 
-                disk_id = disk_info["id"]
-                virtual_disk_size = disk_info["size_bytes"]
-                volume_name = REPLICA_VOLUME_NAME_FORMAT % {
-                    "instance_name": instance_name, "num": i + 1}
-                volume = _create_volume(
-                    cinder, virtual_disk_size, volume_name)
-                volumes.append(volume)
-                volumes_info.append({
-                    "volume_id": volume.id,
-                    "disk_id": disk_id})
+        volumes_info = self._update_existing_disk_volumes(
+            cinder, disks_info, volumes_info)
 
-            for volume in volumes:
-                _wait_for_volume(cinder, volume, 'available')
+        volumes_info = self._delete_removed_disk_volumes(
+            cinder, disks_info, volumes_info)
 
-            return volumes_info
-        except:
-            for volume in volumes:
-                _delete_volume(cinder, volume)
-            raise
+        volumes_info = self._create_new_disk_volumes(
+            cinder, disks_info, volumes_info, instance_name)
 
-    def update_replica_disks(self, ctxt, connection_info, target_environment,
-                             instance_name, export_info, volumes_info):
-        # TODO: check if source disk size / number changed and update
-        # accordingly on destination
         return volumes_info
 
     def deploy_replica_resources(self, ctxt, connection_info,
@@ -842,7 +954,7 @@ class ImportProvider(base.BaseReplicaImportProvider):
 
             return {
                 "migr_resources": migr_resources.get_resources_dict(),
-                "volumes": volumes_info,
+                "volumes_info": volumes_info,
                 "connection_info": migr_resources.get_guest_connection_info(),
             }
         except:
@@ -852,13 +964,12 @@ class ImportProvider(base.BaseReplicaImportProvider):
             raise
 
     def delete_replica_resources(self, ctxt, connection_info,
-                                 target_replica_info):
+                                 migr_resources_dict):
         session = keystone.create_keystone_session(ctxt, connection_info)
 
         nova = nova_client.Client(NOVA_API_VERSION, session=session)
         neutron = neutron_client.Client(NEUTRON_API_VERSION, session=session)
 
-        migr_resources_dict = target_replica_info["migr_resources"]
         migr_resources = _MigrationResources.from_resources_dict(
             nova, neutron, migr_resources_dict)
         self._event_manager.progress_update(
@@ -874,6 +985,39 @@ class ImportProvider(base.BaseReplicaImportProvider):
             "Removing replica disk volumes")
         for volume_info in volumes_info:
             _delete_volume(cinder, volume_info["volume_id"])
+
+    def create_replica_disk_snapshots(self, ctxt, connection_info,
+                                      volumes_info):
+        session = keystone.create_keystone_session(ctxt, connection_info)
+
+        cinder = cinder_client.Client(CINDER_API_VERSION, session=session)
+
+        snapshots = []
+        self._event_manager.progress_update(
+            "Creating replica disk snapshots")
+        for volume_info in volumes_info:
+            snapshot = _create_volume_snapshot(
+                cinder, volume_info["volume_id"], _get_unique_name())
+            snapshots.append(snapshot)
+            volume_info["volume_snapshot_id"] = snapshot.id
+
+        for snapshot in snapshots:
+            _wait_for_volume_snapshot(cinder, snapshot.id, 'available')
+
+        return volumes_info
+
+    def delete_replica_disk_snapshots(self, ctxt, connection_info,
+                                      volumes_info):
+        session = keystone.create_keystone_session(ctxt, connection_info)
+
+        cinder = cinder_client.Client(CINDER_API_VERSION, session=session)
+
+        self._event_manager.progress_update(
+            "Removing replica disk snapshots")
+        for volume_info in volumes_info:
+            snapshot_id = volume_info.get("volume_snapshot_id")
+            if snapshot_id:
+                _delete_volume_snapshot(cinder, snapshot_id)
 
 
 class ExportProvider(base.BaseExportProvider):

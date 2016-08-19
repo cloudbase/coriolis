@@ -45,6 +45,12 @@
         "project_domain_name",
         "auth_url"
       ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+      }
     }
   ]
 }

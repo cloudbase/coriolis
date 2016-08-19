@@ -72,11 +72,6 @@ class BaseReplicaImportProvider(BaseImportProvider):
 
     @abc.abstractmethod
     def deploy_replica_disks(self, ctxt, connection_info, target_environment,
-                             instance_name, export_info):
-        pass
-
-    @abc.abstractmethod
-    def update_replica_disks(self, ctxt, connection_info, target_environment,
                              instance_name, export_info, volumes_info):
         pass
 
@@ -87,11 +82,26 @@ class BaseReplicaImportProvider(BaseImportProvider):
 
     @abc.abstractmethod
     def delete_replica_resources(self, ctxt, connection_info,
-                                 target_replica_info):
+                                 migr_resources_dict):
         pass
 
     @abc.abstractmethod
     def delete_replica_disks(self, ctxt, connection_info, volumes_info):
+        pass
+
+    @abc.abstractmethod
+    def create_replica_disk_snapshots(self, ctxt, connection_info,
+                                      volumes_info):
+        pass
+
+    @abc.abstractmethod
+    def delete_replica_disk_snapshots(self, ctxt, connection_info,
+                                      volumes_info):
+        pass
+
+    @abc.abstractmethod
+    def restore_replica_disk_snapshots(self, ctxt, connection_info,
+                                       volumes_info):
         pass
 
 

@@ -16,10 +16,9 @@ from coriolis.conductor.rpc import client as rpc_conductor_client
 from coriolis import constants
 from coriolis import events
 from coriolis import exception
-from coriolis.providers import factory
-from coriolis import schemas
-from coriolis import secrets
+from coriolis.tasks import factory as task_runners_factory
 from coriolis import utils
+
 
 worker_opts = [
     cfg.StrOpt('export_base_path',
@@ -31,8 +30,6 @@ CONF = cfg.CONF
 CONF.register_opts(worker_opts, 'worker')
 
 LOG = logging.getLogger(__name__)
-
-TMP_DIRS_KEY = "__tmp_dirs"
 
 VERSION = "1.0"
 
@@ -69,27 +66,13 @@ class WorkerServerEndpoint(object):
         self._server = utils.get_hostname()
         self._rpc_conductor_client = rpc_conductor_client.ConductorClient()
 
-    def _cleanup_task_resources(self, task_id, task_info=None):
+    def _check_remove_dir(self, path):
         try:
-            export_path = _get_task_export_path(task_id)
-            if (not task_info or export_path not in
-                    task_info.get(TMP_DIRS_KEY, [])):
-                # Don't remove folder if it's needed by the dependent tasks
-                if os.path.exists(export_path):
-                    shutil.rmtree(export_path)
+            if os.path.exists(path):
+                shutil.rmtree(path)
         except Exception as ex:
             # Ignore the exception
             LOG.exception(ex)
-
-    def _remove_tmp_dirs(self, task_info):
-        if task_info:
-            for tmp_dir in task_info.get(TMP_DIRS_KEY, []):
-                if os.path.exists(tmp_dir):
-                    try:
-                        shutil.rmtree(tmp_dir)
-                    except Exception as ex:
-                        # Ignore exception
-                        LOG.exception(ex)
 
     def cancel_task(self, ctxt, process_id):
         try:
@@ -138,6 +121,13 @@ class WorkerServerEndpoint(object):
 
     def exec_task(self, ctxt, task_id, task_type, origin, destination,
                   instance, task_info):
+        export_path = task_info.get("export_path")
+        if not export_path:
+            export_path = _get_task_export_path(task_id, create=True)
+            task_info["export_path"] = export_path
+        retain_export_path = False
+        task_info["retain_export_path"] = retain_export_path
+
         try:
             new_task_info = self._exec_task_process(
                 ctxt, task_id, task_type, origin, destination,
@@ -146,18 +136,20 @@ class WorkerServerEndpoint(object):
             if new_task_info:
                 LOG.info("Task info: %s", new_task_info)
 
+            # TODO: replace the temp storage with a host independent option
+            retain_export_path = new_task_info.get("retain_export_path", False)
+            if not retain_export_path:
+                del new_task_info["export_path"]
+
             LOG.info("Task completed: %s", task_id)
             self._rpc_conductor_client.task_completed(ctxt, task_id,
                                                       new_task_info)
-
-            self._cleanup_task_resources(task_id, new_task_info)
         except Exception as ex:
             LOG.exception(ex)
             self._rpc_conductor_client.set_task_error(ctxt, task_id, str(ex))
-
-            self._cleanup_task_resources(task_id)
         finally:
-            self._remove_tmp_dirs(task_info)
+            if not retain_export_path:
+                self._check_remove_dir(export_path)
 
 
 def _get_task_export_path(task_id, create=False):
@@ -184,43 +176,23 @@ def _task_process(ctxt, task_id, task_type, origin, destination, instance,
     try:
         _setup_task_process(mp_log_q)
 
-        if task_type == constants.TASK_TYPE_EXPORT_INSTANCE:
-            provider_type = constants.PROVIDER_TYPE_EXPORT
-            data = origin
-        elif task_type == constants.TASK_TYPE_IMPORT_INSTANCE:
-            provider_type = constants.PROVIDER_TYPE_IMPORT
-            data = destination
-        else:
-            raise exception.NotFound(
-                "Unknown task type: %s" % task_type)
-
+        task_runner = task_runners_factory.get_task_runner(task_type)
         event_handler = _ConductorProviderEventHandler(ctxt, task_id)
-        provider = factory.get_provider(data["type"], provider_type,
-                                        event_handler)
 
-        connection_info = data.get("connection_info") or {}
-        target_environment = data.get("target_environment") or {}
+        LOG.debug("Executing task: %(task_id)s, type: %(task_type)s, "
+                  "origin: %(origin)s, destination: %(destination)s, "
+                  "instance: %(instance)s, task_info: %(task_info)s",
+                  {"task_id": task_id, "task_type": task_type,
+                   "origin": origin, "destination": destination,
+                   "instance": instance, "task_info": task_info})
 
-        secret_ref = connection_info.get("secret_ref")
-        if secret_ref:
-            LOG.info("Retrieving connection info from secret: %s", secret_ref)
-            connection_info = secrets.get_secret(ctxt, secret_ref)
+        new_task_info = task_runner.run(
+            ctxt, instance, origin, destination, task_info, event_handler)
 
-        if provider_type == constants.PROVIDER_TYPE_EXPORT:
-            export_path = _get_task_export_path(task_id, create=True)
+        # mq_p.put() doesn't raise if new_task_info is not serializable
+        utils.is_serializable(new_task_info)
 
-            result = provider.export_instance(ctxt, connection_info, instance,
-                                              export_path)
-            result[TMP_DIRS_KEY] = [export_path]
-
-            # validate the outputted VM info:
-            schemas.validate_value(
-                result, schemas.CORIOLIS_VM_EXPORT_INFO_SCHEMA)
-        else:
-            result = provider.import_instance(ctxt, connection_info,
-                                              target_environment, instance,
-                                              task_info)
-        mp_q.put(result)
+        mp_q.put(new_task_info)
     except Exception as ex:
         mp_q.put(str(ex))
         LOG.exception(ex)

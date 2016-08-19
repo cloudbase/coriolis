@@ -32,7 +32,7 @@ def get_schema(package_name, schema_name,
     schema = json.loads(template_env.get_template(schema_name).render())
 
     LOG.debug("Succesfully loaded and parsed schema '%s' from '%s'.",
-             schema_name, package_name)
+              schema_name, package_name)
     return schema
 
 

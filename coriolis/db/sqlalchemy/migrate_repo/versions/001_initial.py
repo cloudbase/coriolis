@@ -10,9 +10,9 @@ def upgrade(migrate_engine):
     meta = sqlalchemy.MetaData()
     meta.bind = migrate_engine
 
-    migration = sqlalchemy.Table(
-        'migration', meta,
-        sqlalchemy.Column("id", sqlalchemy.String(36), primary_key=True,
+    base_transfer_action = sqlalchemy.Table(
+        'base_transfer_action', meta,
+        sqlalchemy.Column("base_id", sqlalchemy.String(36), primary_key=True,
                           default=lambda: str(uuid.uuid4())),
         sqlalchemy.Column('created_at', sqlalchemy.DateTime),
         sqlalchemy.Column('updated_at', sqlalchemy.DateTime),
@@ -24,7 +24,19 @@ def upgrade(migrate_engine):
         sqlalchemy.Column("origin", sqlalchemy.Text, nullable=False),
         sqlalchemy.Column("destination", sqlalchemy.Text,
                           nullable=False),
-        sqlalchemy.Column("status", sqlalchemy.String(100), nullable=False),
+        sqlalchemy.Column("instances", sqlalchemy.Text, nullable=False),
+        sqlalchemy.Column("type", sqlalchemy.String(50), nullable=False),
+        sqlalchemy.Column("info", sqlalchemy.Text, nullable=False),
+        mysql_engine='InnoDB',
+        mysql_charset='utf8'
+    )
+
+    migration = sqlalchemy.Table(
+        'migration', meta,
+        sqlalchemy.Column("id", sqlalchemy.String(36),
+                          sqlalchemy.ForeignKey(
+                              'base_transfer_action.base_id'),
+                          primary_key=True),
         mysql_engine='InnoDB',
         mysql_charset='utf8'
     )
@@ -37,8 +49,9 @@ def upgrade(migrate_engine):
         sqlalchemy.Column('updated_at', sqlalchemy.DateTime),
         sqlalchemy.Column('deleted_at', sqlalchemy.DateTime),
         sqlalchemy.Column('deleted', sqlalchemy.String(36)),
-        sqlalchemy.Column("migration_id", sqlalchemy.String(36),
-                          sqlalchemy.ForeignKey('migration.id'),
+        sqlalchemy.Column("execution_id", sqlalchemy.String(36),
+                          sqlalchemy.ForeignKey(
+                              'tasks_execution.id'),
                           nullable=False),
         sqlalchemy.Column("instance", sqlalchemy.String(1024), nullable=False),
         sqlalchemy.Column("host", sqlalchemy.String(1024), nullable=True),
@@ -48,6 +61,24 @@ def upgrade(migrate_engine):
                           nullable=False),
         sqlalchemy.Column("exception_details", sqlalchemy.Text, nullable=True),
         sqlalchemy.Column("depends_on", sqlalchemy.Text, nullable=True),
+        mysql_engine='InnoDB',
+        mysql_charset='utf8'
+    )
+
+    tasks_execution = sqlalchemy.Table(
+        'tasks_execution', meta,
+        sqlalchemy.Column('id', sqlalchemy.String(36), primary_key=True,
+                          default=lambda: str(uuid.uuid4())),
+        sqlalchemy.Column('created_at', sqlalchemy.DateTime),
+        sqlalchemy.Column('updated_at', sqlalchemy.DateTime),
+        sqlalchemy.Column('deleted_at', sqlalchemy.DateTime),
+        sqlalchemy.Column('deleted', sqlalchemy.String(36)),
+        sqlalchemy.Column("action_id", sqlalchemy.String(36),
+                          sqlalchemy.ForeignKey(
+                              'base_transfer_action.base_id'),
+                          nullable=False),
+        sqlalchemy.Column("status", sqlalchemy.String(100), nullable=False),
+        sqlalchemy.Column("number", sqlalchemy.Integer, nullable=False),
         mysql_engine='InnoDB',
         mysql_charset='utf8'
     )
@@ -87,8 +118,21 @@ def upgrade(migrate_engine):
         mysql_charset='utf8'
     )
 
+    replica = sqlalchemy.Table(
+        'replica', meta,
+        sqlalchemy.Column("id", sqlalchemy.String(36),
+                          sqlalchemy.ForeignKey(
+                              'base_transfer_action.base_id'),
+                          primary_key=True),
+        mysql_engine='InnoDB',
+        mysql_charset='utf8'
+    )
+
     tables = (
+        base_transfer_action,
         migration,
+        replica,
+        tasks_execution,
         task,
         task_progress_update,
         task_events,
