@@ -223,8 +223,15 @@ def set_transfer_action_info(context, action_id, instance, instance_info):
 
     # Copy is needed, otherwise sqlalchemy won't save the changes
     action_info = action.info.copy()
-    action_info[instance] = instance_info
+    if instance in action_info:
+        instance_info_old = action_info[instance].copy()
+        instance_info_old.update(instance_info)
+        action_info[instance] = instance_info_old
+    else:
+        action_info[instance] = instance_info
     action.info = action_info
+
+    return action_info[instance]
 
 
 @enginefacade.reader

@@ -686,7 +686,8 @@ class ExportProvider(base.BaseReplicaExportProvider):
             self._shutdown_vm(vm)
 
     def replicate_disks(self, ctxt, connection_info, instance_name,
-                        target_conn_info, volumes_info, incremental):
+                        source_conn_info, target_conn_info, volumes_info,
+                        incremental):
         ip = target_conn_info["ip"]
         port = target_conn_info.get("port", 22)
         username = target_conn_info["username"]
@@ -722,3 +723,10 @@ class ExportProvider(base.BaseReplicaExportProvider):
                 volume_info["change_id"] = change_id
 
         return volumes_info
+
+    def deploy_replica_source_resources(self, ctxt, connection_info):
+        return {"migr_resources": None, "connection_info": None}
+
+    def delete_replica_source_resources(self, ctxt, connection_info,
+                                        migr_resources_dict):
+        pass

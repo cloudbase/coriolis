@@ -21,10 +21,14 @@ _TASKS_MAP = {
         replica_tasks.DeployReplicaDisksTask,
     constants.TASK_TYPE_DELETE_REPLICA_DISKS:
         replica_tasks.DeleteReplicaDisksTask,
-    constants.TASK_TYPE_DEPLOY_REPLICA_RESOURCES:
-        replica_tasks.DeployReplicaResourcesTask,
-    constants.TASK_TYPE_DELETE_REPLICA_RESOURCES:
-        replica_tasks.DeleteReplicaResourcesTask,
+    constants.TASK_TYPE_DEPLOY_REPLICA_TARGET_RESOURCES:
+        replica_tasks.DeployReplicaTargetResourcesTask,
+    constants.TASK_TYPE_DELETE_REPLICA_TARGET_RESOURCES:
+        replica_tasks.DeleteReplicaTargetResourcesTask,
+    constants.TASK_TYPE_DEPLOY_REPLICA_SOURCE_RESOURCES:
+        replica_tasks.DeployReplicaSourceResourcesTask,
+    constants.TASK_TYPE_DELETE_REPLICA_SOURCE_RESOURCES:
+        replica_tasks.DeleteReplicaSourceResourcesTask,
     constants.TASK_TYPE_DEPLOY_REPLICA_INSTANCE:
         replica_tasks.DeployReplicaInstanceTask,
     constants.TASK_TYPE_CREATE_REPLICA_DISK_SNAPSHOTS:

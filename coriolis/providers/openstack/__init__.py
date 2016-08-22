@@ -921,8 +921,8 @@ class ImportProvider(base.BaseReplicaImportProvider):
 
         return volumes_info
 
-    def deploy_replica_resources(self, ctxt, connection_info,
-                                 target_environment, volumes_info):
+    def deploy_replica_target_resources(self, ctxt, connection_info,
+                                        target_environment, volumes_info):
         session = keystone.create_keystone_session(ctxt, connection_info)
 
         glance_api_version = connection_info.get("image_api_version",
@@ -963,8 +963,8 @@ class ImportProvider(base.BaseReplicaImportProvider):
             migr_resources.delete()
             raise
 
-    def delete_replica_resources(self, ctxt, connection_info,
-                                 migr_resources_dict):
+    def delete_replica_target_resources(self, ctxt, connection_info,
+                                        migr_resources_dict):
         session = keystone.create_keystone_session(ctxt, connection_info)
 
         nova = nova_client.Client(NOVA_API_VERSION, session=session)

@@ -111,16 +111,30 @@ class ConductorServerEndpoint(object):
                     instance, constants.TASK_TYPE_DEPLOY_REPLICA_DISKS,
                     execution, depends_on=[get_instance_info_task.id])
 
+                deploy_replica_export_resources_task = self._create_task(
+                    instance,
+                    constants.TASK_TYPE_DEPLOY_REPLICA_SOURCE_RESOURCES,
+                    execution, depends_on=[deploy_replica_disks_task.id])
+
                 deploy_replica_resources_task = self._create_task(
-                    instance, constants.TASK_TYPE_DEPLOY_REPLICA_RESOURCES,
+                    instance,
+                    constants.TASK_TYPE_DEPLOY_REPLICA_TARGET_RESOURCES,
                     execution, depends_on=[deploy_replica_disks_task.id])
 
                 replicate_disks_task = self._create_task(
                     instance, constants.TASK_TYPE_REPLICATE_DISKS,
-                    execution, depends_on=[deploy_replica_resources_task.id])
+                    execution, depends_on=[
+                        deploy_replica_export_resources_task.id,
+                        deploy_replica_resources_task.id])
 
                 self._create_task(
-                    instance, constants.TASK_TYPE_DELETE_REPLICA_RESOURCES,
+                    instance,
+                    constants.TASK_TYPE_DELETE_REPLICA_SOURCE_RESOURCES,
+                    execution, depends_on=[replicate_disks_task.id])
+
+                self._create_task(
+                    instance,
+                    constants.TASK_TYPE_DELETE_REPLICA_TARGET_RESOURCES,
                     execution, depends_on=[replicate_disks_task.id])
 
         db_api.add_replica_tasks_execution(ctxt, execution)
@@ -375,23 +389,33 @@ class ConductorServerEndpoint(object):
     def _start_pending_tasks(self, ctxt, execution, parent_task, task_info):
         has_pending_tasks = False
         for task in execution.tasks:
-            if (task.depends_on and parent_task.id in task.depends_on and
-                    task.status == constants.TASK_STATUS_PENDING):
+            if task.status == constants.TASK_STATUS_PENDING:
                 has_pending_tasks = True
-                # instance imports need to be executed on the same host
-                server = None
-                if task.task_type == constants.TASK_TYPE_IMPORT_INSTANCE:
-                    server = parent_task.host
+                if task.depends_on and parent_task.id in task.depends_on:
+                    start_task = True
+                    for depend_task_id in task.depends_on:
+                        if depend_task_id != parent_task.id:
+                            depend_task = db_api.get_task(ctxt, depend_task_id)
+                            if (depend_task.status !=
+                                    constants.TASK_STATUS_COMPLETED):
+                                start_task = False
+                                break
+                    if start_task:
+                        # instance imports need to be executed on the same host
+                        server = None
+                        if (task.task_type ==
+                                constants.TASK_TYPE_IMPORT_INSTANCE):
+                            server = parent_task.host
 
-                action = execution.action
-                self._rpc_worker_client.begin_task(
-                    ctxt, server=server,
-                    task_id=task.id,
-                    task_type=task.task_type,
-                    origin=action.origin,
-                    destination=action.destination,
-                    instance=task.instance,
-                    task_info=task_info)
+                        action = execution.action
+                        self._rpc_worker_client.begin_task(
+                            ctxt, server=server,
+                            task_id=task.id,
+                            task_type=task.task_type,
+                            origin=action.origin,
+                            destination=action.destination,
+                            instance=task.instance,
+                            task_info=task_info)
         return has_pending_tasks
 
     @task_synchronized
@@ -405,18 +429,22 @@ class ConductorServerEndpoint(object):
             ctxt, task_id, include_execution_tasks=True)
 
         execution = task.execution
-        has_pending_tasks = self._start_pending_tasks(ctxt, execution, task,
-                                                      task_info)
+        with lockutils.lock(execution.action_id):
+            LOG.info("Setting instance %(instance)s "
+                     "action info: %(task_info)s",
+                     {"instance": task.instance, "task_info": task_info})
+            updated_task_info = db_api.set_transfer_action_info(
+                ctxt, execution.action_id, task.instance, task_info)
 
-        LOG.info("Setting instance %(instance)s action info: %(task_info)s",
-                 {"instance": task.instance, "task_info": task_info})
-        db_api.set_transfer_action_info(
-            ctxt, execution.action_id, task.instance, task_info)
+            if execution.status == constants.EXECUTION_STATUS_RUNNING:
+                has_pending_tasks = self._start_pending_tasks(
+                    ctxt, execution, task, updated_task_info)
 
-        if not has_pending_tasks:
-            LOG.info("Tasks execution completed: %s", execution.id)
-            db_api.set_execution_status(
-                ctxt, execution.id, constants.EXECUTION_STATUS_COMPLETED)
+                if not has_pending_tasks:
+                    LOG.info("Tasks execution completed: %s", execution.id)
+                    db_api.set_execution_status(
+                        ctxt, execution.id,
+                        constants.EXECUTION_STATUS_COMPLETED)
 
     @task_synchronized
     def set_task_error(self, ctxt, task_id, exception_details):
@@ -430,14 +458,15 @@ class ConductorServerEndpoint(object):
             ctxt, task_id, include_execution_tasks=True)
         execution = task.execution
 
-        for task in execution.tasks:
-            if task.status == constants.TASK_STATUS_PENDING:
-                db_api.set_task_status(
-                    ctxt, task.id, constants.TASK_STATUS_CANCELED)
+        with lockutils.lock(execution.action_id):
+            for task in execution.tasks:
+                if task.status == constants.TASK_STATUS_PENDING:
+                    db_api.set_task_status(
+                        ctxt, task.id, constants.TASK_STATUS_CANCELED)
 
-        LOG.error("Tasks execution failed: %s", execution.id)
-        db_api.set_execution_status(
-            ctxt, execution.id, constants.EXECUTION_STATUS_ERROR)
+            LOG.error("Tasks execution failed: %s", execution.id)
+            db_api.set_execution_status(
+                ctxt, execution.id, constants.EXECUTION_STATUS_ERROR)
 
     @task_synchronized
     def task_event(self, ctxt, task_id, level, message):

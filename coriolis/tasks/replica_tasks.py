@@ -12,6 +12,22 @@ from oslo_log import log as logging
 LOG = logging.getLogger(__name__)
 
 
+def _marshal_migr_conn_info(migr_connection_info):
+    if migr_connection_info and "pkey" in migr_connection_info:
+        migr_connection_info = migr_connection_info.copy()
+        migr_connection_info["pkey"] = utils.serialize_key(
+            migr_connection_info["pkey"])
+    return migr_connection_info
+
+
+def _unmarshal_migr_conn_info(migr_connection_info):
+    if migr_connection_info and "pkey" in migr_connection_info:
+        migr_connection_info = migr_connection_info.copy()
+        pkey_str = migr_connection_info["pkey"]
+        migr_connection_info["pkey"] = utils.deserialize_key(pkey_str)
+    return migr_connection_info
+
+
 class GetInstanceInfoTask(base.TaskRunner):
     def run(self, ctxt, instance, origin, destination, task_info,
             event_handler):
@@ -51,17 +67,18 @@ class ReplicateDisksTask(base.TaskRunner):
 
         volumes_info = task_info["volumes_info"]
 
-        migr_conn_info = task_info["migr_connection_info"]
-        pkey_str = migr_conn_info["pkey"]
-        migr_conn_info["pkey"] = utils.deserialize_key(pkey_str)
+        migr_source_conn_info = _unmarshal_migr_conn_info(
+            task_info["migr_source_connection_info"])
+
+        migr_target_conn_info = _unmarshal_migr_conn_info(
+            task_info["migr_target_connection_info"])
 
         incremental = task_info.get("incremental", True)
 
         volumes_info = provider.replicate_disks(
-            ctxt, connection_info, instance, migr_conn_info,
-            volumes_info, incremental)
+            ctxt, connection_info, instance, migr_source_conn_info,
+            migr_target_conn_info, volumes_info, incremental)
 
-        task_info["migr_connection_info"] = pkey_str
         task_info["volumes_info"] = volumes_info
 
         return task_info
@@ -100,12 +117,49 @@ class DeleteReplicaDisksTask(base.TaskRunner):
         provider.delete_replica_disks(
             ctxt, connection_info, volumes_info)
 
-        del task_info["volumes_info"]
+        task_info["volumes_info"] = None
 
         return task_info
 
 
-class DeployReplicaResourcesTask(base.TaskRunner):
+class DeployReplicaSourceResourcesTask(base.TaskRunner):
+    def run(self, ctxt, instance, origin, destination, task_info,
+            event_handler):
+        provider = providers_factory.get_provider(
+            origin["type"], constants.PROVIDER_TYPE_EXPORT, event_handler)
+        connection_info = base.get_connection_info(ctxt, origin)
+
+        replica_resources_info = provider.deploy_replica_source_resources(
+            ctxt, connection_info)
+
+        task_info["migr_source_resources"] = replica_resources_info[
+            "migr_resources"]
+        migr_connection_info = _marshal_migr_conn_info(
+            replica_resources_info["connection_info"])
+        task_info["migr_source_connection_info"] = migr_connection_info
+
+        return task_info
+
+
+class DeleteReplicaSourceResourcesTask(base.TaskRunner):
+    def run(self, ctxt, instance, origin, destination, task_info,
+            event_handler):
+        provider = providers_factory.get_provider(
+            origin["type"], constants.PROVIDER_TYPE_EXPORT, event_handler)
+        connection_info = base.get_connection_info(ctxt, origin)
+
+        migr_resources = task_info["migr_source_resources"]
+
+        provider.delete_replica_source_resources(
+            ctxt, connection_info, migr_resources)
+
+        task_info["migr_source_resources"] = None
+        task_info["migr_source_connection_info"] = None
+
+        return task_info
+
+
+class DeployReplicaTargetResourcesTask(base.TaskRunner):
     def run(self, ctxt, instance, origin, destination, task_info,
             event_handler):
         target_environment = destination.get("target_environment") or {}
@@ -116,34 +170,34 @@ class DeployReplicaResourcesTask(base.TaskRunner):
 
         volumes_info = task_info["volumes_info"]
 
-        replica_resources_info = provider.deploy_replica_resources(
+        replica_resources_info = provider.deploy_replica_target_resources(
             ctxt, connection_info, target_environment, volumes_info)
 
         task_info["volumes_info"] = replica_resources_info["volumes_info"]
-        task_info["migr_resources"] = replica_resources_info["migr_resources"]
+        task_info["migr_target_resources"] = replica_resources_info[
+            "migr_resources"]
 
-        migr_connection_info = replica_resources_info["connection_info"]
-        migr_connection_info["pkey"] = utils.serialize_key(
-            migr_connection_info["pkey"])
-        task_info["migr_connection_info"] = migr_connection_info
+        migr_connection_info = _marshal_migr_conn_info(
+            replica_resources_info["connection_info"])
+        task_info["migr_target_connection_info"] = migr_connection_info
 
         return task_info
 
 
-class DeleteReplicaResourcesTask(base.TaskRunner):
+class DeleteReplicaTargetResourcesTask(base.TaskRunner):
     def run(self, ctxt, instance, origin, destination, task_info,
             event_handler):
         provider = providers_factory.get_provider(
             destination["type"], constants.PROVIDER_TYPE_IMPORT, event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
 
-        migr_resources = task_info["migr_resources"]
+        migr_resources = task_info["migr_target_resources"]
 
-        provider.delete_replica_resources(
+        provider.delete_replica_target_resources(
             ctxt, connection_info, migr_resources)
 
-        del task_info["migr_resources"]
-        del task_info["migr_connection_info"]
+        task_info["migr_target_resources"] = None
+        task_info["migr_target_connection_info"] = None
 
         return task_info
 

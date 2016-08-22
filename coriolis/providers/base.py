@@ -76,13 +76,13 @@ class BaseReplicaImportProvider(BaseImportProvider):
         pass
 
     @abc.abstractmethod
-    def deploy_replica_resources(self, ctxt, connection_info,
-                                 target_environment, volumes_info):
+    def deploy_replica_target_resources(self, ctxt, connection_info,
+                                        target_environment, volumes_info):
         pass
 
     @abc.abstractmethod
-    def delete_replica_resources(self, ctxt, connection_info,
-                                 migr_resources_dict):
+    def delete_replica_target_resources(self, ctxt, connection_info,
+                                        migr_resources_dict):
         pass
 
     @abc.abstractmethod
@@ -125,8 +125,18 @@ class BaseReplicaExportProvider(BaseExportProvider):
         pass
 
     @abc.abstractmethod
+    def deploy_replica_source_resources(self, ctxt, connection_info):
+        pass
+
+    @abc.abstractmethod
+    def delete_replica_source_resources(self, ctxt, connection_info,
+                                        migr_resources_dict):
+        pass
+
+    @abc.abstractmethod
     def replicate_disks(self, ctxt, connection_info, instance_name,
-                        target_conn_info, volumes_info, incremental):
+                        source_conn_info, target_conn_info, volumes_info,
+                        incremental):
         pass
 
     @abc.abstractmethod
