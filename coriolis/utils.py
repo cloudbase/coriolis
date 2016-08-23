@@ -251,15 +251,15 @@ def get_resources_dir():
     return os.path.join(_get_base_dir(), "resources")
 
 
-def serialize_key(key):
+def serialize_key(key, password=None):
     key_io = io.StringIO()
-    key.write_private_key(key_io)
+    key.write_private_key(key_io, password)
     return key_io.getvalue()
 
 
-def deserialize_key(key_bytes):
+def deserialize_key(key_bytes, password=None):
     key_io = io.StringIO(key_bytes)
-    return paramiko.RSAKey.from_private_key(key_io)
+    return paramiko.RSAKey.from_private_key(key_io, password)
 
 
 def is_serializable(obj):
