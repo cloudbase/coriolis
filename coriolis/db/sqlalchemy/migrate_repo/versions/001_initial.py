@@ -37,6 +37,9 @@ def upgrade(migrate_engine):
                           sqlalchemy.ForeignKey(
                               'base_transfer_action.base_id'),
                           primary_key=True),
+        sqlalchemy.Column("replica_id", sqlalchemy.String(36),
+                          sqlalchemy.ForeignKey(
+                              'replica.id'), nullable=True),
         mysql_engine='InnoDB',
         mysql_charset='utf8'
     )
@@ -131,8 +134,8 @@ def upgrade(migrate_engine):
 
     tables = (
         base_transfer_action,
-        migration,
         replica,
+        migration,
         tasks_execution,
         task,
         task_progress_update,

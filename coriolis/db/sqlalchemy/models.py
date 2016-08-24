@@ -112,19 +112,6 @@ class BaseTransferAction(BASE, models.TimestampMixin, models.ModelBase,
     }
 
 
-class Migration(BaseTransferAction):
-    __tablename__ = 'migration'
-
-    id = sqlalchemy.Column(
-        sqlalchemy.String(36),
-        sqlalchemy.ForeignKey(
-            'base_transfer_action.base_id'), primary_key=True)
-
-    __mapper_args__ = {
-        'polymorphic_identity': 'migration',
-    }
-
-
 class Replica(BaseTransferAction):
     __tablename__ = 'replica'
 
@@ -135,4 +122,22 @@ class Replica(BaseTransferAction):
 
     __mapper_args__ = {
         'polymorphic_identity': 'replica',
+    }
+
+
+class Migration(BaseTransferAction):
+    __tablename__ = 'migration'
+
+    id = sqlalchemy.Column(
+        sqlalchemy.String(36),
+        sqlalchemy.ForeignKey(
+            'base_transfer_action.base_id'), primary_key=True)
+    replica_id = sqlalchemy.Column(
+        sqlalchemy.String(36),
+        sqlalchemy.ForeignKey('replica.id'), nullable=True)
+    replica = orm.relationship(
+        Replica, backref=orm.backref("migrations"), foreign_keys=[replica_id])
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'migration',
     }

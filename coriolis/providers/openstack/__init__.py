@@ -137,12 +137,22 @@ def _extend_volume(cinder, volume_id, new_size):
 
 
 @utils.retry_on_error()
-def _create_volume(cinder, size, name, image_ref=None):
-    volume_size_gb = math.ceil(size / units.Gi)
+def _get_volume_from_snapshot(cinder, snapshot_id):
+    snapshot = cinder.volume_snapshots.get(snapshot_id)
+    return cinder.volumes.get(snapshot.volume_id)
+
+
+@utils.retry_on_error()
+def _create_volume(cinder, size, name, image_ref=None, snapshot_id=None):
+    if snapshot_id:
+        volume_size_gb = None
+    else:
+        volume_size_gb = math.ceil(size / units.Gi)
     return cinder.volumes.create(
         size=volume_size_gb,
         name=name,
-        imageRef=image_ref)
+        imageRef=image_ref,
+        snapshot_id=snapshot_id)
 
 
 @utils.retry_on_error()
@@ -178,12 +188,20 @@ def _wait_for_volume_snapshot(cinder, snapshot_id,
     snapshots = cinder.volume_snapshots.findall(id=snapshot_id)
 
     if not snapshots:
+        if expected_status == 'deleted':
+            return
         raise exception.CoriolisException("Volume snapshot not found")
     snapshot = snapshots[0]
 
     while snapshot.status not in [expected_status, 'error']:
         time.sleep(2)
-        snapshot = cinder.volume_snapshots.get(snapshot.id)
+        if expected_status == 'deleted':
+            snapshots = cinder.volume_snapshots.findall(id=snapshot_id)
+            if not snapshots:
+                return
+            snapshot = snapshots[0]
+        else:
+            snapshot = cinder.volume_snapshots.get(snapshot.id)
     if snapshot.status != expected_status:
         raise exception.CoriolisException(
             "Volume snapshot is in status: %s" % snapshot.status)
@@ -698,7 +716,7 @@ class ImportProvider(base.BaseReplicaImportProvider):
 
             try:
                 for i, volume in enumerate(volumes):
-                    _wait_for_volume(cinder, volume.id, 'available')
+                    _wait_for_volume(cinder, volume.id)
 
                     self._event_manager.progress_update(
                         "Attaching volume to worker instance")
@@ -894,12 +912,12 @@ class ImportProvider(base.BaseReplicaImportProvider):
                         "Using previously deployed volume")
 
             for volume in new_volumes:
-                _wait_for_volume(cinder, volume.id, 'available')
+                _wait_for_volume(cinder, volume.id)
 
             return volumes_info
         except:
             for volume in new_volumes:
-                _delete_volume(cinder, volume)
+                _delete_volume(cinder, volume.id)
             raise
 
     def deploy_replica_disks(self, ctxt, connection_info, target_environment,
@@ -1002,7 +1020,7 @@ class ImportProvider(base.BaseReplicaImportProvider):
             volume_info["volume_snapshot_id"] = snapshot.id
 
         for snapshot in snapshots:
-            _wait_for_volume_snapshot(cinder, snapshot.id, 'available')
+            _wait_for_volume_snapshot(cinder, snapshot.id)
 
         return volumes_info
 
@@ -1018,6 +1036,46 @@ class ImportProvider(base.BaseReplicaImportProvider):
             snapshot_id = volume_info.get("volume_snapshot_id")
             if snapshot_id:
                 _delete_volume_snapshot(cinder, snapshot_id)
+                _wait_for_volume_snapshot(cinder, snapshot_id, 'deleted')
+                volume_info["volume_snapshot_id"] = None
+
+    def restore_replica_disk_snapshots(self, ctxt, connection_info,
+                                       volumes_info):
+        session = keystone.create_keystone_session(ctxt, connection_info)
+
+        cinder = cinder_client.Client(CINDER_API_VERSION, session=session)
+
+        self._event_manager.progress_update(
+            "Restoring replica disk snapshots")
+
+        new_volumes = []
+        try:
+            for volume_info in volumes_info:
+                snapshot_id = volume_info.get("volume_snapshot_id")
+                if snapshot_id:
+                    original_volume = _get_volume_from_snapshot(
+                        cinder, snapshot_id)
+
+                    volume_name = original_volume.name
+                    volume = _create_volume(
+                        cinder, None, volume_name, snapshot_id=snapshot_id)
+                    new_volumes.append((volume_info, snapshot_id, volume))
+
+            for volume_info, snapshot_id, volume in new_volumes:
+                old_volume_id = volume_info["volume_id"]
+                _wait_for_volume(cinder, volume.id)
+                _delete_volume_snapshot(cinder, snapshot_id)
+                _wait_for_volume_snapshot(cinder, snapshot_id, 'deleted')
+                _delete_volume(cinder, old_volume_id)
+
+                volume_info["volume_id"] = volume.id
+                volume_info["volume_snapshot_id"] = None
+        except:
+            for _, _, volume in new_volumes:
+                _delete_volume(cinder, volume.id)
+            raise
+
+        return volumes_info
 
 
 class ExportProvider(base.BaseExportProvider):

@@ -311,6 +311,11 @@ class ConductorServerEndpoint(object):
                 instance, constants.TASK_TYPE_DELETE_REPLICA_DISK_SNAPSHOTS,
                 execution, [deploy_replica_task.id])
 
+            self._create_task(
+                instance,
+                constants.TASK_TYPE_RESTORE_REPLICA_DISK_SNAPSHOTS,
+                execution, on_error=True)
+
         db_api.add_migration(ctxt, migration)
         LOG.info("Migration created: %s", migration.id)
 
@@ -440,6 +445,26 @@ class ConductorServerEndpoint(object):
                             instance=task.instance,
                             task_info=task_info)
 
+    def _update_replica_volumes_info(self, ctxt, migration_id, instance,
+                                     task_info):
+        # When restoring a snapshot in some import providers (e.g. OpenStack),
+        # a new volume_id is generated. This needs to be updated in the
+        # Replica instance as well.
+        volumes_info = task_info.get("volumes_info")
+        if volumes_info:
+            updated_task_info = {"volumes_info": volumes_info}
+
+            migration = db_api.get_migration(ctxt, migration_id)
+            replica_id = migration.replica_id
+
+            with lockutils.lock(replica_id):
+                LOG.debug(
+                    "Updating volume_info in replica due to snapshot "
+                    "restore during migration. replica id: %s", replica_id)
+                db_api.set_transfer_action_info(
+                    ctxt, replica_id, instance,
+                    updated_task_info)
+
     @task_synchronized
     def task_completed(self, ctxt, task_id, task_info):
         LOG.info("Task completed: %s", task_id)
@@ -450,12 +475,19 @@ class ConductorServerEndpoint(object):
         task = db_api.get_task(ctxt, task_id)
         execution = db_api.get_tasks_execution(ctxt, task.execution_id)
 
-        with lockutils.lock(execution.action_id):
+        action_id = execution.action_id
+        with lockutils.lock(action_id):
             LOG.info("Setting instance %(instance)s "
                      "action info: %(task_info)s",
                      {"instance": task.instance, "task_info": task_info})
             updated_task_info = db_api.set_transfer_action_info(
-                ctxt, execution.action_id, task.instance, task_info)
+                ctxt, action_id, task.instance, task_info)
+
+            if (task.task_type ==
+                    constants.TASK_TYPE_RESTORE_REPLICA_DISK_SNAPSHOTS):
+                self._update_replica_volumes_info(
+                    ctxt, execution.action_id, task.instance,
+                    updated_task_info)
 
             if execution.status == constants.EXECUTION_STATUS_RUNNING:
                 self._start_pending_tasks(

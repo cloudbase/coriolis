@@ -35,6 +35,8 @@ _TASKS_MAP = {
         replica_tasks.CreateReplicaDiskSnapshotsTask,
     constants.TASK_TYPE_DELETE_REPLICA_DISK_SNAPSHOTS:
         replica_tasks.DeleteReplicaDiskSnapshotsTask,
+    constants.TASK_TYPE_RESTORE_REPLICA_DISK_SNAPSHOTS:
+        replica_tasks.RestoreReplicaDiskSnapshotsTask,
 }
 
 

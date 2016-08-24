@@ -267,3 +267,20 @@ class DeleteReplicaDiskSnapshotsTask(base.TaskRunner):
         task_info["volumes_info"] = volumes_info
 
         return task_info
+
+
+class RestoreReplicaDiskSnapshotsTask(base.TaskRunner):
+    def run(self, ctxt, instance, origin, destination, task_info,
+            event_handler):
+        provider = providers_factory.get_provider(
+            destination["type"], constants.PROVIDER_TYPE_IMPORT, event_handler)
+        connection_info = base.get_connection_info(ctxt, destination)
+
+        volumes_info = task_info["volumes_info"]
+
+        volumes_info = provider.restore_replica_disk_snapshots(
+            ctxt, connection_info, volumes_info)
+
+        task_info["volumes_info"] = volumes_info
+
+        return task_info
