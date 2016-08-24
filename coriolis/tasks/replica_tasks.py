@@ -106,7 +106,7 @@ class DeployReplicaDisksTask(base.TaskRunner):
             destination["type"], constants.PROVIDER_TYPE_IMPORT, event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
 
-        volumes_info = task_info.get("volumes_info", [])
+        volumes_info = task_info.get("volumes_info") or []
 
         volumes_info = provider.deploy_replica_disks(
             ctxt, connection_info, target_environment, instance, export_info,
