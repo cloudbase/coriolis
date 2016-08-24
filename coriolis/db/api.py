@@ -151,6 +151,16 @@ def delete_replica(context, replica_id):
 
 
 @enginefacade.reader
+def get_replica_migrations(context, replica_id):
+    q = _soft_delete_aware_query(context, models.Migration)
+    q = q.join("replica")
+    q = q.options(orm.joinedload("executions"))
+    return q.filter(
+        models.Migration.project_id == context.tenant,
+        models.Replica.id == replica_id).all()
+
+
+@enginefacade.reader
 def get_migrations(context, include_tasks=False):
     q = _soft_delete_aware_query(context, models.Migration)
     if include_tasks:

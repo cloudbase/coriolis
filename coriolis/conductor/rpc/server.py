@@ -97,7 +97,7 @@ class ConductorServerEndpoint(object):
     @replica_synchronized
     def execute_replica_tasks(self, ctxt, replica_id, shutdown_instances):
         replica = self._get_replica(ctxt, replica_id)
-        self._check_running_executions(replica)
+        self._check_replica_running_executions(ctxt, replica)
         execution = models.TasksExecution()
         execution.id = str(uuid.uuid4())
         execution.status = constants.EXECUTION_STATUS_RUNNING
@@ -199,13 +199,13 @@ class ConductorServerEndpoint(object):
     @replica_synchronized
     def delete_replica(self, ctxt, replica_id):
         replica = self._get_replica(ctxt, replica_id)
-        self._check_running_executions(replica)
+        self._check_replica_running_executions(ctxt, replica)
         db_api.delete_replica(ctxt, replica_id)
 
     @replica_synchronized
     def delete_replica_disks(self, ctxt, replica_id):
         replica = self._get_replica(ctxt, replica_id)
-        self._check_running_executions(replica)
+        self._check_replica_running_executions(ctxt, replica)
 
         execution = models.TasksExecution()
         execution.id = str(uuid.uuid4())
@@ -260,11 +260,24 @@ class ConductorServerEndpoint(object):
         # the default serialization mechanism enforces a max_depth of 3
         return utils.to_dict(self._get_migration(ctxt, migration_id))
 
-    def _check_running_executions(self, action):
+    @staticmethod
+    def _check_running_replica_migrations(ctxt, replica_id):
+        migrations = db_api.get_replica_migrations(ctxt, replica_id)
+        if [m.id for m in migrations if m.executions[0].status ==
+                constants.EXECUTION_STATUS_RUNNING]:
+            raise exception.InvalidReplicaState(
+                "This replica is currently being migrated")
+
+    @staticmethod
+    def _check_running_executions(action):
         if [e for e in action.executions
                 if e.status == constants.EXECUTION_STATUS_RUNNING]:
             raise exception.InvalidActionTasksExecutionState(
                 "Another tasks execution is in progress")
+
+    def _check_replica_running_executions(self, ctxt, replica):
+        self._check_running_executions(replica)
+        self._check_running_replica_migrations(ctxt, replica.id)
 
     @staticmethod
     def _check_valid_replica_tasks_execution(replica, forced=False):
@@ -286,7 +299,7 @@ class ConductorServerEndpoint(object):
     @replica_synchronized
     def deploy_replica_instances(self, ctxt, replica_id, forced):
         replica = self._get_replica(ctxt, replica_id)
-        self._check_running_executions(replica)
+        self._check_replica_running_executions(ctxt, replica)
         self._check_valid_replica_tasks_execution(replica, forced)
 
         instances = replica.instances
