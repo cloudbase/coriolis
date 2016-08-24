@@ -61,6 +61,7 @@ def upgrade(migrate_engine):
                           nullable=False),
         sqlalchemy.Column("exception_details", sqlalchemy.Text, nullable=True),
         sqlalchemy.Column("depends_on", sqlalchemy.Text, nullable=True),
+        sqlalchemy.Column("on_error", sqlalchemy.Boolean, nullable=True),
         mysql_engine='InnoDB',
         mysql_charset='utf8'
     )

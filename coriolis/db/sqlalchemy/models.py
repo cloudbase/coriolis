@@ -59,6 +59,7 @@ class Task(BASE, models.TimestampMixin, models.SoftDeleteMixin,
     task_type = sqlalchemy.Column(sqlalchemy.String(100), nullable=False)
     exception_details = sqlalchemy.Column(sqlalchemy.Text, nullable=True)
     depends_on = sqlalchemy.Column(types.List, nullable=True)
+    on_error = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False)
     # TODO: Add soft delete filter
     events = orm.relationship(TaskEvent, cascade="all,delete",
                               backref=orm.backref('task'))

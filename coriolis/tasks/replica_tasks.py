@@ -160,10 +160,11 @@ class DeleteReplicaSourceResourcesTask(base.TaskRunner):
             origin["type"], constants.PROVIDER_TYPE_EXPORT, event_handler)
         connection_info = base.get_connection_info(ctxt, origin)
 
-        migr_resources = task_info["migr_source_resources"]
+        migr_resources = task_info.get("migr_source_resources")
 
-        provider.delete_replica_source_resources(
-            ctxt, connection_info, migr_resources)
+        if migr_resources:
+            provider.delete_replica_source_resources(
+                ctxt, connection_info, migr_resources)
 
         task_info["migr_source_resources"] = None
         task_info["migr_source_connection_info"] = None
@@ -203,10 +204,11 @@ class DeleteReplicaTargetResourcesTask(base.TaskRunner):
             destination["type"], constants.PROVIDER_TYPE_IMPORT, event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
 
-        migr_resources = task_info["migr_target_resources"]
+        migr_resources = task_info.get("migr_target_resources")
 
-        provider.delete_replica_target_resources(
-            ctxt, connection_info, migr_resources)
+        if migr_resources:
+            provider.delete_replica_target_resources(
+                ctxt, connection_info, migr_resources)
 
         task_info["migr_target_resources"] = None
         task_info["migr_target_connection_info"] = None

@@ -211,8 +211,8 @@ def set_execution_status(context, execution_id, status):
     execution.status = status
 
 
-@enginefacade.writer
-def set_transfer_action_info(context, action_id, instance, instance_info):
+@enginefacade.reader
+def get_action(context, action_id):
     action = _soft_delete_aware_query(
         context, models.BaseTransferAction).filter(
             models.BaseTransferAction.project_id == context.tenant,
@@ -220,6 +220,12 @@ def set_transfer_action_info(context, action_id, instance, instance_info):
     if not action:
         raise exception.NotFound(
             "Transfer action not found: %s" % action_id)
+    return action
+
+
+@enginefacade.writer
+def set_transfer_action_info(context, action_id, instance, instance_info):
+    action = get_action(context, action_id)
 
     # Copy is needed, otherwise sqlalchemy won't save the changes
     action_info = action.info.copy()
@@ -237,7 +243,16 @@ def set_transfer_action_info(context, action_id, instance, instance_info):
 @enginefacade.reader
 def get_tasks_execution(context, execution_id):
     q = _soft_delete_aware_query(context, models.TasksExecution)
-    return q.filter_by(project_id=context.tenant, id=execution_id).first()
+    q = q.join(models.BaseTransferAction)
+    q = q.options(orm.joinedload("action"))
+    q = q.options(orm.joinedload("tasks"))
+    execution = q.filter(
+        models.BaseTransferAction.project_id == context.tenant,
+        models.TasksExecution.id == execution_id).first()
+    if not execution:
+        raise exception.NotFound(
+            "Tasks execution not found: %s" % execution_id)
+    return execution
 
 
 def _get_task(context, task_id):
@@ -263,12 +278,8 @@ def set_task_host(context, task_id, host, process_id):
 
 
 @enginefacade.reader
-def get_task(context, task_id, include_execution_tasks=False):
+def get_task(context, task_id):
     q = _soft_delete_aware_query(context, models.Task)
-    if include_execution_tasks:
-        q = q.options(
-            orm.joinedload("execution").joinedload("action")).options(
-                orm.joinedload("execution").joinedload("tasks"))
     return q.filter_by(id=task_id).first()
 
 
