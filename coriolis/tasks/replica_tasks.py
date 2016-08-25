@@ -2,6 +2,7 @@
 # All Rights Reserved.
 
 from coriolis import constants
+from coriolis import exception
 from coriolis.providers import factory as providers_factory
 from coriolis import schemas
 from coriolis.tasks import base
@@ -38,6 +39,14 @@ def _unmarshal_migr_conn_info(migr_connection_info):
         migr_connection_info["pkey"] = utils.deserialize_key(
             pkey_str, CONF.serialization.temp_keypair_password)
     return migr_connection_info
+
+
+def _get_volumes_info(task_info):
+    volumes_info = task_info.get("volumes_info")
+    if not volumes_info:
+        raise exception.InvalidActionTasksExecutionState(
+            "No volumes information present")
+    return volumes_info
 
 
 class GetInstanceInfoTask(base.TaskRunner):
@@ -77,7 +86,7 @@ class ReplicateDisksTask(base.TaskRunner):
             origin["type"], constants.PROVIDER_TYPE_EXPORT, event_handler)
         connection_info = base.get_connection_info(ctxt, origin)
 
-        volumes_info = task_info["volumes_info"]
+        volumes_info = _get_volumes_info(task_info)
 
         migr_source_conn_info = _unmarshal_migr_conn_info(
             task_info["migr_source_connection_info"])
@@ -124,7 +133,7 @@ class DeleteReplicaDisksTask(base.TaskRunner):
             destination["type"], constants.PROVIDER_TYPE_IMPORT, event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
 
-        volumes_info = task_info["volumes_info"]
+        volumes_info = _get_volumes_info(task_info)
 
         provider.delete_replica_disks(
             ctxt, connection_info, volumes_info)
@@ -181,7 +190,7 @@ class DeployReplicaTargetResourcesTask(base.TaskRunner):
             destination["type"], constants.PROVIDER_TYPE_IMPORT, event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
 
-        volumes_info = task_info["volumes_info"]
+        volumes_info = _get_volumes_info(task_info)
 
         replica_resources_info = provider.deploy_replica_target_resources(
             ctxt, connection_info, target_environment, volumes_info)
@@ -226,7 +235,7 @@ class DeployReplicaInstanceTask(base.TaskRunner):
             destination["type"], constants.PROVIDER_TYPE_IMPORT, event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
 
-        volumes_info = task_info["volumes_info"]
+        volumes_info = _get_volumes_info(task_info)
 
         provider.deploy_replica_instance(
             ctxt, connection_info, target_environment, instance,
@@ -242,7 +251,7 @@ class CreateReplicaDiskSnapshotsTask(base.TaskRunner):
             destination["type"], constants.PROVIDER_TYPE_IMPORT, event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
 
-        volumes_info = task_info["volumes_info"]
+        volumes_info = _get_volumes_info(task_info)
 
         volumes_info = provider.create_replica_disk_snapshots(
             ctxt, connection_info, volumes_info)
@@ -259,7 +268,7 @@ class DeleteReplicaDiskSnapshotsTask(base.TaskRunner):
             destination["type"], constants.PROVIDER_TYPE_IMPORT, event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
 
-        volumes_info = task_info["volumes_info"]
+        volumes_info = _get_volumes_info(task_info)
 
         volumes_info = provider.delete_replica_disk_snapshots(
             ctxt, connection_info, volumes_info)
@@ -276,7 +285,7 @@ class RestoreReplicaDiskSnapshotsTask(base.TaskRunner):
             destination["type"], constants.PROVIDER_TYPE_IMPORT, event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
 
-        volumes_info = task_info["volumes_info"]
+        volumes_info = _get_volumes_info(task_info)
 
         volumes_info = provider.restore_replica_disk_snapshots(
             ctxt, connection_info, volumes_info)

@@ -302,6 +302,14 @@ class ConductorServerEndpoint(object):
         self._check_replica_running_executions(ctxt, replica)
         self._check_valid_replica_tasks_execution(replica, forced)
 
+        for instance, info in replica.info.items():
+            if not info.get("volumes_info"):
+                raise exception.InvalidReplicaState(
+                    "The replica doesn't contain volumes information for "
+                    "instance: %s. If replicated disks are deleted, the "
+                    "replica needs to be executed anew before a migration can "
+                    "occur" % instance)
+
         instances = replica.instances
 
         migration = models.Migration()
