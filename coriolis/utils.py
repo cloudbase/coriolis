@@ -57,6 +57,10 @@ def retry_on_error(max_attempts=5, sleep_seconds=0,
             while True:
                 try:
                     return func(*args, **kwargs)
+                except KeyboardInterrupt as ex:
+                    LOG.debug("Got a KeyboardInterrupt, skip retrying")
+                    LOG.exception(ex)
+                    raise
                 except Exception as ex:
                     if any([isinstance(ex, tex)
                             for tex in terminal_exceptions]):

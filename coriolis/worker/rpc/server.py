@@ -6,6 +6,7 @@ import multiprocessing
 import os
 import queue
 import shutil
+import signal
 import sys
 
 import psutil
@@ -77,7 +78,14 @@ class WorkerServerEndpoint(object):
     def cancel_task(self, ctxt, process_id):
         try:
             p = psutil.Process(process_id)
-            p.kill()
+            if os.name != "nt":
+                LOG.info("Sending SIGINT to process: %s", process_id)
+                p.send_signal(signal.SIGINT)
+            else:
+                LOG.warn(
+                    "Windows does not support SIGINT, killing process: %s",
+                    process_id)
+                p.kill()
         except psutil.NoSuchProcess:
             LOG.info("Task process not found: %s", process_id)
 

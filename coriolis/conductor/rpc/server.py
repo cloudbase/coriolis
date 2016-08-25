@@ -406,33 +406,33 @@ class ConductorServerEndpoint(object):
     def _cancel_tasks_execution(self, ctxt, execution):
         has_running_tasks = False
         for task in execution.tasks:
-            task_canceled = False
             if task.status == constants.TASK_STATUS_RUNNING:
                 self._rpc_worker_client.cancel_task(
                     ctxt, task.host, task.process_id)
-                task_canceled = True
-            elif task.status in [constants.TASK_STATUS_PENDING,
-                                 constants.TASK_STATUS_ON_ERROR_ONLY]:
-                if task.on_error:
-                    action = db_api.get_action(ctxt, execution.action_id)
-                    task_info = action.info.get(task.instance, {})
-
-                    self._rpc_worker_client.begin_task(
-                        ctxt, server=None,
-                        task_id=task.id,
-                        task_type=task.task_type,
-                        origin=action.origin,
-                        destination=action.destination,
-                        instance=task.instance,
-                        task_info=task_info)
-
-                    has_running_tasks = True
-                else:
-                    task_canceled = True
-
-            if task_canceled:
+                has_running_tasks = True
+            elif (task.status == constants.TASK_STATUS_PENDING and
+                    not task.on_error):
                 db_api.set_task_status(
                     ctxt, task.id, constants.TASK_STATUS_CANCELED)
+
+        if not has_running_tasks:
+            for task in execution.tasks:
+                if task.status in [constants.TASK_STATUS_PENDING,
+                                   constants.TASK_STATUS_ON_ERROR_ONLY]:
+                    if task.on_error:
+                        action = db_api.get_action(ctxt, execution.action_id)
+                        task_info = action.info.get(task.instance, {})
+
+                        self._rpc_worker_client.begin_task(
+                            ctxt, server=None,
+                            task_id=task.id,
+                            task_type=task.task_type,
+                            origin=action.origin,
+                            destination=action.destination,
+                            instance=task.instance,
+                            task_info=task_info)
+
+                        has_running_tasks = True
 
         if not has_running_tasks:
             db_api.set_execution_status(

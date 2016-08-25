@@ -758,7 +758,7 @@ class ImportProvider(base.BaseReplicaImportProvider):
             self._create_target_instance(
                 nova, config.flavor_name, instance_name,
                 config.keypair_name, ports, volumes)
-        except Exception:
+        except:
             if not volumes_info:
                 # Don't remove replica volumes
                 self._event_manager.progress_update("Deleting volumes")

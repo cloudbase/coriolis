@@ -100,6 +100,20 @@ class _SSHBackupWriter(_BaseBackupWriter):
         self._pkey = pkey
         self._password = password
         self._volumes_info = volumes_info
+        self._ssh = None
+
+    @contextlib.contextmanager
+    def open(self, path, disk_id):
+        self._path = path
+        self._disk_id = disk_id
+        self._open()
+        try:
+            yield self
+            # Don't send a message via ssh on exception
+            self.close()
+        except:
+            self._ssh.close()
+            raise
 
     @utils.retry_on_error()
     def _connect_ssh(self):
