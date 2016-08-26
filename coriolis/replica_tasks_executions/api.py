@@ -16,9 +16,9 @@ class API(object):
         self._rpc_client.delete_replica_tasks_execution(
             ctxt, execution_id)
 
-    def cancel(self, ctxt, execution_id):
+    def cancel(self, ctxt, execution_id, force):
         self._rpc_client.cancel_replica_tasks_execution(
-            ctxt, execution_id)
+            ctxt, execution_id, force)
 
     def get_executions(self, ctxt, replica_id, include_tasks=False):
         return self._rpc_client.get_replica_tasks_executions(

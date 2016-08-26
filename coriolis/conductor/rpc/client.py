@@ -36,10 +36,10 @@ class ConductorClient(object):
             ctxt, 'delete_replica_tasks_execution',
             execution_id=execution_id)
 
-    def cancel_replica_tasks_execution(self, ctxt, execution_id):
+    def cancel_replica_tasks_execution(self, ctxt, execution_id, force):
         return self._client.call(
             ctxt, 'cancel_replica_tasks_execution',
-            execution_id=execution_id)
+            execution_id=execution_id, force=force)
 
     def create_instances_replica(self, ctxt, origin, destination, instances):
         return self._client.call(
@@ -85,9 +85,9 @@ class ConductorClient(object):
         self._client.call(
             ctxt, 'delete_migration', migration_id=migration_id)
 
-    def cancel_migration(self, ctxt, migration_id):
+    def cancel_migration(self, ctxt, migration_id, force):
         self._client.call(
-            ctxt, 'cancel_migration', migration_id=migration_id)
+            ctxt, 'cancel_migration', migration_id=migration_id, force=force)
 
     def set_task_host(self, ctxt, task_id, host, process_id):
         self._client.call(

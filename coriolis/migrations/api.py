@@ -19,8 +19,8 @@ class API(object):
     def delete(self, ctxt, migration_id):
         self._rpc_client.delete_migration(ctxt, migration_id)
 
-    def cancel(self, ctxt, migration_id):
-        self._rpc_client.cancel_migration(ctxt, migration_id)
+    def cancel(self, ctxt, migration_id, force):
+        self._rpc_client.cancel_migration(ctxt, migration_id, force)
 
     def get_migrations(self, ctxt, include_tasks=False):
         return self._rpc_client.get_migrations(ctxt, include_tasks)

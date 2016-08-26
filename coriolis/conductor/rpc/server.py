@@ -174,13 +174,13 @@ class ConductorServerEndpoint(object):
         db_api.delete_replica_tasks_execution(ctxt, execution_id)
 
     @tasks_execution_synchronized
-    def cancel_replica_tasks_execution(self, ctxt, execution_id):
+    def cancel_replica_tasks_execution(self, ctxt, execution_id, force):
         execution = self._get_replica_tasks_execution(
             ctxt, execution_id)
         if execution.status != constants.EXECUTION_STATUS_RUNNING:
             raise exception.InvalidReplicaState(
                 "The replica tasks execution is not running")
-        self._cancel_tasks_execution(ctxt, execution)
+        self._cancel_tasks_execution(ctxt, execution, force)
 
     def _get_replica_tasks_execution(self, ctxt, execution_id):
         execution = db_api.get_replica_tasks_execution(
@@ -394,21 +394,21 @@ class ConductorServerEndpoint(object):
         db_api.delete_migration(ctxt, migration_id)
 
     @migration_synchronized
-    def cancel_migration(self, ctxt, migration_id):
+    def cancel_migration(self, ctxt, migration_id, force):
         migration = self._get_migration(ctxt, migration_id)
         execution = migration.executions[0]
         if execution.status != constants.EXECUTION_STATUS_RUNNING:
             raise exception.InvalidMigrationState(
                 "The migration is not running")
         execution = migration.executions[0]
-        self._cancel_tasks_execution(ctxt, execution)
+        self._cancel_tasks_execution(ctxt, execution, force)
 
-    def _cancel_tasks_execution(self, ctxt, execution):
+    def _cancel_tasks_execution(self, ctxt, execution, force=False):
         has_running_tasks = False
         for task in execution.tasks:
             if task.status == constants.TASK_STATUS_RUNNING:
                 self._rpc_worker_client.cancel_task(
-                    ctxt, task.host, task.process_id)
+                    ctxt, task.host, task.process_id, force)
                 has_running_tasks = True
             elif (task.status == constants.TASK_STATUS_PENDING and
                     not task.on_error):
