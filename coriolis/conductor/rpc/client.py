@@ -76,10 +76,10 @@ class ConductorClient(object):
             ctxt, 'migrate_instances', origin=origin, destination=destination,
             instances=instances)
 
-    def deploy_replica_instances(self, ctxt, replica_id, forced=False):
+    def deploy_replica_instances(self, ctxt, replica_id, force=False):
         return self._client.call(
             ctxt, 'deploy_replica_instances', replica_id=replica_id,
-            forced=forced)
+            force=force)
 
     def delete_migration(self, ctxt, migration_id):
         self._client.call(

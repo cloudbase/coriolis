@@ -280,11 +280,11 @@ class ConductorServerEndpoint(object):
         self._check_running_replica_migrations(ctxt, replica.id)
 
     @staticmethod
-    def _check_valid_replica_tasks_execution(replica, forced=False):
+    def _check_valid_replica_tasks_execution(replica, force=False):
         sorted_executions = sorted(
             replica.executions, key=lambda e: e.number, reverse=True)
 
-        if (forced and sorted_executions[0].status !=
+        if (force and sorted_executions[0].status !=
                 constants.EXECUTION_STATUS_COMPLETED):
             raise exception.InvalidReplicaState(
                 "The last replica tasks execution was not successful. "
@@ -297,10 +297,10 @@ class ConductorServerEndpoint(object):
                 "to be migrated")
 
     @replica_synchronized
-    def deploy_replica_instances(self, ctxt, replica_id, forced):
+    def deploy_replica_instances(self, ctxt, replica_id, force):
         replica = self._get_replica(ctxt, replica_id)
         self._check_replica_running_executions(ctxt, replica)
-        self._check_valid_replica_tasks_execution(replica, forced)
+        self._check_valid_replica_tasks_execution(replica, force)
 
         for instance, info in replica.info.items():
             if not info.get("volumes_info"):
