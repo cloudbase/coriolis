@@ -1,56 +1,64 @@
 {
   "$schema": "http://cloudbase.it/coriolis/schemas/openstack_connection#",
-  "type": "object",
-  "properties": {
-    "secret_ref": {
-      "type": "string"
-    },
-    "identity_api_version": {
-      "type": "integer"
-    },
-    "username": {
-      "type": "string"
-    },
-    "password": {
-      "type": "string"
-    },
-    "project_name": {
-      "type": "string"
-    },
-    "user_domain_name": {
-      "type": "string"
-    },
-    "project_domain_name": {
-      "type": "string"
-    },
-    "auth_url": {
-      "type": "string"
-    },
-    "allow_untrusted": {
-      "type": "boolean",
-      "default": false
-    }
-  },
   "oneOf": [
     {
-      "required": ["secret_ref"]
-    },
-    {
+      "type": "object",
+      "properties": {
+        "identity_api_version": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 3
+        },
+        "username": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        },
+        "project_name": {
+          "type": "string"
+        },
+        "user_domain_name": {
+          "type": "string"
+        },
+        "project_domain_name": {
+          "type": "string"
+        },
+        "auth_url": {
+          "type": "string"
+        },
+        "allow_untrusted": {
+          "type": "boolean",
+          "default": false
+        }
+      },
       "required": [
-        "identity_api_version",
         "username",
         "password",
         "project_name",
-        "user_domain_name",
-        "project_domain_name",
         "auth_url"
-      ]
+      ],
+      "additionalProperties": false
     },
     {
       "type": "object",
-      "additionalProperties": false,
       "properties": {
-      }
+        "secret_ref": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "required": ["secret_ref"],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "null"
     }
   ]
 }

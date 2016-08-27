@@ -1,38 +1,42 @@
 {
   "$schema": "http://cloudbase.it/coriolis/schemas/vmware_vsphere_connection#",
-  "type": "object",
-  "properties": {
-    "secret_ref": {
-      "type": "string"
-    },
-    "host": {
-      "type": "string"
-    },
-    "port": {
-      "type": "integer"
-    },
-    "username": {
-      "type": "string"
-    },
-    "password": {
-      "type": "string"
-    },
-    "allow_untrusted": {
-      "type": "boolean",
-      "default": false
-    }
-  },
   "oneOf": [
     {
-      "required": ["secret_ref"]
-    },
-    {
+      "type": "object",
+      "properties": {
+        "host": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer"
+        },
+        "username": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        },
+        "allow_untrusted": {
+          "type": "boolean"
+        }
+      },
       "required": [
         "host",
         "port",
         "username",
         "password"
-      ]
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "secret_ref": {
+          "type": "string"
+        }
+      },
+      "required": ["secret_ref"],
+      "additionalProperties": false
     }
   ]
 }
