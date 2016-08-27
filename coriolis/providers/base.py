@@ -22,13 +22,7 @@ class BaseProvider(object):
         """ Checks the provided connection info and raises an exception
         if it is invalid.
         """
-        try:
-            schemas.validate_value(
-                connection_info, self.connection_info_schema)
-        except:
-            return False
-
-        return True
+        schemas.validate_value(connection_info, self.connection_info_schema)
 
 
 class BaseImportProvider(BaseProvider):

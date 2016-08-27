@@ -3,12 +3,16 @@
 
 from webob import exc
 
+from oslo_log import log as logging
+
 from coriolis.api import wsgi as api_wsgi
 from coriolis.api.v1.views import migration_view
 from coriolis import constants
 from coriolis import exception
 from coriolis.migrations import api
 from coriolis.providers import factory
+
+LOG = logging.getLogger(__name__)
 
 
 class MigrationController(api_wsgi.Controller):
@@ -35,33 +39,35 @@ class MigrationController(api_wsgi.Controller):
                 req.environ['coriolis.context'], include_tasks=True))
 
     def _validate_migration_input(self, migration):
-        origin = migration["origin"]
-        destination = migration["destination"]
+        try:
+            origin = migration["origin"]
+            destination = migration["destination"]
 
-        export_provider = factory.get_provider(
-            origin["type"], constants.PROVIDER_TYPE_EXPORT, None)
-        if not export_provider.validate_connection_info(
-                origin.get("connection_info", {})):
-            # TODO: use a decent exception
-            raise exception.CoriolisException("Invalid connection info")
+            export_provider = factory.get_provider(
+                origin["type"], constants.PROVIDER_TYPE_EXPORT, None)
+            export_provider.validate_connection_info(
+                origin.get("connection_info", {}))
 
-        import_provider = factory.get_provider(
-            destination["type"], constants.PROVIDER_TYPE_IMPORT, None)
-        if not import_provider.validate_connection_info(
-                destination.get("connection_info", {})):
-            # TODO: use a decent exception
-            raise exception.CoriolisException("Invalid connection info")
+            import_provider = factory.get_provider(
+                destination["type"], constants.PROVIDER_TYPE_IMPORT, None)
+            import_provider.validate_connection_info(
+                destination.get("connection_info", {}))
 
-        if not import_provider.validate_target_environment(
-                destination.get("target_environment", {})):
-            raise exception.CoriolisException("Invalid target environment")
+            import_provider.validate_target_environment(
+                destination.get("target_environment", {}))
 
-        return origin, destination, migration["instances"]
+            return origin, destination, migration["instances"]
+        except Exception as ex:
+            LOG.exception(ex)
+            if hasattr(ex, "message"):
+                msg = ex.message
+            else:
+                msg = str(ex)
+            raise exception.InvalidInput(msg)
 
     def create(self, req, body):
         # TODO: validate body
-
-        migration_body = body["migration"]
+        migration_body = body.get("migration", {})
         context = req.environ['coriolis.context']
 
         replica_id = migration_body.get("replica_id")

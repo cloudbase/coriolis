@@ -5,10 +5,10 @@
 
 import json
 
-import logging
 import jinja2
 import jsonschema
 
+from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
 
@@ -44,14 +44,14 @@ def validate_value(val, schema):
     jsonschema.validate(val, schema)
 
 
-def validate_string(string, schema):
+def validate_string(json_string, schema):
     """ Attempts to validate the json value provided as a string against the
     given JSON schema.
 
     Runs silently on success or raises an exception otherwise.
     Silently passes empty schemas.
     """
-    jsonschema.validate(json.loads(string), schema)
+    validate_value(json.loads(json_string), schema)
 
 
 # Global schemas:
