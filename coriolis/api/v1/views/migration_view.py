@@ -3,6 +3,8 @@
 
 import itertools
 
+from coriolis.api.v1.views import replica_tasks_execution_view
+
 
 def _format_migration(req, migration, keys=None):
     def transform(key, value):
@@ -14,7 +16,9 @@ def _format_migration(req, migration, keys=None):
         transform(k, v) for k, v in migration.items()))
 
     # Migrations have a single tasks execution
-    execution = migration_dict["executions"][0]
+    execution = replica_tasks_execution_view.format_replica_tasks_execution(
+        req, migration_dict["executions"][0])
+
     migration_dict["status"] = execution["status"]
     tasks = execution.get("tasks")
     if tasks:

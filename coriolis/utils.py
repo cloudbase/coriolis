@@ -278,3 +278,39 @@ def to_dict(obj, max_depth=10):
         return jsonutils.to_primitive(
             value, convert_instances, convert_datetime, level, max_depth)
     return jsonutils.loads(jsonutils.dumps(obj, default=_to_primitive))
+
+
+def topological_graph_sorting(items, id="id", depends_on="depends_on",
+                              sort_key=None):
+    """
+    Kahn's algorithm
+    """
+    if sort_key:
+        # Sort siblings
+        items = sorted(items, key=lambda t: t[sort_key], reverse=True)
+
+    a = []
+    for i in items:
+        a.append({"id": i[id],
+                  "depends_on": list(i[depends_on] or []),
+                  "item": i})
+
+    s = []
+    l = []
+    for n in a:
+        if not n["depends_on"]:
+            s.append(n)
+    while s:
+        n = s.pop()
+        l.append(n["item"])
+
+        for m in a:
+            if n["id"] in m["depends_on"]:
+                m["depends_on"].remove(n["id"])
+                if not m["depends_on"]:
+                    s.append(m)
+
+    if len(l) != len(a):
+        raise ValueError("The graph contains cycles")
+
+    return l
