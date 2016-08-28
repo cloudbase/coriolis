@@ -21,6 +21,7 @@ from pyVim import connect
 from pyVmomi import vim
 
 from coriolis import constants
+from coriolis import data_transfer
 from coriolis import exception
 from coriolis.providers import base
 from coriolis.providers.vmware_vsphere import guestid
@@ -148,19 +149,20 @@ class _SSHBackupWriter(_BaseBackupWriter):
         path = [v for v in self._volumes_info
                 if v["disk_id"] == self._disk_id][0]["volume_dev"]
 
-        LOG.info("Guest path: %s", path)
-        LOG.info("Offset: %s", self._offset)
-        LOG.info("Content len: %s", len(content))
+        msg = data_transfer.encode_data(
+            self._msg_id, path, self._offset, content)
 
-        data_len = len(path) + 1 + 8 + len(content)
-        return (struct.pack("<I", self._msg_id) +
-                struct.pack("<I", data_len) +
-                path.encode() + b'\0' +
-                struct.pack("<Q", self._offset) +
-                content)
+        LOG.debug(
+            "Guest path: %(path)s, offset: %(offset)d, content len: "
+            "%(content_len)d, msg len: %(msg_len)d",
+            {"path": path, "offset": self._offset, "content_len": len(content),
+             "msg_len": len(msg)})
+        return msg
 
     def _encode_eod(self):
-        return struct.pack("<I", self._msg_id) + struct.pack("<I", 0)
+        msg = data_transfer.encode_eod(self._msg_id)
+        LOG.debug("EOD message len: %d", len(msg))
+        return msg
 
     @utils.retry_on_error()
     def _send_msg(self, data):
