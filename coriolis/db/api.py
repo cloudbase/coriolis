@@ -302,12 +302,22 @@ def add_task_event(context, task_id, level, message):
     context.session.add(task_event)
 
 
+def _get_progress_update(context, task_id, current_step):
+    q = _soft_delete_aware_query(context, models.TaskProgressUpdate)
+    return q.filter(
+        models.TaskProgressUpdate.task_id == task_id,
+        models.TaskProgressUpdate.current_step == current_step).first()
+
+
 @enginefacade.writer
 def add_task_progress_update(context, task_id, current_step, total_steps,
                              message):
-    task_progress_update = models.TaskProgressUpdate()
+    task_progress_update = _get_progress_update(context, task_id, current_step)
+    if not task_progress_update:
+        task_progress_update = models.TaskProgressUpdate()
+        context.session.add(task_progress_update)
+
     task_progress_update.task_id = task_id
     task_progress_update.current_step = current_step
     task_progress_update.total_steps = total_steps
     task_progress_update.message = message
-    context.session.add(task_progress_update)

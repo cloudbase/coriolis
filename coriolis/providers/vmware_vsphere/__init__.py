@@ -15,6 +15,7 @@ import uuid
 import eventlet
 from oslo_config import cfg
 from oslo_log import log as logging
+from oslo_utils import units
 import paramiko
 from pyVim import connect
 from pyVmomi import vim
@@ -574,14 +575,26 @@ class ExportProvider(base.BaseReplicaExportProvider):
 
                 backup_disk_path = disk.backing.fileName
 
+                disk_size = changed_disk_areas.length
+                changed_area_size = sum(
+                    [x.length for x in changed_disk_areas.changedArea])
+
                 if change_id == '*':
                     self._event_manager.progress_update(
-                        "Performing full CBT replica for disk: %s" %
-                        backup_disk_path)
+                        "Performing full CBT replica for disk: {path}. "
+                        "Disk size: {disk_size:,}, written area size: "
+                        "{changed_area_size:,}".format(
+                            path=backup_disk_path,
+                            disk_size=disk_size,
+                            changed_area_size=changed_area_size))
                 else:
                     self._event_manager.progress_update(
-                        "Performing incremental CBT replica for disk: %s" %
-                        backup_disk_path)
+                        "Performing incremental CBT replica for disk: {path}."
+                        "Disk size: {disk_size:,}, changed area size: "
+                        "{changed_area_size:,}".format(
+                            path=backup_disk_path,
+                            disk_size=disk_size,
+                            changed_area_size=changed_area_size))
 
                 with vixdisklib.open(
                         conn, backup_disk_path) as disk_handle:
@@ -589,6 +602,12 @@ class ExportProvider(base.BaseReplicaExportProvider):
                     with backup_writer.open(path, disk.key) as f:
                         # Create a sparse file
                         f.truncate(disk.capacityInBytes)
+
+                        total_written_bytes = 0
+                        perc_step = self._event_manager.add_percentage_step(
+                            changed_area_size,
+                            message_format="Disk %s replica progress: "
+                            "{:.0f}%%" % backup_disk_path)
 
                         for area in changed_disk_areas.changedArea:
                             start_sector = area.start // sector_size
@@ -601,8 +620,8 @@ class ExportProvider(base.BaseReplicaExportProvider):
                                 curr_num_sectors = min(
                                     num_sectors - i, max_sectors_per_read)
 
-                                buf = vixdisklib.get_buffer(
-                                    curr_num_sectors * sector_size)
+                                buf_size = curr_num_sectors * sector_size
+                                buf = vixdisklib.get_buffer(buf_size)
 
                                 LOG.debug(
                                     "Read start sector: %s, num sectors: %s" %
@@ -614,6 +633,10 @@ class ExportProvider(base.BaseReplicaExportProvider):
                                 i += curr_num_sectors
 
                                 f.write(buf.raw)
+
+                                total_written_bytes += buf_size
+                                self._event_manager.set_percentage_step(
+                                    perc_step, total_written_bytes)
 
                 disk_path['change_id'] = disk.backing.changeId
 
