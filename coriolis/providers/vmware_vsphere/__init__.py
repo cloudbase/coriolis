@@ -579,18 +579,24 @@ class ExportProvider(base.BaseReplicaExportProvider):
                 changed_area_size = sum(
                     [x.length for x in changed_disk_areas.changedArea])
 
+                if not changed_area_size:
+                    self._event_manager.progress_update(
+                        "No blocks to replicate for disk: %s" %
+                        backup_disk_path)
+                    continue
+
                 if change_id == '*':
                     self._event_manager.progress_update(
                         "Performing full CBT replica for disk: {path}. "
-                        "Disk size: {disk_size:,}, written area size: "
+                        "Disk size: {disk_size:,}. Written blocks size: "
                         "{changed_area_size:,}".format(
                             path=backup_disk_path,
                             disk_size=disk_size,
                             changed_area_size=changed_area_size))
                 else:
                     self._event_manager.progress_update(
-                        "Performing incremental CBT replica for disk: {path}."
-                        "Disk size: {disk_size:,}, changed area size: "
+                        "Performing incremental CBT replica for disk: {path}. "
+                        "Disk size: {disk_size:,}. Changed blocks size: "
                         "{changed_area_size:,}".format(
                             path=backup_disk_path,
                             disk_size=disk_size,
