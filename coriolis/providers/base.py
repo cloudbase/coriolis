@@ -61,7 +61,7 @@ class BaseReplicaImportProvider(BaseImportProvider):
     @abc.abstractmethod
     def deploy_replica_instance(self, ctxt, connection_info,
                                 target_environment, instance_name, export_info,
-                                volumes_info):
+                                volumes_info, clone_disks):
         pass
 
     @abc.abstractmethod

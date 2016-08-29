@@ -297,7 +297,7 @@ class ConductorServerEndpoint(object):
                 "to be migrated")
 
     @replica_synchronized
-    def deploy_replica_instances(self, ctxt, replica_id, force):
+    def deploy_replica_instances(self, ctxt, replica_id, clone_disks, force):
         replica = self._get_replica(ctxt, replica_id)
         self._check_replica_running_executions(ctxt, replica)
         self._check_valid_replica_tasks_execution(replica, force)
@@ -320,6 +320,9 @@ class ConductorServerEndpoint(object):
         migration.replica = replica
         migration.info = replica.info
 
+        for instance in instances:
+            migration.info[instance]["clone_disks"] = clone_disks
+
         execution = models.TasksExecution()
         migration.executions = [execution]
         execution.status = constants.EXECUTION_STATUS_RUNNING
@@ -336,12 +339,14 @@ class ConductorServerEndpoint(object):
 
             self._create_task(
                 instance, constants.TASK_TYPE_DELETE_REPLICA_DISK_SNAPSHOTS,
-                execution, [deploy_replica_task.id])
+                execution, [deploy_replica_task.id],
+                on_error=clone_disks)
 
-            self._create_task(
-                instance,
-                constants.TASK_TYPE_RESTORE_REPLICA_DISK_SNAPSHOTS,
-                execution, on_error=True)
+            if not clone_disks:
+                self._create_task(
+                    instance,
+                    constants.TASK_TYPE_RESTORE_REPLICA_DISK_SNAPSHOTS,
+                    execution, on_error=True)
 
         db_api.add_migration(ctxt, migration)
         LOG.info("Migration created: %s", migration.id)
@@ -498,9 +503,12 @@ class ConductorServerEndpoint(object):
             if volumes_info:
                 updated_task_info = {"volumes_info": volumes_info}
         elif task_type == constants.TASK_TYPE_DELETE_REPLICA_DISK_SNAPSHOTS:
-            # The migration completed. If the replica is executed again,
-            # new volumes need to be deployed in place of the migrated ones.
-            updated_task_info = {"volumes_info": None}
+
+            if not task_info.get("clone_disks"):
+                # The migration completed. If the replica is executed again,
+                # new volumes need to be deployed in place of the migrated
+                # ones.
+                updated_task_info = {"volumes_info": None}
 
         if updated_task_info:
             self._update_replica_volumes_info(

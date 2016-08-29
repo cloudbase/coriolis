@@ -236,10 +236,12 @@ class DeployReplicaInstanceTask(base.TaskRunner):
         connection_info = base.get_connection_info(ctxt, destination)
 
         volumes_info = _get_volumes_info(task_info)
+        clone_disks = task_info.get("clone_disks", True)
+        LOG.debug("Clone disks: %s", clone_disks)
 
         provider.deploy_replica_instance(
             ctxt, connection_info, target_environment, instance,
-            export_info, volumes_info)
+            export_info, volumes_info, clone_disks)
 
         return task_info
 

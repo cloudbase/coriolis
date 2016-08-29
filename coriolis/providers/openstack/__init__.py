@@ -676,8 +676,23 @@ class ImportProvider(base.BaseReplicaImportProvider):
             if not volume.bootable or volume.bootable == 'false':
                 cinder.volumes.set_bootable(volume, True)
 
+    def _create_volumes_from_replica_snapshots(self, cinder, volumes_info):
+        volumes = []
+        for volume_info in volumes_info:
+            snapshot_id = volume_info["volume_snapshot_id"]
+            volume_name = _get_unique_name()
+
+            self._event_manager.progress_update(
+                "Creating Cinder volume from snapshot")
+
+            volume = _create_volume(
+                cinder, None, volume_name, snapshot_id=snapshot_id)
+            volumes.append(volume)
+        return volumes
+
     def _deploy_instance(self, ctxt, connection_info, target_environment,
-                         instance_name, export_info, volumes_info=None):
+                         instance_name, export_info, volumes_info=None,
+                         clone_disks=False):
         session = keystone.create_keystone_session(ctxt, connection_info)
 
         glance_api_version = connection_info.get("image_api_version",
@@ -704,8 +719,12 @@ class ImportProvider(base.BaseReplicaImportProvider):
                 images, volumes = self._create_images_and_volumes(
                     glance, nova, cinder, config, disks_info)
             else:
-                # Replica
-                volumes = self._get_replica_volumes(cinder, volumes_info)
+                # Migration from replica
+                if not clone_disks:
+                    volumes = self._get_replica_volumes(cinder, volumes_info)
+                else:
+                    volumes = self._create_volumes_from_replica_snapshots(
+                        cinder, volumes_info)
 
             migr_resources = self._deploy_migration_resources(
                 nova, glance, neutron, os_type, config.migr_image_name,
@@ -759,7 +778,7 @@ class ImportProvider(base.BaseReplicaImportProvider):
                 nova, config.flavor_name, instance_name,
                 config.keypair_name, ports, volumes)
         except:
-            if not volumes_info:
+            if not volumes_info or clone_disks:
                 # Don't remove replica volumes
                 self._event_manager.progress_update("Deleting volumes")
                 for volume in volumes:
@@ -830,9 +849,10 @@ class ImportProvider(base.BaseReplicaImportProvider):
 
     def deploy_replica_instance(self, ctxt, connection_info,
                                 target_environment, instance_name, export_info,
-                                volumes_info):
+                                volumes_info, clone_disks):
         self._deploy_instance(ctxt, connection_info, target_environment,
-                              instance_name, export_info, volumes_info)
+                              instance_name, export_info, volumes_info,
+                              clone_disks)
 
     def _update_existing_disk_volumes(self, cinder, disks_info, volumes_info):
         for disk_info in disks_info:

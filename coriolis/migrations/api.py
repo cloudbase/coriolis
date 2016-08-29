@@ -12,9 +12,10 @@ class API(object):
         return self._rpc_client.migrate_instances(
             ctxt, origin, destination, instances)
 
-    def deploy_replica_instances(self, ctxt, replica_id, force=False):
+    def deploy_replica_instances(self, ctxt, replica_id, clone_disks=False,
+                                 force=False):
         return self._rpc_client.deploy_replica_instances(
-            ctxt, replica_id, force)
+            ctxt, replica_id, clone_disks, force)
 
     def delete(self, ctxt, migration_id):
         self._rpc_client.delete_migration(ctxt, migration_id)

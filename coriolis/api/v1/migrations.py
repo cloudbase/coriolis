@@ -72,10 +72,11 @@ class MigrationController(api_wsgi.Controller):
 
         replica_id = migration_body.get("replica_id")
         if replica_id:
+            clone_disks = migration_body.get("clone_disks", True)
             force = migration_body.get("force", False)
 
             migration = self._migration_api.deploy_replica_instances(
-                context, replica_id, force)
+                context, replica_id, clone_disks, force)
         else:
             origin, destination, instances = self._validate_migration_input(
                 migration_body)
