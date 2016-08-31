@@ -155,6 +155,7 @@ AzureWorkerInstance = collections.namedtuple(
 
 class ImportProvider(BaseImportProvider):
     """ Provides import capabilities. """
+    platform = constants.PLATFORM_AZURE_RM
 
     connection_info_schema = schemas.get_schema(
         __name__, schemas.PROVIDER_CONNECTION_INFO_SCHEMA_NAME)

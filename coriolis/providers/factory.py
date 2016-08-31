@@ -3,28 +3,32 @@
 
 from coriolis import constants
 from coriolis import exception
-from coriolis.providers import azure
-from coriolis.providers import openstack
-from coriolis.providers import vmware_vsphere
+from coriolis.providers import base
+from coriolis import utils
 
-
-EXPORT_PROVIDERS = {
-    constants.PLATFORM_VMWARE_VSPHERE: vmware_vsphere.ExportProvider,
-    constants.PLATFORM_OPENSTACK: openstack.ExportProvider
+PROVIDERS = {
+    "coriolis.providers.azure.ImportProvider",
+    "coriolis.providers.openstack.ExportProvider",
+    "coriolis.providers.openstack.ImportProvider",
+    "coriolis.providers.vmware_vsphere.ExportProvider",
 }
 
-IMPORT_PROVIDERS = {
-    constants.PLATFORM_OPENSTACK: openstack.ImportProvider,
-    constants.PLATFORM_AZURE_RM: azure.ImportProvider
+
+PROVIDER_TYPE_MAP = {
+    constants.PROVIDER_TYPE_EXPORT: base.BaseExportProvider,
+    constants.PROVIDER_TYPE_REPLICA_EXPORT: base.BaseReplicaExportProvider,
+    constants.PROVIDER_TYPE_IMPORT: base.BaseImportProvider,
+    constants.PROVIDER_TYPE_REPLICA_IMPORT: base.BaseReplicaImportProvider,
 }
 
 
 def get_provider(platform_name, provider_type, event_handler):
-    if provider_type == constants.PROVIDER_TYPE_EXPORT:
-        cls = EXPORT_PROVIDERS.get(platform_name)
-    elif provider_type == constants.PROVIDER_TYPE_IMPORT:
-        cls = IMPORT_PROVIDERS.get(platform_name)
+    for provider in PROVIDERS:
+        cls = utils.load_class(provider)
+        if (cls.platform == platform_name and
+                PROVIDER_TYPE_MAP[provider_type] in cls.__bases__):
+            return cls(event_handler)
 
-    if not cls:
-        raise exception.NotFound("Provider not found: %s" % platform_name)
-    return cls(event_handler)
+    raise exception.NotFound(
+        "Provider not found for: %(platform_name)s, %(provider_type)s" %
+        {"platform_name": platform_name, "provider_type": provider_type})

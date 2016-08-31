@@ -314,3 +314,10 @@ def topological_graph_sorting(items, id="id", depends_on="depends_on",
         raise ValueError("The graph contains cycles")
 
     return l
+
+
+def load_class(class_path):
+    LOG.debug('Loading class \'%s\'' % class_path)
+    parts = class_path.rsplit('.', 1)
+    module = __import__(parts[0], fromlist=parts[1])
+    return getattr(module, parts[1])

@@ -198,6 +198,8 @@ class _SSHBackupWriter(_BaseBackupWriter):
 
 class ExportProvider(base.BaseReplicaExportProvider):
 
+    platform = constants.PLATFORM_VMWARE_VSPHERE
+
     connection_info_schema = schemas.get_schema(
         __name__, schemas.PROVIDER_CONNECTION_INFO_SCHEMA_NAME)
 

@@ -53,7 +53,8 @@ class GetInstanceInfoTask(base.TaskRunner):
     def run(self, ctxt, instance, origin, destination, task_info,
             event_handler):
         provider = providers_factory.get_provider(
-            origin["type"], constants.PROVIDER_TYPE_EXPORT, event_handler)
+            origin["type"], constants.PROVIDER_TYPE_REPLICA_EXPORT,
+            event_handler)
         connection_info = base.get_connection_info(ctxt, origin)
 
         export_info = provider.get_replica_instance_info(
@@ -71,7 +72,8 @@ class ShutdownInstanceTask(base.TaskRunner):
     def run(self, ctxt, instance, origin, destination, task_info,
             event_handler):
         provider = providers_factory.get_provider(
-            origin["type"], constants.PROVIDER_TYPE_EXPORT, event_handler)
+            origin["type"], constants.PROVIDER_TYPE_REPLICA_EXPORT,
+            event_handler)
         connection_info = base.get_connection_info(ctxt, origin)
 
         provider.shutdown_instance(ctxt, connection_info, instance)
@@ -83,7 +85,8 @@ class ReplicateDisksTask(base.TaskRunner):
     def run(self, ctxt, instance, origin, destination, task_info,
             event_handler):
         provider = providers_factory.get_provider(
-            origin["type"], constants.PROVIDER_TYPE_EXPORT, event_handler)
+            origin["type"], constants.PROVIDER_TYPE_REPLICA_EXPORT,
+            event_handler)
         connection_info = base.get_connection_info(ctxt, origin)
 
         volumes_info = _get_volumes_info(task_info)
@@ -112,7 +115,8 @@ class DeployReplicaDisksTask(base.TaskRunner):
         export_info = task_info["export_info"]
 
         provider = providers_factory.get_provider(
-            destination["type"], constants.PROVIDER_TYPE_IMPORT, event_handler)
+            destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
 
         volumes_info = task_info.get("volumes_info") or []
@@ -130,7 +134,8 @@ class DeleteReplicaDisksTask(base.TaskRunner):
     def run(self, ctxt, instance, origin, destination, task_info,
             event_handler):
         provider = providers_factory.get_provider(
-            destination["type"], constants.PROVIDER_TYPE_IMPORT, event_handler)
+            destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
 
         volumes_info = _get_volumes_info(task_info)
@@ -147,7 +152,8 @@ class DeployReplicaSourceResourcesTask(base.TaskRunner):
     def run(self, ctxt, instance, origin, destination, task_info,
             event_handler):
         provider = providers_factory.get_provider(
-            origin["type"], constants.PROVIDER_TYPE_EXPORT, event_handler)
+            origin["type"], constants.PROVIDER_TYPE_REPLICA_EXPORT,
+            event_handler)
         connection_info = base.get_connection_info(ctxt, origin)
 
         replica_resources_info = provider.deploy_replica_source_resources(
@@ -166,7 +172,8 @@ class DeleteReplicaSourceResourcesTask(base.TaskRunner):
     def run(self, ctxt, instance, origin, destination, task_info,
             event_handler):
         provider = providers_factory.get_provider(
-            origin["type"], constants.PROVIDER_TYPE_EXPORT, event_handler)
+            origin["type"], constants.PROVIDER_TYPE_REPLICA_EXPORT,
+            event_handler)
         connection_info = base.get_connection_info(ctxt, origin)
 
         migr_resources = task_info.get("migr_source_resources")
@@ -187,7 +194,8 @@ class DeployReplicaTargetResourcesTask(base.TaskRunner):
         target_environment = destination.get("target_environment") or {}
 
         provider = providers_factory.get_provider(
-            destination["type"], constants.PROVIDER_TYPE_IMPORT, event_handler)
+            destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
 
         volumes_info = _get_volumes_info(task_info)
@@ -210,7 +218,8 @@ class DeleteReplicaTargetResourcesTask(base.TaskRunner):
     def run(self, ctxt, instance, origin, destination, task_info,
             event_handler):
         provider = providers_factory.get_provider(
-            destination["type"], constants.PROVIDER_TYPE_IMPORT, event_handler)
+            destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
 
         migr_resources = task_info.get("migr_target_resources")
@@ -232,7 +241,8 @@ class DeployReplicaInstanceTask(base.TaskRunner):
         export_info = task_info["export_info"]
 
         provider = providers_factory.get_provider(
-            destination["type"], constants.PROVIDER_TYPE_IMPORT, event_handler)
+            destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
 
         volumes_info = _get_volumes_info(task_info)
@@ -250,7 +260,8 @@ class CreateReplicaDiskSnapshotsTask(base.TaskRunner):
     def run(self, ctxt, instance, origin, destination, task_info,
             event_handler):
         provider = providers_factory.get_provider(
-            destination["type"], constants.PROVIDER_TYPE_IMPORT, event_handler)
+            destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
 
         volumes_info = _get_volumes_info(task_info)
@@ -267,7 +278,8 @@ class DeleteReplicaDiskSnapshotsTask(base.TaskRunner):
     def run(self, ctxt, instance, origin, destination, task_info,
             event_handler):
         provider = providers_factory.get_provider(
-            destination["type"], constants.PROVIDER_TYPE_IMPORT, event_handler)
+            destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
 
         volumes_info = _get_volumes_info(task_info)
@@ -284,7 +296,8 @@ class RestoreReplicaDiskSnapshotsTask(base.TaskRunner):
     def run(self, ctxt, instance, origin, destination, task_info,
             event_handler):
         provider = providers_factory.get_provider(
-            destination["type"], constants.PROVIDER_TYPE_IMPORT, event_handler)
+            destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
 
         volumes_info = _get_volumes_info(task_info)

@@ -320,6 +320,8 @@ class _MigrationResources(object):
 
 class ImportProvider(base.BaseReplicaImportProvider):
 
+    platform = constants.PLATFORM_OPENSTACK
+
     connection_info_schema = schemas.get_schema(
         __name__, schemas.PROVIDER_CONNECTION_INFO_SCHEMA_NAME)
 
@@ -1099,6 +1101,9 @@ class ImportProvider(base.BaseReplicaImportProvider):
 
 
 class ExportProvider(base.BaseExportProvider):
+
+    platform = constants.PLATFORM_OPENSTACK
+
     _OS_DISTRO_MAP = {
         'windows': constants.OS_TYPE_WINDOWS,
         'freebsd': constants.OS_TYPE_BSD,
