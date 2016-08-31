@@ -1,50 +1,51 @@
 {
   "$schema": "http://cloudbase.it/coriolis/schemas/openstack_target_environment#",
-  "type": "object",
-  "properties": {
-    "secret_ref": {
-      "type": "string"
-    },
-    "network_map": {
+  "oneOf": [
+    {
       "type": "object",
       "properties": {
-        "VM Network Local": {
+        "network_map": {
+          "type": "object"
+        },
+        "glance_upload": {
+          "type": "boolean"
+        },
+        "disk_format": {
           "type": "string"
         },
-        "VM Network": {
+        "container_format": {
+          "type": "string"
+        },
+        "hypervisor_type": {
+          "type": "string"
+        },
+        "migr_image_name": {
+          "type": "string"
+        },
+        "migr_image_name_map": {
+          "type": "object"
+        },
+        "migr_flavor_name": {
+          "type": "string"
+        },
+        "flavor_name": {
+          "type": "string"
+        },
+        "fip_pool_name": {
+          "type": "string"
+        },
+        "migr_fip_pool_name": {
+          "type": "string"
+        },
+        "keypair_name": {
           "type": "string"
         }
       },
       "required": [
-        "VM Network Local",
-        "VM Network"
-      ]
-    },
-    "flavor_name": {
-      "type": "string"
-    },
-    "fip_pool_name": {
-      "type": "string"
-    },
-    "migr_fip_pool_name": {
-      "type": "string"
-    },
-    "keypair_name": {
-      "type": "string"
-    }
-  },
-  "oneOf": [
-    {
-      "required": ["secret_ref"]
-    },
-    {
-      "required": [
         "network_map",
-        "flavor_name",
-        "fip_pool_name",
-        "migr_fip_pool_name",
-        "keypair_name"
-      ]
+        "flavor_name"
+      ],
+      "additionalProperties": false
     }
   ]
 }

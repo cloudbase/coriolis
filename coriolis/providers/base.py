@@ -22,13 +22,7 @@ class BaseProvider(object):
         """ Checks the provided connection info and raises an exception
         if it is invalid.
         """
-        try:
-            schemas.validate_value(
-                connection_info, self.connection_info_schema)
-        except:
-            return False
-
-        return True
+        schemas.validate_value(connection_info, self.connection_info_schema)
 
 
 class BaseImportProvider(BaseProvider):
@@ -51,7 +45,6 @@ class BaseImportProvider(BaseProvider):
 
         return True
 
-
     @abc.abstractmethod
     def import_instance(self, ctxt, connection_info, target_environment,
                         instance_name, export_info):
@@ -59,6 +52,50 @@ class BaseImportProvider(BaseProvider):
         environment within the destination cloud based on the provided
         connection and export info.
         """
+        pass
+
+
+class BaseReplicaImportProvider(BaseImportProvider):
+    __metaclass__ = abc.ABCMeta
+
+    @abc.abstractmethod
+    def deploy_replica_instance(self, ctxt, connection_info,
+                                target_environment, instance_name, export_info,
+                                volumes_info, clone_disks):
+        pass
+
+    @abc.abstractmethod
+    def deploy_replica_disks(self, ctxt, connection_info, target_environment,
+                             instance_name, export_info, volumes_info):
+        pass
+
+    @abc.abstractmethod
+    def deploy_replica_target_resources(self, ctxt, connection_info,
+                                        target_environment, volumes_info):
+        pass
+
+    @abc.abstractmethod
+    def delete_replica_target_resources(self, ctxt, connection_info,
+                                        migr_resources_dict):
+        pass
+
+    @abc.abstractmethod
+    def delete_replica_disks(self, ctxt, connection_info, volumes_info):
+        pass
+
+    @abc.abstractmethod
+    def create_replica_disk_snapshots(self, ctxt, connection_info,
+                                      volumes_info):
+        pass
+
+    @abc.abstractmethod
+    def delete_replica_disk_snapshots(self, ctxt, connection_info,
+                                      volumes_info):
+        pass
+
+    @abc.abstractmethod
+    def restore_replica_disk_snapshots(self, ctxt, connection_info,
+                                       volumes_info):
         pass
 
 
@@ -71,4 +108,31 @@ class BaseExportProvider(BaseProvider):
         """ Exports the instance given by its name from the given source cloud
         to the provided export directory path using the given connection info.
         """
+        pass
+
+
+class BaseReplicaExportProvider(BaseExportProvider):
+    __metaclass__ = abc.ABCMeta
+
+    @abc.abstractmethod
+    def get_replica_instance_info(self, ctxt, connection_info, instance_name):
+        pass
+
+    @abc.abstractmethod
+    def deploy_replica_source_resources(self, ctxt, connection_info):
+        pass
+
+    @abc.abstractmethod
+    def delete_replica_source_resources(self, ctxt, connection_info,
+                                        migr_resources_dict):
+        pass
+
+    @abc.abstractmethod
+    def replicate_disks(self, ctxt, connection_info, instance_name,
+                        source_conn_info, target_conn_info, volumes_info,
+                        incremental):
+        pass
+
+    @abc.abstractmethod
+    def shutdown_instance(self, ctxt, connection_info, instance_name):
         pass

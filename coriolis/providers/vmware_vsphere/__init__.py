@@ -1,10 +1,13 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+import abc
 import contextlib
 import os
 import re
+import struct
 import sys
+import threading
 import time
 from urllib import request
 import uuid
@@ -12,10 +15,13 @@ import uuid
 import eventlet
 from oslo_config import cfg
 from oslo_log import log as logging
+from oslo_utils import units
+import paramiko
 from pyVim import connect
 from pyVmomi import vim
 
 from coriolis import constants
+from coriolis import data_transfer
 from coriolis import exception
 from coriolis.providers import base
 from coriolis.providers.vmware_vsphere import guestid
@@ -34,8 +40,163 @@ CONF.register_opts(vmware_vsphere_opts, 'vmware_vsphere')
 
 LOG = logging.getLogger(__name__)
 
+vixdisklib.init()
 
-class ExportProvider(base.BaseExportProvider):
+
+class _BaseBackupWriter(metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    def _open(self):
+        pass
+
+    @contextlib.contextmanager
+    def open(self, path, disk_id):
+        self._path = path
+        self._disk_id = disk_id
+        self._open()
+        try:
+            yield self
+        finally:
+            self.close()
+
+    @abc.abstractmethod
+    def seek(self, pos):
+        pass
+
+    @abc.abstractmethod
+    def truncate(self, size):
+        pass
+
+    @abc.abstractmethod
+    def write(self, data):
+        pass
+
+    @abc.abstractmethod
+    def close(self):
+        pass
+
+
+class _FileBackupWriter(_BaseBackupWriter):
+    def _open(self):
+        # Create file if it doesnt exist
+        open(self._path, 'ab+').close()
+        self._file = open(self._path, 'rb+')
+
+    def seek(self, pos):
+        self._file.seek(pos)
+
+    def truncate(self, size):
+        self._file.truncate(size)
+
+    def write(self, data):
+        self._file.write(data)
+
+    def close(self):
+        self._file.close()
+
+
+class _SSHBackupWriter(_BaseBackupWriter):
+    def __init__(self, ip, port, username, pkey, password, volumes_info):
+        self._ip = ip
+        self._port = port
+        self._username = username
+        self._pkey = pkey
+        self._password = password
+        self._volumes_info = volumes_info
+        self._ssh = None
+
+    @contextlib.contextmanager
+    def open(self, path, disk_id):
+        self._path = path
+        self._disk_id = disk_id
+        self._open()
+        try:
+            yield self
+            # Don't send a message via ssh on exception
+            self.close()
+        except:
+            self._ssh.close()
+            raise
+
+    @utils.retry_on_error()
+    def _connect_ssh(self):
+        LOG.info("Connecting to SSH host: %(ip)s:%(port)s" %
+                 {"ip": self._ip, "port": self._port})
+        self._ssh = paramiko.SSHClient()
+        self._ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        self._ssh.connect(
+            hostname=self._ip,
+            port=self._port,
+            username=self._username,
+            pkey=self._pkey,
+            password=self._password)
+
+    @utils.retry_on_error()
+    def _copy_helper_cmd(self):
+        sftp = self._ssh.open_sftp()
+        local_path = os.path.join(
+            utils.get_resources_dir(), 'write_data')
+        sftp.put(local_path, 'write_data')
+        sftp.close()
+
+    @utils.retry_on_error()
+    def _exec_helper_cmd(self):
+        self._msg_id = 0
+        self._offset = 0
+        self._stdin, self._stdout, self._stderr = self._ssh.exec_command(
+            "chmod +x write_data && sudo ./write_data")
+
+    def _encode_data(self, content):
+        path = [v for v in self._volumes_info
+                if v["disk_id"] == self._disk_id][0]["volume_dev"]
+
+        msg = data_transfer.encode_data(
+            self._msg_id, path, self._offset, content)
+
+        LOG.debug(
+            "Guest path: %(path)s, offset: %(offset)d, content len: "
+            "%(content_len)d, msg len: %(msg_len)d",
+            {"path": path, "offset": self._offset, "content_len": len(content),
+             "msg_len": len(msg)})
+        return msg
+
+    def _encode_eod(self):
+        msg = data_transfer.encode_eod(self._msg_id)
+        LOG.debug("EOD message len: %d", len(msg))
+        return msg
+
+    @utils.retry_on_error()
+    def _send_msg(self, data):
+        self._msg_id += 1
+        self._stdin.write(data)
+        self._stdin.flush()
+        out_msg_id = self._stdout.read(4)
+
+    def _open(self):
+        self._connect_ssh()
+        self._copy_helper_cmd()
+        self._exec_helper_cmd()
+
+    def seek(self, pos):
+        self._offset = pos
+
+    def truncate(self, size):
+        pass
+
+    def write(self, data):
+        self._send_msg(self._encode_data(data))
+        self._offset += len(data)
+
+    def close(self):
+        self._send_msg(self._encode_eod())
+        ret_val = self._stdout.channel.recv_exit_status()
+        if ret_val:
+            raise exception.CoriolisException(
+                "An exception occurred while writing data on target. "
+                "Error code: %s" % ret_val)
+        self._ssh.close()
+
+
+class ExportProvider(base.BaseReplicaExportProvider):
 
     connection_info_schema = schemas.get_schema(
         __name__, schemas.PROVIDER_CONNECTION_INFO_SCHEMA_NAME)
@@ -53,15 +214,56 @@ class ExportProvider(base.BaseExportProvider):
         if task.info.state == vim.TaskInfo.State.error:
             raise exception.CoriolisException(task.info.error.msg)
 
+    @staticmethod
+    def _keep_alive_vmware_conn(si, exit_event):
+        try:
+            while True:
+                LOG.debug("VMware connection keep alive")
+                si.CurrentTime()
+                if exit_event.wait(60):
+                    return
+        finally:
+            LOG.debug("Exiting VMware connection keep alive thread")
+
     @utils.retry_on_error()
-    def _connect(self, host, username, password, port, context):
+    @contextlib.contextmanager
+    def _connect(self, connection_info):
+        host = connection_info["host"]
+        port = connection_info.get("port", 443)
+        username = connection_info["username"]
+        password = connection_info["password"]
+        allow_untrusted = connection_info.get("allow_untrusted", False)
+
+        # pyVmomi locks otherwise
+        sys.modules['socket'] = eventlet.patcher.original('socket')
+        ssl = eventlet.patcher.original('ssl')
+
+        context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+        if allow_untrusted:
+            context.verify_mode = ssl.CERT_NONE
+
         LOG.info("Connecting to: %s:%s" % (host, port))
-        return connect.SmartConnect(
+        si = connect.SmartConnect(
             host=host,
             user=username,
             pwd=password,
             port=port,
             sslContext=context)
+
+        thread = None
+        try:
+            thread_exit_event = threading.Event()
+            thread = threading.Thread(
+                target=self._keep_alive_vmware_conn,
+                args=(si, thread_exit_event))
+            thread.start()
+
+            yield context, si
+        finally:
+            connect.Disconnect(si)
+            if thread:
+                thread_exit_event.set()
+                thread.join()
 
     def _wait_for_vm_status(self, vm, status, max_wait=120):
         i = 0
@@ -84,7 +286,7 @@ class ExportProvider(base.BaseExportProvider):
             else:
                 container = container.childEntity[0].vmFolder
 
-        LOG.debug("VM path items:", path_items)
+        LOG.debug("VM path items: %s", path_items)
         for i, path_item in enumerate(path_items):
             l = [o for o in container.childEntity if o.name == path_item]
             if not l:
@@ -177,7 +379,9 @@ class ExportProvider(base.BaseExportProvider):
             disks.append({'size_bytes': device.capacityInBytes,
                           'unit_number': device.unitNumber,
                           'id': device.key,
-                          'controller_id': device.controllerKey})
+                          'controller_id': device.controllerKey,
+                          'path': device.backing.fileName,
+                          'format': constants.DISK_FORMAT_VMDK})
 
         cdroms = []
         devices = [d for d in vm.config.hardware.device if
@@ -190,7 +394,8 @@ class ExportProvider(base.BaseExportProvider):
         devices = [d for d in vm.config.hardware.device if
                    isinstance(d, vim.vm.device.VirtualFloppy)]
         for device in devices:
-            floppies.append({'unit_number': device.unitNumber, 'id': device.key,
+            floppies.append({'unit_number': device.unitNumber,
+                             'id': device.key,
                              'controller_id': device.controllerKey})
 
         nics = []
@@ -327,17 +532,18 @@ class ExportProvider(base.BaseExportProvider):
     @contextlib.contextmanager
     def _take_temp_vm_snapshot(self, vm, snapshot_name, memory=False,
                                quiesce=True):
-        self._event_manager.progress_update("Creating backup snapshot")
+        self._event_manager.progress_update("Creating snapshot")
         snapshot = self._take_vm_snapshot(vm, snapshot_name, memory, quiesce)
         try:
             yield snapshot
         finally:
-            self._event_manager.progress_update("Removing backup snapshot")
+            self._event_manager.progress_update("Removing snapshot")
             self._remove_vm_snapshot(snapshot)
 
     @utils.retry_on_error()
     def _backup_snapshot_disks(self, snapshot, export_path, connection_info,
-                               context, disk_paths):
+                               context, disk_paths, backup_writer,
+                               incremental):
         vm = snapshot.vm
         vmx_spec = "moref=%s" % vm._GetMoId()
         snapshot_ref = snapshot._GetMoId()
@@ -349,36 +555,67 @@ class ExportProvider(base.BaseExportProvider):
                                       vmx_spec, snapshot_ref) as conn:
             for disk in [d for d in snapshot.config.hardware.device
                          if isinstance(d, vim.vm.device.VirtualDisk)]:
+                change_id = '*'
 
                 l = [d for d in disk_paths if d['id'] == disk.key]
                 if l:
                     disk_path = l[0]
-                    change_id = disk_path["change_id"]
+                    if incremental:
+                        change_id = disk_path["change_id"]
                     path = disk_path["path"]
-                    disk_path['change_id'] = disk.backing.changeId
                 else:
-                    change_id = '*'
                     path = os.path.join(export_path, "disk-%s.raw" % disk.key)
-                    disk_paths.append({
+                    disk_path = {
                         'path': path,
                         'id': disk.key,
-                        'format': constants.DISK_FORMAT_RAW,
-                        'change_id': disk.backing.changeId})
+                        'format': constants.DISK_FORMAT_RAW}
+                    disk_paths.append(disk_path)
 
-                LOG.debug("CBT change id: %s", change_id)
+                LOG.info("CBT change id: %s", change_id)
                 changed_disk_areas = vm.QueryChangedDiskAreas(
-                    snapshot_ref, disk.key, pos, change_id)
+                    snapshot, disk.key, pos, change_id)
 
                 backup_disk_path = disk.backing.fileName
+
+                disk_size = changed_disk_areas.length
+                changed_area_size = sum(
+                    [x.length for x in changed_disk_areas.changedArea])
+
+                if not changed_area_size:
+                    self._event_manager.progress_update(
+                        "No blocks to replicate for disk: %s" %
+                        backup_disk_path)
+                    continue
+
+                if change_id == '*':
+                    self._event_manager.progress_update(
+                        "Performing full CBT replica for disk: {path}. "
+                        "Disk size: {disk_size:,}. Written blocks size: "
+                        "{changed_area_size:,}".format(
+                            path=backup_disk_path,
+                            disk_size=disk_size,
+                            changed_area_size=changed_area_size))
+                else:
+                    self._event_manager.progress_update(
+                        "Performing incremental CBT replica for disk: {path}. "
+                        "Disk size: {disk_size:,}. Changed blocks size: "
+                        "{changed_area_size:,}".format(
+                            path=backup_disk_path,
+                            disk_size=disk_size,
+                            changed_area_size=changed_area_size))
+
                 with vixdisklib.open(
                         conn, backup_disk_path) as disk_handle:
 
-                    # Create file if it doesn't exist
-                    open(path, "ab").close()
-
-                    with open(path, "rb+") as f:
+                    with backup_writer.open(path, disk.key) as f:
                         # Create a sparse file
                         f.truncate(disk.capacityInBytes)
+
+                        total_written_bytes = 0
+                        perc_step = self._event_manager.add_percentage_step(
+                            changed_area_size,
+                            message_format="Disk %s replica progress: "
+                            "{:.0f}%%" % backup_disk_path)
 
                         for area in changed_disk_areas.changedArea:
                             start_sector = area.start // sector_size
@@ -391,8 +628,12 @@ class ExportProvider(base.BaseExportProvider):
                                 curr_num_sectors = min(
                                     num_sectors - i, max_sectors_per_read)
 
-                                buf = vixdisklib.get_buffer(
-                                    curr_num_sectors * sector_size)
+                                buf_size = curr_num_sectors * sector_size
+                                buf = vixdisklib.get_buffer(buf_size)
+
+                                LOG.debug(
+                                    "Read start sector: %s, num sectors: %s" %
+                                    (start_sector + i, curr_num_sectors))
 
                                 vixdisklib.read(
                                     disk_handle, start_sector + i,
@@ -401,71 +642,53 @@ class ExportProvider(base.BaseExportProvider):
 
                                 f.write(buf.raw)
 
+                                total_written_bytes += buf_size
+                                self._event_manager.set_percentage_step(
+                                    perc_step, total_written_bytes)
+
+                disk_path['change_id'] = disk.backing.changeId
+
     def _backup_disks(self, vm, export_path, connection_info, context):
         if not vm.config.changeTrackingEnabled:
             raise exception.CoriolisException("Change Tracking not enabled")
 
         disk_paths = []
-        vixdisklib.init()
-        try:
-            LOG.info("First backup pass")
-            snapshot_name = str(uuid.uuid4())
-            with self._take_temp_vm_snapshot(vm, snapshot_name) as snapshot:
-                self._backup_snapshot_disks(
-                    snapshot, export_path, connection_info, context,
-                    disk_paths)
 
-            self._shutdown_vm(vm)
+        LOG.info("First backup pass")
+        snapshot_name = str(uuid.uuid4())
+        with self._take_temp_vm_snapshot(vm, snapshot_name) as snapshot:
+            self._backup_snapshot_disks(
+                snapshot, export_path, connection_info, context,
+                disk_paths, _FileBackupWriter(), incremental=False)
 
-            LOG.info("Second backup pass")
-            snapshot_name = str(uuid.uuid4())
-            with self._take_temp_vm_snapshot(vm, snapshot_name) as snapshot:
-                self._backup_snapshot_disks(
-                    snapshot, export_path, connection_info, context,
-                    disk_paths)
+        self._shutdown_vm(vm)
 
-            return disk_paths
-        finally:
-            vixdisklib.exit()
+        LOG.info("Second backup pass")
+        snapshot_name = str(uuid.uuid4())
+        with self._take_temp_vm_snapshot(vm, snapshot_name) as snapshot:
+            self._backup_snapshot_disks(
+                snapshot, export_path, connection_info, context,
+                disk_paths, _FileBackupWriter(), incremental=True)
+
+        return disk_paths
 
     def export_instance(self, ctxt, connection_info, instance_name,
                         export_path):
-        host = connection_info["host"]
-        port = connection_info.get("port", 443)
-        username = connection_info["username"]
-        password = connection_info["password"]
-        allow_untrusted = connection_info.get("allow_untrusted", False)
-
-        backup_disks = False
-
-        # pyVmomi locks otherwise
-        sys.modules['socket'] = eventlet.patcher.original('socket')
-        ssl = eventlet.patcher.original('ssl')
-
-        context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
-        if allow_untrusted:
-            context.verify_mode = ssl.CERT_NONE
-
-        self._event_manager.set_total_progress_steps(4)
-
         self._event_manager.progress_update("Connecting to vSphere host")
-        si = self._connect(host, username, password, port, context)
-        try:
+        with self._connect(connection_info) as (context, si):
             self._event_manager.progress_update(
                 "Retrieving virtual machine data")
             vm_info, vm = self._get_vm_info(si, instance_name)
-            self._event_manager.progress_update("Exporting disks")
 
             # Take advantage of CBT if available
             backup_disks = vm.config.changeTrackingEnabled
 
+            self._event_manager.progress_update("Exporting disks")
             if backup_disks:
                 disk_paths = self._backup_disks(
                     vm, export_path, connection_info, context)
             else:
                 disk_paths = self._export_disks(vm, export_path, context)
-        finally:
-            connect.Disconnect(si)
 
         if not backup_disks:
             self._event_manager.progress_update(
@@ -486,3 +709,69 @@ class ExportProvider(base.BaseExportProvider):
             disk_info["path"] = os.path.abspath(disk_path["path"])
 
         return vm_info
+
+    def get_replica_instance_info(self, ctxt, connection_info, instance_name):
+        self._event_manager.progress_update("Connecting to vSphere host")
+        with self._connect(connection_info) as (context, si):
+            self._event_manager.progress_update(
+                "Retrieving virtual machine data")
+            vm_info, vm = self._get_vm_info(si, instance_name)
+
+            if not vm.config.changeTrackingEnabled:
+                raise exception.CoriolisException(
+                    "Changed Block Tracking must be enabled in order to "
+                    "replicate a VM")
+
+        return vm_info
+
+    def shutdown_instance(self, ctxt, connection_info, instance_name):
+        self._event_manager.progress_update("Connecting to vSphere host")
+        with self._connect(connection_info) as (context, si):
+            vm = self._get_vm(si, instance_name)
+            self._shutdown_vm(vm)
+
+    def replicate_disks(self, ctxt, connection_info, instance_name,
+                        source_conn_info, target_conn_info, volumes_info,
+                        incremental):
+        ip = target_conn_info["ip"]
+        port = target_conn_info.get("port", 22)
+        username = target_conn_info["username"]
+        pkey = target_conn_info.get("pkey")
+        password = target_conn_info.get("password")
+
+        LOG.info("Waiting for connectivity on host: %(ip)s:%(port)s",
+                 {"ip": ip, "port": port})
+        utils.wait_for_port_connectivity(ip, port)
+
+        with self._connect(connection_info) as (context, si):
+            vm = self._get_vm(si, instance_name)
+
+            backup_writer = _SSHBackupWriter(
+                ip, port, username, pkey, password, volumes_info)
+
+            snapshot_name = str(uuid.uuid4())
+            disk_paths = []
+            for volume_info in volumes_info:
+                disk_paths.append(
+                    {"id": volume_info["disk_id"],
+                     "change_id": volume_info.get("change_id", "*"),
+                     "path": ""})
+
+            with self._take_temp_vm_snapshot(vm, snapshot_name) as snapshot:
+                self._backup_snapshot_disks(
+                    snapshot, "", connection_info, context,
+                    disk_paths, backup_writer, incremental)
+
+            for volume_info in volumes_info:
+                change_id = [d["change_id"] for d in disk_paths
+                             if d["id"] == volume_info["disk_id"]][0]
+                volume_info["change_id"] = change_id
+
+        return volumes_info
+
+    def deploy_replica_source_resources(self, ctxt, connection_info):
+        return {"migr_resources": None, "connection_info": None}
+
+    def delete_replica_source_resources(self, ctxt, connection_info,
+                                        migr_resources_dict):
+        pass

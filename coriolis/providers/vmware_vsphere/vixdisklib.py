@@ -5,6 +5,10 @@ import contextlib
 import ctypes
 import os
 
+from oslo_log import log as logging
+
+LOG = logging.getLogger(__name__)
+
 if os.name == 'nt':
     vixDiskLibName = 'vixDiskLib.dll'
 else:
@@ -144,6 +148,8 @@ def get_transport_modes():
 @contextlib.contextmanager
 def connect(server_name, thumbprint, username, password, vmx_spec=None,
             snapshot_ref=None, read_only=True, transport_modes=None, port=443):
+    LOG.debug("Connecting VixDiskLib: %s", server_name)
+
     connectParams = VixDiskLibConnectParams()
 
     connectParams.serverName = server_name.encode()
@@ -175,6 +181,8 @@ def connect(server_name, thumbprint, username, password, vmx_spec=None,
 
 @contextlib.contextmanager
 def open(conn, disk_path, flags=VIXDISKLIB_FLAG_OPEN_READ_ONLY):
+    LOG.debug("Openning VixDiskLib disk: %s", disk_path)
+
     disk_handle = ctypes.c_void_p()
     _check_err(vixDiskLib.VixDiskLib_Open(
         conn, disk_path.encode(), flags, ctypes.byref(disk_handle)))
@@ -223,10 +231,12 @@ def read(disk_handle, start_sector, num_sectors, buf):
 
 
 def close(disk_handle):
+    LOG.debug("Closing VixDiskLib disk handle: %s", disk_handle)
     _check_err(vixDiskLib.VixDiskLib_Close(disk_handle))
 
 
 def disconnect(conn):
+    LOG.debug("Disconnecting VixDiskLib")
     _check_err(vixDiskLib.VixDiskLib_Disconnect(conn))
 
 

@@ -166,14 +166,12 @@ class ImportProvider(BaseImportProvider):
         """ Validates the provided connection information. """
         LOG.info("Validating connection info: %s", connection_info)
 
-        if not super(ImportProvider, self).validate_connection_info(
-                connection_info):
-            return False
+        super(ImportProvider, self).validate_connection_info(connection_info)
 
         # NOTE: considering we cannot check the validity of the credentials per
         # se if a secret href is provided here, we simply return on the spot:
         if "secret_ref" in connection_info:
-            return True
+            return
 
         try:
             # NOTE: attempt to register to a provider to ensure credentials
@@ -184,12 +182,8 @@ class ImportProvider(BaseImportProvider):
         except (KeyError, azure_exceptions.CloudError,
                 azexceptions.AzureOperationException) as ex:
 
-            LOG.info(
-                "Invalid or incomplete Azure credentials provided: %s\n%s",
-                connection_info, ex)
-            return False
-        else:
-            return True
+            raise exception.InvalidInput(
+                "Invalid or incomplete Azure credentials provided")
 
     def _get_cloud_credentials(self, connection_info):
         """ returns the msrestazure.azure_active_directory.Credentials

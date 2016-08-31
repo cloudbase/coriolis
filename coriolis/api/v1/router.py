@@ -6,6 +6,10 @@ from oslo_log import log as logging
 from coriolis import api
 from coriolis.api.v1 import migrations
 from coriolis.api.v1 import migration_actions
+from coriolis.api.v1 import replica_actions
+from coriolis.api.v1 import replica_tasks_executions
+from coriolis.api.v1 import replica_tasks_execution_actions
+from coriolis.api.v1 import replicas
 
 LOG = logging.getLogger(__name__)
 
@@ -36,5 +40,39 @@ class APIRouter(api.APIRouter):
         mapper.connect('migration_actions',
                        migration_path + '/actions',
                        controller=self.resources['migration_actions'],
+                       action='action',
+                       conditions={'method': 'POST'})
+
+        self.resources['replicas'] = replicas.create_resource()
+        mapper.resource('replica', 'replicas',
+                        controller=self.resources['replicas'],
+                        collection={'detail': 'GET'},
+                        member={'action': 'POST'})
+
+        replica_actions_resource = replica_actions.create_resource()
+        self.resources['replica_actions'] = replica_actions_resource
+        migration_path = '/{project_id}/replicas/{id}'
+        mapper.connect('replica_actions',
+                       migration_path + '/actions',
+                       controller=self.resources['replica_actions'],
+                       action='action',
+                       conditions={'method': 'POST'})
+
+        self.resources['replica_tasks_executions'] = \
+            replica_tasks_executions.create_resource()
+        mapper.resource('execution', 'replicas/{replica_id}/executions',
+                        controller=self.resources['replica_tasks_executions'],
+                        collection={'detail': 'GET'},
+                        member={'action': 'POST'})
+
+        replica_tasks_execution_actions_resource = \
+            replica_tasks_execution_actions.create_resource()
+        self.resources['replica_tasks_execution_actions'] = \
+            replica_tasks_execution_actions_resource
+        migration_path = '/{project_id}/replicas/{replica_id}/executions/{id}'
+        mapper.connect('replica_tasks_execution_actions',
+                       migration_path + '/actions',
+                       controller=self.resources[
+                           'replica_tasks_execution_actions'],
                        action='action',
                        conditions={'method': 'POST'})

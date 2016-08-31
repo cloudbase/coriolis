@@ -2,7 +2,10 @@
 # All Rights Reserved.
 
 import functools
+import io
 import json
+import os
+import pickle
 import re
 import socket
 import subprocess
@@ -12,6 +15,8 @@ import traceback
 import OpenSSL
 from oslo_config import cfg
 from oslo_log import log as logging
+from oslo_serialization import jsonutils
+import paramiko
 
 from coriolis import constants
 from coriolis import exception
@@ -52,6 +57,10 @@ def retry_on_error(max_attempts=5, sleep_seconds=0,
             while True:
                 try:
                     return func(*args, **kwargs)
+                except KeyboardInterrupt as ex:
+                    LOG.debug("Got a KeyboardInterrupt, skip retrying")
+                    LOG.exception(ex)
+                    raise
                 except Exception as ex:
                     if any([isinstance(ex, tex)
                             for tex in terminal_exceptions]):
@@ -236,3 +245,72 @@ def get_ssl_cert_thumbprint(context, host, port=443, digest_algorithm="sha1"):
 
     x509 = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_ASN1, cert)
     return x509.digest('sha1').decode()
+
+
+def _get_base_dir():
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def get_resources_dir():
+    return os.path.join(_get_base_dir(), "resources")
+
+
+def serialize_key(key, password=None):
+    key_io = io.StringIO()
+    key.write_private_key(key_io, password)
+    return key_io.getvalue()
+
+
+def deserialize_key(key_bytes, password=None):
+    key_io = io.StringIO(key_bytes)
+    return paramiko.RSAKey.from_private_key(key_io, password)
+
+
+def is_serializable(obj):
+    pickle.dumps(obj)
+
+
+def to_dict(obj, max_depth=10):
+    # jsonutils.dumps() has a max_depth of 3 by default
+    def _to_primitive(value, convert_instances=False,
+                      convert_datetime=True, level=0,
+                      max_depth=max_depth):
+        return jsonutils.to_primitive(
+            value, convert_instances, convert_datetime, level, max_depth)
+    return jsonutils.loads(jsonutils.dumps(obj, default=_to_primitive))
+
+
+def topological_graph_sorting(items, id="id", depends_on="depends_on",
+                              sort_key=None):
+    """
+    Kahn's algorithm
+    """
+    if sort_key:
+        # Sort siblings
+        items = sorted(items, key=lambda t: t[sort_key], reverse=True)
+
+    a = []
+    for i in items:
+        a.append({"id": i[id],
+                  "depends_on": list(i[depends_on] or []),
+                  "item": i})
+
+    s = []
+    l = []
+    for n in a:
+        if not n["depends_on"]:
+            s.append(n)
+    while s:
+        n = s.pop()
+        l.append(n["item"])
+
+        for m in a:
+            if n["id"] in m["depends_on"]:
+                m["depends_on"].remove(n["id"])
+                if not m["depends_on"]:
+                    s.append(m)
+
+    if len(l) != len(a):
+        raise ValueError("The graph contains cycles")
+
+    return l

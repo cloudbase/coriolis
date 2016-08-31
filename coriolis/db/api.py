@@ -5,6 +5,7 @@ from oslo_config import cfg
 from oslo_db import api as db_api
 from oslo_db import options as db_options
 from oslo_db.sqlalchemy import enginefacade
+from sqlalchemy import func
 from sqlalchemy import orm
 
 from coriolis.db.sqlalchemy import models
@@ -58,17 +59,133 @@ def _soft_delete_aware_query(context, *args, **kwargs):
 
 
 @enginefacade.reader
+def get_replica_tasks_executions(context, replica_id, include_tasks=False):
+    q = _soft_delete_aware_query(context, models.TasksExecution)
+    q = q.join(models.Replica)
+    if include_tasks:
+        q = _get_tasks_with_details_options(q)
+    return q.filter(
+        models.Replica.project_id == context.tenant,
+        models.Replica.id == replica_id).all()
+
+
+@enginefacade.reader
+def get_replica_tasks_execution(context, execution_id):
+    q = _soft_delete_aware_query(context, models.TasksExecution).join(
+        models.Replica)
+    q = _get_tasks_with_details_options(q)
+    return q.filter(
+        models.Replica.project_id == context.tenant,
+        models.TasksExecution.id == execution_id).first()
+
+
+@enginefacade.writer
+def add_replica_tasks_execution(context, execution):
+    if execution.action.project_id != context.tenant:
+        raise exception.NotAuthorized()
+
+    # include deleted records
+    max_number = _model_query(
+        context, func.max(models.TasksExecution.number)).filter_by(
+            action_id=execution.action.id).first()[0] or 0
+    execution.number = max_number + 1
+
+    context.session.add(execution)
+
+
+@enginefacade.writer
+def delete_replica_tasks_execution(context, execution_id):
+    q = _soft_delete_aware_query(context, models.TasksExecution).filter(
+        models.TasksExecution.id == execution_id)
+    if not q.join(models.Replica).filter(
+            models.Replica.project_id == context.tenant).first():
+        raise exception.NotAuthorized()
+    count = q.soft_delete()
+    if count == 0:
+        raise exception.NotFound("0 entries were soft deleted")
+
+
+def _get_replica_with_tasks_executions_options(q):
+    return q.options(orm.joinedload(models.Replica.executions))
+
+
+@enginefacade.reader
+def get_replicas(context, include_tasks_executions=False):
+    q = _soft_delete_aware_query(context, models.Replica)
+    if include_tasks_executions:
+        q = _get_replica_with_tasks_executions_options(q)
+    return q.filter(
+        models.Replica.project_id == context.tenant).all()
+
+
+@enginefacade.reader
+def get_replica(context, replica_id):
+    q = _soft_delete_aware_query(context, models.Replica)
+    q = _get_replica_with_tasks_executions_options(q)
+    return q.filter(
+        models.Replica.project_id == context.tenant,
+        models.Replica.id == replica_id).first()
+
+
+@enginefacade.writer
+def add_replica(context, replica):
+    replica.user_id = context.user
+    replica.project_id = context.tenant
+    context.session.add(replica)
+
+
+@enginefacade.writer
+def _delete_transfer_action(context, cls, id):
+    count = _soft_delete_aware_query(context, cls).filter_by(
+        project_id=context.tenant, base_id=id).soft_delete()
+    if count == 0:
+        raise exception.NotFound("0 entries were soft deleted")
+
+    _soft_delete_aware_query(context, models.TasksExecution).filter_by(
+        action_id=id).soft_delete()
+
+
+@enginefacade.writer
+def delete_replica(context, replica_id):
+    _delete_transfer_action(context, models.Replica, replica_id)
+
+
+@enginefacade.reader
+def get_replica_migrations(context, replica_id):
+    q = _soft_delete_aware_query(context, models.Migration)
+    q = q.join("replica")
+    q = q.options(orm.joinedload("executions"))
+    return q.filter(
+        models.Migration.project_id == context.tenant,
+        models.Replica.id == replica_id).all()
+
+
+@enginefacade.reader
 def get_migrations(context, include_tasks=False):
     q = _soft_delete_aware_query(context, models.Migration)
     if include_tasks:
         q = _get_migration_task_query_options(q)
+    else:
+        q = q.options(orm.joinedload("executions"))
     return q.filter_by(project_id=context.tenant).all()
+
+
+def _get_tasks_with_details_options(query):
+    return query.options(
+        orm.joinedload("tasks").
+        joinedload("progress_updates")).options(
+            orm.joinedload("tasks").
+            joinedload("events"))
 
 
 def _get_migration_task_query_options(query):
     return query.options(
-        orm.joinedload("tasks").joinedload("progress_updates")).options(
-            orm.joinedload("tasks").joinedload("events"))
+        orm.joinedload("executions").
+        joinedload("tasks").
+        joinedload("progress_updates")).options(
+            orm.joinedload("executions").
+            joinedload("tasks").
+            joinedload("events"))
 
 
 @enginefacade.reader
@@ -87,20 +204,65 @@ def add_migration(context, migration):
 
 @enginefacade.writer
 def delete_migration(context, migration_id):
-    count = _soft_delete_aware_query(context, models.Migration).filter_by(
-        project_id=context.tenant, id=migration_id).soft_delete()
-    if count == 0:
-        raise exception.NotFound("0 entries were soft deleted")
+    _delete_transfer_action(context, models.Migration, migration_id)
 
 
 @enginefacade.writer
-def set_migration_status(context, migration_id, status):
-    migration = _soft_delete_aware_query(context, models.Migration).filter_by(
-        project_id=context.tenant, id=migration_id).first()
-    if not migration:
-        raise exception.NotFound("Migration not found: %s" % migration_id)
+def set_execution_status(context, execution_id, status):
+    execution = _soft_delete_aware_query(
+        context, models.TasksExecution).join(
+            models.TasksExecution.action).filter(
+                models.BaseTransferAction.project_id == context.tenant,
+                models.TasksExecution.id == execution_id).first()
+    if not execution:
+        raise exception.NotFound(
+            "Tasks execution not found: %s" % execution_id)
 
-    migration.status = status
+    execution.status = status
+
+
+@enginefacade.reader
+def get_action(context, action_id):
+    action = _soft_delete_aware_query(
+        context, models.BaseTransferAction).filter(
+            models.BaseTransferAction.project_id == context.tenant,
+            models.BaseTransferAction.base_id == action_id).first()
+    if not action:
+        raise exception.NotFound(
+            "Transfer action not found: %s" % action_id)
+    return action
+
+
+@enginefacade.writer
+def set_transfer_action_info(context, action_id, instance, instance_info):
+    action = get_action(context, action_id)
+
+    # Copy is needed, otherwise sqlalchemy won't save the changes
+    action_info = action.info.copy()
+    if instance in action_info:
+        instance_info_old = action_info[instance].copy()
+        instance_info_old.update(instance_info)
+        action_info[instance] = instance_info_old
+    else:
+        action_info[instance] = instance_info
+    action.info = action_info
+
+    return action_info[instance]
+
+
+@enginefacade.reader
+def get_tasks_execution(context, execution_id):
+    q = _soft_delete_aware_query(context, models.TasksExecution)
+    q = q.join(models.BaseTransferAction)
+    q = q.options(orm.joinedload("action"))
+    q = q.options(orm.joinedload("tasks"))
+    execution = q.filter(
+        models.BaseTransferAction.project_id == context.tenant,
+        models.TasksExecution.id == execution_id).first()
+    if not execution:
+        raise exception.NotFound(
+            "Tasks execution not found: %s" % execution_id)
+    return execution
 
 
 def _get_task(context, task_id):
@@ -126,13 +288,9 @@ def set_task_host(context, task_id, host, process_id):
 
 
 @enginefacade.reader
-def get_task(context, task_id, include_migration_tasks=False):
-    join_options = orm.joinedload("migration")
-    if include_migration_tasks:
-        join_options = join_options.joinedload("tasks")
-
-    return _soft_delete_aware_query(context, models.Task).options(
-        join_options).filter_by(id=task_id).first()
+def get_task(context, task_id):
+    q = _soft_delete_aware_query(context, models.Task)
+    return q.filter_by(id=task_id).first()
 
 
 @enginefacade.writer
@@ -144,12 +302,22 @@ def add_task_event(context, task_id, level, message):
     context.session.add(task_event)
 
 
+def _get_progress_update(context, task_id, current_step):
+    q = _soft_delete_aware_query(context, models.TaskProgressUpdate)
+    return q.filter(
+        models.TaskProgressUpdate.task_id == task_id,
+        models.TaskProgressUpdate.current_step == current_step).first()
+
+
 @enginefacade.writer
 def add_task_progress_update(context, task_id, current_step, total_steps,
                              message):
-    task_progress_update = models.TaskProgressUpdate()
+    task_progress_update = _get_progress_update(context, task_id, current_step)
+    if not task_progress_update:
+        task_progress_update = models.TaskProgressUpdate()
+        context.session.add(task_progress_update)
+
     task_progress_update.task_id = task_id
     task_progress_update.current_step = current_step
     task_progress_update.total_steps = total_steps
     task_progress_update.message = message
-    context.session.add(task_progress_update)
