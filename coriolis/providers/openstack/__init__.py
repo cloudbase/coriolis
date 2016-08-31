@@ -18,6 +18,7 @@ from oslo_utils import units
 import paramiko
 
 from coriolis import constants
+from coriolis import events
 from coriolis import exception
 from coriolis import keystone
 from coriolis.osmorphing import manager as osmorphing_manager
@@ -318,7 +319,7 @@ class _MigrationResources(object):
             self._keypair = None
 
 
-class ImportProvider(base.BaseReplicaImportProvider):
+class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
 
     platform = constants.PLATFORM_OPENSTACK
 
@@ -327,6 +328,9 @@ class ImportProvider(base.BaseReplicaImportProvider):
 
     target_environment_schema = schemas.get_schema(
         __name__, schemas.PROVIDER_TARGET_ENVIRONMENT_SCHEMA_NAME)
+
+    def __init__(self, event_handler):
+        self._event_manager = events.EventManager(event_handler)
 
     def _create_image(self, glance, name, disk_path, disk_format,
                       container_format, hypervisor_type):
@@ -1126,6 +1130,9 @@ class ExportProvider(base.BaseExportProvider):
 
     connection_info_schema = schemas.get_schema(
         __name__, schemas.PROVIDER_CONNECTION_INFO_SCHEMA_NAME)
+
+    def __init__(self, event_handler):
+        self._event_manager = events.EventManager(event_handler)
 
     @utils.retry_on_error()
     def _get_instance(self, nova, instance_name):

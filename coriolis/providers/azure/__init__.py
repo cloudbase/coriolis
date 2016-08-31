@@ -24,9 +24,10 @@ from oslo_log import log as logging
 from oslo_utils import units
 
 from coriolis import constants
+from coriolis import events
 from coriolis import exception
 from coriolis.osmorphing import manager as osmorpher
-from coriolis.providers.base import BaseImportProvider
+from coriolis.providers import base
 from coriolis.providers.azure import utils as azutils
 from coriolis.providers.azure import exceptions as azexceptions
 from coriolis import schemas
@@ -153,7 +154,7 @@ AzureWorkerInstance = collections.namedtuple(
     "AzureWorkerInstance", "name ip port username password pkey datadisks")
 
 
-class ImportProvider(BaseImportProvider):
+class ImportProvider(base.BaseImportProvider):
     """ Provides import capabilities. """
     platform = constants.PLATFORM_AZURE_RM
 
@@ -162,6 +163,9 @@ class ImportProvider(BaseImportProvider):
 
     target_environment_schema = schemas.get_schema(
         __name__, schemas.PROVIDER_TARGET_ENVIRONMENT_SCHEMA_NAME)
+
+    def __init__(self, event_handler):
+        self._event_manager = events.EventManager(event_handler)
 
     def validate_connection_info(self, connection_info):
         """ Validates the provided connection information. """

@@ -22,6 +22,7 @@ from pyVmomi import vim
 
 from coriolis import constants
 from coriolis import data_transfer
+from coriolis import events
 from coriolis import exception
 from coriolis.providers import base
 from coriolis.providers.vmware_vsphere import guestid
@@ -196,12 +197,15 @@ class _SSHBackupWriter(_BaseBackupWriter):
         self._ssh.close()
 
 
-class ExportProvider(base.BaseReplicaExportProvider):
+class ExportProvider(base.BaseExportProvider, base.BaseReplicaExportProvider):
 
     platform = constants.PLATFORM_VMWARE_VSPHERE
 
     connection_info_schema = schemas.get_schema(
         __name__, schemas.PROVIDER_CONNECTION_INFO_SCHEMA_NAME)
+
+    def __init__(self, event_handler):
+        self._event_manager = events.EventManager(event_handler)
 
     @utils.retry_on_error()
     def _convert_disk_type(self, disk_path, target_disk_path, target_type=0):

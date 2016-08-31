@@ -3,15 +3,11 @@
 
 import abc
 
-from coriolis import events
 from coriolis import schemas
 
 
 class BaseProvider(object):
     __metaclass__ = abc.ABCMeta
-
-    def __init__(self, event_handler):
-        self._event_manager = events.EventManager(event_handler)
 
     @property
     def connection_info_schema(self):
@@ -55,7 +51,7 @@ class BaseImportProvider(BaseProvider):
         pass
 
 
-class BaseReplicaImportProvider(BaseImportProvider):
+class BaseReplicaImportProvider(BaseProvider):
     __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
@@ -111,7 +107,7 @@ class BaseExportProvider(BaseProvider):
         pass
 
 
-class BaseReplicaExportProvider(BaseExportProvider):
+class BaseReplicaExportProvider(BaseProvider):
     __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
