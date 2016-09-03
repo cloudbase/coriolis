@@ -12,7 +12,8 @@ class RequestContext(context.RequestContext):
                  roles=None, project_name=None, remote_address=None,
                  timestamp=None, request_id=None, auth_token=None,
                  overwrite=True, domain=None, user_domain=None,
-                 project_domain=None, show_deleted=None, **kwargs):
+                 project_domain=None, show_deleted=None, trust_id=None,
+                 **kwargs):
 
         super(RequestContext, self).__init__(auth_token=auth_token,
                                              user=user,
@@ -32,6 +33,7 @@ class RequestContext(context.RequestContext):
         elif isinstance(timestamp, str):
             timestamp = timeutils.parse_isotime(timestamp)
         self.timestamp = timestamp
+        self.trust_id = trust_id
 
     def to_dict(self):
         result = super(RequestContext, self).to_dict()
@@ -44,6 +46,7 @@ class RequestContext(context.RequestContext):
         result['timestamp'] = self.timestamp.isoformat()
         result['request_id'] = self.request_id
         result['show_deleted'] = self.show_deleted
+        result['trust_id'] = self.trust_id
         return result
 
     @classmethod

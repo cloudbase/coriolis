@@ -11,6 +11,7 @@ from coriolis import constants
 from coriolis.db import api as db_api
 from coriolis.db.sqlalchemy import models
 from coriolis import exception
+from coriolis import keystone
 from coriolis import utils
 from coriolis.worker.rpc import client as rpc_worker_client
 
@@ -82,6 +83,8 @@ class ConductorServerEndpoint(object):
         return task
 
     def _begin_tasks(self, ctxt, execution, task_info={}):
+        keystone.create_trust(ctxt)
+
         for task in execution.tasks:
             if (not task.depends_on and
                     task.status == constants.TASK_STATUS_PENDING):
@@ -440,8 +443,15 @@ class ConductorServerEndpoint(object):
                         has_running_tasks = True
 
         if not has_running_tasks:
-            db_api.set_execution_status(
+            self._set_tasks_execution_status(
                 ctxt, execution.id, constants.EXECUTION_STATUS_ERROR)
+
+    @staticmethod
+    def _set_tasks_execution_status(ctxt, execution_id, execution_status):
+        LOG.info("Tasks execution %(id)s completed with status: %(status)s",
+                 {"id": execution_id, "status": execution_status})
+        db_api.set_execution_status(ctxt, execution_id, execution_status)
+        keystone.delete_trust(ctxt)
 
     @task_synchronized
     def set_task_host(self, ctxt, task_id, host, process_id):
@@ -552,11 +562,7 @@ class ConductorServerEndpoint(object):
                     else:
                         execution_status = constants.EXECUTION_STATUS_COMPLETED
 
-                    LOG.info("Tasks execution %(execution_id)s completed "
-                             "with status: %(status)s",
-                             {"execution_id": execution.id,
-                              "status": execution_status})
-                    db_api.set_execution_status(
+                    self._set_tasks_execution_status(
                         ctxt, execution.id, execution_status)
 
     @task_synchronized

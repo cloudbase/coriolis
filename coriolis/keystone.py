@@ -1,9 +1,12 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from keystoneauth1 import exceptions as ks_exceptions
 from keystoneauth1 import loading
-from keystoneauth1 import session
+from keystoneauth1 import session as ks_session
+from keystoneclient.v3 import client as kc_v3
 from oslo_config import cfg
+from oslo_log import log as logging
 
 from coriolis import exception
 
@@ -23,51 +26,132 @@ opts = [
 CONF = cfg.CONF
 CONF.register_opts(opts, 'keystone')
 
+LOG = logging.getLogger(__name__)
+
+TRUSTEE_CONF_GROUP = 'trustee'
+loading.register_auth_conf_options(CONF, TRUSTEE_CONF_GROUP, )
+
+
+def _get_trusts_auth_plugin(trust_id=None):
+    return loading.load_auth_from_conf_options(
+        CONF, TRUSTEE_CONF_GROUP, trust_id=trust_id)
+
+
+def create_trust(ctxt):
+    if ctxt.trust_id:
+        return
+
+    LOG.debug("Creating Keystone trust")
+
+    trusts_auth_plugin = _get_trusts_auth_plugin()
+
+    loader = loading.get_plugin_loader("v3token")
+    auth = loader.load_from_options(
+        auth_url=trusts_auth_plugin.auth_url,
+        token=ctxt.auth_token,
+        project_name=ctxt.project_name,
+        project_domain_name=ctxt.project_domain)
+    session = ks_session.Session(
+        auth=auth, verify=not CONF.keystone.allow_untrusted)
+
+    try:
+        trustee_user_id = trusts_auth_plugin.get_user_id(session)
+    except ks_exceptions.Unauthorized as ex:
+        LOG.exception(ex)
+        raise exception.NotAuthorized("Trustee authentication failed")
+
+    trustor_user_id = ctxt.user
+    trustor_proj_id = ctxt.tenant
+    roles = ctxt.roles
+
+    LOG.debug("Granting Keystone trust. Trustor: %(trustor_user_id)s, trustee:"
+              " %(trustee_user_id)s, project: %(trustor_proj_id)s, roles:"
+              " %(roles)s",
+              {"trustor_user_id": trustor_user_id,
+               "trustee_user_id": trustee_user_id,
+               "trustor_proj_id": trustor_proj_id,
+               "roles": roles})
+
+    # Trusts are not supported before Keystone v3
+    client = kc_v3.Client(session=session)
+    trust = client.trusts.create(trustor_user=trustor_user_id,
+                                 trustee_user=trustee_user_id,
+                                 project=trustor_proj_id,
+                                 impersonation=True,
+                                 role_names=roles)
+    LOG.debug("Trust id: %s" % trust.id)
+    ctxt.trust_id = trust.id
+
+
+def delete_trust(ctxt):
+    if ctxt.trust_id:
+        LOG.debug("Deleting trust id: %s", ctxt.trust_id)
+
+        auth = _get_trusts_auth_plugin(ctxt.trust_id)
+        session = ks_session.Session(
+            auth=auth, verify=not CONF.keystone.allow_untrusted)
+        client = kc_v3.Client(session=session)
+        try:
+            client.trusts.delete(ctxt.trust_id)
+        except ks_exceptions.NotFound:
+            LOG.debug("Trust id not found: %s", ctxt.trust_id)
+        ctxt.trust_id = None
+
 
 def create_keystone_session(ctxt, connection_info={}):
-    keystone_version = connection_info.get(
-        "identity_api_version", CONF.keystone.identity_api_version)
-    auth_url = connection_info.get("auth_url", CONF.keystone.auth_url)
-
-    if not auth_url:
-        raise exception.CoriolisException(
-            '"auth_url" not provided in "connection_info" and option '
-            '"auth_url" in group "[openstack_migration_provider]" '
-            'not set')
-
-    username = connection_info.get("username")
-    password = connection_info.get("password")
-    project_name = connection_info.get("project_name", ctxt.project_name)
-    project_domain_name = connection_info.get(
-        "project_domain_name", ctxt.project_domain)
-    user_domain_name = connection_info.get(
-        "user_domain_name", ctxt.user_domain)
     allow_untrusted = connection_info.get(
         "allow_untrusted", CONF.keystone.allow_untrusted)
-
     # TODO: add "ca_cert" to connection_info
     verify = not allow_untrusted
 
-    plugin_args = {
-        "auth_url": auth_url,
-        "project_name": project_name,
-    }
+    username = connection_info.get("username")
 
-    if username:
-        plugin_name = "password"
-        plugin_args["username"] = username
-        plugin_args["password"] = password
+    if not username:
+        # Using directly the caller's token is not feasible for long running
+        # tasks as once it expires it cannot be automatically renewed. This is
+        # solved by using a Keystone trust, which must have been set priorly.
+        if not ctxt.trust_id:
+            raise exception.InvalidConfigurationValue(
+                "Trust id not set in context")
+
+        auth = _get_trusts_auth_plugin(ctxt.trust_id)
+        session = ks_session.Session(auth=auth, verify=verify)
     else:
-        plugin_name = "token"
-        plugin_args["token"] = ctxt.auth_token
+        password = connection_info.get("password")
+        project_name = connection_info.get("project_name", ctxt.project_name)
 
-    if keystone_version == 3:
-        plugin_name = "v3" + plugin_name
-        plugin_args["project_domain_name"] = project_domain_name
-        if username:
+        auth_url = connection_info.get("auth_url", CONF.keystone.auth_url)
+        if not auth_url:
+            raise exception.CoriolisException(
+                '"auth_url" not provided in "connection_info" and option '
+                '"auth_url" in group "[openstack_migration_provider]" '
+                'not set')
+
+        plugin_name = "password"
+
+        plugin_args = {
+            "auth_url": auth_url,
+            "project_name": project_name,
+            "username": username,
+            "password": password,
+        }
+
+        keystone_version = connection_info.get(
+            "identity_api_version", CONF.keystone.identity_api_version)
+
+        if keystone_version == 3:
+            plugin_name = "v3" + plugin_name
+
+            project_domain_name = connection_info.get(
+                "project_domain_name", ctxt.project_domain)
+            plugin_args["project_domain_name"] = project_domain_name
+
+            user_domain_name = connection_info.get(
+                "user_domain_name", ctxt.user_domain)
             plugin_args["user_domain_name"] = user_domain_name
 
-    loader = loading.get_plugin_loader(plugin_name)
-    auth = loader.load_from_options(**plugin_args)
+        loader = loading.get_plugin_loader(plugin_name)
+        auth = loader.load_from_options(**plugin_args)
+        session = ks_session.Session(auth=auth, verify=verify)
 
-    return session.Session(auth=auth, verify=verify)
+    return session
