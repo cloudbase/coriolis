@@ -75,7 +75,7 @@ class WorkerServerEndpoint(object):
             # Ignore the exception
             LOG.exception(ex)
 
-    def cancel_task(self, ctxt, process_id, force):
+    def cancel_task(self, ctxt, task_id, process_id, force):
         if not force and os.name == "nt":
             LOG.warn("Windows does not support SIGINT, performing a "
                      "forced task termination")
@@ -91,7 +91,9 @@ class WorkerServerEndpoint(object):
                 LOG.info("Sending SIGINT to process: %s", process_id)
                 p.send_signal(signal.SIGINT)
         except psutil.NoSuchProcess:
-            LOG.info("Task process not found: %s", process_id)
+            err_msg = "Task process not found: %s" % process_id
+            LOG.info(err_msg)
+            self._rpc_conductor_client.set_task_error(ctxt, task_id, err_msg)
 
     def _handle_mp_log_events(self, p, mp_log_q):
         while True:

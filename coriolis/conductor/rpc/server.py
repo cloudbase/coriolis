@@ -413,7 +413,7 @@ class ConductorServerEndpoint(object):
         for task in execution.tasks:
             if task.status == constants.TASK_STATUS_RUNNING:
                 self._rpc_worker_client.cancel_task(
-                    ctxt, task.host, task.process_id, force)
+                    ctxt, task.host, task.id, task.process_id, force)
                 has_running_tasks = True
             elif (task.status == constants.TASK_STATUS_PENDING and
                     not task.on_error):
