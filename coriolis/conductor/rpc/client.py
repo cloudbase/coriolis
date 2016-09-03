@@ -26,19 +26,20 @@ class ConductorClient(object):
             replica_id=replica_id,
             include_tasks=include_tasks)
 
-    def get_replica_tasks_execution(self, ctxt, execution_id):
+    def get_replica_tasks_execution(self, ctxt, replica_id, execution_id):
         return self._client.call(
-            ctxt, 'get_replica_tasks_execution',
+            ctxt, 'get_replica_tasks_execution', replica_id=replica_id,
             execution_id=execution_id)
 
-    def delete_replica_tasks_execution(self, ctxt, execution_id):
+    def delete_replica_tasks_execution(self, ctxt, replica_id, execution_id):
         return self._client.call(
-            ctxt, 'delete_replica_tasks_execution',
+            ctxt, 'delete_replica_tasks_execution', replica_id=replica_id,
             execution_id=execution_id)
 
-    def cancel_replica_tasks_execution(self, ctxt, execution_id, force):
+    def cancel_replica_tasks_execution(self, ctxt, replica_id, execution_id,
+                                       force):
         return self._client.call(
-            ctxt, 'cancel_replica_tasks_execution',
+            ctxt, 'cancel_replica_tasks_execution', replica_id=replica_id,
             execution_id=execution_id, force=force)
 
     def create_instances_replica(self, ctxt, origin, destination, instances):

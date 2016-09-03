@@ -16,7 +16,7 @@ class ReplicaTasksExecutionController(api_wsgi.Controller):
 
     def show(self, req, replica_id, id):
         execution = self._replica_tasks_execution_api.get_execution(
-            req.environ["coriolis.context"], id)
+            req.environ["coriolis.context"], replica_id, id)
         if not execution:
             raise exc.HTTPNotFound()
 
@@ -48,7 +48,7 @@ class ReplicaTasksExecutionController(api_wsgi.Controller):
     def delete(self, req, replica_id, id):
         try:
             self._replica_tasks_execution_api.delete(
-                req.environ['coriolis.context'], id)
+                req.environ['coriolis.context'], replica_id, id)
             raise exc.HTTPNoContent()
         except exception.NotFound as ex:
             raise exc.HTTPNotFound(explanation=ex.msg)

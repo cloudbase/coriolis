@@ -70,12 +70,13 @@ def get_replica_tasks_executions(context, replica_id, include_tasks=False):
 
 
 @enginefacade.reader
-def get_replica_tasks_execution(context, execution_id):
+def get_replica_tasks_execution(context, replica_id, execution_id):
     q = _soft_delete_aware_query(context, models.TasksExecution).join(
         models.Replica)
     q = _get_tasks_with_details_options(q)
     return q.filter(
         models.Replica.project_id == context.tenant,
+        models.Replica.id == replica_id,
         models.TasksExecution.id == execution_id).first()
 
 

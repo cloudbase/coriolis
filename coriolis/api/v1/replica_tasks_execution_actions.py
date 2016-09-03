@@ -19,7 +19,7 @@ class ReplicaTasksExecutionActionsController(api_wsgi.Controller):
             force = (body["cancel"] or {}).get("force", False)
 
             self._replica_tasks_execution_api.cancel(
-                req.environ['coriolis.context'], id, force)
+                req.environ['coriolis.context'], replica_id, id, force)
             raise exc.HTTPNoContent()
         except exception.NotFound as ex:
             raise exc.HTTPNotFound(explanation=ex.msg)
