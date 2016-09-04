@@ -1,0 +1,21 @@
+[Unit]
+Description=Coriolis conductor service
+After=postgresql.service mysql.service keystone.service rabbitmq-server.service ntp.service
+
+
+[Service]
+User=coriolis
+Group=coriolis
+Type=simple
+WorkingDirectory=/var/lib/coriolis
+PermissionsStartOnly=true
+ExecStartPre=/bin/mkdir -p /var/lock/coriolis /var/log/coriolis /var/lib/coriolis
+ExecStartPre=/bin/chown coriolis:coriolis /var/lock/coriolis /var/log/coriolis /var/lib/coriolis
+ExecStart=/usr/local/bin/coriolis-conductor --config-file=/etc/coriolis/coriolis.conf --log-file=/var/log/coriolis/coriolis-conductor.log
+Restart=on-failure
+LimitNOFILE=65535
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target
+
