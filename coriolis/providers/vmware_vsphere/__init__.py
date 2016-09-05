@@ -556,7 +556,7 @@ class ExportProvider(base.BaseExportProvider, base.BaseReplicaExportProvider):
         snapshot_ref = snapshot._GetMoId()
         pos = 0
         sector_size = vixdisklib.VIXDISKLIB_SECTOR_SIZE
-        max_sectors_per_read = 40 * 2048
+        max_sectors_per_read = 10 * 2048  # 10 MB
 
         with self._connect_vixdisklib(connection_info, context,
                                       vmx_spec, snapshot_ref) as conn:
