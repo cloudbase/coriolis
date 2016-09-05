@@ -3,6 +3,7 @@
 
 import abc
 import contextlib
+import gc
 import os
 import re
 import struct
@@ -647,6 +648,9 @@ class ExportProvider(base.BaseExportProvider, base.BaseReplicaExportProvider):
                                 i += curr_num_sectors
 
                                 f.write(buf.raw)
+
+                                buf = None
+                                gc.collect()
 
                                 total_written_bytes += buf_size
                                 self._event_manager.set_percentage_step(
