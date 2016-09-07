@@ -1215,7 +1215,8 @@ class Fault(webob.exc.HTTPException):
         fault_name = self._fault_names.get(code, "computeFault")
         explanation = self.wrapped_exc.explanation
         fault_data = {
-            fault_name: {
+            'error': {
+                'fault': fault_name,
                 'code': code,
                 'message': i18n.translate(explanation, locale)}}
         if code == 413:
