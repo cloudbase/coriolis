@@ -1269,7 +1269,7 @@ class ExportProvider(base.BaseExportProvider):
             'format': image.format,
             'path': image.path,
             'size_bytes': image.size,
-            'id': image.id
+            'id': str(image.id)
         })
 
         vm_info = {
