@@ -616,6 +616,9 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
                 "Uploading Glance image")
 
             disk_format = disk_file_info["format"]
+            if disk_format == "vhdx":
+                disk_format = "vhd"
+
             image = self._create_image(
                 glance, _get_unique_name(),
                 disk_path, disk_format,
