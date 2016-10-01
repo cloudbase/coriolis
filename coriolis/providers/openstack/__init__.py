@@ -1180,6 +1180,10 @@ class ExportProvider(base.BaseExportProvider):
     def _create_snapshot(self, nova, glance, instance, export_path):
         image_id = instance.create_image(_get_unique_name())
         try:
+            self._event_manager.progress_update(
+                "Waiting for instance snapshot to complete")
+            _wait_for_image(nova, image_id)
+
             image = glance.images.get(image_id)
             image_size = image.size
 
@@ -1187,11 +1191,6 @@ class ExportProvider(base.BaseExportProvider):
                 raise exception.CoriolisException(
                     "Unsupported container format: %s" %
                     image.container_format)
-
-            self._event_manager.progress_update(
-                "Waiting for instance snapshot to complete")
-
-            _wait_for_image(nova, image_id)
 
             self._event_manager.progress_update(
                 "Exporting instance snapshot")
