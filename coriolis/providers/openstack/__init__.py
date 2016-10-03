@@ -1246,7 +1246,7 @@ class ExportProvider(base.BaseExportProvider):
             nics.append({'name': iface.port_id,
                          'id': iface.port_id,
                          'mac_address': iface.mac_addr,
-                         'ip_addresses': [ip[0] for ip in ips],
+                         'ip_addresses': list(ips),
                          'network_id': iface.net_id,
                          'network_name': net_name})
 
