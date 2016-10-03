@@ -151,6 +151,10 @@ class InvalidHost(Invalid):
     message = _("Invalid host: %(reason)s")
 
 
+class SameDestination(Invalid):
+    message = _("Origin and destination cannot be the same")
+
+
 # Cannot be templated as the error syntax varies.
 # msg needs to be constructed when raised.
 class InvalidParameterValue(Invalid):

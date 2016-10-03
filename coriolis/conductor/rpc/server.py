@@ -237,7 +237,15 @@ class ConductorServerEndpoint(object):
         self._begin_tasks(ctxt, execution, replica.info)
         return self.get_replica_tasks_execution(ctxt, replica_id, execution.id)
 
+    @staticmethod
+    def _check_endpoints(ctxt, origin, destination):
+        # TODO(alexpilotti): check Barbican secrets content as well
+        if origin.get("connection_info") == destination.get("connection_info"):
+            raise exception.SameDestination()
+
     def create_instances_replica(self, ctxt, origin, destination, instances):
+        self._check_endpoints(ctxt, origin, destination)
+
         replica = models.Replica()
         replica.id = str(uuid.uuid4())
         replica.origin = origin
@@ -360,6 +368,8 @@ class ConductorServerEndpoint(object):
         return self.get_migration(ctxt, migration.id)
 
     def migrate_instances(self, ctxt, origin, destination, instances):
+        self._check_endpoints(ctxt, origin, destination)
+
         migration = models.Migration()
         migration.id = str(uuid.uuid4())
         migration.origin = origin
