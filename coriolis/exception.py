@@ -213,6 +213,10 @@ class InstanceNotFound(NotFound):
     message = _("Instance \"%(instance_name)s\" could not be found.")
 
 
+class NetworkNotFound(NotFound):
+    message = _("Network \"%(network_name)s\" could not be found.")
+
+
 class Duplicate(CoriolisException):
     pass
 

@@ -377,6 +377,8 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
     @utils.retry_on_error()
     def _create_neutron_port(self, neutron, network_name, mac_address=None):
         networks = neutron.list_networks(name=network_name)
+        if not networks['networks']:
+            raise exception.NetworkNotFound(network_name=network_name)
         network_id = networks['networks'][0]['id']
 
         # make sure that the port is not already existing from a previous
@@ -503,7 +505,11 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
             return _MigrationResources(nova, neutron, keypair, instance, port,
                                        floating_ip, guest_port, sec_group,
                                        username, password, k)
-        except:
+        except Exception as ex:
+            self._event_manager.progress_update(
+                "An error occurred, cleaning up worker resources: %s" %
+                str(ex))
+
             if instance:
                 nova.servers.delete(instance)
             if floating_ip:
