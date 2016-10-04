@@ -1139,7 +1139,8 @@ class ExportProvider(base.BaseExportProvider):
 
     @utils.retry_on_error()
     def _get_instance(self, nova, instance_name):
-        instances = nova.servers.list(search_opts={'name': instance_name})
+        instances = nova.servers.list(
+            search_opts={'name': "^%s$" % instance_name})
         if len(instances) > 1:
             raise exception.CoriolisException(
                 'More than one instance exists with name: %s' % instance_name)
