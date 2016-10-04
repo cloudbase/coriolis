@@ -217,6 +217,26 @@ class NetworkNotFound(NotFound):
     message = _("Network \"%(network_name)s\" could not be found.")
 
 
+class ImageNotFound(NotFound):
+    message = _("Image \"%(image_name)s\" could not be found.")
+
+
+class FlavorNotFound(NotFound):
+    message = _("Flavor \"%(flavor_name)s\" could not be found.")
+
+
+class FloatingIPPoolNotFound(NotFound):
+    message = _("Floating IP pool \"%(pool_name)s\" could not be found.")
+
+
+class VolumeNotFound(NotFound):
+    message = _("Volume \"%(volume_id)s\" could not be found.")
+
+
+class VolumeSnapshotNotFound(NotFound):
+    message = _("Volume snapshot \"%(snapshot_id)s\" could not be found.")
+
+
 class Duplicate(CoriolisException):
     pass
 

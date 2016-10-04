@@ -156,11 +156,33 @@ def _create_volume(cinder, size, name, image_ref=None, snapshot_id=None):
         snapshot_id=snapshot_id)
 
 
-@utils.retry_on_error()
+@utils.retry_on_error(terminal_exceptions=[exception.NotFound])
+def _get_flavor(nova, flavor_name):
+    flavors = nova.flavors.findall(name=flavor_name)
+    if not flavors:
+        raise exception.FlavorNotFound(flavor_name=flavor_name)
+    return flavors[0]
+
+
+@utils.retry_on_error(terminal_exceptions=[exception.NotFound])
+def _get_image(glance, image_name):
+    images = glance.images.findall(name=image_name)
+    if not images:
+        raise exception.ImageNotFound(image_name=image_name)
+    return images[0]
+
+
+@utils.retry_on_error(terminal_exceptions=[exception.NotFound])
+def _check_floating_ip_pool(nova, pool_name):
+    if not nova.floating_ip_pools.findall(name=pool_name):
+        raise exception.FloatingIPPoolNotFound(pool_name=pool_name)
+
+
+@utils.retry_on_error(terminal_exceptions=[exception.NotFound])
 def _wait_for_volume(cinder, volume_id, expected_status='available'):
     volumes = cinder.volumes.findall(id=volume_id)
     if not volumes:
-        raise exception.CoriolisException("Volume not found")
+        raise exception.VolumeNotFound(volume_id=volume_id)
     volume = volumes[0]
 
     while volume.status not in [expected_status, 'error']:
@@ -183,7 +205,7 @@ def _create_volume_snapshot(cinder, volume_id, name):
     return cinder.volume_snapshots.create(volume_id, name=name)
 
 
-@utils.retry_on_error()
+@utils.retry_on_error(terminal_exceptions=[exception.NotFound])
 def _wait_for_volume_snapshot(cinder, snapshot_id,
                               expected_status='available'):
     snapshots = cinder.volume_snapshots.findall(id=snapshot_id)
@@ -191,7 +213,7 @@ def _wait_for_volume_snapshot(cinder, snapshot_id,
     if not snapshots:
         if expected_status == 'deleted':
             return
-        raise exception.CoriolisException("Volume snapshot not found")
+        raise exception.VolumeSnapshotNotFound(snapshot_id=snapshot_id)
     snapshot = snapshots[0]
 
     while snapshot.status not in [expected_status, 'error']:
@@ -374,7 +396,7 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
                 properties=properties,
                 data=f)
 
-    @utils.retry_on_error()
+    @utils.retry_on_error(terminal_exceptions=[exception.NotFound])
     def _create_neutron_port(self, neutron, network_name, mac_address=None):
         networks = neutron.list_networks(name=network_name)
         if not networks['networks']:
@@ -414,19 +436,19 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
             os.close(fd)
             os.remove(key_path)
 
-    @utils.retry_on_error(max_attempts=10, sleep_seconds=30)
+    @utils.retry_on_error(max_attempts=10, sleep_seconds=30,
+                          terminal_exceptions=[exception.NotFound])
     def _deploy_migration_resources(self, nova, glance, neutron,
                                     os_type, migr_image_name, migr_flavor_name,
                                     migr_network_name, migr_fip_pool_name):
-        if not glance.images.findall(name=migr_image_name):
-            raise exception.CoriolisException(
-                "Glance image \"%s\" not found" % migr_image_name)
-
         LOG.debug("Migration image name: %s", migr_image_name)
-        LOG.debug("Migration flavor name: %s", migr_flavor_name)
+        image = _get_image(glance, migr_image_name)
 
-        image = nova.images.find(name=migr_image_name)
-        flavor = nova.flavors.find(name=migr_flavor_name)
+        LOG.debug("Migration flavor name: %s", migr_flavor_name)
+        flavor = _get_flavor(nova, migr_flavor_name)
+
+        LOG.debug("Migration FIP pool name: %s", migr_fip_pool_name)
+        _check_floating_ip_pool(nova, migr_fip_pool_name)
 
         keypair = None
         instance = None
@@ -458,7 +480,7 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
             userdata = MIGR_USER_DATA % (username, public_key)
             instance = nova.servers.create(
                 name=_get_unique_name(),
-                image=image,
+                image=image.id,
                 flavor=flavor,
                 key_name=migr_keypair_name,
                 userdata=userdata,
@@ -831,10 +853,11 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
         elif hypervisor_type:
             return hypervisor_type.lower()
 
-    @utils.retry_on_error(max_attempts=10, sleep_seconds=30)
+    @utils.retry_on_error(max_attempts=10, sleep_seconds=30,
+                          terminal_exceptions=[exception.NotFound])
     def _create_target_instance(self, nova, flavor_name, instance_name,
                                 keypair_name, ports, volumes):
-        flavor = nova.flavors.find(name=flavor_name)
+        flavor = _get_flavor(nova, flavor_name)
 
         block_device_mapping = {}
         for i, volume in enumerate(volumes):
@@ -1143,7 +1166,7 @@ class ExportProvider(base.BaseExportProvider):
     def __init__(self, event_handler):
         self._event_manager = events.EventManager(event_handler)
 
-    @utils.retry_on_error()
+    @utils.retry_on_error(terminal_exceptions=[exception.CoriolisException])
     def _get_instance(self, nova, instance_name):
         instances = nova.servers.list(
             search_opts={'name': "^%s$" % instance_name})
@@ -1151,8 +1174,7 @@ class ExportProvider(base.BaseExportProvider):
             raise exception.CoriolisException(
                 'More than one instance exists with name: %s' % instance_name)
         elif not instances:
-            raise exception.CoriolisException(
-                'Instance not found: %s' % instance_name)
+            raise exception.InstanceNotFound(instance_name=instance_name)
         return instances[0]
 
     def _get_os_type(self, image):
@@ -1239,10 +1261,10 @@ class ExportProvider(base.BaseExportProvider):
         instance = self._get_instance(nova, instance_name)
 
         @utils.retry_on_error()
-        def _get_flavor():
+        def _get_flavor_by_id():
             return nova.flavors.get(instance.flavor["id"])
 
-        flavor = _get_flavor()
+        flavor = _get_flavor_by_id()
 
         nics = []
         for iface in instance.interface_list():
