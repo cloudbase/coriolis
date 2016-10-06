@@ -614,7 +614,7 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
                 raise exception.CoriolisException(
                     'If "migr_network_name" is not provided, "network_map" '
                     'must contain exactly one entry')
-            config.migr_network_name = config.network_map.values()[0]
+            config.migr_network_name = list(config.network_map.values())[0]
 
         return config
 
