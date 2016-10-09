@@ -2,6 +2,7 @@
 # All Rights Reserved.
 
 import functools
+import hashlib
 import io
 import json
 import os
@@ -321,3 +322,11 @@ def load_class(class_path):
     parts = class_path.rsplit('.', 1)
     module = __import__(parts[0], fromlist=parts[1])
     return getattr(module, parts[1])
+
+
+def check_md5(data, md5):
+    m = hashlib.md5()
+    m.update(data)
+    new_md5 = m.hexdigest()
+    if new_md5 != md5:
+        raise exception.CoriolisException("MD5 check failed")

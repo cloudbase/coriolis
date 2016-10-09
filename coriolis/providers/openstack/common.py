@@ -7,6 +7,7 @@ import time
 import uuid
 
 from oslo_utils import units
+from swiftclient import client as swift_client
 
 from coriolis import exception
 from coriolis import utils
@@ -84,8 +85,8 @@ def wait_for_image(nova, image_id, expected_status='ACTIVE'):
 
 
 @utils.retry_on_error()
-def wait_for_instance(nova, instance, expected_status='ACTIVE'):
-    instance = nova.servers.get(instance.id)
+def wait_for_instance(nova, instance_id, expected_status='ACTIVE'):
+    instance = nova.servers.get(instance_id)
     while instance.status not in [expected_status, 'ERROR']:
         time.sleep(2)
         instance = nova.servers.get(instance.id)
@@ -182,8 +183,8 @@ def delete_volume(cinder, volume_id):
 
 
 @utils.retry_on_error()
-def create_volume_snapshot(cinder, volume_id, name):
-    return cinder.volume_snapshots.create(volume_id, name=name)
+def create_volume_snapshot(cinder, volume_id, name, force=False):
+    return cinder.volume_snapshots.create(volume_id, name=name, force=force)
 
 
 @utils.retry_on_error(terminal_exceptions=[exception.NotFound])
@@ -216,3 +217,63 @@ def delete_volume_snapshot(cinder, snapshot_id):
     snapshots = cinder.volume_snapshots.findall(id=snapshot_id)
     for snapshot in snapshots:
         return cinder.volume_snapshots.delete(snapshot.id)
+
+
+@utils.retry_on_error()
+def create_volume_backup(cinder, volume_id, snapshot_id, name, container,
+                         incremental, force=False):
+    return cinder.backups.create(
+        volume_id=volume_id,
+        snapshot_id=snapshot_id,
+        container=container,
+        name=name,
+        incremental=incremental,
+        force=force)
+
+
+@utils.retry_on_error(terminal_exceptions=[exception.NotFound])
+def wait_for_volume_backup(cinder, backup_id, expected_status='available'):
+    backups = cinder.backups.findall(id=backup_id)
+
+    if not backups:
+        if expected_status == 'deleted':
+            return
+        raise exception.VolumeBackupNotFound(backup_id=backup_id)
+    backup = backups[0]
+
+    while backup.status not in [expected_status, 'error']:
+        time.sleep(2)
+        if expected_status == 'deleted':
+            backups = cinder.backups.findall(id=backup_id)
+            if not backups:
+                return
+            backup = backups[0]
+        else:
+            backup = cinder.backups.get(backup.id)
+    if backup.status != expected_status:
+        raise exception.CoriolisException(
+            "Volume backup is in status: %s" % backup.status)
+
+
+@utils.retry_on_error()
+def delete_volume_backup(cinder, backup_id):
+    cinder.backups.delete(backup_id)
+
+
+@utils.retry_on_error()
+def find_volume_backups(cinder, volume_id=None, container=None):
+    return cinder.backups.list(search_opts={
+        "volume_id": volume_id,
+        "container": container})
+
+
+@utils.retry_on_error()
+def get_instance_volumes(nova, instance_id):
+    return nova.volumes.get_server_volumes(instance_id)
+
+
+def get_swift_client(session):
+    preauthurl = session.get_endpoint(service_type="object-store")
+    preauthtoken = session.get_token()
+    return swift_client.Connection(preauthurl=preauthurl,
+                                   preauthtoken=preauthtoken)

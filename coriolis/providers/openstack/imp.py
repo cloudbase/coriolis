@@ -287,7 +287,7 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
                 "Adding migration worker instance floating IP")
 
             floating_ip = nova.floating_ips.create(pool=migr_fip_pool_name)
-            common.wait_for_instance(nova, instance, 'ACTIVE')
+            common.wait_for_instance(nova, instance.id, 'ACTIVE')
 
             LOG.info("Floating IP: %s", floating_ip.ip)
             instance.add_floating_ip(floating_ip)
@@ -677,7 +677,7 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
             nics=nics)
 
         try:
-            common.wait_for_instance(nova, instance, 'ACTIVE')
+            common.wait_for_instance(nova, instance.id, 'ACTIVE')
             return instance
         except:
             if instance:
