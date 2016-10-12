@@ -79,18 +79,18 @@ class ExportProvider(base.BaseExportProvider, base.BaseReplicaExportProvider):
         return instances[0]
 
     def _get_os_type(self, image):
-        os_type = constants.OS_TYPE_LINUX
+        os_type = constants.DEFAULT_OS_TYPE
         os_distro = image.properties.get('os_distro')
         if not os_distro:
             if 'os_type' in image.properties:
                 os_type = image.properties['os_type']
             else:
                 self._event_manager.progress_update(
-                    "Image os_distro not set, defaulting to Linux")
+                    "Image os_distro not set, defaulting to '%s'" % os_type)
         elif os_distro not in self._OS_DISTRO_MAP:
             self._event_manager.progress_update(
-                "Image os_distro \"%s\" not found, defaulting to Linux" %
-                os_distro)
+                "Image os_distro '%s' not found, defaulting to '%s'" %
+                (os_distro, os_type))
         else:
             os_type = self._OS_DISTRO_MAP[os_distro]
         return os_type
@@ -178,6 +178,7 @@ class ExportProvider(base.BaseExportProvider, base.BaseReplicaExportProvider):
                 'format': constants.DISK_FORMAT_RAW,
                 'guest_device': vol_attachment.device,
                 'size_bytes': volume.size * units.Gi,
+                'path': '',
                 'id': volume.id
             })
 
@@ -253,10 +254,13 @@ class ExportProvider(base.BaseExportProvider, base.BaseReplicaExportProvider):
 
         instance, vm_info = self._get_instance_info(
             nova, cinder, instance_name)
+
+        vm_info["os_type"] = constants.DEFAULT_OS_TYPE
+
         return vm_info
 
     def deploy_replica_source_resources(self, ctxt, connection_info):
-        pass
+        return {"migr_resources": None, "connection_info": None}
 
     def delete_replica_source_resources(self, ctxt, connection_info,
                                         migr_resources_dict):
