@@ -237,6 +237,10 @@ class VolumeSnapshotNotFound(NotFound):
     message = _("Volume snapshot \"%(snapshot_id)s\" could not be found.")
 
 
+class VolumeBackupNotFound(NotFound):
+    message = _("Volume backup \"%(backup_id)s\" could not be found.")
+
+
 class Duplicate(CoriolisException):
     pass
 
