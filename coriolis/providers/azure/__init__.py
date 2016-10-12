@@ -273,7 +273,7 @@ class ImportProvider(base.BaseImportProvider):
                       if re.match(r"%s\..*\.status" % vm_name, b.name)]
         if len(blob_names) > 1:
             self._event_manager.progress_update(
-                "VM '%s' has more than one recovery disk. "
+                "VM \"%s\" has more than one recovery disk. "
                 "Skipped deleting any to avoid adverse loss")
 
         if len(blob_names) == 1:
@@ -285,7 +285,7 @@ class ImportProvider(base.BaseImportProvider):
         and returns the corresponding AzureStorageBlob.
         """
         self._event_manager.progress_update(
-            "Uploading disk from '%s' as '%s'" % (disk_path, upload_name))
+            "Uploading disk from \"%s\" as \"%s\"" % (disk_path, upload_name))
 
         def progressf(curr, total):
             LOG.debug("Uploading '%s': %d/%d.", upload_name, curr, total)
@@ -519,8 +519,9 @@ class ImportProvider(base.BaseImportProvider):
         # convert disk if necessary:
         if disk_file_info["format"] != constants.DISK_FORMAT_VHD:
             self._event_manager.progress_update(
-                "Converting disk '%s' from '%s' to 'vhd'" %
-                (upload_name, disk_file_info["format"]))
+                "Converting disk \"%s\" from \"%s\" to \"%s\"" %
+                (upload_name, disk_file_info["format"],
+                 constants.DISK_FORMAT_VHD))
 
             upload_path = self._convert_to_vhd(disk_path)
             os.remove(disk_path)
@@ -575,7 +576,7 @@ class ImportProvider(base.BaseImportProvider):
         for maxvols, size in volsmap.items():
             if ndisks <= maxvols:
                 self._event_manager.progress_update(
-                    "Migration worker size chosen as '%s'" %
+                    "Migration worker size chosen as \"%s\"" %
                     str(size).split(".")[-1])
 
                 return size
@@ -686,14 +687,16 @@ class ImportProvider(base.BaseImportProvider):
             )
         )
 
-        self._event_manager.progress_update("Waiting for migration worker to start")
+        self._event_manager.progress_update(
+            "Waiting for migration worker to start")
         self._wait_for_vm(connection_info, resgroup, worker_name)
-        self._event_manager.progress_update("Migration worker has started succesfully")
+        self._event_manager.progress_update(
+            "Migration worker has started succesfully")
 
         # add any neccessary extensions to the Worker:
         for ext in worker_osprofile.extensions:
             self._event_manager.progress_update(
-                "Creating Worker VM extensions '%s'" % ext.name)
+                "Creating Worker VM extensions \"%s\"" % ext.name)
 
             awaited(computec.virtual_machine_extensions.create_or_update)(
                 resgroup,
@@ -744,7 +747,7 @@ class ImportProvider(base.BaseImportProvider):
                         instance_name, export_info):
         """ Runs the process of importing the instance to Azure. """
         self._event_manager.progress_update(
-            "Importing instance '%s'" % instance_name)
+            "Importing instance \"%s\"" % instance_name)
 
         awaited = azutils.awaited(300)
         location = target_environment.get(
@@ -760,7 +763,7 @@ class ImportProvider(base.BaseImportProvider):
             # setup storage container:
             cont_name = CONF.azure_migration_provider.migr_container_name
             self._event_manager.progress_update(
-                "Creating migration storage container '%s'" % cont_name)
+                "Creating migration storage container \"%s\"" % cont_name)
 
             blobd = self._get_page_blob_client(target_environment)
             utils.retry_on_error()(blobd.create_container)(
@@ -783,7 +786,7 @@ class ImportProvider(base.BaseImportProvider):
 
             # setup migration resource group:
             self._event_manager.progress_update(
-                "Creating migration resource group '%s'" % resgroup)
+                "Creating migration resource group \"%s\"" % resgroup)
 
             resc = self._get_resource_client(connection_info)
             utils.retry_on_error()(
@@ -919,7 +922,7 @@ class ImportProvider(base.BaseImportProvider):
 
             # create the VM:
             self._event_manager.progress_update(
-                "Starting migrated instance as '%s'" %
+                "Starting migrated instance as \"%s\"" %
                     azutils.normalize_resource_name(instance_name))
 
             disk_name = AZURE_DISK_NAME_FORMAT % (

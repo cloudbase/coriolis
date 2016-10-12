@@ -86,10 +86,10 @@ class ExportProvider(base.BaseExportProvider, base.BaseReplicaExportProvider):
                 os_type = image.properties['os_type']
             else:
                 self._event_manager.progress_update(
-                    "Image os_distro not set, defaulting to '%s'" % os_type)
+                    "Image os_distro not set, defaulting to \"%s\"" % os_type)
         elif os_distro not in self._OS_DISTRO_MAP:
             self._event_manager.progress_update(
-                "Image os_distro '%s' not found, defaulting to '%s'" %
+                "Image os_distro \"%s\" not found, defaulting to \"%s\"" %
                 (os_distro, os_type))
         else:
             os_type = self._OS_DISTRO_MAP[os_distro]
