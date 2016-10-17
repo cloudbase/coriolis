@@ -208,8 +208,8 @@ class RedHatMorphingTools(base.BaseLinuxOSMorphingTools):
     def _set_selinux_autorelabel(self):
         self._exec_cmd_chroot("touch /.autorelabel")
 
-    def pre_packages_install(self):
-        super(RedHatMorphingTools, self).pre_packages_install()
+    def pre_packages_install(self, package_names):
+        super(RedHatMorphingTools, self).pre_packages_install(package_names)
 
         distro, version = self.check_os()
         if distro == RELEASE_RHEL and "cloud-init" in self.get_packages()[0]:
@@ -221,9 +221,9 @@ class RedHatMorphingTools(base.BaseLinuxOSMorphingTools):
             self._exec_cmd_chroot(
                 "subscription-manager repos --enable %s" % repo_name)
 
-    def post_packages_install(self):
+    def post_packages_install(self, package_names):
         self._add_hyperv_ballooning_udev_rules()
         self._run_dracut()
         self._configure_cloud_init()
         self._set_selinux_autorelabel()
-        super(RedHatMorphingTools, self).post_packages_install()
+        super(RedHatMorphingTools, self).post_packages_install(package_names)

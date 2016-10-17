@@ -36,8 +36,9 @@ class DebianMorphingTools(base.BaseLinuxOSMorphingTools):
             self._exec_cmd('sudo sed -i.bak "s/static/dhcp/g" %s' %
                            interfaces_path)
 
-    def pre_packages_install(self):
-        super(DebianMorphingTools, self).pre_packages_install()
+    def pre_packages_install(self, package_names):
+        super(DebianMorphingTools, self).pre_packages_install(package_names)
+
         self._event_manager.progress_update("Updating packages list")
         self._exec_cmd_chroot('apt-get clean')
         self._exec_cmd_chroot('apt-get update -y')

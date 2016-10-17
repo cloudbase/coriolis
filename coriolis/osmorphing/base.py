@@ -44,7 +44,7 @@ class BaseOSMorphingTools(object):
     def get_packages(self):
         return [], []
 
-    def pre_packages_install(self):
+    def pre_packages_install(self, package_names):
         pass
 
     def install_packages(self, package_names):
@@ -53,7 +53,7 @@ class BaseOSMorphingTools(object):
     def uninstall_packages(self, package_names):
         pass
 
-    def post_packages_install(self):
+    def post_packages_install(self, package_names):
         pass
 
 
@@ -84,10 +84,10 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
 
         return add, remove
 
-    def pre_packages_install(self):
+    def pre_packages_install(self, package_names):
         self._copy_resolv_conf()
 
-    def post_packages_install(self):
+    def post_packages_install(self, package_names):
         self._restore_resolv_conf()
 
     def _test_path(self, chroot_path):
