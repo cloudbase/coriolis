@@ -13,9 +13,12 @@ from coriolis import utils
 class BaseOSMorphingTools(object):
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, conn, os_root_dir, hypervisor, platform, event_manager):
+    def __init__(
+            self, conn, os_root_dir, os_root_device,
+            hypervisor, platform, event_manager):
         self._conn = conn
         self._os_root_dir = os_root_dir
+        self._os_root_device = os_root_device
         self._hypervisor = hypervisor
         self._platform = platform
         self._distro = None
@@ -59,9 +62,11 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
 
     _packages = {}
 
-    def __init__(self, conn, os_root_dir, hypervisor, platform, event_manager):
+    def __init__(self, conn, os_root_dir, os_root_dev,
+                 hypervisor, platform, event_manager):
         super(BaseLinuxOSMorphingTools, self).__init__(
-            conn, os_root_dir, hypervisor, platform, event_manager)
+            conn, os_root_dir, os_root_dev,
+            hypervisor, platform, event_manager)
         self._ssh = conn
 
     def get_packages(self):
