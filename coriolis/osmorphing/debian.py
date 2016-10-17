@@ -39,9 +39,10 @@ class DebianMorphingTools(base.BaseLinuxOSMorphingTools):
     def pre_packages_install(self, package_names):
         super(DebianMorphingTools, self).pre_packages_install(package_names)
 
-        self._event_manager.progress_update("Updating packages list")
-        self._exec_cmd_chroot('apt-get clean')
-        self._exec_cmd_chroot('apt-get update -y')
+        if package_names:
+            self._event_manager.progress_update("Updating packages list")
+            self._exec_cmd_chroot('apt-get clean')
+            self._exec_cmd_chroot('apt-get update -y')
 
     def install_packages(self, package_names):
         apt_get_cmd = 'apt-get install %s -y' % " ".join(package_names)
