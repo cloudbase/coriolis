@@ -40,8 +40,8 @@ class SUSEMorphingTools(base.BaseLinuxOSMorphingTools):
         # TODO: add networking support
         pass
 
-    def pre_packages_install(self):
-        super(SUSEMorphingTools, self).pre_packages_install()
+    def pre_packages_install(self, package_names):
+        super(SUSEMorphingTools, self).pre_packages_install(package_names)
 
         if self._platform == constants.PLATFORM_OPENSTACK:
             # TODO: use OS version to choose the right repo
@@ -99,7 +99,7 @@ class SUSEMorphingTools(base.BaseLinuxOSMorphingTools):
         self._exec_cmd_chroot(
             'zypper --non-interactive remove %s' % " ".join(package_names))
 
-    def post_packages_install(self):
+    def post_packages_install(self, packages_names):
         self._run_dracut()
         self._configure_cloud_init()
-        super(SUSEMorphingTools, self).post_packages_install()
+        super(SUSEMorphingTools, self).post_packages_install(package_names)

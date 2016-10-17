@@ -52,7 +52,7 @@ class WindowsMorphingTools(base.BaseOSMorphingTools):
         except exception.CoriolisException as ex:
             LOG.debug("Exception during OS detection: %s", ex)
 
-    def pre_packages_install(self):
+    def pre_packages_install(self, packages_add):
         if (not self._hypervisor or
                 self._hypervisor == constants.HYPERVISOR_KVM):
             self._add_virtio_drivers()
