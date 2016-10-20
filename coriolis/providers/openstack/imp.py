@@ -415,6 +415,21 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
 
         return config
 
+    @utils.retry_on_error()
+    def _convert_disk_format(
+            self, source_path, destination_path, destination_format):
+        """ Converts the  disk to the provided destination_format and
+        returns the new path to the converted disk. """
+        try:
+            LOG.info("Converting disk '%s' to %s" % (
+                     source_path,
+                     destination_format))
+            utils.convert_disk_format(
+                source_path, destination_path, destination_format)
+        except Exception as ex:
+            utils.ignore_exceptions(os.remove)(destination_path)
+            raise
+
     def _create_images_and_volumes(self, glance, nova, cinder, config,
                                    disks_info):
         if not config.glance_upload:
@@ -428,14 +443,20 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
             disk_path = disk_info["path"]
             disk_file_info = utils.get_disk_info(disk_path)
 
-            # if config.target_disk_format == disk_file_info["format"]:
-            #    target_disk_path = disk_path
-            # else:
-            #    target_disk_path = (
-            #        "%s.%s" % (os.path.splitext(disk_path)[0],
-            #                   config.target_disk_format))
-            #    utils.convert_disk_format(disk_path, target_disk_path,
-            #                              config.target_disk_format)
+            target_disk_path = disk_path
+            if config.target_disk_format != disk_file_info["format"]:
+                target_disk_path = ("%s.%s" % (
+                    os.path.splitext(disk_path)[0], config.target_disk_format))
+                self._convert_disk_format(
+                    disk_path, target_disk_path, config.target_disk_format)
+                disk_file_info = utils.get_disk_info(target_disk_path)
+
+                LOG.info(
+                    "Succesfully converted '%s' to %s as '%s'. "
+                    "Removing original path." % (
+                        disk_path, config.target_disk_format,
+                        target_disk_path))
+                os.remove(disk_path)
 
             self._event_manager.progress_update(
                 "Uploading Glance image")
@@ -446,7 +467,7 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
 
             image = common.create_image(
                 glance, common.get_unique_name(),
-                disk_path, disk_format,
+                target_disk_path, disk_format,
                 config.container_format,
                 config.hypervisor_type)
             images.append(image)
