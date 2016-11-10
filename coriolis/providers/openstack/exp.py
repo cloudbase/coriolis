@@ -427,13 +427,19 @@ class ExportProvider(base.BaseExportProvider, base.BaseReplicaExportProvider):
                 incremental = len(volume_backups) > 0
 
                 snapshot = snapshots[volume_id]
+                # TODO: add Cinder v1 check ('incremental' and 'force' are v2+)
                 volume_backup = common.create_volume_backup(
                     cinder,
                     volume_id=volume_id,
                     snapshot_id=snapshot.id,
                     container=container,
                     name=common.get_unique_name(),
-                    incremental=incremental)
+                    incremental=incremental,
+                    # NOTE: 'force' is required by standard API definition for
+                    # any incremental backup while the VM is on, but some
+                    # Cinder backends will allow its absence.
+                    force=True
+                )
                 backups[volume_id] = volume_backup
 
             self._event_manager.progress_update(
