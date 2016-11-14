@@ -35,8 +35,14 @@ class UbuntuOSMountTools(base.BaseSSHOSMountTools):
         return vg_names
 
     def _get_volume_block_devices(self):
+        # NOTE: depending on the version of the worker OS, scanning for just
+        # the device NAME may lead to LVM volumes getting displayed as:
+        # "<VG-name>-<LV-name> (dm-N)",
+        #   where 'ln -s /dev/dm-N /dev/<VG-name>/<LV-name>'
+        # Querying for the kernel device name (KNAME) should ensure we get the
+        # device names we desire both for physical and logical volumes.
         volume_devs = self._exec_cmd(
-            "lsblk -lnao NAME").decode().split('\n')[:-1]
+            "lsblk -lnao KNAME").decode().split('\n')[:-1]
         LOG.debug("All block devices: %s", str(volume_devs))
 
         # Skip this instance's current root device (first in the list)
