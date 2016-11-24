@@ -21,6 +21,10 @@ CINDER_API_VERSION = 2
 
 LOG = logging.getLogger(__name__)
 
+SERVER_STATUS_ERROR = 'ERROR'
+SERVER_STATUS_ACTIVE = 'ACTIVE'
+SERVER_STATUS_SHUTOFF = 'SHUTOFF'
+
 
 GlanceImage = collections.namedtuple(
     "GlanceImage", "id format size path os_type")
@@ -106,17 +110,28 @@ def wait_for_instance(nova, instance_id, expected_status='ACTIVE'):
 
 
 @utils.retry_on_error()
-def wait_for_instance_deletion(nova, instance_id):
+def wait_for_instance_deletion(nova, instance_id, timeout=300, period=2):
     instances = nova.servers.findall(id=instance_id)
-    while instances and instances[0].status != 'ERROR':
+    endtime = time.time() + timeout
+    while time.time() < endtime and instances:
+        instance = utils.index_singleton_list(instances)
+        if instance.status == SERVER_STATUS_ERROR:
+            break
+
         LOG.debug('Instance %(id)s status: %(status)s. '
-                  'Waiting for its deletion.',
-                  {'id': instance_id, 'status': instances[0].status})
-        time.sleep(2)
+                  'Waiting %(period)s seconds for its deletion.',
+                  {'id': instance_id, 'status': instance.status,
+                   'period': period})
+        time.sleep(period)
         instances = nova.servers.findall(id=instance_id)
+
     if instances:
+        instance = utils.index_singleton_list(instances)
         raise exception.CoriolisException(
-            "VM is in status: %s" % instances[0].status)
+            "Timeout of %(timeout)s seconds reached while waiting for VM "
+            "\"%(instance_id)s\" deletion. Last known status: \"%(status)s\"" %
+            {'timeout': timeout, 'status': instance.status,
+             'instance_id': instance_id})
 
 
 @utils.retry_on_error()
