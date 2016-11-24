@@ -109,7 +109,7 @@ def wait_for_instance(nova, instance_id, expected_status='ACTIVE'):
             "VM is in status: %s" % instance.status)
 
 
-@utils.retry_on_error()
+@utils.retry_on_error(terminal_exceptions=[exception.CoriolisException])
 def wait_for_instance_deletion(nova, instance_id, timeout=300, period=2):
     instances = nova.servers.findall(id=instance_id)
     endtime = time.time() + timeout
