@@ -116,7 +116,9 @@ def wait_for_instance_deletion(nova, instance_id, timeout=300, period=2):
     while time.time() < endtime and instances:
         instance = utils.index_singleton_list(instances)
         if instance.status == SERVER_STATUS_ERROR:
-            break
+            raise exception.CoriolisException(
+                "Instance \"%s\" has reached invalid state \"%s\" while "
+                "deleting." % (instance_id, instance.status))
 
         LOG.debug('Instance %(id)s status: %(status)s. '
                   'Waiting %(period)s seconds for its deletion.',
