@@ -79,8 +79,10 @@ def _create_image_v1(glance, name, disk_path, disk_format, container_format,
 def wait_for_image(nova, image_id, expected_status='ACTIVE'):
     image = nova.images.get(image_id)
     while image.status not in [expected_status, 'ERROR']:
-        LOG.debug('Image %(id)s status: %(status)s',
-                  {'id': image_id, 'status': image.status})
+        LOG.debug('Image "%(id)s" in status: "%(status)s". '
+                  'Waiting for status: "%(expected_status)s".',
+                  {'id': image_id, 'status': image.status,
+                   'expected_status': expected_status})
         time.sleep(2)
         image = nova.images.get(image.id)
     if image.status != expected_status:
@@ -92,8 +94,10 @@ def wait_for_image(nova, image_id, expected_status='ACTIVE'):
 def wait_for_instance(nova, instance_id, expected_status='ACTIVE'):
     instance = nova.servers.get(instance_id)
     while instance.status not in [expected_status, 'ERROR']:
-        LOG.debug('Instance %(id)s status: %(status)s',
-                  {'id': instance_id, 'status': instance.status})
+        LOG.debug('Instance %(id)s status: %(status)s. '
+                  'Waiting for status: "%(expected_status)s".',
+                  {'id': instance_id, 'status': instance.status,
+                   'expected_status': expected_status})
         time.sleep(2)
         instance = nova.servers.get(instance.id)
     if instance.status != expected_status:
@@ -105,7 +109,8 @@ def wait_for_instance(nova, instance_id, expected_status='ACTIVE'):
 def wait_for_instance_deletion(nova, instance_id):
     instances = nova.servers.findall(id=instance_id)
     while instances and instances[0].status != 'ERROR':
-        LOG.debug('Instance %(id)s status: %(status)s',
+        LOG.debug('Instance %(id)s status: %(status)s. '
+                  'Waiting for its deletion.',
                   {'id': instance_id, 'status': instances[0].status})
         time.sleep(2)
         instances = nova.servers.findall(id=instance_id)
@@ -176,8 +181,10 @@ def wait_for_volume(cinder, volume_id, expected_status='available'):
     volume = volumes[0]
 
     while volume.status not in [expected_status, 'error']:
-        LOG.debug('Volume %(id)s status: %(status)s',
-                  {'id': volume_id, 'status': volume.status})
+        LOG.debug('Volume %(id)s status: %(status)s. '
+                  'Waiting for status: "%(expected_status)s".',
+                  {'id': volume_id, 'status': volume.status,
+                   'expected_status': expected_status})
         time.sleep(2)
         volume = cinder.volumes.get(volume.id)
     if volume.status != expected_status:
@@ -209,8 +216,10 @@ def wait_for_volume_snapshot(cinder, snapshot_id,
     snapshot = snapshots[0]
 
     while snapshot.status not in [expected_status, 'error']:
-        LOG.debug('Volume snapshot %(id)s status: %(status)s',
-                  {'id': snapshot_id, 'status': snapshot.status})
+        LOG.debug('Volume snapshot %(id)s status: %(status)s. '
+                  'Waiting for status: "%(expected_status)s".',
+                  {'id': snapshot_id, 'status': snapshot.status,
+                   'expected_status': expected_status})
         time.sleep(2)
         if expected_status == 'deleted':
             snapshots = cinder.volume_snapshots.findall(id=snapshot_id)
@@ -254,8 +263,10 @@ def wait_for_volume_backup(cinder, backup_id, expected_status='available'):
     backup = backups[0]
 
     while backup.status not in [expected_status, 'error']:
-        LOG.debug('Volume backup %(id)s status: %(status)s',
-                  {'id': backup_id, 'status': backup.status})
+        LOG.debug('Volume backup %(id)s status: %(status)s. '
+                  'Waiting for status: "%(expected_status)s".',
+                  {'id': backup_id, 'status': backup.status,
+                   'expected_status': expected_status})
         time.sleep(2)
         if expected_status == 'deleted':
             backups = cinder.backups.findall(id=backup_id)
