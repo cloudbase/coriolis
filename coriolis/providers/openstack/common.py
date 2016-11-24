@@ -140,7 +140,7 @@ def wait_for_instance_deletion(nova, instance_id, timeout=300, period=2):
 def find_volume(cinder, volume_id):
     volumes = cinder.volumes.findall(id=volume_id)
     if volumes:
-        return volumes[0]
+        return utils.index_singleton_list(volumes)
 
 
 @utils.retry_on_error()
@@ -195,7 +195,7 @@ def wait_for_volume(cinder, volume_id, expected_status='available'):
     volumes = cinder.volumes.findall(id=volume_id)
     if not volumes:
         raise exception.VolumeNotFound(volume_id=volume_id)
-    volume = volumes[0]
+    volume = utils.index_singleton_list(volumes)
 
     while volume.status not in [expected_status, 'error']:
         LOG.debug('Volume %(id)s status: %(status)s. '
@@ -230,7 +230,7 @@ def wait_for_volume_snapshot(cinder, snapshot_id,
         if expected_status == 'deleted':
             return
         raise exception.VolumeSnapshotNotFound(snapshot_id=snapshot_id)
-    snapshot = snapshots[0]
+    snapshot = utils.index_singleton_list(snapshots)
 
     while snapshot.status not in [expected_status, 'error']:
         if expected_status == 'deleted' and snapshot.status == 'available':
@@ -249,7 +249,7 @@ def wait_for_volume_snapshot(cinder, snapshot_id,
             snapshots = cinder.volume_snapshots.findall(id=snapshot_id)
             if not snapshots:
                 return
-            snapshot = snapshots[0]
+            snapshot = utils.index_singleton_list(snapshots)
         else:
             snapshot = cinder.volume_snapshots.get(snapshot.id)
     if snapshot.status != expected_status:
@@ -284,7 +284,7 @@ def wait_for_volume_backup(cinder, backup_id, expected_status='available'):
         if expected_status == 'deleted':
             return
         raise exception.VolumeBackupNotFound(backup_id=backup_id)
-    backup = backups[0]
+    backup = utils.index_singleton_list(backups)
 
     while backup.status not in [expected_status, 'error']:
         LOG.debug('Volume backup %(id)s status: %(status)s. '
@@ -296,7 +296,7 @@ def wait_for_volume_backup(cinder, backup_id, expected_status='available'):
             backups = cinder.backups.findall(id=backup_id)
             if not backups:
                 return
-            backup = backups[0]
+            backup = utils.index_singleton_list(backups)
         else:
             backup = cinder.backups.get(backup.id)
     if backup.status != expected_status:
