@@ -231,6 +231,13 @@ def wait_for_volume_snapshot(cinder, snapshot_id,
     snapshot = snapshots[0]
 
     while snapshot.status not in [expected_status, 'error']:
+        if expected_status == 'deleted' and snapshot.status == 'available':
+            LOG.debug("Cinder volume snapshot '%s' became 'available' while "
+                      "waiting for its deletion. This may be the behavior "
+                      "of the Cinder driver being used, so no further "
+                      "deletion attempts will be made.",
+                      snapshot_id)
+
         LOG.debug('Volume snapshot %(id)s status: %(status)s. '
                   'Waiting for status: "%(expected_status)s".',
                   {'id': snapshot_id, 'status': snapshot.status,
