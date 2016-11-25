@@ -364,6 +364,7 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
              "delete_disks_on_vm_termination",
              "fip_pool_name",
              "network_map",
+             "storage_map",
              "keypair_name",
              "migr_image_name",
              "migr_flavor_name",
@@ -387,6 +388,7 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
             "delete_disks_on_vm_termination",
             CONF.openstack_migration_provider.delete_disks_on_vm_termination)
         config.network_map = target_environment.get("network_map", {})
+        config.storage_map = target_environment.get("storage_map", {})
         config.keypair_name = target_environment.get("keypair_name")
 
         config.migr_image_name = target_environment.get(
@@ -491,11 +493,36 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
             self._event_manager.progress_update(
                 "Creating Cinder volume")
 
+            volume_type = self._get_volume_type_for_disk(
+                cinder, disk_info, config.storage_map)
+
             volume = common.create_volume(
-                cinder, virtual_disk_size, common.get_unique_name(), image.id)
+                cinder, virtual_disk_size, common.get_unique_name(),
+                image.id, volume_type=volume_type)
             volumes.append(volume)
 
         return images, volumes
+
+    def _get_volume_type_for_disk(self, cinder, disk_info, storage_map):
+        if 'storage_backend_identifier' not in disk_info:
+            return None
+
+        source_stor = disk_info['storage_backend_identifier']
+        dest_stor = storage_map.get(source_stor, None)
+        if not dest_stor:
+            raise exception.CoriolisException(
+                'Unable to find mapping for storage system "%s" in the '
+                'storage_map for volume.' % source_stor)
+
+        found = utils.retry_on_error()(
+            cinder.volume_types.findall)(name=dest_stor)
+        if not found:
+            raise exception.CoriolisException(
+                'Unable to find volume type "%s" (mapped from "%s" on the '
+                'source). Please ensure the storage_map is correct' % (
+                    dest_stor, source_stor))
+
+        return dest_stor
 
     def _create_neutron_ports(self, neutron, config, nics_info):
         ports = []
@@ -776,8 +803,9 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
                 volumes_info.remove(volume_info)
         return volumes_info
 
-    def _create_new_disk_volumes(self, cinder, disks_info, volumes_info,
-                                 instance_name):
+    def _create_new_disk_volumes(
+            self, cinder, target_environment, disks_info,
+            volumes_info, instance_name):
         try:
             new_volumes = []
             for i, disk_info in enumerate(disks_info):
@@ -790,8 +818,14 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
 
                     volume_name = REPLICA_VOLUME_NAME_FORMAT % {
                         "instance_name": instance_name, "num": i + 1}
+
+                    storage_map = target_environment.get(
+                        'storage_map', {})
+                    volume_type = self._get_volume_type_for_disk(
+                        cinder, disk_info, storage_map)
                     volume = common.create_volume(
-                        cinder, virtual_disk_size, volume_name)
+                        cinder, virtual_disk_size, volume_name,
+                        volume_type=volume_type)
 
                     new_volumes.append(volume)
                     volumes_info.append({
@@ -826,7 +860,8 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
             cinder, disks_info, volumes_info)
 
         volumes_info = self._create_new_disk_volumes(
-            cinder, disks_info, volumes_info, instance_name)
+            cinder, target_environment, disks_info,
+            volumes_info, instance_name)
 
         return volumes_info
 

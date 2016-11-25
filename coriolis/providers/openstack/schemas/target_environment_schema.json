@@ -7,6 +7,9 @@
         "network_map": {
           "type": "object"
         },
+        "storage_map": {
+          "type": "object"
+        },
         "glance_upload": {
           "type": "boolean"
         },
