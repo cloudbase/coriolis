@@ -46,6 +46,10 @@ opts = [
     cfg.StrOpt('glance_upload',
                default=True,
                help='Set to "True" to use Glance to upload images.'),
+    cfg.StrOpt('default_cinder_volume_type',
+               default='',
+               help='Name of the Cinder volume type to be used for '
+                    'volumes with unspecified storage backing options.'),
     cfg.DictOpt('migr_image_name_map',
                 default={},
                 help='Default image names used for worker instances during '
@@ -504,24 +508,42 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
         return images, volumes
 
     def _get_volume_type_for_disk(self, cinder, disk_info, storage_map):
-        if 'storage_backend_identifier' not in disk_info:
-            return None
+        default = CONF.openstack_migration_provider.default_cinder_volume_type
+        if not default:
+            # NOTE: needed so as to explicitly use None instead of an
+            # empty string in case a default is not configured.
+            default = None
 
-        source_stor = disk_info['storage_backend_identifier']
-        dest_stor = storage_map.get(source_stor, None)
-        if not dest_stor:
-            raise exception.CoriolisException(
-                'Unable to find mapping for storage system "%s" in the '
-                'storage_map for volume.' % source_stor)
+        dest_stor = None
+        source_stor = None
+        if 'storage_backend_identifier' in disk_info:
+            # if 'storage_backend_identifier' was provided, fetch its
+            # correspondent from the 'storage_map' or use the default.
+            source_stor = disk_info['storage_backend_identifier']
+            dest_stor = storage_map.get(source_stor, None)
+            if not dest_stor:
+                LOG.debug(
+                    'Unable to find mapping for storage system "%s" in the '
+                    'storage_map for volume "%s". Setting volume type to the '
+                    'configured default of \"%s\"',
+                    source_stor, disk_info['path'], default)
+                dest_stor = default
+        else:
+            # else if unspecified, just use the default volume type:
+            LOG.debug("No 'storage_backend_identifier' provided for disk %s. "
+                     "Trying to use default volume type of '%s'", default)
+            dest_stor = default
 
-        found = utils.retry_on_error()(
-            cinder.volume_types.findall)(name=dest_stor)
-        if not found:
+        # ensure the volume type exists:
+        if dest_stor and not utils.retry_on_error()(
+                cinder.volume_types.findall)(name=dest_stor):
             raise exception.CoriolisException(
                 'Unable to find volume type "%s" (mapped from "%s" on the '
                 'source). Please ensure the storage_map is correct' % (
                     dest_stor, source_stor))
 
+        LOG.info("Chosen volume_type for disk '%s' is '%s'",
+                 disk_info['path'], dest_stor)
         return dest_stor
 
     def _create_neutron_ports(self, neutron, config, nics_info):
