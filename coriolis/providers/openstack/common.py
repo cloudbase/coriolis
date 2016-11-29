@@ -197,7 +197,14 @@ def wait_for_volume(cinder, volume_id, expected_status='available'):
         raise exception.VolumeNotFound(volume_id=volume_id)
     volume = utils.index_singleton_list(volumes)
 
-    while volume.status not in [expected_status, 'error']:
+    terminal_statuses = [expected_status, 'error']
+    if expected_status == 'in-use':
+        # if we're waiting for a volume to become attached, we are guaranteed
+        # that its status would no longer be 'available' the moment the
+        # attachment request is accepted.
+        terminal_statuses.append('available')
+
+    while volume.status not in terminal_statuses:
         LOG.debug('Volume %(id)s status: %(status)s. '
                   'Waiting for status: "%(expected_status)s".',
                   {'id': volume_id, 'status': volume.status,
