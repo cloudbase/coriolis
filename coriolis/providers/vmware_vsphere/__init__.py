@@ -243,6 +243,8 @@ class ExportProvider(base.BaseExportProvider, base.BaseReplicaExportProvider):
                           'unit_number': device.unitNumber,
                           'id': device.key,
                           'controller_id': device.controllerKey,
+                          'storage_backend_identifier':
+                              device.backing.datastore.name,
                           'path': device.backing.fileName,
                           'format': constants.DISK_FORMAT_VMDK})
 
