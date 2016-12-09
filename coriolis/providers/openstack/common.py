@@ -21,10 +21,6 @@ CINDER_API_VERSION = 2
 
 LOG = logging.getLogger(__name__)
 
-SERVER_STATUS_ERROR = 'ERROR'
-SERVER_STATUS_ACTIVE = 'ACTIVE'
-SERVER_STATUS_SHUTOFF = 'SHUTOFF'
-
 
 GlanceImage = collections.namedtuple(
     "GlanceImage", "id format size path os_type")
@@ -115,7 +111,7 @@ def wait_for_instance_deletion(nova, instance_id, timeout=300, period=2):
     endtime = time.time() + timeout
     while time.time() < endtime and instances:
         instance = utils.index_singleton_list(instances)
-        if instance.status == SERVER_STATUS_ERROR:
+        if instance.status == 'error':
             raise exception.CoriolisException(
                 "Instance \"%s\" has reached invalid state \"%s\" while "
                 "deleting." % (instance_id, instance.status))
