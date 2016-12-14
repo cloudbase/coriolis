@@ -10,6 +10,10 @@ class BaseProvider(object):
     __metaclass__ = abc.ABCMeta
 
     @property
+    def platform(self):
+        raise NotImplementedError("Missing provider platform attribute.")
+
+    @property
     def connection_info_schema(self):
         raise NotImplementedError("Missing connection info schema.")
 
