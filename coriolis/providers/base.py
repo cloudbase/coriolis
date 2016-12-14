@@ -22,7 +22,13 @@ class BaseProvider(object):
         """ Checks the provided connection info and raises an exception
         if it is invalid.
         """
-        schemas.validate_value(connection_info, self.connection_info_schema)
+        try:
+            schemas.validate_value(
+                connection_info, self.connection_info_schema)
+        except Exception as ex:
+            raise Exception(
+                "Error validating provider '%s' connection "
+                "info: %s" % str(ex)) from ex
 
 
 class BaseImportProvider(BaseProvider):
@@ -40,10 +46,10 @@ class BaseImportProvider(BaseProvider):
         try:
             schemas.validate_value(
                 target_environment, self.target_environment_schema)
-        except:
-            return False
-
-        return True
+        except Exception as ex:
+            raise Exception(
+                "Error validating provider '%s' target environment: %s" % (
+                    self.platform, str(ex))) from ex
 
     @abc.abstractmethod
     def import_instance(self, ctxt, connection_info, target_environment,
