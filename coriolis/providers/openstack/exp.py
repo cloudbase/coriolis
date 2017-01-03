@@ -305,9 +305,11 @@ class ExportProvider(base.BaseExportProvider, base.BaseReplicaExportProvider):
 
         data = swift.get_object(container, name)[1]
 
-        if compression == 'zlib':
+        if compression == 'none':
+            pass
+        elif compression == 'zlib':
             data = zlib.decompress(data)
-        elif compression:
+        else:
             raise exception.CoriolisException(
                 "Unsupported compression format: %s" % compression)
 
