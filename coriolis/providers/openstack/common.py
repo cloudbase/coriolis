@@ -8,7 +8,6 @@ import uuid
 
 from oslo_log import log as logging
 from oslo_utils import units
-from swiftclient import client as swift_client
 
 from coriolis import exception
 from coriolis import utils
@@ -285,10 +284,3 @@ def find_volume_backups(cinder, volume_id=None, container=None):
 @utils.retry_on_error()
 def get_instance_volumes(nova, instance_id):
     return nova.volumes.get_server_volumes(instance_id)
-
-
-def get_swift_client(session):
-    preauthurl = session.get_endpoint(service_type="object-store")
-    preauthtoken = session.get_token()
-    return swift_client.Connection(preauthurl=preauthurl,
-                                   preauthtoken=preauthtoken)
