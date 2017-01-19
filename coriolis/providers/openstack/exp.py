@@ -12,6 +12,7 @@ from novaclient import client as nova_client
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import units
+from swiftclient import client as swift_client
 
 from coriolis import constants
 from coriolis import events
@@ -324,7 +325,7 @@ class ExportProvider(base.BaseExportProvider, base.BaseReplicaExportProvider):
         session = keystone.create_keystone_session(ctxt, connection_info)
         cinder = cinder_client.Client(common.CINDER_API_VERSION,
                                       session=session)
-        swift = common.get_swift_client(session)
+        swift = swift_client.Connection(session=session)
 
         ip = target_conn_info["ip"]
         port = target_conn_info.get("port", 22)

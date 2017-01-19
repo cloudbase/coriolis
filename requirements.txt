@@ -25,7 +25,7 @@ python-keystoneclient
 python-neutronclient
 python-novaclient
 python-barbicanclient
-python-swiftclient
+python-swiftclient>=3.2
 pyVmomi
 pywinrm
 PyYAML
