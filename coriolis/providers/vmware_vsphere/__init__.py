@@ -14,6 +14,7 @@ import uuid
 import eventlet
 from oslo_config import cfg
 from oslo_log import log as logging
+from oslo_utils import units
 from pyVim import connect
 from pyVmomi import vim
 
@@ -226,7 +227,19 @@ class ExportProvider(base.BaseExportProvider, base.BaseReplicaExportProvider):
         devices = [d for d in vm.config.hardware.device if
                    isinstance(d, vim.vm.device.VirtualDisk)]
         for device in devices:
-            disks.append({'size_bytes': device.capacityInBytes,
+            size = None
+            if hasattr(device, 'capacityInBytes'):
+                # vSphere >= 5.5
+                size = device.capacityInBytes
+            elif hasattr(device, 'capacityInKB'):
+                # vSphere <= 5.5, though left for backwards compatibility
+                size = device.capacityInKB * units.Ki
+            else:
+                raise exception.CoriolisException(
+                    "Cannot determine size of disk "
+                    "%s" % device.backing.fileName)
+
+            disks.append({'size_bytes': size,
                           'unit_number': device.unitNumber,
                           'id': device.key,
                           'controller_id': device.controllerKey,
