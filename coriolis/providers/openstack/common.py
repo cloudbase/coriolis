@@ -242,6 +242,7 @@ def wait_for_volume_snapshot(cinder, snapshot_id,
                       "of the Cinder driver being used, so no further "
                       "deletion attempts will be made.",
                       snapshot_id)
+            return
 
         LOG.debug('Volume snapshot %(id)s status: %(status)s. '
                   'Waiting for status: "%(expected_status)s".',
