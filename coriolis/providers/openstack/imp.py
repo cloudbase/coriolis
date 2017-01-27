@@ -39,6 +39,10 @@ opts = [
                default=True,
                help='Set to "True" to boot from volume by default instead of '
                'using local storage.'),
+    cfg.StrOpt('delete_disks_on_vm_termination',
+               default=False,
+               help='Configure Cinder volumes to be deleted on an eventual '
+                    'termination of the migrated/replicated instance.'),
     cfg.StrOpt('glance_upload',
                default=True,
                help='Set to "True" to use Glance to upload images.'),
@@ -357,6 +361,7 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
              "target_disk_format",
              "container_format",
              "hypervisor_type",
+             "delete_disks_on_vm_termination",
              "fip_pool_name",
              "network_map",
              "keypair_name",
@@ -378,6 +383,9 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
             CONF.openstack_migration_provider.hypervisor_type)
         config.fip_pool_name = target_environment.get(
             "fip_pool_name", CONF.openstack_migration_provider.fip_pool_name)
+        config.delete_disks_on_vm_termination = target_environment.get(
+            "delete_disks_on_vm_termination",
+            CONF.openstack_migration_provider.delete_disks_on_vm_termination)
         config.network_map = target_environment.get("network_map", {})
         config.keypair_name = target_environment.get("keypair_name")
 
@@ -633,7 +641,8 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
                 "Creating migrated instance")
             self._create_target_instance(
                 nova, config.flavor_name, instance_name,
-                config.keypair_name, ports, volumes)
+                config.keypair_name, ports, volumes,
+                ephemeral_volumes=config.delete_disks_on_vm_termination)
         except:
             if not volumes_info or clone_disks:
                 # Don't remove replica volumes
@@ -676,14 +685,16 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
     @utils.retry_on_error(max_attempts=10, sleep_seconds=30,
                           terminal_exceptions=[exception.NotFound])
     def _create_target_instance(self, nova, flavor_name, instance_name,
-                                keypair_name, ports, volumes):
+                                keypair_name, ports, volumes,
+                                ephemeral_volumes=False):
         flavor = common.get_flavor(nova, flavor_name)
 
         block_device_mapping = {}
         for i, volume in enumerate(volumes):
             # Delete volume on termination
             block_device_mapping[
-                'vd%s' % chr(ord('a') + i)] = "%s:volume::True" % volume.id
+                'vd%s' % chr(ord('a') + i)] = "%s:volume::%s" % (
+                    volume.id, ephemeral_volumes)
 
         nics = [{'port-id': p['id']} for p in ports]
 
