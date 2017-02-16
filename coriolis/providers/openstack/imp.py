@@ -495,8 +495,9 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
         for nic_info in nics_info:
             origin_network_name = nic_info.get("network_name")
             if not origin_network_name:
-                self._warn("Origin network name not provided for for nic: "
-                           "%s, skipping", nic_info.get("name"))
+                self._event_manager.progress_update(
+                    "Origin network name not provided for nic: %s, skipping" % 
+                    nic_info.get("name"))
                 continue
 
             network_name = config.network_map.get(origin_network_name)
