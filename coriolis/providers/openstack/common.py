@@ -106,10 +106,12 @@ def wait_for_instance(nova, instance_id, expected_status='ACTIVE'):
 
 
 @utils.retry_on_error(terminal_exceptions=[exception.CoriolisException])
-def wait_for_instance_deletion(nova, instance_id, timeout=300, period=2):
+def wait_for_instance_deletion(
+        nova, instance_id, max_retries=150, retry_period=2):
     instances = nova.servers.findall(id=instance_id)
-    endtime = time.time() + timeout
-    while time.time() < endtime and instances:
+    i = 0
+    while i < max_retries and instances:
+        i = i + 1
         instance = utils.get_single_result(instances)
         if instance.status == 'error':
             raise exception.CoriolisException(
@@ -119,16 +121,16 @@ def wait_for_instance_deletion(nova, instance_id, timeout=300, period=2):
         LOG.debug('Instance %(id)s status: %(status)s. '
                   'Waiting %(period)s seconds for its deletion.',
                   {'id': instance_id, 'status': instance.status,
-                   'period': period})
-        time.sleep(period)
+                   'period': retry_period})
+        time.sleep(retry_period)
         instances = nova.servers.findall(id=instance_id)
 
     if instances:
         instance = utils.get_single_result(instances)
         raise exception.CoriolisException(
-            "Timeout of %(timeout)s seconds reached while waiting for VM "
+            "Max attempts of %(attempts)s reached while waiting for VM "
             "\"%(instance_id)s\" deletion. Last known status: \"%(status)s\"" %
-            {'timeout': timeout, 'status': instance.status,
+            {'attempts': max_retries, 'status': instance.status,
              'instance_id': instance_id})
 
 
