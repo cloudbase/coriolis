@@ -49,6 +49,18 @@ def ignore_exceptions(func):
     return _ignore_exceptions
 
 
+def get_single_result(lis):
+    """ Indexes the head of a single element list.
+    Raises a KeyError if the list is empty or its length is greater than 1.
+    """
+    if len(lis) == 0:
+        raise KeyError("Result list is empty.")
+    elif len(lis) > 1:
+        raise KeyError("More than one result in list: '%s'" % lis)
+
+    return lis[0]
+
+
 def retry_on_error(max_attempts=5, sleep_seconds=0,
                    terminal_exceptions=[]):
     def _retry_on_error(func):

@@ -79,8 +79,10 @@ def _create_image_v1(glance, name, disk_path, disk_format, container_format,
 def wait_for_image(nova, image_id, expected_status='ACTIVE'):
     image = nova.images.get(image_id)
     while image.status not in [expected_status, 'ERROR']:
-        LOG.debug('Image %(id)s status: %(status)s',
-                  {'id': image_id, 'status': image.status})
+        LOG.debug('Image "%(id)s" in status: "%(status)s". '
+                  'Waiting for status: "%(expected_status)s".',
+                  {'id': image_id, 'status': image.status,
+                   'expected_status': expected_status})
         time.sleep(2)
         image = nova.images.get(image.id)
     if image.status != expected_status:
@@ -92,8 +94,10 @@ def wait_for_image(nova, image_id, expected_status='ACTIVE'):
 def wait_for_instance(nova, instance_id, expected_status='ACTIVE'):
     instance = nova.servers.get(instance_id)
     while instance.status not in [expected_status, 'ERROR']:
-        LOG.debug('Instance %(id)s status: %(status)s',
-                  {'id': instance_id, 'status': instance.status})
+        LOG.debug('Instance %(id)s status: %(status)s. '
+                  'Waiting for status: "%(expected_status)s".',
+                  {'id': instance_id, 'status': instance.status,
+                   'expected_status': expected_status})
         time.sleep(2)
         instance = nova.servers.get(instance.id)
     if instance.status != expected_status:
@@ -101,24 +105,40 @@ def wait_for_instance(nova, instance_id, expected_status='ACTIVE'):
             "VM is in status: %s" % instance.status)
 
 
-@utils.retry_on_error()
-def wait_for_instance_deletion(nova, instance_id):
+@utils.retry_on_error(terminal_exceptions=[exception.CoriolisException])
+def wait_for_instance_deletion(
+        nova, instance_id, max_retries=150, retry_period=2):
     instances = nova.servers.findall(id=instance_id)
-    while instances and instances[0].status != 'ERROR':
-        LOG.debug('Instance %(id)s status: %(status)s',
-                  {'id': instance_id, 'status': instances[0].status})
-        time.sleep(2)
+    i = 0
+    while i < max_retries and instances:
+        i = i + 1
+        instance = utils.get_single_result(instances)
+        if instance.status == 'error':
+            raise exception.CoriolisException(
+                "Instance \"%s\" has reached invalid state \"%s\" while "
+                "deleting." % (instance_id, instance.status))
+
+        LOG.debug('Instance %(id)s status: %(status)s. '
+                  'Waiting %(period)s seconds for its deletion.',
+                  {'id': instance_id, 'status': instance.status,
+                   'period': retry_period})
+        time.sleep(retry_period)
         instances = nova.servers.findall(id=instance_id)
+
     if instances:
+        instance = utils.get_single_result(instances)
         raise exception.CoriolisException(
-            "VM is in status: %s" % instances[0].status)
+            "Max attempts of %(attempts)s reached while waiting for VM "
+            "\"%(instance_id)s\" deletion. Last known status: \"%(status)s\"" %
+            {'attempts': max_retries, 'status': instance.status,
+             'instance_id': instance_id})
 
 
 @utils.retry_on_error()
 def find_volume(cinder, volume_id):
     volumes = cinder.volumes.findall(id=volume_id)
     if volumes:
-        return volumes[0]
+        return utils.get_single_result(volumes)
 
 
 @utils.retry_on_error()
@@ -173,11 +193,20 @@ def wait_for_volume(cinder, volume_id, expected_status='available'):
     volumes = cinder.volumes.findall(id=volume_id)
     if not volumes:
         raise exception.VolumeNotFound(volume_id=volume_id)
-    volume = volumes[0]
+    volume = utils.get_single_result(volumes)
 
-    while volume.status not in [expected_status, 'error']:
-        LOG.debug('Volume %(id)s status: %(status)s',
-                  {'id': volume_id, 'status': volume.status})
+    terminal_statuses = [expected_status, 'error']
+    if expected_status == 'in-use':
+        # if we're waiting for a volume to become attached, we are guaranteed
+        # that its status would no longer be 'available' the moment the
+        # attachment request is accepted.
+        terminal_statuses.append('available')
+
+    while volume.status not in terminal_statuses:
+        LOG.debug('Volume %(id)s status: %(status)s. '
+                  'Waiting for status: "%(expected_status)s".',
+                  {'id': volume_id, 'status': volume.status,
+                   'expected_status': expected_status})
         time.sleep(2)
         volume = cinder.volumes.get(volume.id)
     if volume.status != expected_status:
@@ -206,17 +235,27 @@ def wait_for_volume_snapshot(cinder, snapshot_id,
         if expected_status == 'deleted':
             return
         raise exception.VolumeSnapshotNotFound(snapshot_id=snapshot_id)
-    snapshot = snapshots[0]
+    snapshot = utils.get_single_result(snapshots)
 
     while snapshot.status not in [expected_status, 'error']:
-        LOG.debug('Volume snapshot %(id)s status: %(status)s',
-                  {'id': snapshot_id, 'status': snapshot.status})
+        if expected_status == 'deleted' and snapshot.status == 'available':
+            LOG.debug("Cinder volume snapshot '%s' became 'available' while "
+                      "waiting for its deletion. This may be the behavior "
+                      "of the Cinder driver being used, so no further "
+                      "deletion attempts will be made.",
+                      snapshot_id)
+            return
+
+        LOG.debug('Volume snapshot %(id)s status: %(status)s. '
+                  'Waiting for status: "%(expected_status)s".',
+                  {'id': snapshot_id, 'status': snapshot.status,
+                   'expected_status': expected_status})
         time.sleep(2)
         if expected_status == 'deleted':
             snapshots = cinder.volume_snapshots.findall(id=snapshot_id)
             if not snapshots:
                 return
-            snapshot = snapshots[0]
+            snapshot = utils.get_single_result(snapshots)
         else:
             snapshot = cinder.volume_snapshots.get(snapshot.id)
     if snapshot.status != expected_status:
@@ -251,17 +290,19 @@ def wait_for_volume_backup(cinder, backup_id, expected_status='available'):
         if expected_status == 'deleted':
             return
         raise exception.VolumeBackupNotFound(backup_id=backup_id)
-    backup = backups[0]
+    backup = utils.get_single_result(backups)
 
     while backup.status not in [expected_status, 'error']:
-        LOG.debug('Volume backup %(id)s status: %(status)s',
-                  {'id': backup_id, 'status': backup.status})
+        LOG.debug('Volume backup %(id)s status: %(status)s. '
+                  'Waiting for status: "%(expected_status)s".',
+                  {'id': backup_id, 'status': backup.status,
+                   'expected_status': expected_status})
         time.sleep(2)
         if expected_status == 'deleted':
             backups = cinder.backups.findall(id=backup_id)
             if not backups:
                 return
-            backup = backups[0]
+            backup = utils.get_single_result(backups)
         else:
             backup = cinder.backups.get(backup.id)
     if backup.status != expected_status:
