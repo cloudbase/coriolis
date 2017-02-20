@@ -46,6 +46,10 @@ opts = [
     cfg.StrOpt('glance_upload',
                default=True,
                help='Set to "True" to use Glance to upload images.'),
+    cfg.StrOpt('default_cinder_volume_type',
+               default='',
+               help='Name of the Cinder volume type to be used for '
+                    'volumes with unspecified storage backing options.'),
     cfg.DictOpt('migr_image_name_map',
                 default={},
                 help='Default image names used for worker instances during '
@@ -364,6 +368,7 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
              "delete_disks_on_vm_termination",
              "fip_pool_name",
              "network_map",
+             "storage_map",
              "keypair_name",
              "migr_image_name",
              "migr_flavor_name",
@@ -387,6 +392,7 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
             "delete_disks_on_vm_termination",
             CONF.openstack_migration_provider.delete_disks_on_vm_termination)
         config.network_map = target_environment.get("network_map", {})
+        config.storage_map = target_environment.get("storage_map", {})
         config.keypair_name = target_environment.get("keypair_name")
 
         config.migr_image_name = target_environment.get(
@@ -491,11 +497,54 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
             self._event_manager.progress_update(
                 "Creating Cinder volume")
 
+            volume_type = self._get_volume_type_for_disk(
+                cinder, disk_info, config.storage_map)
+
             volume = common.create_volume(
-                cinder, virtual_disk_size, common.get_unique_name(), image.id)
+                cinder, virtual_disk_size, common.get_unique_name(),
+                image.id, volume_type=volume_type)
             volumes.append(volume)
 
         return images, volumes
+
+    def _get_volume_type_for_disk(self, cinder, disk_info, storage_map):
+        default = CONF.openstack_migration_provider.default_cinder_volume_type
+        if not default:
+            # NOTE: needed so as to explicitly use None instead of an
+            # empty string in case a default is not configured.
+            default = None
+
+        dest_stor = None
+        source_stor = None
+        if 'storage_backend_identifier' in disk_info:
+            # if 'storage_backend_identifier' was provided, fetch its
+            # correspondent from the 'storage_map' or use the default.
+            source_stor = disk_info['storage_backend_identifier']
+            dest_stor = storage_map.get(source_stor, None)
+            if not dest_stor:
+                LOG.debug(
+                    'Unable to find mapping for storage system "%s" in the '
+                    'storage_map for volume "%s". Setting volume type to the '
+                    'configured default of \"%s\"',
+                    source_stor, disk_info['path'], default)
+                dest_stor = default
+        else:
+            # else if unspecified, just use the default volume type:
+            LOG.debug("No 'storage_backend_identifier' provided for disk %s. "
+                     "Trying to use default volume type of '%s'", default)
+            dest_stor = default
+
+        # ensure the volume type exists:
+        if dest_stor and not utils.retry_on_error()(
+                cinder.volume_types.findall)(name=dest_stor):
+            raise exception.CoriolisException(
+                'Unable to find volume type "%s" (mapped from "%s" on the '
+                'source). Please ensure the storage_map is correct' % (
+                    dest_stor, source_stor))
+
+        LOG.info("Chosen volume_type for disk '%s' is '%s'",
+                 disk_info['path'], dest_stor)
+        return dest_stor
 
     def _create_neutron_ports(self, neutron, config, nics_info):
         ports = []
@@ -776,8 +825,9 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
                 volumes_info.remove(volume_info)
         return volumes_info
 
-    def _create_new_disk_volumes(self, cinder, disks_info, volumes_info,
-                                 instance_name):
+    def _create_new_disk_volumes(
+            self, cinder, target_environment, disks_info,
+            volumes_info, instance_name):
         try:
             new_volumes = []
             for i, disk_info in enumerate(disks_info):
@@ -790,8 +840,14 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
 
                     volume_name = REPLICA_VOLUME_NAME_FORMAT % {
                         "instance_name": instance_name, "num": i + 1}
+
+                    storage_map = target_environment.get(
+                        'storage_map', {})
+                    volume_type = self._get_volume_type_for_disk(
+                        cinder, disk_info, storage_map)
                     volume = common.create_volume(
-                        cinder, virtual_disk_size, volume_name)
+                        cinder, virtual_disk_size, volume_name,
+                        volume_type=volume_type)
 
                     new_volumes.append(volume)
                     volumes_info.append({
@@ -826,7 +882,8 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
             cinder, disks_info, volumes_info)
 
         volumes_info = self._create_new_disk_volumes(
-            cinder, disks_info, volumes_info, instance_name)
+            cinder, target_environment, disks_info,
+            volumes_info, instance_name)
 
         return volumes_info
 

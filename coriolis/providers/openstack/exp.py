@@ -179,6 +179,7 @@ class ExportProvider(base.BaseExportProvider, base.BaseReplicaExportProvider):
                 'format': constants.DISK_FORMAT_RAW,
                 'guest_device': vol_attachment.device,
                 'size_bytes': volume.size * units.Gi,
+                'storage_backend_identifier': volume.volume_type,
                 'path': '',
                 'id': volume.id
             })

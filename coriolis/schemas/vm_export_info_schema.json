@@ -76,6 +76,10 @@
               },
               "controller_id": {
                 "$ref": "#/definitions/numberOrString"
+              },
+              "storage_backend_identifier": {
+                  "type": "string",
+                  "help": "A string identifier for the storage system the disk is hosted on."
               }
             },
             "required": [

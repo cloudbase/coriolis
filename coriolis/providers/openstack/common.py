@@ -154,7 +154,8 @@ def get_volume_from_snapshot(cinder, snapshot_id):
 
 
 @utils.retry_on_error()
-def create_volume(cinder, size, name, image_ref=None, snapshot_id=None):
+def create_volume(cinder, size, name, image_ref=None,
+                  snapshot_id=None, volume_type=None):
     if snapshot_id:
         volume_size_gb = None
     else:
@@ -162,6 +163,7 @@ def create_volume(cinder, size, name, image_ref=None, snapshot_id=None):
     return cinder.volumes.create(
         size=volume_size_gb,
         name=name,
+        volume_type=volume_type,
         imageRef=image_ref,
         snapshot_id=snapshot_id)
 
