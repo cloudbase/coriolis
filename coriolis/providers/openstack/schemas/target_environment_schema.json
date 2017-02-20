@@ -13,6 +13,9 @@
         "disk_format": {
           "type": "string"
         },
+        "delete_disks_on_vm_termination": {
+            "type": "boolean"
+        },
         "container_format": {
           "type": "string"
         },
