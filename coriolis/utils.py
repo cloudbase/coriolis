@@ -49,7 +49,7 @@ def ignore_exceptions(func):
     return _ignore_exceptions
 
 
-def index_singleton_list(lis):
+def get_single_result(lis):
     """ Indexes the head of a single element list.
     Raises a KeyError if the list is empty or its length is greater than 1.
     """

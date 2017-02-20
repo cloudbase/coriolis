@@ -110,7 +110,7 @@ def wait_for_instance_deletion(nova, instance_id, timeout=300, period=2):
     instances = nova.servers.findall(id=instance_id)
     endtime = time.time() + timeout
     while time.time() < endtime and instances:
-        instance = utils.index_singleton_list(instances)
+        instance = utils.get_single_result(instances)
         if instance.status == 'error':
             raise exception.CoriolisException(
                 "Instance \"%s\" has reached invalid state \"%s\" while "
@@ -124,7 +124,7 @@ def wait_for_instance_deletion(nova, instance_id, timeout=300, period=2):
         instances = nova.servers.findall(id=instance_id)
 
     if instances:
-        instance = utils.index_singleton_list(instances)
+        instance = utils.get_single_result(instances)
         raise exception.CoriolisException(
             "Timeout of %(timeout)s seconds reached while waiting for VM "
             "\"%(instance_id)s\" deletion. Last known status: \"%(status)s\"" %
@@ -136,7 +136,7 @@ def wait_for_instance_deletion(nova, instance_id, timeout=300, period=2):
 def find_volume(cinder, volume_id):
     volumes = cinder.volumes.findall(id=volume_id)
     if volumes:
-        return utils.index_singleton_list(volumes)
+        return utils.get_single_result(volumes)
 
 
 @utils.retry_on_error()
@@ -191,7 +191,7 @@ def wait_for_volume(cinder, volume_id, expected_status='available'):
     volumes = cinder.volumes.findall(id=volume_id)
     if not volumes:
         raise exception.VolumeNotFound(volume_id=volume_id)
-    volume = utils.index_singleton_list(volumes)
+    volume = utils.get_single_result(volumes)
 
     terminal_statuses = [expected_status, 'error']
     if expected_status == 'in-use':
@@ -233,7 +233,7 @@ def wait_for_volume_snapshot(cinder, snapshot_id,
         if expected_status == 'deleted':
             return
         raise exception.VolumeSnapshotNotFound(snapshot_id=snapshot_id)
-    snapshot = utils.index_singleton_list(snapshots)
+    snapshot = utils.get_single_result(snapshots)
 
     while snapshot.status not in [expected_status, 'error']:
         if expected_status == 'deleted' and snapshot.status == 'available':
@@ -253,7 +253,7 @@ def wait_for_volume_snapshot(cinder, snapshot_id,
             snapshots = cinder.volume_snapshots.findall(id=snapshot_id)
             if not snapshots:
                 return
-            snapshot = utils.index_singleton_list(snapshots)
+            snapshot = utils.get_single_result(snapshots)
         else:
             snapshot = cinder.volume_snapshots.get(snapshot.id)
     if snapshot.status != expected_status:
@@ -288,7 +288,7 @@ def wait_for_volume_backup(cinder, backup_id, expected_status='available'):
         if expected_status == 'deleted':
             return
         raise exception.VolumeBackupNotFound(backup_id=backup_id)
-    backup = utils.index_singleton_list(backups)
+    backup = utils.get_single_result(backups)
 
     while backup.status not in [expected_status, 'error']:
         LOG.debug('Volume backup %(id)s status: %(status)s. '
@@ -300,7 +300,7 @@ def wait_for_volume_backup(cinder, backup_id, expected_status='available'):
             backups = cinder.backups.findall(id=backup_id)
             if not backups:
                 return
-            backup = utils.index_singleton_list(backups)
+            backup = utils.get_single_result(backups)
         else:
             backup = cinder.backups.get(backup.id)
     if backup.status != expected_status:
