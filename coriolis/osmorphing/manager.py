@@ -26,10 +26,10 @@ def morph_image(connection_info, os_type, target_hypervisor, target_platform,
 
     os_morphing_tools.set_net_config(nics_info, dhcp=True)
     LOG.info("Pre packages")
-    os_morphing_tools.pre_packages_install()
-
     (packages_add,
      packages_remove) = os_morphing_tools.get_packages()
+
+    os_morphing_tools.pre_packages_install(packages_add)
 
     if packages_remove:
         event_manager.progress_update(
@@ -42,7 +42,7 @@ def morph_image(connection_info, os_type, target_hypervisor, target_platform,
         os_morphing_tools.install_packages(packages_add)
 
     LOG.info("Post packages")
-    os_morphing_tools.post_packages_install()
+    os_morphing_tools.post_packages_install(packages_add)
 
     event_manager.progress_update("Dismounting OS partitions")
     os_mount_tools.dismount_os(other_mounted_dirs + [os_root_dir])

@@ -22,9 +22,9 @@ class OracleMorphingTools(redhat.RedHatMorphingTools):
     def install_packages(self, package_names):
         self._yum_install(package_names, self._enable_repos)
 
-    def pre_packages_install(self):
+    def pre_packages_install(self, package_names):
         self._enable_repos = []
-        super(OracleMorphingTools, self).pre_packages_install()
+        super(OracleMorphingTools, self).pre_packages_install(package_names)
 
         if self._platform == constants.PLATFORM_OPENSTACK:
             self._enable_cloud_init_repos()
