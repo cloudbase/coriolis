@@ -15,12 +15,12 @@ def morph_image(connection_info, os_type, target_hypervisor, target_platform,
         os_type, connection_info, event_manager, ignore_devices)
 
     event_manager.progress_update("Discovering and mounting OS partitions")
-    os_root_dir, other_mounted_dirs = os_mount_tools.mount_os()
+    os_root_dir, other_mounted_dirs, os_root_dev = os_mount_tools.mount_os()
 
     conn = os_mount_tools.get_connection()
     os_morphing_tools, os_info = osmorphing_factory.get_os_morphing_tools(
-        conn, os_type, os_root_dir, target_hypervisor, target_platform,
-        event_manager)
+        conn, os_type, os_root_dir, os_root_dev, target_hypervisor,
+        target_platform, event_manager)
 
     event_manager.progress_update('OS being migrated: %s' % str(os_info))
 

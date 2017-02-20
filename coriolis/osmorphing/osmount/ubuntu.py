@@ -87,6 +87,7 @@ class UbuntuOSMountTools(base.BaseSSHOSMountTools):
                 utils.check_fs(self._ssh, fs_type, dev_path)
                 dev_paths_to_mount.append(dev_path)
 
+        os_root_device = None
         os_root_dir = None
         boot_dev_path = None
         for dev_path in dev_paths_to_mount:
@@ -98,6 +99,7 @@ class UbuntuOSMountTools(base.BaseSSHOSMountTools):
             if (not os_root_dir and 'etc' in dirs and 'bin' in dirs and
                     'sbin' in dirs):
                 os_root_dir = tmp_dir
+                os_root_device = dev_path
                 LOG.info("OS root device: %s", dev_path)
             # TODO: better ways to check for a linux boot dir?
             else:
@@ -127,7 +129,7 @@ class UbuntuOSMountTools(base.BaseSSHOSMountTools):
             self._exec_cmd('sudo mount %s %s' % (boot_dev_path, boot_dir))
             other_mounted_dirs.append(boot_dir)
 
-        return os_root_dir, other_mounted_dirs
+        return os_root_dir, other_mounted_dirs, os_root_device
 
     def dismount_os(self, dirs):
         for dir in dirs:
