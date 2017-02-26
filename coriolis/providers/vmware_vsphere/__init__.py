@@ -426,7 +426,7 @@ class ExportProvider(base.BaseExportProvider, base.BaseReplicaExportProvider):
                 if l:
                     disk_path = l[0]
                     if incremental:
-                        change_id = disk_path["change_id"]
+                        change_id = disk_path.get("change_id", "*")
                     path = disk_path["path"]
                 else:
                     path = os.path.join(export_path, "disk-%s.raw" % disk.key)
