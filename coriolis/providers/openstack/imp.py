@@ -1,7 +1,6 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-import collections
 import math
 import os
 import tempfile
@@ -19,9 +18,16 @@ from coriolis import constants
 from coriolis import events
 from coriolis import exception
 from coriolis import keystone
-from coriolis.osmorphing import manager as osmorphing_manager
 from coriolis.providers import base
 from coriolis.providers.openstack import common
+from coriolis.providers.openstack.osmorphing import coreos
+from coriolis.providers.openstack.osmorphing import debian
+from coriolis.providers.openstack.osmorphing import openwrt
+from coriolis.providers.openstack.osmorphing import oracle
+from coriolis.providers.openstack.osmorphing import redhat
+from coriolis.providers.openstack.osmorphing import suse
+from coriolis.providers.openstack.osmorphing import ubuntu
+from coriolis.providers.openstack.osmorphing import windows
 from coriolis import schemas
 from coriolis import utils
 
@@ -359,73 +365,59 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
         return volume
 
     def _get_import_config(self, target_environment, os_type):
-        config = collections.namedtuple(
-            "ImportConfig",
-            ["glance_upload",
-             "target_disk_format",
-             "container_format",
-             "hypervisor_type",
-             "delete_disks_on_vm_termination",
-             "fip_pool_name",
-             "network_map",
-             "storage_map",
-             "keypair_name",
-             "migr_image_name",
-             "migr_flavor_name",
-             "migr_fip_pool_name",
-             "migr_network_name",
-             "flavor_name"])
+        config = {}
 
-        config.glance_upload = target_environment.get(
+        config["glance_upload"] = target_environment.get(
             "glance_upload", CONF.openstack_migration_provider.glance_upload)
-        config.target_disk_format = target_environment.get(
+        config["target_disk_format"] = target_environment.get(
             "disk_format", CONF.openstack_migration_provider.disk_format)
-        config.container_format = target_environment.get(
+        config["container_format"] = target_environment.get(
             "container_format",
             CONF.openstack_migration_provider.container_format)
-        config.hypervisor_type = target_environment.get(
+        config["hypervisor_type"] = target_environment.get(
             "hypervisor_type",
             CONF.openstack_migration_provider.hypervisor_type)
-        config.fip_pool_name = target_environment.get(
+        config["fip_pool_name"] = target_environment.get(
             "fip_pool_name", CONF.openstack_migration_provider.fip_pool_name)
-        config.delete_disks_on_vm_termination = target_environment.get(
+        config["delete_disks_on_vm_termination"] = target_environment.get(
             "delete_disks_on_vm_termination",
             CONF.openstack_migration_provider.delete_disks_on_vm_termination)
-        config.network_map = target_environment.get("network_map", {})
-        config.storage_map = target_environment.get("storage_map", {})
-        config.keypair_name = target_environment.get("keypair_name")
+        config["network_map"] = target_environment.get("network_map", {})
+        config["storage_map"] = target_environment.get("storage_map", {})
+        config["keypair_name"] = target_environment.get("keypair_name")
 
-        config.migr_image_name = target_environment.get(
+        config["migr_image_name"] = target_environment.get(
             "migr_image_name",
             target_environment.get("migr_image_name_map", {}).get(
                 os_type,
                 CONF.openstack_migration_provider.migr_image_name_map.get(
                     os_type)))
-        config.migr_flavor_name = target_environment.get(
+        config["migr_flavor_name"] = target_environment.get(
             "migr_flavor_name",
             CONF.openstack_migration_provider.migr_flavor_name)
 
-        config.migr_fip_pool_name = target_environment.get(
+        config["migr_fip_pool_name"] = target_environment.get(
             "migr_fip_pool_name",
-            config.fip_pool_name or
+            config["fip_pool_name"] or
             CONF.openstack_migration_provider.fip_pool_name)
-        config.migr_network_name = target_environment.get(
+        config["migr_network_name"] = target_environment.get(
             "migr_network_name",
             CONF.openstack_migration_provider.migr_network_name)
 
-        config.flavor_name = target_environment.get(
-            "flavor_name", config.migr_flavor_name)
+        config["flavor_name"] = target_environment.get(
+            "flavor_name", config["migr_flavor_name"])
 
-        if not config.migr_image_name:
+        if not config["migr_image_name"]:
             raise exception.CoriolisException(
                 "No matching migration image type found")
 
-        if not config.migr_network_name:
-            if len(config.network_map) != 1:
+        if not config["migr_network_name"]:
+            if len(config["network_map"]) != 1:
                 raise exception.CoriolisException(
                     'If "migr_network_name" is not provided, "network_map" '
                     'must contain exactly one entry')
-            config.migr_network_name = list(config.network_map.values())[0]
+            config["migr_network_name"] = list(
+                config["network_map"].values())[0]
 
         return config
 
@@ -440,13 +432,13 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
                      destination_format))
             utils.convert_disk_format(
                 source_path, destination_path, destination_format)
-        except Exception as ex:
+        except Exception:
             utils.ignore_exceptions(os.remove)(destination_path)
             raise
 
     def _create_images_and_volumes(self, glance, nova, cinder, config,
                                    disks_info):
-        if not config.glance_upload:
+        if not config["glance_upload"]:
             raise exception.CoriolisException(
                 "Glance upload is currently required for migrations")
 
@@ -458,17 +450,18 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
             disk_file_info = utils.get_disk_info(disk_path)
 
             target_disk_path = disk_path
-            if config.target_disk_format != disk_file_info["format"]:
+            if config["target_disk_format"] != disk_file_info["format"]:
                 target_disk_path = ("%s.%s" % (
-                    os.path.splitext(disk_path)[0], config.target_disk_format))
+                    os.path.splitext(
+                        disk_path)[0], config["target_disk_format"]))
                 self._convert_disk_format(
-                    disk_path, target_disk_path, config.target_disk_format)
+                    disk_path, target_disk_path, config["target_disk_format"])
                 disk_file_info = utils.get_disk_info(target_disk_path)
 
                 LOG.info(
                     "Succesfully converted '%s' to %s as '%s'. "
                     "Removing original path." % (
-                        disk_path, config.target_disk_format,
+                        disk_path, config["target_disk_format"],
                         target_disk_path))
                 os.remove(disk_path)
 
@@ -482,8 +475,8 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
             image = common.create_image(
                 glance, common.get_unique_name(),
                 target_disk_path, disk_format,
-                config.container_format,
-                config.hypervisor_type)
+                config["container_format"],
+                config["hypervisor_type"])
             images.append(image)
 
             self._event_manager.progress_update(
@@ -498,7 +491,7 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
                 "Creating Cinder volume")
 
             volume_type = self._get_volume_type_for_disk(
-                cinder, disk_info, config.storage_map)
+                cinder, disk_info, config["storage_map"])
 
             volume = common.create_volume(
                 cinder, virtual_disk_size, common.get_unique_name(),
@@ -531,7 +524,7 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
         else:
             # else if unspecified, just use the default volume type:
             LOG.debug("No 'storage_backend_identifier' provided for disk %s. "
-                     "Trying to use default volume type of '%s'", default)
+                      "Trying to use default volume type of '%s'", default)
             dest_stor = default
 
         # ensure the volume type exists:
@@ -553,11 +546,11 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
             origin_network_name = nic_info.get("network_name")
             if not origin_network_name:
                 self._event_manager.progress_update(
-                    "Origin network name not provided for nic: %s, skipping" % 
+                    "Origin network name not provided for nic: %s, skipping" %
                     nic_info.get("name"))
                 continue
 
-            network_name = config.network_map.get(origin_network_name)
+            network_name = config["network_map"].get(origin_network_name)
             if not network_name:
                 raise exception.CoriolisException(
                     "Network not mapped in network_map: %s" %
@@ -576,16 +569,17 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
         return volumes
 
     @utils.retry_on_error()
-    def _rename_volumes(self, cinder, volumes, instance_name):
-        for i, volume in enumerate(volumes):
+    def _rename_volumes(self, cinder, volume_ids, instance_name):
+        for i, volume_id in enumerate(volume_ids):
             new_volume_name = VOLUME_NAME_FORMAT % {
                 "instance_name": instance_name, "num": i + 1}
-            cinder.volumes.update(volume.id, name=new_volume_name)
+            cinder.volumes.update(volume_id, name=new_volume_name)
 
     @utils.retry_on_error()
-    def _set_bootable_volumes(self, cinder, volumes):
+    def _set_bootable_volumes(self, cinder, volume_ids):
         # TODO: check if just setting the first volume as bootable is enough
-        for volume in volumes:
+        for volume_id in volume_ids:
+            volume = cinder.volumes.get(volume_id)
             if not volume.bootable or volume.bootable == 'false':
                 cinder.volumes.set_bootable(volume, True)
 
@@ -603,9 +597,31 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
             volumes.append(volume)
         return volumes
 
-    def _deploy_instance(self, ctxt, connection_info, target_environment,
-                         instance_name, export_info, volumes_info=None,
-                         clone_disks=False):
+    def get_os_morphing_tools(self, conn, osmorphing_info):
+        os_morphing_tools_clss = {
+            constants.OS_TYPE_LINUX: [coreos.CoreOSMorphingTools,
+                                      debian.DebianMorphingTools,
+                                      ubuntu.UbuntuMorphingTools,
+                                      openwrt.OpenWRTMorphingTools,
+                                      oracle.OracleMorphingTools,
+                                      redhat.RedHatMorphingTools,
+                                      suse.SUSEMorphingTools],
+            constants.OS_TYPE_WINDOWS: [windows.WindowsMorphingTools],
+        }
+
+        hypervisor_type = osmorphing_info['hypervisor_type']
+        os_type = osmorphing_info.get('os_type')
+        os_root_dir = osmorphing_info['os_root_dir']
+        os_root_dev = osmorphing_info['os_root_dev']
+
+        return base.get_os_morphing_tools_helper(
+            conn, os_morphing_tools_clss, hypervisor_type, os_type,
+            os_root_dir, os_root_dev, self._event_manager)
+
+    def _deploy_instance_resources(self, ctxt, connection_info,
+                                   target_environment, instance_name,
+                                   export_info, volumes_info=None,
+                                   clone_disks=False):
         session = keystone.create_keystone_session(ctxt, connection_info)
 
         glance_api_version = connection_info.get("image_api_version",
@@ -625,7 +641,6 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
 
         images = []
         volumes = []
-        ports = []
 
         try:
             if not volumes_info:
@@ -642,67 +657,93 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
                         cinder, volumes_info)
 
             migr_resources = self._deploy_migration_resources(
-                nova, glance, neutron, os_type, config.migr_image_name,
-                config.migr_flavor_name, config.migr_network_name,
-                config.migr_fip_pool_name)
+                nova, glance, neutron, os_type, config["migr_image_name"],
+                config["migr_flavor_name"], config["migr_network_name"],
+                config["migr_fip_pool_name"])
 
             nics_info = export_info["devices"].get("nics", [])
 
-            try:
-                for i, volume in enumerate(volumes):
-                    common.wait_for_volume(cinder, volume.id)
-
-                    self._event_manager.progress_update(
-                        "Attaching volume to worker instance")
-
-                    self._attach_volume(
-                        nova, cinder, migr_resources.get_instance(), volume.id)
-
-                    conn_info = migr_resources.get_guest_connection_info()
-
-                osmorphing_hv_type = self._get_osmorphing_hypervisor_type(
-                    config.hypervisor_type)
+            for i, volume in enumerate(volumes):
+                common.wait_for_volume(cinder, volume.id)
 
                 self._event_manager.progress_update(
-                    "Preparing instance for target platform")
-                osmorphing_manager.morph_image(conn_info,
-                                               os_type,
-                                               osmorphing_hv_type,
-                                               constants.PLATFORM_OPENSTACK,
-                                               nics_info,
-                                               self._event_manager)
-            finally:
-                self._event_manager.progress_update(
-                    "Removing worker instance resources")
-                migr_resources.delete()
+                    "Attaching volume to worker instance")
 
-            self._event_manager.progress_update("Renaming volumes")
-            self._rename_volumes(cinder, volumes, instance_name)
+                self._attach_volume(
+                    nova, cinder, migr_resources.get_instance(), volume.id)
+        finally:
+            if images:
+                self._event_manager.progress_update("Deleting Glance images")
+                for image in images:
+                    @utils.ignore_exceptions
+                    @utils.retry_on_error()
+                    def _del_image():
+                        image.delete()
+                    _del_image()
 
-            self._event_manager.progress_update(
-                "Ensuring volumes are bootable")
-            self._set_bootable_volumes(cinder, volumes)
+        guest_conn_info = migr_resources.get_guest_connection_info()
+        hypervisor_type = self._get_osmorphing_hypervisor_type(
+            config["hypervisor_type"])
 
-            self._event_manager.progress_update(
-                "Creating Neutron ports for migrated instance")
-            ports = self._create_neutron_ports(neutron, config, nics_info)
+        osmorphing_info = {"os_type": os_type,
+                           "hypervisor_type": hypervisor_type,
+                           "nics_info": nics_info}
 
+        volume_ids = [volume.id for volume in volumes]
+        instance_deployment_info = {
+            "config": config,
+            "migr_resources_dict": migr_resources.get_resources_dict(),
+            "volume_ids": volume_ids,
+            "instance_name": instance_name,
+            "nics_info": nics_info,
+            "os_type": os_type,
+            "clone_disks": clone_disks}
+
+        return {"instance_deployment_info": instance_deployment_info,
+                "osmorphing_connection_info": guest_conn_info,
+                "osmorphing_info": osmorphing_info}
+
+    def _finalize_instance_deployment(self, ctxt, connection_info,
+                                      instance_deployment_info):
+        session = keystone.create_keystone_session(ctxt, connection_info)
+        nova = nova_client.Client(common.NOVA_API_VERSION, session=session)
+        neutron = neutron_client.Client(common.NEUTRON_API_VERSION,
+                                        session=session)
+        cinder = cinder_client.Client(common.CINDER_API_VERSION,
+                                      session=session)
+
+        volume_ids = instance_deployment_info["volume_ids"]
+        instance_name = instance_deployment_info["instance_name"]
+        nics_info = instance_deployment_info["nics_info"]
+        config = instance_deployment_info["config"]
+        migr_resources_dict = instance_deployment_info["migr_resources_dict"]
+
+        migr_resources = _MigrationResources.from_resources_dict(
+            nova, neutron, migr_resources_dict)
+
+        self._event_manager.progress_update(
+            "Removing worker instance resources")
+        migr_resources.delete()
+
+        self._event_manager.progress_update("Renaming volumes")
+        self._rename_volumes(cinder, volume_ids, instance_name)
+
+        self._event_manager.progress_update(
+            "Ensuring volumes are bootable")
+        self._set_bootable_volumes(cinder, volume_ids)
+
+        self._event_manager.progress_update(
+            "Creating Neutron ports for migrated instance")
+        ports = self._create_neutron_ports(neutron, config, nics_info)
+
+        try:
             self._event_manager.progress_update(
                 "Creating migrated instance")
             self._create_target_instance(
-                nova, config.flavor_name, instance_name,
-                config.keypair_name, ports, volumes,
-                ephemeral_volumes=config.delete_disks_on_vm_termination)
+                nova, config["flavor_name"], instance_name,
+                config["keypair_name"], ports, volume_ids,
+                ephemeral_volumes=config["delete_disks_on_vm_termination"])
         except:
-            if not volumes_info or clone_disks:
-                # Don't remove replica volumes
-                self._event_manager.progress_update("Deleting volumes")
-                for volume in volumes:
-                    @utils.ignore_exceptions
-                    @utils.retry_on_error()
-                    def _del_volume():
-                        volume.delete()
-                    _del_volume()
             self._event_manager.progress_update("Deleting Neutron ports")
             for port in ports:
                 @utils.ignore_exceptions
@@ -710,20 +751,39 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
                 def _del_port():
                     neutron.delete_port(port["id"])
                 _del_port()
-            raise
-        finally:
-            self._event_manager.progress_update("Deleting Glance images")
-            for image in images:
-                @utils.ignore_exceptions
-                @utils.retry_on_error()
-                def _del_image():
-                    image.delete()
-                _del_image()
 
-    def import_instance(self, ctxt, connection_info, target_environment,
-                        instance_name, export_info):
-        self._deploy_instance(ctxt, connection_info, target_environment,
-                              instance_name, export_info)
+    def _cleanup_failed_instance_deployment(self, ctxt, connection_info,
+                                            instance_deployment_info,
+                                            is_replica):
+        session = keystone.create_keystone_session(ctxt, connection_info)
+
+        volume_ids = instance_deployment_info.get("volume_ids", [])
+        clone_disks = instance_deployment_info.get("clone_disks")
+        migr_resources_dict = instance_deployment_info.get(
+            "migr_resources_dict")
+
+        if migr_resources_dict:
+            nova = nova_client.Client(common.NOVA_API_VERSION, session=session)
+            neutron = neutron_client.Client(common.NEUTRON_API_VERSION,
+                                            session=session)
+            migr_resources = _MigrationResources.from_resources_dict(
+                nova, neutron, migr_resources_dict)
+
+            @utils.ignore_exceptions
+            def _del_migr_resources():
+                migr_resources.delete()
+            _del_migr_resources()
+
+        # Don't remove replica volumes
+        if volume_ids and (not is_replica or clone_disks):
+            cinder = cinder_client.Client(common.CINDER_API_VERSION,
+                                          session=session)
+            self._event_manager.progress_update("Deleting volumes")
+            for volume_id in volume_ids:
+                @utils.ignore_exceptions
+                def _del_volume():
+                    common.delete_volume(cinder, volume_id)
+                _del_volume()
 
     def _get_osmorphing_hypervisor_type(self, hypervisor_type):
         if (hypervisor_type and
@@ -735,16 +795,16 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
     @utils.retry_on_error(max_attempts=10, sleep_seconds=30,
                           terminal_exceptions=[exception.NotFound])
     def _create_target_instance(self, nova, flavor_name, instance_name,
-                                keypair_name, ports, volumes,
+                                keypair_name, ports, volume_ids,
                                 ephemeral_volumes=False):
         flavor = common.get_flavor(nova, flavor_name)
 
         block_device_mapping = {}
-        for i, volume in enumerate(volumes):
+        for i, volume_id in enumerate(volume_ids):
             # Delete volume on termination
             block_device_mapping[
                 'vd%s' % chr(ord('a') + i)] = "%s:volume::%s" % (
-                    volume.id, ephemeral_volumes)
+                    volume_id, ephemeral_volumes)
 
         nics = [{'port-id': p['id']} for p in ports]
 
@@ -766,12 +826,38 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
                 nova.servers.delete(instance)
             raise
 
+    def import_instance(self, ctxt, connection_info, target_environment,
+                        instance_name, export_info):
+        return self._deploy_instance_resources(
+            ctxt, connection_info, target_environment, instance_name,
+            export_info)
+
+    def finalize_import_instance(self, ctxt, connection_info,
+                                 instance_deployment_info):
+        return self._finalize_instance_deployment(
+            ctxt, connection_info, instance_deployment_info)
+
+    def cleanup_failed_import_instance(self, ctxt, connection_info,
+                                       instance_deployment_info):
+        return self._cleanup_failed_instance_deployment(
+            ctxt, connection_info, instance_deployment_info, is_replica=False)
+
     def deploy_replica_instance(self, ctxt, connection_info,
                                 target_environment, instance_name, export_info,
                                 volumes_info, clone_disks):
-        self._deploy_instance(ctxt, connection_info, target_environment,
-                              instance_name, export_info, volumes_info,
-                              clone_disks)
+        return self._deploy_instance_resources(
+            ctxt, connection_info, target_environment, instance_name,
+            export_info, volumes_info, clone_disks)
+
+    def finalize_replica_instance_deployment(self, ctxt, connection_info,
+                                             instance_deployment_info):
+        return self._finalize_instance_deployment(
+            ctxt, connection_info, instance_deployment_info)
+
+    def cleanup_failed_replica_instance_deployment(self, ctxt, connection_info,
+                                                   instance_deployment_info):
+        return self._cleanup_failed_instance_deployment(
+            ctxt, connection_info, instance_deployment_info, is_replica=True)
 
     def _update_existing_disk_volumes(self, cinder, disks_info, volumes_info):
         for disk_info in disks_info:
@@ -906,9 +992,9 @@ class ImportProvider(base.BaseImportProvider, base.BaseReplicaImportProvider):
         config = self._get_import_config(target_environment, os_type)
 
         migr_resources = self._deploy_migration_resources(
-            nova, glance, neutron, os_type, config.migr_image_name,
-            config.migr_flavor_name, config.migr_network_name,
-            config.migr_fip_pool_name)
+            nova, glance, neutron, os_type, config["migr_image_name"],
+            config["migr_flavor_name"], config["migr_network_name"],
+            config["migr_fip_pool_name"])
 
         try:
             for i, volume_info in enumerate(volumes_info):

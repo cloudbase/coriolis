@@ -9,7 +9,18 @@ from coriolis import utils
 
 def _sort_tasks(tasks):
     non_error_only_tasks = [t for t in tasks if
-                            t["depends_on"] or not t["on_error"]]
+                            not t["depends_on"] and not t["on_error"]]
+
+    def _add_non_error_tasks(task_id):
+        for t in tasks:
+            if (t["depends_on"] and task_id in t["depends_on"] and
+                    t not in non_error_only_tasks):
+                non_error_only_tasks.append(t)
+                _add_non_error_tasks(t["id"])
+
+    for t in non_error_only_tasks:
+        _add_non_error_tasks(t["id"])
+
     # Include error only tasks only if executed
     error_only_tasks = [t for t in tasks if t["status"] !=
                         constants.TASK_STATUS_ON_ERROR_ONLY and

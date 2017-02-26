@@ -205,6 +205,10 @@ class NotFound(CoriolisException):
     safe = True
 
 
+class OSMorphingToolsNotFound(NotFound):
+    message = _("Couldn't find any morphing tools for this OS.")
+
+
 class FileNotFound(NotFound):
     message = _("File %(file_path)s could not be found.")
 

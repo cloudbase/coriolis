@@ -41,7 +41,45 @@ class ImportInstanceTask(base.TaskRunner):
             destination["type"], constants.PROVIDER_TYPE_IMPORT, event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
 
-        provider.import_instance(
+        import_info = provider.import_instance(
             ctxt, connection_info, target_environment, instance, export_info)
+
+        task_info["instance_deployment_info"] = import_info[
+            "instance_deployment_info"]
+        task_info["osmorphing_info"] = import_info.get("osmorphing_info", {})
+        task_info["osmorphing_connection_info"] = base.marshal_migr_conn_info(
+            import_info["osmorphing_connection_info"])
+
+        task_info["origin_provider_type"] = constants.PROVIDER_TYPE_EXPORT
+        task_info["destination_provider_type"] = constants.PROVIDER_TYPE_IMPORT
+
+        return task_info
+
+
+class FinalizeImportInstanceTask(base.TaskRunner):
+    def run(self, ctxt, instance, origin, destination, task_info,
+            event_handler):
+        provider = providers_factory.get_provider(
+            destination["type"], constants.PROVIDER_TYPE_IMPORT, event_handler)
+        connection_info = base.get_connection_info(ctxt, destination)
+        instance_deployment_info = task_info["instance_deployment_info"]
+
+        provider.finalize_import_instance(
+            ctxt, connection_info, instance_deployment_info)
+
+        return task_info
+
+
+class CleanupFailedImportInstanceTask(base.TaskRunner):
+    def run(self, ctxt, instance, origin, destination, task_info,
+            event_handler):
+        provider = providers_factory.get_provider(
+            destination["type"], constants.PROVIDER_TYPE_IMPORT, event_handler)
+        connection_info = base.get_connection_info(ctxt, destination)
+        instance_deployment_info = task_info.get(
+            "instance_deployment_info", {})
+
+        provider.cleanup_failed_import_instance(
+            ctxt, connection_info, instance_deployment_info)
 
         return task_info
