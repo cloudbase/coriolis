@@ -19,11 +19,7 @@ paste
 pbr
 psutil
 pyOpenSSL
-python-cinderclient
-python-glanceclient>=2.0.0
 python-keystoneclient
-python-neutronclient
-python-novaclient
 python-barbicanclient
 python-swiftclient>=3.2
 pyVmomi
