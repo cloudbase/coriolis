@@ -22,7 +22,6 @@ pyOpenSSL
 python-keystoneclient
 python-barbicanclient
 python-swiftclient>=3.2
-pyVmomi
 pywinrm
 PyYAML
 requests
