@@ -24,6 +24,7 @@ class ProvidersBaseTestCase(test_base.CoriolisBaseTestCase):
         # NOTE: declare utils.retry_on_error mock; '_patch_utils_retry' should
         # be called to enable them.
         self._mock_utils_retry_inner = testutils.make_identity_decorator_mock()
+
         def retry_dec(*args, **kwargs):
             return self._mock_utils_retry_inner
         self._mock_utils_retry = mock.MagicMock(side_effect=retry_dec)
@@ -64,7 +65,8 @@ class ImportProviderTestCase(ProvidersBaseTestCase):
         self._test_target_env = mock.sentinel.target_environment
         self._test_export_info = mock.sentinel.export_info
 
-    def _test_morphing_called(self, os_type="", nics_info=None, ignore_devs=[]):
+    def _test_morphing_called(self, os_type="", nics_info=None,
+                              ignore_devs=[]):
         self._mock_morph.morph_image.assert_called_once_with(
             self._mock_conn_info, os_type,
             self._hypervisor, self._platform,

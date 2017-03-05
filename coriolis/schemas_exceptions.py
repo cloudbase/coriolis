@@ -3,8 +3,6 @@
 
 """ Defines a set of exceptions possible during schema loading/validation. """
 
-import json
-
 import jinja2
 import jsonschema
 
@@ -14,6 +12,7 @@ from coriolis import exception
 class CoriolisSchemaException(exception.CoriolisException):
     """ Base class for all coriolis schema handling exceptions. """
     message = "Exception occured during schema validation: %(msg)s."
+
 
 class CoriolisSchemaValidationError(
         CoriolisSchemaException, jsonschema.ValidationError):
