@@ -58,3 +58,7 @@ def validate_string(json_string, schema):
 CORIOLIS_VM_EXPORT_INFO_SCHEMA_NAME = "vm_export_info_schema.json"
 CORIOLIS_VM_EXPORT_INFO_SCHEMA = get_schema(
     __name__, CORIOLIS_VM_EXPORT_INFO_SCHEMA_NAME)
+
+CORIOLIS_IMPORT_INFO_SCHEMA_NAME = "import_info_schema.json"
+CORIOLIS_IMPORT_INFO_SCHEMA = get_schema(
+    __name__, CORIOLIS_IMPORT_INFO_SCHEMA_NAME)
