@@ -12,12 +12,24 @@ from coriolis.db import api as db_api
 from coriolis.db.sqlalchemy import models
 from coriolis import exception
 from coriolis import keystone
+from coriolis.providers import factory as providers_factory
+from coriolis import schemas
 from coriolis import utils
 from coriolis.worker.rpc import client as rpc_worker_client
 
 VERSION = "1.0"
 
 LOG = logging.getLogger(__name__)
+
+
+def endpoint_synchronized(func):
+    @functools.wraps(func)
+    def wrapper(self, ctxt, endpoint_id, *args, **kwargs):
+        @lockutils.synchronized(endpoint_id)
+        def inner():
+            return func(self, ctxt, endpoint_id, *args, **kwargs)
+        return inner()
+    return wrapper
 
 
 def replica_synchronized(func):
@@ -63,6 +75,48 @@ def tasks_execution_synchronized(func):
 class ConductorServerEndpoint(object):
     def __init__(self):
         self._rpc_worker_client = rpc_worker_client.WorkerClient()
+
+    def create_endpoint(self, ctxt, name, endpoint_type, description,
+                        connection_info):
+        endpoint = models.Endpoint()
+        endpoint.name = name
+        endpoint.type = endpoint_type
+        endpoint.description = description
+        endpoint.connection_info = connection_info
+
+        db_api.add_endpoint(ctxt, endpoint)
+        LOG.info("Endpoint created: %s", endpoint.id)
+        return self.get_endpoint(ctxt, endpoint.id)
+
+    def get_endpoints(self, ctxt):
+        return db_api.get_endpoints(ctxt)
+
+    @endpoint_synchronized
+    def get_endpoint(self, ctxt, endpoint_id):
+        endpoint = db_api.get_endpoint(ctxt, endpoint_id)
+        if not endpoint:
+            raise exception.NotFound("Endpoint not found")
+        return endpoint
+
+    @endpoint_synchronized
+    def delete_endpoint(self, ctxt, endpoint_id):
+        db_api.delete_endpoint(ctxt, endpoint_id)
+
+    def get_endpoint_instances(self, ctxt, endpoint_id):
+        endpoint = self.get_endpoint(ctxt, endpoint_id)
+
+        export_provider = providers_factory.get_provider(
+            endpoint.type, constants.PROVIDER_TYPE_ENDPOINT, None)
+
+        connection_info = utils.get_secret_connection_info(
+            ctxt, endpoint.connection_info)
+
+        instances_info = export_provider.get_instances(ctxt, connection_info)
+        for instance_info in instances_info:
+            schemas.validate_value(
+                instance_info, schemas.CORIOLIS_VM_INSTANCE_INFO_SCHEMA)
+
+        return instances_info
 
     @staticmethod
     def _create_task(instance, task_type, execution, depends_on=None,

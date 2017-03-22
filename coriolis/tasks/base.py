@@ -3,7 +3,6 @@
 
 import abc
 
-from coriolis import secrets
 from coriolis import utils
 
 from oslo_config import cfg
@@ -29,11 +28,7 @@ class TaskRunner(metaclass=abc.ABCMeta):
 
 def get_connection_info(ctxt, data):
     connection_info = data.get("connection_info") or {}
-    secret_ref = connection_info.get("secret_ref")
-    if secret_ref:
-        LOG.info("Retrieving connection info from secret: %s", secret_ref)
-        connection_info = secrets.get_secret(ctxt, secret_ref)
-    return connection_info
+    return utils.get_secret_connection_info(ctxt, connection_info)
 
 
 def marshal_migr_conn_info(migr_connection_info):

@@ -21,6 +21,7 @@ import paramiko
 
 from coriolis import constants
 from coriolis import exception
+from coriolis import secrets
 
 opts = [
     cfg.StrOpt('qemu_img_path',
@@ -342,3 +343,11 @@ def check_md5(data, md5):
     new_md5 = m.hexdigest()
     if new_md5 != md5:
         raise exception.CoriolisException("MD5 check failed")
+
+
+def get_secret_connection_info(ctxt, connection_info):
+    secret_ref = connection_info.get("secret_ref")
+    if secret_ref:
+        LOG.info("Retrieving connection info from secret: %s", secret_ref)
+        connection_info = secrets.get_secret(ctxt, secret_ref)
+    return connection_info

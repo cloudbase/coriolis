@@ -105,6 +105,12 @@ class BaseTransferAction(BASE, models.TimestampMixin, models.ModelBase,
                                   "TasksExecution.deleted=='0')")
     instances = sqlalchemy.Column(types.List, nullable=False)
     info = sqlalchemy.Column(types.Json, nullable=False)
+    origin_endpoint_id = sqlalchemy.Column(
+        sqlalchemy.String(36),
+        sqlalchemy.ForeignKey('endpoint.id'), nullable=True)
+    destination_endpoint_id = sqlalchemy.Column(
+        sqlalchemy.String(36),
+        sqlalchemy.ForeignKey('endpoint.id'), nullable=True)
 
     __mapper_args__ = {
         'polymorphic_identity': 'base_transfer_action',
@@ -141,3 +147,26 @@ class Migration(BaseTransferAction):
     __mapper_args__ = {
         'polymorphic_identity': 'migration',
     }
+
+
+class Endpoint(BASE, models.TimestampMixin, models.ModelBase,
+               models.SoftDeleteMixin):
+    __tablename__ = 'endpoint'
+
+    id = sqlalchemy.Column(sqlalchemy.String(36),
+                           default=lambda: str(uuid.uuid4()),
+                           primary_key=True)
+    user_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
+    project_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
+    connection_info = sqlalchemy.Column(types.Json, nullable=False)
+    type = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
+    name = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
+    description = sqlalchemy.Column(sqlalchemy.String(1024), nullable=True)
+    origin_actions = orm.relationship(
+        BaseTransferAction, backref=orm.backref('origins'),
+        primaryjoin="and_(BaseTransferAction.origin_endpoint_id==Endpoint.id, "
+        "BaseTransferAction.deleted=='0')")
+    destination_actions = orm.relationship(
+        BaseTransferAction, backref=orm.backref('destinations'),
+        primaryjoin="and_(BaseTransferAction.destination_endpoint_id=="
+        "Endpoint.id, BaseTransferAction.deleted=='0')")

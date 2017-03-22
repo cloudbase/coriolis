@@ -13,6 +13,29 @@ class ConductorClient(object):
         target = messaging.Target(topic='coriolis_conductor', version=VERSION)
         self._client = rpc.get_client(target)
 
+    def create_endpoint(self, ctxt, name, endpoint_type, description,
+                        connection_info):
+        return self._client.call(
+            ctxt, 'create_endpoint', name=name, endpoint_type=endpoint_type,
+            description=description, connection_info=connection_info)
+
+    def get_endpoints(self, ctxt):
+        return self._client.call(
+            ctxt, 'get_endpoints')
+
+    def get_endpoint(self, ctxt, endpoint_id):
+        return self._client.call(
+            ctxt, 'get_endpoint', endpoint_id=endpoint_id)
+
+    def delete_endpoint(self, ctxt, endpoint_id):
+        return self._client.call(
+            ctxt, 'delete_endpoint', endpoint_id=endpoint_id)
+
+    def get_endpoint_instances(self, ctxt, endpoint_id):
+        return self._client.call(
+            ctxt, 'get_endpoint_instances',
+            endpoint_id=endpoint_id)
+
     def execute_replica_tasks(self, ctxt, replica_id,
                               shutdown_instances=False):
         return self._client.call(

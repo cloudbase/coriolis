@@ -40,6 +40,17 @@ class BaseProvider(object):
         raise exception.OSMorphingToolsNotFound()
 
 
+class BaseEndpointProvider(BaseProvider):
+    __metaclass__ = abc.ABCMeta
+
+    @abc.abstractmethod
+    def get_instances(self, ctxt, connection_info, limit=None,
+                      last_seen_id=None, instance_name_pattern=None):
+        """ Returns a list of instances
+        """
+        pass
+
+
 class BaseImportProvider(BaseProvider):
     __metaclass__ = abc.ABCMeta
 

@@ -19,6 +19,10 @@ PROVIDER_CONNECTION_INFO_SCHEMA_NAME = "connection_info_schema.json"
 
 PROVIDER_TARGET_ENVIRONMENT_SCHEMA_NAME = "target_environment_schema.json"
 
+_CORIOLIS_VM_EXPORT_INFO_SCHEMA_NAME = "vm_export_info_schema.json"
+_CORIOLIS_VM_INSTANCE_INFO_SCHEMA_NAME = "vm_instance_info_schema.json"
+_CORIOLIS_VM_IMPORT_INFO_SCHEMA_NAME = "vm_import_info_schema.json"
+
 
 def get_schema(package_name, schema_name,
                schemas_directory=DEFAULT_SCHEMAS_DIRECTORY):
@@ -54,11 +58,12 @@ def validate_string(json_string, schema):
     validate_value(json.loads(json_string), schema)
 
 
-# Global schemas:
-CORIOLIS_VM_EXPORT_INFO_SCHEMA_NAME = "vm_export_info_schema.json"
+# Global schemas
 CORIOLIS_VM_EXPORT_INFO_SCHEMA = get_schema(
-    __name__, CORIOLIS_VM_EXPORT_INFO_SCHEMA_NAME)
+    __name__, _CORIOLIS_VM_EXPORT_INFO_SCHEMA_NAME)
 
-CORIOLIS_IMPORT_INFO_SCHEMA_NAME = "import_info_schema.json"
-CORIOLIS_IMPORT_INFO_SCHEMA = get_schema(
-    __name__, CORIOLIS_IMPORT_INFO_SCHEMA_NAME)
+CORIOLIS_VM_IMPORT_INFO_SCHEMA = get_schema(
+    __name__, _CORIOLIS_VM_IMPORT_INFO_SCHEMA_NAME)
+
+CORIOLIS_VM_INSTANCE_INFO_SCHEMA = get_schema(
+    __name__, _CORIOLIS_VM_INSTANCE_INFO_SCHEMA_NAME)

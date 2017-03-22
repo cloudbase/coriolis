@@ -22,6 +22,7 @@ PROVIDER_TYPE_MAP = {
     constants.PROVIDER_TYPE_REPLICA_EXPORT: base.BaseReplicaExportProvider,
     constants.PROVIDER_TYPE_IMPORT: base.BaseImportProvider,
     constants.PROVIDER_TYPE_REPLICA_IMPORT: base.BaseReplicaImportProvider,
+    constants.PROVIDER_TYPE_ENDPOINT: base.BaseEndpointProvider,
 }
 
 
