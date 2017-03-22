@@ -4,12 +4,12 @@
 import eventlet
 eventlet.monkey_patch()
 
-import sys
+import sys # noqa
 
-from coriolis import service
-from coriolis import utils
+from coriolis import service # noqa
+from coriolis import utils # noqa
 
-from oslo_config import cfg
+from oslo_config import cfg # noqa
 
 CONF = cfg.CONF
 

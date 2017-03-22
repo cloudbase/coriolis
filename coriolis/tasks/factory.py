@@ -4,6 +4,7 @@
 from coriolis import constants
 from coriolis import exception
 from coriolis.tasks import migration_tasks
+from coriolis.tasks import osmorphing_tasks
 from coriolis.tasks import replica_tasks
 
 _TASKS_MAP = {
@@ -11,6 +12,12 @@ _TASKS_MAP = {
         migration_tasks.ExportInstanceTask,
     constants.TASK_TYPE_IMPORT_INSTANCE:
         migration_tasks.ImportInstanceTask,
+    constants.TASK_TYPE_FINALIZE_IMPORT_INSTANCE:
+        migration_tasks.FinalizeImportInstanceTask,
+    constants.TASK_TYPE_CLEANUP_FAILED_IMPORT_INSTANCE:
+        migration_tasks.CleanupFailedImportInstanceTask,
+    constants.TASK_TYPE_OS_MORPHING:
+        osmorphing_tasks.OSMorphingTask,
     constants.TASK_TYPE_GET_INSTANCE_INFO:
         replica_tasks.GetInstanceInfoTask,
     constants.TASK_TYPE_REPLICATE_DISKS:
@@ -31,6 +38,10 @@ _TASKS_MAP = {
         replica_tasks.DeleteReplicaSourceResourcesTask,
     constants.TASK_TYPE_DEPLOY_REPLICA_INSTANCE:
         replica_tasks.DeployReplicaInstanceTask,
+    constants.TASK_TYPE_FINALIZE_REPLICA_INSTANCE_DEPLOYMENT:
+        replica_tasks.FinalizeReplicaInstanceDeploymentTask,
+    constants.TASK_TYPE_CLEANUP_FAILED_REPLICA_INSTANCE_DEPLOYMENT:
+        replica_tasks.CleanupFailedReplicaInstanceDeploymentTask,
     constants.TASK_TYPE_CREATE_REPLICA_DISK_SNAPSHOTS:
         replica_tasks.CreateReplicaDiskSnapshotsTask,
     constants.TASK_TYPE_DELETE_REPLICA_DISK_SNAPSHOTS:

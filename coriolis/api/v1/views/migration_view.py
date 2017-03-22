@@ -15,7 +15,6 @@ def _format_migration(req, migration, keys=None):
     migration_dict = dict(itertools.chain.from_iterable(
         transform(k, v) for k, v in migration.items()))
 
-    # Migrations have a single tasks execution
     execution = replica_tasks_execution_view.format_replica_tasks_execution(
         req, migration_dict["executions"][0])
 

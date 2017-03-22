@@ -75,11 +75,16 @@ class ConductorServerEndpoint(object):
         task.depends_on = depends_on
         task.on_error = on_error
 
-        if not depends_on and on_error:
-            task.status = constants.TASK_STATUS_ON_ERROR_ONLY
-        else:
+        if not on_error:
             task.status = constants.TASK_STATUS_PENDING
-
+        else:
+            task.status = constants.TASK_STATUS_ON_ERROR_ONLY
+            if depends_on:
+                for task_id in depends_on:
+                    if [t for t in task.execution.tasks if t.id == task_id and
+                            t.status != constants.TASK_STATUS_ON_ERROR_ONLY]:
+                        task.status = constants.TASK_STATUS_PENDING
+                        break
         return task
 
     def _begin_tasks(self, ctxt, execution, task_info={}):
@@ -349,16 +354,31 @@ class ConductorServerEndpoint(object):
                 instance, constants.TASK_TYPE_DEPLOY_REPLICA_INSTANCE,
                 execution, [create_snapshot_task.id])
 
+            osmorphing_task = self._create_task(
+                instance, constants.TASK_TYPE_OS_MORPHING,
+                execution, depends_on=[deploy_replica_task.id])
+
+            finalize_deployment_task = self._create_task(
+                instance,
+                constants.TASK_TYPE_FINALIZE_REPLICA_INSTANCE_DEPLOYMENT,
+                execution, depends_on=[osmorphing_task.id])
+
             self._create_task(
                 instance, constants.TASK_TYPE_DELETE_REPLICA_DISK_SNAPSHOTS,
-                execution, [deploy_replica_task.id],
+                execution, depends_on=[finalize_deployment_task.id],
                 on_error=clone_disks)
+
+            cleanup_deployment_task = self._create_task(
+                instance,
+                constants.TASK_TYPE_CLEANUP_FAILED_REPLICA_INSTANCE_DEPLOYMENT,
+                execution, on_error=True)
 
             if not clone_disks:
                 self._create_task(
                     instance,
                     constants.TASK_TYPE_RESTORE_REPLICA_DISK_SNAPSHOTS,
-                    execution, on_error=True)
+                    execution, depends_on=[cleanup_deployment_task.id],
+                    on_error=True)
 
         db_api.add_migration(ctxt, migration)
         LOG.info("Migration created: %s", migration.id)
@@ -382,13 +402,25 @@ class ConductorServerEndpoint(object):
         migration.info = {}
 
         for instance in instances:
-
             task_export = self._create_task(
                 instance, constants.TASK_TYPE_EXPORT_INSTANCE, execution)
 
-            self._create_task(
+            task_import = self._create_task(
                 instance, constants.TASK_TYPE_IMPORT_INSTANCE,
                 execution, depends_on=[task_export.id])
+
+            task_osmorphing = self._create_task(
+                instance, constants.TASK_TYPE_OS_MORPHING,
+                execution, depends_on=[task_import.id])
+
+            self._create_task(
+                instance, constants.TASK_TYPE_FINALIZE_IMPORT_INSTANCE,
+                execution, depends_on=[task_osmorphing.id])
+
+            self._create_task(
+                instance,
+                constants.TASK_TYPE_CLEANUP_FAILED_IMPORT_INSTANCE,
+                execution, on_error=True)
 
         db_api.add_migration(ctxt, migration)
         LOG.info("Migration created: %s", migration.id)

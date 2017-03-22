@@ -1,18 +1,21 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from oslo_config import cfg
+
 from coriolis import constants
 from coriolis import exception
 from coriolis.providers import base
 from coriolis import utils
 
-PROVIDERS = {
-    "coriolis.providers.azure.ImportProvider",
-    "coriolis.providers.openstack.ExportProvider",
-    "coriolis.providers.openstack.ImportProvider",
-    "coriolis.providers.vmware_vsphere.ExportProvider",
-}
+serialization_opts = [
+    cfg.ListOpt('providers',
+                default=[],
+                help='List of provider class paths'),
+]
 
+CONF = cfg.CONF
+CONF.register_opts(serialization_opts)
 
 PROVIDER_TYPE_MAP = {
     constants.PROVIDER_TYPE_EXPORT: base.BaseExportProvider,
@@ -23,7 +26,7 @@ PROVIDER_TYPE_MAP = {
 
 
 def get_provider(platform_name, provider_type, event_handler):
-    for provider in PROVIDERS:
+    for provider in CONF.providers:
         cls = utils.load_class(provider)
         if (cls.platform == platform_name and
                 PROVIDER_TYPE_MAP[provider_type] in cls.__bases__):

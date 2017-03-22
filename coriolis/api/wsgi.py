@@ -1224,9 +1224,6 @@ class Fault(webob.exc.HTTPException):
             if retry:
                 fault_data[fault_name]['retryAfter'] = retry
 
-        # 'code' is an attribute on the fault tag itself
-        metadata = {'attributes': {fault_name: 'code'}}
-
         content_type = req.best_match_content_type()
         serializer = {
             'application/json': JSONDictSerializer(),
@@ -1299,7 +1296,6 @@ class OverLimitFault(webob.exc.HTTPException):
     def __call__(self, request):
         """Serializes the wrapped exception conforming to our error format."""
         content_type = request.best_match_content_type()
-        metadata = {"attributes": {"overLimitFault": "code"}}
 
         def translate(msg):
             locale = request.best_match_language()

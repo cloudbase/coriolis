@@ -1,7 +1,6 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-import os
 import platform
 
 from oslo_concurrency import processutils
@@ -95,39 +94,3 @@ class MessagingService(service.ServiceBase):
 
     def reset(self):
         self._server.reset()
-
-
-'''
-_launcher = None
-
-def serve(server, workers=None):
-    global _launcher
-    if _launcher:
-        raise RuntimeError(_('serve() can only be called once'))
-
-    _launcher = service.launch(CONF, server, workers=workers)
-
-
-def wait():
-    try:
-        _launcher.wait()
-    except KeyboardInterrupt:
-        _launcher.stop()
-
-
-class Launcher(object):
-    def __init__(self):
-        self.launch_service = serve
-        self.wait = wait
-
-
-def get_process_launcher():
-    # Note(lpetrut): ProcessLauncher uses green pipes which fail on Windows
-    # due to missing support of non-blocking I/O pipes. For this reason, the
-    # service must be spawned differently on Windows, using the ServiceLauncher
-    # class instead.
-    if os.name == 'nt':
-        return Launcher()
-    else:
-        return service.ProcessLauncher(CONF)
-'''

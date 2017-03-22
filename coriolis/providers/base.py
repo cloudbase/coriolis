@@ -2,8 +2,14 @@
 # All Rights Reserved.
 
 import abc
+import itertools
 
+from oslo_log import log as logging
+
+from coriolis import exception
 from coriolis import schemas
+
+LOG = logging.getLogger(__name__)
 
 
 class BaseProvider(object):
@@ -29,6 +35,9 @@ class BaseProvider(object):
             raise Exception(
                 "Error validating provider '%s' connection "
                 "info: %s" % str(ex)) from ex
+
+    def get_os_morphing_tools(self, conn, osmorphing_info):
+        raise exception.OSMorphingToolsNotFound()
 
 
 class BaseImportProvider(BaseProvider):
@@ -60,6 +69,16 @@ class BaseImportProvider(BaseProvider):
         """
         pass
 
+    @abc.abstractmethod
+    def finalize_import_instance(self, ctxt, connection_info,
+                                 instance_deployment_info):
+        pass
+
+    @abc.abstractmethod
+    def cleanup_failed_import_instance(self, ctxt, connection_info,
+                                       instance_deployment_info):
+        pass
+
 
 class BaseReplicaImportProvider(BaseProvider):
     __metaclass__ = abc.ABCMeta
@@ -68,6 +87,16 @@ class BaseReplicaImportProvider(BaseProvider):
     def deploy_replica_instance(self, ctxt, connection_info,
                                 target_environment, instance_name, export_info,
                                 volumes_info, clone_disks):
+        pass
+
+    @abc.abstractmethod
+    def finalize_replica_instance_deployment(self, ctxt, connection_info,
+                                             instance_deployment_info):
+        pass
+
+    @abc.abstractmethod
+    def cleanup_failed_replica_instance_deployment(self, ctxt, connection_info,
+                                                   instance_deployment_info):
         pass
 
     @abc.abstractmethod
@@ -142,3 +171,22 @@ class BaseReplicaExportProvider(BaseProvider):
     @abc.abstractmethod
     def shutdown_instance(self, ctxt, connection_info, instance_name):
         pass
+
+
+def get_os_morphing_tools_helper(conn, os_morphing_tools_clss,
+                                 hypervisor_type, os_type, os_root_dir,
+                                 os_root_dev, event_manager):
+    if os_type and os_type not in os_morphing_tools_clss:
+        raise exception.OSMorphingToolsNotFound(
+            "Unsupported OS type: %s" % os_type)
+
+    for cls in os_morphing_tools_clss.get(
+            os_type, itertools.chain(*os_morphing_tools_clss.values())):
+        LOG.debug("Loading osmorphing instance: %s", cls)
+        tools = cls(
+            conn, os_root_dir, os_root_dev, hypervisor_type, event_manager)
+        LOG.debug("Testing OS morphing tools: %s", cls.__name__)
+        os_info = tools.check_os()
+        if os_info:
+            return (tools, os_info)
+    raise exception.OSMorphingToolsNotFound()

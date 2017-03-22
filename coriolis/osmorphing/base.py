@@ -14,15 +14,14 @@ class BaseOSMorphingTools(object):
     __metaclass__ = abc.ABCMeta
 
     def __init__(
-            self, conn, os_root_dir, os_root_device,
-            hypervisor, platform, event_manager):
+            self, conn, os_root_dir, os_root_device, hypervisor,
+            event_manager):
         self._conn = conn
         self._os_root_dir = os_root_dir
         self._os_root_device = os_root_device
-        self._hypervisor = hypervisor
-        self._platform = platform
         self._distro = None
         self._version = None
+        self._hypervisor = hypervisor
         self._event_manager = event_manager
 
     def check_os(self):
@@ -50,10 +49,16 @@ class BaseOSMorphingTools(object):
     def install_packages(self, package_names):
         pass
 
+    def post_packages_install(self, package_names):
+        pass
+
+    def pre_packages_uninstall(self, package_names):
+        pass
+
     def uninstall_packages(self, package_names):
         pass
 
-    def post_packages_install(self, package_names):
+    def post_packages_uninstall(self, package_names):
         pass
 
 
@@ -62,17 +67,15 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
 
     _packages = {}
 
-    def __init__(self, conn, os_root_dir, os_root_dev,
-                 hypervisor, platform, event_manager):
+    def __init__(self, conn, os_root_dir, os_root_dev, hypervisor,
+                 event_manager):
         super(BaseLinuxOSMorphingTools, self).__init__(
-            conn, os_root_dir, os_root_dev,
-            hypervisor, platform, event_manager)
+            conn, os_root_dir, os_root_dev, hypervisor, event_manager)
         self._ssh = conn
 
     def get_packages(self):
-        k_add = [(h, p) for (h, p) in self._packages.keys() if
-                 (h is None or h == self._hypervisor) and
-                 (p is None or p == self._platform)]
+        k_add = [h for h in self._packages.keys() if
+                 h is None or h == self._hypervisor]
 
         add = [p[0] for p in itertools.chain.from_iterable(
                [l for k, l in self._packages.items() if k in k_add])]
@@ -88,6 +91,12 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         self._copy_resolv_conf()
 
     def post_packages_install(self, package_names):
+        self._restore_resolv_conf()
+
+    def pre_packages_uninstall(self, package_names):
+        self._copy_resolv_conf()
+
+    def post_packages_uninstall(self, package_names):
         self._restore_resolv_conf()
 
     def _test_path(self, chroot_path):
@@ -142,7 +151,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
     def _get_config(self, config_content):
         config = {}
         for config_line in config_content.split('\n'):
-            m = re.match('(.*)="?([^"]*)"?', config_line)
+            m = re.match('(.*)=(?:"|\')?([^"\']*)(?:"|\')?', config_line)
             if m:
                 name, value = m.groups()
                 config[name] = value

@@ -6,10 +6,7 @@ import re
 import uuid
 
 from oslo_log import log as logging
-import yaml
 
-from coriolis import constants
-from coriolis import exception
 from coriolis.osmorphing import base
 from coriolis import utils
 
@@ -22,19 +19,15 @@ RELEASE_FEDORA = "Fedora"
 DEFAULT_CLOUD_USER = "cloud-user"
 
 
-class RedHatMorphingTools(base.BaseLinuxOSMorphingTools):
-    _packages = {
-        (None, None): [("dracut-config-generic", False)],
-        (constants.HYPERVISOR_VMWARE, None): [("open-vm-tools", True)],
-        (constants.HYPERVISOR_HYPERV, None): [("hyperv-daemons", True)],
-        (None, constants.PLATFORM_OPENSTACK): [
-            ("cloud-init", True),
-            ("cloud-utils", False),
-            ("parted", False),
-            ("git", False),
-            ("cloud-utils-growpart", False)],
-    }
+class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
     _NETWORK_SCRIPTS_PATH = "etc/sysconfig/network-scripts"
+
+    def __init__(self, conn, os_root_dir, os_root_dev,
+                 hypervisor, event_manager):
+        super(BaseRedHatMorphingTools, self).__init__(
+            conn, os_root_dir, os_root_dev,
+            hypervisor, event_manager)
+        self._enable_repos = []
 
     def _check_os(self):
         redhat_release_path = "etc/redhat-release"
@@ -137,7 +130,7 @@ class RedHatMorphingTools(base.BaseLinuxOSMorphingTools):
             self._exec_cmd_chroot(yum_cmd)
 
     def install_packages(self, package_names):
-        self._yum_install(package_names)
+        self._yum_install(package_names, self._enable_repos)
 
     def uninstall_packages(self, package_names):
         self._yum_uninstall(package_names)
@@ -158,39 +151,12 @@ class RedHatMorphingTools(base.BaseLinuxOSMorphingTools):
                     "dracut -f /boot/initramfs-%(version)s.img %(version)s" %
                     {"version": kernel_version})
 
-    def _get_default_cloud_user(self):
-        cloud_cfg_path = os.path.join(self._os_root_dir, 'etc/cloud/cloud.cfg')
-        if not self._test_path(cloud_cfg_path):
-            raise exception.CoriolisException(
-                "cloud-init config file not found: %s" % cloud_cfg_path)
-        cloud_cfg_content = self._read_file(cloud_cfg_path)
-        cloud_cfg = yaml.load(cloud_cfg_content)
-        return cloud_cfg.get('system_info', {}).get('default_user', {}).get(
-            'name', DEFAULT_CLOUD_USER)
-
     def _set_network_nozeroconf_config(self):
         network_cfg_file = "etc/sysconfig/network"
         network_cfg = self._read_config_file(network_cfg_file,
                                              check_exists=True)
         network_cfg["NOZEROCONF"] = "yes"
         self._write_config_file(network_cfg_file, network_cfg)
-
-    def _configure_cloud_init(self):
-        if "cloud-init" in self.get_packages()[0]:
-            cloud_user = self._get_default_cloud_user()
-            if not self._check_user_exists(cloud_user):
-                self._exec_cmd_chroot("useradd %s" % cloud_user)
-            self._set_network_nozeroconf_config()
-            if self._has_systemd():
-                self._enable_systemd_service("cloud-init")
-
-    def _add_hyperv_ballooning_udev_rules(self):
-        udev_file = "etc/udev/rules.d/100-balloon.rules"
-        content = 'SUBSYSTEM=="memory", ACTION=="add", ATTR{state}="online"\n'
-
-        if (self._hypervisor == constants.HYPERVISOR_HYPERV and
-                not self._test_path(udev_file)):
-            self._write_file_sudo(udev_file, content)
 
     def _write_config_file(self, chroot_path, config_data):
         content = self._get_config_file_content(config_data)
@@ -207,23 +173,3 @@ class RedHatMorphingTools(base.BaseLinuxOSMorphingTools):
 
     def _set_selinux_autorelabel(self):
         self._exec_cmd_chroot("touch /.autorelabel")
-
-    def pre_packages_install(self, package_names):
-        super(RedHatMorphingTools, self).pre_packages_install(package_names)
-
-        distro, version = self.check_os()
-        if distro == RELEASE_RHEL and "cloud-init" in self.get_packages()[0]:
-            major_version = version.split(".")[0]
-            repo_name = "rhel-%s-server-rh-common-rpms" % major_version
-            # This is necessary for cloud-init
-            self._event_manager.progress_update(
-                "Enabling repository: %s" % repo_name)
-            self._exec_cmd_chroot(
-                "subscription-manager repos --enable %s" % repo_name)
-
-    def post_packages_install(self, package_names):
-        self._add_hyperv_ballooning_udev_rules()
-        self._run_dracut()
-        self._configure_cloud_init()
-        self._set_selinux_autorelabel()
-        super(RedHatMorphingTools, self).post_packages_install(package_names)

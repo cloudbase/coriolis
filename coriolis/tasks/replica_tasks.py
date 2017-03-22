@@ -6,39 +6,10 @@ from coriolis import exception
 from coriolis.providers import factory as providers_factory
 from coriolis import schemas
 from coriolis.tasks import base
-from coriolis import utils
 
-from oslo_config import cfg
 from oslo_log import log as logging
 
-serialization_opts = [
-    cfg.StrOpt('temp_keypair_password',
-               default=None,
-               help='Password to be used when serializing temporary keys'),
-]
-
-CONF = cfg.CONF
-CONF.register_opts(serialization_opts, 'serialization')
-
 LOG = logging.getLogger(__name__)
-
-
-def _marshal_migr_conn_info(migr_connection_info):
-    if migr_connection_info and "pkey" in migr_connection_info:
-        migr_connection_info = migr_connection_info.copy()
-        migr_connection_info["pkey"] = utils.serialize_key(
-            migr_connection_info["pkey"],
-            CONF.serialization.temp_keypair_password)
-    return migr_connection_info
-
-
-def _unmarshal_migr_conn_info(migr_connection_info):
-    if migr_connection_info and "pkey" in migr_connection_info:
-        migr_connection_info = migr_connection_info.copy()
-        pkey_str = migr_connection_info["pkey"]
-        migr_connection_info["pkey"] = utils.deserialize_key(
-            pkey_str, CONF.serialization.temp_keypair_password)
-    return migr_connection_info
 
 
 def _get_volumes_info(task_info):
@@ -91,10 +62,10 @@ class ReplicateDisksTask(base.TaskRunner):
 
         volumes_info = _get_volumes_info(task_info)
 
-        migr_source_conn_info = _unmarshal_migr_conn_info(
+        migr_source_conn_info = base.unmarshal_migr_conn_info(
             task_info["migr_source_connection_info"])
 
-        migr_target_conn_info = _unmarshal_migr_conn_info(
+        migr_target_conn_info = base.unmarshal_migr_conn_info(
             task_info["migr_target_connection_info"])
 
         incremental = task_info.get("incremental", True)
@@ -161,7 +132,7 @@ class DeployReplicaSourceResourcesTask(base.TaskRunner):
 
         task_info["migr_source_resources"] = replica_resources_info[
             "migr_resources"]
-        migr_connection_info = _marshal_migr_conn_info(
+        migr_connection_info = base.marshal_migr_conn_info(
             replica_resources_info["connection_info"])
         task_info["migr_source_connection_info"] = migr_connection_info
 
@@ -207,7 +178,7 @@ class DeployReplicaTargetResourcesTask(base.TaskRunner):
         task_info["migr_target_resources"] = replica_resources_info[
             "migr_resources"]
 
-        migr_connection_info = _marshal_migr_conn_info(
+        migr_connection_info = base.marshal_migr_conn_info(
             replica_resources_info["connection_info"])
         task_info["migr_target_connection_info"] = migr_connection_info
 
@@ -249,9 +220,52 @@ class DeployReplicaInstanceTask(base.TaskRunner):
         clone_disks = task_info.get("clone_disks", True)
         LOG.debug("Clone disks: %s", clone_disks)
 
-        provider.deploy_replica_instance(
+        import_info = provider.deploy_replica_instance(
             ctxt, connection_info, target_environment, instance,
             export_info, volumes_info, clone_disks)
+
+        task_info["instance_deployment_info"] = import_info[
+            "instance_deployment_info"]
+        task_info["osmorphing_info"] = import_info.get("osmorphing_info", {})
+        task_info["osmorphing_connection_info"] = base.marshal_migr_conn_info(
+            import_info["osmorphing_connection_info"])
+
+        task_info[
+            "origin_provider_type"] = constants.PROVIDER_TYPE_REPLICA_EXPORT
+        task_info[
+            "destination_provider_type"
+        ] = constants.PROVIDER_TYPE_REPLICA_IMPORT
+
+        return task_info
+
+
+class FinalizeReplicaInstanceDeploymentTask(base.TaskRunner):
+    def run(self, ctxt, instance, origin, destination, task_info,
+            event_handler):
+        provider = providers_factory.get_provider(
+            destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            event_handler)
+        connection_info = base.get_connection_info(ctxt, destination)
+        instance_deployment_info = task_info["instance_deployment_info"]
+
+        provider.finalize_replica_instance_deployment(
+            ctxt, connection_info, instance_deployment_info)
+
+        return task_info
+
+
+class CleanupFailedReplicaInstanceDeploymentTask(base.TaskRunner):
+    def run(self, ctxt, instance, origin, destination, task_info,
+            event_handler):
+        provider = providers_factory.get_provider(
+            destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            event_handler)
+        connection_info = base.get_connection_info(ctxt, destination)
+        instance_deployment_info = task_info.get(
+            "instance_deployment_info", {})
+
+        provider.cleanup_failed_replica_instance_deployment(
+            ctxt, connection_info, instance_deployment_info)
 
         return task_info
 

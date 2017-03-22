@@ -4,9 +4,19 @@
 import abc
 
 from coriolis import secrets
+from coriolis import utils
 
+from oslo_config import cfg
 from oslo_log import log as logging
 
+serialization_opts = [
+    cfg.StrOpt('temp_keypair_password',
+               default=None,
+               help='Password to be used when serializing temporary keys'),
+]
+
+CONF = cfg.CONF
+CONF.register_opts(serialization_opts, 'serialization')
 LOG = logging.getLogger(__name__)
 
 
@@ -24,3 +34,21 @@ def get_connection_info(ctxt, data):
         LOG.info("Retrieving connection info from secret: %s", secret_ref)
         connection_info = secrets.get_secret(ctxt, secret_ref)
     return connection_info
+
+
+def marshal_migr_conn_info(migr_connection_info):
+    if migr_connection_info and "pkey" in migr_connection_info:
+        migr_connection_info = migr_connection_info.copy()
+        migr_connection_info["pkey"] = utils.serialize_key(
+            migr_connection_info["pkey"],
+            CONF.serialization.temp_keypair_password)
+    return migr_connection_info
+
+
+def unmarshal_migr_conn_info(migr_connection_info):
+    if migr_connection_info and "pkey" in migr_connection_info:
+        migr_connection_info = migr_connection_info.copy()
+        pkey_str = migr_connection_info["pkey"]
+        migr_connection_info["pkey"] = utils.deserialize_key(
+            pkey_str, CONF.serialization.temp_keypair_password)
+    return migr_connection_info

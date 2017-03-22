@@ -141,7 +141,7 @@ class SSHBackupWriter(BaseBackupWriter):
         self._msg_id += 1
         self._stdin.write(data)
         self._stdin.flush()
-        out_msg_id = self._stdout.read(4)
+        self._stdout.read(4)
 
     def _open(self):
         self._connect_ssh()
