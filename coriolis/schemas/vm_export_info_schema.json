@@ -31,6 +31,27 @@
       "description": "The generic type of the operating system installed on the VM.",
       "enum": ["bsd", "linux", "osx", "solaris", "windows"]
     },
+    "os_info": {
+      "type": "object",
+      "properties": {
+        "linux_info": {
+          "type": "object",
+          "description": "Information specific to a Linux-based OS.",
+          "properties": {
+            "kernel_path": {
+              "type": "string"
+            },
+            "initrd_path": {
+              "type": "string"
+            },
+            "kernel_parameters": {
+              "type": "string"
+            }
+          },
+          "required": ["kernel_path", "initrd_path", "kernel_parameters"]
+        }
+      }
+    },
     "firmware_type": {
       "type": "string",
       "description": "The type of firmware of the VM.",
