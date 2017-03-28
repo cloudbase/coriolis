@@ -45,12 +45,21 @@ def upgrade(migrate_engine):
     base_transfer_action = sqlalchemy.Table(
         'base_transfer_action', meta, autoload=True)
 
+    # NOTE(alexpilotti) delete all records in base_transfer_action
+    # before performing this migration
     origin_endpoint_id = sqlalchemy.Column(
         "origin_endpoint_id", sqlalchemy.String(36),
-        sqlalchemy.ForeignKey('endpoint.id'), nullable=True)
+        sqlalchemy.ForeignKey('endpoint.id'), nullable=False)
     base_transfer_action.create_column(origin_endpoint_id)
 
     destination_endpoint_id = sqlalchemy.Column(
         "destination_endpoint_id", sqlalchemy.String(36),
-        sqlalchemy.ForeignKey('endpoint.id'), nullable=True)
+        sqlalchemy.ForeignKey('endpoint.id'), nullable=False)
     base_transfer_action.create_column(destination_endpoint_id)
+
+    destination_environment = sqlalchemy.Column(
+        "destination_environment", sqlalchemy.Text, nullable=True)
+    base_transfer_action.create_column(destination_environment)
+
+    base_transfer_action.drop_column("origin")
+    base_transfer_action.drop_column("destination")

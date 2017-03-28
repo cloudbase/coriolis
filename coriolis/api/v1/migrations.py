@@ -40,23 +40,13 @@ class MigrationController(api_wsgi.Controller):
 
     def _validate_migration_input(self, migration):
         try:
-            origin = migration["origin"]
-            destination = migration["destination"]
+            origin_endpoint_id = migration["origin_endpoint_id"]
+            destination_endpoint_id = migration["destination_endpoint_id"]
+            destination_environment = migration.get("destination_environment")
+            instances = migration["instances"]
 
-            export_provider = factory.get_provider(
-                origin["type"], constants.PROVIDER_TYPE_EXPORT, None)
-            export_provider.validate_connection_info(
-                origin.get("connection_info", {}))
-
-            import_provider = factory.get_provider(
-                destination["type"], constants.PROVIDER_TYPE_IMPORT, None)
-            import_provider.validate_connection_info(
-                destination.get("connection_info", {}))
-
-            import_provider.validate_target_environment(
-                destination.get("target_environment", {}))
-
-            return origin, destination, migration["instances"]
+            return (origin_endpoint_id, destination_endpoint_id,
+                    destination_environment, instances)
         except Exception as ex:
             LOG.exception(ex)
             if hasattr(ex, "message"):
@@ -78,10 +68,14 @@ class MigrationController(api_wsgi.Controller):
             migration = self._migration_api.deploy_replica_instances(
                 context, replica_id, clone_disks, force)
         else:
-            origin, destination, instances = self._validate_migration_input(
+            (origin_endpoint_id,
+             destination_endpoint_id,
+             destination_environment,
+             instances) = self._validate_migration_input(
                 migration_body)
             migration = self._migration_api.migrate_instances(
-                context, origin, destination, instances)
+                context, origin_endpoint_id, destination_endpoint_id,
+                destination_environment, instances)
 
         return migration_view.single(req, migration)
 

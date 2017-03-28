@@ -203,10 +203,11 @@ def get_migrations(context, include_tasks=False):
 
 def _get_tasks_with_details_options(query):
     return query.options(
-        orm.joinedload("tasks").
-        joinedload("progress_updates")).options(
+        orm.joinedload("action")).options(
             orm.joinedload("tasks").
-            joinedload("events"))
+            joinedload("progress_updates")).options(
+                orm.joinedload("tasks").
+                joinedload("events"))
 
 
 def _get_migration_task_query_options(query):

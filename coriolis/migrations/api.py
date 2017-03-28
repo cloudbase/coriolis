@@ -8,9 +8,12 @@ class API(object):
     def __init__(self):
         self._rpc_client = rpc_client.ConductorClient()
 
-    def migrate_instances(self, ctxt, origin, destination, instances):
+    def migrate_instances(self, ctxt, origin_endpoint_id,
+                          destination_endpoint_id, destination_environment,
+                          instances):
         return self._rpc_client.migrate_instances(
-            ctxt, origin, destination, instances)
+            ctxt, origin_endpoint_id, destination_endpoint_id,
+            destination_environment, instances)
 
     def deploy_replica_instances(self, ctxt, replica_id, clone_disks=False,
                                  force=False):

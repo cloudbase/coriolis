@@ -44,23 +44,13 @@ class ReplicaController(api_wsgi.Controller):
         try:
             replica = body["replica"]
 
-            origin = replica["origin"]
-            destination = replica["destination"]
+            origin_endpoint_id = replica["origin_endpoint_id"]
+            destination_endpoint_id = replica["destination_endpoint_id"]
+            destination_environment = replica.get("destination_environment")
+            instances = replica["instances"]
 
-            export_provider = factory.get_provider(
-                origin["type"], constants.PROVIDER_TYPE_EXPORT, None)
-            export_provider.validate_connection_info(
-                origin.get("connection_info", {}))
-
-            import_provider = factory.get_provider(
-                destination["type"], constants.PROVIDER_TYPE_IMPORT, None)
-            import_provider.validate_connection_info(
-                destination.get("connection_info", {}))
-
-            import_provider.validate_target_environment(
-                destination.get("target_environment", {}))
-
-            return origin, destination, replica["instances"]
+            return (origin_endpoint_id, destination_endpoint_id,
+                    destination_environment, instances)
         except Exception as ex:
             LOG.exception(ex)
             if hasattr(ex, "message"):
@@ -70,9 +60,12 @@ class ReplicaController(api_wsgi.Controller):
             raise exception.InvalidInput(msg)
 
     def create(self, req, body):
-        origin, destination, instances = self._validate_create_body(body)
+        (origin_endpoint_id, destination_endpoint_id,
+         destination_environment, instances) = self._validate_create_body(body)
+
         return replica_view.single(req, self._replica_api.create(
-            req.environ['coriolis.context'], origin, destination, instances))
+            req.environ['coriolis.context'], origin_endpoint_id,
+            destination_endpoint_id, destination_environment, instances))
 
     def delete(self, req, id):
         try:

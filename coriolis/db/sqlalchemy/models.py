@@ -95,8 +95,7 @@ class BaseTransferAction(BASE, models.TimestampMixin, models.ModelBase,
                                 primary_key=True)
     user_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
     project_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
-    origin = sqlalchemy.Column(types.Json, nullable=False)
-    destination = sqlalchemy.Column(types.Json, nullable=False)
+    destination_environment = sqlalchemy.Column(types.Json, nullable=True)
     type = sqlalchemy.Column(sqlalchemy.String(50))
     executions = orm.relationship(TasksExecution, cascade="all,delete",
                                   backref=orm.backref('action'),
@@ -107,10 +106,10 @@ class BaseTransferAction(BASE, models.TimestampMixin, models.ModelBase,
     info = sqlalchemy.Column(types.Json, nullable=False)
     origin_endpoint_id = sqlalchemy.Column(
         sqlalchemy.String(36),
-        sqlalchemy.ForeignKey('endpoint.id'), nullable=True)
+        sqlalchemy.ForeignKey('endpoint.id'), nullable=False)
     destination_endpoint_id = sqlalchemy.Column(
         sqlalchemy.String(36),
-        sqlalchemy.ForeignKey('endpoint.id'), nullable=True)
+        sqlalchemy.ForeignKey('endpoint.id'), nullable=False)
 
     __mapper_args__ = {
         'polymorphic_identity': 'base_transfer_action',
@@ -163,10 +162,10 @@ class Endpoint(BASE, models.TimestampMixin, models.ModelBase,
     name = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
     description = sqlalchemy.Column(sqlalchemy.String(1024), nullable=True)
     origin_actions = orm.relationship(
-        BaseTransferAction, backref=orm.backref('origins'),
+        BaseTransferAction, backref=orm.backref('origin_endpoint'),
         primaryjoin="and_(BaseTransferAction.origin_endpoint_id==Endpoint.id, "
         "BaseTransferAction.deleted=='0')")
     destination_actions = orm.relationship(
-        BaseTransferAction, backref=orm.backref('destinations'),
+        BaseTransferAction, backref=orm.backref('destination_endpoint'),
         primaryjoin="and_(BaseTransferAction.destination_endpoint_id=="
         "Endpoint.id, BaseTransferAction.deleted=='0')")

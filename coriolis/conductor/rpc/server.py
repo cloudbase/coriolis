@@ -141,8 +141,26 @@ class ConductorServerEndpoint(object):
                         break
         return task
 
+    def _get_task_origin(self, ctxt, action):
+        endpoint = self.get_endpoint(ctxt, action.origin_endpoint_id)
+        return {
+            "connection_info": endpoint.connection_info,
+            "type": endpoint.type
+        }
+
+    def _get_task_destination(self, ctxt, action):
+        endpoint = self.get_endpoint(ctxt, action.destination_endpoint_id)
+        return {
+            "connection_info": endpoint.connection_info,
+            "type": endpoint.type,
+            "target_environment": action.destination_environment
+        }
+
     def _begin_tasks(self, ctxt, execution, task_info={}):
         keystone.create_trust(ctxt)
+
+        origin = self._get_task_origin(ctxt, execution.action)
+        destination = self._get_task_destination(ctxt, execution.action)
 
         for task in execution.tasks:
             if (not task.depends_on and
@@ -151,8 +169,8 @@ class ConductorServerEndpoint(object):
                     ctxt, server=None,
                     task_id=task.id,
                     task_type=task.task_type,
-                    origin=execution.action.origin,
-                    destination=execution.action.destination,
+                    origin=origin,
+                    destination=destination,
                     instance=task.instance,
                     task_info=task_info.get(task.instance, {}))
 
@@ -297,18 +315,24 @@ class ConductorServerEndpoint(object):
         return self.get_replica_tasks_execution(ctxt, replica_id, execution.id)
 
     @staticmethod
-    def _check_endpoints(ctxt, origin, destination):
+    def _check_endpoints(ctxt, origin_endpoint, destination_endpoint):
         # TODO(alexpilotti): check Barbican secrets content as well
-        if origin.get("connection_info") == destination.get("connection_info"):
+        if (origin_endpoint.connection_info ==
+                destination_endpoint.connection_info):
             raise exception.SameDestination()
 
-    def create_instances_replica(self, ctxt, origin, destination, instances):
-        self._check_endpoints(ctxt, origin, destination)
+    def create_instances_replica(self, ctxt, origin_endpoint_id,
+                                 destination_endpoint_id,
+                                 destination_environment, instances):
+        origin_endpoint = self.get_endpoint(ctxt, origin_endpoint_id)
+        destination_endpoint = self.get_endpoint(ctxt, destination_endpoint_id)
+        self._check_endpoints(ctxt, origin_endpoint, destination_endpoint)
 
         replica = models.Replica()
         replica.id = str(uuid.uuid4())
-        replica.origin = origin
-        replica.destination = destination
+        replica.origin_endpoint = origin_endpoint
+        replica.destination_endpoint = destination_endpoint
+        replica.destination_environment = destination_environment
         replica.instances = instances
         replica.executions = []
         replica.info = {}
@@ -385,8 +409,9 @@ class ConductorServerEndpoint(object):
 
         migration = models.Migration()
         migration.id = str(uuid.uuid4())
-        migration.origin = replica.origin
-        migration.destination = replica.destination
+        migration.origin_endpoint_id = replica.origin_endpoint_id
+        migration.destination_endpoint_id = replica.destination_endpoint_id
+        migration.destination_environment = replica.destination_environment
         migration.instances = instances
         migration.replica = replica
         migration.info = replica.info
@@ -441,13 +466,18 @@ class ConductorServerEndpoint(object):
 
         return self.get_migration(ctxt, migration.id)
 
-    def migrate_instances(self, ctxt, origin, destination, instances):
-        self._check_endpoints(ctxt, origin, destination)
+    def migrate_instances(self, ctxt, origin_endpoint_id,
+                          destination_endpoint_id, destination_environment,
+                          instances):
+        origin_endpoint = self.get_endpoint(ctxt, origin_endpoint_id)
+        destination_endpoint = self.get_endpoint(ctxt, destination_endpoint_id)
+        self._check_endpoints(ctxt, origin_endpoint, destination_endpoint)
 
         migration = models.Migration()
         migration.id = str(uuid.uuid4())
-        migration.origin = origin
-        migration.destination = destination
+        migration.origin_endpoint = origin_endpoint
+        migration.destination_endpoint = destination_endpoint
+        migration.destination_environment = destination_environment
         execution = models.TasksExecution()
         execution.status = constants.EXECUTION_STATUS_RUNNING
         execution.number = 1
@@ -521,23 +551,32 @@ class ConductorServerEndpoint(object):
                     ctxt, task.id, constants.TASK_STATUS_CANCELED)
 
         if not has_running_tasks:
-            for task in execution.tasks:
-                if task.status in [constants.TASK_STATUS_PENDING,
-                                   constants.TASK_STATUS_ON_ERROR_ONLY]:
-                    if task.on_error:
-                        action = db_api.get_action(ctxt, execution.action_id)
-                        task_info = action.info.get(task.instance, {})
+            try:
+                origin = self._get_task_origin(ctxt, execution.action)
+                destination = self._get_task_destination(
+                    ctxt, execution.action)
 
-                        self._rpc_worker_client.begin_task(
-                            ctxt, server=None,
-                            task_id=task.id,
-                            task_type=task.task_type,
-                            origin=action.origin,
-                            destination=action.destination,
-                            instance=task.instance,
-                            task_info=task_info)
+                for task in execution.tasks:
+                    if task.status in [constants.TASK_STATUS_PENDING,
+                                       constants.TASK_STATUS_ON_ERROR_ONLY]:
+                        if task.on_error:
+                            action = db_api.get_action(
+                                ctxt, execution.action_id)
+                            task_info = action.info.get(task.instance, {})
 
-                        has_running_tasks = True
+                            self._rpc_worker_client.begin_task(
+                                ctxt, server=None,
+                                task_id=task.id,
+                                task_type=task.task_type,
+                                origin=origin,
+                                destination=destination,
+                                instance=task.instance,
+                                task_info=task_info)
+
+                            has_running_tasks = True
+            except exception.NotFound as ex:
+                LOG.error("A required endpoint could not be found")
+                LOG.exception(ex)
 
         if not has_running_tasks:
             self._set_tasks_execution_status(
@@ -557,6 +596,9 @@ class ConductorServerEndpoint(object):
             ctxt, task_id, constants.TASK_STATUS_RUNNING)
 
     def _start_pending_tasks(self, ctxt, execution, parent_task, task_info):
+        origin = self._get_task_origin(ctxt, execution.action)
+        destination = self._get_task_destination(ctxt, execution.action)
+
         for task in execution.tasks:
             if task.status == constants.TASK_STATUS_PENDING:
                 if task.depends_on and parent_task.id in task.depends_on:
@@ -575,13 +617,12 @@ class ConductorServerEndpoint(object):
                                 constants.TASK_TYPE_IMPORT_INSTANCE):
                             server = parent_task.host
 
-                        action = execution.action
                         self._rpc_worker_client.begin_task(
                             ctxt, server=server,
                             task_id=task.id,
                             task_type=task.task_type,
-                            origin=action.origin,
-                            destination=action.destination,
+                            origin=origin,
+                            destination=destination,
                             instance=task.instance,
                             task_info=task_info)
 
