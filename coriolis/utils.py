@@ -351,3 +351,10 @@ def get_secret_connection_info(ctxt, connection_info):
         LOG.info("Retrieving connection info from secret: %s", secret_ref)
         connection_info = secrets.get_secret(ctxt, secret_ref)
     return connection_info
+
+
+def parse_int_value(value):
+    try:
+        return int(str(value))
+    except ValueError:
+        raise exception.InvalidInput("Invalid integer: %s" % value)
