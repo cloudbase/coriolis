@@ -32,12 +32,13 @@ class ConductorClient(object):
             ctxt, 'delete_endpoint', endpoint_id=endpoint_id)
 
     def get_endpoint_instances(self, ctxt, endpoint_id, marker=None,
-                               limit=None):
+                               limit=None, instance_name_pattern=None):
         return self._client.call(
             ctxt, 'get_endpoint_instances',
             endpoint_id=endpoint_id,
             marker=marker,
-            limit=limit)
+            limit=limit,
+            instance_name_pattern=instance_name_pattern)
 
     def execute_replica_tasks(self, ctxt, replica_id,
                               shutdown_instances=False):

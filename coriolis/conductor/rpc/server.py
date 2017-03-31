@@ -102,7 +102,8 @@ class ConductorServerEndpoint(object):
     def delete_endpoint(self, ctxt, endpoint_id):
         db_api.delete_endpoint(ctxt, endpoint_id)
 
-    def get_endpoint_instances(self, ctxt, endpoint_id, marker, limit):
+    def get_endpoint_instances(self, ctxt, endpoint_id, marker, limit,
+                               instance_name_pattern):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
         export_provider = providers_factory.get_provider(
@@ -112,7 +113,8 @@ class ConductorServerEndpoint(object):
             ctxt, endpoint.connection_info)
 
         instances_info = export_provider.get_instances(
-            ctxt, connection_info, last_seen_id=marker, limit=limit)
+            ctxt, connection_info, last_seen_id=marker, limit=limit,
+            instance_name_pattern=instance_name_pattern)
         for instance_info in instances_info:
             schemas.validate_value(
                 instance_info, schemas.CORIOLIS_VM_INSTANCE_INFO_SCHEMA)

@@ -9,6 +9,6 @@ class API(object):
         self._rpc_client = rpc_client.ConductorClient()
 
     def get_endpoint_instances(self, ctxt, endpoint_id, marker=None,
-                               limit=None):
+                               limit=None, instance_name_pattern=None):
         return self._rpc_client.get_endpoint_instances(
-            ctxt, endpoint_id, marker, limit)
+            ctxt, endpoint_id, marker, limit, instance_name_pattern)
