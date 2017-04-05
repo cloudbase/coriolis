@@ -4,6 +4,8 @@
 from oslo_log import log as logging
 
 from coriolis import api
+from coriolis.api.v1 import endpoints
+from coriolis.api.v1 import endpoint_instances
 from coriolis.api.v1 import migrations
 from coriolis.api.v1 import migration_actions
 from coriolis.api.v1 import replica_actions
@@ -27,6 +29,17 @@ class APIRouter(api.APIRouter):
 
     def _setup_routes(self, mapper, ext_mgr):
         mapper.redirect("", "/")
+
+        self.resources['endpoints'] = endpoints.create_resource()
+        mapper.resource('endpoint', 'endpoints',
+                        controller=self.resources['endpoints'],
+                        collection={'detail': 'GET'},
+                        member={'action': 'POST'})
+
+        self.resources['endpoint_instances'] = \
+            endpoint_instances.create_resource()
+        mapper.resource('instance', 'endpoints/{endpoint_id}/instances',
+                        controller=self.resources['endpoint_instances'])
 
         self.resources['migrations'] = migrations.create_resource()
         mapper.resource('migration', 'migrations',

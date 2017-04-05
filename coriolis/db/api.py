@@ -59,6 +59,36 @@ def _soft_delete_aware_query(context, *args, **kwargs):
 
 
 @enginefacade.reader
+def get_endpoints(context):
+    q = _soft_delete_aware_query(context, models.Endpoint)
+    return q.filter(
+        models.Replica.project_id == context.tenant).all()
+
+
+@enginefacade.reader
+def get_endpoint(context, endpoint_id):
+    q = _soft_delete_aware_query(context, models.Endpoint)
+    return q.filter(
+        models.Endpoint.project_id == context.tenant,
+        models.Endpoint.id == endpoint_id).first()
+
+
+@enginefacade.writer
+def add_endpoint(context, endpoint):
+    endpoint.user_id = context.user
+    endpoint.project_id = context.tenant
+    context.session.add(endpoint)
+
+
+@enginefacade.writer
+def delete_endpoint(context, endpoint_id):
+    count = _soft_delete_aware_query(context, models.Endpoint).filter_by(
+        project_id=context.tenant, id=endpoint_id).soft_delete()
+    if count == 0:
+        raise exception.NotFound("0 entries were soft deleted")
+
+
+@enginefacade.reader
 def get_replica_tasks_executions(context, replica_id, include_tasks=False):
     q = _soft_delete_aware_query(context, models.TasksExecution)
     q = q.join(models.Replica)
@@ -173,10 +203,11 @@ def get_migrations(context, include_tasks=False):
 
 def _get_tasks_with_details_options(query):
     return query.options(
-        orm.joinedload("tasks").
-        joinedload("progress_updates")).options(
+        orm.joinedload("action")).options(
             orm.joinedload("tasks").
-            joinedload("events"))
+            joinedload("progress_updates")).options(
+                orm.joinedload("tasks").
+                joinedload("events"))
 
 
 def _get_migration_task_query_options(query):

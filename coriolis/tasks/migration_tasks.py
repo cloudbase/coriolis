@@ -51,7 +51,7 @@ class ImportInstanceTask(base.TaskRunner):
             import_info["osmorphing_connection_info"])
 
         schemas.validate_value(
-            task_info, schemas.CORIOLIS_IMPORT_INFO_SCHEMA)
+            task_info, schemas.CORIOLIS_VM_IMPORT_INFO_SCHEMA)
 
         task_info["origin_provider_type"] = constants.PROVIDER_TYPE_EXPORT
         task_info["destination_provider_type"] = constants.PROVIDER_TYPE_IMPORT

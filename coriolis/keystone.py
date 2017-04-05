@@ -105,19 +105,28 @@ def create_keystone_session(ctxt, connection_info={}):
     verify = not allow_untrusted
 
     username = connection_info.get("username")
+    auth = None
 
     if not username:
         # Using directly the caller's token is not feasible for long running
         # tasks as once it expires it cannot be automatically renewed. This is
         # solved by using a Keystone trust, which must have been set priorly.
-        if not ctxt.trust_id:
-            raise exception.InvalidConfigurationValue(
-                "Trust id not set in context")
-
-        auth = _get_trusts_auth_plugin(ctxt.trust_id)
-        session = ks_session.Session(auth=auth, verify=verify)
+        if ctxt.trust_id:
+            auth = _get_trusts_auth_plugin(ctxt.trust_id)
+        else:
+            plugin_name = "token"
+            plugin_args = {
+                "token": ctxt.auth_token
+            }
     else:
+        plugin_name = "password"
         password = connection_info.get("password")
+        plugin_args = {
+            "username": username,
+            "password": password,
+        }
+
+    if not auth:
         project_name = connection_info.get("project_name", ctxt.project_name)
 
         auth_url = connection_info.get("auth_url", CONF.keystone.auth_url)
@@ -127,14 +136,10 @@ def create_keystone_session(ctxt, connection_info={}):
                 '"auth_url" in group "[openstack_migration_provider]" '
                 'not set')
 
-        plugin_name = "password"
-
-        plugin_args = {
+        plugin_args.update({
             "auth_url": auth_url,
             "project_name": project_name,
-            "username": username,
-            "password": password,
-        }
+        })
 
         keystone_version = connection_info.get(
             "identity_api_version", CONF.keystone.identity_api_version)
@@ -152,6 +157,5 @@ def create_keystone_session(ctxt, connection_info={}):
 
         loader = loading.get_plugin_loader(plugin_name)
         auth = loader.load_from_options(**plugin_args)
-        session = ks_session.Session(auth=auth, verify=verify)
 
-    return session
+    return ks_session.Session(auth=auth, verify=verify)

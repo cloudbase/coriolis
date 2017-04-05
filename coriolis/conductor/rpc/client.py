@@ -13,6 +13,33 @@ class ConductorClient(object):
         target = messaging.Target(topic='coriolis_conductor', version=VERSION)
         self._client = rpc.get_client(target)
 
+    def create_endpoint(self, ctxt, name, endpoint_type, description,
+                        connection_info):
+        return self._client.call(
+            ctxt, 'create_endpoint', name=name, endpoint_type=endpoint_type,
+            description=description, connection_info=connection_info)
+
+    def get_endpoints(self, ctxt):
+        return self._client.call(
+            ctxt, 'get_endpoints')
+
+    def get_endpoint(self, ctxt, endpoint_id):
+        return self._client.call(
+            ctxt, 'get_endpoint', endpoint_id=endpoint_id)
+
+    def delete_endpoint(self, ctxt, endpoint_id):
+        return self._client.call(
+            ctxt, 'delete_endpoint', endpoint_id=endpoint_id)
+
+    def get_endpoint_instances(self, ctxt, endpoint_id, marker=None,
+                               limit=None, instance_name_pattern=None):
+        return self._client.call(
+            ctxt, 'get_endpoint_instances',
+            endpoint_id=endpoint_id,
+            marker=marker,
+            limit=limit,
+            instance_name_pattern=instance_name_pattern)
+
     def execute_replica_tasks(self, ctxt, replica_id,
                               shutdown_instances=False):
         return self._client.call(
@@ -42,10 +69,16 @@ class ConductorClient(object):
             ctxt, 'cancel_replica_tasks_execution', replica_id=replica_id,
             execution_id=execution_id, force=force)
 
-    def create_instances_replica(self, ctxt, origin, destination, instances):
+    def create_instances_replica(self, ctxt, origin_endpoint_id,
+                                 destination_endpoint_id,
+                                 destination_environment,
+                                 instances):
         return self._client.call(
-            ctxt, 'create_instances_replica', origin=origin,
-            destination=destination, instances=instances)
+            ctxt, 'create_instances_replica',
+            origin_endpoint_id=origin_endpoint_id,
+            destination_endpoint_id=destination_endpoint_id,
+            destination_environment=destination_environment,
+            instances=instances)
 
     def get_replicas(self, ctxt, include_tasks_executions=False):
         return self._client.call(
@@ -72,9 +105,14 @@ class ConductorClient(object):
         return self._client.call(
             ctxt, 'get_migration', migration_id=migration_id)
 
-    def migrate_instances(self, ctxt, origin, destination, instances):
+    def migrate_instances(self, ctxt, origin_endpoint_id,
+                          destination_endpoint_id, destination_environment,
+                          instances):
         return self._client.call(
-            ctxt, 'migrate_instances', origin=origin, destination=destination,
+            ctxt, 'migrate_instances',
+            origin_endpoint_id=origin_endpoint_id,
+            destination_endpoint_id=destination_endpoint_id,
+            destination_environment=destination_environment,
             instances=instances)
 
     def deploy_replica_instances(self, ctxt, replica_id, clone_disks=False,

@@ -1,0 +1,51 @@
+{
+  "$schema": "http://cloudbase.it/coriolis/schemas/vm_export_info#",
+  "type": "object",
+  "properties": {
+    "num_cpu": {
+      "type": "integer",
+      "description": "Number of CPUs of the VM."
+    },
+    "num_cores_per_socket": {
+      "type": "integer",
+      "description": "Number of CPU cores per socket, if applicable."
+    },
+    "memory_mb": {
+      "type": "integer",
+      "description": "Memory of the VM in MegaBytes."
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name of th VM."
+    },
+    "id": {
+      "type": "string",
+      "description": "Unique identifier of the VM."
+    },
+    "os_type": {
+      "type": "string",
+      "description": "The generic type of the operating system installed on the VM.",
+      "enum": ["bsd", "linux", "osx", "solaris", "windows"]
+    },
+    "firmware_type": {
+      "type": "string",
+      "description": "The type of firmware of the VM.",
+      "enum": ["BIOS", "EFI"]
+    },
+    "guest_id": {
+      "type": "string",
+      "description": "Extra ID field for added categorisation."
+    },
+    "flavor_name": {
+      "type": "string",
+      "description": "Name of the exported VM's flavor."
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "num_cpu",
+    "memory_mb",
+    "os_type"
+  ]
+}
