@@ -78,12 +78,12 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
                  h is None or h == self._hypervisor]
 
         add = [p[0] for p in itertools.chain.from_iterable(
-               [l for k, l in self._packages.items() if k in k_add])]
+               [l for k, l in self._packages.items() if k in k_add])
+               if p[1]]
 
-        k_remove = set(self._packages.keys()) - set(k_add)
         remove = [p[0] for p in itertools.chain.from_iterable(
-                  [l for k, l in self._packages.items() if k in k_remove])
-                  if p[1]]
+                  [l for k, l in self._packages.items()])
+                  if not p[1]]
 
         return add, remove
 
