@@ -9,13 +9,14 @@ from coriolis import utils
 LOG = logging.getLogger(__name__)
 
 
-class UbuntuOSMountTools(base.BaseSSHOSMountTools):
+class RedHatOSMountTools(base.BaseLinuxOSMountTools):
     def check_os(self):
+        # make sure the package redhat-lsb-core is installed
         os_info = utils.get_linux_os_info(self._ssh)
-        if os_info and os_info[0] == 'Ubuntu':
+        if os_info and os_info[0] in [
+                'RedHatEnterpriseServer', 'CentOS', 'OracleServer']:
             return True
 
     def _pre_mount_os(self):
-        self._exec_cmd("sudo apt-get update -y")
-        self._exec_cmd("sudo apt-get install lvm2 -y")
+        self._exec_cmd("sudo yum install -y lvm2")
         self._exec_cmd("sudo modprobe dm-mod")
