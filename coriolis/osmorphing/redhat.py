@@ -16,8 +16,6 @@ RELEASE_RHEL = "Red Hat Enterprise Linux Server"
 RELEASE_CENTOS = "CentOS Linux"
 RELEASE_FEDORA = "Fedora"
 
-DEFAULT_CLOUD_USER = "cloud-user"
-
 
 class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
     _NETWORK_SCRIPTS_PATH = "etc/sysconfig/network-scripts"
