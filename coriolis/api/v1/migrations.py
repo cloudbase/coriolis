@@ -7,10 +7,8 @@ from oslo_log import log as logging
 
 from coriolis.api import wsgi as api_wsgi
 from coriolis.api.v1.views import migration_view
-from coriolis import constants
 from coriolis import exception
 from coriolis.migrations import api
-from coriolis.providers import factory
 
 LOG = logging.getLogger(__name__)
 
