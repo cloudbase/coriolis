@@ -164,7 +164,8 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         if self._test_path(resolv_conf_path):
             self._exec_cmd(
                 "sudo mv -f %s %s" % (resolv_conf_path, resolv_conf_path_old))
-        self._exec_cmd("sudo cp /etc/resolv.conf %s" % resolv_conf_path)
+        self._exec_cmd("sudo cp --remove-destination /etc/resolv.conf %s" %
+                       resolv_conf_path)
 
     def _restore_resolv_conf(self):
         resolv_conf_path = os.path.join(self._os_root_dir, "etc/resolv.conf")
