@@ -113,7 +113,7 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
         return self._conn.exec_command(
             dism_path,
             ["/add-driver", "/image:%s" % self._os_root_dir,
-             "/driver:%s" % driver_path, "/recurse", "/forceunsigned"])
+             "/driver:\"%s\"" % driver_path, "/recurse", "/forceunsigned"])
 
     def _mount_disk_image(self, path):
         LOG.info("Mounting disk image: %s" % path)
