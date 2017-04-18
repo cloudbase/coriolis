@@ -88,6 +88,8 @@ class WindowsMountTools(base.BaseOSMountTools):
             if self._conn.test_path("%sWindows\\System32" % fs_root):
                 return fs_root, [], None
 
+        raise exception.OperatingSystemNotFound("root partition not found")
+
     def dismount_os(self, dirs):
         for dir in dirs:
             drive_letter = dir.split(":")[0]
