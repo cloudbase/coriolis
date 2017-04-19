@@ -225,7 +225,11 @@ def convert_disk_format(disk_path, target_disk_path, target_format,
             allocation_args +
             [disk_path, target_disk_path])
 
-    exec_process(args)
+    try:
+        exec_process(args)
+    except Exception:
+        ignore_exceptions(os.remove)(target_disk_path)
+        raise
 
 
 def get_hostname():
