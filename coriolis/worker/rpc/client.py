@@ -40,3 +40,10 @@ class WorkerClient(object):
             marker=marker,
             limit=limit,
             instance_name_pattern=instance_name_pattern)
+
+    def validate_endpoint_connection(self, ctxt, endpoint_type,
+                                     connection_info):
+        return self._client.call(
+            ctxt, 'validate_endpoint_connection',
+            endpoint_type=endpoint_type,
+            connection_info=connection_info)

@@ -40,6 +40,11 @@ class ConductorClient(object):
             limit=limit,
             instance_name_pattern=instance_name_pattern)
 
+    def validate_endpoint_connection(self, ctxt, endpoint_id):
+        return self._client.call(
+            ctxt, 'validate_endpoint_connection',
+            endpoint_id=endpoint_id)
+
     def execute_replica_tasks(self, ctxt, replica_id,
                               shutdown_instances=False):
         return self._client.call(

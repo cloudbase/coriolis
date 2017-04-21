@@ -4,6 +4,7 @@
 from oslo_log import log as logging
 
 from coriolis import api
+from coriolis.api.v1 import endpoint_actions
 from coriolis.api.v1 import endpoints
 from coriolis.api.v1 import endpoint_instances
 from coriolis.api.v1 import migrations
@@ -35,6 +36,15 @@ class APIRouter(api.APIRouter):
                         controller=self.resources['endpoints'],
                         collection={'detail': 'GET'},
                         member={'action': 'POST'})
+
+        endpoint_actions_resource = endpoint_actions.create_resource()
+        self.resources['endpoint_actions'] = endpoint_actions_resource
+        endpoint_path = '/{project_id}/endpoints/{id}'
+        mapper.connect('endpoint_actions',
+                       endpoint_path + '/actions',
+                       controller=self.resources['endpoint_actions'],
+                       action='action',
+                       conditions={'method': 'POST'})
 
         self.resources['endpoint_instances'] = \
             endpoint_instances.create_resource()

@@ -108,6 +108,11 @@ class ConductorServerEndpoint(object):
             ctxt, endpoint.type, endpoint.connection_info, marker, limit,
             instance_name_pattern)
 
+    def validate_endpoint_connection(self, ctxt, endpoint_id):
+        endpoint = self.get_endpoint(ctxt, endpoint_id)
+        return self._rpc_worker_client.validate_endpoint_connection(
+            ctxt, endpoint.type, endpoint.connection_info)
+
     @staticmethod
     def _create_task(instance, task_type, execution, depends_on=None,
                      on_error=False):

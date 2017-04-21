@@ -21,3 +21,7 @@ class API(object):
 
     def get_endpoint(self, ctxt, endpoint_id):
         return self._rpc_client.get_endpoint(ctxt, endpoint_id)
+
+    def validate_connection(self, ctxt, endpoint_id):
+        return self._rpc_client.validate_endpoint_connection(
+            ctxt, endpoint_id)

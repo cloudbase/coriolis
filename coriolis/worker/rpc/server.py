@@ -184,6 +184,25 @@ class WorkerServerEndpoint(object):
 
         return instances_info
 
+    def validate_endpoint_connection(self, ctxt, endpoint_type,
+                                     connection_info):
+        provider = providers_factory.get_provider(
+            endpoint_type, constants.PROVIDER_TYPE_ENDPOINT, None)
+
+        secret_connection_info = utils.get_secret_connection_info(
+            ctxt, connection_info)
+
+        is_valid = True
+        message = None
+        try:
+            provider.validate_connection_info(
+                secret_connection_info)
+        except Exception as ex:
+            is_valid = False
+            message = str(ex)
+
+        return (is_valid, message)
+
 
 def _get_task_export_path(task_id, create=False):
     export_path = os.path.join(CONF.worker.export_base_path, task_id)
