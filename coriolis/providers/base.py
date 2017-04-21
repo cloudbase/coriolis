@@ -19,6 +19,20 @@ class BaseProvider(object):
     def platform(self):
         raise NotImplementedError("Missing provider platform attribute.")
 
+    def get_os_morphing_tools(self, conn, osmorphing_info):
+        raise exception.OSMorphingToolsNotFound()
+
+
+class BaseEndpointProvider(BaseProvider):
+    __metaclass__ = abc.ABCMeta
+
+    @abc.abstractmethod
+    def get_instances(self, ctxt, connection_info, limit=None,
+                      last_seen_id=None, instance_name_pattern=None):
+        """ Returns a list of instances
+        """
+        pass
+
     @property
     def connection_info_schema(self):
         raise NotImplementedError("Missing connection info schema.")
@@ -35,20 +49,6 @@ class BaseProvider(object):
             raise Exception(
                 "Error validating provider '%s' connection "
                 "info: %s" % str(ex)) from ex
-
-    def get_os_morphing_tools(self, conn, osmorphing_info):
-        raise exception.OSMorphingToolsNotFound()
-
-
-class BaseEndpointProvider(BaseProvider):
-    __metaclass__ = abc.ABCMeta
-
-    @abc.abstractmethod
-    def get_instances(self, ctxt, connection_info, limit=None,
-                      last_seen_id=None, instance_name_pattern=None):
-        """ Returns a list of instances
-        """
-        pass
 
 
 class BaseImportProvider(BaseProvider):
