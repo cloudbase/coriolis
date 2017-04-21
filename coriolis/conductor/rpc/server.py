@@ -12,8 +12,6 @@ from coriolis.db import api as db_api
 from coriolis.db.sqlalchemy import models
 from coriolis import exception
 from coriolis import keystone
-from coriolis.providers import factory as providers_factory
-from coriolis import schemas
 from coriolis import utils
 from coriolis.worker.rpc import client as rpc_worker_client
 
@@ -106,20 +104,9 @@ class ConductorServerEndpoint(object):
                                instance_name_pattern):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
-        export_provider = providers_factory.get_provider(
-            endpoint.type, constants.PROVIDER_TYPE_ENDPOINT, None)
-
-        connection_info = utils.get_secret_connection_info(
-            ctxt, endpoint.connection_info)
-
-        instances_info = export_provider.get_instances(
-            ctxt, connection_info, last_seen_id=marker, limit=limit,
-            instance_name_pattern=instance_name_pattern)
-        for instance_info in instances_info:
-            schemas.validate_value(
-                instance_info, schemas.CORIOLIS_VM_INSTANCE_INFO_SCHEMA)
-
-        return instances_info
+        return self._rpc_worker_client.get_endpoint_instances(
+            ctxt, endpoint.type, endpoint.connection_info, marker, limit,
+            instance_name_pattern)
 
     @staticmethod
     def _create_task(instance, task_type, execution, depends_on=None,
