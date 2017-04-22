@@ -215,9 +215,11 @@ def _get_migration_task_query_options(query):
         orm.joinedload("executions").
         joinedload("tasks").
         joinedload("progress_updates")).options(
-            orm.joinedload("executions").
-            joinedload("tasks").
-            joinedload("events"))
+        orm.joinedload("executions").
+        joinedload("tasks").
+        joinedload("events")).options(
+        orm.joinedload("executions").
+        joinedload("action"))
 
 
 @enginefacade.reader
