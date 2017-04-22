@@ -10,6 +10,8 @@ import jsonschema
 
 from oslo_log import log as logging
 
+from coriolis import exception
+
 LOG = logging.getLogger(__name__)
 
 
@@ -45,7 +47,14 @@ def validate_value(val, schema):
 
     NOTE: silently passes empty schemas.
     """
-    jsonschema.validate(val, schema)
+    try:
+        jsonschema.validate(val, schema)
+    except jsonschema.exceptions.ValidationError as ex:
+        LOG.debug("Schema validation failed: %s", ex)
+        # Don't pass the value in the exception to avoid including sensitive
+        # data (e.g. passwords)
+        raise exception.SchemaValidationException(
+            "Schema validation failed")
 
 
 def validate_string(json_string, schema):

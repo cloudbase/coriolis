@@ -292,3 +292,7 @@ class OperatingSystemNotFound(NotFound):
 
 class ConnectionValidationException(CoriolisException):
     pass
+
+
+class SchemaValidationException(CoriolisException):
+    pass
