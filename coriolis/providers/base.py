@@ -42,7 +42,19 @@ class BaseInstanceProvider(BaseProvider):
         raise exception.OSMorphingToolsNotFound()
 
 
-class BaseImportProvider(BaseInstanceProvider):
+class BaseImportInstanceProvider(BaseInstanceProvider):
+    __metaclass__ = abc.ABCMeta
+
+    def _get_destination_instance_name(self, export_info, instance_name):
+        dest_instance_name = export_info.get("name", instance_name)
+        LOG.debug('Destination instance name for "%(instance_name)s": '
+                  '"%(dest_instance_name)s"',
+                  {"instance_name": instance_name,
+                   "dest_instance_name": dest_instance_name})
+        return dest_instance_name
+
+
+class BaseImportProvider(BaseImportInstanceProvider):
     __metaclass__ = abc.ABCMeta
 
     @property
@@ -82,7 +94,7 @@ class BaseImportProvider(BaseInstanceProvider):
         pass
 
 
-class BaseReplicaImportProvider(BaseInstanceProvider):
+class BaseReplicaImportProvider(BaseImportInstanceProvider):
     __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
