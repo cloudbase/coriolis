@@ -288,3 +288,7 @@ class TaskProcessException(CoriolisException):
 
 class OperatingSystemNotFound(NotFound):
     pass
+
+
+class ConnectionValidationException(CoriolisException):
+    pass

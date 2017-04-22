@@ -195,9 +195,8 @@ class WorkerServerEndpoint(object):
         is_valid = True
         message = None
         try:
-            provider.validate_connection_info(
-                secret_connection_info)
-        except Exception as ex:
+            provider.validate_connection(ctxt, secret_connection_info)
+        except exception.ConnectionValidationException as ex:
             is_valid = False
             message = str(ex)
 
