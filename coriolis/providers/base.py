@@ -19,9 +19,6 @@ class BaseProvider(object):
     def platform(self):
         raise NotImplementedError("Missing provider platform attribute.")
 
-    def get_os_morphing_tools(self, conn, osmorphing_info):
-        raise exception.OSMorphingToolsNotFound()
-
 
 class BaseEndpointProvider(BaseProvider):
     __metaclass__ = abc.ABCMeta
@@ -38,7 +35,14 @@ class BaseEndpointProvider(BaseProvider):
         pass
 
 
-class BaseImportProvider(BaseProvider):
+class BaseInstanceProvider(BaseProvider):
+    __metaclass__ = abc.ABCMeta
+
+    def get_os_morphing_tools(self, conn, osmorphing_info):
+        raise exception.OSMorphingToolsNotFound()
+
+
+class BaseImportProvider(BaseInstanceProvider):
     __metaclass__ = abc.ABCMeta
 
     @property
@@ -78,7 +82,7 @@ class BaseImportProvider(BaseProvider):
         pass
 
 
-class BaseReplicaImportProvider(BaseProvider):
+class BaseReplicaImportProvider(BaseInstanceProvider):
     __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
@@ -132,7 +136,7 @@ class BaseReplicaImportProvider(BaseProvider):
         pass
 
 
-class BaseExportProvider(BaseProvider):
+class BaseExportProvider(BaseInstanceProvider):
     __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
@@ -144,7 +148,7 @@ class BaseExportProvider(BaseProvider):
         pass
 
 
-class BaseReplicaExportProvider(BaseProvider):
+class BaseReplicaExportProvider(BaseInstanceProvider):
     __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
