@@ -7,7 +7,6 @@ import itertools
 from oslo_log import log as logging
 
 from coriolis import exception
-from coriolis import schemas
 
 LOG = logging.getLogger(__name__)
 
@@ -34,6 +33,10 @@ class BaseEndpointProvider(BaseProvider):
         """
         pass
 
+    @abc.abstractmethod
+    def get_connection_info_schema(self):
+        pass
+
 
 class BaseInstanceProvider(BaseProvider):
     __metaclass__ = abc.ABCMeta
@@ -44,6 +47,10 @@ class BaseInstanceProvider(BaseProvider):
 
 class BaseImportInstanceProvider(BaseInstanceProvider):
     __metaclass__ = abc.ABCMeta
+
+    @abc.abstractmethod
+    def get_target_environment_schema(self):
+        pass
 
     def _get_destination_instance_name(self, export_info, instance_name):
         dest_instance_name = export_info.get("name", instance_name)
@@ -56,23 +63,6 @@ class BaseImportInstanceProvider(BaseInstanceProvider):
 
 class BaseImportProvider(BaseImportInstanceProvider):
     __metaclass__ = abc.ABCMeta
-
-    @property
-    def target_environment_schema(self):
-        raise NotImplementedError("Missing target environment schema.")
-
-    @abc.abstractmethod
-    def validate_target_environment(self, target_environment):
-        """ Checks the provided target environment info and raises an exception
-        if it is invalid.
-        """
-        try:
-            schemas.validate_value(
-                target_environment, self.target_environment_schema)
-        except Exception as ex:
-            raise Exception(
-                "Error validating provider '%s' target environment: %s" % (
-                    self.platform, str(ex))) from ex
 
     @abc.abstractmethod
     def import_instance(self, ctxt, connection_info, target_environment,

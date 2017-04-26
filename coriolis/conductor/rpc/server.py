@@ -113,6 +113,13 @@ class ConductorServerEndpoint(object):
         return self._rpc_worker_client.validate_endpoint_connection(
             ctxt, endpoint.type, endpoint.connection_info)
 
+    def get_available_providers(self, ctxt):
+        return self._rpc_worker_client.get_available_providers(ctxt)
+
+    def get_provider_schemas(self, ctxt, platform_name, provider_type):
+        return self._rpc_worker_client.get_provider_schemas(
+            ctxt, platform_name, provider_type)
+
     @staticmethod
     def _create_task(instance, task_type, execution, depends_on=None,
                      on_error=False):

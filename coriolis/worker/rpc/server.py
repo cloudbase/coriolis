@@ -17,6 +17,7 @@ from coriolis.conductor.rpc import client as rpc_conductor_client
 from coriolis import constants
 from coriolis import events
 from coriolis import exception
+from coriolis.providers import base as providers_base
 from coriolis.providers import factory as providers_factory
 from coriolis import schemas
 from coriolis.tasks import factory as task_runners_factory
@@ -184,6 +185,9 @@ class WorkerServerEndpoint(object):
 
         return instances_info
 
+    def get_available_providers(self, ctxt):
+        return providers_factory.get_available_providers()
+
     def validate_endpoint_connection(self, ctxt, endpoint_type,
                                      connection_info):
         provider = providers_factory.get_provider(
@@ -201,6 +205,23 @@ class WorkerServerEndpoint(object):
             message = str(ex)
 
         return (is_valid, message)
+
+    def get_provider_schemas(self, ctxt, platform_name, provider_type):
+        provider = providers_factory.get_provider(
+            platform_name, provider_type, None)
+
+        schemas = {}
+
+        if provider_type == constants.PROVIDER_TYPE_ENDPOINT:
+            schema = provider.get_connection_info_schema()
+            schemas["connection_info_schema"] = schema
+
+        if provider_type in [constants.PROVIDER_TYPE_IMPORT,
+                             constants.PROVIDER_TYPE_REPLICA_IMPORT]:
+            schema = provider.get_target_environment_schema()
+            schemas["destination_environment_schema"] = schema
+
+        return schemas
 
 
 def _get_task_export_path(task_id, create=False):

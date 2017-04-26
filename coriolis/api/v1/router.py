@@ -9,6 +9,8 @@ from coriolis.api.v1 import endpoints
 from coriolis.api.v1 import endpoint_instances
 from coriolis.api.v1 import migrations
 from coriolis.api.v1 import migration_actions
+from coriolis.api.v1 import provider_schemas
+from coriolis.api.v1 import providers
 from coriolis.api.v1 import replica_actions
 from coriolis.api.v1 import replica_tasks_executions
 from coriolis.api.v1 import replica_tasks_execution_actions
@@ -31,6 +33,10 @@ class APIRouter(api.APIRouter):
     def _setup_routes(self, mapper, ext_mgr):
         mapper.redirect("", "/")
 
+        self.resources['providers'] = providers.create_resource()
+        mapper.resource('provider', 'providers',
+                        controller=self.resources['providers'])
+
         self.resources['endpoints'] = endpoints.create_resource()
         mapper.resource('endpoint', 'endpoints',
                         controller=self.resources['endpoints'],
@@ -50,6 +56,12 @@ class APIRouter(api.APIRouter):
             endpoint_instances.create_resource()
         mapper.resource('instance', 'endpoints/{endpoint_id}/instances',
                         controller=self.resources['endpoint_instances'])
+
+        self.resources['provider_schemas'] = \
+            provider_schemas.create_resource()
+        mapper.resource('provider_schemas',
+                        'providers/{platform_name}/schemas/{provider_type}',
+                        controller=self.resources['provider_schemas'])
 
         self.resources['migrations'] = migrations.create_resource()
         mapper.resource('migration', 'migrations',

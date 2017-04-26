@@ -45,6 +45,16 @@ class ConductorClient(object):
             ctxt, 'validate_endpoint_connection',
             endpoint_id=endpoint_id)
 
+    def get_available_providers(self, ctxt):
+        return self._client.call(
+            ctxt, 'get_available_providers')
+
+    def get_provider_schemas(self, ctxt, platform_name, provider_type):
+        return self._client.call(
+            ctxt, 'get_provider_schemas',
+            platform_name=platform_name,
+            provider_type=provider_type)
+
     def execute_replica_tasks(self, ctxt, replica_id,
                               shutdown_instances=False):
         return self._client.call(

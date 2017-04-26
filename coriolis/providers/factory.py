@@ -26,6 +26,23 @@ PROVIDER_TYPE_MAP = {
 }
 
 
+def get_available_providers():
+    providers = {}
+    for provider in CONF.providers:
+        cls = utils.load_class(provider)
+        for provider_type, provider_class in PROVIDER_TYPE_MAP.items():
+            provider_data = providers.get(cls.platform, {})
+
+            provider_types = provider_data.get("types", [])
+            if (provider_class in cls.__bases__ and
+                    provider_type not in provider_types):
+                provider_types.append(provider_type)
+
+            provider_data["types"] = sorted(provider_types)
+            providers[cls.platform] = provider_data
+    return providers
+
+
 def get_provider(platform_name, provider_type, event_handler):
     for provider in CONF.providers:
         cls = utils.load_class(provider)
