@@ -41,11 +41,11 @@ class WorkerClient(object):
             limit=limit,
             instance_name_pattern=instance_name_pattern)
 
-    def validate_endpoint_connection(self, ctxt, endpoint_type,
+    def validate_endpoint_connection(self, ctxt, platform_name,
                                      connection_info):
         return self._client.call(
             ctxt, 'validate_endpoint_connection',
-            endpoint_type=endpoint_type,
+            platform_name=platform_name,
             connection_info=connection_info)
 
     def get_available_providers(self, ctxt):

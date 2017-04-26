@@ -188,10 +188,10 @@ class WorkerServerEndpoint(object):
     def get_available_providers(self, ctxt):
         return providers_factory.get_available_providers()
 
-    def validate_endpoint_connection(self, ctxt, endpoint_type,
+    def validate_endpoint_connection(self, ctxt, platform_name,
                                      connection_info):
         provider = providers_factory.get_provider(
-            endpoint_type, constants.PROVIDER_TYPE_ENDPOINT, None)
+            platform_name, constants.PROVIDER_TYPE_ENDPOINT, None)
 
         secret_connection_info = utils.get_secret_connection_info(
             ctxt, connection_info)
