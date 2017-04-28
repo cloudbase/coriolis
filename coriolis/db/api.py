@@ -62,7 +62,7 @@ def _soft_delete_aware_query(context, *args, **kwargs):
 def get_endpoints(context):
     q = _soft_delete_aware_query(context, models.Endpoint)
     return q.filter(
-        models.Replica.project_id == context.tenant).all()
+        models.Endpoint.project_id == context.tenant).all()
 
 
 @enginefacade.reader
