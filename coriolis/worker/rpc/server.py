@@ -168,10 +168,10 @@ class WorkerServerEndpoint(object):
             if not retain_export_path:
                 self._check_remove_dir(export_path)
 
-    def get_endpoint_instances(self, ctxt, endpoint_type, connection_info,
+    def get_endpoint_instances(self, ctxt, platform_name, connection_info,
                                marker, limit, instance_name_pattern):
         export_provider = providers_factory.get_provider(
-            endpoint_type, constants.PROVIDER_TYPE_ENDPOINT, None)
+            platform_name, constants.PROVIDER_TYPE_ENDPOINT, None)
 
         secret_connection_info = utils.get_secret_connection_info(
             ctxt, connection_info)
