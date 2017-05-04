@@ -30,12 +30,12 @@ class WorkerClient(object):
     def update_migration_status(self, ctxt, task_id, status):
         self._client.call(ctxt, "update_migration_status", status=status)
 
-    def get_endpoint_instances(self, ctxt, endpoint_type, connection_info,
+    def get_endpoint_instances(self, ctxt, platform_name, connection_info,
                                marker=None, limit=None,
                                instance_name_pattern=None):
         return self._client.call(
             ctxt, 'get_endpoint_instances',
-            endpoint_type=endpoint_type,
+            platform_name=platform_name,
             connection_info=connection_info,
             marker=marker,
             limit=limit,
