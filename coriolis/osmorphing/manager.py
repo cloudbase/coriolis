@@ -71,7 +71,8 @@ def morph_image(origin_provider, destination_provider, connection_info,
         import_os_morphing_tools.pre_packages_install(packages_add)
 
         nics_info = osmorphing_info.get('nics_info')
-        import_os_morphing_tools.set_net_config(nics_info, dhcp=True)
+        set_dhcp = osmorphing_info.get('nics_set_dhcp', True)
+        import_os_morphing_tools.set_net_config(nics_info, dhcp=set_dhcp)
         LOG.info("Pre packages")
 
         if packages_add:

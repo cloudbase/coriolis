@@ -44,6 +44,10 @@
             "type": "object"
           }
         },
+        "nics_set_dhcp": {
+          "type": "boolean",
+          "default": "true"
+        },
         "ignore_devices": {
           "type": "array",
           "items": {
