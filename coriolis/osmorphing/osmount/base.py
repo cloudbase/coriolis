@@ -201,6 +201,28 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                 self._exec_cmd('sudo umount %s' % tmp_dir)
 
             if os_root_dir and boot_dev_path:
+                reg_expr = (
+                    '^(([^#\s]\S+)\s+/var\s+\S+\s+\S+\s+[0-9]+\s+[0-9]+)$')
+                etc_fstab_path = os.path.join(os_root_dir, "etc/fstab")
+                etc_fstab = utils.read_ssh_file(self._ssh, etc_fstab_path)
+                etc_fstab = etc_fstab.decode('utf-8')
+                for i in etc_fstab.splitlines():
+                    var_found = re.search(reg_expr, i)
+                    if var_found:
+                        var_dev = var_found.group(2)
+                        var_mnt_dir = os.path.join(os_root_dir, 'var')
+                        try:
+                            self._exec_cmd(
+                                'sudo mount %s %s' % (var_dev, var_mnt_dir))
+                            other_mounted_dirs.append(var_mnt_dir)
+                        except Exception as ex:
+                            LOG.warn(
+                                "Could not mount /var partition: %s" %
+                                utils.get_exception_details())
+                            self._event_manager.progress_update(
+                                "Unable to mount /var partition")
+                            raise
+                        break
                 break
 
         if not os_root_dir:
