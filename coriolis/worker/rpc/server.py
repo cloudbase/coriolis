@@ -17,7 +17,6 @@ from coriolis.conductor.rpc import client as rpc_conductor_client
 from coriolis import constants
 from coriolis import events
 from coriolis import exception
-from coriolis.providers import base as providers_base
 from coriolis.providers import factory as providers_factory
 from coriolis import schemas
 from coriolis.tasks import factory as task_runners_factory
