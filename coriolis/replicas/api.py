@@ -9,10 +9,10 @@ class API(object):
         self._rpc_client = rpc_client.ConductorClient()
 
     def create(self, ctxt, origin_endpoint_id, destination_endpoint_id,
-               destination_environment, instances):
+               destination_environment, instances, notes=None):
         return self._rpc_client.create_instances_replica(
             ctxt, origin_endpoint_id, destination_endpoint_id,
-            destination_environment, instances)
+            destination_environment, instances, notes)
 
     def delete(self, ctxt, replica_id):
         self._rpc_client.delete_replica(ctxt, replica_id)

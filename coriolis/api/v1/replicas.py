@@ -46,9 +46,10 @@ class ReplicaController(api_wsgi.Controller):
             destination_endpoint_id = replica["destination_endpoint_id"]
             destination_environment = replica.get("destination_environment")
             instances = replica["instances"]
+            notes = replica.get("notes")
 
             return (origin_endpoint_id, destination_endpoint_id,
-                    destination_environment, instances)
+                    destination_environment, instances, notes)
         except Exception as ex:
             LOG.exception(ex)
             if hasattr(ex, "message"):
@@ -59,11 +60,13 @@ class ReplicaController(api_wsgi.Controller):
 
     def create(self, req, body):
         (origin_endpoint_id, destination_endpoint_id,
-         destination_environment, instances) = self._validate_create_body(body)
+         destination_environment, instances,
+         notes) = self._validate_create_body(body)
 
         return replica_view.single(req, self._replica_api.create(
             req.environ['coriolis.context'], origin_endpoint_id,
-            destination_endpoint_id, destination_environment, instances))
+            destination_endpoint_id, destination_environment, instances,
+            notes))
 
     def delete(self, req, id):
         try:

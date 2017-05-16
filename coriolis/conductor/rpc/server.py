@@ -325,7 +325,8 @@ class ConductorServerEndpoint(object):
 
     def create_instances_replica(self, ctxt, origin_endpoint_id,
                                  destination_endpoint_id,
-                                 destination_environment, instances):
+                                 destination_environment, instances,
+                                 notes=None):
         origin_endpoint = self.get_endpoint(ctxt, origin_endpoint_id)
         destination_endpoint = self.get_endpoint(ctxt, destination_endpoint_id)
         self._check_endpoints(ctxt, origin_endpoint, destination_endpoint)
@@ -338,6 +339,7 @@ class ConductorServerEndpoint(object):
         replica.instances = instances
         replica.executions = []
         replica.info = {}
+        replica.notes = notes
 
         db_api.add_replica(ctxt, replica)
         LOG.info("Replica created: %s", replica.id)
@@ -470,7 +472,7 @@ class ConductorServerEndpoint(object):
 
     def migrate_instances(self, ctxt, origin_endpoint_id,
                           destination_endpoint_id, destination_environment,
-                          instances):
+                          instances, notes=None):
         origin_endpoint = self.get_endpoint(ctxt, origin_endpoint_id)
         destination_endpoint = self.get_endpoint(ctxt, destination_endpoint_id)
         self._check_endpoints(ctxt, origin_endpoint, destination_endpoint)
@@ -486,6 +488,7 @@ class ConductorServerEndpoint(object):
         migration.executions = [execution]
         migration.instances = instances
         migration.info = {}
+        migration.notes = notes
 
         for instance in instances:
             task_export = self._create_task(

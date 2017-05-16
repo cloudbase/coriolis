@@ -10,10 +10,10 @@ class API(object):
 
     def migrate_instances(self, ctxt, origin_endpoint_id,
                           destination_endpoint_id, destination_environment,
-                          instances):
+                          instances, notes=None):
         return self._rpc_client.migrate_instances(
             ctxt, origin_endpoint_id, destination_endpoint_id,
-            destination_environment, instances)
+            destination_environment, instances, notes)
 
     def deploy_replica_instances(self, ctxt, replica_id, clone_disks=False,
                                  force=False):
