@@ -42,9 +42,10 @@ class MigrationController(api_wsgi.Controller):
             destination_endpoint_id = migration["destination_endpoint_id"]
             destination_environment = migration.get("destination_environment")
             instances = migration["instances"]
+            notes = migration.get("notes")
 
             return (origin_endpoint_id, destination_endpoint_id,
-                    destination_environment, instances)
+                    destination_environment, instances, notes)
         except Exception as ex:
             LOG.exception(ex)
             if hasattr(ex, "message"):
@@ -69,11 +70,12 @@ class MigrationController(api_wsgi.Controller):
             (origin_endpoint_id,
              destination_endpoint_id,
              destination_environment,
-             instances) = self._validate_migration_input(
+             instances,
+             notes) = self._validate_migration_input(
                 migration_body)
             migration = self._migration_api.migrate_instances(
                 context, origin_endpoint_id, destination_endpoint_id,
-                destination_environment, instances)
+                destination_environment, instances, notes)
 
         return migration_view.single(req, migration)
 
