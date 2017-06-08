@@ -171,7 +171,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         for dir in set(dirs).intersection(['proc', 'sys', 'dev', 'run']):
             mount_dir = os.path.join(os_root_dir, dir)
             self._exec_cmd(
-                'sudo mount -o bind /%(dir)s/ %(mount_dir)s' %
+                '[ -d %(mount_dir)s ] && sudo mount -o bind /%(dir)s/ %(mount_dir)s || echo "%(mount_dir)s does not exist in VM"' %
                 {'dir': dir, 'mount_dir': mount_dir})
             other_mounted_dirs.append(mount_dir)
 
@@ -184,4 +184,4 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
 
     def dismount_os(self, dirs):
         for dir in dirs:
-            self._exec_cmd('sudo umount %s' % dir)
+            self._exec_cmd('[ -d %s ] && sudo umount %s || true' % (dir, dir))
