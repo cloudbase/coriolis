@@ -20,11 +20,7 @@ _facade = None
 def get_facade():
     global _facade
     if not _facade:
-        # TODO: investigate why the CONF.database.connection is None!
-        # _facade = db_session.EngineFacade(CONF.database.connection)
-        # _facade = db_session.EngineFacade.from_config(CONF)
-        _facade = db_session.EngineFacade(
-            "mysql://coriolis:Passw0rd@localhost/coriolis")
+        _facade = db_session.EngineFacade(CONF.database.connection)
     return _facade
 
 
