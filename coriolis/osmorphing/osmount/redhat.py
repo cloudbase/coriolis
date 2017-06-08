@@ -15,7 +15,7 @@ class RedHatOSMountTools(base.BaseLinuxOSMountTools):
         os_info = utils.get_linux_os_info(self._ssh)
         if os_info and os_info[0] in [
                 'RedHatEnterpriseServer', 'CentOS', 'OracleServer',
-                'redhat', 'centos', 'ol']:
+                'rhel', 'centos', 'ol']:
             return True
 
     def _pre_mount_os(self):
