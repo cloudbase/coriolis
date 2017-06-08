@@ -103,11 +103,9 @@ def parse_os_release(ssh):
     os_release_info = exec_ssh_cmd(
         ssh, "[ -f '/etc/os-release' ] && cat /etc/os-release || true").decode()
     info = {}
-    LOG.info("got os_release_info: %r" % os_release_info)
     for line in os_release_info.splitlines():
         if "=" not in line:
             continue
-        LOG.info("parsing line: %s" % line)
         k, v = line.split("=")
         info[k] = v.strip('"')
     if info.get("ID") and info.get("VERSION_ID"):
