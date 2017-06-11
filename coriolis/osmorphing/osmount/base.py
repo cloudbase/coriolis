@@ -72,6 +72,19 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
     def _exec_cmd(self, cmd):
         return utils.exec_ssh_cmd(self._ssh, cmd)
 
+    def _get_pvs(self):
+        out = self._exec_cmd("sudo pvdisplay -c").decode().split("\n")
+        pvs = {}
+        for l in out:
+            if l == "":
+                continue
+            line = l.strip().split(":")
+            if pvs.get(line[1]) is None:
+                pvs[line[1]] = [line[0], ]
+            else:
+                pvs[line[1]].append(line[0])
+        return pvs
+
     def _get_vgnames(self):
         vg_names = []
         vgscan_out_lines = self._exec_cmd(
@@ -121,7 +134,15 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
             dev_paths += self._exec_cmd(
                 "sudo ls %s*" % volume_dev).decode().split('\n')[:-1]
 
+        pvs = self._get_pvs()
         for vg_name in self._get_vgnames():
+            found = False
+            for pv in pvs[vg_name]:
+                if pv in dev_paths:
+                    found = True
+                    break
+            if not found:
+                continue
             self._exec_cmd("sudo vgchange -ay %s" % vg_name)
             lvm_dev_paths = self._exec_cmd(
                 "sudo ls /dev/%s/*" % vg_name).decode().split('\n')[:-1]
@@ -171,7 +192,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         for dir in set(dirs).intersection(['proc', 'sys', 'dev', 'run']):
             mount_dir = os.path.join(os_root_dir, dir)
             self._exec_cmd(
-                '[ -d %(mount_dir)s ] && sudo mount -o bind /%(dir)s/ %(mount_dir)s || echo "%(mount_dir)s does not exist in VM"' %
+                'sudo mount -o bind /%(dir)s/ %(mount_dir)s' %
                 {'dir': dir, 'mount_dir': mount_dir})
             other_mounted_dirs.append(mount_dir)
 
@@ -184,4 +205,4 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
 
     def dismount_os(self, dirs):
         for dir in dirs:
-            self._exec_cmd('[ -d %s ] && sudo umount %s || true' % (dir, dir))
+            self._exec_cmd('sudo umount %s' % dir)
