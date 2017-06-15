@@ -1,6 +1,9 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+import re
+import uuid
+
 from oslo_log import log as logging
 
 from coriolis import exception
@@ -52,14 +55,57 @@ class WindowsMountTools(base.BaseOSMountTools):
         self._conn.exec_ps_command(
             "Update-HostStorageCache", ignore_stdout=True)
 
-    def _bring_all_disks_online(self):
-        LOG.info("Bringing offline disks online")
-        self._conn.exec_ps_command(
-            "Get-Disk |? IsOffline | Set-Disk -IsOffline $False",
-            ignore_stdout=True)
+    def _run_diskpart_script(self, script):
+        """ Writes the given script data to a file and runs diskpart.exe,
+        returning the output. """
+        tempdir = self._conn.exec_ps_command("$env:TEMP")
+        filepath = r"%s\%s.txt" % (tempdir, uuid.uuid4())
+        self._conn.write_file(filepath, bytes(script, 'utf-8'))
+        return self._conn.exec_ps_command("diskpart.exe /s '%s'" % filepath)
 
-    def _set_all_disks_rw_mode(self):
-        LOG.info("Setting RW mode on RO disks")
+    def _service_disks_with_status(
+            self, status, service_script_with_id_fmt,
+            logmsg_fmt="Operating on disk with index '%s'"):
+        """ Uses diskpart.exe to detect all disks with the given 'status', and
+        execute the given service script after formatting the disk ID in. """
+        # NOTE: diskpart is interactive, so we must either pipe it its input
+        # or write a couple of one-line files and use `diskpart /s`
+        disk_list = self._run_diskpart_script("LIST DISK\r\nEXIT")
+
+        disk_entry_re = r"\s+Disk ([0-9]+)\s+%s\s+" % status
+        for line in disk_list.split("\r\n"):
+            match = re.match(disk_entry_re, line)
+            if match:
+                index = match.group(1)
+                LOG.info(logmsg_fmt, index)
+                self._run_diskpart_script(service_script_with_id_fmt % index)
+
+    def _import_foreign_disks(self):
+        """ Uses diskpart.exe to import all disks which are foreign to the
+        worker. Needed when servicing installations on Dynamic Disks. """
+        # NOTE: foreign disks are not exposed via the APIs the PowerShell
+        # disk cmdlets use, thus any disk which is foreign is is likely
+        # still RO, which is why we must change the RO attribute as well:
+        import_disk_script_fmt = (
+            "SELECT DISK %s\r\nATTRIBUTES DISK CLEAR READONLY\r\n"
+            "IMPORT\r\nEXIT")
+        self._service_disks_with_status(
+            "Foreign", import_disk_script_fmt,
+            logmsg_fmt="Importing foreign disk with ID '%s'.")
+
+    def _bring_all_disks_online(self):
+        online_disk_script_fmt = "SELECT DISK %s\r\nONLINE DISK\r\nEXIT"
+        self._service_disks_with_status(
+            "Offline", online_disk_script_fmt,
+            logmsg_fmt="Bringing offline disk with ID %s online.")
+
+    def _set_basic_disks_rw_mode(self):
+        # NOTE: The PowerShell cmdlets use APIs which do not expose foreign
+        # disks at all (Dynamic disks will always show up as foreign to the
+        # worker), thus this method will only work for basic disks.
+        # Dynamic Disks are set to R/W upon their importing in
+        # self._import_foreign_disks()
+        LOG.info("Setting RW mode on RO basic disks")
         self._conn.exec_ps_command(
             "Get-Disk |? IsReadOnly | Set-Disk -IsReadOnly $False",
             ignore_stdout=True)
@@ -80,7 +126,9 @@ class WindowsMountTools(base.BaseOSMountTools):
     def mount_os(self):
         self._refresh_storage()
         self._bring_all_disks_online()
-        self._set_all_disks_rw_mode()
+        self._set_basic_disks_rw_mode()
+        self._import_foreign_disks()
+        self._refresh_storage()
         fs_roots = self._get_fs_roots()
         system_drive = self._get_system_drive()
 
