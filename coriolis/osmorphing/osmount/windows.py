@@ -59,8 +59,12 @@ class WindowsMountTools(base.BaseOSMountTools):
         """ Writes the given script data to a file and runs diskpart.exe,
         returning the output. """
         tempdir = self._conn.exec_ps_command("$env:TEMP")
+
+        # NOTE: diskpart is interactive, so we must either pipe it its input
+        # or write a couple of one-line files and use `diskpart /s`
         filepath = r"%s\%s.txt" % (tempdir, uuid.uuid4())
         self._conn.write_file(filepath, bytes(script, 'utf-8'))
+
         return self._conn.exec_ps_command("diskpart.exe /s '%s'" % filepath)
 
     def _service_disks_with_status(
@@ -68,17 +72,39 @@ class WindowsMountTools(base.BaseOSMountTools):
             logmsg_fmt="Operating on disk with index '%s'"):
         """ Uses diskpart.exe to detect all disks with the given 'status', and
         execute the given service script after formatting the disk ID in. """
-        # NOTE: diskpart is interactive, so we must either pipe it its input
-        # or write a couple of one-line files and use `diskpart /s`
-        disk_list = self._run_diskpart_script("LIST DISK\r\nEXIT")
+        disk_list_script = "LIST DISK\r\nEXIT"
 
-        disk_entry_re = r"\s+Disk ([0-9]+)\s+%s\s+" % status
-        for line in disk_list.split("\r\n"):
-            match = re.match(disk_entry_re, line)
-            if match:
-                index = match.group(1)
-                LOG.info(logmsg_fmt, index)
-                self._run_diskpart_script(service_script_with_id_fmt % index)
+        disk_entry_re = r"\s+Disk (%s)\s+%s\s+"
+        search_disk_entry_re = disk_entry_re % ("[0-9]+", status)
+        # NOTE: some disk operations performed on one disk may have an effect
+        # on others (ex: importing a Dynamic Disk which is part of a Dynamic
+        # Disk Group also imports the other ones), so we must take care to
+        # re-status before performing any operation on any disk => O(n**2)
+        disk_list = self._run_diskpart_script(disk_list_script)
+        servicable_disk_ids = [m.group(1) for m in [
+            re.match(search_disk_entry_re, l) for l in disk_list.split("\r\n")]
+            if m is not None]
+        for disk_id in servicable_disk_ids:
+            curr_disk_entry_re = disk_entry_re % (disk_id, status)
+
+            disk_list = self._run_diskpart_script("LIST DISK\r\nEXIT")
+            for line in disk_list.split("\r\n"):
+                if re.match(curr_disk_entry_re, line):
+                    LOG.info(logmsg_fmt, disk_id)
+                    self._run_diskpart_script(
+                        service_script_with_id_fmt % disk_id)
+                    break
+
+    def _set_foreign_disks_rw_mode(self):
+        # NOTE: in case a Dynamic Disk (which will show up as 'Foreign' to
+        # the worker) is part of a Dynamic Disk group, ALL disks from that
+        # group must be R/W in order to import it (importing one will
+        # trigger the importing of all of them)
+        set_rw_foreign_disk_script_fmt = (
+            "SELECT DISK %s\r\nATTRIBUTES DISK CLEAR READONLY\r\nEXIT")
+        self._service_disks_with_status(
+            "Foreign", set_rw_foreign_disk_script_fmt,
+            logmsg_fmt="Clearing R/O flag on foreign disk with ID '%s'.")
 
     def _import_foreign_disks(self):
         """ Uses diskpart.exe to import all disks which are foreign to the
@@ -87,8 +113,7 @@ class WindowsMountTools(base.BaseOSMountTools):
         # disk cmdlets use, thus any disk which is foreign is is likely
         # still RO, which is why we must change the RO attribute as well:
         import_disk_script_fmt = (
-            "SELECT DISK %s\r\nATTRIBUTES DISK CLEAR READONLY\r\n"
-            "IMPORT\r\nEXIT")
+            "SELECT DISK %s\r\nIMPORT\r\nEXIT")
         self._service_disks_with_status(
             "Foreign", import_disk_script_fmt,
             logmsg_fmt="Importing foreign disk with ID '%s'.")
@@ -127,6 +152,7 @@ class WindowsMountTools(base.BaseOSMountTools):
         self._refresh_storage()
         self._bring_all_disks_online()
         self._set_basic_disks_rw_mode()
+        self._set_foreign_disks_rw_mode()
         self._import_foreign_disks()
         self._refresh_storage()
         fs_roots = self._get_fs_roots()
