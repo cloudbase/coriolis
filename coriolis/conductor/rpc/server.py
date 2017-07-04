@@ -396,7 +396,8 @@ class ConductorServerEndpoint(object):
                 "to be migrated")
 
     @replica_synchronized
-    def deploy_replica_instances(self, ctxt, replica_id, clone_disks, force):
+    def deploy_replica_instances(self, ctxt, replica_id, clone_disks, force,
+                                 skip_os_morphing=False):
         replica = self._get_replica(ctxt, replica_id)
         self._check_replica_running_executions(ctxt, replica)
         self._check_valid_replica_tasks_execution(replica, force)
@@ -437,14 +438,29 @@ class ConductorServerEndpoint(object):
                 instance, constants.TASK_TYPE_DEPLOY_REPLICA_INSTANCE,
                 execution, [create_snapshot_task.id])
 
-            osmorphing_task = self._create_task(
-                instance, constants.TASK_TYPE_OS_MORPHING,
-                execution, depends_on=[deploy_replica_task.id])
+            if not skip_os_morphing:
+                task_deploy_os_morphing_resources = self._create_task(
+                    instance, constants.TASK_TYPE_DEPLOY_OS_MORPHING_RESOURCES,
+                    execution, depends_on=[deploy_replica_task.id])
+
+                task_osmorphing = self._create_task(
+                    instance, constants.TASK_TYPE_OS_MORPHING,
+                    execution, depends_on=[
+                        task_deploy_os_morphing_resources.id])
+
+                task_delete_os_morphing_resources = self._create_task(
+                    instance, constants.TASK_TYPE_DELETE_OS_MORPHING_RESOURCES,
+                    execution, depends_on=[task_osmorphing.id],
+                    on_error=True)
+
+                next_task = task_delete_os_morphing_resources
+            else:
+                next_task = deploy_replica_task
 
             finalize_deployment_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_FINALIZE_REPLICA_INSTANCE_DEPLOYMENT,
-                execution, depends_on=[osmorphing_task.id])
+                execution, depends_on=[next_task.id])
 
             self._create_task(
                 instance, constants.TASK_TYPE_DELETE_REPLICA_DISK_SNAPSHOTS,
@@ -472,7 +488,7 @@ class ConductorServerEndpoint(object):
 
     def migrate_instances(self, ctxt, origin_endpoint_id,
                           destination_endpoint_id, destination_environment,
-                          instances, notes=None):
+                          instances, skip_os_morphing=False, notes=None):
         origin_endpoint = self.get_endpoint(ctxt, origin_endpoint_id)
         destination_endpoint = self.get_endpoint(ctxt, destination_endpoint_id)
         self._check_endpoints(ctxt, origin_endpoint, destination_endpoint)
@@ -498,13 +514,28 @@ class ConductorServerEndpoint(object):
                 instance, constants.TASK_TYPE_IMPORT_INSTANCE,
                 execution, depends_on=[task_export.id])
 
-            task_osmorphing = self._create_task(
-                instance, constants.TASK_TYPE_OS_MORPHING,
-                execution, depends_on=[task_import.id])
+            if not skip_os_morphing:
+                task_deploy_os_morphing_resources = self._create_task(
+                    instance, constants.TASK_TYPE_DEPLOY_OS_MORPHING_RESOURCES,
+                    execution, depends_on=[task_import.id])
+
+                task_osmorphing = self._create_task(
+                    instance, constants.TASK_TYPE_OS_MORPHING,
+                    execution, depends_on=[
+                        task_deploy_os_morphing_resources.id])
+
+                task_delete_os_morphing_resources = self._create_task(
+                    instance, constants.TASK_TYPE_DELETE_OS_MORPHING_RESOURCES,
+                    execution, depends_on=[task_osmorphing.id],
+                    on_error=True)
+
+                next_task = task_delete_os_morphing_resources
+            else:
+                next_task = task_import
 
             self._create_task(
                 instance, constants.TASK_TYPE_FINALIZE_IMPORT_INSTANCE,
-                execution, depends_on=[task_osmorphing.id])
+                execution, depends_on=[next_task.id])
 
             self._create_task(
                 instance,

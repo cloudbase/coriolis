@@ -123,20 +123,22 @@ class ConductorClient(object):
 
     def migrate_instances(self, ctxt, origin_endpoint_id,
                           destination_endpoint_id, destination_environment,
-                          instances, notes=None):
+                          instances, notes=None, skip_os_morphing=False):
         return self._client.call(
             ctxt, 'migrate_instances',
             origin_endpoint_id=origin_endpoint_id,
             destination_endpoint_id=destination_endpoint_id,
             destination_environment=destination_environment,
             instances=instances,
-            notes=notes)
+            notes=notes,
+            skip_os_morphing=skip_os_morphing)
 
     def deploy_replica_instances(self, ctxt, replica_id, clone_disks=False,
-                                 force=False):
+                                 force=False, skip_os_morphing=False):
         return self._client.call(
             ctxt, 'deploy_replica_instances', replica_id=replica_id,
-            clone_disks=clone_disks, force=force)
+            clone_disks=clone_disks, force=force,
+            skip_os_morphing=skip_os_morphing)
 
     def delete_migration(self, ctxt, migration_id):
         self._client.call(
