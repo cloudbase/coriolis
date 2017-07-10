@@ -43,9 +43,11 @@ class MigrationController(api_wsgi.Controller):
             destination_environment = migration.get("destination_environment")
             instances = migration["instances"]
             notes = migration.get("notes")
+            skip_os_morphing = migration.get("skip_os_morphing", False)
 
             return (origin_endpoint_id, destination_endpoint_id,
-                    destination_environment, instances, notes)
+                    destination_environment, instances, notes,
+                    skip_os_morphing)
         except Exception as ex:
             LOG.exception(ex)
             if hasattr(ex, "message"):
@@ -63,19 +65,21 @@ class MigrationController(api_wsgi.Controller):
         if replica_id:
             clone_disks = migration_body.get("clone_disks", True)
             force = migration_body.get("force", False)
+            skip_os_morphing = migration_body.get("skip_os_morphing", False)
 
             migration = self._migration_api.deploy_replica_instances(
-                context, replica_id, clone_disks, force)
+                context, replica_id, clone_disks, force, skip_os_morphing)
         else:
             (origin_endpoint_id,
              destination_endpoint_id,
              destination_environment,
              instances,
-             notes) = self._validate_migration_input(
+             notes,
+             skip_os_morphing) = self._validate_migration_input(
                 migration_body)
             migration = self._migration_api.migrate_instances(
                 context, origin_endpoint_id, destination_endpoint_id,
-                destination_environment, instances, notes)
+                destination_environment, instances, notes, skip_os_morphing)
 
         return migration_view.single(req, migration)
 

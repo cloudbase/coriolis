@@ -2,9 +2,6 @@
   "$schema": "http://cloudbase.it/coriolis/schemas/import_info#",
   "type": "object",
   "properties": {
-    "instance_deployment_info": {
-      "type": "object"
-    },
     "osmorphing_connection_info": {
       "type": "object",
       "properties": {
@@ -59,7 +56,7 @@
       "additionalProperties": true
     }
   },
-  "required": ["instance_deployment_info", "osmorphing_connection_info", "osmorphing_info"],
+  "required": ["osmorphing_connection_info", "osmorphing_info"],
   "definitions": {
     "nullableString": {
       "oneOf": [{

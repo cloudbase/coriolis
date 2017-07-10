@@ -226,9 +226,6 @@ class DeployReplicaInstanceTask(base.TaskRunner):
 
         task_info["instance_deployment_info"] = import_info[
             "instance_deployment_info"]
-        task_info["osmorphing_info"] = import_info.get("osmorphing_info", {})
-        task_info["osmorphing_connection_info"] = base.marshal_migr_conn_info(
-            import_info["osmorphing_connection_info"])
 
         task_info[
             "origin_provider_type"] = constants.PROVIDER_TYPE_REPLICA_EXPORT

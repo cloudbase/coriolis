@@ -16,8 +16,12 @@ _TASKS_MAP = {
         migration_tasks.FinalizeImportInstanceTask,
     constants.TASK_TYPE_CLEANUP_FAILED_IMPORT_INSTANCE:
         migration_tasks.CleanupFailedImportInstanceTask,
+    constants.TASK_TYPE_DEPLOY_OS_MORPHING_RESOURCES:
+        osmorphing_tasks.DeployOSMorphingResourcesTask,
     constants.TASK_TYPE_OS_MORPHING:
         osmorphing_tasks.OSMorphingTask,
+    constants.TASK_TYPE_DELETE_OS_MORPHING_RESOURCES:
+        osmorphing_tasks.DeleteOSMorphingResourcesTask,
     constants.TASK_TYPE_GET_INSTANCE_INFO:
         replica_tasks.GetInstanceInfoTask,
     constants.TASK_TYPE_REPLICATE_DISKS:

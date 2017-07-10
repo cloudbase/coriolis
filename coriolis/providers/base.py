@@ -60,6 +60,16 @@ class BaseImportInstanceProvider(BaseInstanceProvider):
                    "dest_instance_name": dest_instance_name})
         return dest_instance_name
 
+    @abc.abstractmethod
+    def deploy_os_morphing_resources(self, ctxt, connection_info,
+                                     instance_deployment_info):
+        pass
+
+    @abc.abstractmethod
+    def delete_os_morphing_resources(self, ctxt, connection_info,
+                                     os_morphing_resources):
+        pass
+
 
 class BaseImportProvider(BaseImportInstanceProvider):
     __metaclass__ = abc.ABCMeta

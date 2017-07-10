@@ -23,7 +23,7 @@ PROVIDER_TARGET_ENVIRONMENT_SCHEMA_NAME = "target_environment_schema.json"
 
 _CORIOLIS_VM_EXPORT_INFO_SCHEMA_NAME = "vm_export_info_schema.json"
 _CORIOLIS_VM_INSTANCE_INFO_SCHEMA_NAME = "vm_instance_info_schema.json"
-_CORIOLIS_VM_IMPORT_INFO_SCHEMA_NAME = "vm_import_info_schema.json"
+_CORIOLIS_OS_MORPHING_RES_SCHEMA_NAME = "os_morphing_resources_schema.json"
 
 
 def get_schema(package_name, schema_name,
@@ -71,8 +71,8 @@ def validate_string(json_string, schema):
 CORIOLIS_VM_EXPORT_INFO_SCHEMA = get_schema(
     __name__, _CORIOLIS_VM_EXPORT_INFO_SCHEMA_NAME)
 
-CORIOLIS_VM_IMPORT_INFO_SCHEMA = get_schema(
-    __name__, _CORIOLIS_VM_IMPORT_INFO_SCHEMA_NAME)
+CORIOLIS_OS_MORPHING_RESOURCES_SCHEMA = get_schema(
+    __name__, _CORIOLIS_OS_MORPHING_RES_SCHEMA_NAME)
 
 CORIOLIS_VM_INSTANCE_INFO_SCHEMA = get_schema(
     __name__, _CORIOLIS_VM_INSTANCE_INFO_SCHEMA_NAME)
