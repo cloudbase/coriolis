@@ -86,6 +86,11 @@ class ConductorServerEndpoint(object):
         LOG.info("Endpoint created: %s", endpoint.id)
         return self.get_endpoint(ctxt, endpoint.id)
 
+    def update_endpoint(self, ctxt, endpoint_id, updated_values):
+        db_api.update_endpoint(ctxt, endpoint_id, updated_values)
+        LOG.info("Endpoint updated: %s", endpoint_id)
+        return self.get_endpoint(ctxt, endpoint_id)
+
     def get_endpoints(self, ctxt):
         return db_api.get_endpoints(ctxt)
 

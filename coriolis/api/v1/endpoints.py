@@ -54,6 +54,24 @@ class EndpointController(api_wsgi.Controller):
             req.environ['coriolis.context'], name, endpoint_type, description,
             connection_info))
 
+    def _validate_update_body(self, body):
+        try:
+            endpoint = body["endpoint"]
+            return {k: endpoint[k] for k in endpoint.keys() &
+                    {"name", "description", "connection_info"}}
+        except Exception as ex:
+            LOG.exception(ex)
+            if hasattr(ex, "message"):
+                msg = ex.message
+            else:
+                msg = str(ex)
+            raise exception.InvalidInput(msg)
+
+    def update(self, req, id, body):
+        updated_values = self._validate_update_body(body)
+        return endpoint_view.single(req, self._endpoint_api.update(
+            req.environ['coriolis.context'], id, updated_values))
+
     def delete(self, req, id):
         try:
             self._endpoint_api.delete(req.environ['coriolis.context'], id)

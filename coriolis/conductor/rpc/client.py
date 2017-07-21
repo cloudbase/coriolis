@@ -19,6 +19,12 @@ class ConductorClient(object):
             ctxt, 'create_endpoint', name=name, endpoint_type=endpoint_type,
             description=description, connection_info=connection_info)
 
+    def update_endpoint(self, ctxt, endpoint_id, updated_values):
+        return self._client.call(
+            ctxt, 'update_endpoint',
+            endpoint_id=endpoint_id,
+            updated_values=updated_values)
+
     def get_endpoints(self, ctxt):
         return self._client.call(
             ctxt, 'get_endpoints')

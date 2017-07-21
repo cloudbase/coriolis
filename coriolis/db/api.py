@@ -81,6 +81,14 @@ def add_endpoint(context, endpoint):
 
 
 @enginefacade.writer
+def update_endpoint(context, endpoint_id, updated_values):
+    endpoint = get_endpoint(context, endpoint_id)
+    for n in ["name", "description", "connection_info"]:
+        if n in updated_values:
+            setattr(endpoint, n, updated_values[n])
+
+
+@enginefacade.writer
 def delete_endpoint(context, endpoint_id):
     count = _soft_delete_aware_query(context, models.Endpoint).filter_by(
         project_id=context.tenant, id=endpoint_id).soft_delete()

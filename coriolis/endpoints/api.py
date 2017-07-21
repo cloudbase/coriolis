@@ -13,6 +13,10 @@ class API(object):
         return self._rpc_client.create_endpoint(
             ctxt, name, endpoint_type, description, connection_info)
 
+    def update(self, ctxt, endpoint_id, properties):
+        return self._rpc_client.update_endpoint(
+            ctxt, endpoint_id, properties)
+
     def delete(self, ctxt, endpoint_id):
         self._rpc_client.delete_endpoint(ctxt, endpoint_id)
 
