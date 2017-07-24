@@ -288,12 +288,9 @@ def get_ssl_cert_thumbprint(context, host, port=443, digest_algorithm="sha1"):
     return x509.digest('sha1').decode()
 
 
-def _get_base_dir():
-    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-
 def get_resources_dir():
-    return os.path.join(_get_base_dir(), "resources")
+    return os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "resources")
 
 
 def serialize_key(key, password=None):
