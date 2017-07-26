@@ -48,7 +48,7 @@ def get_provider(platform_name, provider_type, event_handler):
     for provider in CONF.providers:
         cls = utils.load_class(provider)
         if (cls.platform == platform_name and
-                PROVIDER_TYPE_MAP[provider_type] in cls.__bases__):
+                issubclass(cls, PROVIDER_TYPE_MAP[provider_type])):
             return cls(event_handler)
 
     raise exception.NotFound(
