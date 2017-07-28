@@ -43,6 +43,16 @@ class BaseResourcesEndpointProvider(BaseEndpointProvider):
             "The provider does not define an instance list method.")
 
 
+class BaseEndpointNetworksProvider(object):
+    """ Defines operations for endpoints networks """
+    __metaclass__ = abc.ABCMeta
+
+    @abc.abstractmethod
+    def get_networks(self, ctxt, connection_info, env):
+        """ Returns a list of networks """
+        raise NotImplementedError()
+
+
 class BaseInstanceProvider(BaseProvider):
     __metaclass__ = abc.ABCMeta
 

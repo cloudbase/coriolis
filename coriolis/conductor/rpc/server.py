@@ -113,6 +113,12 @@ class ConductorServerEndpoint(object):
             ctxt, endpoint.type, endpoint.connection_info, marker, limit,
             instance_name_pattern)
 
+    def get_endpoint_networks(self, ctxt, endpoint_id, env):
+        endpoint = self.get_endpoint(ctxt, endpoint_id)
+
+        return self._rpc_worker_client.get_endpoint_networks(
+            ctxt, endpoint.type, endpoint.connection_info, env)
+
     def validate_endpoint_connection(self, ctxt, endpoint_id):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
         return self._rpc_worker_client.validate_endpoint_connection(

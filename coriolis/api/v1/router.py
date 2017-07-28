@@ -7,6 +7,7 @@ from coriolis import api
 from coriolis.api.v1 import endpoint_actions
 from coriolis.api.v1 import endpoints
 from coriolis.api.v1 import endpoint_instances
+from coriolis.api.v1 import endpoint_networks
 from coriolis.api.v1 import migrations
 from coriolis.api.v1 import migration_actions
 from coriolis.api.v1 import provider_schemas
@@ -56,6 +57,11 @@ class APIRouter(api.APIRouter):
             endpoint_instances.create_resource()
         mapper.resource('instance', 'endpoints/{endpoint_id}/instances',
                         controller=self.resources['endpoint_instances'])
+
+        self.resources['endpoint_networks'] = \
+            endpoint_networks.create_resource()
+        mapper.resource('network', 'endpoints/{endpoint_id}/networks',
+                        controller=self.resources['endpoint_networks'])
 
         self.resources['provider_schemas'] = \
             provider_schemas.create_resource()

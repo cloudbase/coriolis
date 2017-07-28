@@ -46,6 +46,12 @@ class ConductorClient(object):
             limit=limit,
             instance_name_pattern=instance_name_pattern)
 
+    def get_endpoint_networks(self, ctxt, endpoint_id, env):
+        return self._client.call(
+            ctxt, 'get_endpoint_networks',
+            endpoint_id=endpoint_id,
+            env=env)
+
     def validate_endpoint_connection(self, ctxt, endpoint_id):
         return self._client.call(
             ctxt, 'validate_endpoint_connection',

@@ -41,6 +41,13 @@ class WorkerClient(object):
             limit=limit,
             instance_name_pattern=instance_name_pattern)
 
+    def get_endpoint_networks(self, ctxt, platform_name, connection_info, env):
+        return self._client.call(
+            ctxt, 'get_endpoint_networks',
+            platform_name=platform_name,
+            connection_info=connection_info,
+            env=env)
+
     def validate_endpoint_connection(self, ctxt, platform_name,
                                      connection_info):
         return self._client.call(

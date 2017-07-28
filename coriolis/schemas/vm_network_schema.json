@@ -1,0 +1,18 @@
+{
+  "$schema": "http://cloudbase.it/coriolis/schemas/vm_network_info#",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Human-readable name of th network."
+    },
+    "id": {
+      "type": "string",
+      "description": "Unique identifier of the network."
+    }
+  },
+  "required": [
+    "id",
+    "name"
+  ]
+}
