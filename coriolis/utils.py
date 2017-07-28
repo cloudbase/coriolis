@@ -101,7 +101,8 @@ def get_udev_net_rules(net_ifaces_info):
 
 def parse_os_release(ssh):
     os_release_info = exec_ssh_cmd(
-        ssh, "[ -f '/etc/os-release' ] && cat /etc/os-release || true").decode()
+        ssh,
+        "[ -f '/etc/os-release' ] && cat /etc/os-release || true").decode()
     info = {}
     for line in os_release_info.splitlines():
         if "=" not in line:
@@ -113,8 +114,6 @@ def parse_os_release(ssh):
 
 
 def parse_lsb_release(ssh):
-    os_release_info = exec_ssh_cmd(
-        ssh, "[ -f '/etc/os-release' ] && cat /etc/os-release || true").decode()
     out = exec_ssh_cmd(ssh, "lsb_release -a || true").decode()
     dist_id = re.findall('^Distributor ID:\s(.*)$', out, re.MULTILINE)
     release = re.findall('^Release:\s(.*)$', out, re.MULTILINE)
@@ -125,7 +124,7 @@ def parse_lsb_release(ssh):
 def get_linux_os_info(ssh):
     info = parse_os_release(ssh)
     if info is None:
-        #fall back to lsb_release
+        # Fall back to lsb_release
         return parse_lsb_release(ssh)
     return info
 
