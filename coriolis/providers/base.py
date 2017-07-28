@@ -27,15 +27,20 @@ class BaseEndpointProvider(BaseProvider):
         pass
 
     @abc.abstractmethod
-    def get_instances(self, ctxt, connection_info, limit=None,
-                      last_seen_id=None, instance_name_pattern=None):
-        """ Returns a list of instances
-        """
-        pass
-
-    @abc.abstractmethod
     def get_connection_info_schema(self):
         pass
+
+
+class BaseResourcesEndpointProvider(BaseEndpointProvider):
+    """ Defines operations for listing resources off of Endpoints """
+    __metaclass__ = abc.ABCMeta
+
+    @abc.abstractmethod
+    def get_instances(self, ctxt, connection_info, limit=None,
+                      last_seen_id=None, instance_name_pattern=None):
+        """ Returns a list of instances """
+        raise NotImplementedError(
+            "The provider does not define an instance list method.")
 
 
 class BaseInstanceProvider(BaseProvider):

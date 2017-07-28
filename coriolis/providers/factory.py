@@ -23,7 +23,9 @@ PROVIDER_TYPE_MAP = {
     constants.PROVIDER_TYPE_IMPORT: base.BaseImportProvider,
     constants.PROVIDER_TYPE_REPLICA_IMPORT: base.BaseReplicaImportProvider,
     constants.PROVIDER_TYPE_ENDPOINT: base.BaseEndpointProvider,
-    constants.PROVIDER_TYPE_OS_MORPHING: base.BaseImportProvider
+    constants.PROVIDER_TYPE_RESOURCES_ENDPOINT:
+        base.BaseResourcesEndpointProvider,
+    constants.PROVIDER_TYPE_OS_MORPHING: base.BaseImportInstanceProvider
 }
 
 
@@ -48,7 +50,7 @@ def get_provider(platform_name, provider_type, event_handler):
     for provider in CONF.providers:
         cls = utils.load_class(provider)
         if (cls.platform == platform_name and
-                PROVIDER_TYPE_MAP[provider_type] in cls.__bases__):
+                issubclass(cls, PROVIDER_TYPE_MAP[provider_type])):
             return cls(event_handler)
 
     raise exception.NotFound(
