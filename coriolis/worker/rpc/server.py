@@ -184,6 +184,22 @@ class WorkerServerEndpoint(object):
 
         return instances_info
 
+    def get_endpoint_instance(self, ctxt, platform_name, connection_info,
+                              instance_name):
+        provider = providers_factory.get_provider(
+            platform_name, constants.PROVIDER_TYPE_RESOURCES_ENDPOINT, None)
+
+        secret_connection_info = utils.get_secret_connection_info(
+            ctxt, connection_info)
+
+        instance_info = provider.get_instance(
+            ctxt, secret_connection_info, instance_name)
+
+        schemas.validate_value(
+            instance_info, schemas.CORIOLIS_VM_INSTANCE_INFO_SCHEMA)
+
+        return instance_info
+
     def get_endpoint_networks(self, ctxt, platform_name, connection_info, env):
         provider = providers_factory.get_provider(
             platform_name, constants.PROVIDER_TYPE_ENDPOINT_NETWORKS, None)
