@@ -10,7 +10,7 @@ technologies like VMware vSphere or Microsoft System Center VMM to Azure /
 AzureStack, OpenStack, Amazon AWS or Google Cloud. Furthermore, cloud to cloud
 migrations, like AWS to Azure are also a common requirement.
 
-Project Coriolis™ addresses exactly those requirements, in particular migrating
+Project Coriolis(R) addresses exactly those requirements, in particular migrating
 Linux (Ubuntu, Red Hat / CentOS, SUSE, Debian, Fedora) and Windows virtual
 machine, templates, storage and networking configurations.
 
@@ -32,7 +32,7 @@ existing Keystone session allows an easy integration with other components,
 e.g. in Horizon's console.
 The same token is passed to other components along the pipeline, which also
 implies that importing virtual machines and other resources to the same
-OpenStack infrastructure doesn’t require further authentication.
+OpenStack infrastructure doesn't require further authentication.
 
 Authentication to external clouds (Azure, AWS, etc) or virtualisation solutions
 (vSphere, SCVMM, etc) in order to export virtual resources requires credentials
@@ -79,7 +79,7 @@ Here's an example Keystone service and endpoints configuration:
 API
 ---
 
-The API is also very straightforward, here’s a complete example available on
+The API is also very straightforward, here's a complete example available on
 Postman: https://www.getpostman.com/collections/734dc164d4b6b00cd8fc
 
 
@@ -94,7 +94,7 @@ Example request body:
             "origin": {
                 "type": "vmware_vsphere",
                 "connection_info": {
-                    “secret_id": "ebe69d82-da6f-451e-a0f6-3551d0f7ef85"
+                    "secret_id": "ebe69d82-da6f-451e-a0f6-3551d0f7ef85"
                 }
             },
             "destination": {
@@ -107,16 +107,16 @@ Example request body:
                     }
                 }
             },
-            "instances": ["CentOS 7”, “RHEL 7.2”, “Ubuntu 14.04”, “WS 2012 R2"]
+            "instances": ["CentOS 7", "RHEL 7.2", "Ubuntu 14.04", "WS 2012 R2"]
         }
     }
 
-Note: here’s an example secret stored in Barbican with vSphere connection info:
+Note: here's an example secret stored in Barbican with vSphere connection info:
 ::
     {
-        "host": “10.0.0.10”,
-        "username": “user@vsphere.local",
-        "password": “Password",
+        "host": "10.0.0.10",
+        "username": "user@vsphere.local",
+        "password": "Password",
         "allow_untrusted": true
     }
 
@@ -152,7 +152,7 @@ Note: only completed, failed or cancelled jobs can be deleted.
 API bindings
 ------------
 
-We’re currently working on API bindings as well, starting with Python and
+We're currently working on API bindings as well, starting with Python and
 Golang.
 
 Any feedback is well appreciated!
