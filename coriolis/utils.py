@@ -1,6 +1,8 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+import base64
+import binascii
 import functools
 import hashlib
 import io
@@ -381,3 +383,10 @@ def parse_int_value(value):
         return int(str(value))
     except ValueError:
         raise exception.InvalidInput("Invalid integer: %s" % value)
+
+
+def decode_base64_param(value):
+    try:
+        return base64.b64decode(value).decode()
+    except (binascii.Error, TypeError) as ex:
+        raise exception.InvalidInput(reason=str(ex))
