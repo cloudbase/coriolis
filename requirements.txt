@@ -25,5 +25,6 @@ python-swiftclient>=3.2
 pywinrm
 PyYAML
 requests
+pymysql
 sqlalchemy
 webob
