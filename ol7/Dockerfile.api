@@ -1,0 +1,4 @@
+FROM coriolis-common:latest
+# Mapped volume: /etc/coriolis/coriolis.conf
+ENTRYPOINT ["/bin/bash", "-c", "coriolis-api", "--config-file=/etc/coriolis/coriolis.conf"]
+EXPOSE 7667

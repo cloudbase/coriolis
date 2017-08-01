@@ -1,0 +1,19 @@
+FROM coriolis-common:latest
+
+ADD coriolis-provider-oracle-vm/ coriolis-provider-oracle-vm
+ADD coriolis-provider-vmware/ coriolis-provider-vmware
+ADD coriolis-provider-openstack/ coriolis-provider-openstack
+
+RUN /bin/bash -c "pip3 install ./coriolis-provider-oracle-vm"
+RUN /bin/bash -c "pip3 install ./coriolis-provider-vmware"
+RUN /bin/bash -c "pip3 install ./coriolis-provider-openstack"
+
+ADD VMware-vix-disklib.tar.gz /root
+RUN mkdir -p /usr/lib/vmware-vix-disklib
+RUN mv vmware-vix-disklib-distrib/lib64 /usr/lib/vmware-vix-disklib/
+RUN mv vmware-vix-disklib-distrib/bin64/* /usr/local/bin/
+RUN echo /usr/lib/vmware-vix-disklib/lib64 > /etc/ld.so.conf.d/zzz_vmware-vix-disklib.conf
+RUN ldconfig
+
+# Mapped volume: /etc/coriolis/coriolis.conf
+ENTRYPOINT ["/bin/bash", "-c", "coriolis-worker", "--config-file=/etc/coriolis/coriolis.conf"]

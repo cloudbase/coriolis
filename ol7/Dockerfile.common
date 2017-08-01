@@ -1,0 +1,9 @@
+FROM coriolis-base:latest
+
+WORKDIR /root
+
+ADD coriolis-core/ coriolis-core
+RUN /bin/bash -c "pip3 install ./coriolis-core"
+
+# This can be mapped in a volume
+RUN mkdir -p /var/log/coriolis

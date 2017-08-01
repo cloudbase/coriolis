@@ -1,0 +1,18 @@
+FROM container-registry.oracle.com/os/oraclelinux:latest
+
+WORKDIR /root
+
+RUN curl -s -o /etc/yum.repos.d/public-yum-ol7.repo http://yum.oracle.com/public-yum-ol7.repo
+RUN yum install --enablerepo=ol7_software_collections --enablerepo=ol7_latest --enablerepo=ol7_optional_latest git -y
+
+RUN yum-config-manager --enable ol7_software_collections && \
+yum-config-manager --enable ol7_optional_latest && \
+yum-config-manager --enablerepo=ol7_latest
+RUN yum install deltarpm -y
+
+RUN yum install --setopt=tsflags=nodocs rh-python35 gcc make zlib-devel mysql-devel -y
+RUN echo "source /opt/rh/rh-python35/enable" >> .bashrc
+ENV BASH_ENV "/opt/rh/rh-python35/enable"
+
+RUN /bin/bash -c "pip3 install -U pip"
+RUN /bin/bash -c "pip3 install wheel"

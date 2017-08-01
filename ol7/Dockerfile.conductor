@@ -1,0 +1,3 @@
+FROM coriolis-common:latest
+# Mapped volume: /etc/coriolis/coriolis.conf
+ENTRYPOINT ["/bin/bash", "-c", "coriolis-conductor", "--config-file=/etc/coriolis/coriolis.conf"]
