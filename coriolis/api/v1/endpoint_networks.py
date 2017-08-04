@@ -19,7 +19,7 @@ class EndpointNetworkController(api_wsgi.Controller):
     def index(self, req, endpoint_id):
         env = req.GET.get("env")
         if env is not None:
-            env = utils.decode_base64_param(env)
+            env = utils.decode_base64_param(env, is_json=True)
 
         return endpoint_network_view.collection(
             req, self._network_api.get_endpoint_networks(

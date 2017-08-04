@@ -385,8 +385,11 @@ def parse_int_value(value):
         raise exception.InvalidInput("Invalid integer: %s" % value)
 
 
-def decode_base64_param(value):
+def decode_base64_param(value, is_json=False):
     try:
-        return base64.b64decode(value).decode()
-    except (binascii.Error, TypeError) as ex:
+        decoded = base64.b64decode(value).decode()
+        if is_json:
+            decoded = json.loads(decoded)
+        return decoded
+    except (binascii.Error, TypeError, json.decoder.JSONDecodeError) as ex:
         raise exception.InvalidInput(reason=str(ex))
