@@ -1,4 +1,4 @@
-FROM container-registry.oracle.com/os/oraclelinux:latest
+FROM oraclelinux:7
 
 WORKDIR /root
 
