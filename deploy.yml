@@ -74,7 +74,7 @@
         dest: /etc/coriolis/api-paste.ini
 
     - name: Checking Coriolis Keystone service
-      shell: openstack service list  -c Name  | grep coriolis
+      shell: openstack service list -c Name | grep coriolis
       environment:
         OS_AUTH_URL: "{{ keystone_auth_url }}"
         OS_IDENTITY_API_VERSION: 3
@@ -87,6 +87,7 @@
       retries: 10
       delay: 5
       register: service_list
+      failed_when: "service_list.rc > 1"
 
     - name: Creating Coriolis Keystone service
       command: openstack service create --name coriolis --description "Cloud Migration as a Service" migration
@@ -102,10 +103,10 @@
       run_once: True
       retries: 10
       delay: 5
-      when: service_list.stdout_lines == 0
+      when: service_list.rc == 1
 
     - name: Checking Coriolis Keystone endpoints
-      shell: openstack endpoint list  -c "Service Name" | grep coriolis
+      shell: openstack endpoint list -c "Service Name" | grep coriolis
       environment:
         OS_AUTH_URL: "{{ keystone_auth_url }}"
         OS_IDENTITY_API_VERSION: 3
@@ -118,6 +119,7 @@
       retries: 10
       delay: 5
       register: endpoint_list
+      failed_when: "endpoint_list.rc > 1"
 
     - name: Creating Coriolis Keystone endpoints
       command: "openstack endpoint create migration {{ item.interface }} {{ item.url }}"
@@ -133,14 +135,14 @@
       run_once: True
       retries: 10
       delay: 5
-      when: endpoint_list.stdout_lines == 0
+      when: endpoint_list.rc == 1
       with_items:
         - {'interface': 'admin', 'url': '{{ coriolis_admin_endpoint }}'}
         - {'interface': 'internal', 'url': '{{ coriolis_internal_endpoint }}'}
         - {'interface': 'public', 'url': '{{ coriolis_public_endpoint }}'}
 
     - name: Checking Coriolis Keystone user
-      shell: openstack user list  -c Name | grep {{ coriolis_keystone_user }}
+      shell: openstack user list -c Name | grep {{ coriolis_keystone_user }}
       environment:
         OS_AUTH_URL: "{{ keystone_auth_url }}"
         OS_IDENTITY_API_VERSION: 3
@@ -153,9 +155,10 @@
       retries: 10
       delay: 5
       register: user_list
+      failed_when: "user_list.rc > 1"
 
     - name: Creating Coriolis Keystone user
-      command: "openstack user create --domain default --password {{ coriolis_keystone_password }} {{ coriolis_keystone_user }}"
+      command: "openstack user create --domain default --password '{{ coriolis_keystone_password }}' {{ coriolis_keystone_user }}"
       environment:
         OS_AUTH_URL: "{{ keystone_auth_url }}"
         OS_IDENTITY_API_VERSION: 3
@@ -168,7 +171,7 @@
       run_once: True
       retries: 10
       delay: 5
-      when: user_list.stdout_lines == 0
+      when: user_list.rc == 1
 
     - name: Adding Coriolis Keystone user to the service admin role
       command: "openstack role add --project service --user {{ coriolis_keystone_user }} admin"
@@ -191,6 +194,7 @@
         image: coriolis-api:latest
         hostname: coriolis-api
         state: started
+        restart: yes
         restart_policy: unless-stopped
         network_mode: host
         volumes:
@@ -205,6 +209,7 @@
         image: coriolis-conductor:latest
         hostname: coriolis-conductor
         state: started
+        restart: yes
         restart_policy: unless-stopped
         network_mode: host
         volumes:
@@ -217,6 +222,7 @@
         image: coriolis-worker:latest
         hostname: coriolis-worker
         state: started
+        restart: yes
         restart_policy: unless-stopped
         network_mode: host
         volumes:
