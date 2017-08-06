@@ -27,6 +27,9 @@ user_domain_id = default
 [keystone]
 auth_url = {{ internal_protocol }}://{{ keystone_host }}:{{ keystone_public_port }}
 
+[worker]
+export_base_path = {{ coriolis_export_base_path }}
+
 [openstack_migration_provider]
 migr_image_name_map = linux: Ubuntu 15.10, windows: Nano
 

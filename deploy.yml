@@ -2,6 +2,11 @@
 - hosts: localhost
   vars:
     coriolis_debug: true
+    coriolis_admin_endpoint: "http://{{ kolla_internal_vip_address }}:7667/v1/%(tenant_id)s"
+    coriolis_internal_endpoint: "{{ coriolis_admin_endpoint }}"
+    coriolis_public_endpoint: "{{ coriolis_admin_endpoint }}"
+    keystone_host: "{{ kolla_internal_vip_address }}"
+    keystone_auth_url: "{{ admin_protocol }}://{{ keystone_host }}:{{ keystone_admin_port }}"
     database_address: "{{ kolla_internal_vip_address }}"
     database_port: 3306
     database_user: "root"
@@ -12,13 +17,14 @@
     rabbitmq_port: 5672
     internal_protocol: "http"
     admin_protocol: "http"
-    keystone_host: "{{ kolla_internal_vip_address }}"
     keystone_public_port: 5000
     keystone_admin_port: 35357
     coriolis_keystone_user: "coriolis"
     coriolis_keystone_password: "coriolis"
     temp_keypair_password: "coriolis"
     pv_drivers_url: "https://dl.dropboxusercontent.com/u/9060190/ovm_win_vp_drivers_3_2_3.zip"
+    coriolis_export_base_path: /opt/coriolis/export
+    coriolis_export_base_path_host: /opt/coriolis/export
   tasks:
     - name: Creating coriolis database
       mysql_db:
@@ -52,6 +58,11 @@
         path: /var/log/coriolis
         state: directory
 
+    - name: Creating Coriolis shared export path directory
+      file:
+        path: "{{ coriolis_export_base_path_host }}"
+        state: directory
+
     - name: Creating coriolis.conf
       template:
         src: ./templates/coriolis.conf.j2
@@ -62,6 +73,71 @@
         src: ./templates/api-paste.ini.j2
         dest: /etc/coriolis/api-paste.ini
 
+
+    - name: Creating Coriolis Keystone service
+      command: openstack service create --name coriolis --description "Cloud Migration as a Service" migration
+      environment:
+        OS_AUTH_URL: "{{ keystone_auth_url }}"
+        OS_IDENTITY_API_VERSION: 3
+        OS_PASSWORD: "{{ keystone_admin_password }}"
+        OS_PROJECT_NAME: admin
+        OS_TENANT_NAME: admin
+        OS_USERNAME: admin
+        OS_USER_DOMAIN_NAME: "default"
+        OS_PROJECT_DOMAIN_NAME: "default"
+      run_once: True
+      retries: 10
+      delay: 5
+
+    - name: Creating Coriolis Keystone endpoints
+      command: "openstack endpoint create --region RegionOne migration {{ item.interface }} {{ item.url }}"
+      environment:
+        OS_AUTH_URL: "{{ keystone_auth_url }}"
+        OS_IDENTITY_API_VERSION: 3
+        OS_PASSWORD: "{{ keystone_admin_password }}"
+        OS_PROJECT_NAME: admin
+        OS_TENANT_NAME: admin
+        OS_USERNAME: admin
+        OS_USER_DOMAIN_NAME: "default"
+        OS_PROJECT_DOMAIN_NAME: "default"
+      run_once: True
+      retries: 10
+      delay: 5
+      with_items:
+        - {'interface': 'admin', 'url': '{{ coriolis_admin_endpoint }}'}
+        - {'interface': 'internal', 'url': '{{ coriolis_internal_endpoint }}'}
+        - {'interface': 'public', 'url': '{{ coriolis_public_endpoint }}'}
+
+    - name: Creating Coriolis Keystone user
+      command: "openstack user create --domain default --password {{ coriolis_keystone_password }} {{ coriolis_keystone_user }}"
+      environment:
+        OS_AUTH_URL: "{{ keystone_auth_url }}"
+        OS_IDENTITY_API_VERSION: 3
+        OS_PASSWORD: "{{ keystone_admin_password }}"
+        OS_PROJECT_NAME: admin
+        OS_TENANT_NAME: admin
+        OS_USERNAME: admin
+        OS_USER_DOMAIN_NAME: "default"
+        OS_PROJECT_DOMAIN_NAME: "default"
+      run_once: True
+      retries: 10
+      delay: 5
+
+    - name: Adding Coriolis Keystone user to the service admin role
+      command: "openstack role add --project service --user {{ coriolis_keystone_user }} admin"
+      environment:
+        OS_AUTH_URL: "{{ keystone_auth_url }}"
+        OS_IDENTITY_API_VERSION: 3
+        OS_PASSWORD: "{{ keystone_admin_password }}"
+        OS_PROJECT_NAME: admin
+        OS_TENANT_NAME: admin
+        OS_USERNAME: admin
+        OS_USER_DOMAIN_NAME: "default"
+        OS_PROJECT_DOMAIN_NAME: "default"
+      run_once: True
+      retries: 10
+      delay: 5
+
     - name: coriolis-api container
       docker_container:
         name: coriolis-api
@@ -69,8 +145,7 @@
         hostname: coriolis-api
         state: started
         restart_policy: unless-stopped
-        networks:
-        - name: coriolis_nw
+        network_mode: host
         volumes:
         - "/etc/coriolis:/etc/coriolis:ro"
         - "/var/log/coriolis:/var/log/coriolis:rw"
@@ -84,8 +159,7 @@
         hostname: coriolis-conductor
         state: started
         restart_policy: unless-stopped
-        networks:
-        - name: coriolis_nw
+        network_mode: host
         volumes:
         - "/etc/coriolis:/etc/coriolis:ro"
         - "/var/log/coriolis:/var/log/coriolis:rw"
@@ -97,8 +171,8 @@
         hostname: coriolis-worker
         state: started
         restart_policy: unless-stopped
-        networks:
-        - name: coriolis_nw
+        network_mode: host
         volumes:
         - "/etc/coriolis:/etc/coriolis:ro"
         - "/var/log/coriolis:/var/log/coriolis:rw"
+        - "{{ coriolis_export_base_path_host }}:{{ coriolis_export_base_path }}:rw"
