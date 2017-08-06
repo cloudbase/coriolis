@@ -73,6 +73,20 @@
         src: ./templates/api-paste.ini.j2
         dest: /etc/coriolis/api-paste.ini
 
+    - name: Checking Coriolis Keystone service
+      shell: openstack service list  -c Name  | grep coriolis
+      environment:
+        OS_AUTH_URL: "{{ keystone_auth_url }}"
+        OS_IDENTITY_API_VERSION: 3
+        OS_PASSWORD: "{{ keystone_admin_password }}"
+        OS_PROJECT_NAME: admin
+        OS_TENANT_NAME: admin
+        OS_USERNAME: admin
+        OS_USER_DOMAIN_NAME: "default"
+        OS_PROJECT_DOMAIN_NAME: "default"
+      retries: 10
+      delay: 5
+      register: service_list
 
     - name: Creating Coriolis Keystone service
       command: openstack service create --name coriolis --description "Cloud Migration as a Service" migration
@@ -88,9 +102,25 @@
       run_once: True
       retries: 10
       delay: 5
+      when: service_list.stdout_lines == 0
+
+    - name: Checking Coriolis Keystone endpoints
+      shell: openstack endpoint list  -c "Service Name" | grep coriolis
+      environment:
+        OS_AUTH_URL: "{{ keystone_auth_url }}"
+        OS_IDENTITY_API_VERSION: 3
+        OS_PASSWORD: "{{ keystone_admin_password }}"
+        OS_PROJECT_NAME: admin
+        OS_TENANT_NAME: admin
+        OS_USERNAME: admin
+        OS_USER_DOMAIN_NAME: "default"
+        OS_PROJECT_DOMAIN_NAME: "default"
+      retries: 10
+      delay: 5
+      register: endpoint_list
 
     - name: Creating Coriolis Keystone endpoints
-      command: "openstack endpoint create --region RegionOne migration {{ item.interface }} {{ item.url }}"
+      command: "openstack endpoint create migration {{ item.interface }} {{ item.url }}"
       environment:
         OS_AUTH_URL: "{{ keystone_auth_url }}"
         OS_IDENTITY_API_VERSION: 3
@@ -103,10 +133,26 @@
       run_once: True
       retries: 10
       delay: 5
+      when: endpoint_list.stdout_lines == 0
       with_items:
         - {'interface': 'admin', 'url': '{{ coriolis_admin_endpoint }}'}
         - {'interface': 'internal', 'url': '{{ coriolis_internal_endpoint }}'}
         - {'interface': 'public', 'url': '{{ coriolis_public_endpoint }}'}
+
+    - name: Checking Coriolis Keystone user
+      shell: openstack user list  -c Name | grep {{ coriolis_keystone_user }}
+      environment:
+        OS_AUTH_URL: "{{ keystone_auth_url }}"
+        OS_IDENTITY_API_VERSION: 3
+        OS_PASSWORD: "{{ keystone_admin_password }}"
+        OS_PROJECT_NAME: admin
+        OS_TENANT_NAME: admin
+        OS_USERNAME: admin
+        OS_USER_DOMAIN_NAME: "default"
+        OS_PROJECT_DOMAIN_NAME: "default"
+      retries: 10
+      delay: 5
+      register: user_list
 
     - name: Creating Coriolis Keystone user
       command: "openstack user create --domain default --password {{ coriolis_keystone_password }} {{ coriolis_keystone_user }}"
@@ -122,6 +168,7 @@
       run_once: True
       retries: 10
       delay: 5
+      when: user_list.stdout_lines == 0
 
     - name: Adding Coriolis Keystone user to the service admin role
       command: "openstack role add --project service --user {{ coriolis_keystone_user }} admin"
