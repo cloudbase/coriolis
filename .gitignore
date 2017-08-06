@@ -1,6 +1,8 @@
 .DS_Store
 logs/
-*.tar.gz
-coriolis-core
-coriolis-provider-*
+build/
+mysql/
+rabbitmq/
+.venv/
+build.retry
 

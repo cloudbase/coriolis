@@ -1,0 +1,104 @@
+---
+- hosts: localhost
+  vars:
+    coriolis_debug: true
+    database_address: "{{ kolla_internal_vip_address }}"
+    database_port: 3306
+    database_user: "root"
+    coriolis_database_name: "coriolis"
+    coriolis_database_password: "coriolis"
+    rabbitmq_user: "openstack"
+    rabbitmq_host: "{{ kolla_internal_vip_address }}"
+    rabbitmq_port: 5672
+    internal_protocol: "http"
+    admin_protocol: "http"
+    keystone_host: "{{ kolla_internal_vip_address }}"
+    keystone_public_port: 5000
+    keystone_admin_port: 35357
+    coriolis_keystone_user: "coriolis"
+    coriolis_keystone_password: "coriolis"
+    temp_keypair_password: "coriolis"
+    pv_drivers_url: "https://dl.dropboxusercontent.com/u/9060190/ovm_win_vp_drivers_3_2_3.zip"
+  tasks:
+    - name: Creating coriolis database
+      mysql_db:
+        login_host: "{{ database_address }}"
+        login_port: "{{ database_port }}"
+        login_user: "{{ database_user }}"
+        login_password: "{{ database_password }}"
+        name: "{{ coriolis_database_name }}"
+      run_once: True
+
+    - name: Creating coriolis database user and setting permissions
+      mysql_user:
+        login_host: "{{ database_address }}"
+        login_port: "{{ database_port }}"
+        login_user: "{{ database_user }}"
+        login_password: "{{ database_password }}"
+        name: "{{ coriolis_database_name }}"
+        password: "{{ coriolis_database_password }}"
+        host: "%"
+        priv: "{{ coriolis_database_name }}.*:ALL"
+        append_privs: "yes"
+      run_once: True
+
+    - name: Creating config directory
+      file:
+        path: /etc/coriolis
+        state: directory
+
+    - name: Creating log directory
+      file:
+        path: /var/log/coriolis
+        state: directory
+
+    - name: Creating coriolis.conf
+      template:
+        src: ./templates/coriolis.conf.j2
+        dest: /etc/coriolis/coriolis.conf
+
+    - name: Creating api-paste.ini
+      template:
+        src: ./templates/api-paste.ini.j2
+        dest: /etc/coriolis/api-paste.ini
+
+    - name: coriolis-api container
+      docker_container:
+        name: coriolis-api
+        image: coriolis-api:latest
+        hostname: coriolis-api
+        state: started
+        restart_policy: unless-stopped
+        networks:
+        - name: coriolis_nw
+        volumes:
+        - "/etc/coriolis:/etc/coriolis:ro"
+        - "/var/log/coriolis:/var/log/coriolis:rw"
+        ports:
+        - "7667:7667"
+
+    - name: coriolis-conductor container
+      docker_container:
+        name: coriolis-conductor
+        image: coriolis-conductor:latest
+        hostname: coriolis-conductor
+        state: started
+        restart_policy: unless-stopped
+        networks:
+        - name: coriolis_nw
+        volumes:
+        - "/etc/coriolis:/etc/coriolis:ro"
+        - "/var/log/coriolis:/var/log/coriolis:rw"
+
+    - name: coriolis-worker container
+      docker_container:
+        name: coriolis-worker
+        image: coriolis-worker:latest
+        hostname: coriolis-worker
+        state: started
+        restart_policy: unless-stopped
+        networks:
+        - name: coriolis_nw
+        volumes:
+        - "/etc/coriolis:/etc/coriolis:ro"
+        - "/var/log/coriolis:/var/log/coriolis:rw"

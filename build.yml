@@ -1,7 +1,7 @@
 ---
 - hosts: localhost
   tasks:
-    - name: create build directory
+    - name: Creating build directory
       file:
         path: ./build
         state: directory
@@ -11,7 +11,7 @@
       with_fileglob:
         - ol7/*
 
-    - name: clone coriolis git repositories
+    - name: Cloning coriolis git repositories
       git: repo=git@bitbucket.org:cloudbase/{{item.name}}.git dest=./build/{{item.name}}
       with_items:
         - { name: coriolis-core}
@@ -19,18 +19,18 @@
         - { name: coriolis-provider-vmware}
         - { name: coriolis-provider-openstack}
 
-    - name: download VMware disklib
+    - name: Downloading VMware disklib
       get_url:
         url: https://dl.dropboxusercontent.com/u/9060190/VMware-vix-disklib-6.5.0-5136645.x86_64.tar.gz
         dest: ./build/VMware-vix-disklib.tar.gz
 
-    - name: build coriolis-base
+    - name: Building coriolis-base
       docker_image:
         path: ./build
         dockerfile: Dockerfile.base
         name: coriolis-base
 
-    - name: build coriolis docker images
+    - name: Building coriolis docker images
       docker_image: path=./build dockerfile={{item.dockerfile}} name={{item.name}} pull=False
       with_items:
         - { dockerfile: Dockerfile.common, name: coriolis-common}

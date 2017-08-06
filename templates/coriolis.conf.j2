@@ -1,48 +1,33 @@
 [DEFAULT]
-messaging_transport_url=rabbit://coriolis:Passw0rd@coriolis-rabbitmq:5672/
+messaging_transport_url=rabbit://{{ rabbitmq_user }}:{{ rabbitmq_password }}@{{ rabbitmq_host }}:{{ rabbitmq_port }}/
 log_dir=/var/log/coriolis
-#log_file=coriolis.log
-debug=true
+debug={{ coriolis_debug }}
 providers=coriolis_provider_openstack.ExportProvider,coriolis_provider_openstack.ImportProvider,coriolis_provider_vmware_vsphere.ExportProvider,coriolis_provider_oracle_vm.ImportProvider
 
 [database]
-connection = mysql://coriolis:Passw0rd@172.16.201.149/coriolis
+connection = mysql://{{ coriolis_database_name }}:{{ coriolis_database_password }}@{{ database_address }}/{{ coriolis_database_name }}
 
 [keystone_authtoken]
 auth_type = password
-#auth_url = http://10.197.239.3:35357
-auth_url = http://10.89.13.195:35357/v3
-username = coriolis
+auth_uri = {{ internal_protocol }}://{{ keystone_host }}:{{ keystone_public_port }}
+auth_url = {{ admin_protocol }}://{{ keystone_host }}:{{ keystone_admin_port }}
+username = {{ coriolis_keystone_user }}
+password = {{ coriolis_keystone_password }}
 user_domain_id = default
-password = Passw0rd
-#password = 9c86a7cef1544c61
 project_name = service
-#project_name = services
 project_domain_id = default
 
 [trustee]
 auth_type = password
-auth_url = http://10.89.13.195:35357/v3
-username = coriolis
+auth_url = {{ admin_protocol }}://{{ keystone_host }}:{{ keystone_admin_port }}
+username = {{ coriolis_keystone_user }}
+password = {{ coriolis_keystone_password }}
 user_domain_id = default
-password = Passw0rd
-#project_name = service
-#project_domain_id = default
-
-#auth_uri=http://10.197.239.3:5000/v2.0
-#identity_uri=http://10.197.239.3:35357
-#admin_user=nova
-#admin_password=9c86a7cef1544c61
-#admin_tenant_name=services
 
 [keystone]
-auth_url = http://10.89.13.195:5000/v2.0
-#auth_url = http://10.197.239.3:5000/v2.0
+auth_url = {{ internal_protocol }}://{{ keystone_host }}:{{ keystone_public_port }}
 
 [openstack_migration_provider]
-#disk_format = vhd
-#hypervisor_type = hyperv
-#migr_image_name_map = linux: Ubuntu 15.10, windows: Windows Server 2012 R2 Std Eval
 migr_image_name_map = linux: Ubuntu 15.10, windows: Nano
 
 migr_flavor_name = coriolis-demo-migr
@@ -60,5 +45,4 @@ pv_drivers_url = https://dl.dropboxusercontent.com/u/9060190/ovm_win_vp_drivers_
 
 [serialization]
 
-temp_keypair_password = blahblah
-
+temp_keypair_password = {{ temp_keypair_password }}
