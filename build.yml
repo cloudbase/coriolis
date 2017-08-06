@@ -1,0 +1,46 @@
+---
+- hosts: localhost
+  tasks:
+    - name: copy Docker build files
+      copy: src={{ item }} dest=./build/
+      with_fileglob:
+        - ol7/*
+
+    - name: git coriolis-core
+      git:
+        repo: git@bitbucket.org:cloudbase/coriolis-core.git
+        dest: ./build/coriolis-core
+
+    - name: git coriolis-provider-oracle-vm
+      git:
+        repo: git@bitbucket.org:cloudbase/coriolis-provider-oracle-vm.git
+        dest: ./build/coriolis-provider-oracle-vm
+
+    - name: git coriolis-provider-vmware
+      git:
+        repo: git@bitbucket.org:cloudbase/coriolis-provider-vmware.git
+        dest: ./build/coriolis-provider-vmware
+
+    - name: git coriolis-provider-openstack
+      git:
+        repo: git@bitbucket.org:cloudbase/coriolis-provider-openstack.git
+        dest: ./build/coriolis-provider-openstack
+
+    - name: download VMware disklib
+      get_url:
+        url: https://dl.dropboxusercontent.com/u/9060190/VMware-vix-disklib-6.5.0-5136645.x86_64.tar.gz
+        dest: ./build/VMware-vix-disklib.tar.gz
+
+    - name: build coriolis-base
+      docker_image:
+        path: ./build
+        dockerfile: Dockerfile.base
+        name: coriolis-base
+
+    - name: build coriolis-api
+      docker_image: path=./build dockerfile={{item.dockerfile}} name={{item.name}} pull=False
+      with_items:
+        - { dockerfile: Dockerfile.common, name: coriolis-common}
+        - { dockerfile: Dockerfile.api, name: coriolis-api}
+        - { dockerfile: Dockerfile.conductor, name: coriolis-conductor}
+        - { dockerfile: Dockerfile.worker, name: coriolis-worker}
