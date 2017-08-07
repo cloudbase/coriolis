@@ -19,8 +19,11 @@ fi
 
 mkdir -p /etc/kolla/
 chmod 700 /etc/kolla/
-cp kolla-ansible/etc/kolla/passwords.yml /etc/kolla/
-kolla-genpwd
+
+if [ ! -f /etc/kolla/passwords.yml ]; then
+    cp kolla-ansible/etc/kolla/passwords.yml /etc/kolla/
+    kolla-genpwd
+fi
 
 cp $basedir/coriolis kolla-ansible/ansible/inventory/
 
