@@ -19,7 +19,7 @@ project_domain_id = default
 
 [trustee]
 auth_type = password
-auth_url = {{ admin_protocol }}://{{ keystone_host }}:{{ keystone_admin_port }}
+auth_url = {{ admin_protocol }}://{{ keystone_host }}:{{ keystone_admin_port }}/v3
 username = {{ coriolis_keystone_user }}
 password = {{ coriolis_keystone_password }}
 user_domain_id = default
