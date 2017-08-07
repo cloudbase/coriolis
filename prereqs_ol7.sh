@@ -1,3 +1,6 @@
+#!/bin/bash
+set -e
+
 yum install kernel-uek -y
 # grep '^menuentry' /boot/grub2/grub.cfg
 sed -i 's/GRUB_DEFAULT=.*/GRUB_DEFAULT=0/g' /etc/default/grub
