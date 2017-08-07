@@ -21,8 +21,10 @@ fi
 
 distro=oraclelinux
 
-# Login on the docker registry first otherwise the push will fail
-# or remove --push for local testing
-# docker login
+if [ "$1" == "push" ]; then
+    push_args="--push --push-threads 8"
+else
+    push_args=""
+fi
 
-kolla-build -b $distro -n coriolis keystone barbican rabbitmq mariadb kolla-toolbox fluentd cron memcached --push
+kolla-build -b $distro -n coriolis keystone barbican rabbitmq mariadb kolla-toolbox fluentd cron memcached $push_args

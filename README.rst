@@ -30,6 +30,12 @@ Skip this unless new images are needed.
 
     ./coriolis-docker/kolla/build.sh
 
+To push the images to the Docker registry:
+
+::
+    docker login
+    ./coriolis-docker/kolla/build.sh push
+
 
 Deploy OpenStack components with Kolla
 ======================================
