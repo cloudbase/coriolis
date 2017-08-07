@@ -24,7 +24,7 @@ Ubuntu 16.04: ::
 Build Kolla images (optional)
 =============================
 
-Skip this unless new images are needed
+Skip this unless new images are needed.
 
 ::
 
@@ -47,5 +47,6 @@ Destroy a Kolla deployment
 
 This will remove all the Kolla Docker containers.
 
-    ./coriolis-docker/kolla/destroy.sh
+::
 
+    ./coriolis-docker/kolla/destroy.sh
