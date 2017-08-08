@@ -5,4 +5,5 @@ mysql/
 rabbitmq/
 .venv/
 build.retry
+config.yml
 

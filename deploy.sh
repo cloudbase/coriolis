@@ -8,6 +8,10 @@ iface=${1:-ens160}
 set_config_value=$basedir/set_config_value.py
 config_file=$basedir/config.yml
 
+if [ ! -f $config_file ]; then
+    cp $config_file.sample $config_file
+fi
+
 VIP=$(/sbin/ip -4 -o addr show dev $iface | awk '{split($4,a,"/");print a[1]}')
 python $set_config_value -c $config_file -n coriolis_host -v $VIP
 
