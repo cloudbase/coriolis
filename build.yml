@@ -6,10 +6,14 @@
         path: ./build
         state: directory
 
-    - name: copy Docker build files
-      copy: src={{ item }} dest=./build/
-      with_fileglob:
-        - ol7/*
+    - name: Creating Docker build files
+      template: src={{ docker_template }}/{{ item.name }}.j2 dest=./build/{{ item.name }}
+      with_items:
+        - { name: Dockerfile.base}
+        - { name: Dockerfile.common}
+        - { name: Dockerfile.api}
+        - { name: Dockerfile.conductor}
+        - { name: Dockerfile.worker}
 
     - name: Cloning coriolis git repositories
       git: repo=git@bitbucket.org:cloudbase/{{item.name}}.git dest=./build/{{item.name}}
@@ -21,17 +25,19 @@
 
     - name: Downloading VMware disklib
       get_url:
-        url: https://dl.dropboxusercontent.com/u/9060190/VMware-vix-disklib-6.5.0-5136645.x86_64.tar.gz
+        url: "{{ vmware_disklib_url }}"
         dest: ./build/VMware-vix-disklib.tar.gz
 
     - name: Building coriolis-base
       docker_image:
         path: ./build
         dockerfile: Dockerfile.base
-        name: coriolis-base
+        tag: "{{ docker_images_tag }}"
+        push: "{{ docker_push_images}}"
+        name: "{{ docker_registry }}/coriolis-base"
 
     - name: Building coriolis docker images
-      docker_image: path=./build dockerfile={{item.dockerfile}} name={{item.name}} pull=False
+      docker_image: path=./build dockerfile={{item.dockerfile}} name={{ docker_registry }}/{{item.name}} pull=False push={{ docker_push_images}} tag={{ docker_images_tag }}
       with_items:
         - { dockerfile: Dockerfile.common, name: coriolis-common}
         - { dockerfile: Dockerfile.api, name: coriolis-api}

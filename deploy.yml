@@ -166,7 +166,7 @@
     - name: coriolis-api container
       docker_container:
         name: coriolis-api
-        image: coriolis-api:latest
+        image: "{{ docker_registry }}/coriolis-api:{{ docker_images_tag }}"
         hostname: coriolis-api
         state: started
         restart: yes
@@ -181,7 +181,7 @@
     - name: coriolis-conductor container
       docker_container:
         name: coriolis-conductor
-        image: coriolis-conductor:latest
+        image: "{{ docker_registry }}/coriolis-conductor:{{ docker_images_tag }}"
         hostname: coriolis-conductor
         state: started
         restart: yes
@@ -194,7 +194,7 @@
     - name: coriolis-worker container
       docker_container:
         name: coriolis-worker
-        image: coriolis-worker:latest
+        image: "{{ docker_registry }}/coriolis-worker:{{ docker_images_tag }}"
         hostname: coriolis-worker
         state: started
         restart: yes

@@ -17,4 +17,5 @@ python $set_config_value -c $config_file -n coriolis_host -v $VIP
 
 ansible-playbook $basedir/deploy.yml \
 -e @/etc/kolla/passwords.yml \
--e @$config_file
+-e @$config_file \
+-e @$basedir/config-build.yml

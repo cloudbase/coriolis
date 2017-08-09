@@ -57,3 +57,33 @@ This will remove all the Kolla Docker containers.
 ::
 
     ./coriolis-docker/kolla/destroy.sh
+
+Build Coriolis images (optional)
+================================
+
+Skip this unless new images are needed.
+
+::
+
+    ./coriolis-docker/build.sh
+
+To push the images to the Docker registry, set the following before calling
+*build.sh*:
+
+::
+
+    # Edit "config-build.yml" and set:
+    # docker_push_images: true
+    docker login registry.cloudbase.it
+
+Additional build related options can be found in *config-build.yml*.
+
+Deploy Coriolis
+===============
+
+Note: this required Keystone to be already deployed via Kolla.
+
+::
+
+    docker login registry.cloudbase.it
+    ./coriolis-docker/deploy.sh eth0

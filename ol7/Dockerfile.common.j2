@@ -1,4 +1,4 @@
-FROM coriolis-base:latest
+FROM {{ docker_registry }}/coriolis-base:{{ docker_images_tag }}
 
 WORKDIR /root
 
