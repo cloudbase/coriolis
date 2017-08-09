@@ -36,7 +36,7 @@ yum groupinstall development tools -y
 
 yum install ansible --enablerepo=epel -y
 
-firewall-cmd --zone=public --add-port=35357/tcp
-firewall-cmd --zone=public --add-port=5000/tcp
-firewall-cmd --zone=public --add-port=9311/tcp
-firewall-cmd --zone=public --add-port=7667/tcp
+firewall-cmd --permanent --zone=public --add-port=35357/tcp
+firewall-cmd --permanent --zone=public --add-port=5000/tcp
+firewall-cmd --permanent --zone=public --add-port=9311/tcp
+firewall-cmd --permanent --zone=public --add-port=7667/tcp
