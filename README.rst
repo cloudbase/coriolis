@@ -87,3 +87,16 @@ Note: this required Keystone to be already deployed via Kolla.
 
     docker login registry.cloudbase.it
     ./coriolis-docker/deploy.sh eth0
+
+Validate the deployment
+=======================
+
+Execute some basic Coriolis and OpenStack commands to make sure that all
+components have been deployed and configured properly:
+
+::
+
+    source /etc/kolla/admin-openrc.sh
+    openstack endpoint list
+    openstack secret list
+    coriolis endpoint list
