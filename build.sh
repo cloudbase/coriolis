@@ -1,4 +1,6 @@
 #!/bin/bash
 set -e
 
-ansible-playbook build.yml
+basedir=$(dirname "$(readlink -f "$0")")
+
+ansible-playbook $basedir/build.yml
