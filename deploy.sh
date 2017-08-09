@@ -19,3 +19,11 @@ ansible-playbook $basedir/deploy.yml \
 -e @/etc/kolla/passwords.yml \
 -e @$config_file \
 -e @$basedir/config-build.yml
+
+if [ ! -d python-coriolisclient ]; then
+    git clone https://github.com/cloudbase/python-coriolisclient
+fi
+pip install ./python-coriolisclient
+
+source /etc/kolla/admin-openrc.sh
+coriolis endpoint list
