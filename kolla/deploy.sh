@@ -41,3 +41,4 @@ kolla-ansible post-deploy
 pip install python-openstackclient
 source /etc/kolla/admin-openrc.sh
 openstack endpoint list
+openstack secret list
