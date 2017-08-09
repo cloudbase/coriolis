@@ -27,6 +27,9 @@ yum install -y --enablerepo=epel python-pip
 pip install -U pip
 pip install wheel
 
+# NOTE: needed for Ansible's MySQL tasks:
+yum install -y MySQL-python
+
 yum install docker-engine --enablerepo=ol7_addons -y
 systemctl enable docker
 systemctl start docker
