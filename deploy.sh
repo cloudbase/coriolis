@@ -23,7 +23,7 @@ ansible-playbook $basedir/deploy.yml \
 if [ ! -d python-coriolisclient ]; then
     git clone https://github.com/cloudbase/python-coriolisclient
 fi
-pip install ./python-coriolisclient
+pip install -q ./python-coriolisclient
 
 source /etc/kolla/admin-openrc.sh
 coriolis endpoint list

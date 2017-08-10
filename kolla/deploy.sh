@@ -14,7 +14,7 @@ if [ ! -d kolla-ansible ]; then
     git cherry-pick 2e4359069e8a50f83fe0dca1103d935212dd2703
     popd
 
-    pip install ./kolla-ansible
+    pip install -q ./kolla-ansible
 fi
 
 mkdir -p /etc/kolla/
@@ -38,7 +38,7 @@ python $set_config_value -c /etc/kolla/globals.yml -n docker_namespace -v coriol
 kolla-ansible deploy -i ./kolla-ansible/ansible/inventory/coriolis
 kolla-ansible post-deploy
 
-pip install python-openstackclient
+pip install -q python-openstackclient
 source /etc/kolla/admin-openrc.sh
 openstack endpoint list
 openstack secret list
