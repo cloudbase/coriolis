@@ -17,12 +17,13 @@
         - { name: Dockerfile.web}
 
     - name: Cloning coriolis git repositories
-      git: repo=git@bitbucket.org:cloudbase/{{item.name}}.git dest=./build/{{item.name}}
+      git: repo={{ item.url }} dest=./build/{{item.name}}
       with_items:
-        - { name: coriolis-core}
-        - { name: coriolis-provider-oracle-vm}
-        - { name: coriolis-provider-vmware}
-        - { name: coriolis-provider-openstack}
+        - { url: "git@bitbucket.org:cloudbase/coriolis-core.git", name: coriolis-core}
+        - { url: "git@bitbucket.org:cloudbase/coriolis-provider-oracle-vm.git", name: coriolis-provider-oracle-vm}
+        - { url: "git@bitbucket.org:cloudbase/coriolis-provider-vmware.git", name: coriolis-provider-vmware}
+        - { url: "git@bitbucket.org:cloudbase/coriolis-provider-openstack.git", name: coriolis-provider-openstack}
+        - { url: "https://github.com/cloudbase/coriolis-web", name: coriolis-web}
 
     - name: Downloading VMware disklib
       get_url:
@@ -44,3 +45,4 @@
         - { dockerfile: Dockerfile.api, name: coriolis-api}
         - { dockerfile: Dockerfile.conductor, name: coriolis-conductor}
         - { dockerfile: Dockerfile.worker, name: coriolis-worker}
+        - { dockerfile: Dockerfile.web, name: coriolis-web}
