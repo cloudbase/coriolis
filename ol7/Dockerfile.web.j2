@@ -7,14 +7,15 @@ RUN yum install -y nodejs
 RUN curl -o /etc/yum.repos.d/yarn.repo https://dl.yarnpkg.com/rpm/yarn.repo
 RUN yum install -y yarn
 
-ENV CORIOLIS_URL http://127.0.0.1
-
 ADD coriolis-web/ coriolis-web
 WORKDIR coriolis-web
 RUN yarn install --no-progress
 
 RUN cp ./src/config.sample.js ./src/config.js
 RUN yarn build
+
+ENV CORIOLIS_URL http://127.0.0.1/
+
 ENTRYPOINT [ "node", "build/server.js" ]
 
 EXPOSE 3000

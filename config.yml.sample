@@ -1,10 +1,9 @@
 coriolis_debug: true
 coriolis_host: localhost
-coriolis_admin_endpoint: "http://{{ coriolis_host }}:7667/v1/%(tenant_id)s"
+coriolis_base_endpoint_url: "http://{{ coriolis_host }}:7667/v1"
+coriolis_admin_endpoint: "{{ coriolis_base_endpoint_url }}/%(tenant_id)s"
 coriolis_internal_endpoint: "{{ coriolis_admin_endpoint }}"
 coriolis_public_endpoint: "{{ coriolis_admin_endpoint }}"
-keystone_host: "{{ coriolis_host }}"
-keystone_auth_url: "{{ admin_protocol }}://{{ keystone_host }}:{{ keystone_admin_port }}"
 database_address: "{{ coriolis_host }}"
 database_port: 3306
 database_user: "root"
@@ -12,14 +11,24 @@ coriolis_database_name: "coriolis"
 coriolis_database_password: "change_this"
 rabbitmq_user: "openstack"
 rabbitmq_host: "{{ coriolis_host }}"
+barbican_host: "{{ coriolis_host }}"
 rabbitmq_port: 5672
 internal_protocol: "http"
 admin_protocol: "http"
 keystone_public_port: 5000
 keystone_admin_port: 35357
+keystone_host: "{{ coriolis_host }}"
+keystone_auth_url: "{{ admin_protocol }}://{{ keystone_host }}:{{ keystone_admin_port }}"
 coriolis_keystone_user: "coriolis"
 coriolis_keystone_password: "change_this_one_too"
+
+coriolis_url: "http://{{ coriolis_host }}/"
+keystone_auth_url_v3: "{{ keystone_auth_url }}/v3"
+coriolis_internal_url: "http://{{ coriolis_host }}:3000"
+barbican_endpoint_url: "http://{{ barbican_host }}:9311"
+
 temp_keypair_password: "and_change_this_one"
-pv_drivers_url: "https://dl.dropboxusercontent.com/u/9060190/ovm_win_vp_drivers_3_2_3.zip"
 coriolis_export_base_path: /opt/coriolis/export
 coriolis_export_base_path_host: /opt/coriolis/export
+
+pv_drivers_url: "https://dl.dropboxusercontent.com/u/9060190/ovm_win_vp_drivers_3_2_3.zip"

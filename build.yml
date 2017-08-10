@@ -15,6 +15,12 @@
         - { name: Dockerfile.conductor}
         - { name: Dockerfile.worker}
         - { name: Dockerfile.web}
+        - { name: Dockerfile.webproxy}
+
+    - name: Creating coriolis-web virtualhost config
+      template:
+        src: ./templates/coriolis-web-vhost.conf.j2
+        dest: ./build/coriolis-web-vhost.conf
 
     - name: Cloning coriolis git repositories
       git: repo={{ item.url }} dest=./build/{{item.name}}
@@ -46,3 +52,4 @@
         - { dockerfile: Dockerfile.conductor, name: coriolis-conductor}
         - { dockerfile: Dockerfile.worker, name: coriolis-worker}
         - { dockerfile: Dockerfile.web, name: coriolis-web}
+        - { dockerfile: Dockerfile.webproxy, name: coriolis-web-proxy}

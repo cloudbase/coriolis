@@ -1,0 +1,6 @@
+FROM oraclelinux:7
+
+RUN yum install -y httpd
+COPY ./coriolis-web-vhost.conf /etc/httpd/conf.d/coriolis-web-vhost.conf
+
+ENTRYPOINT ["/usr/sbin/apachectl", "-DFOREGROUND"]

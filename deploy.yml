@@ -214,3 +214,20 @@
         restart: yes
         restart_policy: unless-stopped
         network_mode: host
+        env:
+          CORIOLIS_URL: "{{ coriolis_url }}"
+
+    - name: coriolis-web-proxy container
+      docker_container:
+        name: coriolis-web-proxy
+        image: "{{ docker_registry }}/coriolis-web-proxy:{{ docker_images_tag }}"
+        hostname: coriolis-web-proxy
+        state: started
+        restart: yes
+        restart_policy: unless-stopped
+        network_mode: host
+        env:
+          KEYSTONE_AUTH_URL: "{{ keystone_auth_url_v3 }}"
+          BARBICAN_ENDPOINT_URL: "{{ barbican_endpoint_url }}"
+          CORIOLIS_BASE_ENDPOINT_URL: "{{ coriolis_base_endpoint_url }}"
+          CORIOLIS_INTERNAL_URL: "{{ coriolis_internal_url }}"
