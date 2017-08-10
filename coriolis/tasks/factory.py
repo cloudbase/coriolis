@@ -14,6 +14,12 @@ _TASKS_MAP = {
         migration_tasks.ImportInstanceTask,
     constants.TASK_TYPE_FINALIZE_IMPORT_INSTANCE:
         migration_tasks.FinalizeImportInstanceTask,
+    constants.TASK_TYPE_DEPLOY_DISK_COPY_WORKER:
+        migration_tasks.DeployDiskCopyWorker,
+    constants.TASK_TYPE_COPY_DISK_DATA:
+        migration_tasks.CopyDiskData,
+    constants.TASK_TYPE_DELETE_DISK_COPY_WORKER:
+        migration_tasks.DeleteDiskCopyWorker,
     constants.TASK_TYPE_CLEANUP_FAILED_IMPORT_INSTANCE:
         migration_tasks.CleanupFailedImportInstanceTask,
     constants.TASK_TYPE_DEPLOY_OS_MORPHING_RESOURCES:

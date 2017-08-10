@@ -4,6 +4,8 @@
 from coriolis import constants
 from coriolis.providers import factory as providers_factory
 from coriolis import schemas
+from coriolis import exception
+from coriolis.migrations import manager
 from coriolis.tasks import base
 
 from oslo_log import log as logging
@@ -49,6 +51,78 @@ class ImportInstanceTask(base.TaskRunner):
 
         task_info["origin_provider_type"] = constants.PROVIDER_TYPE_EXPORT
         task_info["destination_provider_type"] = constants.PROVIDER_TYPE_IMPORT
+        # We need to retain export info until after disk sync
+        # TODO: remove this when we implement multi-worker, and by extension
+        #       some external storage for needed resources (like swift)
+        task_info["retain_export_path"] = True
+
+        return task_info
+
+
+class DeployDiskCopyWorker(base.TaskRunner):
+    def run(self, ctxt, instance, origin, destination, task_info,
+            event_handler):
+        provider = providers_factory.get_provider(
+            destination["type"], constants.PROVIDER_TYPE_IMPORT, event_handler)
+        connection_info = base.get_connection_info(ctxt, destination)
+        target_environment = destination.get("target_environment") or {}
+        instance_deployment_info = task_info["instance_deployment_info"]
+
+        resources_info = provider.deploy_disk_copy_worker(
+            ctxt, connection_info, target_environment,
+            instance_deployment_info)
+
+        conn_info = resources_info[
+            "instance_deployment_info"]["disk_sync_connection_info"]
+        conn_info = base.marshal_migr_conn_info(conn_info)
+        task_info["instance_deployment_info"] = resources_info[
+            "instance_deployment_info"]
+        task_info["instance_deployment_info"][
+            "disk_sync_connection_info"] = conn_info
+        # We need to retain export info until after disk sync
+        # TODO: remove this when we implement multi-worker, and by extension
+        #       some external storage for needed resources (like swift)
+        task_info["retain_export_path"] = True
+
+        return task_info
+
+
+class CopyDiskData(base.TaskRunner):
+    def run(self, ctxt, instance, origin, destination, task_info,
+            event_handler):
+        instance_deployment_info = task_info["instance_deployment_info"]
+        volumes_info = instance_deployment_info["volumes_info"]
+        LOG.info("Volumes info is: %r" % volumes_info)
+
+        image_paths = [i.get("disk_image_uri") for i in volumes_info]
+        if None in image_paths:
+            raise exception.InvalidActionTasksExecutionState(
+                "disk_image_uri must be part of volumes_info for"
+                " standard migrations")
+
+        target_conn_info = base.unmarshal_migr_conn_info(
+            instance_deployment_info["disk_sync_connection_info"])
+        manager.copy_disk_data(
+            target_conn_info, volumes_info, event_handler)
+
+        return task_info
+
+
+class DeleteDiskCopyWorker(base.TaskRunner):
+    def run(self, ctxt, instance, origin, destination, task_info,
+            event_handler):
+        provider = providers_factory.get_provider(
+            destination["type"], constants.PROVIDER_TYPE_IMPORT, event_handler)
+        connection_info = base.get_connection_info(ctxt, destination)
+        instance_deployment_info = task_info.get(
+            "instance_deployment_info", {})
+        provider.delete_disk_copy_worker(
+            ctxt, connection_info, instance_deployment_info)
+
+        if instance_deployment_info.get("disk_sync_connection_info"):
+            del instance_deployment_info["disk_sync_connection_info"]
+        if instance_deployment_info.get("disk_sync_tgt_resources"):
+            del instance_deployment_info["disk_sync_tgt_resources"]
 
         return task_info
 
