@@ -27,6 +27,9 @@ yum install -y --enablerepo=epel python-pip
 pip install -U pip
 pip install wheel
 
+# NOTE: needed for Ansible's MySQL tasks:
+yum install -y MySQL-python
+
 yum install docker-engine --enablerepo=ol7_addons -y
 systemctl enable docker
 systemctl start docker
@@ -36,7 +39,7 @@ yum groupinstall development tools -y
 
 yum install ansible --enablerepo=epel -y
 
-firewall-cmd --zone=public --add-port=35357/tcp
-firewall-cmd --zone=public --add-port=5000/tcp
-firewall-cmd --zone=public --add-port=9311/tcp
-firewall-cmd --zone=public --add-port=7667/tcp
+firewall-cmd --permanent --zone=public --add-port=35357/tcp
+firewall-cmd --permanent --zone=public --add-port=5000/tcp
+firewall-cmd --permanent --zone=public --add-port=9311/tcp
+firewall-cmd --permanent --zone=public --add-port=7667/tcp
