@@ -204,3 +204,13 @@
         - "/etc/coriolis:/etc/coriolis:ro"
         - "/var/log/coriolis:/var/log/coriolis:rw"
         - "{{ coriolis_export_base_path_host }}:{{ coriolis_export_base_path }}:rw"
+
+    - name: coriolis-web container
+      docker_container:
+        name: coriolis-web
+        image: "{{ docker_registry }}/coriolis-web:{{ docker_images_tag }}"
+        hostname: coriolis-web
+        state: started
+        restart: yes
+        restart_policy: unless-stopped
+        network_mode: host
