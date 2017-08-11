@@ -3,7 +3,8 @@ set -e
 
 basedir=$(dirname "$(readlink -f "$0")")
 
-iface=${1:-ens160}
+# Defaults to localhost
+iface=${1:-lo}
 
 set_config_value=$basedir/set_config_value.py
 config_file=$basedir/config.yml

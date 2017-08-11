@@ -3,7 +3,8 @@ set -e
 
 basedir=$(dirname "$(readlink -f "$0")")
 
-iface=${1:-ens160}
+# Defaults to localhost
+iface=${1:-lo}
 distro=oraclelinux
 
 if [ ! -d kolla-ansible ]; then
