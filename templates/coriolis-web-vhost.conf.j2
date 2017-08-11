@@ -22,3 +22,8 @@
     RewriteRule "^/((?!identity|coriolis|barbican).*)$" "%{env:CORIOLIS_INTERNAL_URL}/$1" [P]
 
 </VirtualHost>
+
+<VirtualHost *:80>
+    RewriteEngine On
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}$1 [R=301,L]
+</VirtualHost>
