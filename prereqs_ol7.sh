@@ -22,6 +22,10 @@ curl -o epel-release-latest-7.noarch.rpm http://fedora.mirrors.telekom.ro/pub/ep
 rpm -ivh epel-release-latest-7.noarch.rpm
 yum-config-manager --disable epel
 
+yum install -y ntp
+systemctl enable ntpd
+systemctl start ntpd
+
 yum install -y python-virtualenv
 yum install -y --enablerepo=epel python-pip
 pip install -U pip
