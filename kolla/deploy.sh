@@ -42,6 +42,7 @@ kolla-ansible deploy -i ./kolla-ansible/ansible/inventory/coriolis
 kolla-ansible post-deploy
 
 pip install -q python-openstackclient
+pip install -q python-barbicanclient
 source /etc/kolla/admin-openrc.sh
 openstack endpoint list
 openstack secret list
