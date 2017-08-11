@@ -46,3 +46,5 @@ pip install -q python-barbicanclient
 source /etc/kolla/admin-openrc.sh
 openstack endpoint list
 openstack secret list
+
+grep -q "^source /etc/kolla/admin-openrc.sh$" ~/.bashrc || echo "source /etc/kolla/admin-openrc.sh" >> ~/.bashrc
