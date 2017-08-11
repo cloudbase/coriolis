@@ -35,6 +35,8 @@ python $set_config_value -c /etc/kolla/globals.yml -n network_interface -v $ifac
 python $set_config_value -c /etc/kolla/globals.yml -n kolla_base_distro -v $distro
 python $set_config_value -c /etc/kolla/globals.yml -n docker_namespace -v coriolis
 
+python $set_config_value -c /etc/kolla/globals.yml -n enable_barbican -v yes
+
 kolla-ansible deploy -i ./kolla-ansible/ansible/inventory/coriolis
 kolla-ansible post-deploy
 
