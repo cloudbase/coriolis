@@ -1,0 +1,9 @@
+#!/bin/bash
+
+PID_FILE=/var/run/httpd/httpd.pid
+
+if [ -f $PID_FILE ]; then
+    rm -f $PID_FILE
+fi
+
+/usr/sbin/apachectl -DFOREGROUND

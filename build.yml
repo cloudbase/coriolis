@@ -16,6 +16,7 @@
         - { name: Dockerfile.worker}
         - { name: Dockerfile.web}
         - { name: Dockerfile.webproxy}
+        - { name: webproxy_start}
 
     - name: Creating coriolis-web virtualhost config
       template:
