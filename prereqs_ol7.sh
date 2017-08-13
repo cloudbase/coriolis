@@ -26,7 +26,7 @@ grub2-mkconfig -o /boot/grub2/grub.cfg
 # If you need to run this instance on different hardware / hypervisors:
 # dracut -f --no-hostonly
 
-sed -i 's/SELINUX=enforcing/SELINUX=permissive/g' /etc/selinux/config
+sed -i 's/SELINUX=enforcing/SELINUX=disabled/g' /etc/selinux/config
 setenforce permissive
 
 curl -s -o /etc/yum.repos.d/public-yum-ol7.repo http://yum.oracle.com/public-yum-ol7.repo
