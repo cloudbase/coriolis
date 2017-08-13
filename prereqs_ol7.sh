@@ -4,6 +4,12 @@ set -e
 yum install kernel-uek -y
 # grep '^menuentry' /boot/grub2/grub.cfg
 sed -i 's/GRUB_DEFAULT=.*/GRUB_DEFAULT=0/g' /etc/default/grub
+
+# Comment the following line if you don't want the eth[0-9]+ ifname naming
+# Note: you might need to edit and rename the corresponding
+# /etc/sysconfig/network-scripts/ifcfg-* files
+echo 'GRUB_CMDLINE_LINUX="net.ifnames=0"' >> /etc/default/grub
+
 grub2-mkconfig -o /boot/grub2/grub.cfg
 
 # Reboot to load the new kernel
@@ -16,6 +22,9 @@ grub2-mkconfig -o /boot/grub2/grub.cfg
 # yum install ovmd xenstoreprovider libovmapi ovm-template-config* --enablerepo=ol7_addons -y
 # systemctl enable ovmd
 # systemctl start ovmd
+
+# If you need to run this instance on different hardware / hypervisors:
+# dracut -f --no-hostonly
 
 sed -i 's/SELINUX=enforcing/SELINUX=permissive/g' /etc/selinux/config
 setenforce permissive
