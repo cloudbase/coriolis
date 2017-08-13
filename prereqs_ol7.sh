@@ -12,6 +12,11 @@ grub2-mkconfig -o /boot/grub2/grub.cfg
 # on VMware:
 # yum install open-vm-tools -y
 
+# on Oracle VM
+# yum install ovmd xenstoreprovider libovmapi ovm-template-config* --enablerepo=ol7_addons -y
+# systemctl enable ovmd
+# systemctl start ovmd
+
 sed -i 's/SELINUX=enforcing/SELINUX=permissive/g' /etc/selinux/config
 setenforce permissive
 
