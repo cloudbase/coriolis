@@ -10,6 +10,7 @@ if [ ! -d ./kolla/.venv ]; then
 fi
 
 source ./kolla/.venv/bin/activate
+pip install -U pip
 pip install ./kolla
 pip install tox
 
