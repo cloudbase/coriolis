@@ -170,7 +170,7 @@ class WorkerServerEndpoint(object):
     def get_endpoint_instances(self, ctxt, platform_name, connection_info,
                                marker, limit, instance_name_pattern):
         export_provider = providers_factory.get_provider(
-            platform_name, constants.PROVIDER_TYPE_RESOURCES_ENDPOINT, None)
+            platform_name, constants.PROVIDER_TYPE_ENDPOINT_INSTANCES, None)
 
         secret_connection_info = utils.get_secret_connection_info(
             ctxt, connection_info)
@@ -187,7 +187,7 @@ class WorkerServerEndpoint(object):
     def get_endpoint_instance(self, ctxt, platform_name, connection_info,
                               instance_name):
         provider = providers_factory.get_provider(
-            platform_name, constants.PROVIDER_TYPE_RESOURCES_ENDPOINT, None)
+            platform_name, constants.PROVIDER_TYPE_ENDPOINT_INSTANCES, None)
 
         secret_connection_info = utils.get_secret_connection_info(
             ctxt, connection_info)

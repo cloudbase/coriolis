@@ -23,8 +23,8 @@ PROVIDER_TYPE_MAP = {
     constants.PROVIDER_TYPE_IMPORT: base.BaseImportProvider,
     constants.PROVIDER_TYPE_REPLICA_IMPORT: base.BaseReplicaImportProvider,
     constants.PROVIDER_TYPE_ENDPOINT: base.BaseEndpointProvider,
-    constants.PROVIDER_TYPE_RESOURCES_ENDPOINT:
-        base.BaseResourcesEndpointProvider,
+    constants.PROVIDER_TYPE_ENDPOINT_INSTANCES:
+        base.BaseEndpointInstancesProvider,
     constants.PROVIDER_TYPE_ENDPOINT_NETWORKS:
         base.BaseEndpointNetworksProvider,
     constants.PROVIDER_TYPE_OS_MORPHING: base.BaseImportInstanceProvider
