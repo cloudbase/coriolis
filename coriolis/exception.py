@@ -120,6 +120,7 @@ class CoriolisException(Exception):
 class NotAuthorized(CoriolisException):
     message = _("Not authorized.")
     code = 403
+    safe = True
 
 
 class AdminRequired(NotAuthorized):
@@ -133,6 +134,7 @@ class PolicyNotAuthorized(NotAuthorized):
 class Invalid(CoriolisException):
     message = _("Unacceptable parameters.")
     code = 400
+    safe = True
 
 
 class InvalidResults(Invalid):
@@ -188,6 +190,7 @@ class ServiceUnavailable(Invalid):
 
 class APIException(CoriolisException):
     message = _("Error while requesting %(service)s API.")
+    safe = True
 
     def __init__(self, message=None, **kwargs):
         if 'service' not in kwargs:
@@ -246,11 +249,13 @@ class VolumeBackupNotFound(NotFound):
 
 
 class Duplicate(CoriolisException):
-    pass
+    safe = True
 
 
 class MalformedRequestBody(CoriolisException):
     message = _("Malformed message body: %(reason)s")
+    code = 400
+    safe = True
 
 
 class ConfigNotFound(NotFound):
@@ -267,6 +272,7 @@ class PasteAppNotFound(NotFound):
 
 class NoValidHost(CoriolisException):
     message = _("No valid host was found. %(reason)s")
+    safe = True
 
 
 UnsupportedObjectError = obj_exc.UnsupportedObjectError
@@ -283,7 +289,7 @@ class NotSupportedOperation(Invalid):
 
 
 class TaskProcessException(CoriolisException):
-    pass
+    safe = True
 
 
 class OperatingSystemNotFound(NotFound):
@@ -291,8 +297,8 @@ class OperatingSystemNotFound(NotFound):
 
 
 class ConnectionValidationException(CoriolisException):
-    pass
+    safe = True
 
 
 class SchemaValidationException(CoriolisException):
-    pass
+    safe = True
