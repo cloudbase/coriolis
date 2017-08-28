@@ -74,6 +74,7 @@ OS_TYPE_LINUX = "linux"
 OS_TYPE_OS_X = "osx"
 OS_TYPE_SOLARIS = "solaris"
 OS_TYPE_WINDOWS = "windows"
+OS_TYPE_OTHER = "other"
 
 DEFAULT_OS_TYPE = OS_TYPE_LINUX
 
