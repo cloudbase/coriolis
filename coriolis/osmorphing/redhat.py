@@ -127,6 +127,16 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
             yum_cmd = 'yum remove %s -y' % package_name
             self._exec_cmd_chroot(yum_cmd)
 
+    def _yum_clean_all(self):
+        self._exec_cmd_chroot("yum clean all")
+        if self._test_path('/var/cache/yum'):
+            self._exec_cmd_chroot("rm -rf /var/cache/yum")
+
+    def pre_packages_install(self, package_names):
+        super(BaseRedHatMorphingTools, self).pre_packages_install(
+            package_names)
+        self._yum_clean_all()
+
     def install_packages(self, package_names):
         self._yum_install(package_names, self._enable_repos)
 
