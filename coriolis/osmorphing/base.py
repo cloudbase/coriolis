@@ -78,12 +78,13 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
                  h is None or h == self._hypervisor]
 
         add = [p[0] for p in itertools.chain.from_iterable(
-               [l for k, l in self._packages.items() if k in k_add])
-               if p[1]]
+               [l for k, l in self._packages.items() if k in k_add])]
 
+        # If the second value in the tuple is True, the package must
+        # be uninstalled on export
         remove = [p[0] for p in itertools.chain.from_iterable(
                   [l for k, l in self._packages.items()])
-                  if not p[1]]
+                  if p[1]]
 
         return add, remove
 
