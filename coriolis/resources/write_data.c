@@ -123,15 +123,9 @@ int handle_msg(FILE* input_stream)
     uint64_t offset = *((uint64_t*)data);
     data += sizeof(uint64_t);
 
-    // Create an empty file in case it does not exist
-    FILE* f = fopen(path, "ab+");
-    if (!f)
-        return ERR_OPEN_FILE;
-    if (fclose(f))
-        return ERR_IO_CLOSE;
-
     // Use rb+ to allow fseek when writing
-    f = fopen(path, "rb+");
+    // File must exist
+    FILE* f = fopen(path, "rb+");
     if (!f)
         return ERR_OPEN_FILE;
     if (fseek(f, (long)offset, SEEK_SET))
