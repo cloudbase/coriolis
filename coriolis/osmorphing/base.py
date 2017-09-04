@@ -23,6 +23,7 @@ class BaseOSMorphingTools(object):
         self._version = None
         self._hypervisor = hypervisor
         self._event_manager = event_manager
+        self._environment = {}
 
     def check_os(self):
         if not self._distro:
@@ -60,6 +61,9 @@ class BaseOSMorphingTools(object):
 
     def post_packages_uninstall(self, package_names):
         pass
+
+    def set_environment(self, environment):
+        self._environment = environment
 
 
 class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
@@ -117,10 +121,11 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         return utils.list_ssh_dir(self._ssh, path)
 
     def _exec_cmd(self, cmd):
-        return utils.exec_ssh_cmd(self._ssh, cmd)
+        return utils.exec_ssh_cmd(self._ssh, cmd, self._environment)
 
     def _exec_cmd_chroot(self, cmd):
-        return utils.exec_ssh_cmd_chroot(self._ssh, self._os_root_dir, cmd)
+        return utils.exec_ssh_cmd_chroot(
+            self._ssh, self._os_root_dir, cmd, self._environment)
 
     def _check_user_exists(self, username):
         try:

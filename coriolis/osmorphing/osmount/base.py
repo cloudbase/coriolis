@@ -20,6 +20,7 @@ class BaseOSMountTools(object):
     def __init__(self, connection_info, event_manager, ignore_devices):
         self._event_manager = event_manager
         self._ignore_devices = ignore_devices
+        self._environment = {}
         self._connect(connection_info)
 
     @abc.abstractmethod
@@ -42,6 +43,12 @@ class BaseOSMountTools(object):
     def dismount_os(self, dirs):
         pass
 
+    def set_proxy(self, proxy_settings):
+        pass
+
+    def get_environment(self):
+        return self._environment
+
 
 class BaseSSHOSMountTools(BaseOSMountTools):
     def _connect(self, connection_info):
@@ -60,18 +67,30 @@ class BaseSSHOSMountTools(BaseOSMountTools):
             {"ip": ip, "port": port})
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
         ssh.connect(hostname=ip, port=port, username=username, pkey=pkey,
                     password=password)
         self._ssh = ssh
+
+        if self._allow_ssh_env_vars():
+            # Reconnect after a reload
+            ssh.close()
+            ssh.connect(hostname=ip, port=port, username=username, pkey=pkey,
+                        password=password)
+
+    def _allow_ssh_env_vars(self):
+        self._exec_cmd('sudo sed -i -e "\$aAcceptEnv *" /etc/ssh/sshd_config')
+        self._exec_cmd("sudo service sshd reload")
+        return True
+
+    def _exec_cmd(self, cmd):
+        return utils.exec_ssh_cmd(self._ssh, cmd, self._environment)
 
     def get_connection(self):
         return self._ssh
 
 
 class BaseLinuxOSMountTools(BaseSSHOSMountTools):
-    def _exec_cmd(self, cmd):
-        return utils.exec_ssh_cmd(self._ssh, cmd)
-
     def _get_pvs(self):
         out = self._exec_cmd("sudo pvdisplay -c").decode().split("\n")
         pvs = {}
@@ -206,3 +225,24 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
     def dismount_os(self, dirs):
         for dir in dirs:
             self._exec_cmd('sudo umount %s' % dir)
+
+    def set_proxy(self, proxy_settings):
+        url = proxy_settings.get('url')
+        if not url:
+            return
+
+        username = proxy_settings.get('username')
+        if username:
+            password = proxy_settings.get('password', '')
+            url = utils.get_url_with_credentials(url, username, password)
+
+        LOG.debug("Proxy URL: %s", url)
+        for var in ['http_proxy', 'https_proxy', 'ftp_proxy']:
+            self._environment[var] = url
+            # Some commands look for the uppercase var name
+            self._environment[var.upper()] = url
+
+        no_proxy = proxy_settings.get('no_proxy')
+        if no_proxy:
+            LOG.debug("Proxy exclusions: %s", no_proxy)
+            self._environment["no_proxy"] = '.'.join(no_proxy)

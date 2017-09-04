@@ -19,5 +19,5 @@ class RedHatOSMountTools(base.BaseLinuxOSMountTools):
             return True
 
     def _pre_mount_os(self):
-        self._exec_cmd("sudo yum install -y lvm2")
+        self._exec_cmd("sudo -E yum install -y lvm2")
         self._exec_cmd("sudo modprobe dm-mod")

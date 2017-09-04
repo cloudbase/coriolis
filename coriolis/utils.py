@@ -20,6 +20,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 import paramiko
+from six.moves.urllib import parse
 
 from coriolis import constants
 from coriolis import exception
@@ -162,9 +163,10 @@ def list_ssh_dir(ssh, remote_path):
 
 
 @retry_on_error()
-def exec_ssh_cmd(ssh, cmd):
+def exec_ssh_cmd(ssh, cmd, environment=None):
     LOG.debug("Executing SSH command: %s", cmd)
-    stdin, stdout, stderr = ssh.exec_command(cmd)
+    LOG.debug("SSH command environment: %s", environment)
+    stdin, stdout, stderr = ssh.exec_command(cmd, environment=environment)
     exit_code = stdout.channel.recv_exit_status()
     std_out = stdout.read()
     std_err = stderr.read()
@@ -176,8 +178,9 @@ def exec_ssh_cmd(ssh, cmd):
     return std_out
 
 
-def exec_ssh_cmd_chroot(ssh, chroot_dir, cmd):
-    return exec_ssh_cmd(ssh, "sudo chroot %s %s" % (chroot_dir, cmd))
+def exec_ssh_cmd_chroot(ssh, chroot_dir, cmd, environment=None):
+    return exec_ssh_cmd(ssh, "sudo -E chroot %s %s" % (chroot_dir, cmd),
+                        environment=environment)
 
 
 def check_fs(ssh, fs_type, dev_path):
@@ -393,3 +396,17 @@ def decode_base64_param(value, is_json=False):
         return decoded
     except (binascii.Error, TypeError, json.decoder.JSONDecodeError) as ex:
         raise exception.InvalidInput(reason=str(ex))
+
+
+def quote_url(text):
+    return parse.quote(text.encode('UTF-8'), safe='')
+
+
+def get_url_with_credentials(url, username, password):
+    parts = parse.urlsplit(url)
+    # Remove previous credentials if set
+    netloc = parts.netloc[parts.netloc.find('@')+1:]
+    netloc = "%s:%s@%s" % (
+        quote_url(username), quote_url(password or ''), netloc)
+    parts = parts._replace(netloc=netloc)
+    return parse.urlunsplit(parts)
