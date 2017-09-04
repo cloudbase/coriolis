@@ -16,6 +16,10 @@ fi
 VIP=$(/sbin/ip -4 -o addr show dev $iface | awk '{split($4,a,"/");print a[1]}')
 python $set_config_value -c $config_file -n coriolis_host -v $VIP
 
+python $set_config_value -c $config_file -n coriolis_database_password -v $(openssl rand 18 -base64)
+python $set_config_value -c $config_file -n coriolis_keystone_password -v $(openssl rand 18 -base64)
+python $set_config_value -c $config_file -n temp_keypair_password -v $(openssl rand 18 -base64)
+
 ansible-playbook $basedir/deploy.yml \
 -e @/etc/kolla/passwords.yml \
 -e @$config_file \
