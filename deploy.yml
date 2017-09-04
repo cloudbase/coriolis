@@ -167,6 +167,7 @@
       docker_container:
         name: coriolis-api
         image: "{{ docker_registry }}/coriolis-api:{{ docker_images_tag }}"
+        pull: yes
         hostname: coriolis-api
         state: started
         restart: yes
@@ -182,6 +183,7 @@
       docker_container:
         name: coriolis-conductor
         image: "{{ docker_registry }}/coriolis-conductor:{{ docker_images_tag }}"
+        pull: yes
         hostname: coriolis-conductor
         state: started
         restart: yes
@@ -195,6 +197,7 @@
       docker_container:
         name: coriolis-worker
         image: "{{ docker_registry }}/coriolis-worker:{{ docker_images_tag }}"
+        pull: yes
         hostname: coriolis-worker
         state: started
         restart: yes
@@ -209,6 +212,7 @@
       docker_container:
         name: coriolis-web
         image: "{{ docker_registry }}/coriolis-web:{{ docker_images_tag }}"
+        pull: yes
         hostname: coriolis-web
         state: started
         restart: yes
@@ -221,6 +225,7 @@
       docker_container:
         name: coriolis-web-proxy
         image: "{{ docker_registry }}/coriolis-web-proxy:{{ docker_images_tag }}"
+        pull: yes
         hostname: coriolis-web-proxy
         state: started
         restart: yes
