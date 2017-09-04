@@ -68,15 +68,18 @@ class BaseSSHOSMountTools(BaseOSMountTools):
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-        ssh.connect(hostname=ip, port=port, username=username, pkey=pkey,
-                    password=password)
+        @utils.retry_on_error()
+        def _ssh_connect():
+            ssh.connect(hostname=ip, port=port, username=username, pkey=pkey,
+                        password=password)
+        _ssh_connect()
+
         self._ssh = ssh
 
         if self._allow_ssh_env_vars():
             # Reconnect after a reload
             ssh.close()
-            ssh.connect(hostname=ip, port=port, username=username, pkey=pkey,
-                        password=password)
+            _ssh_connect()
 
     def _allow_ssh_env_vars(self):
         self._exec_cmd('sudo sed -i -e "\$aAcceptEnv *" /etc/ssh/sshd_config')
