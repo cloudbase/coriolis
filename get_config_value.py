@@ -24,7 +24,7 @@ def main():
     else:
         raise Exception("Path not found: %s" % config_file)
 
-    print(config[name])
+    print(config.get(name) or '')
 
 
 if __name__ == '__main__':

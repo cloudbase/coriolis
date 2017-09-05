@@ -8,7 +8,7 @@ database_address: "{{ coriolis_host }}"
 database_port: 3306
 database_user: "root"
 coriolis_database_name: "coriolis"
-coriolis_database_password: "change_this"
+coriolis_database_password:
 rabbitmq_user: "openstack"
 rabbitmq_host: "{{ coriolis_host }}"
 barbican_host: "{{ coriolis_host }}"
@@ -20,14 +20,14 @@ keystone_admin_port: 35357
 keystone_host: "{{ coriolis_host }}"
 keystone_auth_url: "{{ admin_protocol }}://{{ keystone_host }}:{{ keystone_admin_port }}"
 coriolis_keystone_user: "coriolis"
-coriolis_keystone_password: "change_this_one_too"
+coriolis_keystone_password:
 
 coriolis_url: "http://{{ coriolis_host }}/"
 keystone_auth_url_v3: "{{ keystone_auth_url }}/v3"
 coriolis_internal_url: "http://{{ coriolis_host }}:3000"
 barbican_endpoint_url: "http://{{ barbican_host }}:9311"
 
-temp_keypair_password: "and_change_this_one"
+temp_keypair_password:
 coriolis_export_base_path: /opt/coriolis/export
 coriolis_export_base_path_host: /opt/coriolis/export
 
