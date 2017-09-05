@@ -64,3 +64,6 @@ firewall-cmd --permanent --zone=public --add-port=7667/tcp
 firewall-cmd --permanent --zone=public --add-port=80/tcp
 firewall-cmd --permanent --zone=public --add-port=443/tcp
 firewall-cmd --reload
+
+# Optional, in case a Cisco VPN is needed
+# yum install vpnc --enablerepo epel -y
