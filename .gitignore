@@ -6,4 +6,5 @@ rabbitmq/
 .venv/
 build.retry
 config.yml
+config-build.yml
 
