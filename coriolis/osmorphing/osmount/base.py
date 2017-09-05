@@ -68,7 +68,7 @@ class BaseSSHOSMountTools(BaseOSMountTools):
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-        @utils.retry_on_error()
+        @utils.retry_on_error(max_attempts=5, sleep_seconds=3)
         def _ssh_connect():
             ssh.connect(hostname=ip, port=port, username=username, pkey=pkey,
                         password=password)
