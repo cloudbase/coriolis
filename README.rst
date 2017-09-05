@@ -43,11 +43,9 @@ Deploy OpenStack components with Kolla
 
 This will take care of deploying the OpenStack components needed by Coriolis (Keystone, Barbican) along with MariaDB, RabbitMQ, etc.
 
-The parameter is the **public interface name**.
-
 ::
 
-     ./coriolis-docker/kolla/deploy.sh eth0
+     ./coriolis-docker/kolla/deploy.sh
 
 Destroy a Kolla deployment
 ==========================
@@ -86,7 +84,7 @@ Note: this required Keystone to be already deployed via Kolla.
 ::
 
     docker login registry.cloudbase.it
-    ./coriolis-docker/deploy.sh eth0
+    ./coriolis-docker/deploy.sh
 
 Validate the deployment
 =======================
