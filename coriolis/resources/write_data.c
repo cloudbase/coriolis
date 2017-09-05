@@ -54,7 +54,9 @@ int inflate_buf(uint32_t msg_size, void* buf, uint32_t msg_size_inflated,
     if(ret != Z_STREAM_END)
         return ERR_ZLIB;
 
-    inflateEnd(&strm);
+    if(inflateEnd(&strm) != Z_OK)
+        return ERR_ZLIB;
+
     return ERR_DONE;
 }
 
