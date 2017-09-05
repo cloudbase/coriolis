@@ -9,6 +9,7 @@ iface=${1:-lo}
 get_config_value=$basedir/get_config_value.py
 set_config_value=$basedir/set_config_value.py
 config_file=$basedir/config.yml
+config_build_file=$basedir/config-build.yml
 
 set_config_random_value() {
     name=$1
@@ -19,6 +20,10 @@ set_config_random_value() {
 
 if [ ! -f $config_file ]; then
     cp $config_file.sample $config_file
+fi
+
+if [ ! -f $config_build_file ]; then
+    cp $config_build_file.sample $config_build_file
 fi
 
 VIP=$(/sbin/ip -4 -o addr show dev $iface | awk '{split($4,a,"/");print a[1]}')
