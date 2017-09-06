@@ -9,4 +9,4 @@ if [ ! -f $config_file ]; then
     cp $config_file.sample $config_file
 fi
 
-ansible-playbook $basedir/build.yml -e @$config_file
+ansible-playbook -v $basedir/build.yml -e @$config_file

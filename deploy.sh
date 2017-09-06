@@ -33,7 +33,7 @@ set_config_random_value coriolis_database_password
 set_config_random_value coriolis_keystone_password
 set_config_random_value temp_keypair_password
 
-ansible-playbook $basedir/deploy.yml \
+ansible-playbook -v $basedir/deploy.yml \
 -e @/etc/kolla/passwords.yml \
 -e @$config_file \
 -e @$basedir/config-build.yml
