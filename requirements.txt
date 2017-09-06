@@ -22,7 +22,7 @@ pyOpenSSL
 python-keystoneclient
 python-barbicanclient
 python-swiftclient>=3.2
-pywinrm
+git+https://github.com/cloudbase/pywinrm.git@requests
 PyYAML
 requests
 mysqlclient
