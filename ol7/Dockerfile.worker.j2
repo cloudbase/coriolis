@@ -5,6 +5,9 @@ ADD coriolis-provider-vmware/ coriolis-provider-vmware
 ADD coriolis-provider-openstack/ coriolis-provider-openstack
 
 RUN yum install -y qemu-img
+# NOTE: the `openssl` binary is required by python-novaclient when
+# decrypting the password of a Windows worker machine.
+RUN yum install -y openssl
 
 RUN /bin/bash -c "pip3 install ./coriolis-provider-oracle-vm"
 RUN /bin/bash -c "pip3 install ./coriolis-provider-vmware"
