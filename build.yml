@@ -24,7 +24,7 @@
         dest: ./build/coriolis-web-vhost.conf
 
     - name: Cloning coriolis git repositories
-      git: repo={{ item.url }} dest=./build/{{item.name}}
+      git: repo={{ item.url }} dest=./build/{{item.name}} update=yes force=yes
       with_items:
         - { url: "git@bitbucket.org:cloudbase/coriolis-core.git", name: coriolis-core}
         - { url: "git@bitbucket.org:cloudbase/coriolis-provider-oracle-vm.git", name: coriolis-provider-oracle-vm}
