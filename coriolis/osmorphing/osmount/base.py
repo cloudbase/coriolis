@@ -82,9 +82,7 @@ class BaseSSHOSMountTools(BaseOSMountTools):
             _ssh_connect()
 
     def _allow_ssh_env_vars(self):
-        self._exec_cmd('sudo sed -i -e "\$aAcceptEnv *" /etc/ssh/sshd_config')
-        self._exec_cmd("sudo service sshd reload")
-        return True
+        pass
 
     def _exec_cmd(self, cmd):
         return utils.exec_ssh_cmd(self._ssh, cmd, self._environment)

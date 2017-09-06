@@ -19,3 +19,8 @@ class UbuntuOSMountTools(base.BaseLinuxOSMountTools):
         self._exec_cmd("sudo -E apt-get update -y")
         self._exec_cmd("sudo -E apt-get install lvm2 -y")
         self._exec_cmd("sudo modprobe dm-mod")
+
+    def _allow_ssh_env_vars(self):
+        self._exec_cmd('sudo sed -i -e "\$aAcceptEnv *" /etc/ssh/sshd_config')
+        self._exec_cmd("sudo service ssh reload")
+        return True

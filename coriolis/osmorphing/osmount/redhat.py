@@ -21,3 +21,8 @@ class RedHatOSMountTools(base.BaseLinuxOSMountTools):
     def _pre_mount_os(self):
         self._exec_cmd("sudo -E yum install -y lvm2")
         self._exec_cmd("sudo modprobe dm-mod")
+
+    def _allow_ssh_env_vars(self):
+        self._exec_cmd('sudo sed -i -e "\$aAcceptEnv *" /etc/ssh/sshd_config')
+        self._exec_cmd("sudo service sshd reload")
+        return True
