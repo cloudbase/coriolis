@@ -85,9 +85,21 @@ class SSHBackupWriter(BaseBackupWriter):
             yield self
             # Don't send a message via ssh on exception
             self.close()
-        except:
+        except Exception as ex:
+            LOG.exception(ex)
+
+            ret_val = self._stdout.channel.recv_exit_status()
             self._ssh.close()
-            raise
+
+            if ret_val:
+                # TODO(alexpilotti): map error codes to error messages
+                raise exception.CoriolisException(
+                    "An exception occurred while writing data on target. "
+                    "Exit code: %s" % ret_val)
+            else:
+                raise exception.CoriolisException(
+                    "An exception occurred while writing data on target: %s" %
+                    ex)
 
     @utils.retry_on_error()
     def _connect_ssh(self):
@@ -160,9 +172,4 @@ class SSHBackupWriter(BaseBackupWriter):
 
     def close(self):
         self._send_msg(self._encode_eod())
-        ret_val = self._stdout.channel.recv_exit_status()
-        if ret_val:
-            raise exception.CoriolisException(
-                "An exception occurred while writing data on target. "
-                "Error code: %s" % ret_val)
         self._ssh.close()
