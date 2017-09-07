@@ -53,6 +53,9 @@ def morph_image(origin_provider, destination_provider, connection_info,
     proxy_settings = _get_proxy_settings()
     os_mount_tools.set_proxy(proxy_settings)
 
+    event_manager.progress_update("Preparing for OS partitions discovery")
+    os_mount_tools.setup()
+
     event_manager.progress_update("Discovering and mounting OS partitions")
     os_root_dir, other_mounted_dirs, os_root_dev = os_mount_tools.mount_os()
 

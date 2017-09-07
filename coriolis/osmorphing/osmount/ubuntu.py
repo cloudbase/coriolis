@@ -15,7 +15,8 @@ class UbuntuOSMountTools(base.BaseLinuxOSMountTools):
         if os_info and os_info[0] in ('Ubuntu', 'ubuntu'):
             return True
 
-    def _pre_mount_os(self):
+    def setup(self):
+        super(UbuntuOSMountTools, self).setup()
         self._exec_cmd("sudo -E apt-get update -y")
         self._exec_cmd("sudo -E apt-get install lvm2 -y")
         self._exec_cmd("sudo modprobe dm-mod")

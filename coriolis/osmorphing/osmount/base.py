@@ -21,10 +21,11 @@ class BaseOSMountTools(object):
         self._event_manager = event_manager
         self._ignore_devices = ignore_devices
         self._environment = {}
-        self._connect(connection_info)
+        self._connection_info = connection_info
+        self._connect()
 
     @abc.abstractmethod
-    def _connect(self, connection_info):
+    def _connect(self):
         pass
 
     @abc.abstractmethod
@@ -33,6 +34,9 @@ class BaseOSMountTools(object):
 
     @abc.abstractmethod
     def check_os(self):
+        pass
+
+    def setup(self):
         pass
 
     @abc.abstractmethod
@@ -51,7 +55,10 @@ class BaseOSMountTools(object):
 
 
 class BaseSSHOSMountTools(BaseOSMountTools):
-    def _connect(self, connection_info):
+    @utils.retry_on_error(max_attempts=5, sleep_seconds=3)
+    def _connect(self):
+        connection_info = self._connection_info
+
         ip = connection_info["ip"]
         port = connection_info.get("port", 22)
         username = connection_info["username"]
@@ -67,19 +74,14 @@ class BaseSSHOSMountTools(BaseOSMountTools):
             {"ip": ip, "port": port})
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
-        @utils.retry_on_error(max_attempts=5, sleep_seconds=3)
-        def _ssh_connect():
-            ssh.connect(hostname=ip, port=port, username=username, pkey=pkey,
-                        password=password)
-        _ssh_connect()
-
+        ssh.connect(hostname=ip, port=port, username=username, pkey=pkey,
+                    password=password)
         self._ssh = ssh
 
+    def setup(self):
         if self._allow_ssh_env_vars():
-            # Reconnect after a reload
-            ssh.close()
-            _ssh_connect()
+            self._ssh.close()
+            self._connect()
 
     def _allow_ssh_env_vars(self):
         pass
@@ -139,12 +141,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         LOG.info("Volume block devices: %s", volume_devs)
         return volume_devs
 
-    def _pre_mount_os(self):
-        pass
-
     def mount_os(self):
-        self._pre_mount_os()
-
         dev_paths = []
         other_mounted_dirs = []
 

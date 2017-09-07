@@ -15,7 +15,9 @@ LOG = logging.getLogger(__name__)
 
 
 class WindowsMountTools(base.BaseOSMountTools):
-    def _connect(self, connection_info):
+    def _connect(self):
+        connection_info = self._connection_info
+
         host = connection_info["ip"]
         port = connection_info.get("port", 5986)
         username = connection_info["username"]
