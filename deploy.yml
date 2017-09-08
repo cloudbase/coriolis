@@ -42,6 +42,7 @@
       template:
         src: ./templates/coriolis.conf.j2
         dest: /etc/coriolis/coriolis.conf
+        force: no
 
     - name: Creating api-paste.ini
       template:
