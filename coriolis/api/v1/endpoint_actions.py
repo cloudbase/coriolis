@@ -14,7 +14,7 @@ class EndpointActionsController(api_wsgi.Controller):
         super(EndpointActionsController, self).__init__()
 
     @api_wsgi.action('validate-connection')
-    def _cancel(self, req, id, body):
+    def _validate_connection(self, req, id, body):
         try:
             is_valid, message = self._endpoint_api.validate_connection(
                 req.environ['coriolis.context'], id)
