@@ -32,3 +32,7 @@ class API(object):
     def validate_connection(self, ctxt, endpoint_id):
         return self._rpc_client.validate_endpoint_connection(
             ctxt, endpoint_id)
+
+    def validate_target_environment(self, ctxt, endpoint_id, target_env):
+        return self._rpc_client.validate_endpoint_target_environment(
+            ctxt, endpoint_id, target_env)

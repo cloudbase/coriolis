@@ -82,6 +82,12 @@ class ConductorClient(object):
             ctxt, 'validate_endpoint_connection',
             endpoint_id=endpoint_id)
 
+    def validate_endpoint_target_environment(
+            self, ctxt, endpoint_id, target_env):
+        return self._client.call(
+            ctxt, 'validate_endpoint_target_environment',
+            endpoint_id=endpoint_id, target_env=target_env)
+
     def get_available_providers(self, ctxt):
         return self._client.call(
             ctxt, 'get_available_providers')

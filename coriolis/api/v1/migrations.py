@@ -6,6 +6,7 @@ from webob import exc
 
 from coriolis.api.v1.views import migration_view
 from coriolis.api import wsgi as api_wsgi
+from coriolis.endpoints import api as endpoints_api
 from coriolis import exception
 from coriolis.migrations import api
 
@@ -15,6 +16,7 @@ LOG = logging.getLogger(__name__)
 class MigrationController(api_wsgi.Controller):
     def __init__(self):
         self._migration_api = api.API()
+        self._endpoints_api = endpoints_api.API()
         super(MigrationController, self).__init__()
 
     def show(self, req, id):
@@ -66,6 +68,8 @@ class MigrationController(api_wsgi.Controller):
             force = migration_body.get("force", False)
             skip_os_morphing = migration_body.get("skip_os_morphing", False)
 
+            # NOTE: destination environment for replica should have been
+            # validated upon its creation.
             migration = self._migration_api.deploy_replica_instances(
                 context, replica_id, clone_disks, force, skip_os_morphing)
         else:
@@ -76,6 +80,14 @@ class MigrationController(api_wsgi.Controller):
              notes,
              skip_os_morphing) = self._validate_migration_input(
                 migration_body)
+            is_valid, message = (
+                self._endpoints_api.validate_target_environment(
+                    context, destination_endpoint_id, destination_environment))
+            if not is_valid:
+                raise exc.HTTPBadRequest(
+                    explanation="Invalid destination "
+                                "environment: %s" % message)
+
             migration = self._migration_api.migrate_instances(
                 context, origin_endpoint_id, destination_endpoint_id,
                 destination_environment, instances, notes, skip_os_morphing)
