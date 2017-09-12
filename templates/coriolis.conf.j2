@@ -38,16 +38,16 @@ export_base_path = {{ coriolis_export_base_path }}
 
 [openstack_migration_provider]
 # If migrating/replicating a heterogeneous workload with both Linux and
-# Windows instances, separate image IDs will need to be provided for the
-# temporary OSMorphing workers for each OS type.
+# Windows instances, separate image names or IDs will need to be provided
+# for the temporary OSMorphing workers for each OS type.
 # The 'linux' image will be used for the disk copy worker during the replica
 # execution process as well
 # Only accepted keys are 'linux' and 'windows'
-migr_image_id_map = linux: 283bdce4-112c-4758-b06a-7e5985a9cd15, windows: 63d8f1a4-3192-4edc-b113-0d099b4bc458
+migr_image_map = linux: 283bdce4-112c-4758-b06a-7e5985a9cd15, windows: Windows Server 2012 R2 Std Eval
 
 glance_api_version = 1
 hypervisor_type = kvm
-delete_disks_on_vm_termination = False
+delete_disks_on_vm_termination = True
 # default_security_groups = secgroup1, secgroup2
 migr_network_name = private
 migr_worker_use_fip = True
@@ -59,8 +59,8 @@ disk_format = qcow2
 container_format = bare
 set_dhcp = true
 
-[windows_images]
-virtio_iso_url = https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso
+# Parameters realted to the OSMorphing process for Windows instances:
+windows_virtio_iso_url = https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso
 cloudbaseinit_x64_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x64.zip
 cloudbaseinit_x86_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x86.zip
 
