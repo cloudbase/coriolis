@@ -103,13 +103,13 @@ class BaseImportProvider(BaseImportInstanceProvider):
         pass
 
     @abc.abstractmethod
-    def deploy_disk_copy_worker(self, ctxt, connection_info,
-                                target_environment, volumes_info):
+    def deploy_disk_copy_resources(self, ctxt, connection_info,
+                                   target_environment, volumes_info):
         pass
 
     @abc.abstractmethod
-    def delete_disk_copy_worker(self, ctxt, connection_info,
-                                target_resources_dict):
+    def delete_disk_copy_resources(self, ctxt, connection_info,
+                                   target_resources_dict):
         pass
 
     @abc.abstractmethod
