@@ -3,9 +3,9 @@ There is currently no authentication support, nor does this implement
 TLS in any way. It is a really basic implementation designed to be used
 to stream blocks from images to coriolis workers.
 
-TODO: implement authentication. Looks like qemu-nbd supports something of
-      the sort
-TODO: implement TLS support
+TODO (gsamfira): implement authentication. Looks like qemu-nbd supports
+something of the sort
+TODO (gsamfira): implement TLS support
 
 With the above 2 implemented, all sorts of fun things could potentially
 be done.
@@ -22,6 +22,8 @@ import os
 import netaddr
 import time
 
+from coriolis import exception
+from coriolis import utils
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
@@ -119,10 +121,10 @@ class NBDClient(object):
     for consuming chunks of an export, or the entire thing.
 
     WARNING: Do not try to do parallel reads using this class. It will
-             most likely result in garbage data, due to the fact that
-             handles are not properly implemented. That whole song and
-             dance requires more complex code. Sequential reads only
-             at this point please.
+    most likely result in garbage data, due to the fact that
+    handles are not properly implemented. That whole song and
+    dance requires more complex code. Sequential reads only
+    at this point please.
     """
     def __init__(self, host=None, port=None,
                  unix_socket=None, export_name=None):
@@ -130,11 +132,11 @@ class NBDClient(object):
         self.export_size = None
         self.export_name = export_name
         self._handle = b'1'
-        self.sock = self.connect(
-            host=host,
-            port=port,
-            unix_socket=unix_socket,
-            export_name=export_name)
+        self._host = host
+        self._port = port
+        self._unix_socket = unix_socket
+        self._export_name = export_name
+        self.sock = None
 
     def _select_export(self, sock, name):
         if type(name) is str:
@@ -147,7 +149,8 @@ class NBDClient(object):
         sock.sendall(payload)
         response = sock.recv(64)
         if len(response) == 0:
-            raise Exception("Read failed. Likely export name is wrong")
+            raise exception.NBDException(
+                "Read failed. Likely export name is wrong")
         decoded = struct.unpack('>QH', response)
         return decoded[0]
 
@@ -158,7 +161,7 @@ class NBDClient(object):
         passwdSize = struct.calcsize('>8s')
         passwd = struct.unpack('>8s', sock.recv(passwdSize))
         if passwd[0] != NBD_INIT_PASSWD:
-            raise Exception("Bad NBD passwd: %r --> %r" % (
+            raise exception.NBDException("Bad NBD passwd: %r. Expected: %r" % (
                 passwd[0], NBD_INIT_PASSWD))
 
         magicSize = struct.calcsize('>Q')
@@ -183,7 +186,8 @@ class NBDClient(object):
             flags = struct.unpack('>H', sock.recv(struct.calcsize('>H')))
             needed = flags[0] & NBD_FLAG_C_FIXED_NEWSTYLE
             if needed != NBD_FLAG_C_FIXED_NEWSTYLE:
-                raise Exception("Server does not support export listing")
+                raise exception.NBDException(
+                    "Server does not support export listing")
             if flags[0] & NBD_FLAG_NO_ZEROES:
                 self._client_flags |= NBD_FLAG_NO_ZEROES
             # Send client flags
@@ -193,41 +197,59 @@ class NBDClient(object):
 
     def connect(self, host=None, port=None,
                 unix_socket=None, export_name=None):
-        # there is no TLS support. Make sure you only use this
+        # WARNING: there is no TLS support. Make sure you only use this
         # for local connections, or in secure environments
+
+        _host = host or self._host
+        _port = port or self._port
+        _unix_socket = unix_socket or self._unix_socket
+        _export_name = export_name or self._export_name
+
+        if self.sock:
+            # we are reconnectiong. Clean up after ourselves
+            self.close()
+
         sock = None
         addr = None
-        if socket is not None:
+        if _unix_socket is not None:
             # no need to do extra checks, socket will raise
             # if the supplied path does not exist
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            addr = unix_socket
+            addr = _unix_socket
 
-        if None not in (host, port):
-            ipVersion = netaddr.IPNetwork(host).version
+        if None not in (_host, _port):
+            ipVersion = netaddr.IPNetwork(_host).version
             inet = socket.AF_INET
             if ipVersion == 6:
                 inet = socket.AF_INET6
             sock = socket.socket(inet, socket.SOCK_STREAM)
-            addr = (host, port)
+            addr = (_host, _port)
 
         if sock is None:
-            raise Exception("either host/port or socket needs to be set")
+            raise exception.NBDException(
+                "either host/port or socket needs to be set")
 
         try:
             sock.connect(addr)
         except socket.error as err:
             if err.errno == 106:
                 # already connected, just return
-                # WARNING: this assumes that negotiation
-                #          has already happened
+                # NOTE (gsamfira): this assumes that negotiation
+                # has already happened
                 return sock
             raise
-        self._negotiate(sock, name=export_name)
+        self._negotiate(sock, name=_export_name)
         self.sock = sock
+
+        self._host = _host
+        self._port = _port
+        self._unix_socket = _unix_socket
+        self._export_name = _export_name
         return self.sock
 
     def close(self):
+        if self.sock is None:
+            return
         request = struct.pack(
             '>LL8sQL',
             NBD_REQUEST_MAGIC,
@@ -241,6 +263,9 @@ class NBDClient(object):
         self.export_size = None
 
     def read(self, offset, length):
+        if self.sock is None:
+            raise exception.NBDConnectionException(
+                "Socket is not connected")
         if offset > self.export_size:
             raise ValueError("Offset is outside the size of export")
         readEnd = offset + length
@@ -250,12 +275,11 @@ class NBDClient(object):
             '>LL8sQL',
             NBD_REQUEST_MAGIC,
             NBD_CMD_READ,
-            # WARNING: this function is not safe for
-            #          concurrent reads! Must not run
-            #          read() in parallel.
-            # TODO: Implement concurrency. Needs to treat
-            #       handles appropriately. Responses are treated
-            #       asynchronously  and may come out of order
+            # NOTE (gsamfira): this function is not safe for
+            # concurrent reads! Must not run read() in parallel.
+            # TODO (gsamfira): Implement concurrency. Needs to treat
+            # handles appropriately. Responses are treated
+            # asynchronously  and may come out of order
             self._handle,
             offset,
             length)
@@ -266,22 +290,23 @@ class NBDClient(object):
         magic, error, handle = struct.unpack('>LL8s', response)
         if magic != int(NBD_REPLY_MAGIC):
             raise ValueError(
-                "Got invalid response from "
-                "server: %r --> %r --> %r" % (magic, error, handle))
+                "Got invalid magic from "
+                "server: %r" % magic)
         if error != 0:
+            # TODO (gsamfira): translate error codes to messages
             raise Exception(
                 "Got invalid response from "
-                "server: %r --> %r --> %r" % (magic, error, handle))
+                "server: %r" % error)
         got = b''
         while len(got) < length:
             more = self.sock.recv(length - len(got))
             if more == "":
-                raise Exception(length)
+                raise exception.NBDException(length)
             got += more
         return got
 
 
-class ImageReader(object):
+class DiskImageReader(object):
 
     def __init__(self, path, name):
         """
@@ -310,7 +335,8 @@ class ImageReader(object):
             status = process.poll()
             if status:
                 stdout, stderr = process.communicate()
-                raise Exception("process failed with status: %r" % status)
+                raise exception.NBDException(
+                    "process failed with status: %r" % status)
             if os.path.exists(socket_path):
                 return socket_path
             time.sleep(0.1)
@@ -325,12 +351,13 @@ class ImageReader(object):
         if os.path.isfile(self.image_path) is False:
             raise ValueError("Image file %s does not exist" % self.image_path)
         if self._qemu_process is not None:
-            raise Exception("qemu-nbd is already running")
+            raise exception.NBDException("qemu-nbd is already running")
         if self._nbd_client is not None:
-            raise Exception("client already created")
+            raise exception.NBDException("client already created")
 
         if os.path.exists(self.socket_path):
-            raise Exception("socket %s already exists" % self.socket_path)
+            raise exception.NBDException(
+                "socket %s already exists" % self.socket_path)
 
         qemu_cmd = [
             "qemu-nbd", "-k", self.socket_path,
@@ -343,13 +370,14 @@ class ImageReader(object):
                 "-x", self.export_name, self.image_path
             ]
 
-        LOG.info("Running command: %s" % ' '.join(qemu_cmd))
+        LOG.debug("Running command: %s" % ' '.join(qemu_cmd))
         self._qemu_process = subprocess.Popen(qemu_cmd)
         self._wait_for_socket(self._qemu_process, self.socket_path)
 
         self._nbd_client = NBDClient(
             unix_socket=self.socket_path,
             export_name=self.export_name)
+        self._nbd_client.connect()
 
     def close(self):
         if self._nbd_client:
@@ -367,9 +395,11 @@ class ImageReader(object):
         except BaseException:
             pass
 
+    @utils.retry_on_error(terminal_exceptions=[
+        exception.NBDException, exception.NBDConnectionException])
     def read(self, offset, length):
         if self._nbd_client is None:
-            raise Exception("not initialized properly")
+            raise exception.NBDException("not initialized properly")
         return self._nbd_client.read(offset, length)
 
     def __enter__(self):

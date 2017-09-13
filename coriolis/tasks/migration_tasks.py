@@ -52,14 +52,14 @@ class ImportInstanceTask(base.TaskRunner):
         task_info["origin_provider_type"] = constants.PROVIDER_TYPE_EXPORT
         task_info["destination_provider_type"] = constants.PROVIDER_TYPE_IMPORT
         # We need to retain export info until after disk sync
-        # TODO: remove this when we implement multi-worker, and by extension
-        #       some external storage for needed resources (like swift)
+        # TODO (gsamfira): remove this when we implement multi-worker, and by
+        # extension some external storage for needed resources (like swift)
         task_info["retain_export_path"] = True
 
         return task_info
 
 
-class DeployDiskCopyWorker(base.TaskRunner):
+class DeployDiskCopyResources(base.TaskRunner):
     def run(self, ctxt, instance, origin, destination, task_info,
             event_handler):
         provider = providers_factory.get_provider(
@@ -68,7 +68,7 @@ class DeployDiskCopyWorker(base.TaskRunner):
         target_environment = destination.get("target_environment") or {}
         instance_deployment_info = task_info["instance_deployment_info"]
 
-        resources_info = provider.deploy_disk_copy_worker(
+        resources_info = provider.deploy_disk_copy_resources(
             ctxt, connection_info, target_environment,
             instance_deployment_info)
 
@@ -80,8 +80,8 @@ class DeployDiskCopyWorker(base.TaskRunner):
         task_info["instance_deployment_info"][
             "disk_sync_connection_info"] = conn_info
         # We need to retain export info until after disk sync
-        # TODO: remove this when we implement multi-worker, and by extension
-        #       some external storage for needed resources (like swift)
+        # TODO (gsamfira): remove this when we implement multi-worker, and by
+        # extension some external storage for needed resources (like swift)
         task_info["retain_export_path"] = True
 
         return task_info
@@ -108,7 +108,7 @@ class CopyDiskData(base.TaskRunner):
         return task_info
 
 
-class DeleteDiskCopyWorker(base.TaskRunner):
+class DeleteDiskCopyResources(base.TaskRunner):
     def run(self, ctxt, instance, origin, destination, task_info,
             event_handler):
         provider = providers_factory.get_provider(
@@ -116,7 +116,7 @@ class DeleteDiskCopyWorker(base.TaskRunner):
         connection_info = base.get_connection_info(ctxt, destination)
         instance_deployment_info = task_info.get(
             "instance_deployment_info", {})
-        provider.delete_disk_copy_worker(
+        provider.delete_disk_copy_resources(
             ctxt, connection_info, instance_deployment_info)
 
         if instance_deployment_info.get("disk_sync_connection_info"):
