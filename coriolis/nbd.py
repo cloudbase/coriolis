@@ -289,12 +289,12 @@ class NBDClient(object):
         response = self.sock.recv(responseSize)
         magic, error, handle = struct.unpack('>LL8s', response)
         if magic != int(NBD_REPLY_MAGIC):
-            raise ValueError(
+            raise exception.NBDException(
                 "Got invalid magic from "
                 "server: %r" % magic)
         if error != 0:
             # TODO (gsamfira): translate error codes to messages
-            raise Exception(
+            raise exception.NBDException(
                 "Got invalid response from "
                 "server: %r" % error)
         got = b''
