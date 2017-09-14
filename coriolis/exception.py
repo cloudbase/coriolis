@@ -302,3 +302,11 @@ class ConnectionValidationException(CoriolisException):
 
 class SchemaValidationException(CoriolisException):
     safe = True
+
+
+class NBDConnectionException(Exception):
+    pass
+
+
+class NBDException(Exception):
+    pass

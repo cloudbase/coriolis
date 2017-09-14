@@ -531,10 +531,22 @@ class ConductorServerEndpoint(object):
                 instance, constants.TASK_TYPE_IMPORT_INSTANCE,
                 execution, depends_on=[task_export.id])
 
+            task_deploy_disk_copy_resources = self._create_task(
+                instance, constants.TASK_TYPE_DEPLOY_DISK_COPY_RESOURCES,
+                execution, depends_on=[task_import.id])
+
+            task_copy_disk = self._create_task(
+                instance, constants.TASK_TYPE_COPY_DISK_DATA,
+                execution, depends_on=[task_deploy_disk_copy_resources.id])
+
+            task_delete_disk_copy_resources = self._create_task(
+                instance, constants.TASK_TYPE_DELETE_DISK_COPY_RESOURCES,
+                execution, depends_on=[task_copy_disk.id], on_error=True)
+
             if not skip_os_morphing:
                 task_deploy_os_morphing_resources = self._create_task(
                     instance, constants.TASK_TYPE_DEPLOY_OS_MORPHING_RESOURCES,
-                    execution, depends_on=[task_import.id])
+                    execution, depends_on=[task_delete_disk_copy_resources.id])
 
                 task_osmorphing = self._create_task(
                     instance, constants.TASK_TYPE_OS_MORPHING,
@@ -548,7 +560,7 @@ class ConductorServerEndpoint(object):
 
                 next_task = task_delete_os_morphing_resources
             else:
-                next_task = task_import
+                next_task = task_delete_disk_copy_resources
 
             self._create_task(
                 instance, constants.TASK_TYPE_FINALIZE_IMPORT_INSTANCE,
