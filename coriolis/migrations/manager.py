@@ -25,7 +25,6 @@ def _copy_volume(volume, backup_writer, event_manager):
     # that we pass to qemu-nbd
     name = str(uuid.uuid4())
     vol_id = volume["volume_id"]
-    chunk = 4096
 
     with backup_writer.open("", disk_id) as writer:
         with nbd.DiskImageReader(virtual_disk, name) as reader:
@@ -33,13 +32,11 @@ def _copy_volume(volume, backup_writer, event_manager):
                 reader.export_size,
                 message_format="Disk copy progress for %s: "
                                "{:.0f}%%" % vol_id)
-
+            chunk = 4096
             offset = 0
             write_offset = 0
             buff = b''
             flush = 10 * units.Mi  # 10 MB
-            emptyChunk = b'\0' * chunk
-            written = 0
             export_size = reader.export_size
             while offset < export_size:
                 readBytes = chunk
@@ -47,42 +44,19 @@ def _copy_volume(volume, backup_writer, event_manager):
                 remainingDelta = remaining - chunk
                 if remainingDelta <= 0:
                     readBytes = remaining
-                    emptyChunk = emptyChunk[0:readBytes]
 
                 data = reader.read(offset, readBytes)
-                if data == emptyChunk:
-                    # got a whole lot of nothing. Not putting
-                    # it on the wire
-                    if len(buff) > 0:
-                        LOG.debug("Found empty chunk. Flushing buffer:"
-                                  " %r starting at offset: %r" % (
-                                      len(buff), write_offset))
-                        writer.seek(write_offset)
-                        writer.write(buff)
-                        written += len(buff)
-                        event_manager.set_percentage_step(
-                            perc_step, offset)
-                        buff = b''
-                else:
-                    if len(buff) == 0:
-                        LOG.debug("Found written chunk at %r."
-                                  " Last written offset: %r" % (
-                                      offset, write_offset))
-                        write_offset = offset
-                    buff += data
-                    if len(buff) >= flush or export_size == offset:
-                        writer.seek(write_offset)
-                        writer.write(buff)
-                        written += len(buff)
-                        buff = b''
+
+                if len(buff) == 0:
+                    write_offset = offset
+                buff += data
+                if len(buff) >= flush or export_size == offset:
+                    writer.seek(write_offset)
+                    writer.write(buff)
+                    buff = b''
                 offset += readBytes
-                if offset % flush == 0 or export_size == offset:
-                    event_manager.set_percentage_step(
-                        perc_step, offset)
-            event_manager.progress_update(
-                "Total bytes sent over wire for volume \"%s\": %r MB" % (
-                    vol_id, int(written / units.Mi)))
-            emptyChunk = None
+                event_manager.set_percentage_step(
+                    perc_step, offset)
             buff = None
             data = None
             gc.collect()
