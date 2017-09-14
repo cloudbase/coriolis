@@ -44,18 +44,19 @@ def _copy_volume(volume, backup_writer, event_manager):
                 if remainingDelta <= 0:
                     readBytes = remaining
 
-                data = reader.read(offset, readBytes)
-
                 if len(buff) == 0:
                     write_offset = offset
+
+                data = reader.read(offset, readBytes)
+                offset += readBytes
+
                 buff += data
                 if len(buff) >= flush or export_size == offset:
                     writer.seek(write_offset)
                     writer.write(buff)
                     buff = b''
-                offset += readBytes
-                event_manager.set_percentage_step(
-                    perc_step, offset)
+                    event_manager.set_percentage_step(
+                        perc_step, offset)
             buff = None
             data = None
             gc.collect()
