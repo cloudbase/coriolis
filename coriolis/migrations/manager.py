@@ -88,7 +88,7 @@ def copy_disk_data(target_conn_info, volumes_info, event_handler):
     username = target_conn_info["username"]
     pkey = target_conn_info.get("pkey")
     password = target_conn_info.get("password")
-    event_manager.progress_update("Waiting for connectivity on %r:%r" % (
+    event_manager.progress_update("Waiting for connectivity on %s:%s" % (
         ip, port))
     utils.wait_for_port_connectivity(ip, port)
     backup_writer = backup_writers.SSHBackupWriter(
