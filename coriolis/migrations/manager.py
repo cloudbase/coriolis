@@ -24,14 +24,13 @@ def _copy_volume(volume, backup_writer, event_manager):
     # just an identifier. We use it to create a socket path
     # that we pass to qemu-nbd
     name = str(uuid.uuid4())
-    vol_id = volume["volume_id"]
 
     with backup_writer.open("", disk_id) as writer:
         with nbd.DiskImageReader(virtual_disk, name) as reader:
             perc_step = event_manager.add_percentage_step(
                 reader.export_size,
                 message_format="Disk copy progress for %s: "
-                               "{:.0f}%%" % vol_id)
+                               "{:.0f}%%" % disk_id)
             chunk = 4096
             offset = 0
             write_offset = 0
@@ -63,11 +62,11 @@ def _copy_volume(volume, backup_writer, event_manager):
 
 
 def _copy_wrapper(job_args):
-    vol_id = job_args[0].get("volume_id")
+    disk_id = job_args[0].get("disk_id")
     try:
-        return _copy_volume(*job_args), vol_id, False
+        return _copy_volume(*job_args), disk_id, False
     except BaseException:
-        return sys.exc_info(), vol_id, True
+        return sys.exc_info(), disk_id, True
 
 
 def copy_disk_data(target_conn_info, volumes_info, event_handler):
@@ -96,12 +95,12 @@ def copy_disk_data(target_conn_info, volumes_info, event_handler):
 
     pool = eventlet.greenpool.GreenPool()
     job_data = [(vol, backup_writer, event_manager) for vol in volumes_info]
-    for result, vol_id, error in pool.imap(_copy_wrapper, job_data):
+    for result, disk_id, error in pool.imap(_copy_wrapper, job_data):
         # TODO (gsamfira): There is no use in letting the other disks finish
         # sync-ing as we don't save the state of the disk sync anywhere (yet).
         # When/If we ever do add this info to the database, keep track of
         # failures, and allow any other paralel sync to finish
         if error:
             event_manager.progress_update(
-                "Volume \"%s\" failed to sync" % vol_id)
+                "Volume \"%s\" failed to sync" % disk_id)
             raise result[0](result[1]).with_traceback(result[2])

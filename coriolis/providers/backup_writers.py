@@ -88,7 +88,13 @@ class SSHBackupWriter(BaseBackupWriter):
         except Exception as ex:
             LOG.exception(ex)
 
-            ret_val = self._stdout.channel.recv_exit_status()
+            ret_val = None
+            # if the application is still running on the other side,
+            # recv_exit_status() will block. Check that we have an
+            # exit status before retrieving it
+            if self._stdout.channel.exit_status_ready():
+                ret_val = self._stdout.channel.recv_exit_status()
+
             self._ssh.close()
 
             if ret_val:
