@@ -304,13 +304,5 @@ class SchemaValidationException(CoriolisException):
     safe = True
 
 
-class NBDConnectionException(Exception):
-    pass
-
-
-class NBDException(Exception):
-    pass
-
-
 class QEMUException(Exception):
     pass
