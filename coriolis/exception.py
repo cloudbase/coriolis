@@ -310,3 +310,7 @@ class NBDConnectionException(Exception):
 
 class NBDException(Exception):
     pass
+
+
+class QEMUException(Exception):
+    pass

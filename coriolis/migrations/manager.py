@@ -3,63 +3,56 @@
 
 import eventlet
 import gc
-import uuid
 import sys
 
 from oslo_log import log as logging
 from oslo_utils import units
 
 from coriolis import events
-from coriolis import nbd
+from coriolis import qemu_reader
 from coriolis.providers import backup_writers
 from coriolis import utils
 
 LOG = logging.getLogger(__name__)
 
 
-def _copy_volume(volume, backup_writer, event_manager):
+def _copy_volume(volume, disk_image_reader, backup_writer, event_manager):
     disk_id = volume["disk_id"]
     # for now we assume it is a local file
-    virtual_disk = volume["disk_image_uri"]
-    # just an identifier. We use it to create a socket path
-    # that we pass to qemu-nbd
-    name = str(uuid.uuid4())
+    path = volume["disk_image_uri"]
+    skip_zeroes = volume.get("zeroed", False)
 
     with backup_writer.open("", disk_id) as writer:
-        with nbd.DiskImageReader(virtual_disk, name) as reader:
+        with disk_image_reader.open(path) as reader:
+            disk_size = reader.disk_size
+
             perc_step = event_manager.add_percentage_step(
-                reader.export_size,
+                disk_size,
                 message_format="Disk copy progress for %s: "
                                "{:.0f}%%" % disk_id)
-            chunk = 4096
+
             offset = 0
-            write_offset = 0
-            buff = b''
-            flush = 10 * units.Mi  # 10 MB
-            export_size = reader.export_size
-            while offset < export_size:
-                readBytes = chunk
-                remaining = export_size - offset
-                remainingDelta = remaining - chunk
-                if remainingDelta <= 0:
-                    readBytes = remaining
+            max_block_size = 1 * units.Mi  # 10 MB
 
-                if len(buff) == 0:
-                    write_offset = offset
+            while offset < disk_size:
+                allocated, zero_block, block_size = reader.get_block_status(
+                    offset, max_block_size)
+                if not allocated or zero_block and skip_zeroes:
+                    if not allocated:
+                        LOG.debug("Unallocated block detected: %s", block_size)
+                    else:
+                        LOG.debug("Skipping zero block: %s", block_size)
+                    offset += block_size
+                    writer.seek(offset)
+                else:
+                    buf = reader.read(offset, block_size)
+                    writer.write(buf)
+                    offset += len(buf)
+                    buf = None
+                    gc.collect()
 
-                data = reader.read(offset, readBytes)
-                offset += readBytes
-
-                buff += data
-                if len(buff) >= flush or export_size == offset:
-                    writer.seek(write_offset)
-                    writer.write(buff)
-                    buff = b''
-                    event_manager.set_percentage_step(
-                        perc_step, offset)
-            buff = None
-            data = None
-            gc.collect()
+                event_manager.set_percentage_step(
+                    perc_step, offset)
 
 
 def _copy_wrapper(job_args):
@@ -72,13 +65,13 @@ def _copy_wrapper(job_args):
 
 def copy_disk_data(target_conn_info, volumes_info, event_handler):
     # TODO (gsamfira): the disk image should be an URI that can either be local
-    # (file://) or remote (https://, ftp://, smb://, nbd:// etc).
+    # (file://) or remote (https://, ftp://, smb://, nfs:// etc).
     # This must happen if we are to implement multi-worker scenarios.
     # In such cases, it is not guaranteed that the disk sync task
     # will be started on the same node onto which the import
     # happened. It may also be conceivable, that wherever the disk
     # image ends up, we might be able to directly expose it using
-    # NBD, iSCSI or any other network protocol. In which case,
+    # NFS, iSCSI or any other network protocol. In which case,
     # we can skip downloading it locally just to sync it.
 
     event_manager = events.EventManager(event_handler)
@@ -93,9 +86,11 @@ def copy_disk_data(target_conn_info, volumes_info, event_handler):
     utils.wait_for_port_connectivity(ip, port)
     backup_writer = backup_writers.SSHBackupWriter(
         ip, port, username, pkey, password, volumes_info)
+    disk_image_reader = qemu_reader.QEMUDiskImageReader()
 
     pool = eventlet.greenpool.GreenPool()
-    job_data = [(vol, backup_writer, event_manager) for vol in volumes_info]
+    job_data = [(vol, disk_image_reader, backup_writer, event_manager)
+                for vol in volumes_info]
     for result, disk_id, error in pool.imap(_copy_wrapper, job_data):
         # TODO (gsamfira): There is no use in letting the other disks finish
         # sync-ing as we don't save the state of the disk sync anywhere (yet).
