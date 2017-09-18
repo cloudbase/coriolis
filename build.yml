@@ -37,6 +37,16 @@
         url: "{{ vmware_disklib_url }}"
         dest: ./build/VMware-vix-disklib.tar.gz
 
+    - name: Downloading libnfs RPM
+      get_url:
+        url: "{{ libnfs_rpm_url }}"
+        dest: ./build/libnfs.x86_64.rpm
+
+    - name: Downloading libqemu
+      get_url:
+        url: "{{ libqemu_url }}"
+        dest: ./build/libqemu.so.gz
+
     - name: Building coriolis-base
       docker_image:
         path: ./build
