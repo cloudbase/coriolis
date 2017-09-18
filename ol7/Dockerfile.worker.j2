@@ -14,10 +14,10 @@ RUN /bin/bash -c "pip3 install ./coriolis-provider-vmware"
 RUN /bin/bash -c "pip3 install ./coriolis-provider-openstack"
 
 ADD VMware-vix-disklib.tar.gz /root
-RUN mkdir -p /usr/lib/vmware-vix-disklib
-RUN mv vmware-vix-disklib-distrib/lib64 /usr/lib/vmware-vix-disklib/
+RUN mkdir -p /usr/lib/vmware
+RUN mv vmware-vix-disklib-distrib/lib64/* /usr/lib/vmware/
 RUN mv vmware-vix-disklib-distrib/bin64/* /usr/local/bin/
-RUN echo /usr/lib/vmware-vix-disklib/lib64 > /etc/ld.so.conf.d/zzz_vmware-vix-disklib.conf
+RUN ln -s /usr/lib/vmware/libvixDiskLib.so /usr/lib/libvixDiskLib.so
 RUN ldconfig
 
 # Mapped volume: /etc/coriolis/coriolis.conf
