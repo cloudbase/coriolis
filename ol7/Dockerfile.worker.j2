@@ -1,6 +1,7 @@
 FROM {{ docker_registry }}/coriolis-common:{{ docker_images_tag }}
 
 ADD coriolis-provider-oracle-vm/ coriolis-provider-oracle-vm
+ADD coriolis-provider-opc/ coriolis-provider-opc
 ADD coriolis-provider-vmware/ coriolis-provider-vmware
 ADD coriolis-provider-openstack/ coriolis-provider-openstack
 
@@ -10,6 +11,7 @@ RUN yum install -y qemu-img
 RUN yum install -y openssl
 
 RUN /bin/bash -c "pip3 install ./coriolis-provider-oracle-vm"
+RUN /bin/bash -c "pip3 install ./coriolis-provider-opc"
 RUN /bin/bash -c "pip3 install ./coriolis-provider-vmware"
 RUN /bin/bash -c "pip3 install ./coriolis-provider-openstack"
 
