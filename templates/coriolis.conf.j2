@@ -8,7 +8,7 @@ logging_debug_format_suffix = [00;33mfrom (pid=%(process)d) %(funcName)s %(path
 logging_default_format_string = %(asctime)s.%(msecs)03d %(color)s%(levelname)s %(name)s [[00;36m-%(color)s] [01;35m%(instance)s%(color)s%(message)s[00m
 logging_context_format_string = %(asctime)s.%(msecs)03d %(color)s%(levelname)s %(name)s [[01;36m%(request_id)s [00;36m %(color)s] [01;35m%(instance)s%(color)s%(message)s[00m
 
-providers=coriolis_provider_openstack.ExportProvider,coriolis_provider_openstack.ImportProvider,coriolis_provider_vmware_vsphere.ExportProvider,coriolis_provider_oracle_vm.ImportProvider,coriolis_provider_opc.ImportProvider, coriolis_provider_aws.ExportProvider
+providers=coriolis_provider_openstack.ExportProvider,coriolis_provider_openstack.ImportProvider,coriolis_provider_vmware_vsphere.ExportProvider,coriolis_provider_oracle_vm.ImportProvider,coriolis_provider_opc.ImportProvider,coriolis_provider_aws.ExportProvider,coriolis_provider_azure.ImportProvider
 
 [database]
 connection = mysql://{{ coriolis_database_name }}:{{ coriolis_database_password }}@{{ database_address }}/{{ coriolis_database_name }}
@@ -122,6 +122,29 @@ use_colocated_snapshots = true
 
 # URL of a zip file with the Windows PV drivers:
 windows_pv_drivers_url = https://cloudbase.it/downloads/ovm_win_pv_drivers_all_323.zip
+
+[azure_migration_provider]
+# The location to which to migrate
+migr_location = westus
+
+# The size which to default to for the migrated instance in case 'vm_size' is
+# not specified in the --destination-environment
+default_vm_size = Standard_A1
+
+# The images to use for temporary worker VMs:
+linux_migr_image = version: latest, publisher: Canonical, offer: UbuntuServer, sku: 14.04.0-LTS
+windows_migr_image = version: latest, publisher: MicrosoftWindowsServer, offer: WindowsServer, sku: 2016-Datacenter-Server-Core
+
+# The size which to default to for migration workers
+default_worker_size = Standard_D1
+
+# Mapping between the number of volumes a size can have attached and its name
+# Default is:
+# worker_volume_count_to_size_map = 2: Standard_D1, 4: Standard_D2, 8: Standard_D3
+
+# Cloudbase-init Zip URLs for each supported Windows architecture:
+cloudbaseinit_x86_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x86.zip
+cloudbaseinit_x64_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x64.zip
 
 [serialization]
 
