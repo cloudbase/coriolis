@@ -32,6 +32,7 @@
         - { url: "git@bitbucket.org:cloudbase/coriolis-provider-vmware.git", name: coriolis-provider-vmware}
         - { url: "git@bitbucket.org:cloudbase/coriolis-provider-aws.git", name: coriolis-provider-aws}
         - { url: "git@bitbucket.org:cloudbase/coriolis-provider-openstack.git", name: coriolis-provider-openstack}
+        - { url: "git@bitbucket.org:cloudbase/coriolis-provider-azure.git", name: coriolis-provider-azure}
         - { url: "https://github.com/cloudbase/coriolis-web", name: coriolis-web}
 
     - name: Downloading VMware disklib
