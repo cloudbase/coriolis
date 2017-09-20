@@ -16,7 +16,6 @@ RUN /bin/bash -c "pip3 install ./coriolis-provider-openstack"
 ADD libnfs.x86_64.rpm /root
 RUN rpm -Uvh libnfs.x86_64.rpm
 
-RUN mkdir -p /usr/lib/libqemu
 ADD libqemu.so.gz /usr/lib/
 RUN gunzip /usr/lib/libqemu.so.gz
 RUN ldconfig
