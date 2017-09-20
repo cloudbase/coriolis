@@ -22,10 +22,10 @@ RUN gunzip /usr/lib/libqemu.so.gz
 RUN ldconfig
 
 ADD VMware-vix-disklib.tar.gz /root
-RUN mkdir -p /usr/lib/vmware
-RUN mv vmware-vix-disklib-distrib/lib64/* /usr/lib/vmware/
+RUN mkdir -p /usr/lib/vmware-vix-disklib
+RUN mv vmware-vix-disklib-distrib/lib64 /usr/lib/vmware-vix-disklib/
 RUN mv vmware-vix-disklib-distrib/bin64/* /usr/local/bin/
-RUN ln -s /usr/lib/vmware/libvixDiskLib.so /usr/lib/libvixDiskLib.so
+RUN echo /usr/lib/vmware-vix-disklib/lib64 > /etc/ld.so.conf.d/zzz_vmware-vix-disklib.conf
 RUN ldconfig
 
 # Mapped volume: /etc/coriolis/coriolis.conf
