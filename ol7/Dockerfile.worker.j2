@@ -24,6 +24,9 @@ RUN ldconfig
 ADD VMware-vix-disklib.tar.gz /root
 RUN mkdir -p /usr/lib/vmware-vix-disklib
 RUN mv vmware-vix-disklib-distrib/lib64 /usr/lib/vmware-vix-disklib/
+RUN mkdir /usr/lib/vmware-vix-disklib/lib64/conflicts
+# libglib-2.0.so* causes conflicts with other libraries, make sure the one in /lib64 is loaded instead
+RUN mv /usr/lib/vmware-vix-disklib/lib64/libglib-2.0.so* /usr/lib/vmware-vix-disklib/lib64/conflicts/
 RUN mv vmware-vix-disklib-distrib/bin64/* /usr/local/bin/
 RUN echo /usr/lib/vmware-vix-disklib/lib64 > /etc/ld.so.conf.d/zzz_vmware-vix-disklib.conf
 RUN ldconfig
