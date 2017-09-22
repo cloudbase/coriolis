@@ -8,14 +8,15 @@ from coriolis import exception
 from coriolis import qemu
 
 
-class QEMUDiskImageReader(object):
-    def __init__(self):
+class QEMUDiskImageReaderImpl(object):
+    def __init__(self, path):
         self._blk = None
         self._bs = None
         self._total_sectors = None
         self._block_driver_state = None
         self._buf = None
         self._buf_size = None
+        self._path = path
 
     def close(self):
         if self._buf is not None:
@@ -31,12 +32,12 @@ class QEMUDiskImageReader(object):
         self._total_sectors = None
         self._block_driver_state = None
 
-    def _qemu_open_path(self, path):
+    def _open(self):
         error = ctypes.POINTER(qemu.Error)()
 
         options = qemu.qdict_new()
         blk = qemu.blk_new_open(
-            path.encode(), None, options, 0, ctypes.byref(error))
+            self._path.encode(), None, options, 0, ctypes.byref(error))
         if not blk:
             raise exception.QEMUException(error.msg)
 
@@ -48,14 +49,6 @@ class QEMUDiskImageReader(object):
     @property
     def disk_size(self):
         return self._total_sectors << qemu.BDRV_SECTOR_BITS
-
-    @contextlib.contextmanager
-    def open(self, path):
-        try:
-            self._qemu_open_path(path)
-            yield self
-        finally:
-            self.close()
 
     def _get_sectors(self, offset, size):
         start_sector = offset >> qemu.BDRV_SECTOR_BITS
@@ -107,6 +100,19 @@ class QEMUDiskImageReader(object):
             raise exception.QEMUException("blk_pread failed")
 
         return (ctypes.c_ubyte*read_size).from_address(self._buf)
+
+
+class QEMUDiskImageReader(object):
+    @contextlib.contextmanager
+    def open(self, path):
+        impl = None
+        try:
+            impl = QEMUDiskImageReaderImpl(path)
+            impl._open()
+            yield impl
+        finally:
+            if impl:
+                impl.close()
 
 
 def _qemu_init():
