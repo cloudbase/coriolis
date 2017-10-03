@@ -4,13 +4,13 @@
 import abc
 import collections
 
+from six import with_metaclass
 
 _PercStepData = collections.namedtuple(
     "_PercStepData", "last_value max_value perc_threshold message_format")
 
 
-class EventManager(object):
-    __metaclass__ = abc.ABCMeta
+class EventManager(object, with_metaclass(abc.ABCMeta)):
 
     def __init__(self, event_handler):
         self._event_handler = event_handler
@@ -62,8 +62,7 @@ class EventManager(object):
             self._event_handler.error(message)
 
 
-class BaseEventHandler(object):
-    __metaclass__ = abc.ABCMeta
+class BaseEventHandler(object, with_metaclass(abc.ABCMeta)):
 
     @abc.abstractmethod
     def progress_update(self, current_step, total_steps, message):

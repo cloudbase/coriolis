@@ -5,22 +5,21 @@ import abc
 import itertools
 
 from oslo_log import log as logging
+from six import with_metaclass
 
 from coriolis import exception
 
 LOG = logging.getLogger(__name__)
 
 
-class BaseProvider(object):
-    __metaclass__ = abc.ABCMeta
+class BaseProvider(object, with_metaclass(abc.ABCMeta)):
 
     @property
     def platform(self):
         raise NotImplementedError("Missing provider platform attribute.")
 
 
-class BaseEndpointProvider(BaseProvider):
-    __metaclass__ = abc.ABCMeta
+class BaseEndpointProvider(BaseProvider, with_metaclass(abc.ABCMeta)):
 
     @abc.abstractmethod
     def validate_connection(self, ctxt, connection_info):
@@ -31,9 +30,9 @@ class BaseEndpointProvider(BaseProvider):
         pass
 
 
-class BaseEndpointInstancesProvider(BaseEndpointProvider):
+class BaseEndpointInstancesProvider(BaseEndpointProvider,
+                                    with_metaclass(abc.ABCMeta)):
     """ Defines operations for listing instances off of Endpoints """
-    __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
     def get_instances(self, ctxt, connection_info, limit=None,
@@ -47,9 +46,8 @@ class BaseEndpointInstancesProvider(BaseEndpointProvider):
         raise NotImplementedError()
 
 
-class BaseEndpointNetworksProvider(object):
+class BaseEndpointNetworksProvider(object, with_metaclass(abc.ABCMeta)):
     """ Defines operations for endpoints networks """
-    __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
     def get_networks(self, ctxt, connection_info, env):
@@ -57,15 +55,14 @@ class BaseEndpointNetworksProvider(object):
         raise NotImplementedError()
 
 
-class BaseInstanceProvider(BaseProvider):
-    __metaclass__ = abc.ABCMeta
+class BaseInstanceProvider(BaseProvider, with_metaclass(abc.ABCMeta)):
 
     def get_os_morphing_tools(self, conn, osmorphing_info):
         raise exception.OSMorphingToolsNotFound()
 
 
-class BaseImportInstanceProvider(BaseInstanceProvider):
-    __metaclass__ = abc.ABCMeta
+class BaseImportInstanceProvider(BaseInstanceProvider,
+                                 with_metaclass(abc.ABCMeta)):
 
     @abc.abstractmethod
     def get_target_environment_schema(self):
@@ -90,8 +87,8 @@ class BaseImportInstanceProvider(BaseInstanceProvider):
         pass
 
 
-class BaseImportProvider(BaseImportInstanceProvider):
-    __metaclass__ = abc.ABCMeta
+class BaseImportProvider(BaseImportInstanceProvider,
+                         with_metaclass(abc.ABCMeta)):
 
     @abc.abstractmethod
     def import_instance(self, ctxt, connection_info, target_environment,
@@ -123,8 +120,8 @@ class BaseImportProvider(BaseImportInstanceProvider):
         pass
 
 
-class BaseReplicaImportProvider(BaseImportInstanceProvider):
-    __metaclass__ = abc.ABCMeta
+class BaseReplicaImportProvider(BaseImportInstanceProvider,
+                                with_metaclass(abc.ABCMeta)):
 
     @abc.abstractmethod
     def deploy_replica_instance(self, ctxt, connection_info,
@@ -177,8 +174,7 @@ class BaseReplicaImportProvider(BaseImportInstanceProvider):
         pass
 
 
-class BaseExportProvider(BaseInstanceProvider):
-    __metaclass__ = abc.ABCMeta
+class BaseExportProvider(BaseInstanceProvider, with_metaclass(abc.ABCMeta)):
 
     @abc.abstractmethod
     def export_instance(self, ctxt, connection_info, instance_name,
@@ -189,8 +185,8 @@ class BaseExportProvider(BaseInstanceProvider):
         pass
 
 
-class BaseReplicaExportProvider(BaseInstanceProvider):
-    __metaclass__ = abc.ABCMeta
+class BaseReplicaExportProvider(BaseInstanceProvider,
+                                with_metaclass(abc.ABCMeta)):
 
     @abc.abstractmethod
     def get_replica_instance_info(self, ctxt, connection_info, instance_name):
