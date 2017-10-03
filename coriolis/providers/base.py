@@ -19,7 +19,7 @@ class BaseProvider(object, with_metaclass(abc.ABCMeta)):
         raise NotImplementedError("Missing provider platform attribute.")
 
 
-class BaseEndpointProvider(BaseProvider, with_metaclass(abc.ABCMeta)):
+class BaseEndpointProvider(BaseProvider):
 
     @abc.abstractmethod
     def validate_connection(self, ctxt, connection_info):
@@ -30,8 +30,7 @@ class BaseEndpointProvider(BaseProvider, with_metaclass(abc.ABCMeta)):
         pass
 
 
-class BaseEndpointInstancesProvider(BaseEndpointProvider,
-                                    with_metaclass(abc.ABCMeta)):
+class BaseEndpointInstancesProvider(BaseEndpointProvider):
     """ Defines operations for listing instances off of Endpoints """
 
     @abc.abstractmethod
@@ -55,14 +54,13 @@ class BaseEndpointNetworksProvider(object, with_metaclass(abc.ABCMeta)):
         raise NotImplementedError()
 
 
-class BaseInstanceProvider(BaseProvider, with_metaclass(abc.ABCMeta)):
+class BaseInstanceProvider(BaseProvider):
 
     def get_os_morphing_tools(self, conn, osmorphing_info):
         raise exception.OSMorphingToolsNotFound()
 
 
-class BaseImportInstanceProvider(BaseInstanceProvider,
-                                 with_metaclass(abc.ABCMeta)):
+class BaseImportInstanceProvider(BaseInstanceProvider):
 
     @abc.abstractmethod
     def get_target_environment_schema(self):
@@ -87,8 +85,7 @@ class BaseImportInstanceProvider(BaseInstanceProvider,
         pass
 
 
-class BaseImportProvider(BaseImportInstanceProvider,
-                         with_metaclass(abc.ABCMeta)):
+class BaseImportProvider(BaseImportInstanceProvider):
 
     @abc.abstractmethod
     def import_instance(self, ctxt, connection_info, target_environment,
@@ -120,8 +117,7 @@ class BaseImportProvider(BaseImportInstanceProvider,
         pass
 
 
-class BaseReplicaImportProvider(BaseImportInstanceProvider,
-                                with_metaclass(abc.ABCMeta)):
+class BaseReplicaImportProvider(BaseImportInstanceProvider):
 
     @abc.abstractmethod
     def deploy_replica_instance(self, ctxt, connection_info,
@@ -174,7 +170,7 @@ class BaseReplicaImportProvider(BaseImportInstanceProvider,
         pass
 
 
-class BaseExportProvider(BaseInstanceProvider, with_metaclass(abc.ABCMeta)):
+class BaseExportProvider(BaseInstanceProvider):
 
     @abc.abstractmethod
     def export_instance(self, ctxt, connection_info, instance_name,
@@ -185,8 +181,7 @@ class BaseExportProvider(BaseInstanceProvider, with_metaclass(abc.ABCMeta)):
         pass
 
 
-class BaseReplicaExportProvider(BaseInstanceProvider,
-                                with_metaclass(abc.ABCMeta)):
+class BaseReplicaExportProvider(BaseInstanceProvider):
 
     @abc.abstractmethod
     def get_replica_instance_info(self, ctxt, connection_info, instance_name):

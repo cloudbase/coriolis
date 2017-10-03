@@ -67,8 +67,7 @@ class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
         self._environment = environment
 
 
-class BaseLinuxOSMorphingTools(BaseOSMorphingTools,
-                               with_metaclass(abc.ABCMeta)):
+class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
 
     _packages = {}
 
