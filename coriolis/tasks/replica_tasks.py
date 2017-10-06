@@ -224,8 +224,10 @@ class DeployReplicaInstanceTask(base.TaskRunner):
             ctxt, connection_info, target_environment, instance,
             export_info, volumes_info, clone_disks)
 
-        task_info["instance_deployment_info"] = import_info[
-            "instance_deployment_info"]
+        if task_info.get("instance_deployment_info") is None:
+            task_info["instance_deployment_info"] = {}
+        task_info["instance_deployment_info"].update(import_info[
+            "instance_deployment_info"])
 
         task_info[
             "origin_provider_type"] = constants.PROVIDER_TYPE_REPLICA_EXPORT

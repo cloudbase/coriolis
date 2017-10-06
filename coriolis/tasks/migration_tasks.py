@@ -2,6 +2,7 @@
 # All Rights Reserved.
 
 from coriolis import constants
+from coriolis import events
 from coriolis.providers import factory as providers_factory
 from coriolis import schemas
 from coriolis import exception
@@ -46,8 +47,10 @@ class ImportInstanceTask(base.TaskRunner):
         import_info = provider.import_instance(
             ctxt, connection_info, target_environment, instance, export_info)
 
-        task_info["instance_deployment_info"] = import_info[
-            "instance_deployment_info"]
+        if task_info.get("instance_deployment_info") is None:
+            task_info["instance_deployment_info"] = {}
+        task_info["instance_deployment_info"].update(import_info[
+            "instance_deployment_info"])
 
         task_info["origin_provider_type"] = constants.PROVIDER_TYPE_EXPORT
         task_info["destination_provider_type"] = constants.PROVIDER_TYPE_IMPORT
@@ -152,5 +155,31 @@ class CleanupFailedImportInstanceTask(base.TaskRunner):
 
         provider.cleanup_failed_import_instance(
             ctxt, connection_info, instance_deployment_info)
+
+        return task_info
+
+
+class GetOptimalFlavorTask(base.TaskRunner):
+    def run(self, ctxt, instance, origin, destination, task_info,
+            event_handler):
+        provider = providers_factory.get_provider(
+            destination["type"], constants.PROVIDER_TYPE_INSTANCE_FLAVOR,
+            event_handler)
+
+        connection_info = base.get_connection_info(ctxt, destination)
+        target_environment = destination.get("target_environment") or {}
+        export_info = task_info["export_info"]
+
+        flavor = provider.get_optimal_flavor(
+            ctxt, connection_info, target_environment, export_info)
+
+        if task_info.get("instance_deployment_info") is None:
+            task_info["instance_deployment_info"] = {}
+        task_info["instance_deployment_info"]["selected_flavor"] = flavor
+
+        events.EventManager(event_handler).progress_update(
+            "Selected flavor: %s" % flavor)
+
+        task_info["retain_export_path"] = True
 
         return task_info

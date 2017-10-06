@@ -22,6 +22,8 @@ _TASKS_MAP = {
         migration_tasks.DeleteDiskCopyResources,
     constants.TASK_TYPE_CLEANUP_FAILED_IMPORT_INSTANCE:
         migration_tasks.CleanupFailedImportInstanceTask,
+    constants.TASK_TYPE_GET_OPTIMAL_FLAVOR:
+        migration_tasks.GetOptimalFlavorTask,
     constants.TASK_TYPE_DEPLOY_OS_MORPHING_RESOURCES:
         osmorphing_tasks.DeployOSMorphingResourcesTask,
     constants.TASK_TYPE_OS_MORPHING:
