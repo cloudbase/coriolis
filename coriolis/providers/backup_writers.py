@@ -162,6 +162,8 @@ class SSHBackupWriterImpl(BaseBackupWriterImpl):
             self._ssh = None
 
     def _handle_exception(self, ex):
+        super(SSHBackupWriterImpl, self)._handle_exception(ex)
+
         ret_val = None
         # if the application is still running on the other side,
         # recv_exit_status() will block. Check that we have an

@@ -39,7 +39,7 @@ class QEMUDiskImageReaderImpl(object):
         blk = qemu.blk_new_open(
             self._path.encode(), None, options, 0, ctypes.byref(error))
         if not blk:
-            raise exception.QEMUException(error.msg)
+            raise exception.QEMUException(error.contents.msg.decode())
 
         self._blk = blk
         self._bs = qemu.blk_bs(blk)
@@ -123,10 +123,10 @@ def _qemu_init():
     qemu.qemu_init_exec_dir('.'.encode())
 
     if qemu.qemu_init_main_loop(ctypes.byref(error)):
-        raise exception.QEMUException(error.msg)
+        raise exception.QEMUException(error.contents.msg.decode())
 
     if qemu.qcrypto_init(ctypes.byref(error)):
-        raise exception.QEMUException(error.msg)
+        raise exception.QEMUException(error.contents.msg.decode())
 
     qemu.module_call_init(qemu.MODULE_INIT_QOM)
     qemu.bdrv_init()
