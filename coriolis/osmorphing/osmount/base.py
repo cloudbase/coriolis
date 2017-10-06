@@ -7,6 +7,7 @@ import re
 
 from oslo_log import log as logging
 import paramiko
+from six import with_metaclass
 
 from coriolis import exception
 from coriolis import utils
@@ -14,8 +15,7 @@ from coriolis import utils
 LOG = logging.getLogger(__name__)
 
 
-class BaseOSMountTools(object):
-    __metaclass__ = abc.ABCMeta
+class BaseOSMountTools(object, with_metaclass(abc.ABCMeta)):
 
     def __init__(self, connection_info, event_manager, ignore_devices):
         self._event_manager = event_manager

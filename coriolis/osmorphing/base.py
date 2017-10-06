@@ -7,11 +7,12 @@ import os
 import re
 import uuid
 
+from six import with_metaclass
+
 from coriolis import utils
 
 
-class BaseOSMorphingTools(object):
-    __metaclass__ = abc.ABCMeta
+class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
 
     def __init__(
             self, conn, os_root_dir, os_root_device, hypervisor,
@@ -67,7 +68,6 @@ class BaseOSMorphingTools(object):
 
 
 class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
-    __metaclass__ = abc.ABCMeta
 
     _packages = {}
 
@@ -131,7 +131,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         try:
             self._exec_cmd_chroot("id -u %s" % username)
             return True
-        except:
+        except Exception:
             return False
 
     def _write_file_sudo(self, chroot_path, content):

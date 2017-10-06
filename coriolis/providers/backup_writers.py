@@ -9,6 +9,7 @@ import threading
 
 from oslo_log import log as logging
 import paramiko
+from six import with_metaclass
 
 from coriolis import data_transfer
 from coriolis import exception
@@ -17,7 +18,7 @@ from coriolis import utils
 LOG = logging.getLogger(__name__)
 
 
-class BaseBackupWriterImpl(metaclass=abc.ABCMeta):
+class BaseBackupWriterImpl(with_metaclass(abc.ABCMeta)):
     def __init__(self, path, disk_id):
         self._path = path
         self._disk_id = disk_id
@@ -46,7 +47,7 @@ class BaseBackupWriterImpl(metaclass=abc.ABCMeta):
         pass
 
 
-class BaseBackupWriter(metaclass=abc.ABCMeta):
+class BaseBackupWriter(with_metaclass(abc.ABCMeta)):
     @abc.abstractmethod
     def _get_impl(self, path, disk_id):
         pass

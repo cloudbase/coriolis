@@ -8,6 +8,9 @@ from coriolis import utils
 from oslo_config import cfg
 from oslo_log import log as logging
 
+from six import with_metaclass
+
+
 serialization_opts = [
     cfg.StrOpt('temp_keypair_password',
                default=None,
@@ -19,7 +22,7 @@ CONF.register_opts(serialization_opts, 'serialization')
 LOG = logging.getLogger(__name__)
 
 
-class TaskRunner(metaclass=abc.ABCMeta):
+class TaskRunner(with_metaclass(abc.ABCMeta)):
     @abc.abstractmethod
     def run(self, ctxt, instance, origin, destination, task_info,
             event_handler):
