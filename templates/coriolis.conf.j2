@@ -8,7 +8,7 @@ logging_debug_format_suffix = [00;33mfrom (pid=%(process)d) %(funcName)s %(path
 logging_default_format_string = %(asctime)s.%(msecs)03d %(color)s%(levelname)s %(name)s [[00;36m-%(color)s] [01;35m%(instance)s%(color)s%(message)s[00m
 logging_context_format_string = %(asctime)s.%(msecs)03d %(color)s%(levelname)s %(name)s [[01;36m%(request_id)s [00;36m %(color)s] [01;35m%(instance)s%(color)s%(message)s[00m
 
-providers=coriolis_provider_openstack.ExportProvider,coriolis_provider_openstack.ImportProvider,coriolis_provider_vmware_vsphere.ExportProvider,coriolis_provider_oracle_vm.ImportProvider
+providers=coriolis_provider_openstack.ExportProvider,coriolis_provider_openstack.ImportProvider,coriolis_provider_vmware_vsphere.ExportProvider,coriolis_provider_oracle_vm.ImportProvider,coriolis_provider_opc.ImportProvider
 
 [database]
 connection = mysql://{{ coriolis_database_name }}:{{ coriolis_database_password }}@{{ database_address }}/{{ coriolis_database_name }}
@@ -79,6 +79,22 @@ server_pool_name = pool1
 repository_name = repo1
 # virtual_disk_clone_type can be: THIN_CLONE, SPARSE_COPY, NON_SPARSE_COPY
 virtual_disk_clone_type = THIN_CLONE
+windows_pv_drivers_url = https://cloudbase.it/downloads/ovm_win_pv_drivers_all_323.zip
+
+[opc_migration_provider]
+# Linux and Windows images for the temporary Worker VMs:
+migr_image_name_map = linux: /oracle/public/OL_7.2_UEKR4_x86_64, windows: /Compute-a488347/gsamfira@cloudbasesolutions.com/Windows_2012_R2
+
+# The shape to use for the migration Worker VMs:
+migr_shape_name = oc3
+
+# If this option is used, please disable clone disks when deploying form replica
+# colocated snapshots are faster, but they create a dependency chain
+# parent volume --> snapshot --> restored volume
+# only the top level object can be deleted.
+use_colocated_snapshots = true
+
+# URL of a zip file with the Windows PV drivers:
 windows_pv_drivers_url = https://cloudbase.it/downloads/ovm_win_pv_drivers_all_323.zip
 
 [serialization]
