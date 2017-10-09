@@ -412,12 +412,24 @@ class ConductorServerEndpoint(object):
                 "A replica must have been executed succesfully in order "
                 "to be migrated")
 
+    def _get_provider_types(self, ctxt, endpoint):
+        provider_types = self.get_available_providers(ctxt).get(endpoint.type)
+        if provider_types is None:
+            raise exception.NotFound(
+                "No provider found for: %s" % endpoint.type)
+        return provider_types["types"]
+
     @replica_synchronized
     def deploy_replica_instances(self, ctxt, replica_id, clone_disks, force,
                                  skip_os_morphing=False):
         replica = self._get_replica(ctxt, replica_id)
         self._check_replica_running_executions(ctxt, replica)
         self._check_valid_replica_tasks_execution(replica, force)
+
+        destination_endpoint = self.get_endpoint(
+            ctxt, replica.destination_endpoint_id)
+        destination_provider_types = self._get_provider_types(
+            ctxt, destination_endpoint)
 
         for instance, info in replica.info.items():
             if not info.get("volumes_info"):
@@ -447,9 +459,19 @@ class ConductorServerEndpoint(object):
         execution.number = 1
 
         for instance in instances:
+            create_snapshot_task_depends_on = []
+
+            if (constants.PROVIDER_TYPE_INSTANCE_FLAVOR in
+                    destination_provider_types):
+                get_optimal_flavor_task = self._create_task(
+                    instance, constants.TASK_TYPE_GET_OPTIMAL_FLAVOR,
+                    execution)
+                create_snapshot_task_depends_on.append(
+                    get_optimal_flavor_task.id)
+
             create_snapshot_task = self._create_task(
                 instance, constants.TASK_TYPE_CREATE_REPLICA_DISK_SNAPSHOTS,
-                execution)
+                execution, depends_on=create_snapshot_task_depends_on)
 
             deploy_replica_task = self._create_task(
                 instance, constants.TASK_TYPE_DEPLOY_REPLICA_INSTANCE,
@@ -510,6 +532,9 @@ class ConductorServerEndpoint(object):
         destination_endpoint = self.get_endpoint(ctxt, destination_endpoint_id)
         self._check_endpoints(ctxt, origin_endpoint, destination_endpoint)
 
+        destination_provider_types = self._get_provider_types(
+            ctxt, destination_endpoint)
+
         migration = models.Migration()
         migration.id = str(uuid.uuid4())
         migration.origin_endpoint = origin_endpoint
@@ -527,9 +552,18 @@ class ConductorServerEndpoint(object):
             task_export = self._create_task(
                 instance, constants.TASK_TYPE_EXPORT_INSTANCE, execution)
 
+            if (constants.PROVIDER_TYPE_INSTANCE_FLAVOR in
+                    destination_provider_types):
+                get_optimal_flavor_task = self._create_task(
+                    instance, constants.TASK_TYPE_GET_OPTIMAL_FLAVOR,
+                    execution, depends_on=[task_export.id])
+                next_task = get_optimal_flavor_task.id
+            else:
+                next_task = task_export.id
+
             task_import = self._create_task(
                 instance, constants.TASK_TYPE_IMPORT_INSTANCE,
-                execution, depends_on=[task_export.id])
+                execution, depends_on=[next_task])
 
             task_deploy_disk_copy_resources = self._create_task(
                 instance, constants.TASK_TYPE_DEPLOY_DISK_COPY_RESOURCES,

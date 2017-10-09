@@ -207,6 +207,13 @@ class BaseReplicaExportProvider(BaseInstanceProvider):
         pass
 
 
+class BaseInstanceFlavorProvider(BaseProvider):
+    @abc.abstractmethod
+    def get_optimal_flavor(self, ctxt, connection_info, target_environment,
+                           export_info):
+        pass
+
+
 def get_os_morphing_tools_helper(conn, os_morphing_tools_clss,
                                  hypervisor_type, os_type, os_root_dir,
                                  os_root_dev, event_manager):
