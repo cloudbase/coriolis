@@ -10,7 +10,7 @@ yum-config-manager --enable ol7_optional_latest && \
 yum-config-manager --enablerepo=ol7_latest
 RUN yum install deltarpm -y
 
-RUN yum install --setopt=tsflags=nodocs rh-python35 gcc make zlib-devel mysql-devel -y
+RUN yum install --setopt=tsflags=nodocs rh-python35 libffi-devel gcc make zlib-devel mysql-devel -y
 RUN echo "source /opt/rh/rh-python35/enable" >> .bashrc
 ENV BASH_ENV "/opt/rh/rh-python35/enable"
 
