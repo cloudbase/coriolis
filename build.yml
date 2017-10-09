@@ -24,16 +24,16 @@
         dest: ./build/coriolis-web-vhost.conf
 
     - name: Cloning coriolis git repositories
-      git: repo={{ item.url }} dest=./build/{{item.name}} update=yes force=yes
+      git: repo={{ item.url }} dest=./build/{{item.name}} update=yes force=yes version={{item.version}}
       with_items:
-        - { url: "git@bitbucket.org:cloudbase/coriolis-core.git", name: coriolis-core}
-        - { url: "git@bitbucket.org:cloudbase/coriolis-provider-oracle-vm.git", name: coriolis-provider-oracle-vm}
-        - { url: "git@bitbucket.org:cloudbase/coriolis-provider-opc.git", name: coriolis-provider-opc}
-        - { url: "git@bitbucket.org:cloudbase/coriolis-provider-vmware.git", name: coriolis-provider-vmware}
-        - { url: "git@bitbucket.org:cloudbase/coriolis-provider-aws.git", name: coriolis-provider-aws}
-        - { url: "git@bitbucket.org:cloudbase/coriolis-provider-openstack.git", name: coriolis-provider-openstack}
-        - { url: "git@bitbucket.org:cloudbase/coriolis-provider-azure.git", name: coriolis-provider-azure}
-        - { url: "https://github.com/cloudbase/coriolis-web", name: coriolis-web}
+        - { url: "git@bitbucket.org:cloudbase/coriolis-core.git", name: coriolis-core, version: master}
+        - { url: "git@bitbucket.org:cloudbase/coriolis-provider-oracle-vm.git", name: coriolis-provider-oracle-vm, version: master}
+        - { url: "git@bitbucket.org:cloudbase/coriolis-provider-opc.git", name: coriolis-provider-opc, version: master}
+        - { url: "git@bitbucket.org:cloudbase/coriolis-provider-vmware.git", name: coriolis-provider-vmware, version: master}
+        - { url: "git@bitbucket.org:cloudbase/coriolis-provider-aws.git", name: coriolis-provider-aws, version: master}
+        - { url: "git@bitbucket.org:cloudbase/coriolis-provider-openstack.git", name: coriolis-provider-openstack, version: master}
+        - { url: "git@bitbucket.org:cloudbase/coriolis-provider-azure.git", name: coriolis-provider-azure, version: master}
+        - { url: "https://github.com/cloudbase/coriolis-web", name: coriolis-web, version: master}
 
     - name: Downloading VMware disklib
       get_url:
