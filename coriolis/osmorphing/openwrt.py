@@ -25,3 +25,7 @@ class BaseOpenWRTMorphingTools(base.BaseLinuxOSMorphingTools):
 
     def post_packages_uninstall(self, package_names):
         pass
+
+    def set_net_config(self, nics_info, dhcp):
+        pass
+
