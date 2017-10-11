@@ -196,7 +196,7 @@ class WorkerServerEndpoint(object):
             ctxt, secret_connection_info, instance_name)
 
         schemas.validate_value(
-            instance_info, schemas.CORIOLIS_VM_INSTANCE_INFO_SCHEMA)
+            instance_info, schemas.CORIOLIS_VM_EXPORT_INFO_SCHEMA)
 
         return instance_info
 
