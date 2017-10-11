@@ -75,7 +75,7 @@ glance_api_version = 1
 hypervisor_type = kvm
 delete_disks_on_vm_termination = True
 # default_security_groups = secgroup1, secgroup2
-migr_network_name = private
+migr_network = private
 migr_worker_use_fip = True
 migr_fip_pool_name = public
 migr_flavor_name = m1.small
@@ -103,6 +103,8 @@ migr_template_password = coriolis
 migr_network_name = Management
 server_pool_name = pool1
 repository_name = repo1
+# Can be 'keep_mac', 'reuse_ports' or 'replace_mac'
+port_reuse_policy = keep_mac
 # virtual_disk_clone_type can be: THIN_CLONE, SPARSE_COPY, NON_SPARSE_COPY
 virtual_disk_clone_type = THIN_CLONE
 windows_pv_drivers_url = https://cloudbase.it/downloads/ovm_win_pv_drivers_all_323.zip
