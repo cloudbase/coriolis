@@ -83,6 +83,8 @@ def add_endpoint(context, endpoint):
 @enginefacade.writer
 def update_endpoint(context, endpoint_id, updated_values):
     endpoint = get_endpoint(context, endpoint_id)
+    if not endpoint:
+        raise exception.NotFound("Endpoint not found")
     for n in ["name", "description", "connection_info"]:
         if n in updated_values:
             setattr(endpoint, n, updated_values[n])
