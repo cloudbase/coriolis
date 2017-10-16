@@ -31,26 +31,26 @@ class BaseEndpointProvider(BaseProvider):
 
 
 class BaseEndpointInstancesProvider(BaseEndpointProvider):
-    """ Defines operations for listing instances off of Endpoints """
+    """Defines operations for listing instances off of Endpoints."""
 
     @abc.abstractmethod
     def get_instances(self, ctxt, connection_info, limit=None,
                       last_seen_id=None, instance_name_pattern=None):
-        """ Returns a list of instances """
+        """Returns a list of instances."""
         raise NotImplementedError()
 
     @abc.abstractmethod
     def get_instance(self, ctxt, connection_info, instance_name):
-        """ Returns detailed info for a given instance """
+        """Returns detailed info for a given instance."""
         raise NotImplementedError()
 
 
 class BaseEndpointNetworksProvider(object, with_metaclass(abc.ABCMeta)):
-    """ Defines operations for endpoints networks """
+    """Defines operations for endpoints networks."""
 
     @abc.abstractmethod
     def get_networks(self, ctxt, connection_info, env):
-        """ Returns a list of networks """
+        """Returns a list of networks """
         raise NotImplementedError()
 
 
@@ -90,7 +90,9 @@ class BaseImportProvider(BaseImportInstanceProvider):
     @abc.abstractmethod
     def import_instance(self, ctxt, connection_info, target_environment,
                         instance_name, export_info):
-        """ Imports the instance given by its name to the specified target
+        """Imports the given instance.
+
+        Imports the instance given by its name to the specified target
         environment within the destination cloud based on the provided
         connection and export info.
         """
@@ -175,7 +177,9 @@ class BaseExportProvider(BaseInstanceProvider):
     @abc.abstractmethod
     def export_instance(self, ctxt, connection_info, instance_name,
                         export_path):
-        """ Exports the instance given by its name from the given source cloud
+        """Exports the given instance.
+
+         Exports the instance given by its name from the given source cloud
         to the provided export directory path using the given connection info.
         """
         pass

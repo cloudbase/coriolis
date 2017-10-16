@@ -101,7 +101,7 @@ def delete_trust(ctxt):
 def create_keystone_session(ctxt, connection_info={}):
     allow_untrusted = connection_info.get(
         "allow_untrusted", CONF.keystone.allow_untrusted)
-    # TODO: add "ca_cert" to connection_info
+    # TODO(alexpilotti): add "ca_cert" to connection_info
     verify = not allow_untrusted
 
     username = connection_info.get("username")

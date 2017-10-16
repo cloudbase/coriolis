@@ -1,11 +1,11 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from distutils import version
 import os
 import re
 import uuid
 
-from distutils import version
 from oslo_log import log as logging
 
 from coriolis import exception
@@ -32,7 +32,7 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
             LOG.debug("Exception during OS detection: %s", ex)
 
     def set_net_config(self, nics_info, dhcp):
-        # TODO: implement
+        # TODO(alexpilotti): implement
         pass
 
     def _get_dism_path(self):

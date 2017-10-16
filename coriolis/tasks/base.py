@@ -3,13 +3,11 @@
 
 import abc
 
-from coriolis import utils
-
 from oslo_config import cfg
 from oslo_log import log as logging
-
 from six import with_metaclass
 
+from coriolis import utils
 
 serialization_opts = [
     cfg.StrOpt('temp_keypair_password',

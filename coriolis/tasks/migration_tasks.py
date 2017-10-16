@@ -1,15 +1,15 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from oslo_log import log as logging
+
 from coriolis import constants
 from coriolis import events
-from coriolis.providers import factory as providers_factory
-from coriolis import schemas
 from coriolis import exception
 from coriolis.migrations import manager
+from coriolis.providers import factory as providers_factory
+from coriolis import schemas
 from coriolis.tasks import base
-
-from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ class ImportInstanceTask(base.TaskRunner):
         task_info["origin_provider_type"] = constants.PROVIDER_TYPE_EXPORT
         task_info["destination_provider_type"] = constants.PROVIDER_TYPE_IMPORT
         # We need to retain export info until after disk sync
-        # TODO (gsamfira): remove this when we implement multi-worker, and by
+        # TODO(gsamfira): remove this when we implement multi-worker, and by
         # extension some external storage for needed resources (like swift)
         task_info["retain_export_path"] = True
 
@@ -83,7 +83,7 @@ class DeployDiskCopyResources(base.TaskRunner):
         task_info["instance_deployment_info"][
             "disk_sync_connection_info"] = conn_info
         # We need to retain export info until after disk sync
-        # TODO (gsamfira): remove this when we implement multi-worker, and by
+        # TODO(gsamfira): remove this when we implement multi-worker, and by
         # extension some external storage for needed resources (like swift)
         task_info["retain_export_path"] = True
 

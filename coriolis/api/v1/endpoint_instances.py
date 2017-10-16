@@ -4,8 +4,8 @@
 from oslo_log import log as logging
 
 from coriolis.api import common
-from coriolis.api import wsgi as api_wsgi
 from coriolis.api.v1.views import endpoint_instance_view
+from coriolis.api import wsgi as api_wsgi
 from coriolis.endpoint_instances import api
 from coriolis import utils
 

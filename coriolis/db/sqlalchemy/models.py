@@ -60,10 +60,10 @@ class Task(BASE, models.TimestampMixin, models.SoftDeleteMixin,
     exception_details = sqlalchemy.Column(sqlalchemy.Text, nullable=True)
     depends_on = sqlalchemy.Column(types.List, nullable=True)
     on_error = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False)
-    # TODO: Add soft delete filter
+    # TODO(alexpilotti): Add soft delete filter
     events = orm.relationship(TaskEvent, cascade="all,delete",
                               backref=orm.backref('task'))
-    # TODO: Add soft delete filter
+    # TODO(alexpilotti): Add soft delete filter
     progress_updates = orm.relationship(TaskProgressUpdate,
                                         cascade="all,delete",
                                         backref=orm.backref('task'))
@@ -79,7 +79,7 @@ class TasksExecution(BASE, models.TimestampMixin, models.ModelBase,
     action_id = sqlalchemy.Column(
         sqlalchemy.String(36),
         sqlalchemy.ForeignKey('base_transfer_action.base_id'), nullable=False)
-    # TODO: Add soft delete filter
+    # TODO(alexpilotti): Add soft delete filter
     tasks = orm.relationship(Task, cascade="all,delete",
                              backref=orm.backref('execution'))
     status = sqlalchemy.Column(sqlalchemy.String(100), nullable=False)

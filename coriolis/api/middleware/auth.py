@@ -1,11 +1,10 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-import webob
-
 from oslo_log import log as logging
 from oslo_middleware import request_id
 from oslo_serialization import jsonutils
+import webob
 
 from coriolis.api import wsgi
 from coriolis import context

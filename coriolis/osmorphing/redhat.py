@@ -70,7 +70,7 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         try:
             self._exec_cmd_chroot("rpm -q systemd")
             return True
-        except:
+        except Exception:
             return False
 
     def _set_dhcp_net_config(self, ifcfgs_ethernet):

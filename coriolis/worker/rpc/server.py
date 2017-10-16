@@ -1,17 +1,17 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-from logging import handlers
 import multiprocessing
 import os
-import queue
 import shutil
 import signal
 import sys
 
-import psutil
+from logging import handlers
 from oslo_config import cfg
 from oslo_log import log as logging
+import psutil
+from six.moves import queue
 
 from coriolis.conductor.rpc import client as rpc_conductor_client
 from coriolis import constants
@@ -152,7 +152,8 @@ class WorkerServerEndpoint(object):
             if new_task_info:
                 LOG.info("Task info: %s", new_task_info)
 
-            # TODO: replace the temp storage with a host independent option
+            # TODO(alexpilotti): replace the temp storage with a host
+            # independent option
             retain_export_path = new_task_info.get("retain_export_path", False)
             if not retain_export_path:
                 del new_task_info["export_path"]

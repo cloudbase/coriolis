@@ -18,14 +18,15 @@
 WSGI middleware for OpenStack API controllers.
 """
 
-from oslo_log import log as logging
-from oslo_service import wsgi as base_wsgi
 from paste import urlmap
 import routes
 
+from oslo_log import log as logging
+from oslo_service import wsgi as base_wsgi
+
 from coriolis.api import wsgi
 from coriolis import exception
-from coriolis.i18n import _, _LW
+from coriolis.i18n import _, _LW  # noqa
 
 
 LOG = logging.getLogger(__name__)

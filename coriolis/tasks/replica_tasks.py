@@ -1,13 +1,13 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from oslo_log import log as logging
+
 from coriolis import constants
 from coriolis import exception
 from coriolis.providers import factory as providers_factory
 from coriolis import schemas
 from coriolis.tasks import base
-
-from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
 

@@ -48,6 +48,7 @@ def _model_query(context, *args):
 
 def _soft_delete_aware_query(context, *args, **kwargs):
     """Query helper that accounts for context's `show_deleted` field.
+
     :param show_deleted: if True, overrides context's show_deleted field.
     """
     query = _model_query(context, *args)

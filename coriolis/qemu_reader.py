@@ -99,7 +99,7 @@ class QEMUDiskImageReaderImpl(object):
         if ret < 0:
             raise exception.QEMUException("blk_pread failed")
 
-        return (ctypes.c_ubyte*read_size).from_address(self._buf)
+        return (ctypes.c_ubyte * read_size).from_address(self._buf)
 
 
 class QEMUDiskImageReader(object):

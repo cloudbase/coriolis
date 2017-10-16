@@ -1,9 +1,9 @@
-""" Defines base classes for all provider tests. """
+"""Defines base classes for all provider tests."""
 
 import mock
 
-from coriolis.tests import testutils
 from coriolis.tests import test_base
+from coriolis.tests import testutils
 
 
 class ProvidersBaseTestCase(test_base.CoriolisBaseTestCase):

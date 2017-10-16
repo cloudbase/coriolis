@@ -3,8 +3,8 @@
 
 from webob import exc
 
-from coriolis.api import wsgi as api_wsgi
 from coriolis.api.v1.views import replica_tasks_execution_view
+from coriolis.api import wsgi as api_wsgi
 from coriolis import exception
 from coriolis.replica_tasks_executions import api
 
@@ -35,7 +35,7 @@ class ReplicaTasksExecutionController(api_wsgi.Controller):
                 include_tasks=True))
 
     def create(self, req, replica_id, body):
-        # TODO: validate body
+        # TODO(alexpilotti): validate body
 
         execution_body = body.get("execution", {})
         shutdown_instances = execution_body.get("shutdown_instances", False)

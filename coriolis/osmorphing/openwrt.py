@@ -28,4 +28,3 @@ class BaseOpenWRTMorphingTools(base.BaseLinuxOSMorphingTools):
 
     def set_net_config(self, nics_info, dhcp):
         pass
-

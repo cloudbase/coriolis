@@ -3,8 +3,8 @@
 
 from oslo_log import log as logging
 
-from coriolis.api import wsgi as api_wsgi
 from coriolis.api.v1.views import endpoint_network_view
+from coriolis.api import wsgi as api_wsgi
 from coriolis.endpoint_networks import api
 from coriolis import utils
 

@@ -1,15 +1,12 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-import eventlet
-eventlet.monkey_patch()
+import sys
 
-import sys # noqa
+from oslo_config import cfg
 
-from coriolis import service # noqa
-from coriolis import utils # noqa
-
-from oslo_config import cfg # noqa
+from coriolis import service
+from coriolis import utils
 
 CONF = cfg.CONF
 

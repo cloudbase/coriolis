@@ -4,8 +4,8 @@
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from coriolis import exception
 from coriolis import events
+from coriolis import exception
 from coriolis.osmorphing.osmount import factory as osmount_factory
 
 proxy_opts = [

@@ -1,16 +1,16 @@
 # Copyright 2017 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-import eventlet
 import gc
 import sys
 
+import eventlet
 from oslo_log import log as logging
 from oslo_utils import units
 
 from coriolis import events
-from coriolis import qemu_reader
 from coriolis.providers import backup_writers
+from coriolis import qemu_reader
 from coriolis import utils
 
 LOG = logging.getLogger(__name__)
@@ -64,7 +64,7 @@ def _copy_wrapper(job_args):
 
 
 def copy_disk_data(target_conn_info, volumes_info, event_handler):
-    # TODO (gsamfira): the disk image should be an URI that can either be local
+    # TODO(gsamfira): the disk image should be an URI that can either be local
     # (file://) or remote (https://, ftp://, smb://, nfs:// etc).
     # This must happen if we are to implement multi-worker scenarios.
     # In such cases, it is not guaranteed that the disk sync task
@@ -92,7 +92,7 @@ def copy_disk_data(target_conn_info, volumes_info, event_handler):
     job_data = [(vol, disk_image_reader, backup_writer, event_manager)
                 for vol in volumes_info]
     for result, disk_id, error in pool.imap(_copy_wrapper, job_data):
-        # TODO (gsamfira): There is no use in letting the other disks finish
+        # TODO(gsamfira): There is no use in letting the other disks finish
         # sync-ing as we don't save the state of the disk sync anywhere (yet).
         # When/If we ever do add this info to the database, keep track of
         # failures, and allow any other paralel sync to finish
