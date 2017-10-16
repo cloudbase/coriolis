@@ -29,7 +29,7 @@
     "os_type": {
       "type": "string",
       "description": "The generic type of the operating system installed on the VM.",
-      "enum": ["bsd", "linux", "osx", "solaris", "windows"]
+      "enum": ["bsd", "linux", "osx", "solaris", "windows", "other"]
     },
     "os_info": {
       "type": "object",
