@@ -12,12 +12,12 @@ RUN yum install -y qemu-img
 # decrypting the password of a Windows worker machine.
 RUN yum install -y openssl
 
-RUN /bin/bash -c "pip3 install ./coriolis-provider-oracle-vm"
-RUN /bin/bash -c "pip3 install ./coriolis-provider-opc"
-RUN /bin/bash -c "pip3 install ./coriolis-provider-vmware"
-RUN /bin/bash -c "pip3 install ./coriolis-provider-aws"
-RUN /bin/bash -c "pip3 install ./coriolis-provider-openstack"
-RUN /bin/bash -c "pip3 install ./coriolis-provider-azure"
+RUN /bin/bash -c "pip3 install -e ./coriolis-provider-oracle-vm"
+RUN /bin/bash -c "pip3 install -e ./coriolis-provider-opc"
+RUN /bin/bash -c "pip3 install -e ./coriolis-provider-vmware"
+RUN /bin/bash -c "pip3 install -e ./coriolis-provider-aws"
+RUN /bin/bash -c "pip3 install -e ./coriolis-provider-openstack"
+RUN /bin/bash -c "pip3 install -e ./coriolis-provider-azure"
 
 ADD libnfs.x86_64.rpm /root
 RUN rpm -Uvh libnfs.x86_64.rpm
