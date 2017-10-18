@@ -4,7 +4,7 @@ WORKDIR /root
 
 ADD coriolis-core/ coriolis-core
 RUN /bin/bash -c "pip3 install git+https://github.com/cloudbase/pywinrm.git@requests#egg=pywinrm"
-RUN /bin/bash -c "pip3 install ./coriolis-core"
+RUN /bin/bash -c "pip3 install -e ./coriolis-core"
 
 # This can be mapped in a volume
 RUN mkdir -p /var/log/coriolis
