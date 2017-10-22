@@ -13,6 +13,7 @@
         - { name: Dockerfile.common}
         - { name: Dockerfile.api}
         - { name: Dockerfile.conductor}
+        - { name: Dockerfile.replica_scheduler}
         - { name: Dockerfile.worker}
         - { name: Dockerfile.web}
         - { name: Dockerfile.webproxy}
@@ -64,6 +65,7 @@
         - { dockerfile: Dockerfile.common, name: coriolis-common}
         - { dockerfile: Dockerfile.api, name: coriolis-api}
         - { dockerfile: Dockerfile.conductor, name: coriolis-conductor}
+        - { dockerfile: Dockerfile.replica_scheduler, name: coriolis-schedule-worker}
         - { dockerfile: Dockerfile.worker, name: coriolis-worker}
         - { dockerfile: Dockerfile.web, name: coriolis-web}
         - { dockerfile: Dockerfile.webproxy, name: coriolis-web-proxy}
