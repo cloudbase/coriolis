@@ -197,7 +197,7 @@
     - name: coriolis-schedule-worker container
       docker_container:
         name: coriolis-schedule-worker
-        image: "{{ docker_registry }}/coriolis-conductor:{{ docker_images_tag }}"
+        image: "{{ docker_registry }}/coriolis-schedule-worker:{{ docker_images_tag }}"
         pull: yes
         hostname: coriolis-schedule-worker
         state: started
