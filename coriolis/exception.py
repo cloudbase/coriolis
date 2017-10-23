@@ -24,7 +24,7 @@ import webob.exc
 from webob.util import status_generic_reasons
 from webob.util import status_reasons
 
-from coriolis.i18n import _, _LE
+from coriolis.i18n import _, _LE  # noqa
 
 
 LOG = logging.getLogger(__name__)
@@ -306,3 +306,10 @@ class SchemaValidationException(CoriolisException):
 
 class QEMUException(Exception):
     pass
+
+
+if six.PY2:
+    class ConnectionRefusedError(OSError):
+        pass
+else:
+    ConnectionRefusedError = six.moves.builtins.ConnectionRefusedError

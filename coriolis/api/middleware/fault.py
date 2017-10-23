@@ -21,7 +21,7 @@ import webob.exc
 
 from coriolis.api import wsgi
 from coriolis import exception
-from coriolis.i18n import _, _LE, _LI
+from coriolis.i18n import _, _LE, _LI  # noqa
 from coriolis import utils
 
 

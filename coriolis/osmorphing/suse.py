@@ -30,7 +30,7 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
             return ('SUSE', release)
 
     def set_net_config(self, nics_info, dhcp):
-        # TODO: add networking support
+        # TODO(alexpilotti): add networking support
         pass
 
     def _run_dracut(self):
@@ -50,7 +50,7 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
         try:
             self._exec_cmd_chroot("rpm -q systemd")
             return True
-        except:
+        except Exception:
             return False
 
     def install_packages(self, package_names):

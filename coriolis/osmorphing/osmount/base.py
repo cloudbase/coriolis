@@ -184,15 +184,15 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
             self._exec_cmd('sudo mount %s %s' % (dev_path, tmp_dir))
             dirs = self._exec_cmd('ls %s' % tmp_dir).decode().split('\n')
 
-            # TODO: better ways to check for a linux root?
+            # TODO(alexpilotti): better ways to check for a linux root?
             if (not os_root_dir and 'etc' in dirs and 'bin' in dirs and
                     'sbin' in dirs):
                 os_root_dir = tmp_dir
                 os_root_device = dev_path
                 LOG.info("OS root device: %s", dev_path)
-            # TODO: better ways to check for a linux boot dir?
+            # TODO(alexpilotti): better ways to check for a linux boot dir?
             else:
-                # TODO: better ways to check for a linux boot dir?
+                # TODO(alexpilotti): better ways to check for a linux boot dir?
                 if not boot_dev_path and ('grub' in dirs or 'grub2' in dirs):
                     # Needs to be remounted under os_root_dir
                     boot_dev_path = dev_path

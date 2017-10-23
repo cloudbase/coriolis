@@ -1,12 +1,11 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from oslo_log import log as logging
 from webob import exc
 
-from oslo_log import log as logging
-
-from coriolis.api import wsgi as api_wsgi
 from coriolis.api.v1.views import migration_view
+from coriolis.api import wsgi as api_wsgi
 from coriolis import exception
 from coriolis.migrations import api
 
@@ -57,7 +56,7 @@ class MigrationController(api_wsgi.Controller):
             raise exception.InvalidInput(msg)
 
     def create(self, req, body):
-        # TODO: validate body
+        # TODO(alexpilotti): validate body
         migration_body = body.get("migration", {})
         context = req.environ['coriolis.context']
 

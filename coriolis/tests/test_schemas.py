@@ -2,10 +2,10 @@
 # All Rights Reserved.
 
 import json
-import jsonschema
-import mock
 
 import jinja2
+import jsonschema
+import mock
 
 from coriolis import schemas
 from coriolis.tests import test_base
@@ -25,7 +25,7 @@ def _get_mock_template_env():
 
 
 class SchemasTestCase(test_base.CoriolisBaseTestCase):
-    """ Collection of tests for the Coriolis schemas package. """
+    """Collection of tests for the Coriolis schemas package."""
 
     def setUp(self):
         super(SchemasTestCase, self).setUp()

@@ -5,16 +5,16 @@ from oslo_log import log as logging
 
 from coriolis import api
 from coriolis.api.v1 import endpoint_actions
-from coriolis.api.v1 import endpoints
 from coriolis.api.v1 import endpoint_instances
 from coriolis.api.v1 import endpoint_networks
-from coriolis.api.v1 import migrations
+from coriolis.api.v1 import endpoints
 from coriolis.api.v1 import migration_actions
+from coriolis.api.v1 import migrations
 from coriolis.api.v1 import provider_schemas
 from coriolis.api.v1 import providers
 from coriolis.api.v1 import replica_actions
-from coriolis.api.v1 import replica_tasks_executions
 from coriolis.api.v1 import replica_tasks_execution_actions
+from coriolis.api.v1 import replica_tasks_executions
 from coriolis.api.v1 import replicas
 
 LOG = logging.getLogger(__name__)

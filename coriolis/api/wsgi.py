@@ -23,10 +23,11 @@ from oslo_serialization import jsonutils
 from oslo_utils import excutils
 import six
 import webob
+import webob.dec
 
 from coriolis import exception
 from coriolis import i18n
-from coriolis.i18n import _, _LE, _LI
+from coriolis.i18n import _, _LE, _LI  # noqa
 
 
 LOG = logging.getLogger(__name__)
@@ -319,6 +320,7 @@ class Request(webob.Request):
 
 class Middleware(Application):
     """Base WSGI middleware.
+
     These classes require an application to be
     initialized that will be called next.  By default the middleware will
     simply call its wrapped app, or you can override __call__ to customize its
@@ -328,6 +330,7 @@ class Middleware(Application):
     @classmethod
     def factory(cls, global_config, **local_config):
         """Used for paste app factories in paste.deploy config files.
+
         Any local configuration (that is, values under the [filter:APPNAME]
         section of the paste config) will be passed into the `__init__` method
         as kwargs.
@@ -350,6 +353,7 @@ class Middleware(Application):
 
     def process_request(self, req):
         """Called on each request.
+
         If this returns None, the next application down the stack will be
         executed. If it returns a response then that response will be returned
         and execution will stop here.
@@ -1250,6 +1254,7 @@ def _set_request_id_header(req, headers):
 
 def _check_string_length(value, name, min_length=0, max_length=None):
     """Check the length of specified string.
+
     :param value: the value of the string
     :param name: the name of the string
     :param min_length: the min_length of the string

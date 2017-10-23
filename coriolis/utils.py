@@ -54,8 +54,9 @@ def ignore_exceptions(func):
 
 
 def get_single_result(lis):
-    """ Indexes the head of a single element list.
-    Raises a KeyError if the list is empty or its length is greater than 1.
+    """Indexes the head of a single element list.
+
+    :raises KeyError: if the list is empty or its length is greater than 1.
     """
     if len(lis) == 0:
         raise KeyError("Result list is empty.")
@@ -198,7 +199,7 @@ def _check_port_open(host, port):
         s.settimeout(1)
         s.connect((host, port))
         return True
-    except (ConnectionRefusedError, socket.timeout, OSError):
+    except (exception.ConnectionRefusedError, socket.timeout, OSError):
         return False
     finally:
         s.close()
@@ -324,9 +325,7 @@ def to_dict(obj, max_depth=10):
 
 def topological_graph_sorting(items, id="id", depends_on="depends_on",
                               sort_key=None):
-    """
-    Kahn's algorithm
-    """
+    """Kahn's algorithm"""
     if sort_key:
         # Sort siblings
         items = sorted(items, key=lambda t: t[sort_key], reverse=True)
@@ -405,7 +404,7 @@ def quote_url(text):
 def get_url_with_credentials(url, username, password):
     parts = parse.urlsplit(url)
     # Remove previous credentials if set
-    netloc = parts.netloc[parts.netloc.find('@')+1:]
+    netloc = parts.netloc[parts.netloc.find('@') + 1:]
     netloc = "%s:%s@%s" % (
         quote_url(username), quote_url(password or ''), netloc)
     parts = parts._replace(netloc=netloc)

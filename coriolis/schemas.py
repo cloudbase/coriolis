@@ -1,13 +1,12 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-""" Defines various schemas used for validation throughout the project. """
+"""Defines various schemas used for validation throughout the project."""
 
 import json
 
 import jinja2
 import jsonschema
-
 from oslo_log import log as logging
 
 from coriolis import exception
@@ -29,7 +28,9 @@ _CORIOLIS_VM_NETWORK_SCHEMA_NAME = "vm_network_schema.json"
 
 def get_schema(package_name, schema_name,
                schemas_directory=DEFAULT_SCHEMAS_DIRECTORY):
-    """ Loads the schema with the given 'schema_name' using jinja2 template
+    """Loads the schema using jinja2 template loading.
+
+    Loads the schema with the given 'schema_name' using jinja2 template
     loading from the provided 'package_name' under the given
     'schemas_directory'.
     """
@@ -44,7 +45,7 @@ def get_schema(package_name, schema_name,
 
 
 def validate_value(val, schema):
-    """ Simple wrapper for jsonschema.validate for usability.
+    """Simple wrapper for jsonschema.validate for usability.
 
     NOTE: silently passes empty schemas.
     """
@@ -59,8 +60,7 @@ def validate_value(val, schema):
 
 
 def validate_string(json_string, schema):
-    """ Attempts to validate the json value provided as a string against the
-    given JSON schema.
+    """Attempts to validate the given json string against the JSON schema.
 
     Runs silently on success or raises an exception otherwise.
     Silently passes empty schemas.

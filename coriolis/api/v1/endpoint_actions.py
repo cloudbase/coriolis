@@ -4,8 +4,8 @@
 from webob import exc
 
 from coriolis.api import wsgi as api_wsgi
-from coriolis import exception
 from coriolis.endpoints import api
+from coriolis import exception
 
 
 class EndpointActionsController(api_wsgi.Controller):

@@ -1,7 +1,7 @@
+import os
+import platform
 import setuptools
 import subprocess
-import platform
-import os
 
 
 def _compile_and_install():

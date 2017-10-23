@@ -58,8 +58,11 @@ class WindowsMountTools(base.BaseOSMountTools):
             "Update-HostStorageCache", ignore_stdout=True)
 
     def _run_diskpart_script(self, script):
-        """ Writes the given script data to a file and runs diskpart.exe,
-        returning the output. """
+        """Executes the given script with diskpart.exe.
+
+        Writes the given script data to a file and runs diskpart.exe,
+        returning the output.
+        """
         tempdir = self._conn.exec_ps_command("$env:TEMP")
 
         # NOTE: diskpart is interactive, so we must either pipe it its input
@@ -72,8 +75,11 @@ class WindowsMountTools(base.BaseOSMountTools):
     def _service_disks_with_status(
             self, status, service_script_with_id_fmt,
             logmsg_fmt="Operating on disk with index '%s'"):
-        """ Uses diskpart.exe to detect all disks with the given 'status', and
-        execute the given service script after formatting the disk ID in. """
+        """Executes given service script on detected disks.
+
+        Uses diskpart.exe to detect all disks with the given 'status', and
+        execute the given service script after formatting the disk ID in.
+        """
         disk_list_script = "LIST DISK\r\nEXIT"
 
         disk_entry_re = r"\s+Disk (%s)\s+%s\s+"
@@ -109,8 +115,11 @@ class WindowsMountTools(base.BaseOSMountTools):
             logmsg_fmt="Clearing R/O flag on foreign disk with ID '%s'.")
 
     def _import_foreign_disks(self):
-        """ Uses diskpart.exe to import all disks which are foreign to the
-        worker. Needed when servicing installations on Dynamic Disks. """
+        """Imports foreign disks.
+
+        Uses diskpart.exe to import all disks which are foreign to the
+        worker. Needed when servicing installations on Dynamic Disks.
+        """
         # NOTE: foreign disks are not exposed via the APIs the PowerShell
         # disk cmdlets use, thus any disk which is foreign is is likely
         # still RO, which is why we must change the RO attribute as well:
