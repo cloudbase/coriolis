@@ -314,7 +314,7 @@ class ConductorServerEndpoint(object):
 
         has_tasks = False
         for instance in replica.instances:
-            if (instance in replica.instances and
+            if (instance in replica.info and
                     "volumes_info" in replica.info[instance]):
                 self._create_task(
                     instance, constants.TASK_TYPE_DELETE_REPLICA_DISKS,
