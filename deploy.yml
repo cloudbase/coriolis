@@ -194,12 +194,12 @@
         - "/etc/coriolis:/etc/coriolis:ro"
         - "/var/log/coriolis:/var/log/coriolis:rw"
 
-    - name: coriolis-schedule-worker container
+    - name: coriolis-replica-cron container
       docker_container:
-        name: coriolis-schedule-worker
-        image: "{{ docker_registry }}/coriolis-schedule-worker:{{ docker_images_tag }}"
+        name: coriolis-replica-cron
+        image: "{{ docker_registry }}/coriolis-replica-cron:{{ docker_images_tag }}"
         pull: yes
-        hostname: coriolis-schedule-worker
+        hostname: coriolis-replica-cron
         state: started
         restart: yes
         restart_policy: unless-stopped
