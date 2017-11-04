@@ -170,3 +170,25 @@ class Endpoint(BASE, models.TimestampMixin, models.ModelBase,
         BaseTransferAction, backref=orm.backref('destination_endpoint'),
         primaryjoin="and_(BaseTransferAction.destination_endpoint_id=="
         "Endpoint.id, BaseTransferAction.deleted=='0')")
+
+
+class ReplicaSchedule(BASE, models.TimestampMixin, models.ModelBase,
+                      models.SoftDeleteMixin):
+    __tablename__ = "replica_schedules"
+
+    id = sqlalchemy.Column(sqlalchemy.String(36),
+                           default=lambda: str(uuid.uuid4()),
+                           primary_key=True)
+    replica_id = sqlalchemy.Column(
+        sqlalchemy.String(36),
+        sqlalchemy.ForeignKey('replica.id'), nullable=False)
+    replica = orm.relationship(
+        Replica, backref=orm.backref("schedules"), foreign_keys=[replica_id])
+    schedule = sqlalchemy.Column(types.Json, nullable=False)
+    expiration_date = sqlalchemy.Column(
+        sqlalchemy.types.DateTime, nullable=True)
+    enabled = sqlalchemy.Column(
+        sqlalchemy.Boolean, nullable=False, default=True)
+    shutdown_instance = sqlalchemy.Column(
+        sqlalchemy.Boolean, nullable=False, default=False)
+    trust_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)

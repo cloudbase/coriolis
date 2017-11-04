@@ -13,7 +13,7 @@ class RequestContext(context.RequestContext):
                  timestamp=None, request_id=None, auth_token=None,
                  overwrite=True, domain=None, user_domain=None,
                  project_domain=None, show_deleted=None, trust_id=None,
-                 **kwargs):
+                 delete_trust_id=False, **kwargs):
 
         super(RequestContext, self).__init__(auth_token=auth_token,
                                              user=user,
@@ -34,6 +34,7 @@ class RequestContext(context.RequestContext):
             timestamp = timeutils.parse_isotime(timestamp)
         self.timestamp = timestamp
         self.trust_id = trust_id
+        self.delete_trust_id = delete_trust_id
 
     def to_dict(self):
         result = super(RequestContext, self).to_dict()
@@ -52,3 +53,9 @@ class RequestContext(context.RequestContext):
     @classmethod
     def from_dict(cls, values):
         return cls(**values)
+
+
+def get_admin_context(trust_id=None):
+    return RequestContext(
+        user=None, tenant=None, is_admin=True,
+        trust_id=trust_id)

@@ -24,6 +24,7 @@ _CORIOLIS_VM_EXPORT_INFO_SCHEMA_NAME = "vm_export_info_schema.json"
 _CORIOLIS_VM_INSTANCE_INFO_SCHEMA_NAME = "vm_instance_info_schema.json"
 _CORIOLIS_OS_MORPHING_RES_SCHEMA_NAME = "os_morphing_resources_schema.json"
 _CORIOLIS_VM_NETWORK_SCHEMA_NAME = "vm_network_schema.json"
+_SCHEDULE_API_BODY_SCHEMA_NAME = "replica_schedule_schema.json"
 
 
 def get_schema(package_name, schema_name,
@@ -44,13 +45,13 @@ def get_schema(package_name, schema_name,
     return schema
 
 
-def validate_value(val, schema):
+def validate_value(val, schema, format_checker=None):
     """Simple wrapper for jsonschema.validate for usability.
 
     NOTE: silently passes empty schemas.
     """
     try:
-        jsonschema.validate(val, schema)
+        jsonschema.validate(val, schema, format_checker=format_checker)
     except jsonschema.exceptions.ValidationError as ex:
         LOG.debug("Schema validation failed: %s", ex)
         # Don't pass the value in the exception to avoid including sensitive
@@ -80,3 +81,6 @@ CORIOLIS_VM_INSTANCE_INFO_SCHEMA = get_schema(
 
 CORIOLIS_VM_NETWORK_SCHEMA = get_schema(
     __name__, _CORIOLIS_VM_NETWORK_SCHEMA_NAME)
+
+SCHEDULE_API_BODY_SCHEMA = get_schema(
+    __name__, _SCHEDULE_API_BODY_SCHEMA_NAME)

@@ -8,10 +8,12 @@ from oslo_concurrency import lockutils
 from oslo_log import log as logging
 
 from coriolis import constants
+from coriolis import context
 from coriolis.db import api as db_api
 from coriolis.db.sqlalchemy import models
 from coriolis import exception
 from coriolis import keystone
+from coriolis.replica_cron.rpc import client as rpc_cron_client
 from coriolis import utils
 from coriolis.worker.rpc import client as rpc_worker_client
 
@@ -36,6 +38,16 @@ def replica_synchronized(func):
         @lockutils.synchronized(replica_id)
         def inner():
             return func(self, ctxt, replica_id, *args, **kwargs)
+        return inner()
+    return wrapper
+
+
+def schedule_synchronized(func):
+    @functools.wraps(func)
+    def wrapper(self, ctxt, replica_id, schedule_id, *args, **kwargs):
+        @lockutils.synchronized(schedule_id)
+        def inner():
+            return func(self, ctxt, replica_id, schedule_id, *args, **kwargs)
         return inner()
     return wrapper
 
@@ -73,6 +85,7 @@ def tasks_execution_synchronized(func):
 class ConductorServerEndpoint(object):
     def __init__(self):
         self._rpc_worker_client = rpc_worker_client.WorkerClient()
+        self._replica_cron_client = rpc_cron_client.ReplicaCronClient()
 
     def create_endpoint(self, ctxt, name, endpoint_type, description,
                         connection_info):
@@ -176,7 +189,9 @@ class ConductorServerEndpoint(object):
         }
 
     def _begin_tasks(self, ctxt, execution, task_info={}):
-        keystone.create_trust(ctxt)
+        if not ctxt.trust_id:
+            keystone.create_trust(ctxt)
+            ctxt.delete_trust_id = True
 
         origin = self._get_task_origin(ctxt, execution.action)
         destination = self._get_task_destination(ctxt, execution.action)
@@ -686,7 +701,8 @@ class ConductorServerEndpoint(object):
         LOG.info("Tasks execution %(id)s completed with status: %(status)s",
                  {"id": execution_id, "status": execution_status})
         db_api.set_execution_status(ctxt, execution_id, execution_status)
-        keystone.delete_trust(ctxt)
+        if ctxt.delete_trust_id:
+            keystone.delete_trust(ctxt)
 
     @task_synchronized
     def set_task_host(self, ctxt, task_id, host, process_id):
@@ -827,3 +843,70 @@ class ConductorServerEndpoint(object):
         LOG.info("Task progress update: %s", task_id)
         db_api.add_task_progress_update(ctxt, task_id, current_step,
                                         total_steps, message)
+
+    def _get_replica_schedule(self, ctxt, replica_id,
+                              schedule_id, expired=True):
+        schedule = db_api.get_replica_schedule(
+            ctxt, replica_id, schedule_id, expired=expired)
+        if not schedule:
+            raise exception.NotFound("Schedule not found")
+        return schedule
+
+    def create_replica_schedule(self, ctxt, replica_id,
+                                schedule, enabled, exp_date,
+                                shutdown_instance):
+        keystone.create_trust(ctxt)
+        replica = self._get_replica(ctxt, replica_id)
+        replica_schedule = models.ReplicaSchedule()
+        replica_schedule.id = str(uuid.uuid4())
+        replica_schedule.replica = replica
+        replica_schedule.replica_id = replica_id
+        replica_schedule.schedule = schedule
+        replica_schedule.expiration_date = exp_date
+        replica_schedule.enabled = enabled
+        replica_schedule.shutdown_instance = shutdown_instance
+        replica_schedule.trust_id = ctxt.trust_id
+
+        db_api.add_replica_schedule(
+            ctxt, replica_schedule,
+            lambda ctxt, sched: self._replica_cron_client.register(
+                ctxt, sched))
+        return self.get_replica_schedule(
+            ctxt, replica_id, replica_schedule.id)
+
+    @schedule_synchronized
+    def update_replica_schedule(self, ctxt, replica_id, schedule_id,
+                                updated_values):
+        db_api.update_replica_schedule(
+            ctxt, replica_id, schedule_id, updated_values, None,
+            lambda ctxt, sched: self._replica_cron_client.register(
+                ctxt, sched))
+        return self._get_replica_schedule(ctxt, replica_id, schedule_id)
+
+    def _cleanup_schedule_resources(self, ctxt, schedule):
+        self._replica_cron_client.unregister(ctxt, schedule)
+        if schedule.trust_id:
+            tmp_trust = context.get_admin_context(
+                trust_id=schedule.trust_id)
+            keystone.delete_trust(tmp_trust)
+
+    @schedule_synchronized
+    def delete_replica_schedule(self, ctxt, replica_id, schedule_id):
+        db_api.delete_replica_schedule(
+            ctxt, replica_id, schedule_id, None,
+            lambda ctxt, sched: self._cleanup_schedule_resources(
+                ctxt, sched))
+
+    @replica_synchronized
+    def get_replica_schedules(self, ctxt, replica_id=None, expired=True):
+        return db_api.get_replica_schedules(
+            ctxt, replica_id=replica_id, expired=expired)
+
+    @schedule_synchronized
+    def get_replica_schedule(self, ctxt, replica_id,
+                             schedule_id, expired=True):
+        schedule = self._get_replica_schedule(
+            ctxt, replica_id, schedule_id, expired=True)
+        if not schedule:
+            raise exception.NotFound("Schedule not found")
+        return schedule

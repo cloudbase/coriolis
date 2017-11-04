@@ -13,6 +13,7 @@ from coriolis.api.v1 import migrations
 from coriolis.api.v1 import provider_schemas
 from coriolis.api.v1 import providers
 from coriolis.api.v1 import replica_actions
+from coriolis.api.v1 import replica_schedules
 from coriolis.api.v1 import replica_tasks_execution_actions
 from coriolis.api.v1 import replica_tasks_executions
 from coriolis.api.v1 import replicas
@@ -117,3 +118,10 @@ class APIRouter(api.APIRouter):
                            'replica_tasks_execution_actions'],
                        action='action',
                        conditions={'method': 'POST'})
+
+        sched = replica_schedules.create_resource()
+        self.resources['replica_schedules'] = sched
+        mapper.resource('replica_schedule', 'replicas/{replica_id}/schedules',
+                        controller=self.resources['replica_schedules'],
+                        collection={'index': 'GET'},
+                        member={'action': 'POST'})

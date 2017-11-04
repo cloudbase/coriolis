@@ -5,8 +5,11 @@ from oslo_config import cfg
 from oslo_db import api as db_api
 from oslo_db import options as db_options
 from oslo_db.sqlalchemy import enginefacade
+from oslo_utils import timeutils
 from sqlalchemy import func
+from sqlalchemy import or_
 from sqlalchemy import orm
+from sqlalchemy.sql import null
 
 from coriolis.db.sqlalchemy import models
 from coriolis import exception
@@ -41,9 +44,43 @@ def _session(context):
     return (context and context.session) or get_session()
 
 
+def is_user_context(context):
+    """Indicates if the request context is a normal user."""
+    if not context:
+        return False
+    if not context.user_id or not context.project_id:
+        return False
+    if context.is_admin:
+        return False
+    return True
+
+
 def _model_query(context, *args):
     session = _session(context)
     return session.query(*args)
+
+
+def _get_replica_schedules_filter(context, replica_id=None,
+                                  schedule_id=None, expired=True):
+    now = timeutils.utcnow()
+    q = _soft_delete_aware_query(context, models.ReplicaSchedule)
+    q = q.join(models.Replica)
+    sched_filter = q.filter()
+    if is_user_context(context):
+        sched_filter = sched_filter.filter(
+            models.Replica.project_id == context.tenant)
+
+    if replica_id:
+        sched_filter = sched_filter.filter(
+            models.Replica.id == replica_id)
+    if schedule_id:
+        sched_filter = sched_filter.filter(
+            models.ReplicaSchedule.id == schedule_id)
+    if not expired:
+        sched_filter = sched_filter.filter(
+            or_(models.ReplicaSchedule.expiration_date == null(),
+                models.ReplicaSchedule.expiration_date > now))
+    return sched_filter
 
 
 def _soft_delete_aware_query(context, *args, **kwargs):
@@ -62,15 +99,19 @@ def _soft_delete_aware_query(context, *args, **kwargs):
 @enginefacade.reader
 def get_endpoints(context):
     q = _soft_delete_aware_query(context, models.Endpoint)
-    return q.filter(
-        models.Endpoint.project_id == context.tenant).all()
+    if is_user_context(context):
+        q = q.filter(
+            models.Endpoint.project_id == context.tenant)
+    return q.filter().all()
 
 
 @enginefacade.reader
 def get_endpoint(context, endpoint_id):
     q = _soft_delete_aware_query(context, models.Endpoint)
+    if is_user_context(context):
+        q = q.filter(
+            models.Endpoint.project_id == context.tenant)
     return q.filter(
-        models.Endpoint.project_id == context.tenant,
         models.Endpoint.id == endpoint_id).first()
 
 
@@ -93,8 +134,11 @@ def update_endpoint(context, endpoint_id, updated_values):
 
 @enginefacade.writer
 def delete_endpoint(context, endpoint_id):
+    args = {"id": endpoint_id}
+    if is_user_context(context):
+        args["project_id"] = context.tenant
     count = _soft_delete_aware_query(context, models.Endpoint).filter_by(
-        project_id=context.tenant, id=endpoint_id).soft_delete()
+        **args).soft_delete()
     if count == 0:
         raise exception.NotFound("0 entries were soft deleted")
 
@@ -105,8 +149,9 @@ def get_replica_tasks_executions(context, replica_id, include_tasks=False):
     q = q.join(models.Replica)
     if include_tasks:
         q = _get_tasks_with_details_options(q)
+    if is_user_context(context):
+        q = q.filter(models.Replica.project_id == context.tenant)
     return q.filter(
-        models.Replica.project_id == context.tenant,
         models.Replica.id == replica_id).all()
 
 
@@ -115,16 +160,18 @@ def get_replica_tasks_execution(context, replica_id, execution_id):
     q = _soft_delete_aware_query(context, models.TasksExecution).join(
         models.Replica)
     q = _get_tasks_with_details_options(q)
+    if is_user_context(context):
+        q = q.filter(models.Replica.project_id == context.tenant)
     return q.filter(
-        models.Replica.project_id == context.tenant,
         models.Replica.id == replica_id,
         models.TasksExecution.id == execution_id).first()
 
 
 @enginefacade.writer
 def add_replica_tasks_execution(context, execution):
-    if execution.action.project_id != context.tenant:
-        raise exception.NotAuthorized()
+    if is_user_context(context):
+        if execution.action.project_id != context.tenant:
+            raise exception.NotAuthorized()
 
     # include deleted records
     max_number = _model_query(
@@ -139,12 +186,89 @@ def add_replica_tasks_execution(context, execution):
 def delete_replica_tasks_execution(context, execution_id):
     q = _soft_delete_aware_query(context, models.TasksExecution).filter(
         models.TasksExecution.id == execution_id)
-    if not q.join(models.Replica).filter(
-            models.Replica.project_id == context.tenant).first():
-        raise exception.NotAuthorized()
+    if is_user_context(context):
+        if not q.join(models.Replica).filter(
+                models.Replica.project_id == context.tenant).first():
+            raise exception.NotAuthorized()
     count = q.soft_delete()
     if count == 0:
         raise exception.NotFound("0 entries were soft deleted")
+
+
+@enginefacade.reader
+def get_replica_schedules(context, replica_id=None, expired=True):
+    sched_filter = _get_replica_schedules_filter(
+        context, replica_id=replica_id, expired=expired)
+    return sched_filter.all()
+
+
+@enginefacade.reader
+def get_replica_schedule(context, replica_id, schedule_id, expired=True):
+    sched_filter = _get_replica_schedules_filter(
+        context, replica_id=replica_id, schedule_id=schedule_id,
+        expired=expired)
+    return sched_filter.first()
+
+
+@enginefacade.writer
+def update_replica_schedule(context, replica_id, schedule_id,
+                            updated_values, pre_update_callable=None,
+                            post_update_callable=None):
+    # NOTE(gsamfira): we need to refactor the DB layer a bit to allow
+    # two-phase transactions or at least allow running these functions
+    # inside a single transaction block.
+    schedule = get_replica_schedule(context, replica_id, schedule_id)
+    if pre_update_callable:
+        pre_update_callable(schedule=schedule)
+    for val in ["schedule", "expiration_date", "enabled", "shutdown_instance"]:
+        if val in updated_values:
+            setattr(schedule, val, updated_values[val])
+    if post_update_callable:
+        # at this point nothing has really been sent to the DB,
+        # but we may need to act upon the new changes elsewhere
+        # before we actually commit to the database
+        post_update_callable(context, schedule)
+
+
+@enginefacade.writer
+def delete_replica_schedule(context, replica_id,
+                            schedule_id, pre_delete_callable=None,
+                            post_delete_callable=None):
+    # NOTE(gsamfira): we need to refactor the DB layer a bit to allow
+    # two-phase transactions or at least allow running these functions
+    # inside a single transaction block.
+
+    q = _soft_delete_aware_query(context, models.ReplicaSchedule).filter(
+        models.ReplicaSchedule.id == schedule_id,
+        models.ReplicaSchedule.replica_id == replica_id)
+    schedule = q.first()
+    if not schedule:
+        raise exception.NotFound(
+            "No such schedule")
+    if is_user_context(context):
+        if not q.join(models.Replica).filter(
+                models.Replica.project_id == context.tenant).first():
+                raise exception.NotAuthorized()
+    if pre_delete_callable:
+        pre_delete_callable(context, schedule)
+    count = q.soft_delete()
+    if post_delete_callable:
+        post_delete_callable(context, schedule)
+    if count == 0:
+        raise exception.NotFound("0 entries were soft deleted")
+
+
+@enginefacade.writer
+def add_replica_schedule(context, schedule, post_create_callable=None):
+    # NOTE(gsamfira): we need to refactor the DB layer a bit to allow
+    # two-phase transactions or at least allow running these functions
+    # inside a single transaction block.
+
+    if schedule.replica.project_id != context.tenant:
+        raise exception.NotAuthorized()
+    context.session.add(schedule)
+    if post_create_callable:
+        post_create_callable(context, schedule)
 
 
 def _get_replica_with_tasks_executions_options(q):
@@ -156,16 +280,21 @@ def get_replicas(context, include_tasks_executions=False):
     q = _soft_delete_aware_query(context, models.Replica)
     if include_tasks_executions:
         q = _get_replica_with_tasks_executions_options(q)
-    return q.filter(
-        models.Replica.project_id == context.tenant).all()
+    q = q.filter()
+    if is_user_context(context):
+        q = q.filter(
+            models.Replica.project_id == context.tenant)
+    return q.all()
 
 
 @enginefacade.reader
 def get_replica(context, replica_id):
     q = _soft_delete_aware_query(context, models.Replica)
     q = _get_replica_with_tasks_executions_options(q)
+    if is_user_context(context):
+        q = q.filter(
+            models.Replica.project_id == context.tenant)
     return q.filter(
-        models.Replica.project_id == context.tenant,
         models.Replica.id == replica_id).first()
 
 
@@ -178,8 +307,11 @@ def add_replica(context, replica):
 
 @enginefacade.writer
 def _delete_transfer_action(context, cls, id):
+    args = {"base_id": id}
+    if is_user_context(context):
+        args["project_id"] = context.tenant
     count = _soft_delete_aware_query(context, cls).filter_by(
-        project_id=context.tenant, base_id=id).soft_delete()
+        **args).soft_delete()
     if count == 0:
         raise exception.NotFound("0 entries were soft deleted")
 
@@ -197,8 +329,10 @@ def get_replica_migrations(context, replica_id):
     q = _soft_delete_aware_query(context, models.Migration)
     q = q.join("replica")
     q = q.options(orm.joinedload("executions"))
+    if is_user_context(context):
+        q = q.filter(
+            models.Migration.project_id == context.tenant)
     return q.filter(
-        models.Migration.project_id == context.tenant,
         models.Replica.id == replica_id).all()
 
 
@@ -209,7 +343,10 @@ def get_migrations(context, include_tasks=False):
         q = _get_migration_task_query_options(q)
     else:
         q = q.options(orm.joinedload("executions"))
-    return q.filter_by(project_id=context.tenant).all()
+    args = {}
+    if is_user_context(context):
+        args["project_id"] = context.tenant
+    return q.filter_by(**args).all()
 
 
 def _get_tasks_with_details_options(query):
@@ -237,7 +374,10 @@ def _get_migration_task_query_options(query):
 def get_migration(context, migration_id):
     q = _soft_delete_aware_query(context, models.Migration)
     q = _get_migration_task_query_options(q)
-    return q.filter_by(project_id=context.tenant, id=migration_id).first()
+    args = {"id": migration_id}
+    if is_user_context(context):
+        args["project_id"] = context.tenant
+    return q.filter_by(**args).first()
 
 
 @enginefacade.writer
@@ -256,9 +396,12 @@ def delete_migration(context, migration_id):
 def set_execution_status(context, execution_id, status):
     execution = _soft_delete_aware_query(
         context, models.TasksExecution).join(
-            models.TasksExecution.action).filter(
-                models.BaseTransferAction.project_id == context.tenant,
-                models.TasksExecution.id == execution_id).first()
+            models.TasksExecution.action)
+    if is_user_context(context):
+        execution = execution.filter(
+            models.BaseTransferAction.project_id == context.tenant)
+    execution = execution.filter(
+        models.TasksExecution.id == execution_id).first()
     if not execution:
         raise exception.NotFound(
             "Tasks execution not found: %s" % execution_id)
@@ -269,9 +412,12 @@ def set_execution_status(context, execution_id, status):
 @enginefacade.reader
 def get_action(context, action_id):
     action = _soft_delete_aware_query(
-        context, models.BaseTransferAction).filter(
-            models.BaseTransferAction.project_id == context.tenant,
-            models.BaseTransferAction.base_id == action_id).first()
+        context, models.BaseTransferAction)
+    if is_user_context(context):
+        action = action.filter(
+            models.BaseTransferAction.project_id == context.tenant)
+    action = action.filter(
+        models.BaseTransferAction.base_id == action_id).first()
     if not action:
         raise exception.NotFound(
             "Transfer action not found: %s" % action_id)
@@ -301,8 +447,10 @@ def get_tasks_execution(context, execution_id):
     q = q.join(models.BaseTransferAction)
     q = q.options(orm.joinedload("action"))
     q = q.options(orm.joinedload("tasks"))
+    if is_user_context(context):
+        q = q.filter(
+            models.BaseTransferAction.project_id == context.tenant)
     execution = q.filter(
-        models.BaseTransferAction.project_id == context.tenant,
         models.TasksExecution.id == execution_id).first()
     if not execution:
         raise exception.NotFound(

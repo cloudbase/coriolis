@@ -188,3 +188,41 @@ class ConductorClient(object):
         self._client.cast(ctxt, 'task_progress_update', task_id=task_id,
                           current_step=current_step, total_steps=total_steps,
                           message=message)
+
+    def create_replica_schedule(self, ctxt, replica_id,
+                                schedule, enabled, exp_date,
+                                shutdown_instance):
+        return self._client.call(
+            ctxt, 'create_replica_schedule',
+            replica_id=replica_id,
+            schedule=schedule,
+            enabled=enabled,
+            exp_date=exp_date,
+            shutdown_instance=shutdown_instance)
+
+    def update_replica_schedule(self, ctxt, replica_id, schedule_id,
+                                updated_values):
+        return self._client.call(
+            ctxt, 'update_replica_schedule',
+            replica_id=replica_id,
+            schedule_id=schedule_id,
+            updated_values=updated_values)
+
+    def delete_replica_schedule(self, ctxt, replica_id, schedule_id):
+        return self._client.call(
+            ctxt, 'delete_replica_schedule',
+            replica_id=replica_id,
+            schedule_id=schedule_id)
+
+    def get_replica_schedules(self, ctxt, replica_id=None, expired=True):
+        return self._client.call(
+            ctxt, 'get_replica_schedules',
+            replica_id=replica_id, expired=expired)
+
+    def get_replica_schedule(self, ctxt, replica_id,
+                             schedule_id, expired=True):
+        return self._client.call(
+            ctxt, 'get_replica_schedule',
+            replica_id=replica_id,
+            schedule_id=schedule_id,
+            expired=expired)

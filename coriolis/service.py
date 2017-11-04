@@ -71,13 +71,13 @@ class WSGIService(service.ServiceBase):
 
 
 class MessagingService(service.ServiceBase):
-    def __init__(self, topic, endpoints, version):
+    def __init__(self, topic, endpoints, version, worker_count=None):
         target = messaging.Target(topic=topic,
                                   server=utils.get_hostname(),
                                   version=version)
         self._server = rpc.get_server(target, endpoints)
 
-        self._workers = (CONF.messaging_workers or
+        self._workers = (worker_count or CONF.messaging_workers or
                          processutils.get_worker_count())
 
     def get_workers_count(self):

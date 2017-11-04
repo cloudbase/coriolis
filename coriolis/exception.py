@@ -123,6 +123,12 @@ class NotAuthorized(CoriolisException):
     safe = True
 
 
+class Conflict(CoriolisException):
+    message = _("Conflict")
+    code = 409
+    safe = True
+
+
 class AdminRequired(NotAuthorized):
     message = _("User does not have admin privileges")
 

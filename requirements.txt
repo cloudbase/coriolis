@@ -5,7 +5,7 @@ jsonschema
 PyMySQL
 oslo.concurrency
 oslo.config
-oslo.context
+oslo.context>=2.19.1
 oslo.db
 oslo.i18n
 oslo.log
@@ -26,5 +26,7 @@ git+https://github.com/cloudbase/pywinrm.git@requests#egg=pywinrm
 PyYAML
 requests
 mysqlclient
+schedule
+strict-rfc3339
 sqlalchemy
 webob
