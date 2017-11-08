@@ -6,7 +6,7 @@ docker rm -f coriolis-api
 docker rm -f coriolis-web
 docker rm -f coriolis-web-proxy
 
-TAG=1.0.0
+TAG=1.0.1
 REPO=registry.cloudbase.it
 
 docker rmi $REPO/coriolis-worker:$TAG
