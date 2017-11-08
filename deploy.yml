@@ -194,6 +194,20 @@
         - "/etc/coriolis:/etc/coriolis:ro"
         - "/var/log/coriolis:/var/log/coriolis:rw"
 
+    - name: coriolis-replica-cron container
+      docker_container:
+        name: coriolis-replica-cron
+        image: "{{ docker_registry }}/coriolis-replica-cron:{{ docker_images_tag }}"
+        pull: yes
+        hostname: coriolis-replica-cron
+        state: started
+        restart: yes
+        restart_policy: unless-stopped
+        network_mode: host
+        volumes:
+        - "/etc/coriolis:/etc/coriolis:ro"
+        - "/var/log/coriolis:/var/log/coriolis:rw"
+
     - name: coriolis-worker container
       docker_container:
         name: coriolis-worker
