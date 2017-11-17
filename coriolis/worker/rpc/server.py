@@ -202,6 +202,7 @@ class WorkerServerEndpoint(object):
         return instance_info
 
     def get_endpoint_networks(self, ctxt, platform_name, connection_info, env):
+        env = env or {}
         provider = providers_factory.get_provider(
             platform_name, constants.PROVIDER_TYPE_ENDPOINT_NETWORKS, None)
 
