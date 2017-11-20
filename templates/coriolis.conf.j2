@@ -63,6 +63,14 @@ shutdown_migrated_instance = false
 instance_types_csv_url = http://pastebin.com/raw/YbuQE64m
 
 [openstack_migration_provider]
+### Export parameters:
+glance_api_version = 1
+volume_backups_container = coriolis
+allow_untrusted_swift = false
+# can be qcow, qcow2, raw, vmdk, vhd, vhdx:
+intermediate_volume_format = qcow2
+
+### Import parameters:
 # If migrating/replicating a heterogeneous workload with both Linux and
 # Windows instances, separate image names or IDs will need to be provided
 # for the temporary OSMorphing workers for each OS type.
@@ -71,12 +79,13 @@ instance_types_csv_url = http://pastebin.com/raw/YbuQE64m
 # Only accepted keys are 'linux' and 'windows'
 migr_image_map = linux: 283bdce4-112c-4758-b06a-7e5985a9cd15, windows: Windows Server 2012 R2 Std Eval
 
-glance_api_version = 1
+list_all_destination_networks = false
+volumes_are_zeroed = true
 hypervisor_type = kvm
-delete_disks_on_vm_termination = True
+delete_disks_on_vm_termination = true
 # default_security_groups = secgroup1, secgroup2
 migr_network = private
-migr_worker_use_fip = True
+migr_worker_use_fip = true
 migr_fip_pool_name = public
 migr_flavor_name = m1.small
 migr_worker_use_config_drive = false
