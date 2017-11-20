@@ -2,20 +2,16 @@ FROM oraclelinux:7
 
 WORKDIR /root
 
-RUN curl --silent --location https://rpm.nodesource.com/setup_6.x | bash -
+RUN curl --silent --location https://rpm.nodesource.com/setup_9.x | bash -
 RUN yum install -y nodejs
 RUN curl -o /etc/yum.repos.d/yarn.repo https://dl.yarnpkg.com/rpm/yarn.repo
 RUN yum install -y yarn
 
 ADD coriolis-web/ coriolis-web
 WORKDIR coriolis-web
-RUN yarn install --no-progress
-
-RUN cp ./src/config.sample.js ./src/config.js
+RUN yarn install --production --no-progress
 RUN yarn build
 
-ENV CORIOLIS_URL http://127.0.0.1/
-
-ENTRYPOINT [ "node", "build/server.js" ]
+ENTRYPOINT [ "node", "server.js" ]
 
 EXPOSE 3000

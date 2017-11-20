@@ -233,8 +233,6 @@
         restart: yes
         restart_policy: unless-stopped
         network_mode: host
-        env:
-          CORIOLIS_URL: "{{ coriolis_url }}"
 
     - name: coriolis-web-proxy container
       docker_container:

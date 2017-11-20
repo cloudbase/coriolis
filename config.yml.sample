@@ -22,7 +22,6 @@ keystone_auth_url: "{{ admin_protocol }}://{{ keystone_host }}:{{ keystone_admin
 coriolis_keystone_user: "coriolis"
 coriolis_keystone_password:
 
-coriolis_url: "http://{{ coriolis_host }}/"
 keystone_auth_url_v3: "{{ keystone_auth_url }}/v3"
 coriolis_internal_url: "http://{{ coriolis_host }}:3000"
 barbican_endpoint_url: "http://{{ barbican_host }}:9311"
