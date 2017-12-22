@@ -20,6 +20,8 @@ pbr
 psutil
 pyOpenSSL
 python-keystoneclient
+# required by `oslo_cache` when imported by `keystonemiddleware`
+python-memcached>=1.56
 python-barbicanclient
 python-swiftclient>=3.2
 git+https://github.com/cloudbase/pywinrm.git@requests#egg=pywinrm
