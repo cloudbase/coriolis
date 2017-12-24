@@ -21,7 +21,7 @@ if [ ! -f ./kolla/etc/kolla/kolla-build.conf ]; then
 fi
 
 if [ "$1" == "push" ]; then
-    push_args="--push --push-threads 8"
+    push_args="--push --push-threads 4"
 else
     push_args=""
 fi
