@@ -37,6 +37,11 @@ To push the images to the Docker registry:
     docker login
     ./coriolis-docker/kolla/build.sh push
 
+To specify the distro (ubuntu, centos, oraclelinux):
+
+::
+
+    ./coriolis-docker/kolla/build.sh push ubuntu
 
 Deploy OpenStack components with Kolla
 ======================================
@@ -46,6 +51,12 @@ This will take care of deploying the OpenStack components needed by Coriolis (Ke
 ::
 
      ./coriolis-docker/kolla/deploy.sh
+
+To specify the distro (ubuntu, centos, oraclelinux):
+
+::
+
+     ./coriolis-docker/kolla/deploy.sh ubuntu
 
 Destroy a Kolla deployment
 ==========================

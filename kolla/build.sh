@@ -20,12 +20,12 @@ if [ ! -f ./kolla/etc/kolla/kolla-build.conf ]; then
     popd
 fi
 
-distro=oraclelinux
-
 if [ "$1" == "push" ]; then
     push_args="--push --push-threads 8"
 else
     push_args=""
 fi
+
+distro=${2:-oraclelinux}
 
 kolla-build -b $distro -n coriolis keystone barbican rabbitmq mariadb kolla-toolbox fluentd cron memcached $push_args

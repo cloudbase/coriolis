@@ -3,9 +3,9 @@ set -e
 
 basedir=$(dirname "$(readlink -f "$0")")
 
+distro=${1:-oraclelinux}
 # Defaults to localhost
-iface=${1:-lo}
-distro=oraclelinux
+iface=${2:-lo}
 
 if [ ! -d kolla-ansible ]; then
     git clone https://github.com/openstack/kolla-ansible -b stable/ocata
