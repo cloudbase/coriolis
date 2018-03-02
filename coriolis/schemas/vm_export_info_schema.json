@@ -101,6 +101,11 @@
               "storage_backend_identifier": {
                   "type": "string",
                   "help": "A string identifier for the storage system the disk is hosted on."
+              },
+              "allocation_type": {
+                "type": "string",
+                "description": "The allocation scheme for the given disk (static = thick; dynamic = thin)",
+                "enum": ["static", "dynamic"]
               }
             },
             "required": [
