@@ -157,6 +157,9 @@
                   "type": "string"
                 }
               },
+              "vlan_id": {
+                "type": "integer"
+              },
               "id": {
                 "$ref": "#/definitions/numberOrString"
               },
