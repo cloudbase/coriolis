@@ -369,3 +369,10 @@ def get_os_morphing_tools_helper(conn, os_morphing_tools_clss,
         if os_info:
             return (tools, os_info)
     raise exception.OSMorphingToolsNotFound()
+
+
+class BaseEndpointStorageProvider(object, with_metaclass(abc.ABCMeta)):
+    @abc.abstractmethod
+    def get_storage(self, ctxt, connection_info):
+        """ Returns all the storage options available"""
+        pass

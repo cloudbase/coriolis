@@ -12,6 +12,7 @@
 "migration:endpoints:list_instances": "rule:admin_or_owner"
 "migration:endpoints:get_instance": "rule:admin_or_owner"
 "migration:endpoints:list_networks": "rule:admin_or_owner"
+"migration:endpoints:list_storage": "rule:admin_or_owner"
 "migration:endpoints:list_destination_options": "rule:admin_or_owner"
 
 "migration:migrations:create": "rule:admin_or_owner"

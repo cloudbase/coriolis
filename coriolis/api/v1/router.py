@@ -8,6 +8,7 @@ from coriolis.api.v1 import endpoint_actions
 from coriolis.api.v1 import endpoint_destination_options
 from coriolis.api.v1 import endpoint_instances
 from coriolis.api.v1 import endpoint_networks
+from coriolis.api.v1 import endpoint_storage
 from coriolis.api.v1 import endpoints
 from coriolis.api.v1 import migration_actions
 from coriolis.api.v1 import migrations
@@ -64,6 +65,11 @@ class APIRouter(api.APIRouter):
             endpoint_networks.create_resource()
         mapper.resource('network', 'endpoints/{endpoint_id}/networks',
                         controller=self.resources['endpoint_networks'])
+
+        self.resources['endpoint_storage'] = \
+            endpoint_storage.create_resource()
+        mapper.resource('storage', 'endpoints/{endpoint_id}/storage',
+                        controller=self.resources['endpoint_storage'])
 
         self.resources['endpoint_destination_options'] = \
             endpoint_destination_options.create_resource()

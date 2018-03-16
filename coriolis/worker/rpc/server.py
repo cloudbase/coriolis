@@ -277,6 +277,18 @@ class WorkerServerEndpoint(object):
 
         return networks_info
 
+    def get_endpoint_storage(self, ctxt, platform_name, connection_info, env):
+        provider = providers_factory.get_provider(
+            platform_name, constants.PROVIDER_TYPE_ENDPOINT_STORAGE, None)
+
+        secret_connection_info = utils.get_secret_connection_info(
+            ctxt, connection_info)
+
+        storage = provider.get_storage(
+            ctxt, secret_connection_info, env)
+
+        return storage
+
     def get_available_providers(self, ctxt):
         return providers_factory.get_available_providers()
 

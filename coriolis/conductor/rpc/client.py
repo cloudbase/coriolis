@@ -77,6 +77,12 @@ class ConductorClient(object):
             endpoint_id=endpoint_id,
             env=env)
 
+    def get_endpoint_storage(self, ctxt, endpoint_id, env):
+        return self._client.call(
+            ctxt, 'get_endpoint_storage',
+            endpoint_id=endpoint_id,
+            env=env)
+
     def validate_endpoint_connection(self, ctxt, endpoint_id):
         return self._client.call(
             ctxt, 'validate_endpoint_connection',
