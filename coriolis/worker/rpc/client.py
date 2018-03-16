@@ -91,6 +91,13 @@ class WorkerClient(object):
             platform_name=platform_name,
             target_env=target_env)
 
+    def get_endpoint_storage(self, ctxt, platform_name, connection_info, env):
+        return self._client.call(
+            ctxt, 'get_endpoint_storage',
+            platform_name=platform_name,
+            connection_info=connection_info,
+            env=env)
+
     def get_available_providers(self, ctxt):
         return self._client.call(
             ctxt, 'get_available_providers')
