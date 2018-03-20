@@ -86,18 +86,22 @@ class BaseEndpointDestinationOptionsProvider(
             }
         }
         The provider should return:
-        options = {
-            "migr_network": {
-                "values": ["net1", "net2", "net3"], "config_default": "net2"},
-            "security_groups": {
+        options = [
+            {
+                "name": "migr_network",
+                "values": ["net1", "net2", "net3"],
+                "config_default": "net2"},
+            {
+                "name": "security_groups",
                 "values": ["secgroup1", "secgroup2", "secgroup3"],
                 "config_default": ["secgroup2", "secgroup3"]},
-            "migr_image": {
+            {
+                "name": "migr_image",
                 "values": [
                     {"name": "testimage1", "id": 101},
                     {"name": "testimg2", "id": 4}],
                 "config_default": {"name": "testimg2", "id": 4}}}
-        }
+        ]
         Observations:
             - base types such as 'integer' or 'string' are preserved
             - 'array' types will return an array with all the options which are

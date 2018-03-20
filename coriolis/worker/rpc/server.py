@@ -212,6 +212,9 @@ class WorkerServerEndpoint(object):
         options = provider.get_target_environment_options(
             ctxt, secret_connection_info, env=env, option_names=option_names)
 
+        schemas.validate_value(
+            options, schemas.CORIOLIS_DESTINATION_ENVIRONMENT)
+
         return options
 
     def get_endpoint_networks(self, ctxt, platform_name, connection_info, env):
