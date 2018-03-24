@@ -1,5 +1,6 @@
 [DEFAULT]
 messaging_transport_url=rabbit://{{ rabbitmq_user }}:{{ rabbitmq_password }}@{{ rabbitmq_host }}:{{ rabbitmq_port }}/
+default_messaging_timeout = 60
 log_dir=/var/log/coriolis
 debug={{ coriolis_debug }}
 
@@ -45,7 +46,11 @@ auth_url = {{ internal_protocol }}://{{ keystone_host }}:{{ keystone_public_port
 [oslo_policy]
 policy_file = {{ coriolis_policy_config_path }}
 
+[conductor]
+conductor_rpc_timeout = 60
+
 [worker]
+worker_rpc_timeout = 60
 export_base_path = {{ coriolis_export_base_path }}
 
 [vmware_vsphere_migration_provider]
