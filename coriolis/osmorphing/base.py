@@ -156,8 +156,9 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
 
     def _get_config(self, config_content):
         config = {}
+        regex_expr = '(.*[^-\\s])\\s*=\\s*(?:"|\')?([^"\']*)(?:"|\')?\\s*'
         for config_line in config_content.split('\n'):
-            m = re.match('(.*)=(?:"|\')?([^"\']*)(?:"|\')?', config_line)
+            m = re.match(regex_expr, config_line)
             if m:
                 name, value = m.groups()
                 config[name] = value

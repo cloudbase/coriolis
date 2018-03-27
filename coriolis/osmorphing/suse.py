@@ -22,10 +22,11 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
         if self._test_path(suse_release_path):
             out = self._read_file(suse_release_path).decode()
             release = out.split('\n')[0]
-            version_id = re.findall('^VERSION = (.*)$', out, re.MULTILINE)[0]
-            patch_level = re.findall('^PATCHLEVEL = (.*)$', out, re.MULTILINE)
+            release_info = self._get_config(out)
+            version_id = release_info['VERSION']
+            patch_level = release_info.get('PATCHLEVEL', None)
             if patch_level:
-                version_id = "%s.%s" % (version_id, patch_level[1])
+                version_id = "%s.%s" % (version_id, patch_level)
             self._version_id = version_id
             return ('SUSE', release)
 
