@@ -6,10 +6,6 @@
       "type": "integer",
       "description": "Number of CPUs of the VM."
     },
-    "num_cores_per_socket": {
-      "type": "integer",
-      "description": "Number of CPU cores per socket, if applicable."
-    },
     "memory_mb": {
       "type": "integer",
       "description": "Memory of the VM in MegaBytes."
