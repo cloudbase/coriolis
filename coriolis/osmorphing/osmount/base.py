@@ -4,6 +4,7 @@
 import abc
 import os
 import re
+import base64
 
 from oslo_log import log as logging
 import paramiko
@@ -141,6 +142,42 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         LOG.info("Volume block devices: %s", volume_devs)
         return volume_devs
 
+    def _check_var_partition(self, os_root_dir, other_mounted_dirs):
+
+        reg_expr = (
+            '^(([^#\s]\S+)\s+/var\s+\S+\s+\S+\s+[0-9]+\s+[0-9]+)$')
+        etc_fstab_path = os.path.join(os_root_dir, "etc/fstab")
+        etc_fstab_raw = utils.read_ssh_file(self._ssh, etc_fstab_path)
+        etc_fstab = etc_fstab_raw.decode('utf-8')
+
+        LOG.debug("Searching for separate /var partition in %s" %
+                  base64.b64encode(etc_fstab_raw))
+
+        var_found = None
+        for i in etc_fstab.splitlines():
+            var_found = re.search(reg_expr, i)
+            if var_found:
+                if i.startswith('UUID='):
+                    var_dev = var_found.group(2)
+                    var_mnt_dir = os.path.join(os_root_dir, 'var')
+                    try:
+                        self._exec_cmd(
+                            'sudo mount %s %s' % (var_dev, var_mnt_dir))
+                        other_mounted_dirs.append(var_mnt_dir)
+                    except Exception as ex:
+                        LOG.warn(
+                            "Could not mount /var partition: %s" %
+                            utils.get_exception_details())
+                        self._event_manager.progress_update(
+                            "Unable to mount /var partition")
+                        raise
+                    break
+                else:
+                    raise ValueError("At %s , fstab partitions must "
+                                     "be mounted by UUID!" % i)
+        if not var_found:
+            LOG.debug("External /var partition not detected.")
+
     def mount_os(self):
         dev_paths = []
         other_mounted_dirs = []
@@ -201,32 +238,12 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                 self._exec_cmd('sudo umount %s' % tmp_dir)
 
             if os_root_dir and boot_dev_path:
-                reg_expr = (
-                    '^(([^#\s]\S+)\s+/var\s+\S+\s+\S+\s+[0-9]+\s+[0-9]+)$')
-                etc_fstab_path = os.path.join(os_root_dir, "etc/fstab")
-                etc_fstab = utils.read_ssh_file(self._ssh, etc_fstab_path)
-                etc_fstab = etc_fstab.decode('utf-8')
-                for i in etc_fstab.splitlines():
-                    var_found = re.search(reg_expr, i)
-                    if var_found:
-                        var_dev = var_found.group(2)
-                        var_mnt_dir = os.path.join(os_root_dir, 'var')
-                        try:
-                            self._exec_cmd(
-                                'sudo mount %s %s' % (var_dev, var_mnt_dir))
-                            other_mounted_dirs.append(var_mnt_dir)
-                        except Exception as ex:
-                            LOG.warn(
-                                "Could not mount /var partition: %s" %
-                                utils.get_exception_details())
-                            self._event_manager.progress_update(
-                                "Unable to mount /var partition")
-                            raise
-                        break
                 break
 
         if not os_root_dir:
             raise exception.OperatingSystemNotFound("root partition not found")
+
+        self._check_var_partition(os_root_dir, other_mounted_dirs)
 
         for dir in set(dirs).intersection(['proc', 'sys', 'dev', 'run']):
             mount_dir = os.path.join(os_root_dir, dir)
