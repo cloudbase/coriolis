@@ -147,6 +147,11 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         reg_expr = (
             '^(([^#\s]\S+)\s+/var\s+\S+\s+\S+\s+[0-9]+\s+[0-9]+)$')
         etc_fstab_path = os.path.join(os_root_dir, "etc/fstab")
+
+        if not utils.test_ssh_path(self._ssh, etc_fstab_path):
+            LOG.debug("fstab file not found.")
+            return
+
         etc_fstab_raw = utils.read_ssh_file(self._ssh, etc_fstab_path)
         etc_fstab = etc_fstab_raw.decode('utf-8')
 
