@@ -154,7 +154,10 @@ def read_ssh_file(ssh, remote_path):
 @retry_on_error()
 def write_ssh_file(ssh, remote_path, content):
     sftp = ssh.open_sftp()
-    sftp.open(remote_path, 'wb').write(content)
+    fd = sftp.open(remote_path, 'wb')
+    fd.set_pipelined(True)
+    fd.write(content)
+    fd.close()
 
 
 @retry_on_error()
