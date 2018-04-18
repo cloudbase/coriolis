@@ -298,6 +298,19 @@ def get_replica(context, replica_id):
         models.Replica.id == replica_id).first()
 
 
+@enginefacade.reader
+def get_endpoint_replicas_count(context, endpoint_id):
+    origin_args = {'origin_endpoint_id': endpoint_id}
+    q_origin_count = _soft_delete_aware_query(
+        context, models.Replica).filter_by(**origin_args).count()
+
+    destination_args = {'destination_endpoint_id': endpoint_id}
+    q_destination_count = _soft_delete_aware_query(
+        context, models.Replica).filter_by(**destination_args).count()
+
+    return q_origin_count + q_destination_count
+
+
 @enginefacade.writer
 def add_replica(context, replica):
     replica.user_id = context.user
