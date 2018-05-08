@@ -138,20 +138,21 @@ windows_pv_drivers_url = https://cloudbase.it/downloads/ovm_win_pv_drivers_all_3
 # The location to which to migrate
 migr_location = westus
 
-# The size which to default to for the migrated instance in case 'vm_size' is
-# not specified in the --destination-environment
+# Default migrated instance size. This will be used if no vm_size is
+# set in the target_environment. Note: migration will fail if migrated
+# instance size cannot accommodate the number of disks that can be
+# migrated. (string value)
 default_vm_size = Standard_A1
 
 # The images to use for temporary worker VMs:
 linux_migr_image = version: latest, publisher: Canonical, offer: UbuntuServer, sku: 14.04.0-LTS
 windows_migr_image = version: latest, publisher: MicrosoftWindowsServer, offer: WindowsServer, sku: 2016-Datacenter-Server-Core
 
-# The size which to default to for migration workers
+# Default migration worker size. This will be used if no worker_size
+# is set in the target_environment. If none is provided, Coriolis will
+# list all available flavors on Azure and select the smallest
+# available one that can accommodate the number of disks. (string value)
 default_worker_size = Standard_D1
-
-# Mapping between the number of volumes a size can have attached and its name
-# Default is:
-# worker_volume_count_to_size_map = 2: Standard_D1, 4: Standard_D2, 8: Standard_D3
 
 # Cloudbase-init Zip URLs for each supported Windows architecture:
 cloudbaseinit_x86_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x86.zip
