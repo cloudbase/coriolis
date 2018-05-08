@@ -64,9 +64,30 @@ instance_types_csv_url = http://pastebin.com/raw/YbuQE64m
 
 [openstack_migration_provider]
 ### Export parameters:
+
+# Integer version of the Image API to use for any interactions with Glance,
+# supported versions being 1 and 2.
+# This value may be overriden on a per-cloud basis with the 'glance_api_version'
+# parameter in the endpoint connection info.
+# Default is 1
 glance_api_version = 1
+
+# The name of the Swift container in which to store the Cinder backups.
+# If pre-existing, the container will be reused. If it doesn't exist, a new one
+# will be created.
+# Default is 'coriolis'
 volume_backups_container = coriolis
+
+# Whether to skip certificate verification if the Swift proxy is HTTPS-only
+# with self-signed certificates.
+# This value may be overriden on a per-cloud basis with the
+# 'allow_untrusted_swift' parameter in the connection info.
+# Default is false
 allow_untrusted_swift = false
+
+# The format in which to fetch Cinder volumes during normal migrations.
+# Must be a format supported by Glance
+# Default is 'qcow2'
 # can be qcow, qcow2, raw, vmdk, vhd, vhdx:
 intermediate_volume_format = qcow2
 
@@ -79,19 +100,67 @@ intermediate_volume_format = qcow2
 # Only accepted keys are 'linux' and 'windows'
 migr_image_map = linux: 283bdce4-112c-4758-b06a-7e5985a9cd15, windows: Windows Server 2012 R2 Std Eval
 
+# Boolean flag indicating whether or not to list all Neutron networks.
+# By default, Coriolis will only list the networks which are in the
+# same tenant as the one set in the Coriolis endpoint in use.
 list_all_destination_networks = false
+
+# Whether or not unallocated blocks on Cinder target volumes contain
+# zeros. This is controlled by the "volume_clear" Cinder configuration
+# options. (boolean value)
 volumes_are_zeroed = true
+
+# Default hypervisor type. (string value)
+# The type of hypervisor the destination OpenStack features,
+# supported options being "hyperv", "qemu" or "kvm"
+# Default is None, meaning no extra hypervisor-specific actions will be taken
+# during the OSMorphing process
 hypervisor_type = kvm
+
+# Whether or not to set the Cinder volumes as ephemeral (to be deleted when
+# the VM is deleted) on the newly migrated/replicated instance on the
+# destination OpenStack. Default is false.
 delete_disks_on_vm_termination = true
+
+# List of names or IDs of pre-existing security groups on the destination
+# OpenStack to be applied to the migrated/replicated instance.
+# Note that the below set will be joined with the list specified via the
+# 'security_groups' parameter from the set of destination environment parameters
+# (list value)
 # default_security_groups = secgroup1, secgroup2
+
+# Name or ID of an existing Neutron network on the destination
+# OpenStack where to attach the Neutron port of the temporary disk
+# copy/OSMorphing worker VMs. (string value)
 migr_network = private
+
+# Whether or not to allocate floating IPs from the "migr_fip_pool_name"
+# for the temporary disk copy/OSMorphing worker VMs.
+# Default is True
 migr_worker_use_fip = true
+
+# Name of an existing Neutron network on the destination OpenStack which
+# serves as external and may have floating IPs allocated from it.
+# These floating IPs will be associated to the temporary disk copy/OSMorphing
+# worker VMs.
+# Default is "public"
 migr_fip_pool_name = public
+
+# Name of an existing Nova flavor which to boot the temporary
+# disk copy/OSMorphing worker VMs as.
+# Default is "m1.small"
+# (string value)
 migr_flavor_name = m1.small
+
+# Whether or not to use config drive to send metadata to the temporary
+# disk copy/OSMorphing worker VMs in case Neutron metadata is not available
+# Default is false
 migr_worker_use_config_drive = false
-glance_upload = true
-disk_format = qcow2
-container_format = bare
+
+# Whether or not to reconfigure the internal network settings of each
+# interface of the instance being migrated/replicated during the OSMorphing
+# process to have the VM perform DHCP on first boot inside the new environment.
+# Default is true
 set_dhcp = true
 
 # Parameters realted to the OSMorphing process for Windows instances:
