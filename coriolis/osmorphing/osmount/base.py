@@ -252,6 +252,10 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
 
         for dir in set(dirs).intersection(['proc', 'sys', 'dev', 'run']):
             mount_dir = os.path.join(os_root_dir, dir)
+            if not utils.test_ssh_path(self._ssh, mount_dir):
+                LOG.info(
+                    "No '%s' directory in mounted OS. Skipping mount.", dir)
+                continue
             self._exec_cmd(
                 'sudo mount -o bind /%(dir)s/ %(mount_dir)s' %
                 {'dir': dir, 'mount_dir': mount_dir})
