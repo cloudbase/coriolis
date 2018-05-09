@@ -10,11 +10,6 @@ iface=${2:-lo}
 if [ ! -d kolla-ansible ]; then
     git clone https://github.com/openstack/kolla-ansible -b stable/ocata
 
-    pushd ./kolla-ansible
-    # Fix for barbican config issue
-    git cherry-pick 2e4359069e8a50f83fe0dca1103d935212dd2703
-    popd
-
     pip install -q ./kolla-ansible
 fi
 
