@@ -409,3 +409,31 @@ def get_url_with_credentials(url, username, password):
         quote_url(username), quote_url(password or ''), netloc)
     parts = parts._replace(netloc=netloc)
     return parse.urlunsplit(parts)
+
+
+def get_unique_option_ids(resources, id_key="id", name_key="name"):
+    """Given a list of dictionaries with both the specified 'id_key' and
+    'name_key' in each, returns a list of strings, each identifying a certain
+    dictionary thusly:
+       - if the value under the 'name_key' of a dict is not unique among all
+         others, returns the value of the 'id_key'
+       - else, returns the value of the 'name_key
+    """
+
+    name_mappings = {}
+    for resource in resources:
+        if resource[name_key] in name_mappings:
+            name_mappings[resource[name_key]].append(resource[id_key])
+        else:
+            name_mappings[resource[name_key]] = [resource[id_key]]
+
+    identifiers = []
+    for name, ids in name_mappings.items():
+        # if it has only one id, it is unique, append name
+        if len(ids) == 1:
+            identifiers.append(name)
+        else:
+            # if it has multiple ids, append ids
+            identifiers.extend(ids)
+
+    return identifiers
