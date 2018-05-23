@@ -73,7 +73,7 @@ class WindowsMountTools(base.BaseOSMountTools):
         return self._conn.exec_ps_command("diskpart.exe /s '%s'" % filepath)
 
     def _service_disks_with_status(
-            self, status, service_script_with_id_fmt,
+            self, status, service_script_with_id_fmt, skip_on_error=False,
             logmsg_fmt="Operating on disk with index '%s'"):
         """Executes given service script on detected disks.
 
@@ -92,15 +92,32 @@ class WindowsMountTools(base.BaseOSMountTools):
         servicable_disk_ids = [m.group(1) for m in [
             re.match(search_disk_entry_re, l) for l in disk_list.split("\r\n")]
             if m is not None]
+        LOG.debug(
+            "Servicing disks with status '%s' (%s) from disk list: %s",
+            status, servicable_disk_ids, disk_list)
         for disk_id in servicable_disk_ids:
             curr_disk_entry_re = disk_entry_re % (disk_id, status)
 
-            disk_list = self._run_diskpart_script("LIST DISK\r\nEXIT")
+            disk_list = self._run_diskpart_script(disk_list_script)
             for line in disk_list.split("\r\n"):
                 if re.match(curr_disk_entry_re, line):
                     LOG.info(logmsg_fmt, disk_id)
-                    self._run_diskpart_script(
-                        service_script_with_id_fmt % disk_id)
+                    script = service_script_with_id_fmt % disk_id
+                    try:
+                        self._run_diskpart_script(script)
+                    except Exception as ex:
+                        if skip_on_error:
+                            LOG.warn(
+                                "Exception ocurred while servicing disk '%s' "
+                                "with status '%s'.Skipping running script '%s'"
+                                ". Error message: %s" % (
+                                    disk_id, status, script, ex))
+                            self._event_manager.progress_update(
+                                "Exception ocurred while servicing disk '%s' "
+                                "with status '%s'. Skipping servicing disk" % (
+                                    disk_id, status))
+                        else:
+                            raise
                     break
 
     def _set_foreign_disks_rw_mode(self):
@@ -131,8 +148,12 @@ class WindowsMountTools(base.BaseOSMountTools):
 
     def _bring_all_disks_online(self):
         online_disk_script_fmt = "SELECT DISK %s\r\nONLINE DISK\r\nEXIT"
+        # NOTE (aznashwan): there is a chance that some disks on Windows
+        # worker VMs won't be able to be brought online, but they may not be
+        # the boot disk and thus can be skipped on error and still have a good
+        # chance that the OSMorphing process will complete successfully.
         self._service_disks_with_status(
-            "Offline", online_disk_script_fmt,
+            "Offline", online_disk_script_fmt, skip_on_error=True,
             logmsg_fmt="Bringing offline disk with ID %s online.")
 
     def _set_basic_disks_rw_mode(self):
