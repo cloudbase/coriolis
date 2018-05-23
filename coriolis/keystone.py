@@ -50,7 +50,7 @@ def create_trust(ctxt):
         auth_url=trusts_auth_plugin.auth_url,
         token=ctxt.auth_token,
         project_name=ctxt.project_name,
-        project_domain_name=ctxt.project_domain)
+        project_domain_name=ctxt.project_domain_name)
     session = ks_session.Session(
         auth=auth, verify=not CONF.keystone.allow_untrusted)
 
@@ -148,12 +148,35 @@ def create_keystone_session(ctxt, connection_info={}):
             plugin_name = "v3" + plugin_name
 
             project_domain_name = connection_info.get(
-                "project_domain_name", ctxt.project_domain)
-            plugin_args["project_domain_name"] = project_domain_name
+                "project_domain_name", ctxt.project_domain_name)
+            # NOTE: only set the kwarg if proper argument is provided:
+            if project_domain_name:
+                plugin_args["project_domain_name"] = project_domain_name
+
+            project_domain_id = connection_info.get(
+                "project_domain_id", ctxt.project_domain_id)
+            if project_domain_id:
+                plugin_args["project_domain_id"] = project_domain_id
+
+            if not project_domain_name and not project_domain_id:
+                raise exception.CoriolisException(
+                    "Either 'project_domain_name' or 'project_domain_id' is "
+                    "required for Keystone v3 Auth.")
 
             user_domain_name = connection_info.get(
-                "user_domain_name", ctxt.user_domain)
-            plugin_args["user_domain_name"] = user_domain_name
+                "user_domain_name", ctxt.user_domain_name)
+            if user_domain_name:
+                plugin_args["user_domain_name"] = user_domain_name
+
+            user_domain_id = connection_info.get(
+                "user_domain_id", ctxt.user_domain_id)
+            if user_domain_id:
+                plugin_args["user_domain_id"] = user_domain_id
+
+            if not user_domain_name and not user_domain_id:
+                raise exception.CoriolisException(
+                    "Either 'user_domain_name' or 'user_domain_id' is "
+                    "required for Keystone v3 Auth.")
 
         loader = loading.get_plugin_loader(plugin_name)
         auth = loader.load_from_options(**plugin_args)
