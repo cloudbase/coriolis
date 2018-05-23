@@ -80,19 +80,10 @@ class WSManConnection(object):
         return std_out
 
     def exec_ps_command(self, cmd, ignore_stdout=False):
-        # This is needed to avoid Nano Server's output formatting
-        if not ignore_stdout:
-            cmd_fmt = "%s | out-file out.txt"
-        else:
-            cmd_fmt = "%s"
-
-        base64_cmd = base64.b64encode(
-            (cmd_fmt % cmd).encode('utf-16le')).decode()
-        self.exec_command(
-            "powershell.exe", ["-EncodedCommand", base64_cmd])
-
-        if not ignore_stdout:
-            return self.exec_command("cmd.exe", ["/c", "type", "out.txt"])[:-2]
+        LOG.debug("Executing PS command: %s", cmd)
+        base64_cmd = base64.b64encode(cmd.encode('utf-16le')).decode()
+        return self.exec_command(
+            "powershell.exe", ["-EncodedCommand", base64_cmd])[:-2]
 
     def test_path(self, remote_path):
         ret_val = self.exec_ps_command("Test-Path -Path \"%s\"" % remote_path)
