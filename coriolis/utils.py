@@ -419,6 +419,10 @@ def get_unique_option_ids(resources, id_key="id", name_key="name"):
          others, returns the value of the 'id_key'
        - else, returns the value of the 'name_key
     """
+    if not all([name_key in d and id_key in d for d in resources]):
+        raise KeyError(
+            "Some resources are missing the name key '%s' "
+            "or ID key '%s': %s" % (name_key, id_key, resources))
 
     name_mappings = {}
     for resource in resources:
