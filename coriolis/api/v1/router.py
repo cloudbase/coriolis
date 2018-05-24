@@ -5,6 +5,7 @@ from oslo_log import log as logging
 
 from coriolis import api
 from coriolis.api.v1 import endpoint_actions
+from coriolis.api.v1 import endpoint_destination_options
 from coriolis.api.v1 import endpoint_instances
 from coriolis.api.v1 import endpoint_networks
 from coriolis.api.v1 import endpoints
@@ -63,6 +64,13 @@ class APIRouter(api.APIRouter):
             endpoint_networks.create_resource()
         mapper.resource('network', 'endpoints/{endpoint_id}/networks',
                         controller=self.resources['endpoint_networks'])
+
+        self.resources['endpoint_destination_options'] = \
+            endpoint_destination_options.create_resource()
+        mapper.resource('destination_options',
+                        'endpoints/{endpoint_id}/destination-options',
+                        controller=(
+                            self.resources['endpoint_destination_options']))
 
         self.resources['provider_schemas'] = \
             provider_schemas.create_resource()

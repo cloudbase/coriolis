@@ -23,6 +23,8 @@ PROVIDER_TYPE_MAP = {
     constants.PROVIDER_TYPE_IMPORT: base.BaseImportProvider,
     constants.PROVIDER_TYPE_REPLICA_IMPORT: base.BaseReplicaImportProvider,
     constants.PROVIDER_TYPE_ENDPOINT: base.BaseEndpointProvider,
+    constants.PROVIDER_TYPE_ENDPOINT_OPTIONS:
+        base.BaseEndpointDestinationOptionsProvider,
     constants.PROVIDER_TYPE_ENDPOINT_INSTANCES:
         base.BaseEndpointInstancesProvider,
     constants.PROVIDER_TYPE_ENDPOINT_NETWORKS:

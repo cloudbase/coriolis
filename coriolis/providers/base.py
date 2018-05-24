@@ -54,6 +54,66 @@ class BaseEndpointNetworksProvider(object, with_metaclass(abc.ABCMeta)):
         raise NotImplementedError()
 
 
+class BaseEndpointDestinationOptionsProvider(
+        object, with_metaclass(abc.ABCMeta)):
+    @abc.abstractmethod
+    def get_target_environment_options(
+            self, ctxt, connection_info, env=None, option_names=None):
+        """ Returns all possible values for the target environment options, as
+        well as any settings the options might have in the configuration files.
+
+        param env: dict: optional target environment options
+        param option_names: list(str): optional list of parameter names to show
+        values for
+
+        Example returned values for the following options:
+        schema = {
+            "properties": {
+                "migr_network": {
+                    "type": "string"
+                },
+                "security_groups": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                },
+                "migr_image": {
+                    "type": "object",
+                    "properties": {
+                        "id": { "type": "string" },
+                        "name": { "type": "integer" }
+                    }
+                }
+            }
+        }
+        The provider should return:
+        options = [
+            {
+                "name": "migr_network",
+                "values": ["net1", "net2", "net3"],
+                "config_default": "net2"},
+            {
+                "name": "security_groups",
+                "values": ["secgroup1", "secgroup2", "secgroup3"],
+                "config_default": ["secgroup2", "secgroup3"]},
+            {
+                "name": "migr_image",
+                "values": [
+                    {"name": "testimage1", "id": 101},
+                    {"name": "testimg2", "id": 4}],
+                "config_default": {"name": "testimg2", "id": 4}}}
+        ]
+        Observations:
+            - base types such as 'integer' or 'string' are preserved
+            - 'array' types will return an array with all the options which are
+              settable through that paramter (any, all or none may be set)
+            - for fields where both a name or ID may be returned, returning the
+              name will be preferred. The provider must ensure that, if there
+              are objects with the same name, the IDs of those objects are
+              offered as an option instead of two identical names.
+        """
+        pass
+
+
 class BaseInstanceProvider(BaseProvider):
 
     def get_os_morphing_tools(self, conn, osmorphing_info):
