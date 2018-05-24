@@ -215,7 +215,10 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                 "sudo blkid -o value -s TYPE %s || true" %
                 dev_path).decode().split('\n')[0]
             if fs_type in valid_filesystems:
-                utils.check_fs(self._ssh, fs_type, dev_path)
+                if fs_type == "xfs":
+                    utils.run_xfs_repair(self._ssh, dev_path)
+                else:
+                    utils.check_fs(self._ssh, fs_type, dev_path)
                 dev_paths_to_mount.append(dev_path)
 
         os_root_device = None

@@ -193,6 +193,25 @@ def check_fs(ssh, fs_type, dev_path):
         LOG.warn("Checking file system returned an error:\n%s", str(ex))
 
 
+def run_xfs_repair(ssh, dev_path):
+    try:
+        tmp_dir = exec_ssh_cmd(
+            ssh, "mktemp -d").decode().rstrip("\n")
+        LOG.debug("mounting %s on %s" % (dev_path, tmp_dir))
+        mount_out = exec_ssh_cmd(
+            ssh, "sudo mount %s %s" % (dev_path, tmp_dir)).decode()
+        LOG.debug("mount returned: %s" % mount_out)
+        LOG.debug("Umounting %s" % tmp_dir)
+        umount_out = exec_ssh_cmd(
+            ssh, "sudo umount %s" % tmp_dir).decode()
+        LOG.debug("umounting returned: %s" % umount_out)
+        out = exec_ssh_cmd(
+            ssh, "sudo xfs_repair %s" % dev_path).decode()
+        LOG.debug("File system repaired:\n%s", out)
+    except Exception as ex:
+        LOG.warn("xfs_repair returned an error:\n%s", str(ex))
+
+
 def _check_port_open(host, port):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
