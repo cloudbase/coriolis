@@ -30,6 +30,7 @@
         - { url: "git@bitbucket.org:cloudbase/coriolis-core.git", name: coriolis-core, version: master}
         - { url: "git@bitbucket.org:cloudbase/coriolis-provider-oracle-vm.git", name: coriolis-provider-oracle-vm, version: master}
         - { url: "git@bitbucket.org:cloudbase/coriolis-provider-opc.git", name: coriolis-provider-opc, version: master}
+        - { url: "git@bitbucket.org:cloudbase/coriolis-provider-oci.git", name: coriolis-provider-oci, version: master}
         - { url: "git@bitbucket.org:cloudbase/coriolis-provider-vmware.git", name: coriolis-provider-vmware, version: master}
         - { url: "git@bitbucket.org:cloudbase/coriolis-provider-aws.git", name: coriolis-provider-aws, version: master}
         - { url: "git@bitbucket.org:cloudbase/coriolis-provider-openstack.git", name: coriolis-provider-openstack, version: master}
