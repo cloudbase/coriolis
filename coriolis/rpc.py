@@ -11,6 +11,9 @@ rpc_opts = [
     cfg.StrOpt('messaging_transport_url',
                default="rabbit://guest:guest@127.0.0.1:5672/",
                help='Messaging transport url'),
+    cfg.IntOpt('default_messaging_timeout',
+               default=60,
+               help='Number of seconds for messaging timeouts.')
 ]
 
 CONF = cfg.CONF
@@ -48,9 +51,12 @@ def _get_transport():
                                    allowed_remote_exmods=ALLOWED_EXMODS)
 
 
-def get_client(target, serializer=None):
+def get_client(target, serializer=None, timeout=None):
     serializer = RequestContextSerializer(serializer)
-    return messaging.RPCClient(_get_transport(), target, serializer=serializer)
+    if timeout is None:
+        timeout = CONF.default_messaging_timeout
+    return messaging.RPCClient(
+        _get_transport(), target, serializer=serializer, timeout=timeout)
 
 
 def get_server(target, endpoints, serializer=None):

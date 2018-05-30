@@ -1,6 +1,7 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from oslo_config import cfg
 import oslo_messaging as messaging
 
 from coriolis import rpc
@@ -8,10 +9,21 @@ from coriolis import rpc
 VERSION = "1.0"
 
 
+worker_opts = [
+    cfg.IntOpt("worker_rpc_timeout",
+               help="Number of seconds until RPC calls to the worker timeout.")
+]
+
+CONF = cfg.CONF
+CONF.register_opts(worker_opts, 'worker')
+
+
 class WorkerClient(object):
-    def __init__(self):
+    def __init__(self, timeout=None):
         target = messaging.Target(topic='coriolis_worker', version=VERSION)
-        self._client = rpc.get_client(target)
+        if timeout is None:
+            timeout = CONF.worker.worker_rpc_timeout
+        self._client = rpc.get_client(target, timeout=timeout)
 
     def begin_task(self, ctxt, server, task_id, task_type, origin, destination,
                    instance, task_info):
