@@ -163,6 +163,7 @@ class WorkerServerEndpoint(object):
                                                       new_task_info)
         except Exception as ex:
             LOG.exception(ex)
+            self._check_remove_dir(export_path)
             self._rpc_conductor_client.set_task_error(ctxt, task_id, str(ex))
         finally:
             if not retain_export_path:
