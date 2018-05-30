@@ -116,6 +116,11 @@ class ConductorServerEndpoint(object):
 
     @endpoint_synchronized
     def delete_endpoint(self, ctxt, endpoint_id):
+        q_replicas_count = db_api.get_endpoint_replicas_count(
+            ctxt, endpoint_id)
+        if q_replicas_count is not 0:
+            raise exception.NotAuthorized("%s replicas would be orphaned!" %
+                                          q_replicas_count)
         db_api.delete_endpoint(ctxt, endpoint_id)
 
     def get_endpoint_instances(self, ctxt, endpoint_id, marker, limit,
