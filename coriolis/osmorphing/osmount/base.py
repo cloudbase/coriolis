@@ -120,6 +120,101 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                 vg_names.append(m.groups()[0])
         return vg_names
 
+    def _check_mount_fstab_partitions(
+            self, os_root_dir, skip_mounts=["/"], skip_filesystems=["swap"]):
+        """ Reads the contents of /etc/fstab from the VM's root directory and
+        tries to mount all clearly identified (by UUID or path) filesystems.
+        Returns the list of the new directories which were mounted.
+        param: skip_mounts: list(str()): list of directories (inside the
+        chroot) to not try to mount.
+        param: skip_filesystems: list(str()): list of filesystem types to skip
+        mounting entirely
+        """
+        new_mountpoints = []
+        etc_fstab_path = os.path.join(os_root_dir, "etc/fstab")
+        if not utils.test_ssh_path(self._ssh, etc_fstab_path):
+            LOG.warn(
+                "etc/fstab file not found in '%s'. Cannot mount non-root dirs",
+                os_root_dir)
+            return []
+
+        etc_fstab_raw = utils.read_ssh_file(self._ssh, etc_fstab_path)
+        etc_fstab = etc_fstab_raw.decode('utf-8')
+
+        LOG.debug(
+            "Mounting non-root partitions from fstab file: %s" % (
+                base64.b64encode(etc_fstab_raw)))
+
+        # dictionary of the form {"device":
+        #   {"mountpoint": "<m>", "filesystem": "<fs>", "options": "<opts>"}}
+        mounts = {}
+        # fstab entry format:
+        # <device> <mountpoint> <filesystem> <options> <dump> <fsck>
+        fstab_entry_regex = (
+            "^(\s*([^#\s]+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\d)\s+(\d)\s*)$")
+        for line in etc_fstab.splitlines():
+            match = re.match(fstab_entry_regex, line)
+
+            if not match:
+                LOG.warn(
+                    "Skipping unparseable /etc/fstab line: '%s'", line)
+                continue
+
+            device = match.group(2)
+            mounts[device] = {
+                "mountpoint": match.group(3),
+                "filesystem": match.group(4),
+                "options": match.group(5)}
+
+        # regexes for supported fstab device references:
+        uuid_char_regex = "[0-9a-fA-F]"
+        fs_uuid_regex = (
+            "%(char)s{8}-%(char)s{4}-%(char)s{4}-"
+            "%(char)s{4}-%(char)s{12}") % {"char": uuid_char_regex}
+        fs_uuid_entry_regex = "^(UUID=%s)$" % fs_uuid_regex
+        by_uuid_entry_regex = "^(/dev/disk/by-uuid/%s)$" % fs_uuid_regex
+        for (device, details) in mounts.items():
+            if (re.match(fs_uuid_entry_regex, device) is None and
+                    re.match(by_uuid_entry_regex, device) is None):
+                LOG.warn(
+                    "Found fstab entry for dir %s which references device %s. "
+                    "Only devices references by UUID= or /dev/disk/by-uuid "
+                    "are supported. Skipping mounting directory." % (
+                        details["mountpoint"], device))
+                continue
+            elif details["mountpoint"] in skip_mounts:
+                LOG.debug(
+                    "Skipping undesired mount: %s: %s", device, details)
+                continue
+            elif details["filesystem"] in skip_filesystems:
+                LOG.debug(
+                    "Skipping mounting undesired FS for device %s: %s",
+                    device, details)
+                continue
+
+            LOG.debug("Attempting to mount fstab device: %s: %s",
+                      device, details)
+            # NOTE: details["mountpoint"] should always be an absolute path:
+            mountpoint = "%s%s" % (os_root_dir, details["mountpoint"])
+            mountcmd = "sudo mount -t %s -o %s %s '%s'" % (
+                details["filesystem"], details["options"],
+                device, mountpoint)
+            try:
+                self._exec_cmd(mountcmd)
+                new_mountpoints.append(mountpoint)
+            except Exception as ex:
+                LOG.warn(
+                    "Failed to run fstab filesystem mount command: '%s'. "
+                    "Skipping mount. Error details: %s",
+                    mountcmd, utils.get_exception_details())
+
+        if new_mountpoints:
+            LOG.info(
+                "The following new /etc/fstab entries were successfully "
+                "mounted: %s", new_mountpoints)
+
+        return new_mountpoints
+
     def _get_volume_block_devices(self):
         # NOTE: depending on the version of the worker OS, scanning for just
         # the device NAME may lead to LVM volumes getting displayed as:
@@ -141,47 +236,6 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
 
         LOG.info("Volume block devices: %s", volume_devs)
         return volume_devs
-
-    def _check_var_partition(self, os_root_dir, other_mounted_dirs):
-
-        reg_expr = (
-            '^(([^#\s]\S+)\s+/var\s+\S+\s+\S+\s+[0-9]+\s+[0-9]+)$')
-        etc_fstab_path = os.path.join(os_root_dir, "etc/fstab")
-
-        if not utils.test_ssh_path(self._ssh, etc_fstab_path):
-            LOG.debug("fstab file not found.")
-            return
-
-        etc_fstab_raw = utils.read_ssh_file(self._ssh, etc_fstab_path)
-        etc_fstab = etc_fstab_raw.decode('utf-8')
-
-        LOG.debug("Searching for separate /var partition in %s" %
-                  base64.b64encode(etc_fstab_raw))
-
-        var_found = None
-        for i in etc_fstab.splitlines():
-            var_found = re.search(reg_expr, i)
-            if var_found:
-                if i.startswith('UUID='):
-                    var_dev = var_found.group(2)
-                    var_mnt_dir = os.path.join(os_root_dir, 'var')
-                    try:
-                        self._exec_cmd(
-                            'sudo mount %s %s' % (var_dev, var_mnt_dir))
-                        other_mounted_dirs.append(var_mnt_dir)
-                    except Exception as ex:
-                        LOG.warn(
-                            "Could not mount /var partition: %s" %
-                            utils.get_exception_details())
-                        self._event_manager.progress_update(
-                            "Unable to mount /var partition")
-                        raise
-                    break
-                else:
-                    raise ValueError("At %s , fstab partitions must "
-                                     "be mounted by UUID!" % i)
-        if not var_found:
-            LOG.debug("External /var partition not detected.")
 
     def mount_os(self):
         dev_paths = []
@@ -223,7 +277,6 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
 
         os_root_device = None
         os_root_dir = None
-        boot_dev_path = None
         for dev_path in dev_paths_to_mount:
             tmp_dir = self._exec_cmd('mktemp -d').decode().split('\n')[0]
             self._exec_cmd('sudo mount %s %s' % (dev_path, tmp_dir))
@@ -235,23 +288,15 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                 os_root_dir = tmp_dir
                 os_root_device = dev_path
                 LOG.info("OS root device: %s", dev_path)
-            # TODO(alexpilotti): better ways to check for a linux boot dir?
-            else:
-                # TODO(alexpilotti): better ways to check for a linux boot dir?
-                if not boot_dev_path and ('grub' in dirs or 'grub2' in dirs):
-                    # Needs to be remounted under os_root_dir
-                    boot_dev_path = dev_path
-                    LOG.info("OS boot device: %s", dev_path)
-
-                self._exec_cmd('sudo umount %s' % tmp_dir)
-
-            if os_root_dir and boot_dev_path:
                 break
+            else:
+                self._exec_cmd('sudo umount %s' % tmp_dir)
 
         if not os_root_dir:
             raise exception.OperatingSystemNotFound("root partition not found")
 
-        self._check_var_partition(os_root_dir, other_mounted_dirs)
+        other_mounted_dirs.extend(
+            self._check_mount_fstab_partitions(os_root_dir))
 
         for dir in set(dirs).intersection(['proc', 'sys', 'dev', 'run']):
             mount_dir = os.path.join(os_root_dir, dir)
@@ -263,11 +308,6 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                 'sudo mount -o bind /%(dir)s/ %(mount_dir)s' %
                 {'dir': dir, 'mount_dir': mount_dir})
             other_mounted_dirs.append(mount_dir)
-
-        if boot_dev_path:
-            boot_dir = os.path.join(os_root_dir, 'boot')
-            self._exec_cmd('sudo mount %s %s' % (boot_dev_path, boot_dir))
-            other_mounted_dirs.append(boot_dir)
 
         return os_root_dir, other_mounted_dirs, os_root_device
 
