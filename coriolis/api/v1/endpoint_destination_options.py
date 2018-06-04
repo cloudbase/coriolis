@@ -23,7 +23,7 @@ class EndpointDestinationOptionsController(api_wsgi.Controller):
 
         options = req.GET.get("options")
         if options is not None:
-            options = utils.decode_base64_param(env, is_json=True)
+            options = utils.decode_base64_param(options, is_json=True)
 
         return endpoint_destination_options_view.collection(
             req,
