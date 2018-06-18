@@ -23,12 +23,16 @@ docker rm -f coriolis-web-proxy
 docker rm -f coriolis-replica-cron
 
 TAG="$1"
-if test ! $TAG; then
+if test ! "$TAG"; then
     TAG=`python $get_config_value -c $CONF_BUILD_FILE -n docker_images_tag`
 fi
 REPO="$2"
-if test ! $REPO; then
+if test ! "$REPO"; then
     REPO=`python $get_config_value -c $CONF_BUILD_FILE -n docker_registry`
+    NS=`python $get_config_value -c $CONF_BUILD_FILE -n coriolis_containers_namespace`
+    if [ "$NS" ]; then
+        REPO="$REPO/$NS"
+    fi
 fi
 
 docker rmi $REPO/coriolis-worker:$TAG

@@ -1,9 +1,9 @@
 docker_registry: registry.cloudbase.it
-kolla_containers_namespace: coriolis
 docker_push_images: false
 docker_images_tag: 1.0.1
 docker_template: ol7
 kolla_containers_namespace: custom
+coriolis_containers_namespace: custom
 vmware_disklib_url: https://cloudbase.it/downloads/VMware-vix-disklib-6.0.3-4888596.x86_64.tar.gz
 libnfs_rpm_url: https://cloudbase.it/downloads/libnfs-1.10.0-1.x86_64.rpm
 libqemu_url: https://cloudbase.it/downloads/libqemu.so.gz

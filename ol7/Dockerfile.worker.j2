@@ -1,4 +1,4 @@
-FROM {{ docker_registry }}/coriolis-common:{{ docker_images_tag }}
+FROM {{ docker_registry }}/{{ coriolis_containers_namespace }}/coriolis-common:{{ docker_images_tag }}
 
 ADD coriolis-provider-oracle-vm/ coriolis-provider-oracle-vm
 ADD coriolis-provider-opc/ coriolis-provider-opc
