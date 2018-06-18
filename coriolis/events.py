@@ -4,7 +4,11 @@
 import abc
 import collections
 
+from oslo_log import log as logging
 from six import with_metaclass
+
+
+LOG = logging.getLogger(__name__)
 
 _PercStepData = collections.namedtuple(
     "_PercStepData", "last_value max_value perc_threshold message_format")
@@ -23,6 +27,13 @@ class EventManager(object, with_metaclass(abc.ABCMeta)):
 
     def add_percentage_step(self, max_value, perc_threshold=1,
                             message_format="{:.0f}%"):
+        if max_value < 0:
+            LOG.warn(
+                "Max percentage value was negative (%s). Reset to 0",
+                max_value)
+            max_value = 0
+        if max_value == 0:
+            LOG.warn("Max percentage value set to 0 (zero)")
         self._current_step += 1
         self._percentage_steps[self._current_step] = _PercStepData(
             0, max_value, perc_threshold, message_format)
@@ -31,10 +42,13 @@ class EventManager(object, with_metaclass(abc.ABCMeta)):
     def set_percentage_step(self, step, value):
         step_data = self._percentage_steps[step]
 
-        old_perc = (step_data.last_value * 100 / step_data.max_value //
+        old_perc = 100
+        perc = 100
+        if step_data.max_value != 0:
+            old_perc = (step_data.last_value * 100 / step_data.max_value //
+                        step_data.perc_threshold * step_data.perc_threshold)
+            perc = (value * 100 / step_data.max_value //
                     step_data.perc_threshold * step_data.perc_threshold)
-        perc = (value * 100 / step_data.max_value //
-                step_data.perc_threshold * step_data.perc_threshold)
 
         if perc > old_perc and self._event_handler:
             self._event_handler.progress_update(
