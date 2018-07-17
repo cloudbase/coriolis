@@ -33,6 +33,14 @@ set_config_random_value coriolis_database_password
 set_config_random_value coriolis_keystone_password
 set_config_random_value temp_keypair_password
 
+# NOTE: the Kolla deployment process automatically pull in `docker-py` as the
+# module to interact with Docker, though this the module is no longer supported
+# by Ansible, so we must ensure we have the updated `docker` package installed.
+if [ "$(pip freeze | grep docker-py==)" ]; then
+    pip uninstall -y docker-py
+fi
+pip install --upgrade --force-reinstall docker
+
 ansible-playbook -v $basedir/deploy.yml \
 -e @/etc/kolla/passwords.yml \
 -e @$config_file \
