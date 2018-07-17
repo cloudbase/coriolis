@@ -43,6 +43,12 @@ systemctl start ntpd
 yum install -y python-virtualenv
 yum install -y --enablerepo=epel python-pip
 pip install -U pip
+
+# NOTE: pip >= 10 will refuse to uninstall dist-utils installed packages
+# during the final cleanup phase of kolla/deploy.sh (there are a handful of
+# packages which are installed by yum as part of the
+# `yum install ansible` done in `prereqs_ol7.sh`)
+pip install --upgrade --force-reinstall 'pip<10'
 pip install wheel
 
 # NOTE: needed for Ansible's MySQL tasks:
@@ -54,7 +60,7 @@ systemctl start docker
 
 # NOTE: IPv4 forwarding is required for rebuilding container images
 # and resolving DNS inside the running containers:
-echo "net.ipv4.ip_forward=1" > 99-docker-ipv4-forwarding.conf
+echo "net.ipv4.ip_forward=1" > /etc/sysctl.d/99-docker-ipv4-forwarding.conf
 
 yum install git -y
 yum groupinstall development tools -y
