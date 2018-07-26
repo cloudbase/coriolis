@@ -31,6 +31,7 @@ PROVIDER_TYPE_MAP = {
         base.BaseEndpointNetworksProvider,
     constants.PROVIDER_TYPE_OS_MORPHING: base.BaseImportInstanceProvider,
     constants.PROVIDER_TYPE_INSTANCE_FLAVOR: base.BaseInstanceFlavorProvider,
+    constants.PROVIDER_TYPE_SETUP_LIBS: base.BaseProviderSetupExtraLibsMixin
 }
 
 
@@ -51,13 +52,17 @@ def get_available_providers():
     return providers
 
 
-def get_provider(platform_name, provider_type, event_handler):
+def get_provider(
+        platform_name, provider_type, event_handler, raise_if_not_found=True):
     for provider in CONF.providers:
         cls = utils.load_class(provider)
         if (cls.platform == platform_name and
                 issubclass(cls, PROVIDER_TYPE_MAP[provider_type])):
             return cls(event_handler)
 
-    raise exception.NotFound(
-        "Provider not found for: %(platform_name)s, %(provider_type)s" %
-        {"platform_name": platform_name, "provider_type": provider_type})
+    if raise_if_not_found:
+        raise exception.NotFound(
+            "Provider not found for: %(platform_name)s, %(provider_type)s" %
+            {"platform_name": platform_name, "provider_type": provider_type})
+
+    return None
