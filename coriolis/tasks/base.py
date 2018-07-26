@@ -7,7 +7,9 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from six import with_metaclass
 
+from coriolis import constants
 from coriolis import utils
+from coriolis.providers import factory as providers_factory
 
 serialization_opts = [
     cfg.StrOpt('temp_keypair_password',
@@ -21,6 +23,33 @@ LOG = logging.getLogger(__name__)
 
 
 class TaskRunner(with_metaclass(abc.ABCMeta)):
+
+    def get_shared_libs_for_providers(
+            self, ctxt, origin, destination, event_handler):
+        """ Returns a list of directories containing libraries needed
+        for both the source and destination providers. """
+        required_libs = []
+
+        origin_provider = providers_factory.get_provider(
+            origin["type"], constants.PROVIDER_TYPE_SETUP_LIBS, event_handler,
+            raise_if_not_found=False)
+        if origin_provider:
+            conn_info = get_connection_info(ctxt, origin)
+            required_libs.extend(
+                origin_provider.get_shared_library_directories(
+                    ctxt, conn_info))
+
+        destination_provider = providers_factory.get_provider(
+            destination["type"], constants.PROVIDER_TYPE_SETUP_LIBS,
+            event_handler, raise_if_not_found=False)
+        if destination_provider:
+            conn_info = get_connection_info(ctxt, destination)
+            required_libs.extend(
+                destination_provider.get_shared_library_directories(
+                    ctxt, conn_info))
+
+        return required_libs
+
     @abc.abstractmethod
     def run(self, ctxt, instance, origin, destination, task_info,
             event_handler):
