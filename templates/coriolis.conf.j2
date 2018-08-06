@@ -36,6 +36,15 @@ auth_url = {{ internal_protocol }}://{{ keystone_host }}:{{ keystone_public_port
 [worker]
 export_base_path = {{ coriolis_export_base_path }}
 
+[vmware_vsphere_migration_provider]
+# Required in order to set the compatibility of the vixDiskLib release
+# Coriolis will use during replication/CBT-based migration from VMWare.
+# This value should ideally match the ESXi/vCenter hosts versions.
+vixdisklib_compatibility_version = 6.0
+
+# The path where the SOs for vixDiskLib are located:
+vixdisklib_library_directory = {{ vmware_vix_disklib_path }}
+
 [aws_migration_provider]
 # Mapping between AWS regions and the ID of subnets in which to boot
 # the disk copy workers. The subnet must have a security group rule
