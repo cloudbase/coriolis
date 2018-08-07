@@ -1,5 +1,23 @@
 ---
 - hosts: localhost
+
+  vars:
+    vmware_vix_disklib_archive_path: "./build/VMware-vix-disklib.tar.gz"
+
+  pre_tasks:
+    - name: Downloading VMware disklib
+      get_url:
+        url: "{{ vmware_disklib_url }}"
+        dest: "{{ vmware_vix_disklib_archive_path }}"
+
+    - name: Creating VMWare vixDiskLib directory on host
+      file:
+        path: "{{ vmware_vix_disklib_path_host }}"
+        state: directory
+
+    - name: Extracting VMWare vixDiskLib
+      command: tar --strip-components=2 -C "{{ vmware_vix_disklib_path_host }}" -xzvf "{{ vmware_vix_disklib_archive_path }}" vmware-vix-disklib-distrib/lib64
+
   tasks:
     - name: Creating coriolis database
       mysql_db:
@@ -222,6 +240,7 @@
         - "/etc/coriolis:/etc/coriolis:ro"
         - "/var/log/coriolis:/var/log/coriolis:rw"
         - "{{ coriolis_export_base_path_host }}:{{ coriolis_export_base_path }}:rw"
+        - "{{ vmware_vix_disklib_path_host }}:{{ vmware_vix_disklib_path }}:ro"
 
     - name: coriolis-web container
       docker_container:

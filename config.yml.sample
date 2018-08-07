@@ -29,5 +29,7 @@ barbican_endpoint_url: "http://{{ barbican_host }}:9311"
 temp_keypair_password:
 coriolis_export_base_path: /opt/coriolis/export
 coriolis_export_base_path_host: /opt/coriolis/export
+vmware_vix_disklib_path: /opt/coriolis/vmware-vix-disklib
+vmware_vix_disklib_path_host: /opt/coriolis/vmware-vix-disklib
 
 pv_drivers_url: "https://dl.dropboxusercontent.com/u/9060190/ovm_win_vp_drivers_3_2_3.zip"
