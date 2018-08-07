@@ -54,6 +54,18 @@ class BaseEndpointNetworksProvider(object, with_metaclass(abc.ABCMeta)):
         raise NotImplementedError()
 
 
+class BaseProviderSetupExtraLibsMixin(object, with_metaclass(abc.ABCMeta)):
+    """ ABC mixin for providers which require extra libraries loaded. """
+
+    @abc.abstractmethod
+    def get_shared_library_directories(self, ctxt, connection_info):
+        """ Should return a list of string paths to directories somewhere in
+        the worker filesystem where extra libraries required for the provider
+        are located.
+        """
+        return []
+
+
 class BaseEndpointDestinationOptionsProvider(
         object, with_metaclass(abc.ABCMeta)):
     @abc.abstractmethod
