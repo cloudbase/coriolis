@@ -230,48 +230,48 @@ class ConductorServerEndpoint(object):
         execution.action = replica
 
         for instance in execution.action.instances:
-                depends_on = []
-                if shutdown_instances:
-                    shutdown_instance_task = self._create_task(
-                        instance, constants.TASK_TYPE_SHUTDOWN_INSTANCE,
-                        execution)
-                    depends_on = [shutdown_instance_task.id]
+            get_instance_info_task = self._create_task(
+                instance, constants.TASK_TYPE_GET_INSTANCE_INFO,
+                execution)
 
-                get_instance_info_task = self._create_task(
-                    instance, constants.TASK_TYPE_GET_INSTANCE_INFO,
+            depends_on = [get_instance_info_task.id]
+            if shutdown_instances:
+                shutdown_instance_task = self._create_task(
+                    instance, constants.TASK_TYPE_SHUTDOWN_INSTANCE,
                     execution, depends_on=depends_on)
+                depends_on = [shutdown_instance_task.id]
 
-                deploy_replica_disks_task = self._create_task(
-                    instance, constants.TASK_TYPE_DEPLOY_REPLICA_DISKS,
-                    execution, depends_on=[get_instance_info_task.id])
+            deploy_replica_disks_task = self._create_task(
+                instance, constants.TASK_TYPE_DEPLOY_REPLICA_DISKS,
+                execution, depends_on=depends_on)
 
-                deploy_replica_source_resources_task = self._create_task(
-                    instance,
-                    constants.TASK_TYPE_DEPLOY_REPLICA_SOURCE_RESOURCES,
-                    execution, depends_on=[deploy_replica_disks_task.id])
+            deploy_replica_source_resources_task = self._create_task(
+                instance,
+                constants.TASK_TYPE_DEPLOY_REPLICA_SOURCE_RESOURCES,
+                execution, depends_on=[deploy_replica_disks_task.id])
 
-                deploy_replica_target_resources_task = self._create_task(
-                    instance,
-                    constants.TASK_TYPE_DEPLOY_REPLICA_TARGET_RESOURCES,
-                    execution, depends_on=[deploy_replica_disks_task.id])
+            deploy_replica_target_resources_task = self._create_task(
+                instance,
+                constants.TASK_TYPE_DEPLOY_REPLICA_TARGET_RESOURCES,
+                execution, depends_on=[deploy_replica_disks_task.id])
 
-                replicate_disks_task = self._create_task(
-                    instance, constants.TASK_TYPE_REPLICATE_DISKS,
-                    execution, depends_on=[
-                        deploy_replica_source_resources_task.id,
-                        deploy_replica_target_resources_task.id])
+            replicate_disks_task = self._create_task(
+                instance, constants.TASK_TYPE_REPLICATE_DISKS,
+                execution, depends_on=[
+                    deploy_replica_source_resources_task.id,
+                    deploy_replica_target_resources_task.id])
 
-                self._create_task(
-                    instance,
-                    constants.TASK_TYPE_DELETE_REPLICA_SOURCE_RESOURCES,
-                    execution, depends_on=[replicate_disks_task.id],
-                    on_error=True)
+            self._create_task(
+                instance,
+                constants.TASK_TYPE_DELETE_REPLICA_SOURCE_RESOURCES,
+                execution, depends_on=[replicate_disks_task.id],
+                on_error=True)
 
-                self._create_task(
-                    instance,
-                    constants.TASK_TYPE_DELETE_REPLICA_TARGET_RESOURCES,
-                    execution, depends_on=[replicate_disks_task.id],
-                    on_error=True)
+            self._create_task(
+                instance,
+                constants.TASK_TYPE_DELETE_REPLICA_TARGET_RESOURCES,
+                execution, depends_on=[replicate_disks_task.id],
+                on_error=True)
 
         db_api.add_replica_tasks_execution(ctxt, execution)
         LOG.info("Replica tasks execution created: %s", execution.id)
