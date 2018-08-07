@@ -2,7 +2,7 @@
 - hosts: localhost
 
   vars:
-    vmware_vix_disklib_archive_path: "./build/VMware-vix-disklib.tar.gz"
+    vmware_vix_disklib_archive_path: "/tmp/VMware-vix-disklib.tar.gz"
 
   pre_tasks:
     - name: Downloading VMware disklib
