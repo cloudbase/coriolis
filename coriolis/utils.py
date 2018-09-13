@@ -112,6 +112,8 @@ def parse_os_release(ssh):
         if "=" not in line:
             continue
         k, v = line.split("=")
+        k = k.strip()
+        v = v.strip()
         info[k] = v.strip('"')
     if info.get("ID") and info.get("VERSION_ID"):
         return (info.get("ID"), info.get("VERSION_ID"))
