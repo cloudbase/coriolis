@@ -221,13 +221,16 @@ use_colocated_snapshots = true
 windows_pv_drivers_url = https://cloudbase.it/downloads/ovm_win_pv_drivers_all_323.zip
 
 [azure_migration_provider]
-# The location to which to migrate
+# The Azure location to which to migrate.
+# The location may also be set for each migration/replica in turn
+# using the destination-environment paramter.
 migr_location = westus
 
 # Default migrated instance size. This will be used if no vm_size is
-# set in the target_environment. Note: migration will fail if migrated
-# instance size cannot accommodate the number of disks that can be
-# migrated. (string value)
+# set in the destination-environment. Note: migration will fail if
+# migrated instance size cannot accommodate the number of disks than
+# can be migrated.
+# Default is 'Standard_A1'
 default_vm_size = Standard_A1
 
 # The images to use for temporary worker VMs:
@@ -237,8 +240,18 @@ windows_migr_image = version: latest, publisher: MicrosoftWindowsServer, offer: 
 # Default migration worker size. This will be used if no worker_size
 # is set in the target_environment. If none is provided, Coriolis will
 # list all available flavors on Azure and select the smallest
-# available one that can accommodate the number of disks. (string value)
+# available one that can accommodate the number of disks.
+# If not given, Coriolis will select the first worker size available
+# which can accomodate attaching all the disks for the particular
+# VM being migrated/replicated.
 default_worker_size = Standard_D1
+
+# Whether or not to set any IP addresses read from source VM NIC configurations
+# to destination NICs on Azure. This requires that the network/subnet mappings
+# in the 'network_map' are to networks/subnets on Azure which include the range
+# of the source networks.
+# Default is true
+preserve_nic_ips = true
 
 # For use with AzureStack, the following ARM Provider API versions
 # must be configured to API versions supported by the AzureStack.
