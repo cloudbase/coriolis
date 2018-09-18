@@ -247,8 +247,14 @@ class FinalizeReplicaInstanceDeploymentTask(base.TaskRunner):
         connection_info = base.get_connection_info(ctxt, destination)
         instance_deployment_info = task_info["instance_deployment_info"]
 
-        provider.finalize_replica_instance_deployment(
+        result = provider.finalize_replica_instance_deployment(
             ctxt, connection_info, instance_deployment_info)
+        if result is not None:
+            task_info["transfer_result"] = result
+        else:
+            LOG.warn(
+                "'None' was returned as result for Finalize Replica Instance "
+                "deployment task '%s'.", task_info)
 
         return task_info
 

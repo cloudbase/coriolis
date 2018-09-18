@@ -454,6 +454,22 @@ def set_transfer_action_info(context, action_id, instance, instance_info):
     return action_info[instance]
 
 
+@enginefacade.writer
+def set_transfer_action_result(context, action_id, instance, result):
+    """ Adds the result for the given 'instance' in the 'transfer_result'
+    JSON in the 'base_transfer_action' table.
+    """
+    action = get_action(context, action_id)
+
+    transfer_result = {}
+    if action.transfer_result:
+        transfer_result = action.transfer_result.copy()
+    transfer_result[instance] = result
+    action.transfer_result = transfer_result
+
+    return transfer_result[instance]
+
+
 @enginefacade.reader
 def get_tasks_execution(context, execution_id):
     q = _soft_delete_aware_query(context, models.TasksExecution)

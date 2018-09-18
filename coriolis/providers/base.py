@@ -183,7 +183,11 @@ class BaseImportProvider(BaseImportInstanceProvider):
     @abc.abstractmethod
     def finalize_import_instance(self, ctxt, connection_info,
                                  instance_deployment_info):
-        pass
+        """ Should return a dict with the info of the migrated VM on the
+        destination platform in the same format as offered by
+        'BaseExportProvider.export_instance()'.
+        """
+        return {}
 
     @abc.abstractmethod
     def cleanup_failed_import_instance(self, ctxt, connection_info,
@@ -202,7 +206,11 @@ class BaseReplicaImportProvider(BaseImportInstanceProvider):
     @abc.abstractmethod
     def finalize_replica_instance_deployment(self, ctxt, connection_info,
                                              instance_deployment_info):
-        pass
+        """ Should return a dict with the info of the migrated VM on the
+        destination platform in the same format as offered by
+        'BaseExportProvider.export_instance()'.
+        """
+        return {}
 
     @abc.abstractmethod
     def cleanup_failed_replica_instance_deployment(self, ctxt, connection_info,

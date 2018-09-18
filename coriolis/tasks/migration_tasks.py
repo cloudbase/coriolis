@@ -138,8 +138,14 @@ class FinalizeImportInstanceTask(base.TaskRunner):
         connection_info = base.get_connection_info(ctxt, destination)
         instance_deployment_info = task_info["instance_deployment_info"]
 
-        provider.finalize_import_instance(
+        result = provider.finalize_import_instance(
             ctxt, connection_info, instance_deployment_info)
+        if result is not None:
+            task_info["transfer_result"] = result
+        else:
+            LOG.warn(
+                "'None' was returned as result for Finalize Import Instance "
+                "task '%s'.", task_info)
 
         return task_info
 
