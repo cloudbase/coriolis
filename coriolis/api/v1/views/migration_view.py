@@ -3,7 +3,19 @@
 
 import itertools
 
+from oslo_config import cfg as conf
+
 from coriolis.api.v1.views import replica_tasks_execution_view
+
+
+MIGRATIONS_API_OPTS = [
+    conf.BoolOpt("include_task_info_in_migrations_api",
+                 default=False,
+                 help="Whether or not to expose the internal 'info' field of "
+                      "a Migration as part of a `GET` request.")]
+
+CONF = conf.CONF
+CONF.register_opts(MIGRATIONS_API_OPTS)
 
 
 def _format_migration(req, migration, keys=None):
@@ -22,6 +34,11 @@ def _format_migration(req, migration, keys=None):
     tasks = execution.get("tasks")
     if tasks:
         migration_dict["tasks"] = tasks
+
+    if not CONF.include_task_info_in_migrations_api and (
+            "info" in migration_dict):
+        migration_dict.pop("info")
+
     del migration_dict["executions"]
     return migration_dict
 
