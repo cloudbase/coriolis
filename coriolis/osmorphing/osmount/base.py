@@ -98,10 +98,10 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
     def _get_pvs(self):
         out = self._exec_cmd("sudo pvdisplay -c").decode().split("\n")
         pvs = {}
-        for l in out:
-            if l == "":
+        for line in out:
+            if line == "":
                 continue
-            line = l.strip().split(":")
+            line = line.strip().split(":")
             if pvs.get(line[1]) is None:
                 pvs[line[1]] = [line[0], ]
             else:
@@ -145,8 +145,8 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
             "Mounting non-root partitions from fstab file: %s" % (
                 base64.b64encode(etc_fstab_raw)))
 
-        # dictionary of the form {"device":
-        #   {"mountpoint": "<m>", "filesystem": "<fs>", "options": "<opts>"}}
+        # dictionary of the form {"mountpoint":
+        #   {"device": "<dev>", "filesystem": "<fs>", "options": "<opts>"}}
         mounts = {}
         # fstab entry format:
         # <device> <mountpoint> <filesystem> <options> <dump> <fsck>
@@ -161,8 +161,14 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                 continue
 
             device = match.group(2)
-            mounts[device] = {
-                "mountpoint": match.group(3),
+            mountpoint = match.group(3)
+            if mountpoint in mounts:
+                raise exception.CoriolisException(
+                    "Mountpoint '%s' appears to be mounted twice in "
+                    "'/etc/fstab'" % mountpoint)
+
+            mounts[mountpoint] = {
+                "device": device,
                 "filesystem": match.group(4),
                 "options": match.group(5)}
 
@@ -173,16 +179,17 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
             "%(char)s{4}-%(char)s{12}") % {"char": uuid_char_regex}
         fs_uuid_entry_regex = "^(UUID=%s)$" % fs_uuid_regex
         by_uuid_entry_regex = "^(/dev/disk/by-uuid/%s)$" % fs_uuid_regex
-        for (device, details) in mounts.items():
+        for (mountpoint, details) in mounts.items():
+            device = details['device']
             if (re.match(fs_uuid_entry_regex, device) is None and
                     re.match(by_uuid_entry_regex, device) is None):
                 LOG.warn(
                     "Found fstab entry for dir %s which references device %s. "
                     "Only devices references by UUID= or /dev/disk/by-uuid "
                     "are supported. Skipping mounting directory." % (
-                        details["mountpoint"], device))
+                        mountpoint, device))
                 continue
-            elif details["mountpoint"] in skip_mounts:
+            elif mountpoint in skip_mounts:
                 LOG.debug(
                     "Skipping undesired mount: %s: %s", device, details)
                 continue
@@ -194,14 +201,14 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
 
             LOG.debug("Attempting to mount fstab device: %s: %s",
                       device, details)
-            # NOTE: details["mountpoint"] should always be an absolute path:
-            mountpoint = "%s%s" % (os_root_dir, details["mountpoint"])
+            # NOTE: `mountpoint` should always be an absolute path:
+            chroot_mountpoint = "%s%s" % (os_root_dir, mountpoint)
             mountcmd = "sudo mount -t %s -o %s %s '%s'" % (
                 details["filesystem"], details["options"],
-                device, mountpoint)
+                device, chroot_mountpoint)
             try:
                 self._exec_cmd(mountcmd)
-                new_mountpoints.append(mountpoint)
+                new_mountpoints.append(chroot_mountpoint)
             except Exception as ex:
                 LOG.warn(
                     "Failed to run fstab filesystem mount command: '%s'. "
