@@ -98,10 +98,10 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
     def _get_pvs(self):
         out = self._exec_cmd("sudo pvdisplay -c").decode().split("\n")
         pvs = {}
-        for l in out:
-            if l == "":
+        for line in out:
+            if line == "":
                 continue
-            line = l.strip().split(":")
+            line = line.strip().split(":")
             if pvs.get(line[1]) is None:
                 pvs[line[1]] = [line[0], ]
             else:
