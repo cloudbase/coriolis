@@ -14,6 +14,7 @@ from coriolis.db.sqlalchemy import models
 from coriolis import exception
 from coriolis import keystone
 from coriolis.replica_cron.rpc import client as rpc_cron_client
+from coriolis import schemas
 from coriolis import utils
 from coriolis.worker.rpc import client as rpc_worker_client
 
@@ -784,6 +785,33 @@ class ConductorServerEndpoint(object):
                 # new volumes need to be deployed in place of the migrated
                 # ones.
                 updated_task_info = {"volumes_info": None}
+        elif task_type in (
+                constants.TASK_TYPE_FINALIZE_IMPORT_INSTANCE,
+                constants.TASK_TYPE_FINALIZE_REPLICA_INSTANCE_DEPLOYMENT):
+            # set 'transfer_result' in the 'base_transfer_action'
+            # table if the task returned a result.
+            if "transfer_result" in task_info:
+                transfer_result = task_info.get("transfer_result")
+                try:
+                    schemas.validate_value(
+                        transfer_result,
+                        schemas.CORIOLIS_VM_EXPORT_INFO_SCHEMA)
+                    LOG.debug(
+                        "Setting result for transfer action '%s': %s",
+                        execution.action_id, transfer_result)
+                    db_api.set_transfer_action_result(
+                        ctxt, execution.action_id, task.instance,
+                        transfer_result)
+                except exception.SchemaValidationException as ex:
+                    LOG.warn(
+                        "Could not validate transfer result '%s' against the "
+                        "VM export info schema. NOT saving value in Database. "
+                        "Exception details: %s",
+                        transfer_result, utils.get_exception_details())
+            else:
+                LOG.debug(
+                    "No 'transfer_result' was returned for task type '%s' "
+                    "for transfer action '%s'", task_type, execution.action_id)
 
         if updated_task_info:
             self._update_replica_volumes_info(
