@@ -427,6 +427,9 @@ class ConductorServerEndpoint(object):
     def _check_valid_replica_tasks_execution(replica, force=False):
         sorted_executions = sorted(
             replica.executions, key=lambda e: e.number, reverse=True)
+        if not sorted_executions:
+            raise exception.InvalidReplicaState(
+                "The Replica has never been executed.")
 
         if (force and sorted_executions[0].status !=
                 constants.EXECUTION_STATUS_COMPLETED):
