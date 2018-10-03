@@ -10,6 +10,15 @@ logging_context_format_string = %(asctime)s.%(msecs)03d %(color)s%(levelname)s %
 
 providers=coriolis_provider_openstack.ExportProvider,coriolis_provider_openstack.ImportProvider,coriolis_provider_vmware_vsphere.ExportProvider,coriolis_provider_oracle_vm.ImportProvider,coriolis_provider_opc.ImportProvider,coriolis_provider_oci.ImportProvider,coriolis_provider_aws.ExportProvider,coriolis_provider_azure.ImportProvider
 
+# Whether or not to expose the internal 'info' field of
+# a Migration as part of a `GET` request.
+include_task_info_in_migrations_api = false
+
+# Whether or not to expose the internal 'info' field of
+# a Replica as part of a `GET` request.
+include_task_info_in_replicas_api = false
+
+
 [database]
 connection = mysql://{{ coriolis_database_name }}:{{ coriolis_database_password }}@{{ database_address }}/{{ coriolis_database_name }}
 
@@ -100,6 +109,11 @@ allow_untrusted_swift = false
 # can be qcow, qcow2, raw, vmdk, vhd, vhdx:
 intermediate_volume_format = qcow2
 
+# Custom mapping between the 'os_type' or 'os_distro' of Glance images on the
+# source OpenStack. Mapping values must be one of the supported OS types in
+# Coriolis.
+# custom_os_type_map =
+
 ### Import parameters:
 # If migrating/replicating a heterogeneous workload with both Linux and
 # Windows instances, separate image names or IDs will need to be provided
@@ -125,6 +139,24 @@ volumes_are_zeroed = true
 # Default is None, meaning no extra hypervisor-specific actions will be taken
 # during the OSMorphing process
 hypervisor_type = kvm
+
+# Whether or not to download the worker image to a Cinder volume and boot the
+# worker from that. The root disk size on the configured 'migr_flavor_name'
+# will be used for the worker VM volume, 'migr_flavor_name' will be used for
+# the worker VM volume unless explicitly specified using 'migr_worker_volume_size'.
+migr_worker_boot_from_volume = false
+
+# The integer size (in GBs) of the Cinder volume to boot temporary worker VMs
+# from. This option is only effective if "migr_worker_boot_from_volume" is set.
+# If not set, Coriolis will use the disk size set the selected "migr_flavor_name".
+# migr_worker_volume_size =
+
+# Name of the Cinder volume type to be used for
+# volumes with unspecified storage backing option from the
+# source or which could not be mapped in the "storage_map".
+# Default is "" (Cinder scheduler will
+# use default volume type)
+# default_cinder_volume_type =
 
 # Whether or not to set the Cinder volumes as ephemeral (to be deleted when
 # the VM is deleted) on the newly migrated/replicated instance on the
@@ -172,6 +204,17 @@ migr_worker_use_config_drive = false
 # Default is true
 set_dhcp = true
 
+# If set to "reuse_ports", Coriolis will reuse any Neutron ports found with
+# the MAC addresses needed for the new VM. If set to "keep_mac", Coriolis
+# will delete any ports with the MAC addresses the VM needs and recreate them
+# with the same MAC address. If set to "create_new_ports", Coriolis will always
+# create new ports with new MAC addresses.
+port_reuse_policy = keep_mac
+
+# Dictionary with arbitrary key-value pairs to set as tags on the
+# migrated/replicated VMs.
+# instance_tags =
+
 # Parameters realted to the OSMorphing process for Windows instances:
 windows_virtio_iso_url = https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso
 cloudbaseinit_x64_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x64.zip
@@ -185,13 +228,27 @@ cloudbaseinit_x86_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x8
 # execution process as well
 # Only accepted keys are 'linux' and 'windows'
 migr_template_name_map = linux: OracleLinux7_template, windows: WS2016_template
-migr_template_username = root
+
+# Default migration template guest OS username.
+migr_template_username_map = linux: root, windows: Administrator
+
+# Default migration template guest OS password.
 migr_template_password = coriolis
-migr_network_name = Management
+
+# Default network name used for worker instances
+# during migrations.
+migr_network_name = management
+
+# Default server pool name.
 server_pool_name = pool1
+
+# Default repository name.
 repository_name = repo1
-# Can be 'keep_mac', 'reuse_ports' or 'replace_mac'
-port_reuse_policy = keep_mac
+
+# XEN VM domain type.
+# can be 'XEN_PVM', 'XEN_HVM', 'XEN_HVM_PV_DRIVERS', 'LDOMS_PVM', 'UNKNOWN'
+vm_domain_type = XEN_HVM_PV_DRIVERS
+
 # virtual_disk_clone_type can be: THIN_CLONE, SPARSE_COPY, NON_SPARSE_COPY
 virtual_disk_clone_type = THIN_CLONE
 windows_pv_drivers_url = https://cloudbase.it/downloads/ovm_win_pv_drivers_all_323.zip
@@ -203,6 +260,19 @@ windows_pv_drivers_url = https://cloudbase.it/downloads/ovm_win_pv_drivers_all_3
 # us-phoenix-1
 #migr_image_map = linux: ocid1.image.oc1.phx.aaaaaaaatel6prh7kwlb77zp6m4v523pegz3fh2j5ulq2lwtmhionpy37wkq, windows: ocid1.image.oc1.phx.aaaaaaaam3rbuegojxzdomvbp6qa2fb45ex24ng7c5ykawuqmomerfblveaq
 
+# Default shape name used for final instances
+shape_name = VM.Standard1.2
+
+# Default shape name used for worker instances
+# during migrations.
+migr_shape_name = VM.Standard1.2
+
+# Default network name used for worker instances
+# during migrations.
+# migr_subnet_id =
+
+# Default compartment in which the migration should take place.
+# compartment =
 
 [opc_migration_provider]
 # Linux and Windows images for the temporary Worker VMs:
@@ -217,46 +287,70 @@ migr_shape_name = oc3
 # only the top level object can be deleted.
 use_colocated_snapshots = true
 
+# Default volume pool to use. Oracle exposes 2 pools: "default" and "latency".
+# The default pool leverages rotary disks, while the latency disks are backed
+# by SSD and low latency storage subsystem. The latency pool is suitable for
+# databases.
+default_volume_pool = default
+
+# Default network name used for worker instances
+# during migrations.
+migr_network_name = private
+
 # URL of a zip file with the Windows PV drivers:
 windows_pv_drivers_url = https://cloudbase.it/downloads/ovm_win_pv_drivers_all_323.zip
 
 [azure_migration_provider]
-# The Azure location to which to migrate.
-# The location may also be set for each migration/replica in turn
-# using the destination-environment paramter.
+# The Azure location to which to migrate. The location may also be set for each
+# migration/replica in turn using the destination-environment paramter.
 migr_location = westus
 
-# Default migrated instance size. This will be used if no vm_size is
-# set in the destination-environment. Note: migration will fail if
-# migrated instance size cannot accommodate the number of disks than
-# can be migrated.
-# Default is 'Standard_A1'
+# Name of the Azure storage account to create VHD Page blobs on if
+# "disk_storage_backing_type" is set to "blob_storage"
+# storage_account_name = storageaccount
+
+# Name of the Azure storage container to create VHD page blobs on if
+# "disk_storage_backing_type" is set to 'blob_storage'
+# storage_container_name = coriolis
+
+# The type of storage backing to use for the disks of VMs migrated to Azure.
+# If set to 'blob_storage', disks will be transferred as VHD Page Blobs inside
+# a pre-existing Blob Storage Account inside the resource group being migrated
+# to. If set to 'managed_disks', disks will be transferred as Managed Disks
+# within the resource group being migrated to. If not set, Coriolis will query
+# the available Compute API versions to determine if Managed Disks are
+# available (2017-03-30 onwards), else it defaults to using Blob Storage.
+disk_storage_backing_type = managed_disks
+
+# Default migrated instance size. This will be used if no vm_size is set in
+# the destination-environment. Note: migration will fail if migrated instance
+# size cannot accommodate the number of disks than can be migrated.
+# If not set, the smallest available size that can accommodate the number of
+# disks will be selected for the VM.
 default_vm_size = Standard_A1
 
 # The images to use for temporary worker VMs:
 linux_migr_image = version: latest, publisher: Canonical, offer: UbuntuServer, sku: 14.04.0-LTS
 windows_migr_image = version: latest, publisher: MicrosoftWindowsServer, offer: WindowsServer, sku: 2016-Datacenter-Server-Core
 
-# Default migration worker size. This will be used if no worker_size
-# is set in the target_environment. If none is provided, Coriolis will
-# list all available flavors on Azure and select the smallest
-# available one that can accommodate the number of disks.
-# If not given, Coriolis will select the first worker size available
-# which can accomodate attaching all the disks for the particular
-# VM being migrated/replicated.
+# Default migration worker size. This will be used if no worker_size is set in
+# the target_environment. If none is provided, Coriolis will list all available
+# flavors on Azure and select the smallest available one that can accommodate
+# the number of disks. If not given, Coriolis will select the first worker
+# size available which can accomodate attaching all the disks for the
+# particular VM being migrated/replicated.
 default_worker_size = Standard_D1
 
 # Whether or not to set any IP addresses read from source VM NIC configurations
 # to destination NICs on Azure. This requires that the network/subnet mappings
 # in the 'network_map' are to networks/subnets on Azure which include the range
-# of the source networks.
-# Default is true
+# of the source networks. Default is true
 preserve_nic_ips = true
 
-# For use with AzureStack, the following ARM Provider API versions
-# must be configured to API versions supported by the AzureStack.
-# If unset, they will default to the latest API versions which are
-# supported by the ARM client libraries bundled with Coriolis.
+# For use with AzureStack, the following ARM Provider API versions must be
+# configured to API versions supported by the AzureStack. If unset, they will
+# default to the latest API versions which are supported by the ARM client
+# libraries bundled with Coriolis.
 # arm_resource_api_version = 2016-09-01
 # arm_compute_api_version = 2016-03-30
 # arm_network_api_version = 2015-06-15
