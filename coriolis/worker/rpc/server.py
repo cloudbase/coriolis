@@ -307,7 +307,18 @@ class WorkerServerEndpoint(object):
         is_valid = True
         message = None
         try:
+            schemas.validate_value(
+                secret_connection_info, provider.get_connection_info_schema())
             provider.validate_connection(ctxt, secret_connection_info)
+        except exception.SchemaValidationException as ex:
+            LOG.debug("Connection info schema validation failed: %s", ex)
+            is_valid = False
+            message = (
+                "Schema validation for the provided connection parameters has "
+                "failed. Please ensure that you have included all the "
+                "necessary connection parameters and they are all properly "
+                "formatted for the '%s' Coriolis plugin in use." % (
+                    platform_name))
         except exception.ConnectionValidationException as ex:
             is_valid = False
             message = str(ex)
