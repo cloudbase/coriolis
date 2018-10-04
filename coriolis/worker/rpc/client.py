@@ -84,6 +84,13 @@ class WorkerClient(object):
             platform_name=platform_name,
             connection_info=connection_info)
 
+    def validate_endpoint_target_environment(
+            self, ctxt, platform_name, target_env):
+        return self._client.call(
+            ctxt, 'validate_endpoint_target_environment',
+            platform_name=platform_name,
+            target_env=target_env)
+
     def get_available_providers(self, ctxt):
         return self._client.call(
             ctxt, 'get_available_providers')

@@ -280,6 +280,22 @@ class WorkerServerEndpoint(object):
     def get_available_providers(self, ctxt):
         return providers_factory.get_available_providers()
 
+    def validate_endpoint_target_environment(
+            self, ctxt, platform_name, target_env):
+        provider = providers_factory.get_provider(
+            platform_name, constants.PROVIDER_TYPE_OS_MORPHING, None)
+        target_env_schema = provider.get_target_environment_schema()
+
+        is_valid = True
+        message = None
+        try:
+            schemas.validate_value(target_env, target_env_schema)
+        except exception.SchemaValidationException as ex:
+            is_valid = False
+            message = str(ex)
+
+        return (is_valid, message)
+
     def validate_endpoint_connection(self, ctxt, platform_name,
                                      connection_info):
         provider = providers_factory.get_provider(
@@ -291,7 +307,18 @@ class WorkerServerEndpoint(object):
         is_valid = True
         message = None
         try:
+            schemas.validate_value(
+                secret_connection_info, provider.get_connection_info_schema())
             provider.validate_connection(ctxt, secret_connection_info)
+        except exception.SchemaValidationException as ex:
+            LOG.debug("Connection info schema validation failed: %s", ex)
+            is_valid = False
+            message = (
+                "Schema validation for the provided connection parameters has "
+                "failed. Please ensure that you have included all the "
+                "necessary connection parameters and they are all properly "
+                "formatted for the '%s' Coriolis plugin in use." % (
+                    platform_name))
         except exception.ConnectionValidationException as ex:
             is_valid = False
             message = str(ex)

@@ -156,6 +156,12 @@ class ConductorServerEndpoint(object):
         return self._rpc_worker_client.validate_endpoint_connection(
             ctxt, endpoint.type, endpoint.connection_info)
 
+    def validate_endpoint_target_environment(
+            self, ctxt, endpoint_id, target_env):
+        endpoint = self.get_endpoint(ctxt, endpoint_id)
+        return self._rpc_worker_client.validate_endpoint_target_environment(
+            ctxt, endpoint.type, target_env)
+
     def get_available_providers(self, ctxt):
         return self._rpc_worker_client.get_available_providers(ctxt)
 

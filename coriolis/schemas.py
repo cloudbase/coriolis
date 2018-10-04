@@ -54,11 +54,8 @@ def validate_value(val, schema, format_checker=None):
     try:
         jsonschema.validate(val, schema, format_checker=format_checker)
     except jsonschema.exceptions.ValidationError as ex:
-        LOG.debug("Schema validation failed: %s", ex)
-        # Don't pass the value in the exception to avoid including sensitive
-        # data (e.g. passwords)
         raise exception.SchemaValidationException(
-            "Schema validation failed")
+            "Schema validation failed: %s" % str(ex))
 
 
 def validate_string(json_string, schema):

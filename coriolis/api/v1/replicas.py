@@ -6,6 +6,7 @@ from webob import exc
 
 from coriolis.api.v1.views import replica_view
 from coriolis.api import wsgi as api_wsgi
+from coriolis.endpoints import api as endpoints_api
 from coriolis import exception
 from coriolis.replicas import api
 
@@ -15,6 +16,7 @@ LOG = logging.getLogger(__name__)
 class ReplicaController(api_wsgi.Controller):
     def __init__(self):
         self._replica_api = api.API()
+        self._endpoints_api = endpoints_api.API()
         super(ReplicaController, self).__init__()
 
     def show(self, req, id):
@@ -61,6 +63,15 @@ class ReplicaController(api_wsgi.Controller):
         (origin_endpoint_id, destination_endpoint_id,
          destination_environment, instances,
          notes) = self._validate_create_body(body)
+
+        is_valid, message = (
+            self._endpoints_api.validate_target_environment(
+                req.environ["coriolis.context"], destination_endpoint_id,
+                destination_environment))
+        if not is_valid:
+            raise exc.HTTPBadRequest(
+                explanation="Invalid destination "
+                            "environment: %s" % message)
 
         return replica_view.single(req, self._replica_api.create(
             req.environ['coriolis.context'], origin_endpoint_id,
