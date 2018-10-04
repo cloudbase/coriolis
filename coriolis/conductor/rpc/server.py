@@ -237,9 +237,13 @@ class ConductorServerEndpoint(object):
         execution.action = replica
 
         for instance in execution.action.instances:
+            validate_replica_inputs_task = self._create_task(
+                instance, constants.TASK_TYPE_VALIDATE_REPLICA_INPUTS,
+                execution)
+
             get_instance_info_task = self._create_task(
                 instance, constants.TASK_TYPE_GET_INSTANCE_INFO,
-                execution)
+                execution, depends_on=[validate_replica_inputs_task.id])
 
             depends_on = [get_instance_info_task.id]
             if shutdown_instances:
@@ -496,13 +500,20 @@ class ConductorServerEndpoint(object):
         execution.number = 1
 
         for instance in instances:
-            create_snapshot_task_depends_on = []
+            validate_replica_desployment_inputs_task = self._create_task(
+                instance,
+                constants.TASK_TYPE_VALIDATE_REPLICA_DEPLOYMENT_INPUTS,
+                execution)
+
+            create_snapshot_task_depends_on = [
+                validate_replica_desployment_inputs_task.id]
 
             if (constants.PROVIDER_TYPE_INSTANCE_FLAVOR in
                     destination_provider_types):
                 get_optimal_flavor_task = self._create_task(
                     instance, constants.TASK_TYPE_GET_OPTIMAL_FLAVOR,
-                    execution)
+                    execution, depends_on=[
+                        validate_replica_desployment_inputs_task.id])
                 create_snapshot_task_depends_on.append(
                     get_optimal_flavor_task.id)
 
@@ -586,8 +597,13 @@ class ConductorServerEndpoint(object):
         migration.notes = notes
 
         for instance in instances:
+            task_validate = self._create_task(
+                instance, constants.TASK_TYPE_VALIDATE_MIGRATION_INPUTS,
+                execution)
+
             task_export = self._create_task(
-                instance, constants.TASK_TYPE_EXPORT_INSTANCE, execution)
+                instance, constants.TASK_TYPE_EXPORT_INSTANCE, execution,
+                depends_on=[task_validate.id])
 
             if (constants.PROVIDER_TYPE_INSTANCE_FLAVOR in
                     destination_provider_types):
