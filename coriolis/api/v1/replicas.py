@@ -4,10 +4,11 @@
 from oslo_log import log as logging
 from webob import exc
 
+from coriolis import exception
 from coriolis.api.v1.views import replica_view
 from coriolis.api import wsgi as api_wsgi
 from coriolis.endpoints import api as endpoints_api
-from coriolis import exception
+from coriolis.policies import replicas as replica_policies
 from coriolis.replicas import api
 
 LOG = logging.getLogger(__name__)
@@ -20,24 +21,28 @@ class ReplicaController(api_wsgi.Controller):
         super(ReplicaController, self).__init__()
 
     def show(self, req, id):
-        replica = self._replica_api.get_replica(
-            req.environ["coriolis.context"], id)
+        context = req.environ["coriolis.context"]
+        context.can(replica_policies.get_replicas_policy_label("show"))
+        replica = self._replica_api.get_replica(context, id)
         if not replica:
             raise exc.HTTPNotFound()
 
         return replica_view.single(req, replica)
 
     def index(self, req):
+        context = req.environ["coriolis.context"]
+        context.can(replica_policies.get_replicas_policy_label("list"))
         return replica_view.collection(
             req, self._replica_api.get_replicas(
-                req.environ['coriolis.context'],
-                include_tasks_executions=False))
+                context, include_tasks_executions=False))
 
     def detail(self, req):
+        context = req.environ["coriolis.context"]
+        context.can(
+            replica_policies.get_replicas_policy_label("show_executions"))
         return replica_view.collection(
             req, self._replica_api.get_replicas(
-                req.environ['coriolis.context'],
-                include_tasks_executions=True))
+                context, include_tasks_executions=True))
 
     def _validate_create_body(self, body):
         try:
@@ -60,13 +65,16 @@ class ReplicaController(api_wsgi.Controller):
             raise exception.InvalidInput(msg)
 
     def create(self, req, body):
+        context = req.environ["coriolis.context"]
+        context.can(replica_policies.get_replicas_policy_label("create"))
+
         (origin_endpoint_id, destination_endpoint_id,
          destination_environment, instances,
          notes) = self._validate_create_body(body)
 
         is_valid, message = (
             self._endpoints_api.validate_target_environment(
-                req.environ["coriolis.context"], destination_endpoint_id,
+                context, destination_endpoint_id,
                 destination_environment))
         if not is_valid:
             raise exc.HTTPBadRequest(
@@ -74,13 +82,14 @@ class ReplicaController(api_wsgi.Controller):
                             "environment: %s" % message)
 
         return replica_view.single(req, self._replica_api.create(
-            req.environ['coriolis.context'], origin_endpoint_id,
-            destination_endpoint_id, destination_environment, instances,
-            notes))
+            context, origin_endpoint_id, destination_endpoint_id,
+            destination_environment, instances, notes))
 
     def delete(self, req, id):
+        context = req.environ["coriolis.context"]
+        context.can(replica_policies.get_replicas_policy_label("delete"))
         try:
-            self._replica_api.delete(req.environ['coriolis.context'], id)
+            self._replica_api.delete(context, id)
             raise exc.HTTPNoContent()
         except exception.NotFound as ex:
             raise exc.HTTPNotFound(explanation=ex.msg)

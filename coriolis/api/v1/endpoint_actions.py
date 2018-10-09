@@ -3,9 +3,10 @@
 
 from webob import exc
 
+from coriolis import exception
 from coriolis.api import wsgi as api_wsgi
 from coriolis.endpoints import api
-from coriolis import exception
+from coriolis.policies import endpoints as endpoint_policies
 
 
 class EndpointActionsController(api_wsgi.Controller):
@@ -15,9 +16,12 @@ class EndpointActionsController(api_wsgi.Controller):
 
     @api_wsgi.action('validate-connection')
     def _validate_connection(self, req, id, body):
+        context = req.environ['coriolis.context']
+        context.can("%s:validate_connection" % (
+            endpoint_policies.ENDPOINTS_POLICY_PREFIX))
         try:
             is_valid, message = self._endpoint_api.validate_connection(
-                req.environ['coriolis.context'], id)
+                context, id)
             return {
                 "validate-connection":
                     {"valid": is_valid, "message": message}
