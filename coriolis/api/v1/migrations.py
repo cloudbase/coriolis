@@ -4,11 +4,12 @@
 from oslo_log import log as logging
 from webob import exc
 
+from coriolis import exception
 from coriolis.api.v1.views import migration_view
 from coriolis.api import wsgi as api_wsgi
 from coriolis.endpoints import api as endpoints_api
-from coriolis import exception
 from coriolis.migrations import api
+from coriolis.policies import migrations as migration_policies
 
 LOG = logging.getLogger(__name__)
 
@@ -20,22 +21,28 @@ class MigrationController(api_wsgi.Controller):
         super(MigrationController, self).__init__()
 
     def show(self, req, id):
-        migration = self._migration_api.get_migration(
-            req.environ["coriolis.context"], id)
+        context = req.environ["coriolis.context"]
+        context.can(migration_policies.get_migrations_policy_label("show"))
+        migration = self._migration_api.get_migration(context, id)
         if not migration:
             raise exc.HTTPNotFound()
 
         return migration_view.single(req, migration)
 
     def index(self, req):
+        context = req.environ["coriolis.context"]
+        context.can(migration_policies.get_migrations_policy_label("show"))
         return migration_view.collection(
             req, self._migration_api.get_migrations(
-                req.environ['coriolis.context'], include_tasks=False))
+                context, include_tasks=False))
 
     def detail(self, req):
+        context = req.environ["coriolis.context"]
+        context.can(
+            migration_policies.get_migrations_policy_label("show_execution"))
         return migration_view.collection(
             req, self._migration_api.get_migrations(
-                req.environ['coriolis.context'], include_tasks=True))
+                context, include_tasks=True))
 
     def _validate_migration_input(self, migration):
         try:
@@ -61,6 +68,7 @@ class MigrationController(api_wsgi.Controller):
         # TODO(alexpilotti): validate body
         migration_body = body.get("migration", {})
         context = req.environ['coriolis.context']
+        context.can(migration_policies.get_migrations_policy_label("create"))
 
         replica_id = migration_body.get("replica_id")
         if replica_id:
@@ -95,8 +103,10 @@ class MigrationController(api_wsgi.Controller):
         return migration_view.single(req, migration)
 
     def delete(self, req, id):
+        context = req.environ['coriolis.context']
+        context.can(migration_policies.get_migrations_policy_label("delete"))
         try:
-            self._migration_api.delete(req.environ['coriolis.context'], id)
+            self._migration_api.delete(context, id)
             raise exc.HTTPNoContent()
         except exception.NotFound as ex:
             raise exc.HTTPNotFound(explanation=ex.msg)
