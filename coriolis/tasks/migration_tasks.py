@@ -189,3 +189,67 @@ class GetOptimalFlavorTask(base.TaskRunner):
         task_info["retain_export_path"] = True
 
         return task_info
+
+
+class ValidateMigrationParametersTask(base.TaskRunner):
+    def run(self, ctxt, instance, origin, destination, task_info,
+            event_handler):
+        event_manager = events.EventManager(event_handler)
+        # validate source params:
+        origin_type = origin["type"]
+        origin_connection_info = base.get_connection_info(ctxt, origin)
+        destination_connection_info = base.get_connection_info(
+            ctxt, destination)
+        destination_type = destination["type"]
+        source_provider = providers_factory.get_provider(
+            origin_type, constants.PROVIDER_TYPE_VALIDATE_MIGRATION_EXPORT,
+            event_handler, raise_if_not_found=False)
+        export_info = None
+        if source_provider:
+            export_info = source_provider.validate_migration_export_input(
+                ctxt, base.get_connection_info(ctxt, origin), instance,
+                source_environment=origin.get("source_environment", {}))
+        else:
+            event_manager.progress_update(
+                "Migration Export Provider for platform '%s' does not support "
+                "Migration input validation" % origin_type)
+
+        if export_info is None:
+            source_endpoint_provider = providers_factory.get_provider(
+                origin_type, constants.PROVIDER_TYPE_ENDPOINT_INSTANCES,
+                event_handler, raise_if_not_found=False)
+            if not source_endpoint_provider:
+                event_manager.progress_update(
+                    "Migration Export Provider for platform '%s' does not "
+                    "support querying instance export info. Cannot perform "
+                    "Migration Import validation for destination platform "
+                    "'%s'" % (origin_type, destination_type))
+                return task_info
+            export_info = source_endpoint_provider.get_instance(
+                ctxt, origin_connection_info, instance)
+
+        # validate Export info:
+        schemas.validate_value(
+            export_info, schemas.CORIOLIS_VM_EXPORT_INFO_SCHEMA)
+        # NOTE: this export info will get overriden with updated values
+        # and disk paths after the ExportInstanceTask.
+        task_info["export_info"] = export_info
+
+        # validate destination params:
+        destination_provider = providers_factory.get_provider(
+            destination_type,
+            constants.PROVIDER_TYPE_VALIDATE_MIGRATION_IMPORT, event_handler,
+            raise_if_not_found=False)
+        if not destination_provider:
+            event_manager.progress_update(
+                "Migration Import Provider for platform '%s' does not support "
+                "Migration input validation" % destination_type)
+            return task_info
+
+        # NOTE: the target environment JSON schema should have been validated
+        # upon accepting the Migration API creation request.
+        target_environment = destination.get("target_environment", {})
+        destination_provider.validate_migration_import_input(
+            ctxt, destination_connection_info, target_environment, export_info)
+
+        return task_info

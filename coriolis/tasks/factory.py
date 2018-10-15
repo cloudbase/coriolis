@@ -24,6 +24,8 @@ _TASKS_MAP = {
         migration_tasks.CleanupFailedImportInstanceTask,
     constants.TASK_TYPE_GET_OPTIMAL_FLAVOR:
         migration_tasks.GetOptimalFlavorTask,
+    constants.TASK_TYPE_VALIDATE_MIGRATION_INPUTS:
+        migration_tasks.ValidateMigrationParametersTask,
     constants.TASK_TYPE_DEPLOY_OS_MORPHING_RESOURCES:
         osmorphing_tasks.DeployOSMorphingResourcesTask,
     constants.TASK_TYPE_OS_MORPHING:
@@ -60,6 +62,10 @@ _TASKS_MAP = {
         replica_tasks.DeleteReplicaDiskSnapshotsTask,
     constants.TASK_TYPE_RESTORE_REPLICA_DISK_SNAPSHOTS:
         replica_tasks.RestoreReplicaDiskSnapshotsTask,
+    constants.TASK_TYPE_VALIDATE_REPLICA_INPUTS:
+        replica_tasks.ValidateReplicaExecutionParametersTask,
+    constants.TASK_TYPE_VALIDATE_REPLICA_DEPLOYMENT_INPUTS:
+        replica_tasks.ValidateReplicaDeploymentParametersTask
 }
 
 

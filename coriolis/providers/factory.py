@@ -31,7 +31,15 @@ PROVIDER_TYPE_MAP = {
         base.BaseEndpointNetworksProvider,
     constants.PROVIDER_TYPE_OS_MORPHING: base.BaseImportInstanceProvider,
     constants.PROVIDER_TYPE_INSTANCE_FLAVOR: base.BaseInstanceFlavorProvider,
-    constants.PROVIDER_TYPE_SETUP_LIBS: base.BaseProviderSetupExtraLibsMixin
+    constants.PROVIDER_TYPE_SETUP_LIBS: base.BaseProviderSetupExtraLibsMixin,
+    constants.PROVIDER_TYPE_VALIDATE_MIGRATION_EXPORT: (
+        base.BaseMigrationExportValidationProvider),
+    constants.PROVIDER_TYPE_VALIDATE_REPLICA_EXPORT: (
+        base.BaseReplicaExportValidationProvider),
+    constants.PROVIDER_TYPE_VALIDATE_MIGRATION_IMPORT: (
+        base.BaseMigrationImportValidationProvider),
+    constants.PROVIDER_TYPE_VALIDATE_REPLICA_IMPORT: (
+        base.BaseReplicaImportValidationProvider)
 }
 
 

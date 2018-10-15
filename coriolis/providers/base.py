@@ -157,6 +157,60 @@ class BaseImportInstanceProvider(BaseInstanceProvider):
         pass
 
 
+class BaseMigrationExportValidationProvider(
+        object, with_metaclass(abc.ABCMeta)):
+    """ Defines methods to be called for migration export input validation """
+
+    @abc.abstractmethod
+    def validate_migration_export_input(
+            self, ctxt, connection_info, instance_name, source_environment):
+        """ Should verify the provided 'connection_info' and
+        'source_environment' and return the expected Migration
+        export info for the given VM. """
+        return {}
+
+
+class BaseReplicaExportValidationProvider(
+        object, with_metaclass(abc.ABCMeta)):
+    """ Defines methods to be called for replica export input validation """
+
+    @abc.abstractmethod
+    def validate_replica_export_input(
+            self, ctxt, connection_info, instance_name, source_environment):
+        """ Should verify the provided 'connection_info' and
+        'source_environment' and return the expected Migration
+        export info for the given VM. """
+        return {}
+
+
+class BaseMigrationImportValidationProvider(
+        object, with_metaclass(abc.ABCMeta)):
+    """ Defines methods to be called for migration import input validation """
+
+    @abc.abstractmethod
+    def validate_migration_import_input(
+            self, ctxt, connection_info, target_environment, export_info):
+        """ Validates the provided Migration parameters """
+        pass
+
+
+class BaseReplicaImportValidationProvider(
+        object, with_metaclass(abc.ABCMeta)):
+    """ Defines methods to be called for replica import input validation """
+
+    @abc.abstractmethod
+    def validate_replica_import_input(
+            self, ctxt, connection_info, target_environment, export_info):
+        """ Validates the provided Replica parameters """
+        pass
+
+    @abc.abstractmethod
+    def validate_replica_deployment_input(
+            self, ctxt, connection_info, target_environment, export_info):
+        """ Validates the provided Replica deployment parameters """
+        pass
+
+
 class BaseImportProvider(BaseImportInstanceProvider):
 
     @abc.abstractmethod
