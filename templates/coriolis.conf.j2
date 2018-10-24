@@ -42,6 +42,9 @@ user_domain_id = default
 [keystone]
 auth_url = {{ internal_protocol }}://{{ keystone_host }}:{{ keystone_public_port }}
 
+[oslo_policy]
+policy_file = {{ coriolis_policy_config_path }}
+
 [worker]
 export_base_path = {{ coriolis_export_base_path }}
 

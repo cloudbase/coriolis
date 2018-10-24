@@ -43,7 +43,7 @@
 
     - name: Creating config directory
       file:
-        path: /etc/coriolis
+        path: "{{ coriolis_config_directory_path }}"
         state: directory
 
     - name: Creating log directory
@@ -59,13 +59,18 @@
     - name: Creating coriolis.conf
       template:
         src: ./templates/coriolis.conf.j2
-        dest: /etc/coriolis/coriolis.conf
+        dest: "{{ coriolis_config_directory_path }}/coriolis.conf"
         force: no
 
     - name: Creating api-paste.ini
       template:
         src: ./templates/api-paste.ini.j2
-        dest: /etc/coriolis/api-paste.ini
+        dest: "{{ coriolis_config_directory_path }}/api-paste.ini"
+
+    - name: Creating oslo.policy file
+      template:
+        src: ./templates/policy.yml.j2
+        dest: "{{ coriolis_policy_config_path }}"
 
     - name: Checking Coriolis Keystone service
       shell: openstack service list -c Name | grep coriolis
@@ -193,7 +198,7 @@
         restart_policy: unless-stopped
         network_mode: host
         volumes:
-        - "/etc/coriolis:/etc/coriolis:ro"
+        - "{{ coriolis_config_directory_path }}:{{ coriolis_config_directory_path }}:ro"
         - "/var/log/coriolis:/var/log/coriolis:rw"
         ports:
         - "7667:7667"
@@ -209,7 +214,7 @@
         restart_policy: unless-stopped
         network_mode: host
         volumes:
-        - "/etc/coriolis:/etc/coriolis:ro"
+        - "{{ coriolis_config_directory_path }}:{{ coriolis_config_directory_path }}:ro"
         - "/var/log/coriolis:/var/log/coriolis:rw"
 
     - name: coriolis-replica-cron container
@@ -223,7 +228,7 @@
         restart_policy: unless-stopped
         network_mode: host
         volumes:
-        - "/etc/coriolis:/etc/coriolis:ro"
+        - "{{ coriolis_config_directory_path }}:{{ coriolis_config_directory_path }}:ro"
         - "/var/log/coriolis:/var/log/coriolis:rw"
 
     - name: coriolis-worker container
@@ -237,7 +242,7 @@
         restart_policy: unless-stopped
         network_mode: host
         volumes:
-        - "/etc/coriolis:/etc/coriolis:ro"
+        - "{{ coriolis_config_directory_path }}:{{ coriolis_config_directory_path }}:ro"
         - "/var/log/coriolis:/var/log/coriolis:rw"
         - "{{ coriolis_export_base_path_host }}:{{ coriolis_export_base_path }}:rw"
         - "{{ vmware_vix_disklib_path_host }}:{{ vmware_vix_disklib_path }}:ro"
