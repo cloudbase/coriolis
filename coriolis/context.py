@@ -1,9 +1,14 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+import copy
+
 from oslo_context import context
 from oslo_db.sqlalchemy import enginefacade
 from oslo_utils import timeutils
+
+from coriolis import exception
+from coriolis import policy
 
 
 @enginefacade.transaction_context_provider
@@ -65,6 +70,33 @@ class RequestContext(context.RequestContext):
     @classmethod
     def from_dict(cls, values):
         return cls(**values)
+
+    def to_policy_values(self):
+        policy = super(RequestContext, self).to_policy_values()
+        # TODO(aznashwan): determine if there are any other custom
+        # context params we'd like to be used for policy validation:
+        return policy
+
+    def can(self, action, target=None, fatal=True):
+        """ Validates policies allow the requested action to be
+        perfomed in the given context, and raises otherwise.
+        """
+        default_target = {
+            'project_id': self.project_id, 'user_id': self.user_id}
+        if target is None:
+            target = default_target
+        else:
+            target = copy.deepcopy(target)
+            target.update(default_target)
+
+        result = False
+        try:
+            result = policy.check_policy_for_context(self, action, target)
+        except exception.PolicyNotAuthorized:
+            if fatal:
+                raise
+
+        return result
 
 
 def get_admin_context(trust_id=None):

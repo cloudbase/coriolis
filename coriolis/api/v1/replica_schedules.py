@@ -1,18 +1,19 @@
 # Copyright 2017 Cloudbase Solutions Srl
 # All Rights Reserved.
-from webob import exc
-
-from coriolis.api.v1.views import replica_schedule_view
-from coriolis.api import wsgi as api_wsgi
-from coriolis import exception
-from coriolis.replica_cron import api
-from coriolis import schemas
 
 import jsonschema
-
 from oslo_log import log as logging
 from oslo_utils import strutils
 from oslo_utils import timeutils
+from webob import exc
+
+from coriolis import exception
+from coriolis import schemas
+from coriolis.api.v1.views import replica_schedule_view
+from coriolis.api import wsgi as api_wsgi
+from coriolis.policies import replica_schedules as schedules_policies
+from coriolis.replica_cron import api
+
 
 LOG = logging.getLogger(__name__)
 
@@ -23,20 +24,25 @@ class ReplicaScheduleController(api_wsgi.Controller):
         super(ReplicaScheduleController, self).__init__()
 
     def show(self, req, replica_id, id):
-        schedule = self._schedule_api.get_schedule(
-            req.environ["coriolis.context"], replica_id, id)
+        context = req.environ["coriolis.context"]
+        context.can(
+            schedules_policies.get_replica_schedules_policy_label("show"))
+        schedule = self._schedule_api.get_schedule(context, replica_id, id)
         if not schedule:
             raise exc.HTTPNotFound()
 
         return replica_schedule_view.single(req, schedule)
 
     def index(self, req, replica_id):
+        context = req.environ["coriolis.context"]
+        context.can(
+            schedules_policies.get_replica_schedules_policy_label("list"))
+
         show_expired = strutils.bool_from_string(
             req.GET.get("show_expired", True), strict=True)
         return replica_schedule_view.collection(
             req, self._schedule_api.get_schedules(
-                req.environ['coriolis.context'], replica_id,
-                expired=show_expired))
+                context, replica_id, expired=show_expired))
 
     def _validate_schedule(self, schedule):
         schema = schemas.SCHEDULE_API_BODY_SCHEMA["properties"]["schedule"]
@@ -95,6 +101,10 @@ class ReplicaScheduleController(api_wsgi.Controller):
         return body
 
     def create(self, req, replica_id, body):
+        context = req.environ["coriolis.context"]
+        context.can(
+            schedules_policies.get_replica_schedules_policy_label("create"))
+
         LOG.debug("Got request: %r %r %r" % (req, replica_id, body))
         try:
             schedule, enabled, exp_date, shutdown = self._validate_create_body(
@@ -103,10 +113,13 @@ class ReplicaScheduleController(api_wsgi.Controller):
             raise exception.InvalidInput(err)
 
         return replica_schedule_view.single(req, self._schedule_api.create(
-            req.environ['coriolis.context'], replica_id, schedule, enabled,
-            exp_date, shutdown))
+            context, replica_id, schedule, enabled, exp_date, shutdown))
 
     def update(self, req, replica_id, id, body):
+        context = req.environ["coriolis.context"]
+        context.can(
+            schedules_policies.get_replica_schedules_policy_label("update"))
+
         LOG.debug("Got request: %r %r %r %r" % (
             req, replica_id, id, body))
 
@@ -116,12 +129,14 @@ class ReplicaScheduleController(api_wsgi.Controller):
             raise exception.InvalidInput(err)
 
         return replica_schedule_view.single(req, self._schedule_api.update(
-            req.environ['coriolis.context'], replica_id, id,
-            update_values))
+            context, replica_id, id, update_values))
 
     def delete(self, req, replica_id, id):
-        self._schedule_api.delete(
-            req.environ['coriolis.context'], replica_id, id)
+        context = req.environ["coriolis.context"]
+        context.can(
+            schedules_policies.get_replica_schedules_policy_label("delete"))
+
+        self._schedule_api.delete(context, replica_id, id)
         raise exc.HTTPNoContent()
 
 

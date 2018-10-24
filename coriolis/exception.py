@@ -123,6 +123,12 @@ class NotAuthorized(CoriolisException):
     safe = True
 
 
+class PolicyNotAuthorized(CoriolisException):
+    message = _("Not authorized via policy.")
+    code = 403
+    safe = True
+
+
 class Conflict(CoriolisException):
     message = _("Conflict")
     code = 409
