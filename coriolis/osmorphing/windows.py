@@ -35,8 +35,13 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
         # TODO(alexpilotti): implement
         pass
 
+    def _get_worker_os_drive_path(self):
+        return self._conn.exec_ps_command(
+            "(Get-WmiObject Win32_OperatingSystem).SystemDrive")
+
     def _get_dism_path(self):
-        return "c:\\Windows\\System32\\dism.exe"
+        return "%s\\Windows\\System32\\dism.exe" % (
+            self._get_worker_os_drive_path())
 
     def _get_sid(self):
         sid = self._conn.exec_ps_command(
@@ -110,10 +115,25 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
     def _add_dism_driver(self, driver_path):
         LOG.info("Adding driver: %s" % driver_path)
         dism_path = self._get_dism_path()
-        return self._conn.exec_command(
-            dism_path,
-            ["/add-driver", "/image:%s" % self._os_root_dir,
-             "/driver:\"%s\"" % driver_path, "/recurse", "/forceunsigned"])
+        try:
+            return self._conn.exec_command(
+                dism_path,
+                ["/add-driver", "/image:%s" % self._os_root_dir,
+                 "/driver:\"%s\"" % driver_path, "/recurse", "/forceunsigned"])
+        except Exception as ex:
+            dism_log_path = "%s\\Windows\\Logs\\DISM\\dism.log" % (
+                self._get_worker_os_drive_path())
+            if self._conn.test_path(dism_log_path):
+                dism_log_contents = self._conn.exec_ps_command(
+                    "Get-Content %s" % dism_log_path)
+                LOG.error(
+                    "Error occured whilst adding driver '%s' through DISM. "
+                    "Contents of '%s': %s",
+                    driver_path, dism_log_path, dism_log_contents)
+            else:
+                LOG.warn(
+                    "Could not find DISM error logs for failure:'%s'", str(ex))
+            raise
 
     def _mount_disk_image(self, path):
         LOG.info("Mounting disk image: %s" % path)
