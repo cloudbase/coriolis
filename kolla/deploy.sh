@@ -26,10 +26,33 @@ cp $basedir/coriolis kolla-ansible/ansible/inventory/
 set_config_value=$basedir/../set_config_value.py
 
 VIP=$(/sbin/ip -4 -o addr show dev $iface | awk '{split($4,a,"/");print a[1]}')
+if [ ! "$VIP" ]; then
+    echo "Could not find IP for interface $iface"
+    exit 1
+fi
 python $set_config_value -c /etc/kolla/globals.yml -n kolla_internal_vip_address -v $VIP
 python $set_config_value -c /etc/kolla/globals.yml -n network_interface -v $iface
 python $set_config_value -c /etc/kolla/globals.yml -n kolla_base_distro -v $distro
-python $set_config_value -c /etc/kolla/globals.yml -n docker_namespace -v coriolis
+
+config_build_file=$basedir/../config-build.yml
+if [ ! -e "$config_build_file" ]; then
+    cp $config_build_file.sample $config_build_file
+fi
+get_config_value=$basedir/../get_config_value.py
+kolla_containers_namespace=`python $get_config_value -c $config_build_file -n kolla_containers_namespace`
+if [ "$kolla_containers_namespace" ]; then
+    python $set_config_value -c /etc/kolla/globals.yml -n docker_namespace -v "$kolla_containers_namespace"
+fi
+
+config_build_file=$basedir/../config-build.yml
+if [ ! -f $config_build_file ]; then
+    cp $config_build_file.sample $config_build_file
+fi
+
+docker_registry=`python $get_config_value -c $config_build_file -n docker_registry`
+if [ "$docker_registry" ]; then
+    python $set_config_value -c /etc/kolla/globals.yml -n docker_registry -v $docker_registry
+fi
 
 python $set_config_value -c /etc/kolla/globals.yml -n enable_barbican -v yes
 

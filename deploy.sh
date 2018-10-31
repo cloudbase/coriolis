@@ -50,7 +50,7 @@ CORIOLIS_CLIENT_PATH="/root/python-coriolisclient"
 if [ ! -d $CORIOLIS_CLIENT_PATH ]; then
     git clone https://github.com/cloudbase/python-coriolisclient "$CORIOLIS_CLIENT_PATH"
 fi
-pip install -e "$CORIOLIS_CLIENT_PATH"
+pip install "$CORIOLIS_CLIENT_PATH"
 
 source /etc/kolla/admin-openrc.sh
 coriolis endpoint list

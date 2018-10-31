@@ -43,7 +43,7 @@
 
     - name: Creating config directory
       file:
-        path: /etc/coriolis
+        path: "{{ coriolis_config_directory_path }}"
         state: directory
 
     - name: Creating log directory
@@ -59,13 +59,18 @@
     - name: Creating coriolis.conf
       template:
         src: ./templates/coriolis.conf.j2
-        dest: /etc/coriolis/coriolis.conf
+        dest: "{{ coriolis_config_directory_path }}/coriolis.conf"
         force: no
 
     - name: Creating api-paste.ini
       template:
         src: ./templates/api-paste.ini.j2
-        dest: /etc/coriolis/api-paste.ini
+        dest: "{{ coriolis_config_directory_path }}/api-paste.ini"
+
+    - name: Creating oslo.policy file
+      template:
+        src: ./templates/policy.yml.j2
+        dest: "{{ coriolis_policy_config_path }}"
 
     - name: Checking Coriolis Keystone service
       shell: openstack service list -c Name | grep coriolis
@@ -185,7 +190,7 @@
     - name: coriolis-api container
       docker_container:
         name: coriolis-api
-        image: "{{ docker_registry }}/coriolis-api:{{ docker_images_tag }}"
+        image: "{{ docker_registry }}/{{ coriolis_containers_namespace }}/coriolis-api:{{ docker_images_tag }}"
         pull: yes
         hostname: coriolis-api
         state: started
@@ -193,7 +198,7 @@
         restart_policy: unless-stopped
         network_mode: host
         volumes:
-        - "/etc/coriolis:/etc/coriolis:ro"
+        - "{{ coriolis_config_directory_path }}:{{ coriolis_config_directory_path }}:ro"
         - "/var/log/coriolis:/var/log/coriolis:rw"
         ports:
         - "7667:7667"
@@ -201,7 +206,7 @@
     - name: coriolis-conductor container
       docker_container:
         name: coriolis-conductor
-        image: "{{ docker_registry }}/coriolis-conductor:{{ docker_images_tag }}"
+        image: "{{ docker_registry }}/{{ coriolis_containers_namespace }}/coriolis-conductor:{{ docker_images_tag }}"
         pull: yes
         hostname: coriolis-conductor
         state: started
@@ -209,13 +214,13 @@
         restart_policy: unless-stopped
         network_mode: host
         volumes:
-        - "/etc/coriolis:/etc/coriolis:ro"
+        - "{{ coriolis_config_directory_path }}:{{ coriolis_config_directory_path }}:ro"
         - "/var/log/coriolis:/var/log/coriolis:rw"
 
     - name: coriolis-replica-cron container
       docker_container:
         name: coriolis-replica-cron
-        image: "{{ docker_registry }}/coriolis-replica-cron:{{ docker_images_tag }}"
+        image: "{{ docker_registry }}/{{ coriolis_containers_namespace }}/coriolis-replica-cron:{{ docker_images_tag }}"
         pull: yes
         hostname: coriolis-replica-cron
         state: started
@@ -223,13 +228,13 @@
         restart_policy: unless-stopped
         network_mode: host
         volumes:
-        - "/etc/coriolis:/etc/coriolis:ro"
+        - "{{ coriolis_config_directory_path }}:{{ coriolis_config_directory_path }}:ro"
         - "/var/log/coriolis:/var/log/coriolis:rw"
 
     - name: coriolis-worker container
       docker_container:
         name: coriolis-worker
-        image: "{{ docker_registry }}/coriolis-worker:{{ docker_images_tag }}"
+        image: "{{ docker_registry }}/{{ coriolis_containers_namespace }}/coriolis-worker:{{ docker_images_tag }}"
         pull: yes
         hostname: coriolis-worker
         state: started
@@ -237,7 +242,7 @@
         restart_policy: unless-stopped
         network_mode: host
         volumes:
-        - "/etc/coriolis:/etc/coriolis:ro"
+        - "{{ coriolis_config_directory_path }}:{{ coriolis_config_directory_path }}:ro"
         - "/var/log/coriolis:/var/log/coriolis:rw"
         - "{{ coriolis_export_base_path_host }}:{{ coriolis_export_base_path }}:rw"
         - "{{ vmware_vix_disklib_path_host }}:{{ vmware_vix_disklib_path }}:ro"
@@ -245,7 +250,7 @@
     - name: coriolis-web container
       docker_container:
         name: coriolis-web
-        image: "{{ docker_registry }}/coriolis-web:{{ docker_images_tag }}"
+        image: "{{ docker_registry }}/{{ coriolis_containers_namespace }}/coriolis-web:{{ docker_images_tag }}"
         pull: yes
         hostname: coriolis-web
         state: started
@@ -256,7 +261,7 @@
     - name: coriolis-web-proxy container
       docker_container:
         name: coriolis-web-proxy
-        image: "{{ docker_registry }}/coriolis-web-proxy:{{ docker_images_tag }}"
+        image: "{{ docker_registry }}/{{ coriolis_containers_namespace }}/coriolis-web-proxy:{{ docker_images_tag }}"
         pull: yes
         hostname: coriolis-web-proxy
         state: started

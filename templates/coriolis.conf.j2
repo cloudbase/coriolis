@@ -42,6 +42,9 @@ user_domain_id = default
 [keystone]
 auth_url = {{ internal_protocol }}://{{ keystone_host }}:{{ keystone_public_port }}
 
+[oslo_policy]
+policy_file = {{ coriolis_policy_config_path }}
+
 [worker]
 export_base_path = {{ coriolis_export_base_path }}
 
@@ -354,8 +357,11 @@ preserve_nic_ips = true
 # arm_resource_api_version = 2016-09-01
 # arm_compute_api_version = 2016-03-30
 # arm_network_api_version = 2015-06-15
-# arm_storage_api_version = 2015-06-15
 # blob_storage_api_version = 2015-04-05
+# NOTE: as of November 2018, the latest GA Microsoft.Storage/storageAccounts
+# API version is '2018-07-01', but it is not available in the version of
+# `azure-mgmt-storage` in use, so we must explicitly use an earlier version:
+arm_storage_api_version = 2018-02-01
 
 # Cloudbase-init Zip URLs for each supported Windows architecture:
 cloudbaseinit_x86_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x86.zip
