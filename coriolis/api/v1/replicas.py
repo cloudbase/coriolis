@@ -5,6 +5,7 @@ from oslo_log import log as logging
 from webob import exc
 
 from coriolis import exception
+from coriolis import schemas
 from coriolis.api.v1.views import replica_view
 from coriolis.api import wsgi as api_wsgi
 from coriolis.endpoints import api as endpoints_api
@@ -53,9 +54,22 @@ class ReplicaController(api_wsgi.Controller):
             destination_environment = replica.get("destination_environment")
             instances = replica["instances"]
             notes = replica.get("notes")
+            network_map = replica.get("network_map")
+            try:
+                schemas.validate_value(
+                    network_map, schemas.CORIOLIS_NETWORK_MAP_SCHEMA)
+            except exception.SchemaValidationException:
+                raise exc.HTTPBadRequest(
+                    explanation="Invalid network_map "
+                                "%s" % network_map)
+
+            # NOTE: until the provider plugin interface is updated to have a
+            # separate 'network_map' field, we add it into the destination
+            # environment.
+            destination_environment["network_map"] = network_map
 
             return (origin_endpoint_id, destination_endpoint_id,
-                    destination_environment, instances, notes)
+                    destination_environment, instances, network_map, notes)
         except Exception as ex:
             LOG.exception(ex)
             if hasattr(ex, "message"):
@@ -69,7 +83,7 @@ class ReplicaController(api_wsgi.Controller):
         context.can(replica_policies.get_replicas_policy_label("create"))
 
         (origin_endpoint_id, destination_endpoint_id,
-         destination_environment, instances,
+         destination_environment, instances, network_map,
          notes) = self._validate_create_body(body)
 
         is_valid, message = (
@@ -83,7 +97,7 @@ class ReplicaController(api_wsgi.Controller):
 
         return replica_view.single(req, self._replica_api.create(
             context, origin_endpoint_id, destination_endpoint_id,
-            destination_environment, instances, notes))
+            destination_environment, instances, network_map, notes))
 
     def delete(self, req, id):
         context = req.environ["coriolis.context"]

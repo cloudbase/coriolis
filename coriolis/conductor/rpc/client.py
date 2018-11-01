@@ -130,14 +130,15 @@ class ConductorClient(object):
     def create_instances_replica(self, ctxt, origin_endpoint_id,
                                  destination_endpoint_id,
                                  destination_environment,
-                                 instances, notes=None):
+                                 instances, network_map, notes=None):
         return self._client.call(
             ctxt, 'create_instances_replica',
             origin_endpoint_id=origin_endpoint_id,
             destination_endpoint_id=destination_endpoint_id,
             destination_environment=destination_environment,
             instances=instances,
-            notes=notes)
+            notes=notes,
+            network_map=network_map)
 
     def get_replicas(self, ctxt, include_tasks_executions=False):
         return self._client.call(
@@ -166,7 +167,8 @@ class ConductorClient(object):
 
     def migrate_instances(self, ctxt, origin_endpoint_id,
                           destination_endpoint_id, destination_environment,
-                          instances, notes=None, skip_os_morphing=False):
+                          instances, network_map, notes=None,
+                          skip_os_morphing=False):
         return self._client.call(
             ctxt, 'migrate_instances',
             origin_endpoint_id=origin_endpoint_id,
@@ -174,7 +176,8 @@ class ConductorClient(object):
             destination_environment=destination_environment,
             instances=instances,
             notes=notes,
-            skip_os_morphing=skip_os_morphing)
+            skip_os_morphing=skip_os_morphing,
+            network_map=network_map)
 
     def deploy_replica_instances(self, ctxt, replica_id, clone_disks=False,
                                  force=False, skip_os_morphing=False):
