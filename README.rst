@@ -152,9 +152,11 @@ Note: only completed, failed or cancelled jobs can be deleted.
 API bindings
 ------------
 
-We're currently working on API bindings as well, starting with Python and
-Golang.
+A reference Python client library implementation is available at:
+https://github.com/cloudbase/python-coriolisclient
 
-Any feedback is well appreciated!
 
-.. _Python: http://www.python.org/
+Web UI
+------
+The official Web-based GUI for Coriolis is available at:
+https://github.com/cloudbase/coriolis-web
