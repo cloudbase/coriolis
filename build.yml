@@ -27,7 +27,7 @@
     - name: Cloning coriolis git repositories
       git: repo={{ item.url }} dest=./build/{{item.name}} update=yes force=yes version={{item.version}}
       with_items:
-        - { url: "git@bitbucket.org:cloudbase/coriolis-core.git", name: coriolis-core, version: master}
+        - { url: "https://github.com/cloudbase/coriolis", name: coriolis-core, version: master}
         - { url: "git@bitbucket.org:cloudbase/coriolis-provider-oracle-vm.git", name: coriolis-provider-oracle-vm, version: master}
         - { url: "git@bitbucket.org:cloudbase/coriolis-provider-opc.git", name: coriolis-provider-opc, version: master}
         - { url: "git@bitbucket.org:cloudbase/coriolis-provider-oci.git", name: coriolis-provider-oci, version: master}
