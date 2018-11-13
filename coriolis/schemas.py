@@ -26,6 +26,7 @@ _CORIOLIS_OS_MORPHING_RES_SCHEMA_NAME = "os_morphing_resources_schema.json"
 _CORIOLIS_VM_NETWORK_SCHEMA_NAME = "vm_network_schema.json"
 _SCHEDULE_API_BODY_SCHEMA_NAME = "replica_schedule_schema.json"
 _CORIOLIS_DESTINATION_OPTIONS_SCHEMA_NAME = "destination_options_schema.json"
+_CORIOLIS_NETWORK_MAP_SCHEMA_NAME = "network_map_schema.json"
 
 
 def get_schema(package_name, schema_name,
@@ -85,3 +86,6 @@ SCHEDULE_API_BODY_SCHEMA = get_schema(
 
 CORIOLIS_DESTINATION_ENVIRONMENT = get_schema(
     __name__, _CORIOLIS_DESTINATION_OPTIONS_SCHEMA_NAME)
+
+CORIOLIS_NETWORK_MAP_SCHEMA = get_schema(
+    __name__, _CORIOLIS_NETWORK_MAP_SCHEMA_NAME)

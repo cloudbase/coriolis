@@ -5,6 +5,7 @@ from oslo_log import log as logging
 from webob import exc
 
 from coriolis import exception
+from coriolis import schemas
 from coriolis.api.v1.views import migration_view
 from coriolis.api import wsgi as api_wsgi
 from coriolis.endpoints import api as endpoints_api
@@ -52,10 +53,23 @@ class MigrationController(api_wsgi.Controller):
             instances = migration["instances"]
             notes = migration.get("notes")
             skip_os_morphing = migration.get("skip_os_morphing", False)
+            network_map = migration.get("network_map", {})
+            try:
+                schemas.validate_value(
+                    network_map, schemas.CORIOLIS_NETWORK_MAP_SCHEMA)
+            except exception.SchemaValidationException:
+                raise exc.HTTPBadRequest(
+                    explanation="Invalid network_map "
+                                "%s" % network_map)
+
+            # NOTE: until the provider plugin interface is updated to have a
+            # separate 'network_map' field, we add it into the destination
+            # environment.
+            destination_environment['network_map'] = network_map
 
             return (origin_endpoint_id, destination_endpoint_id,
                     destination_environment, instances, notes,
-                    skip_os_morphing)
+                    skip_os_morphing, network_map)
         except Exception as ex:
             LOG.exception(ex)
             if hasattr(ex, "message"):
@@ -86,7 +100,7 @@ class MigrationController(api_wsgi.Controller):
              destination_environment,
              instances,
              notes,
-             skip_os_morphing) = self._validate_migration_input(
+             skip_os_morphing, network_map) = self._validate_migration_input(
                 migration_body)
             is_valid, message = (
                 self._endpoints_api.validate_target_environment(
@@ -98,7 +112,8 @@ class MigrationController(api_wsgi.Controller):
 
             migration = self._migration_api.migrate_instances(
                 context, origin_endpoint_id, destination_endpoint_id,
-                destination_environment, instances, notes, skip_os_morphing)
+                destination_environment, instances, network_map, notes,
+                skip_os_morphing)
 
         return migration_view.single(req, migration)
 

@@ -1,0 +1,4 @@
+{
+  "$schema": "http://cloudbase.it/coriolis/schemas/network_map_schema#",
+  "type": "object"
+}
