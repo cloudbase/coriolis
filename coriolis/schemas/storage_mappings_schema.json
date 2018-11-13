@@ -1,0 +1,43 @@
+{
+  "$schema": "http://cloudbase.it/coriolis/schemas/storage_mappings#",
+  "description": "Mapping combinations for disk storage backends of migrated/replicated VMs. The order of precendence of mapping is per-disk, per-backend, and finally the default option.",
+  "type": "object",
+  "properties": {
+    "default": {
+      "type": "string"
+    },
+    "backend_mappings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "destination": {
+            "type": "string"
+          }
+        },
+        "required": ["source", "destination"],
+        "additionalProperties": false
+      }
+    },
+    "disk_mappings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "disk_id": {
+            "type": "string"
+          },
+          "destination": {
+            "type": "string"
+          }
+        },
+        "required": ["disk_id", "destination"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
