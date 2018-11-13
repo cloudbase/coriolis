@@ -113,6 +113,7 @@ class BaseTransferAction(BASE, models.TimestampMixin, models.ModelBase,
         sqlalchemy.ForeignKey('endpoint.id'), nullable=False)
     transfer_result = sqlalchemy.Column(types.Json, nullable=True)
     network_map = sqlalchemy.Column(types.Json, nullable=True)
+    storage_mappings = sqlalchemy.Column(types.Json, nullable=True)
 
     __mapper_args__ = {
         'polymorphic_identity': 'base_transfer_action',
