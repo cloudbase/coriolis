@@ -118,6 +118,18 @@ ENDPOINTS_POLICY_DEFAULT_RULES = [
         ]
     ),
     policy.DocumentedRuleDefault(
+        get_endpoints_policy_label('list_storage'),
+        ENDPOINTS_POLICY_DEFAULT_RULE,
+        "List storage types available on the given endpoint",
+        [
+            {
+                "path": "/endpoint/{endpoint_id}/storage",
+                "method": "GET"
+            }
+        ]
+    ),
+
+    policy.DocumentedRuleDefault(
         get_endpoints_policy_label('list_destination_options'),
         ENDPOINTS_POLICY_DEFAULT_RULE,
         "List available destination options for endpoint",

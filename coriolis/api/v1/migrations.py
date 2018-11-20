@@ -5,7 +5,7 @@ from oslo_log import log as logging
 from webob import exc
 
 from coriolis import exception
-from coriolis import schemas
+from coriolis.api.v1 import utils as api_utils
 from coriolis.api.v1.views import migration_view
 from coriolis.api import wsgi as api_wsgi
 from coriolis.endpoints import api as endpoints_api
@@ -53,29 +53,25 @@ class MigrationController(api_wsgi.Controller):
             instances = migration["instances"]
             notes = migration.get("notes")
             skip_os_morphing = migration.get("skip_os_morphing", False)
-            network_map = migration.get("network_map", {})
-            try:
-                schemas.validate_value(
-                    network_map, schemas.CORIOLIS_NETWORK_MAP_SCHEMA)
-            except exception.SchemaValidationException:
-                raise exc.HTTPBadRequest(
-                    explanation="Invalid network_map "
-                                "%s" % network_map)
 
-            # NOTE: until the provider plugin interface is updated to have a
-            # separate 'network_map' field, we add it into the destination
-            # environment.
+            network_map = migration.get("network_map", {})
+            api_utils.validate_network_map(network_map)
+
+            storage_mappings = migration.get("storage_mappings", {})
+            api_utils.validate_storage_mappings(storage_mappings)
+
+            # TODO(aznashwan): until the provider plugin interface is updated
+            # to have separate 'network_map' and 'storage_mappings' fields,
+            # we add them as part of the destination environment:
             destination_environment['network_map'] = network_map
+            destination_environment['storage_mappings'] = storage_mappings
 
             return (origin_endpoint_id, destination_endpoint_id,
                     destination_environment, instances, notes,
-                    skip_os_morphing, network_map)
+                    skip_os_morphing, network_map, storage_mappings)
         except Exception as ex:
             LOG.exception(ex)
-            if hasattr(ex, "message"):
-                msg = ex.message
-            else:
-                msg = str(ex)
+            msg = getattr(ex, "message", str(ex))
             raise exception.InvalidInput(msg)
 
     def create(self, req, body):
@@ -100,7 +96,8 @@ class MigrationController(api_wsgi.Controller):
              destination_environment,
              instances,
              notes,
-             skip_os_morphing, network_map) = self._validate_migration_input(
+             skip_os_morphing, network_map,
+             storage_mappings) = self._validate_migration_input(
                 migration_body)
             is_valid, message = (
                 self._endpoints_api.validate_target_environment(
@@ -112,8 +109,8 @@ class MigrationController(api_wsgi.Controller):
 
             migration = self._migration_api.migrate_instances(
                 context, origin_endpoint_id, destination_endpoint_id,
-                destination_environment, instances, network_map, notes,
-                skip_os_morphing)
+                destination_environment, instances, network_map,
+                storage_mappings, notes, skip_os_morphing)
 
         return migration_view.single(req, migration)
 

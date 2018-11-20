@@ -151,6 +151,12 @@ class ConductorServerEndpoint(object):
         return self._rpc_worker_client.get_endpoint_networks(
             ctxt, endpoint.type, endpoint.connection_info, env)
 
+    def get_endpoint_storage(self, ctxt, endpoint_id, env):
+        endpoint = self.get_endpoint(ctxt, endpoint_id)
+
+        return self._rpc_worker_client.get_endpoint_storage(
+            ctxt, endpoint.type, endpoint.connection_info, env)
+
     def validate_endpoint_connection(self, ctxt, endpoint_id):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
         return self._rpc_worker_client.validate_endpoint_connection(
@@ -381,7 +387,7 @@ class ConductorServerEndpoint(object):
     def create_instances_replica(self, ctxt, origin_endpoint_id,
                                  destination_endpoint_id,
                                  destination_environment, instances,
-                                 network_map, notes=None):
+                                 network_map, storage_mappings, notes=None):
         origin_endpoint = self.get_endpoint(ctxt, origin_endpoint_id)
         destination_endpoint = self.get_endpoint(ctxt, destination_endpoint_id)
         self._check_endpoints(ctxt, origin_endpoint, destination_endpoint)
@@ -396,6 +402,7 @@ class ConductorServerEndpoint(object):
         replica.info = {}
         replica.notes = notes
         replica.network_map = network_map
+        replica.storage_mappings = storage_mappings
 
         db_api.add_replica(ctxt, replica)
         LOG.info("Replica created: %s", replica.id)
@@ -489,6 +496,7 @@ class ConductorServerEndpoint(object):
         migration.destination_endpoint_id = replica.destination_endpoint_id
         migration.destination_environment = replica.destination_environment
         migration.network_map = replica.network_map
+        migration.storage_mappings = replica.storage_mappings
         migration.instances = instances
         migration.replica = replica
         migration.info = replica.info
@@ -577,8 +585,8 @@ class ConductorServerEndpoint(object):
 
     def migrate_instances(self, ctxt, origin_endpoint_id,
                           destination_endpoint_id, destination_environment,
-                          instances, network_map, skip_os_morphing=False,
-                          notes=None):
+                          instances, network_map, storage_mappings,
+                          skip_os_morphing=False, notes=None):
         origin_endpoint = self.get_endpoint(ctxt, origin_endpoint_id)
         destination_endpoint = self.get_endpoint(ctxt, destination_endpoint_id)
         self._check_endpoints(ctxt, origin_endpoint, destination_endpoint)
@@ -592,6 +600,7 @@ class ConductorServerEndpoint(object):
         migration.destination_endpoint = destination_endpoint
         migration.destination_environment = destination_environment
         migration.network_map = network_map
+        migration.storage_mappings = storage_mappings
         execution = models.TasksExecution()
         execution.status = constants.EXECUTION_STATUS_RUNNING
         execution.number = 1

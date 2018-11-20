@@ -5,7 +5,7 @@ from oslo_log import log as logging
 from webob import exc
 
 from coriolis import exception
-from coriolis import schemas
+from coriolis.api.v1 import utils as api_utils
 from coriolis.api.v1.views import replica_view
 from coriolis.api import wsgi as api_wsgi
 from coriolis.endpoints import api as endpoints_api
@@ -54,28 +54,25 @@ class ReplicaController(api_wsgi.Controller):
             destination_environment = replica.get("destination_environment")
             instances = replica["instances"]
             notes = replica.get("notes")
-            network_map = replica.get("network_map")
-            try:
-                schemas.validate_value(
-                    network_map, schemas.CORIOLIS_NETWORK_MAP_SCHEMA)
-            except exception.SchemaValidationException:
-                raise exc.HTTPBadRequest(
-                    explanation="Invalid network_map "
-                                "%s" % network_map)
 
-            # NOTE: until the provider plugin interface is updated to have a
-            # separate 'network_map' field, we add it into the destination
-            # environment.
-            destination_environment["network_map"] = network_map
+            network_map = replica.get("network_map", {})
+            api_utils.validate_network_map(network_map)
+
+            storage_mappings = replica.get("storage_mappings", {})
+            api_utils.validate_storage_mappings(storage_mappings)
+
+            # TODO(aznashwan): until the provider plugin interface is updated
+            # to have separate 'network_map' and 'storage_mappings' fields,
+            # we add them as part of the destination environment:
+            destination_environment['network_map'] = network_map
+            destination_environment['storage_mappings'] = storage_mappings
 
             return (origin_endpoint_id, destination_endpoint_id,
-                    destination_environment, instances, network_map, notes)
+                    destination_environment, instances, network_map,
+                    storage_mappings, notes)
         except Exception as ex:
             LOG.exception(ex)
-            if hasattr(ex, "message"):
-                msg = ex.message
-            else:
-                msg = str(ex)
+            msg = getattr(ex, "message", str(ex))
             raise exception.InvalidInput(msg)
 
     def create(self, req, body):
@@ -84,7 +81,7 @@ class ReplicaController(api_wsgi.Controller):
 
         (origin_endpoint_id, destination_endpoint_id,
          destination_environment, instances, network_map,
-         notes) = self._validate_create_body(body)
+         storage_mappings, notes) = self._validate_create_body(body)
 
         is_valid, message = (
             self._endpoints_api.validate_target_environment(
@@ -97,7 +94,8 @@ class ReplicaController(api_wsgi.Controller):
 
         return replica_view.single(req, self._replica_api.create(
             context, origin_endpoint_id, destination_endpoint_id,
-            destination_environment, instances, network_map, notes))
+            destination_environment, instances, network_map,
+            storage_mappings, notes))
 
     def delete(self, req, id):
         context = req.environ["coriolis.context"]

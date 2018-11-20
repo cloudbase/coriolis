@@ -77,6 +77,12 @@ class ConductorClient(object):
             endpoint_id=endpoint_id,
             env=env)
 
+    def get_endpoint_storage(self, ctxt, endpoint_id, env):
+        return self._client.call(
+            ctxt, 'get_endpoint_storage',
+            endpoint_id=endpoint_id,
+            env=env)
+
     def validate_endpoint_connection(self, ctxt, endpoint_id):
         return self._client.call(
             ctxt, 'validate_endpoint_connection',
@@ -129,8 +135,9 @@ class ConductorClient(object):
 
     def create_instances_replica(self, ctxt, origin_endpoint_id,
                                  destination_endpoint_id,
-                                 destination_environment,
-                                 instances, network_map, notes=None):
+                                 destination_environment, instances,
+                                 network_map, storage_mappings,
+                                 notes=None):
         return self._client.call(
             ctxt, 'create_instances_replica',
             origin_endpoint_id=origin_endpoint_id,
@@ -138,7 +145,8 @@ class ConductorClient(object):
             destination_environment=destination_environment,
             instances=instances,
             notes=notes,
-            network_map=network_map)
+            network_map=network_map,
+            storage_mappings=storage_mappings)
 
     def get_replicas(self, ctxt, include_tasks_executions=False):
         return self._client.call(
@@ -167,7 +175,7 @@ class ConductorClient(object):
 
     def migrate_instances(self, ctxt, origin_endpoint_id,
                           destination_endpoint_id, destination_environment,
-                          instances, network_map, notes=None,
+                          instances, network_map, storage_mappings, notes=None,
                           skip_os_morphing=False):
         return self._client.call(
             ctxt, 'migrate_instances',
@@ -177,7 +185,8 @@ class ConductorClient(object):
             instances=instances,
             notes=notes,
             skip_os_morphing=skip_os_morphing,
-            network_map=network_map)
+            network_map=network_map,
+            storage_mappings=storage_mappings)
 
     def deploy_replica_instances(self, ctxt, replica_id, clone_disks=False,
                                  force=False, skip_os_morphing=False):

@@ -236,6 +236,15 @@ class NetworkNotFound(NotFound):
     message = _("Network \"%(network_name)s\" could not be found.")
 
 
+class DiskStorageMappingNotFound(NotFound):
+    message = _('No storage mapping for disk with ID "%(id)s" could be found.')
+
+
+class StorageBackendNotFound(NotFound):
+    message = _(
+        'Storage backend with name "%(storage_name)s" could not be found.')
+
+
 class ImageNotFound(NotFound):
     message = _("Image \"%(image_name)s\" could not be found.")
 
