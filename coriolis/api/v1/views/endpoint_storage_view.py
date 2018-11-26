@@ -15,5 +15,5 @@ def _format_storage(req, storage, keys=None):
 
 
 def collection(req, storages):
-    formatted_storages = [_format_storage(req, m) for m in storages]
+    formatted_storages = _format_storage(req, storages)
     return {'storage': formatted_storages}
