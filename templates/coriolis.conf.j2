@@ -358,10 +358,11 @@ preserve_nic_ips = true
 # arm_compute_api_version = 2016-03-30
 # arm_network_api_version = 2015-06-15
 # blob_storage_api_version = 2015-04-05
-# NOTE: as of November 2018, the latest GA Microsoft.Storage/storageAccounts
-# API version is '2018-07-01', but it is not available in the version of
-# `azure-mgmt-storage` in use, so we must explicitly use an earlier version:
-arm_storage_api_version = 2018-02-01
+
+# NOTE: as of November 2018, the latest GA APIs for the "Microsoft.Network"
+# Provider is not available in the version of the `azure-mgmt-network`
+# package in use, so we must set it to latest available version:
+arm_network_api_version = 2018-07-01
 
 # Cloudbase-init Zip URLs for each supported Windows architecture:
 cloudbaseinit_x86_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x86.zip
