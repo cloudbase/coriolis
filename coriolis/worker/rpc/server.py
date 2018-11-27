@@ -21,6 +21,7 @@ from coriolis.providers import factory as providers_factory
 from coriolis import schemas
 from coriolis.tasks import factory as task_runners_factory
 from coriolis import utils
+from coriolis.api.v1 import utils as api_utils
 
 
 worker_opts = [
@@ -294,6 +295,7 @@ class WorkerServerEndpoint(object):
     def get_available_providers(self, ctxt):
         return providers_factory.get_available_providers()
 
+    @api_utils.bad_request_on_error("Invalid destination environment: %s")
     def validate_endpoint_target_environment(
             self, ctxt, platform_name, target_env):
         provider = providers_factory.get_provider(
@@ -304,6 +306,23 @@ class WorkerServerEndpoint(object):
         message = None
         try:
             schemas.validate_value(target_env, target_env_schema)
+        except exception.SchemaValidationException as ex:
+            is_valid = False
+            message = str(ex)
+
+        return (is_valid, message)
+
+    @api_utils.bad_request_on_error("Invalid source environment: %s")
+    def validate_endpoint_source_environment(
+            self, ctxt, platform_name, source_env):
+        provider = providers_factory.get_provider(
+            platform_name, constants.PROVIDER_TYPE_EXPORT, None)
+        source_env_schema = provider.get_source_environment_schema()
+
+        is_valid = True
+        message = None
+        try:
+            schemas.validate_value(source_env, source_env_schema)
         except exception.SchemaValidationException as ex:
             is_valid = False
             message = str(ex)
@@ -353,6 +372,11 @@ class WorkerServerEndpoint(object):
                              constants.PROVIDER_TYPE_REPLICA_IMPORT]:
             schema = provider.get_target_environment_schema()
             schemas["destination_environment_schema"] = schema
+
+        if provider_type in [constants.PROVIDER_TYPE_EXPORT,
+                             constants.PROVIDER_TYPE_REPLICA_EXPORT]:
+            schema = provider.get_source_environment_schema()
+            schemas["source_environment_schema"] = schema
 
         return schemas
 

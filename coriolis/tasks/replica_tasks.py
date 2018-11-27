@@ -150,9 +150,11 @@ class DeleteReplicaSourceResourcesTask(base.TaskRunner):
 
         migr_resources = task_info.get("migr_source_resources")
 
+        source_environment = origin.get("source_environment", {})
+
         if migr_resources:
             provider.delete_replica_source_resources(
-                ctxt, connection_info, migr_resources)
+                ctxt, source_environment, connection_info, migr_resources)
 
         task_info["migr_source_resources"] = None
         task_info["migr_source_connection_info"] = None

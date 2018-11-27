@@ -318,6 +318,10 @@ class BaseExportProvider(BaseInstanceProvider):
         """
         pass
 
+    @abc.abstractmethod
+    def get_source_environment_schema(self):
+        pass
+
 
 class BaseReplicaExportProvider(BaseInstanceProvider):
 
@@ -330,7 +334,8 @@ class BaseReplicaExportProvider(BaseInstanceProvider):
         pass
 
     @abc.abstractmethod
-    def delete_replica_source_resources(self, ctxt, connection_info,
+    def delete_replica_source_resources(self, ctxt, source_environment,
+                                        connection_info,
                                         migr_resources_dict):
         pass
 

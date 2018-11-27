@@ -54,6 +54,10 @@ class MigrationController(api_wsgi.Controller):
             notes = migration.get("notes")
             skip_os_morphing = migration.get("skip_os_morphing", False)
 
+            source_environment = migration.get("source_environment", {})
+            self._endpoints_api.validate_source_environment(
+                context, origin_endpoint_id, source_environment)
+
             network_map = migration.get("network_map", {})
             api_utils.validate_network_map(network_map)
             destination_environment['network_map'] = network_map
@@ -62,13 +66,8 @@ class MigrationController(api_wsgi.Controller):
             # import provider before appending the 'storage_mappings' parameter
             # for plugins with strict property name checks which do not yet
             # support storage mapping features:
-            is_valid, message = (
-                self._endpoints_api.validate_target_environment(
-                    context, destination_endpoint_id, destination_environment))
-            if not is_valid:
-                raise exc.HTTPBadRequest(
-                    explanation="Invalid destination "
-                                "environment: %s" % message)
+            self._endpoints_api.validate_target_environment(
+                context, destination_endpoint_id, destination_environment)
 
             # TODO(aznashwan): until the provider plugin interface is updated
             # to have separate 'network_map' and 'storage_mappings' fields,
@@ -78,8 +77,8 @@ class MigrationController(api_wsgi.Controller):
             destination_environment['storage_mappings'] = storage_mappings
 
             return (origin_endpoint_id, destination_endpoint_id,
-                    destination_environment, instances, notes,
-                    skip_os_morphing, network_map, storage_mappings)
+                    source_environment, destination_environment, instances,
+                    notes, skip_os_morphing, network_map, storage_mappings)
         except Exception as ex:
             LOG.exception(ex)
             msg = getattr(ex, "message", str(ex))
@@ -104,17 +103,17 @@ class MigrationController(api_wsgi.Controller):
         else:
             (origin_endpoint_id,
              destination_endpoint_id,
+             source_environment,
              destination_environment,
              instances,
              notes,
              skip_os_morphing, network_map,
              storage_mappings) = self._validate_migration_input(
                 context, migration_body)
-
             migration = self._migration_api.migrate_instances(
                 context, origin_endpoint_id, destination_endpoint_id,
-                destination_environment, instances, network_map,
-                storage_mappings, notes, skip_os_morphing)
+                source_environment, destination_environment, instances,
+                network_map, storage_mappings, notes, skip_os_morphing)
 
         return migration_view.single(req, migration)
 
