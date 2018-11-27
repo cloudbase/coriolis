@@ -94,6 +94,12 @@ class ConductorClient(object):
             ctxt, 'validate_endpoint_target_environment',
             endpoint_id=endpoint_id, target_env=target_env)
 
+    def validate_endpoint_source_environment(
+            self, ctxt, endpoint_id, source_env):
+        return self._client.call(
+            ctxt, 'validate_endpoint_source_environment',
+            endpoint_id=endpoint_id, source_env=source_env)
+
     def get_available_providers(self, ctxt):
         return self._client.call(
             ctxt, 'get_available_providers')
@@ -135,8 +141,8 @@ class ConductorClient(object):
 
     def create_instances_replica(self, ctxt, origin_endpoint_id,
                                  destination_endpoint_id,
-                                 destination_environment, instances,
-                                 network_map, storage_mappings,
+                                 source_environment, destination_environment,
+                                 instances, network_map, storage_mappings,
                                  notes=None):
         return self._client.call(
             ctxt, 'create_instances_replica',
@@ -146,7 +152,8 @@ class ConductorClient(object):
             instances=instances,
             notes=notes,
             network_map=network_map,
-            storage_mappings=storage_mappings)
+            storage_mappings=storage_mappings,
+            source_environment=source_environment)
 
     def get_replicas(self, ctxt, include_tasks_executions=False):
         return self._client.call(
@@ -174,8 +181,9 @@ class ConductorClient(object):
             ctxt, 'get_migration', migration_id=migration_id)
 
     def migrate_instances(self, ctxt, origin_endpoint_id,
-                          destination_endpoint_id, destination_environment,
-                          instances, network_map, storage_mappings, notes=None,
+                          destination_endpoint_id, source_environment,
+                          destination_environment, instances, network_map,
+                          storage_mappings, notes=None,
                           skip_os_morphing=False):
         return self._client.call(
             ctxt, 'migrate_instances',
@@ -186,7 +194,8 @@ class ConductorClient(object):
             notes=notes,
             skip_os_morphing=skip_os_morphing,
             network_map=network_map,
-            storage_mappings=storage_mappings)
+            storage_mappings=storage_mappings,
+            source_environment=source_environment)
 
     def deploy_replica_instances(self, ctxt, replica_id, clone_disks=False,
                                  force=False, skip_os_morphing=False):

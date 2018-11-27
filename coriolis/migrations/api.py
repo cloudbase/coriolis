@@ -9,13 +9,14 @@ class API(object):
         self._rpc_client = rpc_client.ConductorClient()
 
     def migrate_instances(self, ctxt, origin_endpoint_id,
-                          destination_endpoint_id, destination_environment,
-                          instances, network_map, storage_mappings, notes=None,
+                          destination_endpoint_id, source_environment,
+                          destination_environment, instances, network_map,
+                          storage_mappings, notes=None,
                           skip_os_morphing=False):
         return self._rpc_client.migrate_instances(
             ctxt, origin_endpoint_id, destination_endpoint_id,
-            destination_environment, instances, network_map, storage_mappings,
-            notes, skip_os_morphing)
+            source_environment, destination_environment, instances,
+            network_map, storage_mappings, notes, skip_os_morphing)
 
     def deploy_replica_instances(self, ctxt, replica_id, clone_disks=False,
                                  force=False, skip_os_morphing=False):

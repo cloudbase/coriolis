@@ -1,6 +1,7 @@
 # Copyright 2018 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+
 from oslo_log import log as logging
 from webob import exc
 
@@ -29,3 +30,14 @@ def validate_storage_mappings(storage_mappings):
     except exception.SchemaValidationException as ex:
         raise exc.HTTPBadRequest(
             explanation="Invalid storage_mappings: %s" % str(ex))
+
+
+def bad_request_on_error(error_message):
+    def _bad_request_on_error(func):
+        def wrapper(*args, **kwargs):
+            (is_valid, message) = func(*args, **kwargs)
+            if not is_valid:
+                raise exc.HTTPBadRequest(explanation=(error_message % message))
+            return (is_valid, message)
+        return wrapper
+    return _bad_request_on_error

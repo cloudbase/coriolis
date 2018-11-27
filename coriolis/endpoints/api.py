@@ -2,6 +2,7 @@
 # All Rights Reserved.
 
 from coriolis.conductor.rpc import client as rpc_client
+from coriolis.api.v1 import utils as api_utils
 
 
 class API(object):
@@ -33,6 +34,12 @@ class API(object):
         return self._rpc_client.validate_endpoint_connection(
             ctxt, endpoint_id)
 
+    @api_utils.bad_request_on_error("Invalid destination environment: %s")
     def validate_target_environment(self, ctxt, endpoint_id, target_env):
         return self._rpc_client.validate_endpoint_target_environment(
             ctxt, endpoint_id, target_env)
+
+    @api_utils.bad_request_on_error("Invalid source environment: %s")
+    def validate_source_environment(self, ctxt, endpoint_id, source_env):
+        return self._rpc_client.validate_endpoint_source_environment(
+            ctxt, endpoint_id, source_env)

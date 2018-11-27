@@ -168,6 +168,12 @@ class ConductorServerEndpoint(object):
         return self._rpc_worker_client.validate_endpoint_target_environment(
             ctxt, endpoint.type, target_env)
 
+    def validate_endpoint_source_environment(
+            self, ctxt, endpoint_id, source_env):
+        endpoint = self.get_endpoint(ctxt, endpoint_id)
+        return self._rpc_worker_client.validate_endpoint_source_environment(
+            ctxt, endpoint.type, source_env)
+
     def get_available_providers(self, ctxt):
         return self._rpc_worker_client.get_available_providers(ctxt)
 
@@ -202,7 +208,8 @@ class ConductorServerEndpoint(object):
         endpoint = self.get_endpoint(ctxt, action.origin_endpoint_id)
         return {
             "connection_info": endpoint.connection_info,
-            "type": endpoint.type
+            "type": endpoint.type,
+            "source_environment": action.source_environment
         }
 
     def _get_task_destination(self, ctxt, action):
@@ -385,7 +392,7 @@ class ConductorServerEndpoint(object):
             raise exception.SameDestination()
 
     def create_instances_replica(self, ctxt, origin_endpoint_id,
-                                 destination_endpoint_id,
+                                 destination_endpoint_id, source_environment,
                                  destination_environment, instances,
                                  network_map, storage_mappings, notes=None):
         origin_endpoint = self.get_endpoint(ctxt, origin_endpoint_id)
@@ -397,6 +404,7 @@ class ConductorServerEndpoint(object):
         replica.origin_endpoint = origin_endpoint
         replica.destination_endpoint = destination_endpoint
         replica.destination_environment = destination_environment
+        replica.source_environment = source_environment
         replica.instances = instances
         replica.executions = []
         replica.info = {}
@@ -495,6 +503,7 @@ class ConductorServerEndpoint(object):
         migration.origin_endpoint_id = replica.origin_endpoint_id
         migration.destination_endpoint_id = replica.destination_endpoint_id
         migration.destination_environment = replica.destination_environment
+        migration.source_environment = replica.source_environment
         migration.network_map = replica.network_map
         migration.storage_mappings = replica.storage_mappings
         migration.instances = instances
@@ -584,9 +593,10 @@ class ConductorServerEndpoint(object):
         return self.get_migration(ctxt, migration.id)
 
     def migrate_instances(self, ctxt, origin_endpoint_id,
-                          destination_endpoint_id, destination_environment,
-                          instances, network_map, storage_mappings,
-                          skip_os_morphing=False, notes=None):
+                          destination_endpoint_id, source_environment,
+                          destination_environment, instances, network_map,
+                          storage_mappings, skip_os_morphing=False,
+                          notes=None):
         origin_endpoint = self.get_endpoint(ctxt, origin_endpoint_id)
         destination_endpoint = self.get_endpoint(ctxt, destination_endpoint_id)
         self._check_endpoints(ctxt, origin_endpoint, destination_endpoint)
@@ -599,6 +609,7 @@ class ConductorServerEndpoint(object):
         migration.origin_endpoint = origin_endpoint
         migration.destination_endpoint = destination_endpoint
         migration.destination_environment = destination_environment
+        migration.source_environment = source_environment
         migration.network_map = network_map
         migration.storage_mappings = storage_mappings
         execution = models.TasksExecution()

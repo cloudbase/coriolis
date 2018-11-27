@@ -22,8 +22,9 @@ class ExportInstanceTask(base.TaskRunner):
         connection_info = base.get_connection_info(ctxt, origin)
         export_path = task_info["export_path"]
 
+        source_environment = origin.get('source_environment') or {}
         export_info = provider.export_instance(
-            ctxt, connection_info, instance, export_path)
+            ctxt, connection_info, source_environment, instance, export_path)
 
         # Validate the output
         schemas.validate_value(

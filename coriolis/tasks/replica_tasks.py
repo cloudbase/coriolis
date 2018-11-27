@@ -29,8 +29,9 @@ class GetInstanceInfoTask(base.TaskRunner):
             event_handler)
         connection_info = base.get_connection_info(ctxt, origin)
 
+        source_environment = origin.get('source_environment') or {}
         export_info = provider.get_replica_instance_info(
-            ctxt, connection_info, instance)
+            ctxt, connection_info, source_environment, instance)
 
         # Validate the output
         schemas.validate_value(
@@ -48,7 +49,9 @@ class ShutdownInstanceTask(base.TaskRunner):
             event_handler)
         connection_info = base.get_connection_info(ctxt, origin)
 
-        provider.shutdown_instance(ctxt, connection_info, instance)
+        source_environment = origin.get('source_environment') or {}
+        provider.shutdown_instance(ctxt, connection_info, source_environment,
+                                   instance)
 
         return task_info
 
@@ -128,8 +131,9 @@ class DeployReplicaSourceResourcesTask(base.TaskRunner):
             event_handler)
         connection_info = base.get_connection_info(ctxt, origin)
 
+        source_environment = origin.get('source_environment') or {}
         replica_resources_info = provider.deploy_replica_source_resources(
-            ctxt, connection_info)
+            ctxt, connection_info, source_environment)
 
         task_info["migr_source_resources"] = replica_resources_info[
             "migr_resources"]
@@ -150,9 +154,11 @@ class DeleteReplicaSourceResourcesTask(base.TaskRunner):
 
         migr_resources = task_info.get("migr_source_resources")
 
+        source_environment = origin.get("source_environment", {})
+
         if migr_resources:
             provider.delete_replica_source_resources(
-                ctxt, connection_info, migr_resources)
+                ctxt, source_environment, connection_info, migr_resources)
 
         task_info["migr_source_resources"] = None
         task_info["migr_source_connection_info"] = None

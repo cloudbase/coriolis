@@ -309,8 +309,8 @@ class BaseReplicaImportProvider(BaseImportInstanceProvider):
 class BaseExportProvider(BaseInstanceProvider):
 
     @abc.abstractmethod
-    def export_instance(self, ctxt, connection_info, instance_name,
-                        export_path):
+    def export_instance(self, ctxt, connection_info, source_environment,
+                        instance_name, export_path):
         """Exports the given instance.
 
          Exports the instance given by its name from the given source cloud
@@ -318,19 +318,26 @@ class BaseExportProvider(BaseInstanceProvider):
         """
         pass
 
+    @abc.abstractmethod
+    def get_source_environment_schema(self):
+        pass
+
 
 class BaseReplicaExportProvider(BaseInstanceProvider):
 
     @abc.abstractmethod
-    def get_replica_instance_info(self, ctxt, connection_info, instance_name):
+    def get_replica_instance_info(self, ctxt, connection_info,
+                                  source_environment, instance_name):
         pass
 
     @abc.abstractmethod
-    def deploy_replica_source_resources(self, ctxt, connection_info):
+    def deploy_replica_source_resources(self, ctxt, connection_info,
+                                        source_environment):
         pass
 
     @abc.abstractmethod
-    def delete_replica_source_resources(self, ctxt, connection_info,
+    def delete_replica_source_resources(self, ctxt, source_environment,
+                                        connection_info,
                                         migr_resources_dict):
         pass
 
@@ -341,7 +348,8 @@ class BaseReplicaExportProvider(BaseInstanceProvider):
         pass
 
     @abc.abstractmethod
-    def shutdown_instance(self, ctxt, connection_info, instance_name):
+    def shutdown_instance(self, ctxt, connection_info, source_environment,
+                          instance_name):
         pass
 
 
