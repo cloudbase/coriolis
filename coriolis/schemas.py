@@ -28,6 +28,7 @@ _SCHEDULE_API_BODY_SCHEMA_NAME = "replica_schedule_schema.json"
 _CORIOLIS_DESTINATION_OPTIONS_SCHEMA_NAME = "destination_options_schema.json"
 _CORIOLIS_NETWORK_MAP_SCHEMA_NAME = "network_map_schema.json"
 _CORIOLIS_STORAGE_MAPPINGS_SCHEMA_NAME = "storage_mappings_schema.json"
+_CORIOLIS_VM_STORAGE_SCHEMA_NAME = "vm_storage_schema.json"
 
 
 def get_schema(package_name, schema_name,
@@ -93,3 +94,6 @@ CORIOLIS_NETWORK_MAP_SCHEMA = get_schema(
 
 CORIOLIS_STORAGE_MAPPINGS_SCHEMA = get_schema(
     __name__, _CORIOLIS_STORAGE_MAPPINGS_SCHEMA_NAME)
+
+CORIOLIS_VM_STORAGE_SCHEMA = get_schema(
+    __name__, _CORIOLIS_VM_STORAGE_SCHEMA_NAME)

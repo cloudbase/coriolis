@@ -287,6 +287,8 @@ class WorkerServerEndpoint(object):
         storage = provider.get_storage(
             ctxt, secret_connection_info, env)
 
+        schemas.validate_value(storage, schemas.CORIOLIS_VM_STORAGE_SCHEMA)
+
         return storage
 
     def get_available_providers(self, ctxt):
