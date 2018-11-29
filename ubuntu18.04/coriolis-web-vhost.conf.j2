@@ -1,0 +1,30 @@
+<VirtualHost *:443>
+
+    SSLEngine on
+    SSLproxyEngine on
+    SSLCertificateFile /etc/ssl/certs/coriolis.crt
+    SSLCertificateKeyFile /etc/ssl/private/coriolis.key
+
+    Header always set Access-Control-Allow-Origin "*"
+    Header always set Access-Control-Allow-Methods "POST, GET, OPTIONS, DELETE, PUT, PATCH"
+    Header always set Access-Control-Max-Age "1000"
+    Header always set Access-Control-Allow-Headers "x-requested-with, X-Auth-Token, X-Subject-Token, Content-Type, origin, authorization, accept, client-security-token"
+    Header always set Access-Control-Allow-Credentials "true"
+    Header add Access-Control-Expose-Headers "X-Subject-Token"
+    # Added a rewrite to respond with a 200 SUCCESS on every OPTIONS request.
+    RewriteEngine On
+    RewriteCond %{REQUEST_METHOD} OPTIONS
+    RewriteRule ^(.*)$ $1 [R=200,L]
+
+    # Proxy matches paths to appropiate services
+    RewriteRule "^/identity/(.*)$" "%{env:KEYSTONE_AUTH_URL}/$1" [P]
+    RewriteRule "^/barbican/(.*)$" "%{env:BARBICAN_ENDPOINT_URL}/$1" [P]
+    RewriteRule "^/coriolis/(.*)$" "%{env:CORIOLIS_BASE_ENDPOINT_URL}/$1" [P]
+    RewriteRule "^/((?!identity|coriolis|barbican).*)$" "%{env:CORIOLIS_INTERNAL_URL}/$1" [P]
+
+</VirtualHost>
+
+<VirtualHost *:80>
+    RewriteEngine On
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}$1 [R=301,L]
+</VirtualHost>

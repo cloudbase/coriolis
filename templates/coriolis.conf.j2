@@ -55,7 +55,10 @@ export_base_path = {{ coriolis_export_base_path }}
 vixdisklib_compatibility_version = 6.0
 
 # The path where the SOs for vixDiskLib are located:
-vixdisklib_library_directory = {{ vmware_vix_disklib_path }}
+# NOTE: for Ubuntu worker VMs, we must prevent the libglib shipped with
+# vixDiskLib to override the system's libglib by prepending the system's
+# library paths (for 16.04 and 18.04, respectively):
+vixdisklib_library_directory = /lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:{{ vmware_vix_disklib_path }}
 
 [aws_migration_provider]
 # Mapping between AWS regions and the ID of subnets in which to boot
