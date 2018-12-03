@@ -8,6 +8,9 @@ ADD coriolis-provider-aws/ coriolis-provider-aws
 ADD coriolis-provider-openstack/ coriolis-provider-openstack
 ADD coriolis-provider-azure/ coriolis-provider-azure
 
+RUN add-apt-repository cloud-archive:rocky
+RUN apt-get update && apt-get install -y librados2 python3-rados python3-rbd
+
 RUN apt-get install -y qemu-utils
 
 # NOTE: the `openssl` binary is required by python-novaclient when
