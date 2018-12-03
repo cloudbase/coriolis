@@ -1,0 +1,18 @@
+FROM ubuntu:16.04
+
+RUN apt-get update && apt-get install -y apache2 openssl
+RUN a2enmod ssl headers rewrite proxy proxy_http
+COPY ./coriolis-web-vhost.conf /etc/apache2/sites-available/coriolis-web-vhost.conf
+RUN ln -s ../sites-available/coriolis-web-vhost.conf /etc/apache2/sites-enabled/coriolis-web-vhost.conf
+
+RUN openssl req -new -newkey rsa:4096 -days 3650 -nodes -x509 \
+    -subj "/C=RO/ST=Timis/L=Timisoara/CN=Coriolis Self Signed" \
+    -keyout /etc/ssl/private/coriolis.key \
+    -out /etc/ssl/certs/coriolis.crt
+
+COPY ./webproxy_start /webproxy_start
+RUN chmod 700 /webproxy_start
+
+ENTRYPOINT ["/webproxy_start"]
+
+EXPOSE 443
