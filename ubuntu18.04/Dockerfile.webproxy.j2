@@ -5,6 +5,10 @@ RUN a2enmod ssl headers rewrite proxy proxy_http
 COPY ./coriolis-web-vhost.conf /etc/apache2/sites-available/coriolis-web-vhost.conf
 RUN ln -s ../sites-available/coriolis-web-vhost.conf /etc/apache2/sites-enabled/coriolis-web-vhost.conf
 
+# NOTE: the default site will take precedence over the Coriolis vhost(s) so
+# HTTP connections on :80 will not automatically escalate to HTTPS on :443
+RUN rm /etc/apache2/sites-enabled/000-default.conf || true
+
 RUN openssl req -new -newkey rsa:4096 -days 3650 -nodes -x509 \
     -subj "/C=RO/ST=Timis/L=Timisoara/CN=Coriolis Self Signed" \
     -keyout /etc/ssl/private/coriolis.key \
