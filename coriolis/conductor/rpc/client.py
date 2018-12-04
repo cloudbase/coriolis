@@ -272,3 +272,9 @@ class ConductorClient(object):
             replica_id=replica_id,
             schedule_id=schedule_id,
             expired=expired)
+
+    def update_replica(self, ctxt, replica_id, properties):
+        return self._client.call(
+            ctxt, 'update_replica',
+            replica_id=replica_id,
+            properties=properties)

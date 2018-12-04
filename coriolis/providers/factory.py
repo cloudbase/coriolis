@@ -41,7 +41,9 @@ PROVIDER_TYPE_MAP = {
     constants.PROVIDER_TYPE_VALIDATE_MIGRATION_IMPORT: (
         base.BaseMigrationImportValidationProvider),
     constants.PROVIDER_TYPE_VALIDATE_REPLICA_IMPORT: (
-        base.BaseReplicaImportValidationProvider)
+        base.BaseReplicaImportValidationProvider),
+    constants.PROVIDER_TYPE_REPLICA_UPDATE: (
+        base.BaseReplicaUpdateableProvider)
 }
 
 

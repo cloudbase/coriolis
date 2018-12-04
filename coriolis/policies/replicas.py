@@ -83,7 +83,19 @@ REPLICAS_POLICY_DEFAULT_RULES = [
                 "method": "DELETE"
             }
         ]
+    ),
+    policy.DocumentedRuleDefault(
+        get_replicas_policy_label('update'),
+        REPLICAS_POLICY_DEFAULT_RULE,
+        "Update Replica",
+        [
+            {
+                "path": "/replicas/{replica_id}",
+                "method": "POST"
+            }
+        ]
     )
+
 ]
 
 
