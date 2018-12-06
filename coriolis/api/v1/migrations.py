@@ -45,7 +45,7 @@ class MigrationController(api_wsgi.Controller):
             req, self._migration_api.get_migrations(
                 context, include_tasks=True))
 
-    def _validate_migration_input(self, migration):
+    def _validate_migration_input(self, context, migration):
         try:
             origin_endpoint_id = migration["origin_endpoint_id"]
             destination_endpoint_id = migration["destination_endpoint_id"]
@@ -56,14 +56,25 @@ class MigrationController(api_wsgi.Controller):
 
             network_map = migration.get("network_map", {})
             api_utils.validate_network_map(network_map)
+            destination_environment['network_map'] = network_map
 
-            storage_mappings = migration.get("storage_mappings", {})
-            api_utils.validate_storage_mappings(storage_mappings)
+            # NOTE(aznashwan): we validate the destination environment for the
+            # import provider before appending the 'storage_mappings' parameter
+            # for plugins with strict property name checks which do not yet
+            # support storage mapping features:
+            is_valid, message = (
+                self._endpoints_api.validate_target_environment(
+                    context, destination_endpoint_id, destination_environment))
+            if not is_valid:
+                raise exc.HTTPBadRequest(
+                    explanation="Invalid destination "
+                                "environment: %s" % message)
 
             # TODO(aznashwan): until the provider plugin interface is updated
             # to have separate 'network_map' and 'storage_mappings' fields,
             # we add them as part of the destination environment:
-            destination_environment['network_map'] = network_map
+            storage_mappings = migration.get("storage_mappings", {})
+            api_utils.validate_storage_mappings(storage_mappings)
             destination_environment['storage_mappings'] = storage_mappings
 
             return (origin_endpoint_id, destination_endpoint_id,
@@ -98,14 +109,7 @@ class MigrationController(api_wsgi.Controller):
              notes,
              skip_os_morphing, network_map,
              storage_mappings) = self._validate_migration_input(
-                migration_body)
-            is_valid, message = (
-                self._endpoints_api.validate_target_environment(
-                    context, destination_endpoint_id, destination_environment))
-            if not is_valid:
-                raise exc.HTTPBadRequest(
-                    explanation="Invalid destination "
-                                "environment: %s" % message)
+                context, migration_body)
 
             migration = self._migration_api.migrate_instances(
                 context, origin_endpoint_id, destination_endpoint_id,
