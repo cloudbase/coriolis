@@ -74,9 +74,12 @@ class ReplicateDisksTask(base.TaskRunner):
 
         incremental = task_info.get("incremental", True)
 
+        source_environment = origin.get('source_environment') or {}
+
         volumes_info = provider.replicate_disks(
-            ctxt, connection_info, instance, migr_source_conn_info,
-            migr_target_conn_info, volumes_info, incremental)
+            ctxt, connection_info, source_environment, instance,
+            migr_source_conn_info, migr_target_conn_info, volumes_info,
+            incremental)
 
         task_info["volumes_info"] = volumes_info
 
@@ -158,7 +161,7 @@ class DeleteReplicaSourceResourcesTask(base.TaskRunner):
 
         if migr_resources:
             provider.delete_replica_source_resources(
-                ctxt, source_environment, connection_info, migr_resources)
+                ctxt, connection_info, source_environment, migr_resources)
 
         task_info["migr_source_resources"] = None
         task_info["migr_source_connection_info"] = None

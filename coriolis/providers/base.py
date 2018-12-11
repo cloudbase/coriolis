@@ -306,7 +306,14 @@ class BaseReplicaImportProvider(BaseImportInstanceProvider):
         pass
 
 
-class BaseExportProvider(BaseInstanceProvider):
+class BaseExportInstanceProvider(BaseInstanceProvider):
+
+    @abc.abstractmethod
+    def get_source_environment_schema(self):
+        pass
+
+
+class BaseExportProvider(BaseExportInstanceProvider):
 
     @abc.abstractmethod
     def export_instance(self, ctxt, connection_info, source_environment,
@@ -318,12 +325,8 @@ class BaseExportProvider(BaseInstanceProvider):
         """
         pass
 
-    @abc.abstractmethod
-    def get_source_environment_schema(self):
-        pass
 
-
-class BaseReplicaExportProvider(BaseInstanceProvider):
+class BaseReplicaExportProvider(BaseExportInstanceProvider):
 
     @abc.abstractmethod
     def get_replica_instance_info(self, ctxt, connection_info,
@@ -336,15 +339,15 @@ class BaseReplicaExportProvider(BaseInstanceProvider):
         pass
 
     @abc.abstractmethod
-    def delete_replica_source_resources(self, ctxt, source_environment,
-                                        connection_info,
+    def delete_replica_source_resources(self, ctxt, connection_info,
+                                        source_environment,
                                         migr_resources_dict):
         pass
 
     @abc.abstractmethod
-    def replicate_disks(self, ctxt, connection_info, instance_name,
-                        source_conn_info, target_conn_info, volumes_info,
-                        incremental):
+    def replicate_disks(self, ctxt, connection_info, source_environment,
+                        instance_name, source_conn_info, target_conn_info,
+                        volumes_info, incremental):
         pass
 
     @abc.abstractmethod
