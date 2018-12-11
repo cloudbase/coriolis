@@ -26,10 +26,14 @@ class EndpointDestinationOptionsController(api_wsgi.Controller):
         env = req.GET.get("env")
         if env is not None:
             env = utils.decode_base64_param(env, is_json=True)
+        else:
+            env = {}
 
         options = req.GET.get("options")
         if options is not None:
             options = utils.decode_base64_param(options, is_json=True)
+        else:
+            options = {}
 
         return endpoint_destination_options_view.collection(
             req,
