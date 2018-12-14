@@ -55,6 +55,10 @@ class ReplicaController(api_wsgi.Controller):
             instances = replica["instances"]
             notes = replica.get("notes")
 
+            source_environment = replica.get("source_environment", {})
+            self._endpoints_api.validate_source_environment(
+                context, origin_endpoint_id, source_environment)
+
             network_map = replica.get("network_map", {})
             api_utils.validate_network_map(network_map)
             destination_environment['network_map'] = network_map
@@ -63,14 +67,8 @@ class ReplicaController(api_wsgi.Controller):
             # import provider before appending the 'storage_mappings' parameter
             # for plugins with strict property name checks which do not yet
             # support storage mapping features:
-            is_valid, message = (
-                self._endpoints_api.validate_target_environment(
-                    context, destination_endpoint_id,
-                    destination_environment))
-            if not is_valid:
-                raise exc.HTTPBadRequest(
-                    explanation="Invalid destination "
-                                "environment: %s" % message)
+            self._endpoints_api.validate_target_environment(
+                context, destination_endpoint_id, destination_environment)
 
             storage_mappings = replica.get("storage_mappings", {})
             api_utils.validate_storage_mappings(storage_mappings)
@@ -81,8 +79,8 @@ class ReplicaController(api_wsgi.Controller):
             destination_environment['storage_mappings'] = storage_mappings
 
             return (origin_endpoint_id, destination_endpoint_id,
-                    destination_environment, instances, network_map,
-                    storage_mappings, notes)
+                    source_environment, destination_environment, instances,
+                    network_map, storage_mappings, notes)
         except Exception as ex:
             LOG.exception(ex)
             msg = getattr(ex, "message", str(ex))
@@ -93,13 +91,13 @@ class ReplicaController(api_wsgi.Controller):
         context.can(replica_policies.get_replicas_policy_label("create"))
 
         (origin_endpoint_id, destination_endpoint_id,
-         destination_environment, instances, network_map,
+         source_environment, destination_environment, instances, network_map,
          storage_mappings, notes) = self._validate_create_body(context, body)
 
         return replica_view.single(req, self._replica_api.create(
             context, origin_endpoint_id, destination_endpoint_id,
-            destination_environment, instances, network_map,
-            storage_mappings, notes))
+            source_environment, destination_environment, instances,
+            network_map, storage_mappings, notes))
 
     def delete(self, req, id):
         context = req.environ["coriolis.context"]

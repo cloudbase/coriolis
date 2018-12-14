@@ -310,6 +310,22 @@ class WorkerServerEndpoint(object):
 
         return (is_valid, message)
 
+    def validate_endpoint_source_environment(
+            self, ctxt, platform_name, source_env):
+        provider = providers_factory.get_provider(
+            platform_name, constants.PROVIDER_TYPE_EXPORT, None)
+        source_env_schema = provider.get_source_environment_schema()
+
+        is_valid = True
+        message = None
+        try:
+            schemas.validate_value(source_env, source_env_schema)
+        except exception.SchemaValidationException as ex:
+            is_valid = False
+            message = str(ex)
+
+        return (is_valid, message)
+
     def validate_endpoint_connection(self, ctxt, platform_name,
                                      connection_info):
         provider = providers_factory.get_provider(
@@ -353,6 +369,11 @@ class WorkerServerEndpoint(object):
                              constants.PROVIDER_TYPE_REPLICA_IMPORT]:
             schema = provider.get_target_environment_schema()
             schemas["destination_environment_schema"] = schema
+
+        if provider_type in [constants.PROVIDER_TYPE_EXPORT,
+                             constants.PROVIDER_TYPE_REPLICA_EXPORT]:
+            schema = provider.get_source_environment_schema()
+            schemas["source_environment_schema"] = schema
 
         return schemas
 

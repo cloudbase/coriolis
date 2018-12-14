@@ -306,11 +306,18 @@ class BaseReplicaImportProvider(BaseImportInstanceProvider):
         pass
 
 
-class BaseExportProvider(BaseInstanceProvider):
+class BaseExportInstanceProvider(BaseInstanceProvider):
 
     @abc.abstractmethod
-    def export_instance(self, ctxt, connection_info, instance_name,
-                        export_path):
+    def get_source_environment_schema(self):
+        pass
+
+
+class BaseExportProvider(BaseExportInstanceProvider):
+
+    @abc.abstractmethod
+    def export_instance(self, ctxt, connection_info, source_environment,
+                        instance_name, export_path):
         """Exports the given instance.
 
          Exports the instance given by its name from the given source cloud
@@ -319,29 +326,33 @@ class BaseExportProvider(BaseInstanceProvider):
         pass
 
 
-class BaseReplicaExportProvider(BaseInstanceProvider):
+class BaseReplicaExportProvider(BaseExportInstanceProvider):
 
     @abc.abstractmethod
-    def get_replica_instance_info(self, ctxt, connection_info, instance_name):
+    def get_replica_instance_info(self, ctxt, connection_info,
+                                  source_environment, instance_name):
         pass
 
     @abc.abstractmethod
-    def deploy_replica_source_resources(self, ctxt, connection_info):
+    def deploy_replica_source_resources(self, ctxt, connection_info,
+                                        source_environment):
         pass
 
     @abc.abstractmethod
     def delete_replica_source_resources(self, ctxt, connection_info,
+                                        source_environment,
                                         migr_resources_dict):
         pass
 
     @abc.abstractmethod
-    def replicate_disks(self, ctxt, connection_info, instance_name,
-                        source_conn_info, target_conn_info, volumes_info,
-                        incremental):
+    def replicate_disks(self, ctxt, connection_info, source_environment,
+                        instance_name, source_conn_info, target_conn_info,
+                        volumes_info, incremental):
         pass
 
     @abc.abstractmethod
-    def shutdown_instance(self, ctxt, connection_info, instance_name):
+    def shutdown_instance(self, ctxt, connection_info, source_environment,
+                          instance_name):
         pass
 
 
