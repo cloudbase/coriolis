@@ -24,6 +24,8 @@ class EndpointStorageController(api_wsgi.Controller):
         env = req.GET.get("env")
         if env is not None:
             env = utils.decode_base64_param(env, is_json=True)
+        else:
+            env = {}
 
         return endpoint_storage_view.collection(
             req, self._storage_api.get_endpoint_storage(

@@ -49,7 +49,8 @@ class MigrationController(api_wsgi.Controller):
         try:
             origin_endpoint_id = migration["origin_endpoint_id"]
             destination_endpoint_id = migration["destination_endpoint_id"]
-            destination_environment = migration.get("destination_environment")
+            destination_environment = migration.get(
+                "destination_environment", {})
             instances = migration["instances"]
             notes = migration.get("notes")
             skip_os_morphing = migration.get("skip_os_morphing", False)

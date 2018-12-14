@@ -51,7 +51,8 @@ class ReplicaController(api_wsgi.Controller):
 
             origin_endpoint_id = replica["origin_endpoint_id"]
             destination_endpoint_id = replica["destination_endpoint_id"]
-            destination_environment = replica.get("destination_environment")
+            destination_environment = replica.get(
+                "destination_environment", {})
             instances = replica["instances"]
             notes = replica.get("notes")
 
