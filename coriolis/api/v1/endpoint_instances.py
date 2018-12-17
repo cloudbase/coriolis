@@ -26,10 +26,6 @@ class EndpointInstanceController(api_wsgi.Controller):
         marker, limit = common.get_paging_params(req)
         instance_name_pattern = req.GET.get("name")
 
-        if instance_name_pattern is None:
-            raise exc.HTTPBadRequest(
-                explanation="Missing instance name to index.")
-
         return endpoint_instance_view.collection(
             req, self._instance_api.get_endpoint_instances(
                 context, endpoint_id, marker, limit, instance_name_pattern))
