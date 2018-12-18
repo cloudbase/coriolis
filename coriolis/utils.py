@@ -158,7 +158,9 @@ def read_ssh_file(ssh, remote_path):
 def write_ssh_file(ssh, remote_path, content):
     sftp = ssh.open_sftp()
     fd = sftp.open(remote_path, 'wb')
-    fd.set_pipelined(True)
+    # Enabling pipelined transfers here will make
+    # SFTP transfers much faster, but in combination
+    # with eventlet, it seems to cause some lock-ups
     fd.write(content)
     fd.close()
 
