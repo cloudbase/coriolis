@@ -1,0 +1,39 @@
+FROM {{ docker_registry }}/{{ coriolis_containers_namespace }}/coriolis-common:{{ docker_images_tag }}
+
+ADD coriolis-provider-oracle-vm/ coriolis-provider-oracle-vm
+ADD coriolis-provider-opc/ coriolis-provider-opc
+ADD coriolis-provider-oci/ coriolis-provider-oci
+ADD coriolis-provider-vmware/ coriolis-provider-vmware
+ADD coriolis-provider-aws/ coriolis-provider-aws
+ADD coriolis-provider-openstack/ coriolis-provider-openstack
+ADD coriolis-provider-azure/ coriolis-provider-azure
+
+RUN add-apt-repository cloud-archive:rocky
+RUN apt-get update && apt-get install -y librados2 python3-rados python3-rbd
+
+RUN apt-get install -y qemu-utils
+
+# NOTE: the `openssl` binary is required by python-novaclient when
+# decrypting the password of a Windows worker machine.
+RUN apt-get install -y openssl
+
+RUN /bin/bash -c "pip3 install -e ./coriolis-provider-oracle-vm"
+RUN /bin/bash -c "pip3 install -e ./coriolis-provider-opc"
+RUN /bin/bash -c "pip3 install -e ./coriolis-provider-oci"
+RUN /bin/bash -c "pip3 install -e ./coriolis-provider-vmware"
+RUN /bin/bash -c "pip3 install -e ./coriolis-provider-aws"
+RUN /bin/bash -c "pip3 install -e ./coriolis-provider-openstack"
+RUN /bin/bash -c "pip3 install -e ./coriolis-provider-azure"
+
+RUN apt-get install -y libnfs-dev libaio1
+# NOTE: `libnfs` is required by `libqemu` but unused in the codepath(s)
+# Coriolis will be calling so we can safely substitute for the new one:
+RUN ln -s /usr/lib/x86_64-linux-gnu/libnfs.so.11.0.0 /usr/lib/x86_64-linux-gnu/libnfs.so.8
+RUN ldconfig
+
+ADD libqemu.so.gz /usr/lib/
+RUN gunzip /usr/lib/libqemu.so.gz
+RUN ldconfig
+
+# Mapped volume: /etc/coriolis/coriolis.conf
+ENTRYPOINT ["/bin/bash", "-c", "coriolis-worker", "--config-file=/etc/coriolis/coriolis.conf"]

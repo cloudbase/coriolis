@@ -46,6 +46,11 @@
         path: "{{ coriolis_config_directory_path }}"
         state: directory
 
+    - name: Creating Ceph config directory
+      file:
+        path: /etc/ceph
+        state: directory
+
     - name: Creating log directory
       file:
         path: /var/log/coriolis
@@ -243,6 +248,7 @@
         network_mode: host
         volumes:
         - "{{ coriolis_config_directory_path }}:{{ coriolis_config_directory_path }}:ro"
+        - "/etc/ceph:/etc/ceph:ro"
         - "/var/log/coriolis:/var/log/coriolis:rw"
         - "{{ coriolis_export_base_path_host }}:{{ coriolis_export_base_path }}:rw"
         - "{{ vmware_vix_disklib_path_host }}:{{ vmware_vix_disklib_path }}:ro"

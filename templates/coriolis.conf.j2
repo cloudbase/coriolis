@@ -55,7 +55,10 @@ export_base_path = {{ coriolis_export_base_path }}
 vixdisklib_compatibility_version = 6.0
 
 # The path where the SOs for vixDiskLib are located:
-vixdisklib_library_directory = {{ vmware_vix_disklib_path }}
+# NOTE: for Ubuntu worker VMs, we must prevent the libglib shipped with
+# vixDiskLib to override the system's libglib by prepending the system's
+# library paths (for 16.04 and 18.04, respectively):
+vixdisklib_library_directory = /lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:{{ vmware_vix_disklib_path }}
 
 [aws_migration_provider]
 # Mapping between AWS regions and the ID of subnets in which to boot
@@ -116,6 +119,33 @@ intermediate_volume_format = qcow2
 # source OpenStack. Mapping values must be one of the supported OS types in
 # Coriolis.
 # custom_os_type_map =
+
+### Options for replicating from a Ceph-based OpenStack.
+# The method Coriolis should use for replication.
+# If set to 'swift_backups', Coriolis will create Cinder backups and
+# fetch the disk chunks from Swift. The Cinder-backup service must
+# be configured to use Swift as a storage backend.
+# If set to 'ceph_backups', Coriolis will try to read the Cinder
+# backups disk chunks directly from Ceph (via librbd). The Cinder-backup
+# service must be configured to use Ceph as a storage backend.
+# If set to 'ceph_snapshots', Coriolis will create Cinder volume
+# snapshots and read the snapshot data chunks from Ceph. The Cinder
+# volume service must be confiured to use Ceph as a driver.
+# Default is 'swift_backups'
+replica_export_mechanism = swift_backups
+# Set the following Ceph options to either the credentials of a cluster
+# administrator account, or the credentials used by Cinder-volume (if
+# 'replica_export_mechanism' is 'ceph_snapshots'), or those of
+# Cinder-backup (if 'replica_export_mechanism' is 'ceph_snapshots')
+cinder_ceph_volumes_username = cinder-backup
+cinder_ceph_pool_name = cinder-backup
+cinder_ceph_cluster_name = cinder-backup
+# NOTE: please ensure the Ceph-related files are either somewhere in
+# '/etc/ceph', or under the path set as the 'export_base_path' option.
+cinder_ceph_conf_path = /etc/ceph/ceph.conf
+cinder_ceph_keyring_path = /etc/ceph/ceph.client.cinder-backup.keyring
+cinder_ceph_backups_diff_hash_algorithm = sha1
+cinder_ceph_timeout = 30
 
 ### Import parameters:
 # If migrating/replicating a heterogeneous workload with both Linux and
