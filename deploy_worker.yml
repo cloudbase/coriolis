@@ -1,0 +1,64 @@
+---
+- hosts: localhost
+
+  vars:
+    vmware_vix_disklib_archive_path: "/tmp/VMware-vix-disklib.tar.gz"
+
+  pre_tasks:
+    - name: Downloading VMware disklib
+      get_url:
+        url: "{{ vmware_disklib_url }}"
+        dest: "{{ vmware_vix_disklib_archive_path }}"
+
+    - name: Creating VMWare vixDiskLib directory on host
+      file:
+        path: "{{ vmware_vix_disklib_path_host }}"
+        state: directory
+
+    - name: Extracting VMWare vixDiskLib
+      command: tar --strip-components=2 -C "{{ vmware_vix_disklib_path_host }}" -xzvf "{{ vmware_vix_disklib_archive_path }}" vmware-vix-disklib-distrib/lib64
+
+  tasks:
+
+    - name: Creating config directory
+      file:
+        path: "{{ coriolis_config_directory_path }}"
+        state: directory
+
+    - name: Creating Ceph config directory
+      file:
+        path: /etc/ceph
+        state: directory
+
+    - name: Creating log directory
+      file:
+        path: /var/log/coriolis
+        state: directory
+
+    - name: Creating Coriolis shared export path directory
+      file:
+        path: "{{ coriolis_export_base_path_host }}"
+        state: directory
+
+    - name: Creating coriolis.conf
+      template:
+        src: ./templates/coriolis.conf.j2
+        dest: "{{ coriolis_config_directory_path }}/coriolis.conf"
+        force: no
+
+    - name: coriolis-worker container
+      docker_container:
+        name: coriolis-worker
+        image: "{{ docker_registry }}/{{ coriolis_containers_namespace }}/coriolis-worker:{{ docker_images_tag }}"
+        pull: yes
+        hostname: coriolis-worker
+        state: started
+        restart: yes
+        restart_policy: unless-stopped
+        network_mode: host
+        volumes:
+        - "{{ coriolis_config_directory_path }}:{{ coriolis_config_directory_path }}:ro"
+        - "/etc/ceph:/etc/ceph:ro"
+        - "/var/log/coriolis:/var/log/coriolis:rw"
+        - "{{ coriolis_export_base_path_host }}:{{ coriolis_export_base_path }}:rw"
+        - "{{ vmware_vix_disklib_path_host }}:{{ vmware_vix_disklib_path }}:ro"
