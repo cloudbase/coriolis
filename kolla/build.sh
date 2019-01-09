@@ -2,8 +2,9 @@
 set -e
 
 basedir=$(dirname "$(readlink -f "$0")")
+pushd "$basedir"
 
-if [ ! -d kolla ]; then
+if [ ! -d ./kolla ]; then
     git clone https://github.com/openstack/kolla -b stable/ocata
 fi
 
@@ -29,8 +30,8 @@ else
 fi
 
 
-get_config_value=$basedir/../get_config_value.py
-config_build_file=$basedir/../config-build.yml
+get_config_value=../get_config_value.py
+config_build_file=../config-build.yml
 if [ ! -f $config_build_file ]; then
     cp $config_build_file.sample $config_build_file
 fi
@@ -49,3 +50,5 @@ distro=${2:-oraclelinux}
 
 kolla-build -b $distro $push_args \
     keystone barbican rabbitmq mariadb kolla-toolbox fluentd cron memcached
+
+popd
