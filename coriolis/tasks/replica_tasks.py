@@ -434,3 +434,58 @@ class ValidateReplicaDeploymentParametersTask(base.TaskRunner):
             ctxt, destination_connection_info, target_environment, export_info)
 
         return task_info
+
+
+class UpdateReplicaTask(base.TaskRunner):
+    def run(self, ctxt, instance, origin, destination, task_info,
+            event_handler):
+        destination_provider = None
+        source_provider = None
+        new_source_environment = task_info.get('source_environment')
+        new_destination_environment = task_info.get('destination_environment')
+
+        if new_source_environment:
+            source_provider = providers_factory.get_provider(
+                origin["type"], constants.PROVIDER_TYPE_REPLICA_EXPORT,
+                event_handler, raise_if_not_found=False)
+            if not source_provider:
+                raise exception.CoriolisException(
+                    "Replica source provider plugin for '%s' does not support"
+                    " updating Replicas." % origin["type"])
+
+        if new_destination_environment:
+            destination_provider = providers_factory.get_provider(
+                destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+                event_handler)
+            if not destination_provider:
+                raise exception.CoriolisException(
+                    "Replica destination provider plugin for '%s' does not "
+                    "support updating Replicas." % origin["type"])
+
+        connection_info = base.get_connection_info(ctxt, destination)
+        export_info = task_info.get("export_info", {})
+        volumes_info = task_info.get("volumes_info", {})
+
+        if source_provider:
+            old_source_environment = origin.get('source_environment', {})
+            new_source_environment = task_info.get('source_environment', {})
+            LOG.info("Checking source provider environment params")
+            source_provider.check_update_environment_params(
+                ctxt, connection_info, export_info, volumes_info,
+                old_source_environment, new_source_environment)
+
+        if destination_provider:
+            LOG.info("Checking destination provider environment params")
+            old_destination_environment = destination.get(
+                'target_environment', {})
+            new_destination_environment = task_info.get(
+                'destination_environment', {})
+
+            volumes_info = (
+                destination_provider.check_update_environment_params(
+                    ctxt, connection_info, export_info, volumes_info,
+                    old_destination_environment, new_destination_environment))
+
+            task_info['volumes_info'] = volumes_info
+
+        return task_info

@@ -387,3 +387,27 @@ class BaseEndpointStorageProvider(object, with_metaclass(abc.ABCMeta)):
     def get_storage(self, ctxt, connection_info):
         """ Returns all the storage options available"""
         pass
+
+
+class BaseReplicaUpdateableProvider(object, with_metaclass(abc.ABCMeta)):
+    """ Class for replica providers (export and import) which offer the
+    functionality of updating the parameters for a replica.
+    """
+    @abc.abstractmethod
+    def check_update_environment_params(
+            self, ctxt, connection_info, export_info, volumes_info, old_params,
+            new_params):
+        """ Checks that any existing replica resources for the VM given by its
+        `export_info` which were replicated using the `old_params` is
+        compatible with the `new_params`. Depending on whether it's an Import
+        or Export provider, the `old_params` and `new_params` refer to either
+        the `destination_environment` or `source_environment` replica fields.
+        This method should raise and error given incompatible `new_params` and
+        also perform the necessary update procedures if they are compatible
+
+        return on success: updated `volumes_info`
+
+        NOTE: if there is no `volumes_info` present due to the replica never
+        having been executed or the replica disks having been deleted, this
+        method should simply return the empty `volumes_info` it was given.
+        """
