@@ -1,6 +1,7 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+import copy
 import functools
 import uuid
 
@@ -803,8 +804,15 @@ class ConductorServerEndpoint(object):
                             instance=task.instance,
                             task_info=task_info)
 
-    def _update_replica_volumes_info(self, ctxt, migration_id, instance,
+    def _update_replica_volumes_info(self, ctxt, replica_id, instance,
                                      updated_task_info):
+        """ WARN: the lock for the Replica must be pre-acquired. """
+        db_api.set_transfer_action_info(
+            ctxt, replica_id, instance,
+            updated_task_info)
+
+    def _update_volumes_info_for_migration_parent_replica(
+            self, ctxt, migration_id, instance, updated_task_info):
         migration = db_api.get_migration(ctxt, migration_id)
         replica_id = migration.replica_id
 
@@ -812,13 +820,11 @@ class ConductorServerEndpoint(object):
             LOG.debug(
                 "Updating volume_info in replica due to snapshot "
                 "restore during migration. replica id: %s", replica_id)
-            db_api.set_transfer_action_info(
-                ctxt, replica_id, instance,
-                updated_task_info)
+            self._update_replica_volumes_info(
+                ctxt, replica_id, instance, updated_task_info)
 
     def _handle_post_task_actions(self, ctxt, task, execution, task_info):
         task_type = task.task_type
-        updated_task_info = None
 
         if task_type == constants.TASK_TYPE_RESTORE_REPLICA_DISK_SNAPSHOTS:
             # When restoring a snapshot in some import providers (OpenStack),
@@ -826,14 +832,20 @@ class ConductorServerEndpoint(object):
             # Replica instance as well.
             volumes_info = task_info.get("volumes_info")
             if volumes_info:
-                updated_task_info = {"volumes_info": volumes_info}
+                self._update_volumes_info_for_migration_parent_replica(
+                    ctxt, execution.action_id, task.instance,
+                    {"volumes_info": volumes_info})
+
         elif task_type == constants.TASK_TYPE_DELETE_REPLICA_DISK_SNAPSHOTS:
 
             if not task_info.get("clone_disks"):
                 # The migration completed. If the replica is executed again,
                 # new volumes need to be deployed in place of the migrated
                 # ones.
-                updated_task_info = {"volumes_info": None}
+                self._update_volumes_info_for_migration_parent_replica(
+                    ctxt, execution.action_id, task.instance,
+                    {"volumes_info": None})
+
         elif task_type in (
                 constants.TASK_TYPE_FINALIZE_IMPORT_INSTANCE,
                 constants.TASK_TYPE_FINALIZE_REPLICA_INSTANCE_DEPLOYMENT):
@@ -862,13 +874,16 @@ class ConductorServerEndpoint(object):
                     "No 'transfer_result' was returned for task type '%s' "
                     "for transfer action '%s'", task_type, execution.action_id)
         elif task_type == constants.TASK_TYPE_UPDATE_REPLICA:
-            # NOTE: perform the actual db update
+            # NOTE: perform the actual db update on the Replica's properties:
             db_api.update_replica(ctxt, execution.action_id, task_info)
-
-        if updated_task_info:
+            # NOTE: remember to update the `volumes_info`:
+            # NOTE: considering this method is only called with a lock on the
+            # `execution.action_id` (in a Replica update tasks' case that's the
+            # ID of the Replica itself) we can safely call
+            # `_update_replica_volumes_info` below:
             self._update_replica_volumes_info(
                 ctxt, execution.action_id, task.instance,
-                updated_task_info)
+                {"volumes_info": task_info.get("volumes_info")})
 
     @task_synchronized
     def task_completed(self, ctxt, task_id, task_info):
@@ -1005,7 +1020,7 @@ class ConductorServerEndpoint(object):
 
     @replica_synchronized
     def update_replica(
-        self, ctxt, replica_id, properties):
+            self, ctxt, replica_id, properties):
         replica = self._get_replica(ctxt, replica_id)
         self._check_replica_running_executions(ctxt, replica)
         execution = models.TasksExecution()
@@ -1013,11 +1028,21 @@ class ConductorServerEndpoint(object):
         execution.status = constants.EXECUTION_STATUS_RUNNING
         execution.action = replica
 
+        LOG.debug(
+            "Replica '%s' info pre-replica-update: %s",
+            replica_id, replica.info)
         for instance in execution.action.instances:
-            replica.info[instance] = properties
+            # NOTE: "circular assignment" would lead to a `None` value
+            # so we must operate on a copy:
+            inst_info_copy = copy.deepcopy(replica.info[instance])
+            inst_info_copy.update(properties)
+            replica.info[instance] = inst_info_copy
             self._create_task(
                 instance, constants.TASK_TYPE_UPDATE_REPLICA,
                 execution)
+        LOG.debug(
+            "Replica '%s' info post-replica-update: %s",
+            replica_id, replica.info)
         db_api.add_replica_tasks_execution(ctxt, execution)
         LOG.debug("Execution for Replica update tasks created: %s",
                   execution.id)

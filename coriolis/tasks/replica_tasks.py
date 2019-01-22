@@ -467,15 +467,21 @@ class UpdateReplicaTask(base.TaskRunner):
         volumes_info = task_info.get("volumes_info", {})
 
         if source_provider:
+            LOG.info("Checking source provider environment params")
+            # NOTE: the `source_environment` in the `origin` is the one set
+            # in the dedicated DB column of the Replica and thus stores
+            # the previous value of it:
             old_source_environment = origin.get('source_environment', {})
             new_source_environment = task_info.get('source_environment', {})
-            LOG.info("Checking source provider environment params")
             source_provider.check_update_environment_params(
                 ctxt, connection_info, export_info, volumes_info,
                 old_source_environment, new_source_environment)
 
         if destination_provider:
             LOG.info("Checking destination provider environment params")
+            # NOTE: the `target_environment` in the `destination` is the one
+            # set in the dedicated DB column of the Replica and thus stores
+            # the previous value of it:
             old_destination_environment = destination.get(
                 'target_environment', {})
             new_destination_environment = task_info.get(
