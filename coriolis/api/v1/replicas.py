@@ -156,20 +156,38 @@ class ReplicaController(api_wsgi.Controller):
         return storage_mappings
 
     def _get_merged_replica_values(self, replica, updated_values):
+        """ Looks for the following keys in the original replica body and
+        updated values (preferring the updated values where needed, but using
+        `.update()` on dicts):
+        "source_environment", "destination_environment", "network_map", "notes"
+        Does special merging for the "storage_mappings"
+        Returns a dict with the merged values (or at least all if the keys
+        having a default value of {})
+        """
         final_values = {}
         # NOTE: this just replaces options at the top-level and does not do
         # merging of container types (ex: lists, dicts)
         for option in [
                 "source_environment", "destination_environment",
                 "network_map"]:
-            original_values = replica.get(option, {})
+            before = replica.get(option)
+            after = updated_values.get(option)
+            # NOTE: for Replicas created before the separation of these fields
+            # in the DB there is the chance that some of these may be NULL:
+            if before is None:
+                before = {}
+            if after is None:
+                after = {}
+            before.update(after)
 
-            original_values.update(updated_values.get(
-                option, {}))
-            final_values[option] = original_values
+            final_values[option] = before
 
-        original_storage_mappings = replica.get('storage_mappings', {})
-        new_storage_mappings = updated_values.get('storage_mappings', {})
+        original_storage_mappings = replica.get('storage_mappings')
+        if original_storage_mappings is None:
+            original_storage_mappings = {}
+        new_storage_mappings = updated_values.get('storage_mappings')
+        if new_storage_mappings is None:
+            new_storage_mappings = {}
         final_values['storage_mappings'] = self._update_storage_mappings(
             original_storage_mappings, new_storage_mappings)
 
@@ -178,20 +196,16 @@ class ReplicaController(api_wsgi.Controller):
         else:
             final_values['notes'] = replica.get('notes', '')
 
-        # until the provider plugin interface is updated
+        # NOTE: until the provider plugin interface is updated
         # to have separate 'network_map' and 'storage_mappings' fields,
         # we add them as part of the destination environment:
         final_storage_mappings = final_values['storage_mappings']
         final_network_map = final_values['network_map']
-        if not final_values.get('destination_environment'):
-            final_values['destination_environment'] = {}
         if final_storage_mappings:
-            final_values[
-                'destination_environment'][
+            final_values['destination_environment'][
                 'storage_mappings'] = final_storage_mappings
         if final_network_map:
-            final_values[
-                'destination_environment'][
+            final_values['destination_environment'][
                 'network_map'] = final_network_map
 
         return final_values
@@ -206,30 +220,25 @@ class ReplicaController(api_wsgi.Controller):
             origin_endpoint_id = replica["origin_endpoint_id"]
             destination_endpoint_id = replica["destination_endpoint_id"]
 
-            source_environment = merged_body.get("source_environment", {})
             self._endpoints_api.validate_source_environment(
-                context, origin_endpoint_id, source_environment)
+                context, origin_endpoint_id,
+                merged_body["source_environment"])
 
-            network_map = merged_body.get("network_map", {})
-            api_utils.validate_network_map(network_map)
-
-            destination_environment = merged_body.get(
-                "destination_environment", {})
+            destination_environment = merged_body["destination_environment"]
             self._endpoints_api.validate_target_environment(
                 context, destination_endpoint_id, destination_environment)
 
-            storage_mappings = merged_body.get("storage_mappings", {})
-            api_utils.validate_storage_mappings(storage_mappings)
+            api_utils.validate_network_map(merged_body["network_map"])
+
+            api_utils.validate_storage_mappings(
+                merged_body["storage_mappings"])
 
             return merged_body
 
         except Exception as ex:
             LOG.exception(ex)
-            if hasattr(ex, "message"):
-                msg = ex.message
-            else:
-                msg = str(ex)
-            raise exception.InvalidInput(msg)
+            raise exception.InvalidInput(
+                getattr(ex, "message", str(ex)))
 
     def update(self, req, id, body):
         context = req.environ["coriolis.context"]
