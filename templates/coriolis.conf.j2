@@ -9,7 +9,7 @@ logging_debug_format_suffix = [00;33mfrom (pid=%(process)d) %(funcName)s %(path
 logging_default_format_string = %(asctime)s.%(msecs)03d %(color)s%(levelname)s %(name)s [[00;36m-%(color)s] [01;35m%(instance)s%(color)s%(message)s[00m
 logging_context_format_string = %(asctime)s.%(msecs)03d %(color)s%(levelname)s %(name)s [[01;36m%(request_id)s [00;36m %(color)s] [01;35m%(instance)s%(color)s%(message)s[00m
 
-providers=coriolis_provider_openstack.ExportProvider,coriolis_provider_openstack.ImportProvider,coriolis_provider_vmware_vsphere.ExportProvider,coriolis_provider_oracle_vm.ImportProvider,coriolis_provider_opc.ImportProvider,coriolis_provider_oci.ImportProvider,coriolis_provider_aws.ExportProvider,coriolis_provider_azure.ImportProvider
+providers=coriolis_provider_openstack.ExportProvider,coriolis_provider_openstack.ImportProvider,coriolis_provider_vmware_vsphere.ExportProvider,coriolis_provider_oracle_vm.ImportProvider,coriolis_provider_opc.ImportProvider,coriolis_provider_oci.ImportProvider,coriolis_provider_aws.ExportProvider,coriolis_provider_azure.ImportProvider,coriolis_provider_scvmm.HyperVExportProvider,coriolis_provider_scvmm.ImportProvider
 
 # Whether or not to expose the internal 'info' field of
 # a Migration as part of a `GET` request.
@@ -402,6 +402,22 @@ arm_network_api_version = 2018-07-01
 # Cloudbase-init Zip URLs for each supported Windows architecture:
 cloudbaseinit_x86_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x86.zip
 cloudbaseinit_x64_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x64.zip
+
+[hyperv_migration_provider]
+# UNC path of the share which os mounted on the Coriolis Worker performing the migration.
+coriolis_share_path = \\10.7.1.10\Public\coriolis-hyperv-exports
+
+# The local path of the mounted share on the Coriolis Worker
+# (the local path of the 'coriolis_share_path').
+coriolis_share_local_path = {{ hyperv_share_local_path }}
+
+# Relative path (with respect to 'coriolis_share_path')
+# of the folder containing the Hyper-V backup tool.
+share_backup_tool_path = HVBackup_1.0.1
+
+# Relative path (with respect to 'coriolis_share_path')
+# of the directory in which to export the backup ZIPs.
+share_backup_subdirectory = Coriolis-Exports
 
 [serialization]
 

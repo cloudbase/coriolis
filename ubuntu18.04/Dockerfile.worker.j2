@@ -7,6 +7,7 @@ ADD coriolis-provider-vmware/ coriolis-provider-vmware
 ADD coriolis-provider-aws/ coriolis-provider-aws
 ADD coriolis-provider-openstack/ coriolis-provider-openstack
 ADD coriolis-provider-azure/ coriolis-provider-azure
+ADD coriolis-provider-scvmm/ coriolis-provider-scvmm
 
 RUN add-apt-repository cloud-archive:rocky
 RUN apt-get update && apt-get install -y librados2 python3-rados python3-rbd
@@ -24,6 +25,7 @@ RUN /bin/bash -c "pip3 install -e ./coriolis-provider-vmware"
 RUN /bin/bash -c "pip3 install -e ./coriolis-provider-aws"
 RUN /bin/bash -c "pip3 install -e ./coriolis-provider-openstack"
 RUN /bin/bash -c "pip3 install -e ./coriolis-provider-azure"
+RUN /bin/bash -c "pip3 install -e ./coriolis-provider-scvmm"
 
 RUN apt-get install -y libnfs-dev libaio1
 # NOTE: `libnfs` is required by `libqemu` but unused in the codepath(s)
