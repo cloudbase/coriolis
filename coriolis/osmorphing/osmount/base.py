@@ -222,6 +222,16 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
 
         return new_mountpoints
 
+    def _get_mounted_devices(self):
+        mounts = self._exec_cmd(
+            "cat /proc/mounts").decode().split('\n')[:-1]
+        ret = []
+        for line in mounts:
+            colls = line.split()
+            if colls[0].startswith("/dev"):
+                ret.append(colls[0])
+        return ret
+
     def _get_volume_block_devices(self):
         # NOTE: depending on the version of the worker OS, scanning for just
         # the device NAME may lead to LVM volumes getting displayed as:
@@ -233,9 +243,8 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
             "lsblk -lnao KNAME").decode().split('\n')[:-1]
         LOG.debug("All block devices: %s", str(volume_devs))
 
-        # Skip this instance's current root device (first in the list)
         volume_devs = ["/dev/%s" % d for d in volume_devs if
-                       not re.match(r"^.*\d+$", d)][1:]
+                       not re.match(r"^.*\d+$", d)]
 
         LOG.debug("Ignoring block devices: %s", self._ignore_devices)
         volume_devs = [d for d in volume_devs if d
@@ -247,6 +256,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
     def mount_os(self):
         dev_paths = []
         other_mounted_dirs = []
+        mouted_devs = self._get_mounted_devices()
 
         volume_devs = self._get_volume_block_devices()
         for volume_dev in volume_devs:
@@ -272,6 +282,10 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
 
         dev_paths_to_mount = []
         for dev_path in dev_paths:
+            if dev_path in mouted_devs:
+                # this device is already mounted. Skip it, as it most likely
+                # means this device belongs to the worker VM.
+                continue
             fs_type = self._exec_cmd(
                 "sudo blkid -o value -s TYPE %s || true" %
                 dev_path).decode().split('\n')[0]
