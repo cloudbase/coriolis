@@ -57,7 +57,7 @@ def morph_image(origin_provider, destination_provider, connection_info,
     os_mount_tools.setup()
 
     event_manager.progress_update("Discovering and mounting OS partitions")
-    os_root_dir, other_mounted_dirs, os_root_dev = os_mount_tools.mount_os()
+    os_root_dir, os_root_dev = os_mount_tools.mount_os()
 
     osmorphing_info['os_root_dir'] = os_root_dir
     osmorphing_info['os_root_dev'] = os_root_dev
@@ -122,4 +122,4 @@ def morph_image(origin_provider, destination_provider, connection_info,
         import_os_morphing_tools.post_packages_install(packages_add)
 
     event_manager.progress_update("Dismounting OS partitions")
-    os_mount_tools.dismount_os(other_mounted_dirs + [os_root_dir])
+    os_mount_tools.dismount_os(os_root_dir)
