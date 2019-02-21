@@ -45,7 +45,7 @@ class BaseOSMountTools(object, with_metaclass(abc.ABCMeta)):
         pass
 
     @abc.abstractmethod
-    def dismount_os(self, dirs):
+    def dismount_os(self, root_dir):
         pass
 
     def set_proxy(self, proxy_settings):
@@ -232,6 +232,15 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                 ret.append(colls[0])
         return ret
 
+    def _get_mount_destinations(self):
+        mounts = self._exec_cmd(
+            "cat /proc/mounts").decode().split('\n')[:-1]
+        ret = set()
+        for line in mounts:
+            colls = line.split()
+            ret.add(colls[1])
+        return ret
+
     def _get_volume_block_devices(self):
         # NOTE: depending on the version of the worker OS, scanning for just
         # the device NAME may lead to LVM volumes getting displayed as:
@@ -255,7 +264,6 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
 
     def mount_os(self):
         dev_paths = []
-        other_mounted_dirs = []
         mouted_devs = self._get_mounted_devices()
 
         volume_devs = self._get_volume_block_devices()
@@ -316,8 +324,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         if not os_root_dir:
             raise exception.OperatingSystemNotFound("root partition not found")
 
-        other_mounted_dirs.extend(
-            self._check_mount_fstab_partitions(os_root_dir))
+        self._check_mount_fstab_partitions(os_root_dir)
 
         for dir in set(dirs).intersection(['proc', 'sys', 'dev', 'run']):
             mount_dir = os.path.join(os_root_dir, dir)
@@ -328,13 +335,18 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
             self._exec_cmd(
                 'sudo mount -o bind /%(dir)s/ %(mount_dir)s' %
                 {'dir': dir, 'mount_dir': mount_dir})
-            other_mounted_dirs.append(mount_dir)
+        return os_root_dir, os_root_device
 
-        return os_root_dir, other_mounted_dirs, os_root_device
-
-    def dismount_os(self, dirs):
-        for dir in dirs:
-            self._exec_cmd('sudo umount %s' % dir)
+    def dismount_os(self, root_dir):
+        mounted_fs = self._get_mount_destinations()
+        # Sort all mounted filesystems by length. This will ensure that
+        # the first in the list is a subfolder of the next in the list,
+        # and we unmount them in the proper order
+        mounted_fs = list(reversed(sorted(mounted_fs)))
+        for d in mounted_fs:
+            if d.startswith(root_dir):
+                # mounted filesystem is a subfolder of our root_dir
+                self._exec_cmd('sudo umount %s' % d)
 
     def set_proxy(self, proxy_settings):
         url = proxy_settings.get('url')
