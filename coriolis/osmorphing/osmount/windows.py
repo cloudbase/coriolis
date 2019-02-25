@@ -192,7 +192,7 @@ class WindowsMountTools(base.BaseOSMountTools):
 
         for fs_root in [r for r in fs_roots if not r[:-1] == system_drive]:
             if self._conn.test_path("%sWindows\\System32" % fs_root):
-                return fs_root, [], None
+                return fs_root, None
 
         raise exception.OperatingSystemNotFound("root partition not found")
 
