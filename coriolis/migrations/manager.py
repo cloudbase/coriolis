@@ -32,7 +32,7 @@ def _copy_volume(volume, disk_image_reader, backup_writer, event_manager):
                                "{:.0f}%%" % disk_id)
 
             offset = 0
-            max_block_size = 1 * units.Mi  # 10 MB
+            max_block_size = 10 * units.Mi  # 10 MB
 
             while offset < disk_size:
                 allocated, zero_block, block_size = reader.get_block_status(
