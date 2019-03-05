@@ -1,6 +1,8 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+import contextlib
+
 from keystoneauth1 import exceptions as ks_exceptions
 from keystoneauth1 import loading
 from keystoneauth1 import session as ks_session
@@ -30,6 +32,25 @@ LOG = logging.getLogger(__name__)
 
 TRUSTEE_CONF_GROUP = 'trustee'
 loading.register_auth_conf_options(CONF, TRUSTEE_CONF_GROUP, )
+
+
+@contextlib.contextmanager
+def ephemeral_trust(ctxt):
+    """ Context manager which creates a Keystone trust on the
+    given oslo.context for the duration of the operation.
+
+    NOTE: if the context already has a trust created, it will *NOT*
+    create a new one, or delete the old one.
+    """
+    created = False
+    try:
+        if not ctxt.trust_id:
+            create_trust(ctxt)
+            created = True
+        yield ctxt
+    finally:
+        if created:
+            delete_trust(ctxt)
 
 
 def _get_trusts_auth_plugin(trust_id=None):

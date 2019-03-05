@@ -129,51 +129,60 @@ class ConductorServerEndpoint(object):
                                instance_name_pattern):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
-        return self._rpc_worker_client.get_endpoint_instances(
-            ctxt, endpoint.type, endpoint.connection_info, marker, limit,
-            instance_name_pattern)
+        with keystone.ephemeral_trust(ctxt):
+            return self._rpc_worker_client.get_endpoint_instances(
+                ctxt, endpoint.type, endpoint.connection_info, marker, limit,
+                instance_name_pattern)
 
     def get_endpoint_instance(self, ctxt, endpoint_id, instance_name):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
-        return self._rpc_worker_client.get_endpoint_instance(
-            ctxt, endpoint.type, endpoint.connection_info, instance_name)
+        with keystone.ephemeral_trust(ctxt):
+            return self._rpc_worker_client.get_endpoint_instance(
+                ctxt, endpoint.type, endpoint.connection_info, instance_name)
 
     def get_endpoint_destination_options(
             self, ctxt, endpoint_id, env, option_names):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
-        return self._rpc_worker_client.get_endpoint_destination_options(
-            ctxt, endpoint.type, endpoint.connection_info, env, option_names)
+        with keystone.ephemeral_trust(ctxt):
+            return self._rpc_worker_client.get_endpoint_destination_options(
+                ctxt, endpoint.type, endpoint.connection_info,
+                env, option_names)
 
     def get_endpoint_networks(self, ctxt, endpoint_id, env):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
-        return self._rpc_worker_client.get_endpoint_networks(
-            ctxt, endpoint.type, endpoint.connection_info, env)
+        with keystone.ephemeral_trust(ctxt):
+            return self._rpc_worker_client.get_endpoint_networks(
+                ctxt, endpoint.type, endpoint.connection_info, env)
 
     def get_endpoint_storage(self, ctxt, endpoint_id, env):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
-        return self._rpc_worker_client.get_endpoint_storage(
-            ctxt, endpoint.type, endpoint.connection_info, env)
+        with keystone.ephemeral_trust(ctxt):
+            return self._rpc_worker_client.get_endpoint_storage(
+                ctxt, endpoint.type, endpoint.connection_info, env)
 
     def validate_endpoint_connection(self, ctxt, endpoint_id):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
-        return self._rpc_worker_client.validate_endpoint_connection(
-            ctxt, endpoint.type, endpoint.connection_info)
+        with keystone.ephemeral_trust(ctxt):
+            return self._rpc_worker_client.validate_endpoint_connection(
+                ctxt, endpoint.type, endpoint.connection_info)
 
     def validate_endpoint_target_environment(
             self, ctxt, endpoint_id, target_env):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
-        return self._rpc_worker_client.validate_endpoint_target_environment(
-            ctxt, endpoint.type, target_env)
+        op = self._rpc_worker_client.validate_endpoint_target_environment
+        with keystone.ephemeral_trust(ctxt):
+            return op(ctxt, endpoint.type, target_env)
 
     def validate_endpoint_source_environment(
             self, ctxt, endpoint_id, source_env):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
-        return self._rpc_worker_client.validate_endpoint_source_environment(
-            ctxt, endpoint.type, source_env)
+        op = self._rpc_worker_client.validate_endpoint_source_environment
+        with keystone.ephemeral_trust(ctxt):
+            return op(ctxt, endpoint.type, source_env)
 
     def get_available_providers(self, ctxt):
         return self._rpc_worker_client.get_available_providers(ctxt)
