@@ -65,6 +65,9 @@ echo "net.ipv4.ip_forward=1" > /etc/sysctl.d/99-docker-ipv4-forwarding.conf
 yum install git -y
 yum groupinstall development tools -y
 
+# Required for generating the SSL cert for the Web proxy:
+yum install -y openssl
+
 yum install ansible --enablerepo=epel -y
 
 firewall-cmd --permanent --zone=public --add-port=35357/tcp

@@ -2,8 +2,8 @@
 
     SSLEngine on
     SSLproxyEngine on
-    SSLCertificateFile /etc/pki/tls/certs/coriolis.crt
-    SSLCertificateKeyFile /etc/pki/tls/private/coriolis.key
+    SSLCertificateFile {{ coriolis_certs_path }}/coriolis.crt
+    SSLCertificateKeyFile {{ coriolis_certs_path }}/coriolis.key
 
     Header always set Access-Control-Allow-Origin "*"
     Header always set Access-Control-Allow-Methods "POST, GET, OPTIONS, DELETE, PUT, PATCH"
