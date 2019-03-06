@@ -27,9 +27,9 @@ coriolis_internal_url: "http://{{ coriolis_host }}:3000"
 barbican_endpoint_url: "http://{{ barbican_host }}:9311"
 
 temp_keypair_password:
-coriolis_config_directory_path: /etc/coriolis
-coriolis_certs_path_host: "{{ coriolis_config_directory_path }}/ssl"
-coriolis_policy_config_path: "{{ coriolis_config_directory_path }}/policy.yml"
+coriolis_config_directory_path_host: /etc/coriolis
+coriolis_certs_path_host: "{{ coriolis_config_directory_path_host }}/ssl"
+coriolis_policy_config_path: "{{ coriolis_config_directory_path_host }}/policy.yml"
 coriolis_export_base_path: /opt/coriolis/export
 coriolis_export_base_path_host: /opt/coriolis/export
 vmware_vix_disklib_path: /opt/coriolis/vmware-vix-disklib

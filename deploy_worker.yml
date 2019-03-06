@@ -27,7 +27,7 @@
 
     - name: Creating config directory
       file:
-        path: "{{ coriolis_config_directory_path }}"
+        path: "{{ coriolis_config_directory_path_host }}"
         state: directory
 
     - name: Creating Ceph config directory
@@ -62,7 +62,7 @@
         restart_policy: unless-stopped
         network_mode: host
         volumes:
-        - "{{ coriolis_config_directory_path }}:{{ coriolis_config_directory_path }}:ro"
+        - "{{ coriolis_config_directory_path_host }}:{{ coriolis_config_directory_path }}:ro"
         - "/etc/ceph:/etc/ceph:ro"
         - "/var/log/coriolis:/var/log/coriolis:rw"
         - "{{ coriolis_export_base_path_host }}:{{ coriolis_export_base_path }}:rw"

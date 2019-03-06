@@ -26,7 +26,7 @@
 
     - name: Creating config directory
       file:
-        path: "{{ coriolis_config_directory_path }}"
+        path: "{{ coriolis_config_directory_path_host }}"
         state: directory
 
     - name: Checking Certs directory
@@ -46,13 +46,13 @@
     - name: Creating coriolis.conf
       template:
         src: ./templates/coriolis.conf.j2
-        dest: "{{ coriolis_config_directory_path }}/coriolis.conf"
+        dest: "{{ coriolis_config_directory_path_host }}/coriolis.conf"
         force: no
 
     - name: Creating api-paste.ini
       template:
         src: ./templates/api-paste.ini.j2
-        dest: "{{ coriolis_config_directory_path }}/api-paste.ini"
+        dest: "{{ coriolis_config_directory_path_host }}/api-paste.ini"
 
     - name: Creating oslo.policy file
       template:
@@ -185,7 +185,7 @@
         restart_policy: unless-stopped
         network_mode: host
         volumes:
-        - "{{ coriolis_config_directory_path }}:{{ coriolis_config_directory_path }}:ro"
+        - "{{ coriolis_config_directory_path_host }}:{{ coriolis_config_directory_path }}:ro"
         - "/var/log/coriolis:/var/log/coriolis:rw"
         ports:
         - "7667:7667"
@@ -201,7 +201,7 @@
         restart_policy: unless-stopped
         network_mode: host
         volumes:
-        - "{{ coriolis_config_directory_path }}:{{ coriolis_config_directory_path }}:ro"
+        - "{{ coriolis_config_directory_path_host }}:{{ coriolis_config_directory_path }}:ro"
         - "/var/log/coriolis:/var/log/coriolis:rw"
 
     - name: coriolis-replica-cron container
@@ -215,7 +215,7 @@
         restart_policy: unless-stopped
         network_mode: host
         volumes:
-        - "{{ coriolis_config_directory_path }}:{{ coriolis_config_directory_path }}:ro"
+        - "{{ coriolis_config_directory_path_host }}:{{ coriolis_config_directory_path }}:ro"
         - "/var/log/coriolis:/var/log/coriolis:rw"
 
     - name: coriolis-web container

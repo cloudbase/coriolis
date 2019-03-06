@@ -3,11 +3,6 @@ FROM oraclelinux:7
 RUN yum install -y httpd openssl mod_ssl
 COPY ./coriolis-web-vhost.conf /etc/httpd/conf.d/coriolis-web-vhost.conf
 
-RUN openssl req -new -newkey rsa:4096 -days 3650 -nodes -x509 \
-    -subj "/C=RO/ST=Timis/L=Timisoara/CN=Coriolis Self Signed" \
-    -keyout /etc/pki/tls/private/coriolis.key \
-    -out /etc/pki/tls/certs/coriolis.crt
-
 COPY ./webproxy_start /webproxy_start
 RUN chmod 700 /webproxy_start
 
