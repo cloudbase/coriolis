@@ -21,7 +21,7 @@
 
     - name: Creating coriolis-web virtualhost config
       template:
-        src: ./{{ docker_template }}/coriolis-web-vhost.conf.j2
+        src: ./templates/coriolis-web-vhost.conf.j2
         dest: ./build/coriolis-web-vhost.conf
 
     - name: Cloning coriolis git repositories

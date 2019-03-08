@@ -2,4 +2,4 @@ FROM {{ docker_registry }}/{{ coriolis_containers_namespace }}/coriolis-common:{
 
 
 # Mapped volume: /etc/coriolis/coriolis.conf
-CMD /bin/bash -c 'python3 coriolis-core/coriolis/cmd/db_sync.py'; /bin/bash -c coriolis-conductor --config-file=/etc/coriolis/coriolis.conf
+CMD /bin/bash -c 'python3 coriolis-core/coriolis/cmd/db_sync.py'; /bin/bash -c coriolis-conductor --config-file={{ coriolis_config_directory_path }}/coriolis.conf
