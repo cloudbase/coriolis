@@ -7,5 +7,5 @@ coriolis_containers_namespace: custom
 vmware_disklib_url: https://cloudbase.it/downloads/VMware-vix-disklib-6.0.3-4888596.x86_64.tar.gz
 libnfs_rpm_url: https://cloudbase.it/downloads/libnfs-1.10.0-1.x86_64.rpm
 libqemu_url: https://cloudbase.it/downloads/libqemu.so.gz
-coriolis_config_directory: /etc/coriolis
+coriolis_config_directory_path: /etc/coriolis
 coriolis_certs_path: "{{ coriolis_config_directory_path }}/ssl"
