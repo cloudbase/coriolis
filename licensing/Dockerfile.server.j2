@@ -1,0 +1,13 @@
+FROM {{ licensing_base_image }} 
+
+WORKDIR $GOPATH/src/bitbucket.org/cloudbase/coriolis-licensing-server
+ADD coriolis-licensing-server/ ./
+
+RUN go get -d -v ./...
+RUN go install -v ./...
+
+WORKDIR /
+RUN rm -rf "$GOPATH/src/bitbucket.org/cloudbase/coriolis-licensing-server"
+
+ENTRYPOINT ["/bin/bash", "-c", "$GOPATH/bin/server start -p {{ licensing_server_port }} -d $LICENSING_DB_STRING"]
+EXPOSE "{{ licensing_server_port }}"

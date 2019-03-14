@@ -1,0 +1,2 @@
+licensing_base_image: "golang:1.11"
+licensing_server_port: 37667
