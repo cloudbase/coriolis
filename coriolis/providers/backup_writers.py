@@ -74,7 +74,7 @@ class FileBackupWriterImpl(BaseBackupWriterImpl):
         super(FileBackupWriterImpl, self).__init__(path, disk_id)
 
     def _open(self):
-        # Create file if it doesnt exist
+        # Create file if it doesn't exist
         open(self._path, 'ab+').close()
         self._file = open(self._path, 'rb+')
 
