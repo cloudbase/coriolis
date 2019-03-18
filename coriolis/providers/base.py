@@ -384,8 +384,10 @@ def get_os_morphing_tools_helper(conn, os_morphing_tools_clss,
 
 class BaseEndpointStorageProvider(object, with_metaclass(abc.ABCMeta)):
     @abc.abstractmethod
-    def get_storage(self, ctxt, connection_info):
-        """ Returns all the storage options available"""
+    def get_storage(self, ctxt, connection_info, target_environment):
+        """ Returns all the storage options available to the given
+        credentials within the provided target_environment.
+        """
         pass
 
 
