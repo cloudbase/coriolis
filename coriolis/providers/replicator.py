@@ -80,7 +80,8 @@ class Client(object):
         fails, set up a SSH tunnel and attempt a connection through that.
         """
         self._event_manager.progress_update(
-            "Testing %s:%s for connectivity" % (self._ip, self._port))
+            "Testing direct connection to replicator (%s:%s)" % (
+                self._ip, self._port))
         try:
             utils.wait_for_port_connectivity(
                 self._ip, self._port, max_wait=2)
@@ -94,7 +95,7 @@ class Client(object):
             self._setup_tunnel_connection()
 
         self._event_manager.progress_update(
-            "Testing %s:%s for connectivity" % (
+            "Testing tunneled connection to replicator (%s:%s)" % (
                 self.repl_host, self.repl_port))
         try:
             utils.wait_for_port_connectivity(
