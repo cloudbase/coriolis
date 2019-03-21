@@ -517,9 +517,9 @@ class Replicator(object):
             "disk_path": /dev/sdb,
         }
         """
-        state = self._volumes_info.get("replication_state", None)
+        state = self._repl_state
         isInitial = False
-        if state is None:
+        if state is None or len(state) == 0:
             isInitial = True
 
         for volume in source_volumes_info:
@@ -565,9 +565,8 @@ class Replicator(object):
                     self._event_manager.set_percentage_step(
                         perc_step, total)
 
-        status = self._cli.get_status()
-        self._volumes_info["replication_state"] = status
-        return self._volumes_info
+        self._repl_state = self._cli.get_status()
+        return self._repl_state
 
     def _download_full_disk(self, disk, path):
         self._event_manager.progress_update(
