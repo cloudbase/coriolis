@@ -172,10 +172,11 @@ def list_ssh_dir(ssh, remote_path):
 
 
 @retry_on_error()
-def exec_ssh_cmd(ssh, cmd, environment=None):
+def exec_ssh_cmd(ssh, cmd, environment=None, get_pty=False):
     LOG.debug("Executing SSH command: %s", cmd)
     LOG.debug("SSH command environment: %s", environment)
-    stdin, stdout, stderr = ssh.exec_command(cmd, environment=environment)
+    stdin, stdout, stderr = ssh.exec_command(
+        cmd, environment=environment, get_pty=get_pty)
     exit_code = stdout.channel.recv_exit_status()
     std_out = stdout.read()
     std_err = stderr.read()
