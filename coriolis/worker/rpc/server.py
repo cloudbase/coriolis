@@ -2,10 +2,13 @@
 # All Rights Reserved.
 
 import multiprocessing
+
 import os
 import shutil
+import time
 import signal
 import sys
+import eventlet
 
 from logging import handlers
 from oslo_config import cfg
@@ -149,6 +152,24 @@ class WorkerServerEndpoint(object):
         return task_runner.get_shared_libs_for_providers(
             ctxt, origin, destination, event_handler)
 
+    def _wait_for_process(self, p, mp_q):
+        result = None
+        while True:
+            if not result:
+                try:
+                    result = mp_q.get(timeout=1)
+                except queue.Empty:
+                    if not p.is_alive():
+                        break
+            if not p.is_alive():
+                if not result:
+                    try:
+                        result = mp_q.get(False)
+                    except:
+                        pass
+                break
+        return result
+
     def _exec_task_process(self, ctxt, task_id, task_type, origin, destination,
                            instance, task_info):
         mp_ctx = multiprocessing.get_context('spawn')
@@ -167,12 +188,14 @@ class WorkerServerEndpoint(object):
         self._rpc_conductor_client.set_task_host(
             ctxt, task_id, self._server, p.pid)
 
-        self._handle_mp_log_events(p, mp_log_q)
+        evt = eventlet.spawn(self._wait_for_process, p, mp_q)
+        eventlet.spawn(self._handle_mp_log_events, p, mp_log_q)
+
+        result = evt.wait()
         p.join()
 
-        if mp_q.empty():
+        if not result:
             raise exception.CoriolisException("Task canceled")
-        result = mp_q.get(False)
 
         if isinstance(result, str):
             raise exception.TaskProcessException(result)
@@ -414,10 +437,8 @@ def _task_process(ctxt, task_id, task_type, origin, destination, instance,
 
         new_task_info = task_runner.run(
             ctxt, instance, origin, destination, task_info, event_handler)
-
         # mq_p.put() doesn't raise if new_task_info is not serializable
         utils.is_serializable(new_task_info)
-
         mp_q.put(new_task_info)
     except Exception as ex:
         mp_q.put(str(ex))

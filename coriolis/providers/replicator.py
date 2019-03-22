@@ -54,14 +54,6 @@ class Client(object):
         self._port_via_tunnel = None
         self._test_connection()
 
-    def __del__(self):
-        if self._tunnel is not None:
-            try:
-                self._tunnel.stop()
-            except BaseException as err:
-                LOG.warning(
-                    "failed to stop tunnel: %s" % err)
-
     @property
     def repl_host(self):
         if self._ip_via_tunnel is not None:
@@ -287,7 +279,7 @@ class Replicator(object):
                 if perc_step is None:
                     perc_step = self._event_manager.add_percentage_step(
                         100,
-                        message_format=("Disk %s chunk processing progress: "
+                        message_format=("Chunking progress for disk %s: "
                                         "{:.0f}%%") % devName)
                     perc_steps[devName] = perc_step
                 perc_done = vol["checksum-status"]["percentage"]
@@ -517,20 +509,11 @@ class Replicator(object):
             "ca_cert": caCert,
         }
 
-    def _update_state(self, volumes_info):
-        """
-        should be called from replicate_disks every time a disk
-        is successfully synced. Coriolis does not yet send partial
-        updates with migration info, so I suppose if we call it once
-        on replica success, it should be enough.
-        """
-        pass
-
     def _get_size_from_chunks(self, chunks):
         ret = 0
         for chunk in chunks:
             ret += chunk["length"]
-        return ret / units.Gi
+        return ret / units.Mi
 
     def _find_vol_state(self, name, state):
         for vol in state:
@@ -591,7 +574,7 @@ class Replicator(object):
 
             size = self._get_size_from_chunks(chunks)
 
-            msg = ("Replicating disk %s (%s GB):"
+            msg = ("Disk replication progress for %s (%.3f MB):"
                    " {:.0f}%%") % (volume["disk_path"], size)
             perc_step = self._event_manager.add_percentage_step(
                 len(chunks), message_format=msg)
@@ -658,8 +641,8 @@ class Replicator(object):
             # create sparse file
             fp.truncate(size)
             perc_step = self._event_manager.add_percentage_step(
-                len(chunks), message_format="Downloading disk /dev/%s (%s GB):"
-                " {:.0f}%%" % (disk, size_from_chunks))
+                len(chunks), message_format="Disk download progress for "
+                "/dev/%s (%s GB): {:.0f}%%" % (disk, size_from_chunks))
             for chunk in chunks:
                 offset = int(chunk["offset"])
                 # seek to offset

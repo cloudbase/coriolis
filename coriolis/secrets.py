@@ -9,7 +9,6 @@ from coriolis import keystone
 
 
 def get_secret(ctxt, secret_ref):
-    keystone.create_trust(ctxt)
     session = keystone.create_keystone_session(ctxt)
     barbican = barbican_client.Client(session=session)
     return json.loads(barbican.secrets.get(secret_ref).payload)
