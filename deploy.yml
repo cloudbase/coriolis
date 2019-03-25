@@ -24,6 +24,17 @@
         append_privs: "yes"
       run_once: True
 
+    - name: Increasing 'max_allowed_packet' for database
+      ini_file:
+          path: /etc/kolla/mariadb/galera.cnf
+          section: mysqld
+          option: max_allowed_packet
+          value: 64M
+          backup: yes
+
+    - name: Restarting database container
+      shell: docker restart mariadb
+
     - name: Creating config directory
       file:
         path: "{{ coriolis_config_directory_path_host }}"
