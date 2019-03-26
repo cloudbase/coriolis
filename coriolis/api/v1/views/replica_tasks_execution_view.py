@@ -3,8 +3,20 @@
 
 import itertools
 
+from oslo_config import cfg as conf
+
 from coriolis import constants
 from coriolis import utils
+
+
+REPLICA_EXECUTION_API_OPTS = [
+    conf.BoolOpt("include_task_info_in_replica_executions_api",
+                 default=False,
+                 help="Whether or not to expose the internal 'info' field of "
+                      "a Replica execution as part of a `GET` request.")]
+
+CONF = conf.CONF
+CONF.register_opts(REPLICA_EXECUTION_API_OPTS)
 
 
 def _sort_tasks(tasks):
@@ -42,8 +54,16 @@ def format_replica_tasks_execution(req, execution, keys=None):
     if "tasks" in execution:
         execution["tasks"] = _sort_tasks(execution["tasks"])
 
-    return dict(itertools.chain.from_iterable(
+    execution_dict = dict(itertools.chain.from_iterable(
         transform(k, v) for k, v in execution.items()))
+
+    if not CONF.include_task_info_in_replica_executions_api and (
+            "action" in execution_dict):
+        action_dict = execution_dict["action"]
+        if "info" in action_dict:
+            action_dict.pop("info")
+
+    return execution_dict
 
 
 def single(req, execution):
