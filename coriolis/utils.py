@@ -49,8 +49,8 @@ def ignore_exceptions(func):
     def _ignore_exceptions(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except Exception as ex:
-            LOG.exception(ex)
+        except Exception:
+            LOG.warn("Ignoring exception:\n%s", get_exception_details())
     return _ignore_exceptions
 
 
@@ -87,7 +87,9 @@ def retry_on_error(max_attempts=5, sleep_seconds=0,
 
                     i += 1
                     if i < max_attempts:
-                        LOG.warn("Exception occurred, retrying: %s", ex)
+                        LOG.warn(
+                            "Exception occurred, retrying (%d/%d):\n%s",
+                            i, max_attempts, get_exception_details())
                         time.sleep(sleep_seconds)
                     else:
                         raise
