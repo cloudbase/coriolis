@@ -3,6 +3,7 @@
 
 import base64
 import binascii
+import copy
 import functools
 import hashlib
 import io
@@ -49,8 +50,8 @@ def ignore_exceptions(func):
     def _ignore_exceptions(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except Exception as ex:
-            LOG.exception(ex)
+        except Exception:
+            LOG.warn("Ignoring exception:\n%s", get_exception_details())
     return _ignore_exceptions
 
 
@@ -87,7 +88,9 @@ def retry_on_error(max_attempts=5, sleep_seconds=0,
 
                     i += 1
                     if i < max_attempts:
-                        LOG.warn("Exception occurred, retrying: %s", ex)
+                        LOG.warn(
+                            "Exception occurred, retrying (%d/%d):\n%s",
+                            i, max_attempts, get_exception_details())
                         time.sleep(sleep_seconds)
                     else:
                         raise
@@ -479,3 +482,18 @@ def bad_request_on_error(error_message):
             return (is_valid, message)
         return wrapper
     return _bad_request_on_error
+
+
+def filter_chunking_info_for_task(task_info):
+    """ Returns a copy of the given task info with any chunking
+    info on volumes removed.
+    """
+    cpy = copy.deepcopy(task_info)
+    if not cpy.get("volumes_info"):
+        return cpy
+
+    for vol in cpy['volumes_info']:
+        if vol.get("replica_state", {}).get("chunks"):
+            vol["replica_state"]["chunks"] = "<redacted>"
+
+    return cpy
