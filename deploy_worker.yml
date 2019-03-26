@@ -21,7 +21,7 @@
         state: directory
 
     - name: Extracting VMWare vixDiskLib
-      command: tar --strip-components=2 -C "{{ vmware_vix_disklib_path_host }}" -xzvf "{{ vmware_vix_disklib_archive_path }}" vmware-vix-disklib-distrib/lib64
+      shell: rm -rf "{{ vmware_vix_disklib_path_host }}"/* && tar --strip-components=2 -C "{{ vmware_vix_disklib_path_host }}" -xzvf "{{ vmware_vix_disklib_archive_path }}" vmware-vix-disklib-distrib/lib64
 
   tasks:
 
