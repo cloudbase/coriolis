@@ -3,6 +3,7 @@
 
 import base64
 import binascii
+import copy
 import functools
 import hashlib
 import io
@@ -481,3 +482,18 @@ def bad_request_on_error(error_message):
             return (is_valid, message)
         return wrapper
     return _bad_request_on_error
+
+
+def filter_chunking_info_for_task(task_info):
+    """ Returns a copy of the given task info with any chunking
+    info on volumes removed.
+    """
+    cpy = copy.deepcopy(task_info)
+    if not cpy.get("volumes_info"):
+        return cpy
+
+    for vol in cpy['volumes_info']:
+        if vol.get("replica_state", {}).get("chunks"):
+            vol["replica_state"]["chunks"] = "<redacted>"
+
+    return cpy

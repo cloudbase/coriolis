@@ -193,7 +193,9 @@ class WorkerServerEndpoint(object):
                 instance, task_info)
 
             if new_task_info:
-                LOG.info("Task info: %s", new_task_info)
+                LOG.info(
+                    "Task info: %s",
+                    utils.filter_chunking_info_for_task(new_task_info))
 
             # TODO(alexpilotti): replace the temp storage with a host
             # independent option
@@ -410,7 +412,9 @@ def _task_process(ctxt, task_id, task_type, origin, destination, instance,
                   "instance: %(instance)s, task_info: %(task_info)s",
                   {"task_id": task_id, "task_type": task_type,
                    "origin": origin, "destination": destination,
-                   "instance": instance, "task_info": task_info})
+                   "instance": instance,
+                   "task_info": utils.filter_chunking_info_for_task(
+                       task_info)})
 
         new_task_info = task_runner.run(
             ctxt, instance, origin, destination, task_info, event_handler)
