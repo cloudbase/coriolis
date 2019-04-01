@@ -446,7 +446,7 @@ class UpdateReplicaTask(base.TaskRunner):
 
         if new_source_environment:
             source_provider = providers_factory.get_provider(
-                origin["type"], constants.PROVIDER_TYPE_REPLICA_EXPORT,
+                origin["type"], constants.PROVIDER_TYPE_REPLICA_UPDATE,
                 event_handler, raise_if_not_found=False)
             if not source_provider:
                 raise exception.CoriolisException(
@@ -455,8 +455,8 @@ class UpdateReplicaTask(base.TaskRunner):
 
         if new_destination_environment:
             destination_provider = providers_factory.get_provider(
-                destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
-                event_handler)
+                destination["type"], constants.PROVIDER_TYPE_REPLICA_UPDATE,
+                event_handler, raise_if_not_found=False)
             if not destination_provider:
                 raise exception.CoriolisException(
                     "Replica destination provider plugin for '%s' does not "
