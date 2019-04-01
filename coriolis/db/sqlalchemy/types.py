@@ -30,6 +30,16 @@ class LongText(types.TypeDecorator):
             return self.impl
 
 
+class Blob(types.TypeDecorator):
+    impl = types.Binary
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == 'mysql':
+            return dialect.type_descriptor(mysql.BLOB(4294967295))
+        else:
+            return self.impl
+
+
 class Json(LongText):
 
     def process_bind_param(self, value, dialect):
@@ -39,6 +49,17 @@ class Json(LongText):
         if value is None:
             return None
         return jsonutils.loads(value)
+
+
+class Bson(Blob):
+
+    def process_bind_param(self, value, dialect):
+        return jsonutils.dumps(value).encode('utf-8')
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        return jsonutils.loads(value.decode('utf-8'))
 
 
 class List(types.TypeDecorator):
