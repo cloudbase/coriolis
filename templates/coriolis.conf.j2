@@ -9,7 +9,7 @@ logging_debug_format_suffix = [00;33mfrom (pid=%(process)d) %(funcName)s %(path
 logging_default_format_string = %(asctime)s.%(msecs)03d %(color)s%(levelname)s %(name)s [[00;36m-%(color)s] [01;35m%(instance)s%(color)s%(message)s[00m
 logging_context_format_string = %(asctime)s.%(msecs)03d %(color)s%(levelname)s %(name)s [[01;36m%(request_id)s [00;36m %(color)s] [01;35m%(instance)s%(color)s%(message)s[00m
 
-providers=coriolis_provider_openstack.ExportProvider,coriolis_provider_openstack.ImportProvider,coriolis_provider_vmware_vsphere.ExportProvider,coriolis_provider_oracle_vm.ImportProvider,coriolis_provider_oracle_vm.ExportProvider,coriolis_provider_opc.ImportProvider,coriolis_provider_opc.ExportProvider,coriolis_provider_oci.ImportProvider,coriolis_provider_aws.ExportProvider,coriolis_provider_azure.ImportProvider,coriolis_provider_scvmm.HyperVExportProvider,coriolis_provider_scvmm.ImportProvider
+providers={% for item in export_providers -%}coriolis_provider_{{item|replace("-","_")}}{% if item == 'vmware' -%}_vsphere{%- endif %}.{% if item == 'scvmm' -%}HyperV{%- endif %}ExportProvider,{%- endfor %}{% for item in import_providers -%}coriolis_provider_{{item|replace("-","_")}}.ImportProvider{% if not loop.last -%},{%- endif %}{%- endfor %}
 
 # Whether or not to expose the internal 'info' field of
 # a Migration as part of a `GET` request.
@@ -54,6 +54,7 @@ conductor_rpc_timeout = 60
 worker_rpc_timeout = 60
 export_base_path = {{ coriolis_export_base_path }}
 
+{% if 'vmware' in export_providers or 'vmware' in import_providers %}
 [vmware_vsphere_migration_provider]
 # Required in order to set the compatibility of the vixDiskLib release
 # Coriolis will use during replication/CBT-based migration from VMWare.
@@ -65,7 +66,9 @@ vixdisklib_compatibility_version = 6.0
 # vixDiskLib to override the system's libglib by prepending the system's
 # library paths (for 16.04 and 18.04, respectively):
 vixdisklib_library_directory = /lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:{{ vmware_vix_disklib_path }}
+{% endif %}
 
+{% if 'aws' in export_providers or 'aws' in import_providers %}
 [aws_migration_provider]
 # Mapping between AWS regions and the ID of subnets in which to boot
 # the disk copy workers. The subnet must have a security group rule
@@ -91,7 +94,9 @@ shutdown_migrated_instance = false
 # 'file:///home/user/aws_instance_types.csv'
 # An updated file may be retrieved from http://www.ec2instances.info
 instance_types_csv_url = http://pastebin.com/raw/YbuQE64m
+{% endif %}
 
+{% if 'openstack' in export_providers or 'openstack' in import_providers %}
 [openstack_migration_provider]
 ### Export parameters:
 
@@ -258,7 +263,9 @@ port_reuse_policy = keep_mac
 windows_virtio_iso_url = https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso
 cloudbaseinit_x64_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x64.zip
 cloudbaseinit_x86_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x86.zip
+{% endif %}
 
+{% if 'oracle-vm' in export_providers or 'oracle-vm' in import_providers %}
 [oracle_vm_migration_provider]
 # If migrating/replicating a heterogeneous workload with both Linux and
 # Windows instances, separate template names will need to be provided for the
@@ -298,8 +305,9 @@ export_template_name = OracleLinux7_template
 # Credentials for the export template
 export_template_username = root
 export_template_password = Passw0rd
+{% endif %}
 
-
+{% if 'oci' in export_providers or 'oci' in import_providers %}
 [oci_migration_provider]
 # You need to configure this to match your situation
 # there is no sensible default that can work globally. The images
@@ -326,7 +334,9 @@ migr_shape_name = VM.Standard1.2
 # but for some reason, trying to download it using the usual OS morpher downloaders from that location, errs out
 # I recommend you host it on some other web server somewhere
 # windows_virtio_zip_url = https://example.com/virtio-1.1.3.zip
+{% endif %}
 
+{% if 'opc' in export_providers or 'opc' in import_providers %}
 [opc_migration_provider]
 # Linux and Windows images for the temporary Worker VMs:
 migr_image_name_map = linux: /oracle/public/OL_7.2_UEKR4_x86_64, windows: /Compute-a488347/gsamfira@cloudbasesolutions.com/Windows_2012_R2
@@ -362,7 +372,9 @@ export_shape_name = oc3
 # Exporting an instance may require an extra disk to be attached, to accomodate the size of the
 # largest disks that belong to the exported instance. Make sure to allocate enough space here.
 export_root_disk_size = 150
+{% endif %}
 
+{% if 'azure' in export_providers or 'azure' in import_providers %}
 [azure_migration_provider]
 # The Azure location to which to migrate. The location may also be set for each
 # migration/replica in turn using the destination-environment paramter.
@@ -427,7 +439,9 @@ arm_network_api_version = 2018-07-01
 # Cloudbase-init Zip URLs for each supported Windows architecture:
 cloudbaseinit_x86_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x86.zip
 cloudbaseinit_x64_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x64.zip
+{% endif %}
 
+{% if 'scvmm' in export_providers or 'scvmm' in import_providers %}
 [hyperv_migration_provider]
 # UNC path of the share which os mounted on the Coriolis Worker performing the migration.
 coriolis_share_path = \\10.7.1.10\Public\coriolis-hyperv-exports
@@ -443,6 +457,7 @@ share_backup_tool_path = HVBackup_1.0.1
 # Relative path (with respect to 'coriolis_share_path')
 # of the directory in which to export the backup ZIPs.
 share_backup_subdirectory = Coriolis-Exports
+{% endif %}
 
 [serialization]
 
