@@ -9,5 +9,5 @@ RUN go install -v ./...
 WORKDIR /
 RUN rm -rf "$GOPATH/src/bitbucket.org/cloudbase/coriolis-licensing-server"
 
-ENTRYPOINT ["/bin/bash", "-c", "$GOPATH/bin/server start -p {{ licensing_server_port }} -d $LICENSING_DB_STRING"]
-EXPOSE "{{ licensing_server_port }}"
+ENTRYPOINT ["/bin/bash", "-c", "$GOPATH/bin/server start -p $LICENSING_SERVER_PORT -d $LICENSING_DB_STRING"]
+# NOTE: the afferent port is exposed in the Ansible playbook.

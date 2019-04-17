@@ -10,7 +10,6 @@ get_config_value=$basedir/../get_config_value.py
 set_config_value=$basedir/../set_config_value.py
 config_file=$basedir/config.yml
 parent_config_file=$basedir/../config.yml
-config_build_file=$basedir/config-build.yml
 parent_config_build_file=$basedir/../config-build.yml
 
 set_config_random_value() {
@@ -22,10 +21,6 @@ set_config_random_value() {
 
 if [ ! -f $config_file ]; then
     cp $config_file.sample $config_file
-fi
-
-if [ ! -f $config_build_file ]; then
-    cp $config_build_file.sample $config_build_file
 fi
 
 set_config_random_value coriolis_licensing_database_password 
@@ -41,6 +36,5 @@ pip install --upgrade --force-reinstall docker
 ansible-playbook -v $basedir/deploy.yml \
 -e @/etc/kolla/passwords.yml \
 -e @$config_file \
--e @$basedir/config-build.yml \
 -e @$parent_config_file \
 -e @$parent_config_build_file
