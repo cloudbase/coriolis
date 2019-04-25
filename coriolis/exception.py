@@ -124,7 +124,7 @@ class NotAuthorized(CoriolisException):
 
 
 class PolicyNotAuthorized(CoriolisException):
-    message = _("Not authorized via policy.")
+    message = _("Policy doesn't allow %(action)s to be performed.")
     code = 403
     safe = True
 
@@ -137,10 +137,6 @@ class Conflict(CoriolisException):
 
 class AdminRequired(NotAuthorized):
     message = _("User does not have admin privileges")
-
-
-class PolicyNotAuthorized(NotAuthorized):
-    message = _("Policy doesn't allow %(action)s to be performed.")
 
 
 class Invalid(CoriolisException):
