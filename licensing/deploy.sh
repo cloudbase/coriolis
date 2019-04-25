@@ -39,10 +39,10 @@ ansible-playbook -v $basedir/deploy.yml \
 -e @$parent_config_file \
 -e @$parent_config_build_file
 
-LICENSING_SERVER_PORT=`python $get_config_value -c $config_file -n "licensing_server_port_external")`
-LICENSING_SERVER_BASE_URL="https://127.0.0.1:$LICENSING_SERVER_PORT"
-$set_config_value -c $parent_config_file -n "licensing_server_base_url" -v "$LICENSING_SERVER_BASE_URL"
+LICENSING_SERVER_PORT=`python $get_config_value -c $config_file -n "licensing_server_port_external"`
+LICENSING_SERVER_BASE_URL="http://127.0.0.1:$LICENSING_SERVER_PORT/v1"
+python $set_config_value -c $parent_config_file -n "licensing_server_base_url" -v "$LICENSING_SERVER_BASE_URL"
 
-docker rm coriolis-conductor coriolis-web-proxy
+docker rm -f coriolis-conductor coriolis-web-proxy
 echo "Re-running conductor and web-proxy container deployment for licensing setup."
 bash $basedir/../deploy.sh

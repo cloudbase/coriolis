@@ -46,5 +46,5 @@ docker rmi $REPO/coriolis-replica-cron:$TAG
 
 LICENSE_CLEANUP="$basedir/licensing/cleanup.sh"
 if [ -e "$LICENSE_CLEANUP" ]; then
-    bash "$LICENSE_CLEANUP" "$1" "$2"
+    bash "$LICENSE_CLEANUP" "$TAG" "$REPO"
 fi
