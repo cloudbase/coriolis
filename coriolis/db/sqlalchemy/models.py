@@ -103,6 +103,7 @@ class BaseTransferAction(BASE, models.TimestampMixin, models.ModelBase,
                                   "base_id==TasksExecution.action_id, "
                                   "TasksExecution.deleted=='0')")
     instances = sqlalchemy.Column(types.List, nullable=False)
+    reservation_id = sqlalchemy.Column(sqlalchemy.String(36), nullable=True)
     info = sqlalchemy.Column(types.Bson, nullable=False)
     notes = sqlalchemy.Column(sqlalchemy.Text, nullable=True)
     origin_endpoint_id = sqlalchemy.Column(
