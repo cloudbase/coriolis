@@ -242,6 +242,8 @@
         restart: yes
         restart_policy: unless-stopped
         network_mode: host
+        env:
+          CORIOLIS_LICENSING_BASE_URL: "/licensing"
 
     - name: coriolis-web-proxy container
       docker_container:
