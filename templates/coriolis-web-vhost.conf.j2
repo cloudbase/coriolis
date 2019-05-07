@@ -20,7 +20,8 @@
     RewriteRule "^/identity/(.*)$" "%{env:KEYSTONE_AUTH_URL}/$1" [P]
     RewriteRule "^/barbican/(.*)$" "%{env:BARBICAN_ENDPOINT_URL}/$1" [P]
     RewriteRule "^/coriolis/(.*)$" "%{env:CORIOLIS_BASE_ENDPOINT_URL}/$1" [P]
-    RewriteRule "^/((?!identity|coriolis|barbican).*)$" "%{env:CORIOLIS_INTERNAL_URL}/$1" [P]
+    RewriteRule "^/licensing/(.*)$" "%{env:CORIOLIS_LICENSING_BASE_URL}/$1" [P]
+    RewriteRule "^/((?!identity|coriolis|barbican|licensing).*)$" "%{env:CORIOLIS_INTERNAL_URL}/$1" [P]
 
 </VirtualHost>
 

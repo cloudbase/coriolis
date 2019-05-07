@@ -43,3 +43,8 @@ docker rmi $REPO/coriolis-base:$TAG
 docker rmi $REPO/coriolis-web:$TAG
 docker rmi $REPO/coriolis-web-proxy:$TAG
 docker rmi $REPO/coriolis-replica-cron:$TAG
+
+LICENSE_CLEANUP="$basedir/licensing/cleanup.sh"
+if [ -e "$LICENSE_CLEANUP" ]; then
+    bash "$LICENSE_CLEANUP" "$TAG" "$REPO"
+fi

@@ -211,6 +211,9 @@
         restart: yes
         restart_policy: unless-stopped
         network_mode: host
+        env:
+            LICENSING_SERVER_BASE_URL: "{{ licensing_server_base_url }}"
+            LICENSING_SERVER_ALLOW_UNTRUSTED: "true"
         volumes:
         - "{{ coriolis_config_directory_path_host }}:{{ coriolis_config_directory_path }}:ro"
         - "/var/log/coriolis:/var/log/coriolis:rw"
@@ -239,6 +242,8 @@
         restart: yes
         restart_policy: unless-stopped
         network_mode: host
+        env:
+          CORIOLIS_LICENSING_BASE_URL: "/licensing"
 
     - name: coriolis-web-proxy container
       docker_container:
@@ -254,6 +259,7 @@
           KEYSTONE_AUTH_URL: "{{ keystone_auth_url_v3 }}"
           BARBICAN_ENDPOINT_URL: "{{ barbican_endpoint_url }}"
           CORIOLIS_BASE_ENDPOINT_URL: "{{ coriolis_base_endpoint_url }}"
+          CORIOLIS_LICENSING_BASE_URL: "{{ licensing_server_base_url }}"
           CORIOLIS_INTERNAL_URL: "{{ coriolis_internal_url }}"
         volumes:
         - "{{ coriolis_certs_path_host }}:{{ coriolis_certs_path }}:ro"
