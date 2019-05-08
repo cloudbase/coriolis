@@ -32,7 +32,7 @@
         hostname: coriolis-licensing-server
         state: started
         restart: yes
-        restart_policy: unless-stopped
+        restart_policy: always
         network_mode: host
         env:
             LICENSING_DB_STRING: "{{ coriolis_licensing_database_username }}:{{ coriolis_licensing_database_password }}@/{{ coriolis_licensing_database_name }}"

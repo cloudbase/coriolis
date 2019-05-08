@@ -1,0 +1,27 @@
+---
+- hosts: localhost
+
+  tasks:
+    - name: Stopping licensing server container
+      docker_container:
+        name: coriolis-licensing-server
+        state: "stopped"
+
+    - name: Removing existing Coriolis Licensing DB
+      mysql_db:
+        login_host: "{{ database_address }}"
+        login_port: "{{ database_port }}"
+        login_user: "{{ database_user }}"
+        login_password: "{{ database_password }}"
+        name: "{{ coriolis_licensing_database_name }}"
+        state: "absent"
+      run_once: True
+
+    - name: Recreating Coriolis licensing database
+      mysql_db:
+        login_host: "{{ database_address }}"
+        login_port: "{{ database_port }}"
+        login_user: "{{ database_user }}"
+        login_password: "{{ database_password }}"
+        name: "{{ coriolis_licensing_database_name }}"
+      run_once: True
