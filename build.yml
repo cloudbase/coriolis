@@ -39,7 +39,6 @@
         update: yes
         force: yes
         version: master
-        ssh_opts: -o StrictHostKeyChecking=no
       with_items: "{{ all_providers }}"
 
     - name: Downloading VMware disklib

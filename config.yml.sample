@@ -4,6 +4,7 @@ coriolis_base_endpoint_url: "http://{{ coriolis_host }}:7667/v1"
 coriolis_admin_endpoint: "{{ coriolis_base_endpoint_url }}/%(tenant_id)s"
 coriolis_internal_endpoint: "{{ coriolis_admin_endpoint }}"
 coriolis_public_endpoint: "{{ coriolis_admin_endpoint }}"
+licensing_server_base_url: ""
 database_address: "{{ coriolis_host }}"
 database_port: 3306
 database_user: "root"
@@ -38,6 +39,4 @@ vmware_vix_disklib_path_host: /opt/coriolis/vmware-vix-disklib
 hyperv_share_local_path: /opt/coriolis/hyperv-exports
 hyperv_share_local_path_host: /opt/coriolis/hyperv-exports
 
-pv_drivers_url: "https://dl.dropboxusercontent.com/u/9060190/ovm_win_vp_drivers_3_2_3.zip"
-
-pull_images: yes
+pull_coriolis_docker_images: true

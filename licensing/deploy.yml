@@ -1,0 +1,43 @@
+---
+- hosts: localhost
+
+  tasks:
+    - name: Creating Coriolis licensing database
+      mysql_db:
+        login_host: "{{ database_address }}"
+        login_port: "{{ database_port }}"
+        login_user: "{{ database_user }}"
+        login_password: "{{ database_password }}"
+        name: "{{ coriolis_licensing_database_name }}"
+      run_once: True
+
+    - name: Creating coriolis database user and setting permissions
+      mysql_user:
+        login_host: "{{ database_address }}"
+        login_port: "{{ database_port }}"
+        login_user: "{{ database_user }}"
+        login_password: "{{ database_password }}"
+        name: "{{ coriolis_licensing_database_username }}"
+        password: "{{ coriolis_licensing_database_password }}"
+        host: "%"
+        priv: "{{ coriolis_licensing_database_name }}.*:ALL"
+        append_privs: "yes"
+      run_once: True
+
+    - name: coriolis-licensing-server container
+      docker_container:
+        name: coriolis-licensing-server
+        image: "{{ docker_registry }}/{{ coriolis_containers_namespace }}/coriolis-licensing-server:{{ docker_images_tag }}"
+        pull: "{{ pull_coriolis_docker_images }}"
+        hostname: coriolis-licensing-server
+        state: started
+        restart: yes
+        restart_policy: always
+        network_mode: host
+        env:
+            LICENSING_DB_STRING: "{{ coriolis_licensing_database_username }}:{{ coriolis_licensing_database_password }}@/{{ coriolis_licensing_database_name }}"
+            LICENSING_SERVER_PORT: "{{ licensing_server_port_internal }}"
+        expose:
+        - "{{ licensing_server_port_internal }}"
+        ports:
+        - "{{ licensing_server_port_internal }}:{{ licensing_server_port_external }}"
