@@ -460,7 +460,7 @@ class UpdateReplicaTask(base.TaskRunner):
             if not destination_provider:
                 raise exception.CoriolisException(
                     "Replica destination provider plugin for '%s' does not "
-                    "support updating Replicas." % origin["type"])
+                    "support updating Replicas." % destination["type"])
 
         connection_info = base.get_connection_info(ctxt, destination)
         export_info = task_info.get("export_info", {})
