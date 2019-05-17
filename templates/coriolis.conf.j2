@@ -284,13 +284,16 @@ server_pool_name = pool1
 # Default repository name.
 repository_name = repo1
 
+# Whether or not to just create VMs but skip powering them on.
+leave_migrated_vm_off = false
+
 # XEN VM domain type.
 # can be 'XEN_PVM', 'XEN_HVM', 'XEN_HVM_PV_DRIVERS', 'LDOMS_PVM', 'UNKNOWN'
 vm_domain_type = XEN_HVM_PV_DRIVERS
 
 # virtual_disk_clone_type can be: THIN_CLONE, SPARSE_COPY, NON_SPARSE_COPY
 virtual_disk_clone_type = THIN_CLONE
-windows_pv_drivers_url = https://cloudbase.it/downloads/ovm_win_pv_drivers_all_323.zip
+windows_pv_drivers_url = https://cloudbase.it/downloads/app/ovm/ovm_win_pv_drivers_all_323_bare_root.zip
 
 # For export we may need to use a different template than the linux one
 # specified in the template map. We specify that here
