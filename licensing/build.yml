@@ -10,7 +10,12 @@
       template: src=Dockerfile.server.j2 dest=./build/Dockerfile.server
 
     - name: Cloning coriolis git repositories
-      git: repo={{ item.url }} dest=./build/{{item.name}} update=yes force=yes version={{item.version}}
+      git:
+        repo: "{{ item.url }}"
+        dest: "./build/{{item.name}}"
+        update: yes
+        force: yes
+        version: "{{ item.version }}"
       with_items:
         - { url: "git@bitbucket.org:cloudbase/coriolis-licensing-server.git", name: coriolis-licensing-server, version: master}
 

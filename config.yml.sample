@@ -39,4 +39,4 @@ vmware_vix_disklib_path_host: /opt/coriolis/vmware-vix-disklib
 hyperv_share_local_path: /opt/coriolis/hyperv-exports
 hyperv_share_local_path_host: /opt/coriolis/hyperv-exports
 
-pv_drivers_url: "https://dl.dropboxusercontent.com/u/9060190/ovm_win_vp_drivers_3_2_3.zip"
+pull_coriolis_docker_images: true

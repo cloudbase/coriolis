@@ -189,7 +189,7 @@
       docker_container:
         name: coriolis-api
         image: "{{ docker_registry }}/{{ coriolis_containers_namespace }}/coriolis-api:{{ docker_images_tag }}"
-        pull: yes
+        pull: "{{ pull_coriolis_docker_images }}"
         hostname: coriolis-api
         state: started
         restart: yes
@@ -205,7 +205,7 @@
       docker_container:
         name: coriolis-conductor
         image: "{{ docker_registry }}/{{ coriolis_containers_namespace }}/coriolis-conductor:{{ docker_images_tag }}"
-        pull: yes
+        pull: "{{ pull_coriolis_docker_images }}"
         hostname: coriolis-conductor
         state: started
         restart: yes
@@ -222,7 +222,7 @@
       docker_container:
         name: coriolis-replica-cron
         image: "{{ docker_registry }}/{{ coriolis_containers_namespace }}/coriolis-replica-cron:{{ docker_images_tag }}"
-        pull: yes
+        pull: "{{ pull_coriolis_docker_images }}"
         hostname: coriolis-replica-cron
         state: started
         restart: yes
@@ -236,7 +236,7 @@
       docker_container:
         name: coriolis-web
         image: "{{ docker_registry }}/{{ coriolis_containers_namespace }}/coriolis-web:{{ docker_images_tag }}"
-        pull: yes
+        pull: "{{ pull_coriolis_docker_images }}"
         hostname: coriolis-web
         state: started
         restart: yes
@@ -249,7 +249,7 @@
       docker_container:
         name: coriolis-web-proxy
         image: "{{ docker_registry }}/{{ coriolis_containers_namespace }}/coriolis-web-proxy:{{ docker_images_tag }}"
-        pull: yes
+        pull: "{{ pull_coriolis_docker_images }}"
         hostname: coriolis-web-proxy
         state: started
         restart: yes

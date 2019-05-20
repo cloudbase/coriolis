@@ -28,7 +28,7 @@
       docker_container:
         name: coriolis-licensing-server
         image: "{{ docker_registry }}/{{ coriolis_containers_namespace }}/coriolis-licensing-server:{{ docker_images_tag }}"
-        pull: yes
+        pull: "{{ pull_coriolis_docker_images }}"
         hostname: coriolis-licensing-server
         state: started
         restart: yes

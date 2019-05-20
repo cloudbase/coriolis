@@ -1,5 +1,7 @@
 ---
 - hosts: localhost
+  vars:
+      all_providers: "{{ export_providers | union(import_providers) }}"
   tasks:
     - name: Creating build directory
       file:
@@ -28,15 +30,16 @@
       git: repo={{ item.url }} dest=./build/{{item.name}} update=yes force=yes version={{item.version}}
       with_items:
         - { url: "https://github.com/cloudbase/coriolis", name: coriolis-core, version: master}
-        - { url: "git@bitbucket.org:cloudbase/coriolis-provider-oracle-vm.git", name: coriolis-provider-oracle-vm, version: master}
-        - { url: "git@bitbucket.org:cloudbase/coriolis-provider-opc.git", name: coriolis-provider-opc, version: master}
-        - { url: "git@bitbucket.org:cloudbase/coriolis-provider-oci.git", name: coriolis-provider-oci, version: master}
-        - { url: "git@bitbucket.org:cloudbase/coriolis-provider-vmware.git", name: coriolis-provider-vmware, version: master}
-        - { url: "git@bitbucket.org:cloudbase/coriolis-provider-aws.git", name: coriolis-provider-aws, version: master}
-        - { url: "git@bitbucket.org:cloudbase/coriolis-provider-openstack.git", name: coriolis-provider-openstack, version: master}
-        - { url: "git@bitbucket.org:cloudbase/coriolis-provider-azure.git", name: coriolis-provider-azure, version: master}
-        - { url: "git@bitbucket.org:cloudbase/coriolis-provider-scvmm.git", name: coriolis-provider-scvmm, version: master}
         - { url: "https://github.com/cloudbase/coriolis-web", name: coriolis-web, version: master}
+
+    - name: Cloning provider repos
+      git:
+        repo: "git@bitbucket.org:cloudbase/coriolis-provider-{{item}}"
+        dest: "./build/coriolis-provider-{{item}}"
+        update: yes
+        force: yes
+        version: master
+      with_items: "{{ all_providers }}"
 
     - name: Downloading VMware disklib
       get_url:

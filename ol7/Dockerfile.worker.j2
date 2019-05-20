@@ -1,33 +1,24 @@
 FROM {{ docker_registry }}/{{ coriolis_containers_namespace }}/coriolis-common:{{ docker_images_tag }}
 
-ADD coriolis-provider-oracle-vm/ coriolis-provider-oracle-vm
-ADD coriolis-provider-opc/ coriolis-provider-opc
-ADD coriolis-provider-oci/ coriolis-provider-oci
-ADD coriolis-provider-vmware/ coriolis-provider-vmware
-ADD coriolis-provider-aws/ coriolis-provider-aws
-ADD coriolis-provider-openstack/ coriolis-provider-openstack
-ADD coriolis-provider-azure/ coriolis-provider-azure
-ADD coriolis-provider-scvmm/ coriolis-provider-scvmm
+{% for item in all_providers %}
+ADD coriolis-provider-{{item}}/ coriolis-provider-{{item}}
+{% endfor %}
 
 RUN yum install -y qemu-img
 # NOTE: the `openssl` binary is required by python-novaclient when
 # decrypting the password of a Windows worker machine.
 RUN yum install -y openssl
 
-RUN /bin/bash -c "pip3 install -e ./coriolis-provider-oracle-vm"
-RUN /bin/bash -c "pip3 install -e ./coriolis-provider-opc"
-RUN /bin/bash -c "pip3 install -e ./coriolis-provider-oci"
-RUN /bin/bash -c "pip3 install -e ./coriolis-provider-vmware"
-RUN /bin/bash -c "pip3 install -e ./coriolis-provider-aws"
-RUN /bin/bash -c "pip3 install -e ./coriolis-provider-openstack"
-RUN /bin/bash -c "pip3 install -e ./coriolis-provider-azure"
-RUN /bin/bash -c "pip3 install -e ./coriolis-provider-scvmm"
-
+{% for item in all_providers %}
+RUN /bin/bash -c "pip3 install -e ./coriolis-provider-{{item}}"
+{% if item == 'azure' %}
 # NOTE: `azure` client library modules import `msrest` which directly
 # imports `TYPE_CHECKING` from the `typing` module, but the Python
 # distribution we install in the containers does not have an updated
 # enough version available to feature the constant, so we add it ourselves:
 RUN printf "\nTYPE_CHECKING = False\n" >> /opt/rh/rh-python35/root/usr/lib64/python3.5/typing.py
+{% endif %}
+{% endfor %}
 
 ADD libnfs.x86_64.rpm /root
 RUN rpm -Uvh libnfs.x86_64.rpm
