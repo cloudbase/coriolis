@@ -3,7 +3,13 @@
 
 import re
 
+from oslo_log import log as logging
+
+from coriolis import utils
 from coriolis.osmorphing import base
+
+
+LOG = logging.getLogger(__name__)
 
 
 class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
@@ -59,5 +65,12 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
             'zypper --non-interactive install %s' % " ".join(package_names))
 
     def uninstall_packages(self, package_names):
-        self._exec_cmd_chroot(
-            'zypper --non-interactive remove %s' % " ".join(package_names))
+        try:
+            self._exec_cmd_chroot(
+                'zypper --non-interactive remove %s' % " ".join(package_names))
+        except Exception:
+            self._event_manager.progress_update(
+                "Error occured while uninstalling packages. Ignoring")
+            LOG.warn(
+                "Error occured while uninstalling packages. Ignoring. "
+                "Exception:\n%s", utils.get_exception_details())
