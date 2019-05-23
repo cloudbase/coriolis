@@ -7,6 +7,7 @@ import errno
 import os
 import threading
 
+from oslo_config import cfg
 from oslo_log import log as logging
 import paramiko
 from six import with_metaclass
@@ -16,6 +17,13 @@ from coriolis import exception
 from coriolis import utils
 
 LOG = logging.getLogger(__name__)
+CONF = cfg.CONF
+opts = [
+    cfg.BoolOpt('compress_transfers',
+               default=True,
+               help='Use compression if possible during disk transfers'),
+]
+CONF.register_opts(opts)
 
 
 class BaseBackupWriterImpl(with_metaclass(abc.ABCMeta)):
@@ -98,13 +106,16 @@ class FileBackupWriter(BaseBackupWriter):
 
 
 class SSHBackupWriterImpl(BaseBackupWriterImpl):
-    def __init__(self, path, disk_id):
+    def __init__(self, path, disk_id, compress_transfer=None):
         self._msg_id = None
         self._stdin = None
         self._stdout = None
         self._stderr = None
         self._offset = None
         self._ssh = None
+        self._compress_transfer = compress_transfer
+        if self._compress_transfer is None:
+            self._compress_transfer = CONF.compress_transfers
         super(SSHBackupWriterImpl, self).__init__(path, disk_id)
 
     def _set_ssh_client(self, ssh):
@@ -119,7 +130,9 @@ class SSHBackupWriterImpl(BaseBackupWriterImpl):
 
     def _encode_data(self, content):
         msg = data_transfer.encode_data(
-            self._msg_id, self._path, self._offset, content)
+            self._msg_id, self._path,
+            self._offset, content,
+            compress=self._compress_transfer)
 
         LOG.debug(
             "Guest path: %(path)s, offset: %(offset)d, content len: "

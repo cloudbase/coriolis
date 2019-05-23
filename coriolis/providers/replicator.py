@@ -246,7 +246,7 @@ class Client(object):
 class Replicator(object):
 
     def __init__(self, conn_info, event_manager, volumes_info, replica_state,
-                 use_compression=False, ignore_mounted=True,
+                 use_compression=None, ignore_mounted=True,
                  hash_method=HASH_METHOD_SHA256, watch_devices=True,
                  chunk_size=10485760, use_tunnel=False):
         self._event_manager = event_manager
@@ -255,7 +255,11 @@ class Replicator(object):
         self._config_dir = None
         self._cert_dir = None
         self._volumes_info = volumes_info
+
         self._use_compression = use_compression
+        if self._use_compression is None:
+            self._use_compression = CONF.compress_transfers
+
         self._watch_devices = watch_devices
         self._hash_method = hash_method
         self._ignore_mounted = ignore_mounted
