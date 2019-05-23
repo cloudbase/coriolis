@@ -7,9 +7,13 @@ import os
 import re
 import uuid
 
+from oslo_log import log as logging
 from six import with_metaclass
 
 from coriolis import utils
+
+
+LOG = logging.getLogger(__name__)
 
 
 class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
@@ -181,3 +185,29 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         if self._test_path(resolv_conf_path_old):
             self._exec_cmd(
                 "sudo mv -f %s %s" % (resolv_conf_path_old, resolv_conf_path))
+
+    def _replace_fstab_entries_device_prefix(
+            self, current_prefix="/dev/sd", new_prefix="/dev/sd"):
+        fstab_chroot_path = "etc/fstab"
+        fstab_contents = self._read_file(fstab_chroot_path)
+        LOG.debug("Contents of /%s: %s", fstab_chroot_path, fstab_contents)
+        fstab_contents_lines = fstab_contents.split('\n')
+
+        found = False
+        regex = "^(%s)" % current_prefix
+        for i, line in enumerate(fstab_contents_lines):
+            if re.match(regex, line):
+                found = True
+                LOG.debug(
+                    "Found FSTAB line starting with '%s': %s" % (
+                        current_prefix, line))
+                fstab_contents_lines[i] = re.sub(regex, new_prefix, line)
+
+        if found:
+            self._event_manager.progress_update(
+                "Replacing all /etc/fstab entries prefixed with "
+                "'%s' to '%s'" % (current_prefix, new_prefix))
+            self._exec_cmd_chroot(
+                "mv -f /%s /%s.bak" % (fstab_chroot_path, fstab_chroot_path))
+            self._write_file(
+                fstab_chroot_path, "\n".join(fstab_contents_lines))
