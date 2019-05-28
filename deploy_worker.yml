@@ -5,7 +5,12 @@
     vmware_vix_disklib_archive_path: "/tmp/VMware-vix-disklib.tar.gz"
 
   pre_tasks:
-    - name: Downloading VMware disklib
+    - name: Remove old VMWare vixDiskLib
+      file:
+          path: "{{ vmware_vix_disklib_archive_path }}"
+          state: absent
+
+    - name: Downloading VMware vixDiskLib
       get_url:
         url: "{{ vmware_disklib_url }}"
         dest: "{{ vmware_vix_disklib_archive_path }}"
