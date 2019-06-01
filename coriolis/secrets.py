@@ -13,4 +13,6 @@ def get_secret(ctxt, secret_ref):
     session = keystone.create_keystone_session(ctxt)
     barbican = barbican_client.Client(session=session)
     sec = utils.retry_on_error()(barbican.secrets.get)(secret_ref)
-    return json.loads(sec.payload)
+    # NOTE: accessing `payload` leads to another API call being made:
+    payload = utils.retry_on_error()(getattr)(sec, "payload")
+    return json.loads(payload)
