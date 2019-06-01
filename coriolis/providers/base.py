@@ -129,6 +129,9 @@ class BaseEndpointDestinationOptionsProvider(
 class BaseInstanceProvider(BaseProvider):
 
     def get_os_morphing_tools(self, conn, osmorphing_info):
+        """ Returns a tuple containing the instantiated OSMorphing tools class
+        to use as well as the OS info returned by the tools' `check_os` method.
+        """
         raise exception.OSMorphingToolsNotFound()
 
 

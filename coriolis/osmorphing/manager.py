@@ -72,19 +72,15 @@ def morph_image(origin_provider, destination_provider, connection_info,
     except exception.OSMorphingToolsNotFound:
         export_os_morphing_tools = None
 
-    try:
-        (import_os_morphing_tools,
-         os_info) = destination_provider.get_os_morphing_tools(
-            conn, osmorphing_info)
-        import_os_morphing_tools.set_environment(environment)
-    except exception.OSMorphingToolsNotFound:
-        import_os_morphing_tools = None
-        os_info = None
+    (import_os_morphing_tools,
+     os_info) = destination_provider.get_os_morphing_tools(
+         conn, osmorphing_info)
 
     if not import_os_morphing_tools:
         event_manager.progress_update(
             'No OS morphing tools found for this instance')
     else:
+        import_os_morphing_tools.set_environment(environment)
         event_manager.progress_update('OS being migrated: %s' % str(os_info))
 
         (packages_add, _) = import_os_morphing_tools.get_packages()
