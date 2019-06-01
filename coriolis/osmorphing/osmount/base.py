@@ -304,12 +304,14 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                     utils.check_fs(self._ssh, fs_type, dev_path)
                 dev_paths_to_mount.append(dev_path)
 
+        os_boot_device = None
         os_root_device = None
         os_root_dir = None
         for dev_path in dev_paths_to_mount:
             tmp_dir = self._exec_cmd('mktemp -d').decode().split('\n')[0]
             self._exec_cmd('sudo mount %s %s' % (dev_path, tmp_dir))
             dirs = self._exec_cmd('ls %s' % tmp_dir).decode().split('\n')
+            LOG.debug("Contents of device %s:\n%s", dev_path, dirs)
 
             # TODO(alexpilotti): better ways to check for a linux root?
             if (not os_root_dir and 'etc' in dirs and 'bin' in dirs and
@@ -317,12 +319,22 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                 os_root_dir = tmp_dir
                 os_root_device = dev_path
                 LOG.info("OS root device: %s", dev_path)
-                break
+                continue
+            elif (not os_boot_device and ('grub' in dirs or 'grub2' in dirs)):
+                os_boot_device = dev_path
+                LOG.info("OS boot device: %s", dev_path)
+                self._exec_cmd('sudo umount %s' % tmp_dir)
             else:
                 self._exec_cmd('sudo umount %s' % tmp_dir)
 
         if not os_root_dir:
             raise exception.OperatingSystemNotFound("root partition not found")
+
+        if os_boot_device:
+            LOG.debug("Mounting boot device '%s'", os_boot_device)
+            self._exec_cmd(
+                'sudo mount %s "%s/boot"' % (
+                    os_boot_device, os_root_dir))
 
         self._check_mount_fstab_partitions(os_root_dir)
 

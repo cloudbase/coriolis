@@ -189,7 +189,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
     def _replace_fstab_entries_device_prefix(
             self, current_prefix="/dev/sd", new_prefix="/dev/sd"):
         fstab_chroot_path = "etc/fstab"
-        fstab_contents = self._read_file(fstab_chroot_path)
+        fstab_contents = self._read_file(fstab_chroot_path).decode()
         LOG.debug("Contents of /%s: %s", fstab_chroot_path, fstab_contents)
         fstab_contents_lines = fstab_contents.split('\n')
 

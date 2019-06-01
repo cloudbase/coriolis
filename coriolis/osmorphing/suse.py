@@ -53,6 +53,29 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
                     "dracut -f /boot/initrd-%(version)s %(version)s" %
                     {"version": kernel_version})
 
+    def _run_mkinitrd(self):
+        self._event_manager.progress_update("Rebuilding initrds")
+        try:
+            # NOTE: on SLES<12, the `mkinitrd` executable
+            # must be run with no arguments:
+            self._exec_cmd_chroot("mkinitrd")
+            self._event_manager.progress_update(
+                "Successfully rebuilt initrds")
+        except Exception:
+            # NOTE: old version of `mkinitrd` can error out due to
+            # incompatibilities with sysfs/procfs:
+            self._event_manager.progress_update(
+                "Error occurred while rebuilding initrds, skipping")
+            LOG.warn(
+                "Exception occured while rebuilding SLES initrds:\n%s" % (
+                    utils.get_exception_details()))
+
+    def _rebuild_initrds(self):
+        if float(self._version_id) < 12:
+            self._run_mkinitrd()
+        else:
+            self._run_dracut()
+
     def _has_systemd(self):
         try:
             self._exec_cmd_chroot("rpm -q systemd")
