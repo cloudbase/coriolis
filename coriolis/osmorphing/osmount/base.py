@@ -308,9 +308,21 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         os_root_device = None
         os_root_dir = None
         for dev_path in dev_paths_to_mount:
+            dirs = None
             tmp_dir = self._exec_cmd('mktemp -d').decode().split('\n')[0]
-            self._exec_cmd('sudo mount %s %s' % (dev_path, tmp_dir))
-            dirs = self._exec_cmd('ls %s' % tmp_dir).decode().split('\n')
+            try:
+                self._exec_cmd('sudo mount %s %s' % (dev_path, tmp_dir))
+                # NOTE: it's possible that the device was mounted successfully
+                # but an I/O error occurs later along the line:
+                dirs = self._exec_cmd('ls %s' % tmp_dir).decode().split('\n')
+            except Exception:
+                self._event_manager.progress_update(
+                    "Failed to mount and scan device '%s'" % dev_path)
+                LOG.warn(
+                    "Failed to mount and scan device '%s':\n%s",
+                    dev_path, utils.get_exception_details())
+                continue
+
             LOG.debug("Contents of device %s:\n%s", dev_path, dirs)
 
             # TODO(alexpilotti): better ways to check for a linux root?
