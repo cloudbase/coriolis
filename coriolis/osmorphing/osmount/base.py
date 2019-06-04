@@ -149,8 +149,8 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         return lvm_paths
 
     def _check_mount_fstab_partitions(
-            self, os_root_dir, skip_mounts=["/"], skip_filesystems=["swap"],
-            mountable_lvm_devs=None):
+            self, os_root_dir, skip_mounts=["/", "/boot"],
+            skip_filesystems=["swap"], mountable_lvm_devs=None):
         """ Reads the contents of /etc/fstab from the VM's root directory and
         tries to mount all clearly identified (by UUID or path) filesystems.
         Returns the list of the new directories which were mounted.
