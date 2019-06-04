@@ -226,7 +226,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                     continue
             elif mountpoint in skip_mounts:
                 LOG.debug(
-                    "Skipping undesired mount: %s: %s", device, details)
+                    "Skipping undesired mount: %s: %s", mountpoint, details)
                 continue
             elif details["filesystem"] in skip_filesystems:
                 LOG.debug(
