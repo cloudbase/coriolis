@@ -23,7 +23,7 @@ PROVIDER_TYPE_MAP = {
     constants.PROVIDER_TYPE_IMPORT: base.BaseImportProvider,
     constants.PROVIDER_TYPE_REPLICA_IMPORT: base.BaseReplicaImportProvider,
     constants.PROVIDER_TYPE_ENDPOINT: base.BaseEndpointProvider,
-    constants.PROVIDER_TYPE_ENDPOINT_OPTIONS:
+    constants.PROVIDER_TYPE_DESTINATION_ENDPOINT_OPTIONS:
         base.BaseEndpointDestinationOptionsProvider,
     constants.PROVIDER_TYPE_ENDPOINT_INSTANCES:
         base.BaseEndpointInstancesProvider,
@@ -43,7 +43,9 @@ PROVIDER_TYPE_MAP = {
     constants.PROVIDER_TYPE_VALIDATE_REPLICA_IMPORT: (
         base.BaseReplicaImportValidationProvider),
     constants.PROVIDER_TYPE_REPLICA_UPDATE: (
-        base.BaseReplicaUpdateableProvider)
+        base.BaseReplicaUpdateableProvider),
+    constants.PROVIDER_TYPE_SOURCE_ENDPOINT_OPTIONS: (
+        base.BaseEndpointSourceOptionsProvider)
 }
 
 

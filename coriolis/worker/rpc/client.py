@@ -70,6 +70,15 @@ class WorkerClient(object):
             env=env,
             option_names=option_names)
 
+    def get_endpoint_source_options(
+            self, ctxt, platform_name, connection_info, env, option_names):
+        return self._client.call(
+            ctxt, 'get_endpoint_source_options',
+            platform_name=platform_name,
+            connection_info=connection_info,
+            env=env,
+            option_names=option_names)
+
     def get_endpoint_networks(self, ctxt, platform_name, connection_info, env):
         return self._client.call(
             ctxt, 'get_endpoint_networks',

@@ -128,7 +128,6 @@ ENDPOINTS_POLICY_DEFAULT_RULES = [
             }
         ]
     ),
-
     policy.DocumentedRuleDefault(
         get_endpoints_policy_label('list_destination_options'),
         ENDPOINTS_POLICY_DEFAULT_RULE,
@@ -136,6 +135,17 @@ ENDPOINTS_POLICY_DEFAULT_RULES = [
         [
             {
                 "path": "/endpoint/{endpoint_id}/destination-options",
+                "method": "GET"
+            }
+        ]
+    ),
+    policy.DocumentedRuleDefault(
+        get_endpoints_policy_label('list_source_options'),
+        ENDPOINTS_POLICY_DEFAULT_RULE,
+        "List available source options for endpoint",
+        [
+            {
+                "path": "/endpoint/{endpoint_id}/source-options",
                 "method": "GET"
             }
         ]
