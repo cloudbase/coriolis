@@ -43,7 +43,9 @@ PROVIDER_TYPE_MAP = {
     constants.PROVIDER_TYPE_VALIDATE_REPLICA_IMPORT: (
         base.BaseReplicaImportValidationProvider),
     constants.PROVIDER_TYPE_REPLICA_UPDATE: (
-        base.BaseReplicaUpdateableProvider)
+        base.BaseReplicaUpdateableProvider),
+    constants.PROVIDER_TYPE_SOURCE_ENDPOINT_OPTIONS: (
+        base.BaseEndpointSourceOptionsProvider)
 }
 
 
