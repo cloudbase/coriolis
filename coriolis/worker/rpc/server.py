@@ -5,7 +5,6 @@ import multiprocessing
 
 import os
 import shutil
-import time
 import signal
 import sys
 import eventlet
@@ -273,7 +272,8 @@ class WorkerServerEndpoint(object):
     def get_endpoint_destination_options(
             self, ctxt, platform_name, connection_info, env, option_names):
         provider = providers_factory.get_provider(
-            platform_name, constants.PROVIDER_TYPE_ENDPOINT_OPTIONS, None)
+            platform_name,
+            constants.PROVIDER_TYPE_DESTINATION_ENDPOINT_OPTIONS, None)
 
         secret_connection_info = utils.get_secret_connection_info(
             ctxt, connection_info)
