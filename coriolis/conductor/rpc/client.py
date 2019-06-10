@@ -64,6 +64,13 @@ class ConductorClient(object):
             endpoint_id=endpoint_id,
             instance_name=instance_name)
 
+    def get_endpoint_source_options(
+            self, ctxt, endpoint_id, env, option_names):
+        return self._client.call(
+            ctxt, 'get_endpoint_source_options',
+            endpoint_id=endpoint_id,
+            env=env, option_names=option_names)
+
     def get_endpoint_destination_options(
             self, ctxt, endpoint_id, env, option_names):
         return self._client.call(

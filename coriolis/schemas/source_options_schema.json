@@ -1,0 +1,22 @@
+{
+  "$schema": "http://cloudbase.it/coriolis/schemas/endpoint_source_options#",
+  "type": "array",
+  "items": {
+    "type:": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "help": "The name of the source environment parameter."
+      },
+      "values": {
+        "type": "array",
+        "help": "A list of possible values of the given source environment parameter."
+      },
+      "config_default": {
+        "help": "The default value set in the Coriolis service's configuration file."
+      }
+    },
+    "required": ["name", "values"],
+    "additionalProperties": false
+  }
+}

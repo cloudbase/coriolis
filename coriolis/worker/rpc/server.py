@@ -286,6 +286,23 @@ class WorkerServerEndpoint(object):
 
         return options
 
+    def get_endpoint_source_options(
+            self, ctxt, platform_name, connection_info, env, option_names):
+        provider = providers_factory.get_provider(
+            platform_name,
+            constants.PROVIDER_TYPE_SOURCE_ENDPOINT_OPTIONS, None)
+
+        secret_connection_info = utils.get_secret_connection_info(
+            ctxt, connection_info)
+
+        options = provider.get_source_environment_options(
+            ctxt, secret_connection_info, env=env, option_names=option_names)
+
+        schemas.validate_value(
+            options, schemas.CORIOLIS_SOURCE_ENVIRONMENT_OPTIONS_SCHEMA)
+
+        return options
+
     def get_endpoint_networks(self, ctxt, platform_name, connection_info, env):
         env = env or {}
         provider = providers_factory.get_provider(

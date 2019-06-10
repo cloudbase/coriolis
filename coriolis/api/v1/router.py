@@ -8,6 +8,7 @@ from coriolis.api.v1 import endpoint_actions
 from coriolis.api.v1 import endpoint_destination_options
 from coriolis.api.v1 import endpoint_instances
 from coriolis.api.v1 import endpoint_networks
+from coriolis.api.v1 import endpoint_source_options
 from coriolis.api.v1 import endpoint_storage
 from coriolis.api.v1 import endpoints
 from coriolis.api.v1 import migration_actions
@@ -77,6 +78,13 @@ class APIRouter(api.APIRouter):
                         'endpoints/{endpoint_id}/destination-options',
                         controller=(
                             self.resources['endpoint_destination_options']))
+
+        self.resources['endpoint_source_options'] = \
+            endpoint_source_options.create_resource()
+        mapper.resource('source_options',
+                        'endpoints/{endpoint_id}/source-options',
+                        controller=(
+                            self.resources['endpoint_source_options']))
 
         self.resources['provider_schemas'] = \
             provider_schemas.create_resource()
