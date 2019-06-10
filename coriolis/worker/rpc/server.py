@@ -273,7 +273,12 @@ class WorkerServerEndpoint(object):
             self, ctxt, platform_name, connection_info, env, option_names):
         provider = providers_factory.get_provider(
             platform_name,
-            constants.PROVIDER_TYPE_DESTINATION_ENDPOINT_OPTIONS, None)
+            constants.PROVIDER_TYPE_DESTINATION_ENDPOINT_OPTIONS,
+            None, raise_if_not_found=False)
+        if not provider:
+            raise exception.InvalidInput(
+                "Provider plugin for platform '%s' does not support listing "
+                "destination environment options." % platform_name)
 
         secret_connection_info = utils.get_secret_connection_info(
             ctxt, connection_info)
@@ -290,7 +295,12 @@ class WorkerServerEndpoint(object):
             self, ctxt, platform_name, connection_info, env, option_names):
         provider = providers_factory.get_provider(
             platform_name,
-            constants.PROVIDER_TYPE_SOURCE_ENDPOINT_OPTIONS, None)
+            constants.PROVIDER_TYPE_SOURCE_ENDPOINT_OPTIONS,
+            None, raise_if_not_found=False)
+        if not provider:
+            raise exception.InvalidInput(
+                "Provider plugin for platform '%s' does not support listing "
+                "source environment options." % platform_name)
 
         secret_connection_info = utils.get_secret_connection_info(
             ctxt, connection_info)
