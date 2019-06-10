@@ -282,7 +282,7 @@ class WorkerServerEndpoint(object):
             ctxt, secret_connection_info, env=env, option_names=option_names)
 
         schemas.validate_value(
-            options, schemas.CORIOLIS_DESTINATION_ENVIRONMENT)
+            options, schemas.CORIOLIS_DESTINATION_ENVIRONMENT_OPTIONS_SCHEMA)
 
         return options
 
