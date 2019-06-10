@@ -2,9 +2,10 @@
 # All Rights Reserved.
 
 import abc
+import base64
+import json
 import os
 import re
-import base64
 
 from oslo_log import log as logging
 import paramiko
@@ -120,8 +121,36 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                 vg_names.append(m.groups()[0])
         return vg_names
 
+    def _get_lv_paths(self):
+        """ Returns list with paths of available LVM volumes. """
+        lvm_paths = []
+        out = json.loads(
+            self._exec_cmd(
+                "sudo lvs -o lv_path,lv_name --report-format json").decode())
+        LOG.debug("Decoded `lvs` output data: %s", out)
+
+        reports = out.get("report", [])
+        if not reports:
+            return []
+
+        if len(reports) > 1:
+            LOG.warn("Multiple LVM reports found: %s", reports)
+        report = reports[0]
+
+        for i, lvm in enumerate(report.get("lv", [])):
+            lvm_name = lvm.get("lv_name", str(i))
+            lvm_path = lvm.get("lv_path")
+            if not lvm_path:
+                LOG.warn("No path for lvm volume '%s'", lvm_name)
+            else:
+                lvm_paths.append(lvm_path)
+
+        LOG.debug("Found LVM device paths: %s", lvm_paths)
+        return lvm_paths
+
     def _check_mount_fstab_partitions(
-            self, os_root_dir, skip_mounts=["/"], skip_filesystems=["swap"]):
+            self, os_root_dir, skip_mounts=["/", "/boot"],
+            skip_filesystems=["swap"], mountable_lvm_devs=None):
         """ Reads the contents of /etc/fstab from the VM's root directory and
         tries to mount all clearly identified (by UUID or path) filesystems.
         Returns the list of the new directories which were mounted.
@@ -129,6 +158,8 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         chroot) to not try to mount.
         param: skip_filesystems: list(str()): list of filesystem types to skip
         mounting entirely
+        param: mountable_lvm_devs: list(str()): list of LVM device paths which
+        exist and are mountable should they appear in /etc/fstab
         """
         new_mountpoints = []
         etc_fstab_path = os.path.join(os_root_dir, "etc/fstab")
@@ -179,19 +210,23 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
             "%(char)s{4}-%(char)s{12}") % {"char": uuid_char_regex}
         fs_uuid_entry_regex = "^(UUID=%s)$" % fs_uuid_regex
         by_uuid_entry_regex = "^(/dev/disk/by-uuid/%s)$" % fs_uuid_regex
+        if not mountable_lvm_devs:
+            mountable_lvm_devs = []
         for (mountpoint, details) in mounts.items():
             device = details['device']
             if (re.match(fs_uuid_entry_regex, device) is None and
                     re.match(by_uuid_entry_regex, device) is None):
-                LOG.warn(
-                    "Found fstab entry for dir %s which references device %s. "
-                    "Only devices references by UUID= or /dev/disk/by-uuid "
-                    "are supported. Skipping mounting directory." % (
-                        mountpoint, device))
-                continue
+                if device not in mountable_lvm_devs:
+                    LOG.warn(
+                        "Found fstab entry for dir %s which references device "
+                        "%s. Only LVM volumes or devices referenced by UUID=* "
+                        "or /dev/disk/by-uuid/* notation are supported. "
+                        "Skipping mounting directory." % (
+                            mountpoint, device))
+                    continue
             elif mountpoint in skip_mounts:
                 LOG.debug(
-                    "Skipping undesired mount: %s: %s", device, details)
+                    "Skipping undesired mount: %s: %s", mountpoint, details)
                 continue
             elif details["filesystem"] in skip_filesystems:
                 LOG.debug(
@@ -230,6 +265,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
             colls = line.split()
             if colls[0].startswith("/dev"):
                 ret.append(colls[0])
+        LOG.debug("Currently mounted devices: %s", ret)
         return ret
 
     def _get_mount_destinations(self):
@@ -264,7 +300,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
 
     def mount_os(self):
         dev_paths = []
-        mouted_devs = self._get_mounted_devices()
+        mounted_devs = self._get_mounted_devices()
 
         volume_devs = self._get_volume_block_devices()
         for volume_dev in volume_devs:
@@ -290,7 +326,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
 
         dev_paths_to_mount = []
         for dev_path in dev_paths:
-            if dev_path in mouted_devs:
+            if dev_path in mounted_devs:
                 # this device is already mounted. Skip it, as it most likely
                 # means this device belongs to the worker VM.
                 continue
@@ -308,9 +344,21 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         os_root_device = None
         os_root_dir = None
         for dev_path in dev_paths_to_mount:
+            dirs = None
             tmp_dir = self._exec_cmd('mktemp -d').decode().split('\n')[0]
-            self._exec_cmd('sudo mount %s %s' % (dev_path, tmp_dir))
-            dirs = self._exec_cmd('ls %s' % tmp_dir).decode().split('\n')
+            try:
+                self._exec_cmd('sudo mount %s %s' % (dev_path, tmp_dir))
+                # NOTE: it's possible that the device was mounted successfully
+                # but an I/O error occurs later along the line:
+                dirs = self._exec_cmd('ls %s' % tmp_dir).decode().split('\n')
+            except Exception:
+                self._event_manager.progress_update(
+                    "Failed to mount and scan device '%s'" % dev_path)
+                LOG.warn(
+                    "Failed to mount and scan device '%s':\n%s",
+                    dev_path, utils.get_exception_details())
+                continue
+
             LOG.debug("Contents of device %s:\n%s", dev_path, dirs)
 
             # TODO(alexpilotti): better ways to check for a linux root?
@@ -336,7 +384,9 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                 'sudo mount %s "%s/boot"' % (
                     os_boot_device, os_root_dir))
 
-        self._check_mount_fstab_partitions(os_root_dir)
+        lvm_devs = list(set(self._get_lv_paths()) - set(mounted_devs))
+        self._check_mount_fstab_partitions(
+            os_root_dir, mountable_lvm_devs=lvm_devs)
 
         for dir in set(dirs).intersection(['proc', 'sys', 'dev', 'run']):
             mount_dir = os.path.join(os_root_dir, dir)
