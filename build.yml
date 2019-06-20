@@ -26,23 +26,39 @@
         src: ./templates/coriolis-web-vhost.conf.j2
         dest: ./build/coriolis-web-vhost.conf
 
-    - name: Cloning coriolis git repositories
-      git: repo={{ item.url }} dest=./build/{{item.name}} update=yes force=yes version={{item.version}}
-      with_items:
-        - { url: "https://github.com/cloudbase/coriolis", name: coriolis-core, version: master}
-        - { url: "https://github.com/cloudbase/coriolis-web", name: coriolis-web, version: master}
+    - name: Cloning coriolis-core
+      vars:
+        custom_repo_owner: "{{ custom_repo_owner_names['core']|default ('cloudbase') }}"
+        custom_repo_branch: "{{ custom_repo_branch_names['core']|default ('master') }}"
+      git:
+        repo: "https://github.com/{{ custom_repo_owner }}/coriolis"
+        dest: "./build/coriolis-core"
+        update: yes
+        force: yes
+        version: "{{ custom_repo_branch }}"
+
+    - name: Cloning coriolis-web
+      vars:
+        custom_repo_owner: "{{ custom_repo_owner_names['web']|default ('cloudbase') }}"
+        custom_repo_branch: "{{ custom_repo_branch_names['web']|default ('master') }}"
+      git:
+        repo: "https://github.com/{{ custom_repo_owner }}/coriolis-web"
+        dest: "./build/coriolis-web"
+        update: yes
+        force: yes
+        version: "{{ custom_repo_branch }}"
 
     - name: Cloning provider repos
       vars:
         provider: "{{ item }}"
-        custom_repo_name: "{{ provider_custom_repo_names[provider]|default ('cloudbase') }}"
-        custom_branch_name: "{{ provider_custom_branch_names[provider]|default ('master') }}"
+        custom_repo_owner: "{{ custom_repo_owner_names[provider]|default ('cloudbase') }}"
+        custom_repo_branch: "{{ custom_repo_branch_names[provider]|default ('master') }}"
       git:
-        repo: "git@bitbucket.org:{{ custom_repo_name }}/coriolis-provider-{{ provider }}"
+        repo: "git@bitbucket.org:{{ custom_repo_owner }}/coriolis-provider-{{ provider }}"
         dest: "./build/coriolis-provider-{{ provider }}"
         update: yes
         force: yes
-        version: "{{ custom_branch_name }}"
+        version: "{{ custom_repo_branch }}"
       with_items: "{{ all_providers }}"
 
     - name: Downloading VMware disklib

@@ -11,5 +11,17 @@ coriolis_config_directory_path: /etc/coriolis
 coriolis_certs_path: "{{ coriolis_config_directory_path }}/ssl"
 export_providers: ['openstack', 'oracle-vm', 'opc', 'vmware', 'aws', 'scvmm']
 import_providers: ['openstack', 'oracle-vm', 'opc', 'oci', 'azure', 'scvmm']
-provider_custom_repo_names: {}
-provider_custom_branch_names: {}
+
+
+
+# In the case that some repo needs to be cloned on some other branch instead of
+# the default cloudbase/master that can be set using the two following dict
+# variables.
+# In both of these dicts, the key is expected to be either a provider name
+# (like in the export/import_providers lists above) or one of the following:
+# "core", "web", "licensing".
+# Examples:
+# {openstack: cloudbase, aws: cloudengineer, etc: etc} - owner dict
+# {openstack: master, aws: branch2, etc: etc} - branch dict
+custom_repo_owner_names: {}
+custom_repo_branch_names: {}
