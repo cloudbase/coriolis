@@ -11,3 +11,5 @@ coriolis_config_directory_path: /etc/coriolis
 coriolis_certs_path: "{{ coriolis_config_directory_path }}/ssl"
 export_providers: ['openstack', 'oracle-vm', 'opc', 'vmware', 'aws', 'scvmm']
 import_providers: ['openstack', 'oracle-vm', 'opc', 'oci', 'azure', 'scvmm']
+provider_custom_repo_names: {}
+provider_custom_branch_names: {}
