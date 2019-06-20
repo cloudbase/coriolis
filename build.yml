@@ -33,12 +33,16 @@
         - { url: "https://github.com/cloudbase/coriolis-web", name: coriolis-web, version: master}
 
     - name: Cloning provider repos
+      vars:
+        provider: "{{ item }}"
+        custom_repo_name: "{{ provider_custom_repo_names[provider]|default ('cloudbase') }}"
+        custom_branch_name: "{{ provider_custom_branch_names[provider]|default ('master') }}"
       git:
-        repo: "git@bitbucket.org:cloudbase/coriolis-provider-{{item}}"
-        dest: "./build/coriolis-provider-{{item}}"
+        repo: "git@bitbucket.org:{{ custom_repo_name }}/coriolis-provider-{{ provider }}"
+        dest: "./build/coriolis-provider-{{ provider }}"
         update: yes
         force: yes
-        version: master
+        version: "{{ custom_branch_name }}"
       with_items: "{{ all_providers }}"
 
     - name: Downloading VMware disklib
