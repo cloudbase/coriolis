@@ -95,6 +95,8 @@ class WSManConnection(object):
         # Nano Server does not have Invoke-WebRequest and additionally
         # this is also faster
         self.exec_ps_command(
+            "[Net.ServicePointManager]::SecurityProtocol = "
+            "[Net.SecurityProtocolType]::Tls12;"
             "if(!([System.Management.Automation.PSTypeName]'"
             "System.Net.Http.HttpClient').Type) {$assembly = "
             "[System.Reflection.Assembly]::LoadWithPartialName("
