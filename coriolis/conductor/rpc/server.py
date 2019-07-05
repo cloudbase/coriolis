@@ -140,7 +140,11 @@ class ConductorServerEndpoint(object):
             LOG.debug(
                 "Attempting to check reservation with ID '%s' for transfer "
                 "action '%s'", reservation_id, action_id)
-        self._licensing_client.check_reservation(reservation_id)
+            self._licensing_client.check_reservation(reservation_id)
+        else:
+            LOG.debug(
+                "Transfer action '%s' has no reservation ID set. Skipping "
+                "all reservation licensing checks.", action_id)
 
     def create_endpoint(self, ctxt, name, endpoint_type, description,
                         connection_info):
