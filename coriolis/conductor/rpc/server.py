@@ -316,15 +316,25 @@ class ConductorServerEndpoint(object):
         execution.action = replica
 
         for instance in execution.action.instances:
-            validate_replica_inputs_task = self._create_task(
-                instance, constants.TASK_TYPE_VALIDATE_REPLICA_INPUTS,
-                execution)
-
             get_instance_info_task = self._create_task(
                 instance, constants.TASK_TYPE_GET_INSTANCE_INFO,
-                execution, depends_on=[validate_replica_inputs_task.id])
+                execution)
 
-            depends_on = [get_instance_info_task.id]
+            validate_replica_source_inputs_task = self._create_task(
+                instance,
+                constants.TASK_TYPE_VALIDATE_REPLICA_SOURCE_INPUTS,
+                execution,
+                depends_on=[get_instance_info_task.id])
+
+            validate_replica_destination_inputs_task = self._create_task(
+                instance,
+                constants.TASK_TYPE_VALIDATE_REPLICA_DESTINATION_INPUTS,
+                execution,
+                depends_on=[get_instance_info_task.id])
+
+            depends_on = [
+                validate_replica_source_inputs_task.id,
+                validate_replica_destination_inputs_task.id]
             if shutdown_instances:
                 shutdown_instance_task = self._create_task(
                     instance, constants.TASK_TYPE_SHUTDOWN_INSTANCE,
@@ -695,13 +705,20 @@ class ConductorServerEndpoint(object):
             migration, licensing_client.RESERVATION_TYPE_MIGRATION)
 
         for instance in instances:
-            task_validate = self._create_task(
-                instance, constants.TASK_TYPE_VALIDATE_MIGRATION_INPUTS,
+            task_validate_source = self._create_task(
+                instance,
+                constants.TASK_TYPE_VALIDATE_MIGRATION_SOURCE_INPUTS,
                 execution)
+
+            task_validate_destination = self._create_task(
+                instance,
+                constants.TASK_TYPE_VALIDATE_MIGRATION_DESTINATION_INPUTS,
+                execution,
+                depends_on=[task_validate_source.id])
 
             task_export = self._create_task(
                 instance, constants.TASK_TYPE_EXPORT_INSTANCE, execution,
-                depends_on=[task_validate.id])
+                depends_on=[task_validate_destination.id])
 
             if (constants.PROVIDER_TYPE_INSTANCE_FLAVOR in
                     destination_provider_types):
