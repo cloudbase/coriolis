@@ -454,7 +454,9 @@ class UpdateReplicaTask(base.TaskRunner):
                     "Replica destination provider plugin for '%s' does not "
                     "support updating Replicas." % destination["type"])
 
-        connection_info = base.get_connection_info(ctxt, destination)
+        origin_connection_info = base.get_connection_info(ctxt, origin)
+        destination_connection_info = base.get_connection_info(
+            ctxt, destination)
         export_info = task_info.get("export_info", {})
         volumes_info = task_info.get("volumes_info", {})
 
@@ -466,7 +468,7 @@ class UpdateReplicaTask(base.TaskRunner):
             old_source_environment = origin.get('source_environment', {})
             new_source_environment = task_info.get('source_environment', {})
             source_provider.check_update_environment_params(
-                ctxt, connection_info, export_info, volumes_info,
+                ctxt, origin_connection_info, export_info, volumes_info,
                 old_source_environment, new_source_environment)
 
         if destination_provider:
@@ -481,8 +483,9 @@ class UpdateReplicaTask(base.TaskRunner):
 
             volumes_info = (
                 destination_provider.check_update_environment_params(
-                    ctxt, connection_info, export_info, volumes_info,
-                    old_destination_environment, new_destination_environment))
+                    ctxt, destination_connection_info, export_info,
+                    volumes_info, old_destination_environment,
+                    new_destination_environment))
 
             task_info['volumes_info'] = volumes_info
 
