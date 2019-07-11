@@ -964,7 +964,9 @@ class ConductorServerEndpoint(object):
                 LOG.debug(
                     "No 'transfer_result' was returned for task type '%s' "
                     "for transfer action '%s'", task_type, execution.action_id)
-        elif task_type == constants.TASK_TYPE_UPDATE_REPLICA:
+        elif task_type in (
+                constants.TASK_TYPE_UPDATE_SOURCE_REPLICA,
+                constants.TASK_TYPE_UPDATE_DESTINATION_REPLICA):
             # NOTE: perform the actual db update on the Replica's properties:
             db_api.update_replica(ctxt, execution.action_id, task_info)
             # NOTE: remember to update the `volumes_info`:
@@ -1135,9 +1137,13 @@ class ConductorServerEndpoint(object):
             inst_info_copy = copy.deepcopy(replica.info[instance])
             inst_info_copy.update(properties)
             replica.info[instance] = inst_info_copy
-            self._create_task(
-                instance, constants.TASK_TYPE_UPDATE_REPLICA,
+            update_source_replica_task = self._create_task(
+                instance, constants.TASK_TYPE_UPDATE_SOURCE_REPLICA,
                 execution)
+            self._create_task(
+                instance, constants.TASK_TYPE_UPDATE_DESTINATION_REPLICA,
+                execution,
+                depends_on=[update_source_replica_task.id])
         LOG.debug(
             "Replica '%s' info post-replica-update: %s",
             replica_id, replica.info)

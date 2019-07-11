@@ -428,65 +428,74 @@ class ValidateReplicaDeploymentParametersTask(base.TaskRunner):
         return task_info
 
 
-class UpdateReplicaTask(base.TaskRunner):
+class UpdateSourceReplicaTask(base.TaskRunner):
     def run(self, ctxt, instance, origin, destination, task_info,
             event_handler):
-        destination_provider = None
-        source_provider = None
-        new_source_environment = task_info.get('source_environment')
-        new_destination_environment = task_info.get('destination_environment')
+        event_manager = events.EventManager(event_handler)
+        new_source_env = task_info.get('source_environment', {})
+        if not new_source_env:
+            event_manager.progress_update(
+                "No new source environment options provided")
+            return task_info
 
-        if new_source_environment:
-            source_provider = providers_factory.get_provider(
-                origin["type"], constants.PROVIDER_TYPE_REPLICA_UPDATE,
-                event_handler, raise_if_not_found=False)
-            if not source_provider:
-                raise exception.CoriolisException(
-                    "Replica source provider plugin for '%s' does not support"
-                    " updating Replicas." % origin["type"])
-
-        if new_destination_environment:
-            destination_provider = providers_factory.get_provider(
-                destination["type"], constants.PROVIDER_TYPE_REPLICA_UPDATE,
-                event_handler, raise_if_not_found=False)
-            if not destination_provider:
-                raise exception.CoriolisException(
-                    "Replica destination provider plugin for '%s' does not "
-                    "support updating Replicas." % destination["type"])
+        source_provider = providers_factory.get_provider(
+            origin["type"], constants.PROVIDER_TYPE_REPLICA_UPDATE,
+            event_handler, raise_if_not_found=False)
+        if not source_provider:
+            raise exception.CoriolisException(
+                "Replica source provider plugin for '%s' does not support"
+                " updating Replicas" % origin["type"])
 
         origin_connection_info = base.get_connection_info(ctxt, origin)
+        export_info = task_info.get("export_info", {})
+        volumes_info = task_info.get("volumes_info", {})
+
+        LOG.info("Checking source provider environment params")
+        # NOTE: the `source_environment` in the `origin` is the one set
+        # in the dedicated DB column of the Replica and thus stores
+        # the previous value of it:
+        old_source_env = origin.get('source_environment', {})
+        volumes_info = source_provider.check_update_environment_params(
+            ctxt, origin_connection_info, export_info, volumes_info,
+            old_source_env, new_source_env)
+
+        task_info['volumes_info'] = volumes_info
+
+        return task_info
+
+
+class UpdateDestinationReplicaTask(base.TaskRunner):
+    def run(self, ctxt, instance, origin, destination, task_info,
+            event_handler):
+        event_manager = events.EventManager(event_handler)
+        new_destination_env = task_info.get('destination_environment', {})
+        if not new_destination_env:
+            event_manager.progress_update(
+                "No new destination environment options provided")
+            return task_info
+
+        destination_provider = providers_factory.get_provider(
+            destination["type"], constants.PROVIDER_TYPE_REPLICA_UPDATE,
+            event_handler, raise_if_not_found=False)
+        if not destination_provider:
+            raise exception.CoriolisException(
+                "Replica destination provider plugin for '%s' does not "
+                "support updating Replicas" % destination["type"])
+
         destination_connection_info = base.get_connection_info(
             ctxt, destination)
         export_info = task_info.get("export_info", {})
         volumes_info = task_info.get("volumes_info", {})
 
-        if source_provider:
-            LOG.info("Checking source provider environment params")
-            # NOTE: the `source_environment` in the `origin` is the one set
-            # in the dedicated DB column of the Replica and thus stores
-            # the previous value of it:
-            old_source_environment = origin.get('source_environment', {})
-            new_source_environment = task_info.get('source_environment', {})
-            source_provider.check_update_environment_params(
-                ctxt, origin_connection_info, export_info, volumes_info,
-                old_source_environment, new_source_environment)
+        LOG.info("Checking destination provider environment params")
+        # NOTE: the `target_environment` in the `destination` is the one
+        # set in the dedicated DB column of the Replica and thus stores
+        # the previous value of it:
+        old_destination_env = destination.get('target_environment', {})
+        volumes_info = destination_provider.check_update_environment_params(
+            ctxt, destination_connection_info, export_info, volumes_info,
+            old_destination_env, new_destination_env)
 
-        if destination_provider:
-            LOG.info("Checking destination provider environment params")
-            # NOTE: the `target_environment` in the `destination` is the one
-            # set in the dedicated DB column of the Replica and thus stores
-            # the previous value of it:
-            old_destination_environment = destination.get(
-                'target_environment', {})
-            new_destination_environment = task_info.get(
-                'destination_environment', {})
-
-            volumes_info = (
-                destination_provider.check_update_environment_params(
-                    ctxt, destination_connection_info, export_info,
-                    volumes_info, old_destination_environment,
-                    new_destination_environment))
-
-            task_info['volumes_info'] = volumes_info
+        task_info['volumes_info'] = volumes_info
 
         return task_info

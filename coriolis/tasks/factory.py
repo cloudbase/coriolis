@@ -70,8 +70,10 @@ _TASKS_MAP = {
         replica_tasks.ValidateReplicaExecutionDestinationInputsTask,
     constants.TASK_TYPE_VALIDATE_REPLICA_DEPLOYMENT_INPUTS:
         replica_tasks.ValidateReplicaDeploymentParametersTask,
-    constants.TASK_TYPE_UPDATE_REPLICA:
-        replica_tasks.UpdateReplicaTask
+    constants.TASK_TYPE_UPDATE_SOURCE_REPLICA:
+        replica_tasks.UpdateSourceReplicaTask,
+    constants.TASK_TYPE_UPDATE_DESTINATION_REPLICA:
+        replica_tasks.UpdateDestinationReplicaTask
 }
 
 
