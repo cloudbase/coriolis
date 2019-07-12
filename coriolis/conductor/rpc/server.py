@@ -316,15 +316,25 @@ class ConductorServerEndpoint(object):
         execution.action = replica
 
         for instance in execution.action.instances:
-            validate_replica_inputs_task = self._create_task(
-                instance, constants.TASK_TYPE_VALIDATE_REPLICA_INPUTS,
-                execution)
-
             get_instance_info_task = self._create_task(
                 instance, constants.TASK_TYPE_GET_INSTANCE_INFO,
-                execution, depends_on=[validate_replica_inputs_task.id])
+                execution)
 
-            depends_on = [get_instance_info_task.id]
+            validate_replica_source_inputs_task = self._create_task(
+                instance,
+                constants.TASK_TYPE_VALIDATE_REPLICA_SOURCE_INPUTS,
+                execution,
+                depends_on=[get_instance_info_task.id])
+
+            validate_replica_destination_inputs_task = self._create_task(
+                instance,
+                constants.TASK_TYPE_VALIDATE_REPLICA_DESTINATION_INPUTS,
+                execution,
+                depends_on=[get_instance_info_task.id])
+
+            depends_on = [
+                validate_replica_source_inputs_task.id,
+                validate_replica_destination_inputs_task.id]
             if shutdown_instances:
                 shutdown_instance_task = self._create_task(
                     instance, constants.TASK_TYPE_SHUTDOWN_INSTANCE,
@@ -695,13 +705,20 @@ class ConductorServerEndpoint(object):
             migration, licensing_client.RESERVATION_TYPE_MIGRATION)
 
         for instance in instances:
-            task_validate = self._create_task(
-                instance, constants.TASK_TYPE_VALIDATE_MIGRATION_INPUTS,
+            task_validate_source = self._create_task(
+                instance,
+                constants.TASK_TYPE_VALIDATE_MIGRATION_SOURCE_INPUTS,
                 execution)
+
+            task_validate_destination = self._create_task(
+                instance,
+                constants.TASK_TYPE_VALIDATE_MIGRATION_DESTINATION_INPUTS,
+                execution,
+                depends_on=[task_validate_source.id])
 
             task_export = self._create_task(
                 instance, constants.TASK_TYPE_EXPORT_INSTANCE, execution,
-                depends_on=[task_validate.id])
+                depends_on=[task_validate_destination.id])
 
             if (constants.PROVIDER_TYPE_INSTANCE_FLAVOR in
                     destination_provider_types):
@@ -947,7 +964,9 @@ class ConductorServerEndpoint(object):
                 LOG.debug(
                     "No 'transfer_result' was returned for task type '%s' "
                     "for transfer action '%s'", task_type, execution.action_id)
-        elif task_type == constants.TASK_TYPE_UPDATE_REPLICA:
+        elif task_type in (
+                constants.TASK_TYPE_UPDATE_SOURCE_REPLICA,
+                constants.TASK_TYPE_UPDATE_DESTINATION_REPLICA):
             # NOTE: perform the actual db update on the Replica's properties:
             db_api.update_replica(ctxt, execution.action_id, task_info)
             # NOTE: remember to update the `volumes_info`:
@@ -1118,9 +1137,13 @@ class ConductorServerEndpoint(object):
             inst_info_copy = copy.deepcopy(replica.info[instance])
             inst_info_copy.update(properties)
             replica.info[instance] = inst_info_copy
-            self._create_task(
-                instance, constants.TASK_TYPE_UPDATE_REPLICA,
+            update_source_replica_task = self._create_task(
+                instance, constants.TASK_TYPE_UPDATE_SOURCE_REPLICA,
                 execution)
+            self._create_task(
+                instance, constants.TASK_TYPE_UPDATE_DESTINATION_REPLICA,
+                execution,
+                depends_on=[update_source_replica_task.id])
         LOG.debug(
             "Replica '%s' info post-replica-update: %s",
             replica_id, replica.info)

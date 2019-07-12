@@ -24,8 +24,10 @@ _TASKS_MAP = {
         migration_tasks.CleanupFailedImportInstanceTask,
     constants.TASK_TYPE_GET_OPTIMAL_FLAVOR:
         migration_tasks.GetOptimalFlavorTask,
-    constants.TASK_TYPE_VALIDATE_MIGRATION_INPUTS:
-        migration_tasks.ValidateMigrationParametersTask,
+    constants.TASK_TYPE_VALIDATE_MIGRATION_SOURCE_INPUTS:
+        migration_tasks.ValidateMigrationSourceInputsTask,
+    constants.TASK_TYPE_VALIDATE_MIGRATION_DESTINATION_INPUTS:
+        migration_tasks.ValidateMigrationDestinationInputsTask,
     constants.TASK_TYPE_DEPLOY_OS_MORPHING_RESOURCES:
         osmorphing_tasks.DeployOSMorphingResourcesTask,
     constants.TASK_TYPE_OS_MORPHING:
@@ -62,12 +64,16 @@ _TASKS_MAP = {
         replica_tasks.DeleteReplicaDiskSnapshotsTask,
     constants.TASK_TYPE_RESTORE_REPLICA_DISK_SNAPSHOTS:
         replica_tasks.RestoreReplicaDiskSnapshotsTask,
-    constants.TASK_TYPE_VALIDATE_REPLICA_INPUTS:
-        replica_tasks.ValidateReplicaExecutionParametersTask,
+    constants.TASK_TYPE_VALIDATE_REPLICA_SOURCE_INPUTS:
+        replica_tasks.ValidateReplicaExecutionSourceInputsTask,
+    constants.TASK_TYPE_VALIDATE_REPLICA_DESTINATION_INPUTS:
+        replica_tasks.ValidateReplicaExecutionDestinationInputsTask,
     constants.TASK_TYPE_VALIDATE_REPLICA_DEPLOYMENT_INPUTS:
         replica_tasks.ValidateReplicaDeploymentParametersTask,
-    constants.TASK_TYPE_UPDATE_REPLICA:
-        replica_tasks.UpdateReplicaTask
+    constants.TASK_TYPE_UPDATE_SOURCE_REPLICA:
+        replica_tasks.UpdateSourceReplicaTask,
+    constants.TASK_TYPE_UPDATE_DESTINATION_REPLICA:
+        replica_tasks.UpdateDestinationReplicaTask
 }
 
 
