@@ -22,6 +22,13 @@ set_config_random_value() {
 if [ ! -f $config_file ]; then
     cp $config_file.sample $config_file
 fi
+if [ ! -f $parent_config_file ]; then
+    cp $parent_config_file.sample $parent_config_file
+fi
+
+if [ ! -f $parent_config_build_file ]; then
+    cp $parent_config_build_file.sample $parent_config_build_file
+fi
 
 set_config_random_value coriolis_licensing_ui_database_password 
 

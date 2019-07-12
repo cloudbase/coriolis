@@ -16,5 +16,8 @@ pip install --upgrade --force-reinstall docker-py
 if [ ! -f $config_file ]; then
     cp $config_file.sample $config_file
 fi
+if [ ! -f $parent_config_file]; then
+    cp $parent_config_file.sample $parent_config_file
+fi
 
 ansible-playbook -v $basedir/build.yml -e @$config_file -e @$parent_config_file
