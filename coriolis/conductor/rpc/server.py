@@ -1137,13 +1137,18 @@ class ConductorServerEndpoint(object):
             inst_info_copy = copy.deepcopy(replica.info[instance])
             inst_info_copy.update(properties)
             replica.info[instance] = inst_info_copy
+            get_instance_info_task = self._create_task(
+                instance, constants.TASK_TYPE_GET_INSTANCE_INFO,
+                execution)
             update_source_replica_task = self._create_task(
                 instance, constants.TASK_TYPE_UPDATE_SOURCE_REPLICA,
                 execution)
             self._create_task(
                 instance, constants.TASK_TYPE_UPDATE_DESTINATION_REPLICA,
                 execution,
-                depends_on=[update_source_replica_task.id])
+                depends_on=[
+                    get_instance_info_task.id,
+                    update_source_replica_task.id])
         LOG.debug(
             "Replica '%s' info post-replica-update: %s",
             replica_id, replica.info)
