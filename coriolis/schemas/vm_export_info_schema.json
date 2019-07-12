@@ -76,7 +76,7 @@
             "type": "object",
             "properties": {
               "id": {
-                "$ref": "#/definitions/numberOrString"
+                "type": "string"
               },
               "format": {
                 "type": "string",
@@ -92,7 +92,7 @@
                 "type": "string"
               },
               "controller_id": {
-                "$ref": "#/definitions/numberOrString"
+                "type": "string"
               },
               "storage_backend_identifier": {
                 "type": "string",
@@ -118,13 +118,13 @@
             "type": "object",
             "properties": {
               "id": {
-                "$ref": "#/definitions/numberOrString"
+                "type": "string"
               },
               "unit_number": {
                 "$ref": "#/definitions/numberOrString"
               },
               "controller_id": {
-                "$ref": "#/definitions/numberOrString"
+                "type": "string"
               }
             },
             "required": [
@@ -157,7 +157,7 @@
                 "type": "integer"
               },
               "id": {
-                "$ref": "#/definitions/numberOrString"
+                "type": "string"
               },
               "mac_address": {
                 "$ref": "#/definitions/nullableString"
@@ -179,7 +179,7 @@
             "type": "object",
             "properties": {
               "id": {
-                "$ref": "#/definitions/numberOrString"
+                "type": "string"
               }
             }
           },
@@ -194,13 +194,13 @@
             "type": "object",
             "properties": {
               "id": {
-                "$ref": "#/definitions/numberOrString"
+                "type": "string"
               },
               "unit_number": {
                 "$ref": "#/definitions/numberOrString"
               },
               "controller_id": {
-                "$ref": "#/definitions/numberOrString"
+                "type": "string"
               }
             },
             "required": [
@@ -221,7 +221,7 @@
                 "$ref": "#/definitions/numberOrString"
               },
               "id": {
-                "$ref": "#/definitions/numberOrString"
+                "type": "string"
               }
             },
             "required": [
