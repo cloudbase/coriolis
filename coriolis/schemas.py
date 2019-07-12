@@ -31,6 +31,7 @@ _CORIOLIS_SOURCE_OPTIONS_SCHEMA_NAME = "source_options_schema.json"
 _CORIOLIS_NETWORK_MAP_SCHEMA_NAME = "network_map_schema.json"
 _CORIOLIS_STORAGE_MAPPINGS_SCHEMA_NAME = "storage_mappings_schema.json"
 _CORIOLIS_VM_STORAGE_SCHEMA_NAME = "vm_storage_schema.json"
+_CORIOLIS_VOLUMES_INFO_SCHEMA_NAME = "volumes_info_schema.json"
 
 
 def get_schema(package_name, schema_name,
@@ -102,3 +103,6 @@ CORIOLIS_STORAGE_MAPPINGS_SCHEMA = get_schema(
 
 CORIOLIS_VM_STORAGE_SCHEMA = get_schema(
     __name__, _CORIOLIS_VM_STORAGE_SCHEMA_NAME)
+
+CORIOLIS_VOLUMES_INFO_SCHEMA = get_schema(
+    __name__, _CORIOLIS_VOLUMES_INFO_SCHEMA_NAME)

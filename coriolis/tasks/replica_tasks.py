@@ -21,6 +21,40 @@ def _get_volumes_info(task_info):
     return volumes_info
 
 
+def _check_ensure_volumes_info_ordering(export_info, volumes_info):
+    """ Returns a new list of volumes_info, ensuring that the order of
+    the disks in 'volumes_info' is consistent with the order that the
+    disks appear in 'export_info[devices][disks]'
+    """
+    instance = export_info.get(
+        'instance_name',
+        export_info.get('name', export_info['id']))
+    ordered_volumes_info = []
+    for disk in export_info['devices']['disks']:
+        disk_id = disk['id']
+        matching_volumes = [
+            vol for vol in volumes_info if vol['disk_id'] == disk_id]
+        if not matching_volumes:
+            raise exception.CoriolisException(
+                "Could not find source disk '%s' (ID '%s') in Replica "
+                "volumes info: %s" % (disk, disk_id, volumes_info))
+        elif len(matching_volumes) > 1:
+            raise exception.CoriolisException(
+                "Multiple disks with ID '%s' foind in Replica "
+                "volumes info: %s" % (disk_id, volumes_info))
+
+        ordered_volumes_info.append(matching_volumes[0])
+
+    LOG.debug(
+        "volumes_info returned by provider for instance "
+        "'%s': %s", instance, volumes_info)
+    LOG.debug(
+        "volumes_info for instance '%s' after "
+        "reordering: %s", instance, ordered_volumes_info)
+
+    return ordered_volumes_info
+
+
 class GetInstanceInfoTask(base.TaskRunner):
     def run(self, ctxt, instance, origin, destination, task_info,
             event_handler):
@@ -63,8 +97,11 @@ class ReplicateDisksTask(base.TaskRunner):
             origin["type"], constants.PROVIDER_TYPE_REPLICA_EXPORT,
             event_handler)
         connection_info = base.get_connection_info(ctxt, origin)
+        export_info = task_info["export_info"]
 
         volumes_info = _get_volumes_info(task_info)
+        schemas.validate_value(
+            volumes_info, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)
 
         migr_source_conn_info = base.unmarshal_migr_conn_info(
             task_info["migr_source_connection_info"])
@@ -80,6 +117,11 @@ class ReplicateDisksTask(base.TaskRunner):
             ctxt, connection_info, source_environment, instance,
             migr_source_conn_info, migr_target_conn_info, volumes_info,
             incremental)
+        schemas.validate_value(
+            volumes_info, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)
+
+        volumes_info = _check_ensure_volumes_info_ordering(
+            export_info, volumes_info)
 
         task_info["volumes_info"] = volumes_info
 
@@ -97,11 +139,19 @@ class DeployReplicaDisksTask(base.TaskRunner):
             event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
 
-        volumes_info = task_info.get("volumes_info") or []
+        volumes_info = task_info.get("volumes_info", [])
+        if volumes_info is None:
+            # In case Replica disks were deleted:
+            volumes_info = []
 
         volumes_info = provider.deploy_replica_disks(
             ctxt, connection_info, target_environment, instance, export_info,
             volumes_info)
+        schemas.validate_value(
+            volumes_info, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)
+
+        volumes_info = _check_ensure_volumes_info_ordering(
+            export_info, volumes_info)
 
         task_info["volumes_info"] = volumes_info
 
@@ -292,11 +342,17 @@ class CreateReplicaDiskSnapshotsTask(base.TaskRunner):
             destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
             event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
+        export_info = task_info['export_info']
 
         volumes_info = _get_volumes_info(task_info)
 
         volumes_info = provider.create_replica_disk_snapshots(
             ctxt, connection_info, volumes_info)
+        schemas.validate_value(
+            volumes_info, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)
+
+        volumes_info = _check_ensure_volumes_info_ordering(
+            export_info, volumes_info)
 
         task_info["volumes_info"] = volumes_info
 
@@ -315,6 +371,10 @@ class DeleteReplicaDiskSnapshotsTask(base.TaskRunner):
 
         volumes_info = provider.delete_replica_disk_snapshots(
             ctxt, connection_info, volumes_info)
+        if volumes_info:
+            raise exception.CoriolisException(
+                "'volumes_info' should be void after disk deletion: %s" % (
+                    volumes_info))
 
         task_info["volumes_info"] = volumes_info
 
@@ -328,11 +388,17 @@ class RestoreReplicaDiskSnapshotsTask(base.TaskRunner):
             destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
             event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
+        export_info = task_info['export_info']
 
         volumes_info = _get_volumes_info(task_info)
 
         volumes_info = provider.restore_replica_disk_snapshots(
             ctxt, connection_info, volumes_info)
+        schemas.validate_value(
+            volumes_info, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)
+
+        volumes_info = _check_ensure_volumes_info_ordering(
+            export_info, volumes_info)
 
         task_info["volumes_info"] = volumes_info
 
@@ -497,6 +563,11 @@ class UpdateDestinationReplicaTask(base.TaskRunner):
             destination_provider.check_update_destination_environment_params(
                 ctxt, destination_connection_info, export_info, volumes_info,
                 old_destination_env, new_destination_env))
+        schemas.validate_value(
+            volumes_info, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)
+
+        volumes_info = _check_ensure_volumes_info_ordering(
+            export_info, volumes_info)
 
         task_info['volumes_info'] = volumes_info
 

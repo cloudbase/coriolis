@@ -1,0 +1,16 @@
+{
+  "$schema": "http://cloudbase.it/coriolis/schemas/volumes_info#",
+  "type": "array",
+  "description": "List of info on volumes replicated to a destination platform. Most fields inside the individual volumes info object are arbitrary and provider-specific, with the exception of 'disk_id'.",
+  "items": {
+    "type": "object",
+    "properties": {
+      "disk_id": {
+        "type": "string",
+        "description": "Unique identifier the *source* disk corresponding to this set of volume info had (should be export_info[devices][disks][id])"
+      }
+    },
+    "required": ["disk_id"],
+    "additionalProperties": true
+  }
+}
