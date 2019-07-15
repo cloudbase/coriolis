@@ -323,8 +323,7 @@ class ConductorServerEndpoint(object):
             validate_replica_source_inputs_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_VALIDATE_REPLICA_SOURCE_INPUTS,
-                execution,
-                depends_on=[get_instance_info_task.id])
+                execution)
 
             validate_replica_destination_inputs_task = self._create_task(
                 instance,
