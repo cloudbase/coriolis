@@ -27,7 +27,7 @@
           "type": "string"
         }
       },
-      "required": ["ip", "port"]
+      "required": ["ip", "port", "username"]
     },
     "osmorphing_info": {
       "type": "object",

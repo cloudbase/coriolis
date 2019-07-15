@@ -101,13 +101,23 @@ class ReplicateDisksTask(base.TaskRunner):
 
         volumes_info = _get_volumes_info(task_info)
         schemas.validate_value(
-            volumes_info, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)
+            {"volumes_info": volumes_info},
+            schemas.CORIOLIS_DISK_SYNC_RESOURCES_INFO_SCHEMA)
 
+        migr_source_conn_info = task_info["migr_source_connection_info"]
+        if migr_source_conn_info:
+            schemas.validate_value(
+                migr_source_conn_info,
+                schemas.CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA)
         migr_source_conn_info = base.unmarshal_migr_conn_info(
-            task_info["migr_source_connection_info"])
+            migr_source_conn_info)
 
+        migr_target_conn_info = task_info["migr_target_connection_info"]
+        schemas.validate_value(
+            migr_target_conn_info,
+            schemas.CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA)
         migr_target_conn_info = base.unmarshal_migr_conn_info(
-            task_info["migr_target_connection_info"])
+            migr_target_conn_info)
 
         incremental = task_info.get("incremental", True)
 
@@ -168,10 +178,14 @@ class DeleteReplicaDisksTask(base.TaskRunner):
 
         volumes_info = _get_volumes_info(task_info)
 
-        provider.delete_replica_disks(
+        volumes_info = provider.delete_replica_disks(
             ctxt, connection_info, volumes_info)
+        if volumes_info:
+            LOG.warn(
+                "'volumes_info' should have been void after disk "
+                "deletion: %s" % volumes_info)
 
-        task_info["volumes_info"] = None
+        task_info["volumes_info"] = []
 
         return task_info
 
@@ -190,8 +204,17 @@ class DeployReplicaSourceResourcesTask(base.TaskRunner):
 
         task_info["migr_source_resources"] = replica_resources_info[
             "migr_resources"]
-        migr_connection_info = base.marshal_migr_conn_info(
-            replica_resources_info["connection_info"])
+        migr_connection_info = replica_resources_info.get("connection_info")
+        if migr_connection_info:
+            migr_connection_info = base.marshal_migr_conn_info(
+                migr_connection_info)
+            schemas.validate_value(
+                migr_connection_info,
+                schemas.CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA,
+                # NOTE: we avoid raising so that the cleanup task
+                # can [try] to deal with the temporary resources.
+                raise_on_error=False)
+
         task_info["migr_source_connection_info"] = migr_connection_info
 
         return task_info
@@ -223,6 +246,7 @@ class DeployReplicaTargetResourcesTask(base.TaskRunner):
     def run(self, ctxt, instance, origin, destination, task_info,
             event_handler):
         target_environment = destination.get("target_environment") or {}
+        export_info = task_info['export_info']
 
         provider = providers_factory.get_provider(
             destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
@@ -233,13 +257,30 @@ class DeployReplicaTargetResourcesTask(base.TaskRunner):
 
         replica_resources_info = provider.deploy_replica_target_resources(
             ctxt, connection_info, target_environment, volumes_info)
+        schemas.validate_value(
+            replica_resources_info,
+            schemas.CORIOLIS_DISK_SYNC_RESOURCES_INFO_SCHEMA,
+            # NOTE: we avoid raising so that the cleanup task
+            # can [try] to deal with the temporary resources.
+            raise_on_error=False)
 
-        task_info["volumes_info"] = replica_resources_info["volumes_info"]
+        volumes_info = _check_ensure_volumes_info_ordering(
+            export_info, replica_resources_info["volumes_info"])
+
+        task_info["volumes_info"] = volumes_info
         task_info["migr_target_resources"] = replica_resources_info[
             "migr_resources"]
 
+        migr_connection_info = replica_resources_info["connection_info"]
         migr_connection_info = base.marshal_migr_conn_info(
-            replica_resources_info["connection_info"])
+            migr_connection_info)
+        schemas.validate_value(
+            migr_connection_info,
+            schemas.CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA,
+            # NOTE: we avoid raising so that the cleanup task
+            # can [try] to deal with the temporary resources.
+            raise_on_error=False)
+
         task_info["migr_target_connection_info"] = migr_connection_info
 
         return task_info
@@ -362,6 +403,7 @@ class CreateReplicaDiskSnapshotsTask(base.TaskRunner):
 class DeleteReplicaDiskSnapshotsTask(base.TaskRunner):
     def run(self, ctxt, instance, origin, destination, task_info,
             event_handler):
+        export_info = task_info['export_info']
         provider = providers_factory.get_provider(
             destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
             event_handler)
@@ -371,10 +413,11 @@ class DeleteReplicaDiskSnapshotsTask(base.TaskRunner):
 
         volumes_info = provider.delete_replica_disk_snapshots(
             ctxt, connection_info, volumes_info)
-        if volumes_info:
-            raise exception.CoriolisException(
-                "'volumes_info' should be void after disk deletion: %s" % (
-                    volumes_info))
+        schemas.validate_value(
+            volumes_info, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)
+
+        volumes_info = _check_ensure_volumes_info_ordering(
+            export_info, volumes_info)
 
         task_info["volumes_info"] = volumes_info
 
@@ -524,6 +567,8 @@ class UpdateSourceReplicaTask(base.TaskRunner):
             source_provider.check_update_source_environment_params(
                 ctxt, origin_connection_info, instance, volumes_info,
                 old_source_env, new_source_env))
+        schemas.validate_value(
+            volumes_info, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)
 
         task_info['volumes_info'] = volumes_info
 
