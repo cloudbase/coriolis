@@ -21,3 +21,6 @@ if [ ! -f $parent_config_file]; then
 fi
 
 ansible-playbook -v $basedir/build.yml -e @$config_file -e @$parent_config_file
+
+echo "Building coriolis-web-proxy container."
+bash "$basedir/../proxy_build.sh"

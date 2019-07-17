@@ -50,6 +50,6 @@ LICENSING_UI_PORT=`python $get_config_value -c $config_file -n "coriolis_licensi
 LICENSING_UI_BASE_URL="http://127.0.0.1:$LICENSING_UI_PORT"
 python $set_config_value -c $parent_config_file -n "licensing_ui_server_base_url" -v "$LICENSING_UI_BASE_URL"
 
-docker rm -f coriolis-web-proxy
-echo "Re-running web-proxy container deployment for licensing UI setup."
-bash $basedir/../deploy.sh
+echo "Deploying coriolis-web-proxy container"
+docker rm -f coriolis-web-proxy || true
+bash "$basedir/../proxy_deploy.sh"

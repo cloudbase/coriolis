@@ -17,7 +17,7 @@
         force: yes
         version: "{{ item.version }}"
       with_items:
-        - { url: "git@github.com:cloudbase/coriolis-licensing-ui.git", name: coriolis-licensing-ui, version: master}
+        - { url: "git@bitbucket.org:cloudbase/coriolis-licensing-ui.git", name: coriolis-licensing-ui, version: master}
 
     - name: Building Coriolis Licensing UI Docker image
       docker_image: path=./build dockerfile={{item.dockerfile}} name={{ docker_registry }}/{{ coriolis_containers_namespace }}/{{item.name}} pull=False push={{ docker_push_images}} tag={{ docker_images_tag }}
