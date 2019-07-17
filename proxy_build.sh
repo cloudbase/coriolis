@@ -16,7 +16,4 @@ if [ ! -f $config_file ]; then
     cp $config_file.sample $config_file
 fi
 
-ansible-playbook -v $basedir/build.yml -e @$config_file
-
-echo "Building Coriolis Web proxy component."
-bash $basedir/proxy_build.sh
+ansible-playbook -v $basedir/proxy_build.yml -e @$config_file
