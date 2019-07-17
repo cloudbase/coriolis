@@ -49,6 +49,9 @@ ansible-playbook -v $basedir/deploy.yml \
 echo "Deploying Coriolis worker component configured to use Controller host IP $VIP"
 bash $basedir/deploy_worker.sh "$VIP"
 
+echo "Deploying Coriolis web proxy component"
+bash $basedir/proxy_deploy.sh
+
 CORIOLIS_CLIENT_PATH="/root/python-coriolisclient"
 if [ ! -d $CORIOLIS_CLIENT_PATH ]; then
     git clone https://github.com/cloudbase/python-coriolisclient "$CORIOLIS_CLIENT_PATH"
