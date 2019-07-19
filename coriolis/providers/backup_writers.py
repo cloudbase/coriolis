@@ -20,8 +20,8 @@ LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
 opts = [
     cfg.BoolOpt('compress_transfers',
-               default=True,
-               help='Use compression if possible during disk transfers'),
+                default=True,
+                help='Use compression if possible during disk transfers'),
 ]
 CONF.register_opts(opts)
 
