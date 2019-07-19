@@ -32,7 +32,6 @@
           BARBICAN_ENDPOINT_URL: "{{ barbican_endpoint_url }}"
           CORIOLIS_BASE_ENDPOINT_URL: "{{ coriolis_base_endpoint_url }}"
           CORIOLIS_LICENSING_BASE_URL: "{{ licensing_server_base_url }}"
-          CORIOLIS_LICENSING_UI_BASE_URL: "{{ licensing_ui_server_base_url }}"
           CORIOLIS_INTERNAL_URL: "{{ coriolis_internal_url }}"
         volumes:
         - "{{ coriolis_certs_path_host }}:{{ coriolis_certs_path }}:ro"
