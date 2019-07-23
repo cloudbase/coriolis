@@ -9,6 +9,7 @@ import uuid
 from oslo_log import log as logging
 
 from coriolis import exception
+from coriolis import utils
 from coriolis.osmorphing import base
 
 LOG = logging.getLogger(__name__)
@@ -146,9 +147,21 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
         self._conn.exec_ps_command("Dismount-DiskImage '%s'" % path,
                                    ignore_stdout=True)
 
-    def _expand_archive(self, path, destination):
+    @utils.retry_on_error()
+    def _expand_archive(self, path, destination, overwrite=True):
         LOG.info("Expanding archive \"%(path)s\" in \"%(destination)s\"",
                  {"path": path, "destination": destination})
+
+        if self._conn.test_path(destination):
+            LOG.info("Destination folder %s already exists" % destination)
+            if overwrite:
+                if destination.endswith(":\\") or ":\\Windows" in destination:
+                    LOG.warn(
+                        "Not removing target directory, as it is either the "
+                        "root directory or is within the Windows directory")
+                else:
+                    self._conn.exec_ps_command(
+                        "rm -recurse -force %s" % destination)
         self._conn.exec_ps_command(
             "if(([System.Management.Automation.PSTypeName]"
             "'System.IO.Compression.ZipFile').Type -or "
