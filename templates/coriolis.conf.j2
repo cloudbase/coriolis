@@ -66,6 +66,11 @@ vixdisklib_compatibility_version = 6.0
 # vixDiskLib to override the system's libglib by prepending the system's
 # library paths (for 16.04 and 18.04, respectively):
 vixdisklib_library_directory = /lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:{{ vmware_vix_disklib_path }}
+
+# Whether or not Coriolis should attempt to automatically enable CBT on
+# the VM before Replication.
+# This requires that the VM have no pre-existing snapshots.
+automatically_enable_cbt = false
 {% endif %}
 
 {% if 'aws' in export_providers or 'aws' in import_providers %}
