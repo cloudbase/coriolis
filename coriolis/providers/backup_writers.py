@@ -16,14 +16,16 @@ from coriolis import data_transfer
 from coriolis import exception
 from coriolis import utils
 
-LOG = logging.getLogger(__name__)
+
 CONF = cfg.CONF
 opts = [
     cfg.BoolOpt('compress_transfers',
-               default=True,
-               help='Use compression if possible during disk transfers'),
+                default=True,
+                help='Use compression if possible during disk transfers'),
 ]
 CONF.register_opts(opts)
+
+LOG = logging.getLogger(__name__)
 
 
 class BaseBackupWriterImpl(with_metaclass(abc.ABCMeta)):
@@ -213,8 +215,21 @@ class SSHBackupWriter(BaseBackupWriter):
     def _get_impl(self, path, disk_id):
         ssh = self._connect_ssh()
 
-        path = [v for v in self._volumes_info
-                if v["disk_id"] == disk_id][0]["volume_dev"]
+        matching_devs = [
+            v for v in self._volumes_info if v["disk_id"] == disk_id]
+
+        if not matching_devs:
+            base_msg = (
+                "Could not locate disk with ID '%s' in volumes_info" % disk_id)
+            LOG.error("%s: %s", base_msg, self._volumes_info)
+            raise exception.CoriolisException(base_msg)
+        elif len(matching_devs) > 1:
+            base_msg = (
+                "Multiple disks with ID '%s' in volumes_info" % disk_id)
+            LOG.error("%s: %s", base_msg, self._volumes_info)
+            raise exception.CoriolisException(base_msg)
+
+        path = matching_devs[0]["volume_dev"]
         impl = SSHBackupWriterImpl(path, disk_id)
 
         self._copy_helper_cmd(ssh)

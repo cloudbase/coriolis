@@ -1,0 +1,28 @@
+{
+  "$schema": "http://cloudbase.it/coriolis/schemas/disk_sync_resources_info#",
+  "type": "object",
+  "description": "Information returned after the 'DEPLOY_REPLICA_TARGET_RESOURCES' task and passed to 'REPLICATE_DISKS', as well as for 'DEPLOY_DISK_COPY_RESOURCES' and 'COPY_DISKS_DATA'. The only required property is the 'volumes_info', and the provider plugins may freely declare and use any other fields.",
+  "properties": {
+    "volumes_info": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "description": "Object with information on the replicated volumes. Provider plugins may add their fields as required.",
+        "properties": {
+          "disk_id": {
+            "type": "string",
+            "description": "String ID of the source disk the replicated volume corresponds to."
+          },
+          "volume_dev": {
+            "type": "string",
+            "description": "String device path (ex: /dev/sdc) from within the temporary minion VM where the disk was attached."
+          }
+        },
+        "required": ["disk_id", "volume_dev"],
+        "additionalProperties": true
+      }
+    }
+  },
+  "required": ["volumes_info"],
+  "additionalProperties": true
+}

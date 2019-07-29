@@ -10,6 +10,8 @@ import jsonschema
 from oslo_log import log as logging
 
 from coriolis import exception
+from coriolis import utils 
+
 
 LOG = logging.getLogger(__name__)
 
@@ -31,6 +33,11 @@ _CORIOLIS_SOURCE_OPTIONS_SCHEMA_NAME = "source_options_schema.json"
 _CORIOLIS_NETWORK_MAP_SCHEMA_NAME = "network_map_schema.json"
 _CORIOLIS_STORAGE_MAPPINGS_SCHEMA_NAME = "storage_mappings_schema.json"
 _CORIOLIS_VM_STORAGE_SCHEMA_NAME = "vm_storage_schema.json"
+_CORIOLIS_VOLUMES_INFO_SCHEMA_NAME = "volumes_info_schema.json"
+_CORIOLIS_DISK_SYNC_RESOURCES_INFO_SCHEMA_NAME = (
+    "disk_sync_resources_info_schema.json")
+_CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA_NAME = (
+    "disk_sync_resources_conn_info_schema.json")
 
 
 def get_schema(package_name, schema_name,
@@ -51,16 +58,26 @@ def get_schema(package_name, schema_name,
     return schema
 
 
-def validate_value(val, schema, format_checker=None):
+def validate_value(val, schema, format_checker=None, raise_on_error=True):
     """Simple wrapper for jsonschema.validate for usability.
-
     NOTE: silently passes empty schemas.
+
+    If `raise_on_error` is False, returns a boolean indicating whether
+    or not the validation was successful.
     """
     try:
         jsonschema.validate(val, schema, format_checker=format_checker)
     except jsonschema.exceptions.ValidationError as ex:
-        raise exception.SchemaValidationException(
-            "Schema validation failed: %s" % str(ex))
+        if raise_on_error:
+            raise exception.SchemaValidationException(
+                "Schema validation failed: %s" % str(ex))
+        else:
+            LOG.warn(
+                "Schema validation failed, ignoring: %s",
+                utils.get_exception_details())
+        return False
+
+    return True
 
 
 def validate_string(json_string, schema):
@@ -102,3 +119,12 @@ CORIOLIS_STORAGE_MAPPINGS_SCHEMA = get_schema(
 
 CORIOLIS_VM_STORAGE_SCHEMA = get_schema(
     __name__, _CORIOLIS_VM_STORAGE_SCHEMA_NAME)
+
+CORIOLIS_VOLUMES_INFO_SCHEMA = get_schema(
+    __name__, _CORIOLIS_VOLUMES_INFO_SCHEMA_NAME)
+
+CORIOLIS_DISK_SYNC_RESOURCES_INFO_SCHEMA = get_schema(
+    __name__, _CORIOLIS_DISK_SYNC_RESOURCES_INFO_SCHEMA_NAME)
+
+CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA = get_schema(
+    __name__, _CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA_NAME)

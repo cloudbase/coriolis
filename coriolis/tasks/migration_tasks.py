@@ -76,13 +76,26 @@ class DeployDiskCopyResources(base.TaskRunner):
             ctxt, connection_info, target_environment,
             instance_deployment_info)
 
-        conn_info = resources_info[
+        instance_deployment_info = resources_info["instance_deployment_info"]
+        schemas.validate_value(
+            instance_deployment_info,
+            schemas.CORIOLIS_DISK_SYNC_RESOURCES_INFO_SCHEMA,
+            # NOTE: we avoid raising so that the cleanup task
+            # can [try] to deal with the temporary resources.
+            raise_on_error=False)
+
+        disk_sync_conn_info = resources_info[
             "instance_deployment_info"]["disk_sync_connection_info"]
-        conn_info = base.marshal_migr_conn_info(conn_info)
-        task_info["instance_deployment_info"] = resources_info[
-            "instance_deployment_info"]
-        task_info["instance_deployment_info"][
-            "disk_sync_connection_info"] = conn_info
+        disk_sync_conn_info = base.marshal_migr_conn_info(
+            disk_sync_conn_info)
+        schemas.validate_value(
+            disk_sync_conn_info,
+            schemas.CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA)
+        instance_deployment_info[
+            'disk_sync_connection_info'] = disk_sync_conn_info
+
+        task_info["instance_deployment_info"] = instance_deployment_info
+
         # We need to retain export info until after disk sync
         # TODO(gsamfira): remove this when we implement multi-worker, and by
         # extension some external storage for needed resources (like swift)
@@ -95,7 +108,14 @@ class CopyDiskData(base.TaskRunner):
     def run(self, ctxt, instance, origin, destination, task_info,
             event_handler):
         instance_deployment_info = task_info["instance_deployment_info"]
+        schemas.validate_value(
+            instance_deployment_info['disk_sync_connection_info'],
+            schemas.CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA)
+
         volumes_info = instance_deployment_info["volumes_info"]
+        schemas.validate_value(
+            {"volumes_info": volumes_info},
+            schemas.CORIOLIS_DISK_SYNC_RESOURCES_INFO_SCHEMA)
         LOG.info("Volumes info is: %r" % volumes_info)
 
         image_paths = [i.get("disk_image_uri") for i in volumes_info]
