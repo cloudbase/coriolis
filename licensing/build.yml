@@ -10,14 +10,15 @@
       template: src=Dockerfile.server.j2 dest=./build/Dockerfile.server
 
     - name: Cloning coriolis git repositories
+      vars:
+        custom_repo_owner: "{{ custom_repo_owner_names['licensing']|default ('cloudbase') }}"
+        custom_repo_branch: "{{ custom_repo_branch_names['licensing']|default ('master') }}"
       git:
-        repo: "{{ item.url }}"
-        dest: "./build/{{item.name}}"
+        repo: "git@bitbucket.org:{{ custom_repo_owner }}/coriolis-licensing-server.git"
+        dest: "./build/coriolis-licensing-server"
         update: yes
         force: yes
-        version: "{{ item.version }}"
-      with_items:
-        - { url: "git@bitbucket.org:cloudbase/coriolis-licensing-server.git", name: coriolis-licensing-server, version: master}
+        version: "{{ custom_repo_branch }}"
 
     - name: Building coriolis docker images
       docker_image: path=./build dockerfile={{item.dockerfile}} name={{ docker_registry }}/{{ coriolis_containers_namespace }}/{{item.name}} pull=False push={{ docker_push_images}} tag={{ docker_images_tag }}
