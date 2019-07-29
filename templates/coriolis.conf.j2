@@ -450,21 +450,27 @@ cloudbaseinit_x64_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x6
 {% endif %}
 
 {% if 'scvmm' in export_providers or 'scvmm' in import_providers %}
-[hyperv_migration_provider]
-# UNC path of the share which os mounted on the Coriolis Worker performing the migration.
-coriolis_share_path = \\10.7.1.10\Public\coriolis-hyperv-exports
+[scvmm_migration_provider]
+# Export parameters:
 
-# The local path of the mounted share on the Coriolis Worker
-# (the local path of the 'coriolis_share_path').
-coriolis_share_local_path = {{ hyperv_share_local_path }}
+# Attempt application consistent snapshots, and if that fails, fallback to
+# crash consistent snapshots.
+fallback_to_crash_consistent_snapshots = true
 
-# Relative path (with respect to 'coriolis_share_path')
-# of the folder containing the Hyper-V backup tool.
-share_backup_tool_path = HVBackup_1.0.1
+# Verify the SSL certificate of the RTC service.
+# Set this to false if using a self signed certificate.
+verify_rct_server = false
 
-# Relative path (with respect to 'coriolis_share_path')
-# of the directory in which to export the backup ZIPs.
-share_backup_subdirectory = Coriolis-Exports
+# Import parameters:
+
+# Default vm templates used for worker instances during migrations
+# migr_template_name_map =
+
+# Default migration template guest OS username.
+# migr_template_username_map =
+
+# Cloud name, used for scheduling VMs.
+# cloud_name =
 {% endif %}
 
 [serialization]
