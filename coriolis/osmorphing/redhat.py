@@ -146,7 +146,6 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
             self.disable_predictable_nic_names()
             self._write_nic_configs(nics_info)
             return
-            # self._set_dhcp_net_config(ifcfgs_ethernet)
 
         ifcfgs_ethernet = self._get_ifcfgs_by_type("Ethernet")
         mac_addresses = [ni.get("mac_address") for ni in nics_info]

@@ -44,13 +44,13 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
         cfg = utils.Grub2ConfigEditor(contents)
         cfg.append_to_option(
             "GRUB_CMDLINE_LINUX_DEFAULT",
-            {"opt_type": "key_val", "opt_key": "net.ifaces", "opt_val": 0})
+            {"opt_type": "key_val", "opt_key": "net.ifnames", "opt_val": 0})
         cfg.append_to_option(
             "GRUB_CMDLINE_LINUX_DEFAULT",
             {"opt_type": "key_val", "opt_key": "biosdevname", "opt_val": 0})
         cfg.append_to_option(
             "GRUB_CMDLINE_LINUX",
-            {"opt_type": "key_val", "opt_key": "net.ifaces", "opt_val": 0})
+            {"opt_type": "key_val", "opt_key": "net.ifnames", "opt_val": 0})
         cfg.append_to_option(
             "GRUB_CMDLINE_LINUX",
             {"opt_type": "key_val", "opt_key": "biosdevname", "opt_val": 0})
