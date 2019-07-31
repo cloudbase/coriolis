@@ -36,6 +36,10 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
             self._version_id = version_id
             return ('SUSE', release)
 
+    def disable_predictable_nic_names(self):
+        # TODO(gsamfira): implement once we have networking support
+        pass
+
     def set_net_config(self, nics_info, dhcp):
         # TODO(alexpilotti): add networking support
         pass

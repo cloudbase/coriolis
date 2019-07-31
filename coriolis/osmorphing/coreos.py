@@ -13,6 +13,9 @@ class BaseCoreOSMorphingTools(base.BaseLinuxOSMorphingTools):
             version = os_release.get("VERSION_ID")
             return (name, version)
 
+    def disable_predictable_nic_names(self):
+        pass
+
     def pre_packages_install(self, package_names):
         pass
 
