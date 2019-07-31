@@ -644,13 +644,14 @@ class Grub2ConfigEditor(object):
                     }
                 )
                 continue
+
             quoted = False
             # should extend to single quotes
             if vals[1].startswith('"') and vals[1].endswith('"'):
                 quoted = True
                 vals[1] = vals[1].strip('"')
 
-            if vals[1][0] in string.punctuation or len(vals[1]) == 0:
+            if len(vals[1]) == 0 or vals[1][0] in string.punctuation:
                 ret.append(
                     {
                         "type": "option",
@@ -785,11 +786,16 @@ class Grub2ConfigEditor(object):
                     flat.append("%s=%s" % (val["opt_key"], val["opt_val"]))
                 else:
                     flat.append(str(val["opt_val"]))
-            print(flat)
+
+            if len(flat) == 0:
+                tmp.write("%s=\n" % line["option_name"])
+                continue
+
             val = " ".join(flat)
             quoted = line["quoted"]
             if len(flat) > 1:
                 quoted = True
+
             fmt = '%s=%s' % (line["option_name"], val)
             if quoted:
                 fmt = '%s="%s"' % (line["option_name"], val)
