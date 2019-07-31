@@ -622,8 +622,6 @@ class Grub2ConfigEditor(object):
     """
     def __init__(self, cfg):
         self._cfg = cfg
-        if os.path.isfile(self._cfg) is False:
-            raise IOError("config %s does not exist" % cfg)
         self._parsed = self._parse_cfg(self._cfg)
 
     def _parse_cfg(self, cfg):
