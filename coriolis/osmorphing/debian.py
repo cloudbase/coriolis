@@ -3,6 +3,7 @@
 
 import os
 
+from coriolis import utils
 from coriolis.osmorphing import base
 
 
@@ -20,6 +21,29 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
             release = self._read_file(
                 debian_version_path).decode().split('\n')[0]
             return ('Debian', release)
+
+    def disable_predictable_nic_names(self):
+        grub_cfg = os.path.join(
+            self._os_root_dir,
+            "etc/default/grub")
+        if self._test_path(grub_cfg) is False:
+            return
+        contents = self._read_file(grub_cfg).decode()
+        cfg = utils.Grub2ConfigEditor(contents)
+        cfg.append_to_option(
+            "GRUB_CMDLINE_LINUX_DEFAULT",
+            {"opt_type": "key_val", "opt_key": "net.ifaces", "opt_val": 0})
+        cfg.append_to_option(
+            "GRUB_CMDLINE_LINUX_DEFAULT",
+            {"opt_type": "key_val", "opt_key": "biosdevname", "opt_val": 0})
+        cfg.append_to_option(
+            "GRUB_CMDLINE_LINUX",
+            {"opt_type": "key_val", "opt_key": "net.ifaces", "opt_val": 0})
+        cfg.append_to_option(
+            "GRUB_CMDLINE_LINUX",
+            {"opt_type": "key_val", "opt_key": "biosdevname", "opt_val": 0})
+        self._write_file_sudo(grub_cfg, cfg.dump())
+        self._exec_cmd_chroot("/usr/sbin/update-grub")
 
     def set_net_config(self, nics_info, dhcp):
         if dhcp:

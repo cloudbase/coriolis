@@ -46,6 +46,10 @@ class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
     def set_net_config(self, nics_info, dhcp):
         pass
 
+    @abc.abstractmethod
+    def disable_predictable_nic_names(self):
+        pass
+
     def get_packages(self):
         return [], []
 
