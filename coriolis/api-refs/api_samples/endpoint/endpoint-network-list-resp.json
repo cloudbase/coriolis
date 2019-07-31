@@ -1,0 +1,12 @@
+{
+  "networks": [
+    {
+      "id": "2734b848-1e4a-4e94-b566-71060d913f80",
+      "name": "shared"
+    },
+    {
+      "id": "a57e180a-5626-459e-b59b-bd5491ebef6d",
+      "name": "public"
+    }
+  ]
+}

@@ -1,0 +1,500 @@
+{
+  "migration": {
+    "created_at": "2019-07-10T07:24:09.000000",
+    "updated_at": "2019-07-10T08:39:05.000000",
+    "deleted_at": null,
+    "deleted": "0",
+    "base_id": "1e31443d-5eb1-403f-9f15-c67a2c372bc3",
+    "user_id": "7cf9b4745d514517b3eae440438136bc",
+    "project_id": "ffc16db2011e41f28152897c279b6bcc",
+    "destination_environment": {
+        "storage_mappings": {
+          "lvmdriver-1": "lvm-1"
+        },
+        "keypair_name": "new-key",
+        "delete_disks_on_vm_termination": false,
+        "migr_image_map": {
+            "linux": "ubuntu-xenial-img",
+            "windows": "63d8f1a4-3192-4edc-b113-0d099b4bc458"
+        },
+        "migr_network": "provider-net",
+        "port_reuse_policy": "keep_mac",
+        "set_dhcp": true
+    },
+    "type": "migration",
+    "instances": ["windows"],
+    "reservation_id": null,
+    "notes": "",
+    "origin_endpoint_id": "b59051a2-bbf3-4fb7-a1eb-539db55339dc",
+    "destination_endpoint_id": "6258fa20-5d1f-44fa-ae12-c94122263fa3",
+    "transfer_result": null,
+    "network_map": {},
+    "storage_mappings": {},
+    "source_environment": {},
+    "id": "1e31443d-5eb1-403f-9f15-c67a2c372bc3",
+    "replica_id": null,
+    "status": "COMPLETED",
+    "tasks": [
+      {
+        "created_at": "2019-07-10T07:24:09.000000",
+        "updated_at": "2019-07-10T07:24:29.000000",
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "d96e46ec-5ba4-4a5c-b320-a3e49ecbefa1",
+        "execution_id": "20281dd8-b00e-4801-99e4-39d7fae7ed76",
+        "instance": "windows",
+        "host": "coriolis-worker",
+        "process_id": 11,
+        "status": "COMPLETED",
+        "task_type": "VALIDATE_MIGRATION_INPUTS",
+        "exception_details": null,
+        "depends_on": null,
+        "on_error": false,
+        "progress_updates": [
+          {
+            "created_at": "2019-07-10T07:24:28.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "2b61da21-5bb6-49de-a133-75564d8b9515",
+            "task_id": "d96e46ec-5ba4-4a5c-b320-a3e49ecbefa1",
+            "current_step": 2,
+            "total_steps": null,
+            "message": "Checking Migration shape name"
+          },
+          {
+            "created_at": "2019-07-10T07:24:14.000000",
+            "updated_at": "2019-07-10T07:24:28.000000",
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "393e8919-5a62-46ba-a4fb-717c2204a5c9",
+            "task_id": "d96e46ec-5ba4-4a5c-b320-a3e49ecbefa1",
+            "current_step": 1,
+            "total_steps": null,
+            "message": "Checking Migration Subnet ID"
+          }
+        ],
+        "events": []
+      },
+      {
+        "created_at": "2019-07-10T07:24:09.000000",
+        "updated_at": "2019-07-10T07:35:05.000000",
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "d06411ae-14c8-45c4-b88f-4e89a7fb5f8b",
+        "execution_id": "20281dd8-b00e-4801-99e4-39d7fae7ed76",
+        "instance": "windows",
+        "host": "coriolis-worker",
+        "process_id": 16,
+        "status": "COMPLETED",
+        "task_type": "EXPORT_INSTANCE",
+        "exception_details": null,
+        "depends_on": [
+          "d96e46ec-5ba4-4a5c-b320-a3e49ecbefa1"
+        ],
+        "on_error": false,
+        "progress_updates": [
+          {
+            "created_at": "2019-07-10T07:24:33.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "0ef15984-e199-4a03-99b9-ee3399e5e01c",
+            "task_id": "d06411ae-14c8-45c4-b88f-4e89a7fb5f8b",
+            "current_step": 2,
+            "total_steps": null,
+            "message": "Shutting down instance"
+          },
+          {
+            "created_at": "2019-07-10T07:34:58.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "1e05f34f-d2fa-4935-9420-54817a8ade92",
+            "task_id": "d06411ae-14c8-45c4-b88f-4e89a7fb5f8b",
+            "current_step": 6,
+            "total_steps": null,
+            "message": "Removing instance snapshot"
+          }
+        ],
+        "events": []
+      },
+      {
+        "created_at": "2019-07-10T07:24:09.000000",
+        "updated_at": "2019-07-10T07:35:13.000000",
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "be6a2540-c14f-4043-9a8e-cf3a5fb7d341",
+        "execution_id": "20281dd8-b00e-4801-99e4-39d7fae7ed76",
+        "instance": "windows",
+        "host": "coriolis-worker",
+        "process_id": 23,
+        "status": "COMPLETED",
+        "task_type": "GET_OPTIMAL_FLAVOR",
+        "exception_details": null,
+        "depends_on": [
+          "d06411ae-14c8-45c4-b88f-4e89a7fb5f8b"
+        ],
+        "on_error": false,
+        "progress_updates": [
+          {
+            "created_at": "2019-07-10T07:35:12.000000",
+            "updated_at": "2019-07-10T07:35:13.000000",
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "d422865d-9216-4a01-9a4d-0391c52e9a4a",
+            "task_id": "be6a2540-c14f-4043-9a8e-cf3a5fb7d341",
+            "current_step": 1,
+            "total_steps": null,
+            "message": "Selected flavor: VM.Standard2.2"
+          }
+        ],
+        "events": []
+      },
+      {
+        "created_at": "2019-07-10T07:24:09.000000",
+        "updated_at": "2019-07-10T07:35:34.000000",
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "e7c00014-9355-4718-bdc9-438eba3f96bc",
+        "execution_id": "20281dd8-b00e-4801-99e4-39d7fae7ed76",
+        "instance": "windows",
+        "host": "coriolis-worker",
+        "process_id": 28,
+        "status": "COMPLETED",
+        "task_type": "IMPORT_INSTANCE",
+        "exception_details": null,
+        "depends_on": [
+          "be6a2540-c14f-4043-9a8e-cf3a5fb7d341"
+        ],
+        "on_error": false,
+        "progress_updates": [
+          {
+            "created_at": "2019-07-10T07:35:17.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "1e0b4339-b6de-40fb-bdc2-f7eaafa8c583",
+            "task_id": "e7c00014-9355-4718-bdc9-438eba3f96bc",
+            "current_step": 2,
+            "total_steps": null,
+            "message": "Looking for boot volume with tags: {'coriolis_boot_volume_type': 'BIOS', 'launch_mode': 'pv'} and fw type BIOS"
+          },
+          {
+            "created_at": "2019-07-10T07:35:17.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "ff8f4580-fecb-4c3c-b2c3-262e62d29032",
+            "task_id": "e7c00014-9355-4718-bdc9-438eba3f96bc",
+            "current_step": 1,
+            "total_steps": null,
+            "message": "Creating volumes from images"
+          }
+        ],
+        "events": []
+      },
+      {
+        "created_at": "2019-07-10T07:24:09.000000",
+        "updated_at": "2019-07-10T07:37:48.000000",
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "8b00c6bc-39ea-4c13-923a-870968005798",
+        "execution_id": "20281dd8-b00e-4801-99e4-39d7fae7ed76",
+        "instance": "windows",
+        "host": "coriolis-worker",
+        "process_id": 33,
+        "status": "COMPLETED",
+        "task_type": "DEPLOY_DISK_COPY_RESOURCES",
+        "exception_details": null,
+        "depends_on": [
+          "e7c00014-9355-4718-bdc9-438eba3f96bc"
+        ],
+        "on_error": false,
+        "progress_updates": [
+          {
+            "created_at": "2019-07-10T07:35:38.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "139751d1-92a8-445c-848f-a8da60d239a2",
+            "task_id": "8b00c6bc-39ea-4c13-923a-870968005798",
+            "current_step": 2,
+            "total_steps": null,
+            "message": "Launching worker instance"
+          },
+          {
+            "created_at": "2019-07-10T07:37:46.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "19bb283c-8d9a-4f15-9556-cc2134043c41",
+            "task_id": "8b00c6bc-39ea-4c13-923a-870968005798",
+            "current_step": 6,
+            "total_steps": null,
+            "message": "Attaching iscsi volumes"
+          }
+        ],
+        "events": []
+      },
+      {
+        "created_at": "2019-07-10T07:24:09.000000",
+        "updated_at": "2019-07-10T08:31:46.000000",
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "29b522ae-1d69-4d55-8a06-25fbcb3145af",
+        "execution_id": "20281dd8-b00e-4801-99e4-39d7fae7ed76",
+        "instance": "windows",
+        "host": "coriolis-worker",
+        "process_id": 38,
+        "status": "COMPLETED",
+        "task_type": "COPY_DISK_DATA",
+        "exception_details": null,
+        "depends_on": [
+          "8b00c6bc-39ea-4c13-923a-870968005798"
+        ],
+        "on_error": false,
+        "progress_updates": [
+          {
+            "created_at": "2019-07-10T07:38:56.000000",
+            "updated_at": "2019-07-10T08:31:45.000000",
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "4c1097ad-97ad-46a8-af76-befbfe64d062",
+            "task_id": "29b522ae-1d69-4d55-8a06-25fbcb3145af",
+            "current_step": 2,
+            "total_steps": null,
+            "message": "Disk copy progress for 4e9850d5-b215-49d0-951e-b9a266708706: 100%"
+          },
+          {
+            "created_at": "2019-07-10T07:37:50.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "8ecc239f-8b90-47b7-80e3-8fb7a3315e8a",
+            "task_id": "29b522ae-1d69-4d55-8a06-25fbcb3145af",
+            "current_step": 1,
+            "total_steps": null,
+            "message": "Waiting for connectivity on 130.61.21.174:22"
+          }
+        ],
+        "events": []
+      },
+      {
+        "created_at": "2019-07-10T07:24:09.000000",
+        "updated_at": "2019-07-10T08:35:04.000000",
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "0723cf36-3fd8-4a31-b7ed-f3a86e83e0d5",
+        "execution_id": "20281dd8-b00e-4801-99e4-39d7fae7ed76",
+        "instance": "windows",
+        "host": "coriolis-worker",
+        "process_id": 46,
+        "status": "COMPLETED",
+        "task_type": "DELETE_DISK_COPY_RESOURCES",
+        "exception_details": null,
+        "depends_on": [
+          "29b522ae-1d69-4d55-8a06-25fbcb3145af"
+        ],
+        "on_error": true,
+        "progress_updates": [
+          {
+            "created_at": "2019-07-10T08:31:51.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "20e4c5fd-0205-4e6b-8720-dc4fbb92ca25",
+            "task_id": "0723cf36-3fd8-4a31-b7ed-f3a86e83e0d5",
+            "current_step": 2,
+            "total_steps": null,
+            "message": "Deleting worker instance"
+          },
+          {
+            "created_at": "2019-07-10T08:31:51.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "3163791e-330a-427e-b766-431a428cf40b",
+            "task_id": "0723cf36-3fd8-4a31-b7ed-f3a86e83e0d5",
+            "current_step": 1,
+            "total_steps": null,
+            "message": "Removing worker instance resources"
+          }
+        ],
+        "events": []
+      },
+      {
+        "created_at": "2019-07-10T07:24:09.000000",
+        "updated_at": "2019-07-10T08:38:19.000000",
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "1588d7a4-e8f4-43eb-9c34-917172e8b5c6",
+        "execution_id": "20281dd8-b00e-4801-99e4-39d7fae7ed76",
+        "instance": "windows",
+        "host": "coriolis-worker",
+        "process_id": 51,
+        "status": "COMPLETED",
+        "task_type": "DEPLOY_OS_MORPHING_RESOURCES",
+        "exception_details": null,
+        "depends_on": [
+          "0723cf36-3fd8-4a31-b7ed-f3a86e83e0d5"
+        ],
+        "on_error": false,
+        "progress_updates": [
+          {
+            "created_at": "2019-07-10T08:37:54.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "208d2320-89d4-456f-b65c-601ec4ede834",
+            "task_id": "1588d7a4-e8f4-43eb-9c34-917172e8b5c6",
+            "current_step": 5,
+            "total_steps": null,
+            "message": "Attaching volumes to migration worker"
+          },
+          {
+            "created_at": "2019-07-10T08:38:15.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "3c22630d-65bd-44fa-9c1b-bb86e5a3cc48",
+            "task_id": "1588d7a4-e8f4-43eb-9c34-917172e8b5c6",
+            "current_step": 6,
+            "total_steps": null,
+            "message": "Attaching iscsi volumes"
+          }
+        ],
+        "events": []
+      },
+      {
+        "created_at": "2019-07-10T07:24:09.000000",
+        "updated_at": "2019-07-10T08:39:05.000000",
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "fb4f407d-8ff8-4b99-82b0-912a4cd157e3",
+        "execution_id": "20281dd8-b00e-4801-99e4-39d7fae7ed76",
+        "instance": "windows",
+        "host": "coriolis-worker",
+        "process_id": 56,
+        "status": "COMPLETED",
+        "task_type": "OS_MORPHING",
+        "exception_details": null,
+        "depends_on": [
+          "1588d7a4-e8f4-43eb-9c34-917172e8b5c6"
+        ],
+        "on_error": false,
+        "progress_updates": [
+          {
+            "created_at": "2019-07-10T08:38:23.000000",
+            "updated_at": "2019-07-10T08:39:00.000000",
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "15485692-4ca7-4e5d-9b5d-d67818cb676c",
+            "task_id": "fb4f407d-8ff8-4b99-82b0-912a4cd157e3",
+            "current_step": 4,
+            "total_steps": null,
+            "message": "Enabling cloudbase-init"
+          },
+          {
+            "created_at": "2019-07-10T08:38:23.000000",
+            "updated_at": "2019-07-10T08:38:59.000000",
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "756e14b8-54a7-40ce-b743-4d59f34bc407",
+            "task_id": "fb4f407d-8ff8-4b99-82b0-912a4cd157e3",
+            "current_step": 3,
+            "total_steps": null,
+            "message": "Adding cloudbase-init"
+          }
+        ],
+        "events": []
+      },
+      {
+        "created_at": "2019-07-10T07:24:09.000000",
+        "updated_at": "2019-07-10T08:42:43.000000",
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "51d91e9e-0aa9-4705-bb66-1f5600cd0c69",
+        "execution_id": "20281dd8-b00e-4801-99e4-39d7fae7ed76",
+        "instance": "windows",
+        "host": "coriolis-worker",
+        "process_id": 61,
+        "status": "COMPLETED",
+        "task_type": "DELETE_OS_MORPHING_RESOURCES",
+        "exception_details": null,
+        "depends_on": [
+          "fb4f407d-8ff8-4b99-82b0-912a4cd157e3"
+        ],
+        "on_error": true,
+        "progress_updates": [
+          {
+            "created_at": "2019-07-10T08:39:10.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "52437c05-8aa4-4e37-bf0f-0c353026e04e",
+            "task_id": "51d91e9e-0aa9-4705-bb66-1f5600cd0c69",
+            "current_step": 2,
+            "total_steps": null,
+            "message": "Deleting worker instance"
+          },
+          {
+            "created_at": "2019-07-10T08:39:10.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "f33087ef-f19a-4c6a-b25d-7255d0e01992",
+            "task_id": "51d91e9e-0aa9-4705-bb66-1f5600cd0c69",
+            "current_step": 1,
+            "total_steps": null,
+            "message": "Removing worker instance resources"
+          }
+        ],
+        "events": []
+      },
+      {
+        "created_at": "2019-07-10T07:24:09.000000",
+        "updated_at": "2019-07-10T08:43:39.000000",
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "8627044c-3ad8-4087-8df5-a56f5c897cfe",
+        "execution_id": "20281dd8-b00e-4801-99e4-39d7fae7ed76",
+        "instance": "windows",
+        "host": "coriolis-worker",
+        "process_id": 66,
+        "status": "COMPLETED",
+        "task_type": "FINALIZE_IMPORT_INSTANCE",
+        "exception_details": null,
+        "depends_on": [
+          "51d91e9e-0aa9-4705-bb66-1f5600cd0c69"
+        ],
+        "on_error": false,
+        "progress_updates": [
+          {
+            "created_at": "2019-07-10T08:42:46.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "017c79fb-2f7b-492e-8d54-16e9e78cb6fe",
+            "task_id": "8627044c-3ad8-4087-8df5-a56f5c897cfe",
+            "current_step": 1,
+            "total_steps": null,
+            "message": "Launching instance windows"
+          },
+          {
+            "created_at": "2019-07-10T08:42:48.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "187fa3c5-086b-4bbb-b45d-00eb1489b1ca",
+            "task_id": "8627044c-3ad8-4087-8df5-a56f5c897cfe",
+            "current_step": 2,
+            "total_steps": null,
+            "message": "Waiting for machine to come online"
+          }
+        ],
+        "events": []
+      }
+    ]
+  }
+}

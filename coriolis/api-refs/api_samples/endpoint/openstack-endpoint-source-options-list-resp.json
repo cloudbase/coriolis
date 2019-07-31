@@ -1,0 +1,25 @@
+{
+  "source_options": [
+    {
+      "name": "intermediate_volume_format",
+      "values": [
+        "raw",
+        "vmdk",
+        "qcow",
+        "qcow2",
+        "vhd",
+        "vhdx"
+      ],
+      "config_default": "qcow2"
+    },
+    {
+      "name": "volume_backups_container",
+      "values": [
+        "coriolis",
+        "test",
+        "test2"
+      ],
+      "config_default": "coriolis"
+    }
+  ]
+}

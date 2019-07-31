@@ -1,0 +1,173 @@
+{
+  "schemas": {
+    "connection_info_schema": {
+      "$schema": "http://cloudbase.it/coriolis/schemas/openstack_connection#",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "identity_api_version": {
+              "type": "integer",
+              "title": "Identity API Version",
+              "description": "Version of the Identity API to use.",
+              "minimum": 2,
+              "maximum": 3,
+              "default": 2
+            },
+            "username": {
+              "type": "string",
+              "title": "Username",
+              "description": "The OpenStack user."
+            },
+            "password": {
+              "type": "string",
+              "title": "Password",
+              "description": "The password for the OpenStack user."
+            },
+            "project_name": {
+              "type": "string",
+              "title": "Project Name",
+              "description": "Name of the project/tenant for the OpenStack user."
+            },
+            "user_domain_name": {
+              "type": "string",
+              "title": "User Domain Name",
+              "description": "The name of the user domain."
+            },
+            "user_domain_id": {
+              "type": "string",
+              "title": "User Domain ID",
+              "description": "The ID of the user domain."
+            },
+            "project_domain_name": {
+              "type": "string",
+              "title": "Project Domain Name",
+              "description": "The name of the project domain."
+            },
+            "project_domain_id": {
+              "type": "string",
+              "title": "Project Domain ID",
+              "description": "The ID of the project domain."
+            },
+            "auth_url": {
+              "type": "string",
+              "title": "Authentication URL",
+              "description": "The full URL of the public endpoint of the authentication service (Keystone) for the OpenStack platform. Must include the port number as well as the API version path element. ('/v2.0' for Keystone v2 and '/v3' for Keystone v3)"
+            },
+            "glance_api_version": {
+              "type": "integer",
+              "title": "Glance API Version",
+              "description": "The API used by the OpenStack Image Service.(Glance)",
+              "minimum": 1,
+              "maximum": 2,
+              "default": 1
+            },
+            "allow_untrusted": {
+              "type": "boolean",
+              "title": "Allow Untrusted",
+              "description": "Whether or not to accept HTTPS connections with self-signed or untrusted certificates when interacting with the APIs of both the authentication service (Keystone) as well the other non-Swift services.",
+              "default": false
+            },
+            "allow_untrusted_swift": {
+              "type": "boolean",
+              "title": "Allow Untrusted Swift",
+              "description": "Whether or not to accept HTTPS connections with self-signed or untrusted certificates when interacting with the API of the OpenStack's Object Storage Service. (Swift or RADOS Gateway) Only used when Replicating from a source OpenStack which has Cinder-backup configured to use Swift.",
+              "default": false
+            },
+            "region_name": {
+              "type": "string",
+              "title": "Region Name",
+              "description": "The name of the OpenStack region to use."
+            },
+            "nova_region_name": {
+              "type": "string",
+              "title": "Nova Region Name",
+              "description": "The region name of the Openstack Compute Service (Nova)."
+            },
+            "neutron_region_name": {
+              "type": "string",
+              "title": "Neutron Region Name",
+              "description": "The region name of the OpenStack Networking Service (Neutron)."
+            },
+            "glance_region_name": {
+              "type": "string",
+              "title": "Glance Region Name",
+              "description": "The region name of the OpenStack Image Service (Glance)."
+            },
+            "cinder_region_name": {
+              "type": "string",
+              "title": "Cinder Region Name",
+              "description": "The region name of the OpenStack Block Storage Service (Cinder)."
+            },
+            "swift_region_name": {
+              "type": "string",
+              "title": "Swift Region Name",
+              "description": "The region name of the Openstack Object Storage Service(Swift or RADOS Gateway) Only used when Replicating from a source OpenStack which has Cinder-backup configured to use Swift/RADOS."
+            },
+            "interface_name": {
+              "type": "string",
+              "title": "Interface Name",
+              "description": "The name of the interface to use for all services. If a specific interface is required for different services, please use the option afferent to each service."
+            },
+            "nova_interface_name": {
+              "type": "string",
+              "title": "Nova Interface Name",
+              "description": "The interface name for the Openstack Compute Service (Nova)."
+            },
+            "neutron_interface_name": {
+              "type": "string",
+              "title": "Neutron Interface Name",
+              "description": "The interface name of the OpenStack Networking Service (Neutron)."
+            },
+            "glance_interface_name": {
+              "type": "string",
+              "title": "Glance Interface Name",
+              "description": "The interface name of the OpenStack Image Service (Glance)."
+            },
+            "cinder_interface_name": {
+              "type": "string",
+              "title": "Cinder Interface Name",
+              "description": "The interface name of the OpenStack Block Storage Service (Cinder)."
+            },
+            "swift_interface_name": {
+              "type": "string",
+              "title": "Swift Interface Name",
+              "description": "The interface name of the Openstack Object Storage Service(Swift or RADOS Gateway) Only used when Replicating from a source OpenStack which has Cinder-backup configured to use Swift/RADOS."
+            }
+          },
+          "required": [
+            "identity_api_version",
+            "username",
+            "password",
+            "project_name",
+            "auth_url"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "secret_ref": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          "required": [
+            "secret_ref"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

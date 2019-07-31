@@ -1,0 +1,317 @@
+
+{
+  "execution": {
+    "created_at": "2019-07-24T21:04:16.000000",
+    "updated_at": null,
+    "deleted_at": null,
+    "deleted": "0",
+    "id": "328a4586-591c-4ce1-b22d-001fc0b59646",
+    "action_id": "7a7731ab-4802-449d-88d3-5960636affe9",
+    "status": "RUNNING",
+    "number": 1,
+    "tasks": [
+      {
+        "created_at": "2019-07-24T21:04:16.000000",
+        "updated_at": "2019-07-24T21:04:45.000000",
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "0c83740e-3b4b-4f4e-81c4-d8ba7277328d",
+        "execution_id": "328a4586-591c-4ce1-b22d-001fc0b59646",
+        "instance": "CI/openwrt",
+        "host": "coriolis-worker",
+        "process_id": 172,
+        "status": "COMPLETED",
+        "task_type": "GET_INSTANCE_INFO",
+        "exception_details": null,
+        "depends_on": null,
+        "on_error": false,
+        "events": [],
+        "progress_updates": [
+          {
+            "created_at": "2019-07-24T21:04:41.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "bf42d0de-3e3b-4207-9e38-fa5f69c2a352",
+            "task_id": "0c83740e-3b4b-4f4e-81c4-d8ba7277328d",
+            "current_step": 2,
+            "total_steps": null,
+            "message": "Retrieving virtual machine data"
+          },
+          {
+            "created_at": "2019-07-24T21:04:40.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "f4bf42f3-afd9-4dbd-85ac-ff7157a03a57",
+            "task_id": "0c83740e-3b4b-4f4e-81c4-d8ba7277328d",
+            "current_step": 1,
+            "total_steps": null,
+            "message": "Connecting to vSphere host"
+          }
+        ]
+      },
+      {
+        "created_at": "2019-07-24T21:04:16.000000",
+        "updated_at": "2019-07-24T21:04:50.000000",
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "2b2c6b79-161f-4d3f-bb9a-d8fba62f328b",
+        "execution_id": "328a4586-591c-4ce1-b22d-001fc0b59646",
+        "instance": "CI/openwrt",
+        "host": "coriolis-worker",
+        "process_id": 184,
+        "status": "COMPLETED",
+        "task_type": "VALIDATE_REPLICA_DESTINATION_INPUTS",
+        "exception_details": null,
+        "depends_on": [
+          "0c83740e-3b4b-4f4e-81c4-d8ba7277328d"
+        ],
+        "on_error": false,
+        "events": [],
+        "progress_updates": [
+          {
+            "created_at": "2019-07-24T21:04:49.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "255db471-c72b-4db4-adb0-e2d263f27138",
+            "task_id": "2b2c6b79-161f-4d3f-bb9a-d8fba62f328b",
+            "current_step": 3,
+            "total_steps": null,
+            "message": "Checking configured OSMorphing worker image"
+          },
+          {
+            "created_at": "2019-07-24T21:04:49.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "5496f33a-c4aa-4ce7-ac29-ca5ef4425749",
+            "task_id": "2b2c6b79-161f-4d3f-bb9a-d8fba62f328b",
+            "current_step": 2,
+            "total_steps": null,
+            "message": "Checking configured Linux worker image"
+          }
+        ]
+      },
+      {
+        "created_at": "2019-07-24T21:04:16.000000",
+        "updated_at": "2019-07-24T21:04:49.000000",
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "2fd931f7-4303-4186-bb98-9cdb433d8390",
+        "execution_id": "328a4586-591c-4ce1-b22d-001fc0b59646",
+        "instance": "CI/openwrt",
+        "host": "coriolis-worker",
+        "process_id": 177,
+        "status": "COMPLETED",
+        "task_type": "VALIDATE_REPLICA_SOURCE_INPUTS",
+        "exception_details": null,
+        "depends_on": null,
+        "on_error": false,
+        "events": [],
+        "progress_updates": [
+          {
+            "created_at": "2019-07-24T21:04:45.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "aebe21e0-b1b1-44c3-ac47-8b0b78bac508",
+            "task_id": "2fd931f7-4303-4186-bb98-9cdb433d8390",
+            "current_step": 3,
+            "total_steps": null,
+            "message": "Compiling export info for VM 'CI/openwrt'"
+          }
+        ]
+      },
+      {
+        "created_at": "2019-07-24T21:04:16.000000",
+        "updated_at": "2019-07-24T21:04:56.000000",
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "f6d48106-7fba-4687-812d-ec8bb6f94c08",
+        "execution_id": "328a4586-591c-4ce1-b22d-001fc0b59646",
+        "instance": "CI/openwrt",
+        "host": "coriolis-worker",
+        "process_id": 189,
+        "status": "COMPLETED",
+        "task_type": "DEPLOY_REPLICA_DISKS",
+        "exception_details": null,
+        "depends_on": [
+          "2fd931f7-4303-4186-bb98-9cdb433d8390",
+          "2b2c6b79-161f-4d3f-bb9a-d8fba62f328b"
+        ],
+        "on_error": false,
+        "events": [],
+        "progress_updates": [
+          {
+            "created_at": "2019-07-24T21:04:53.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "21909647-9a09-4c51-8692-682b7f039a88",
+            "task_id": "f6d48106-7fba-4687-812d-ec8bb6f94c08",
+            "current_step": 1,
+            "total_steps": null,
+            "message": "Creating volume"
+          }
+        ]
+      },
+      {
+        "created_at": "2019-07-24T21:04:16.000000",
+        "updated_at": "2019-07-24T21:04:58.000000",
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "b4fcb5a7-d8e1-4e03-9d42-bda15bad1831",
+        "execution_id": "328a4586-591c-4ce1-b22d-001fc0b59646",
+        "instance": "CI/openwrt",
+        "host": "coriolis-worker",
+        "process_id": 194,
+        "status": "RUNNING",
+        "task_type": "DEPLOY_REPLICA_SOURCE_RESOURCES",
+        "exception_details": null,
+        "depends_on": [
+          "f6d48106-7fba-4687-812d-ec8bb6f94c08"
+        ],
+        "on_error": false,
+        "events": [],
+        "progress_updates": []
+      },
+      {
+        "created_at": "2019-07-24T21:04:16.000000",
+        "updated_at": "2019-07-24T21:04:58.000000",
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "6452b8bd-e517-41ae-8af5-0f547227cdee",
+        "execution_id": "328a4586-591c-4ce1-b22d-001fc0b59646",
+        "instance": "CI/openwrt",
+        "host": "coriolis-worker",
+        "process_id": 195,
+        "status": "RUNNING",
+        "task_type": "DEPLOY_REPLICA_TARGET_RESOURCES",
+        "exception_details": null,
+        "depends_on": [
+          "f6d48106-7fba-4687-812d-ec8bb6f94c08"
+        ],
+        "on_error": false,
+        "events": [],
+        "progress_updates": []
+      },
+      {
+        "created_at": "2019-07-24T21:04:16.000000",
+        "updated_at": null,
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "cc9ca1c6-51fd-4d2d-95cf-1dfc9b4bb4f7",
+        "execution_id": "328a4586-591c-4ce1-b22d-001fc0b59646",
+        "instance": "CI/openwrt",
+        "host": null,
+        "process_id": null,
+        "status": "PENDING",
+        "task_type": "REPLICATE_DISKS",
+        "exception_details": null,
+        "depends_on": [
+          "b4fcb5a7-d8e1-4e03-9d42-bda15bad1831",
+          "6452b8bd-e517-41ae-8af5-0f547227cdee"
+        ],
+        "on_error": false,
+        "events": [],
+        "progress_updates": []
+      },
+      {
+        "created_at": "2019-07-24T21:04:16.000000",
+        "updated_at": null,
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "b5f5f08e-7fef-4f84-a987-aed75d33649a",
+        "execution_id": "328a4586-591c-4ce1-b22d-001fc0b59646",
+        "instance": "CI/openwrt",
+        "host": null,
+        "process_id": null,
+        "status": "PENDING",
+        "task_type": "DELETE_REPLICA_SOURCE_RESOURCES",
+        "exception_details": null,
+        "depends_on": [
+          "cc9ca1c6-51fd-4d2d-95cf-1dfc9b4bb4f7"
+        ],
+        "on_error": true,
+        "events": [],
+        "progress_updates": []
+      },
+      {
+        "created_at": "2019-07-24T21:04:16.000000",
+        "updated_at": null,
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "423c09ba-8686-46f4-86dc-ddb611a8b222",
+        "execution_id": "328a4586-591c-4ce1-b22d-001fc0b59646",
+        "instance": "CI/openwrt",
+        "host": null,
+        "process_id": null,
+        "status": "PENDING",
+        "task_type": "DELETE_REPLICA_TARGET_RESOURCES",
+        "exception_details": null,
+        "depends_on": [
+          "cc9ca1c6-51fd-4d2d-95cf-1dfc9b4bb4f7"
+        ],
+        "on_error": true,
+        "events": [],
+        "progress_updates": []
+      }
+    ],
+    "action": {
+      "created_at": "2019-07-24T21:04:16.000000",
+      "updated_at": "2019-07-24T21:04:56.000000",
+      "deleted_at": null,
+      "deleted": "0",
+      "base_id": "7a7731ab-4802-449d-88d3-5960636affe9",
+      "user_id": "7cf9b4745d514517b3eae440438136bc",
+      "project_id": "ffc16db2011e41f28152897c279b6bcc",
+      "destination_environment": {
+        "network_map": {
+          "VM Network": "93b7cbd8-0ac6-4b4d-a90a-48eb445b869f"
+        },
+        "storage_mappings": {
+          "backend_mappings": [
+            {
+              "source": "afsan1",
+              "destination": "lvmdriver-1"
+            }
+          ],
+          "disk_mappings": [
+            {
+              "disk_id": "3000",
+              "destination": "lvmdriver-1"
+            }
+          ]
+        }
+      },
+      "type": "replica",
+      "instances": ["CI/openwrt"],
+      "reservation_id": null,
+      "notes": "",
+      "origin_endpoint_id": "15a0d68a-40c3-40cd-bcc4-aba390c4c4e1",
+      "destination_endpoint_id": "e19100c7-cc6e-4890-9ce6-4d638b1b5ede",
+      "transfer_result": null,
+      "network_map": {
+        "VM Network": "93b7cbd8-0ac6-4b4d-a90a-48eb445b869f"
+      },
+      "storage_mappings": {
+        "backend_mappings": [
+          {
+            "source": "afsan1",
+            "destination": "lvmdriver-1"
+          }
+        ],
+        "disk_mappings": [
+          {
+            "disk_id": "3000",
+            "destination": "lvmdriver-1"
+          }
+        ]
+      },
+      "source_environment": {},
+      "id": "7a7731ab-4802-449d-88d3-5960636affe9"
+    }
+  }
+}

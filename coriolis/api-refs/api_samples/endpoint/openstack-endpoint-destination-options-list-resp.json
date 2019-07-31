@@ -1,0 +1,85 @@
+{
+  "destination_options": [
+    {
+      "name": "migr_network",
+      "values": [
+        "shared",
+        "public"
+      ],
+      "config_default": "private"
+    },
+    {
+      "name": "migr_fip_pool_name",
+      "values": ["public"],
+      "config_default": "public"
+    },
+    {
+      "name": "security_groups",
+      "values": ["default""def-grp"],
+      "config_default": []
+    },
+    {
+      "name": "migr_image_map",
+      "values": [
+        {
+          "id": "d41963eb-507a-4763-b50a-2c9eeb96a3de",
+          "name": "xenial-qcow",
+          "os_type": "linux"
+        },
+        {
+          "id": "4e9850d5-b215-49d0-951e-b9a266708706",
+          "name": "windows2012-vhd",
+          "os_type": "windows"
+        }
+      ],
+      "config_default": {
+        "linux": "xenial-qcow",
+        "windows": "windows2012-vhd"
+      }
+    },
+    {
+      "name": "keypair_name",
+      "values": [
+        "kp-windows",
+        "kp-xenial"
+      ]
+    },
+    {
+      "name": "migr_flavor_name",
+      "values": [
+        "m1.tiny",
+        "m1.small",
+        "m1.medium",
+        "m1.large",
+        "m1.nano",
+        "m1.xlarge",
+        "m1.micro",
+        "cirros256",
+        "ds512M",
+        "ds1G",
+        "ds2G",
+        "ds4G",
+        "windows2012"
+      ],
+      "config_default": "m1.small"
+    },
+    {
+      "name": "flavor_name",
+      "values": [
+        "m1.tiny",
+        "m1.small",
+        "m1.medium",
+        "m1.large",
+        "m1.nano",
+        "m1.xlarge",
+        "m1.micro",
+        "cirros256",
+        "ds512M",
+        "ds1G",
+        "ds2G",
+        "ds4G",
+        "windows2012"
+      ]
+    }
+  ]
+}

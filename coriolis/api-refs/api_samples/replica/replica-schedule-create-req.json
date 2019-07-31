@@ -1,0 +1,10 @@
+{
+  "enabled": true,
+  "shutdown_instance": false,
+  "schedule": {
+    "month": 7,
+    "hour": 20,
+    "minute": 30,
+    "dom": 23
+  }
+}

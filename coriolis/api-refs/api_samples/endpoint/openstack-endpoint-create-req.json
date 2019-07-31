@@ -1,0 +1,31 @@
+{
+  "endpoint": {
+    "connection_info": {
+      "username": "admin",
+      "project_name": "admin",
+      "user_domain_id": "default",
+      "allow_untrusted": true,
+      "identity_api_version": 3,
+      "glance_api_version": 2,
+      "auth_url": "http://25.48.0.101/identity/v3",
+      "password": "Passw0rd",
+      "allow_untrusted_swift": true,
+      "project_domain_id": "default",
+      "region_name": "RegionOne",
+      "nova_region_name": "RegionOne",
+      "neutron_region_name": "RegionOne",
+      "glance_region_name": "RegionOne",
+      "cinder_region_name": "RegionOne",
+      "swift_region_name": "RegionOne",
+      "interface_name": "publicURL",
+      "nova_interface_name": "publicURL",
+      "neutron_interface_name": "publicURL",
+      "glance_interface_name": "publicURL",
+      "cinder_interface_name": "publicURL",
+      "swift_interface_name": "publicURL"
+    },
+    "type": "openstack",
+    "name": "Endpoint Name Example",
+    "description": "Example Endpoint Description"
+  }
+}

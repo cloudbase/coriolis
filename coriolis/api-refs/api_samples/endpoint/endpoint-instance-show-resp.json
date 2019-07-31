@@ -1,0 +1,41 @@
+{
+  "instance": {
+    "num_cpu": 1,
+    "num_cores_per_socket": 1,
+    "memory_mb": 2048,
+    "nested_virtualization": false,
+    "name": "ubuntu-xenial",
+    "id": "3ba07383-6726-4bf8-82d5-d5ce871519bc",
+    "flavor_name": "m1.small",
+    "devices": {
+      "nics": [
+        {
+          "name": "025cbc3d-7779-4686-9ca9-8ce0a5895172",
+          "id": "025cbc3d-7779-4686-9ca9-8ce0a5895172",
+          "mac_address": "fa:16:3e:2b:7b:db",
+          "ip_addresses": [
+            "10.0.0.23"
+          ],
+          "network_id": "1bd79664-8d62-477e-9a12-96595ae1dbe1",
+          "network_name": "private"
+        }
+      ],
+      "disks": [
+        {
+          "format": "raw",
+          "guest_device": "/dev/sda",
+          "size_bytes": 21474836480,
+          "path": "",
+          "id": "1d4a25a6-70a3-4784-ab89-cf7fc205be2d",
+          "storage_backend_identifier": "lvmdriver-1"
+        }
+      ],
+      "cdroms": [],
+      "serial_ports": [],
+      "floppies": [],
+      "controllers": []
+    },
+    "os_type": "linux",
+    "instance_name": "ubuntu-xenial"
+  }
+}

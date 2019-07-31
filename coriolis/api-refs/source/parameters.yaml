@@ -1,0 +1,802 @@
+# path variables
+endpoint_id_path:
+  description: |
+    The id of the endpoint.
+  in: path
+  required: true
+  type: uuid
+execution_id_path:
+  description: |
+    The id of the replica execution.
+  in: path
+  required: true
+  type: uuid
+instance_name_base64_path:
+  description: |
+    The name of the instance in base64
+  in: path
+  required: true
+  type: string
+migration_id_path:
+  description: |
+    The id of the migration
+  in: path
+  required: true
+  type: uuid
+platform:
+  description: |
+    The type of cloud service platform.
+  in: path
+  type: string
+  required: true
+provider_id:
+  description: |
+    The ID of cloud service provider.
+  in: path
+  type: integer
+  required: true
+replica_id_path:
+  description: |
+    The id of the replica.
+  in: path
+  type: uuid
+  required: true
+replica_schedule_id_path:
+  description: |
+    The ID of the replica schedule.
+  in: path
+  type: uuid
+  required: true
+replica_tasks_execution_id_path:
+  description: |
+     The id of the replica execution.
+  in: path
+  type: uuid
+  required: true
+# query variables
+instance_limit:
+  description: |
+    Returns a number of items up to a limit value.
+  in: query
+  required: false
+  type: integer
+# body variables
+base_id:
+  description: |
+    The id of the migration in the mariadb database.
+  in: body
+  type: string
+  required: true
+connection_info:
+  description: >
+    A JSON encoded or a barbican secret ref containing password, username and
+    other cloud-specific information for connection to an endpoint.
+  in: body
+  type: object
+  required: true
+connection_info_schema:
+  description: |
+    Object containing the connection info schema of the platform.
+  in: body
+  type: object
+  required: false
+destination_environment:
+  description: |
+    JSON containing the options of how the instance will be
+    configured on the destination cloud differently from the
+    source cloud, such as network mapping.
+  in: body
+  type: object
+  required: true
+destination_environment_schema:
+  description: |
+    Object containing the destination environment schema of the platform.
+  in: body
+  type: object
+  required: false
+destination_options:
+  description: |
+    An array that contains the parameter options possible for
+    a migration or replica with the endpoint as destination.
+  in: body
+  type: object
+  required: true
+endpoint_created_at:
+  description: |
+    ISO 8601 formatted date of endpoint creation.
+  in: body
+  type: string
+  required: true
+endpoint_deleted:
+  description: |
+    Integer representing whether endpoint is deleted or not. (0 or 1)
+  in: body
+  type: integer
+  required: true
+endpoint_deleted_at:
+  description: |
+    ISO 8601 formatted date of endpoint deletion.
+  in: body
+  type: string
+  required: true
+endpoint_description:
+  description: |
+    The description of the endpoint.
+  in: body
+  type: string
+  required: true
+endpoint_id:
+  description: |
+    The id of a cloud endpoint.
+  in: body
+  type: uuid
+  required: true
+endpoint_name:
+  description: |
+    The name of the endpoint.
+  in: body
+  type: string
+  required: true
+endpoint_object:
+  description: |
+    An endpoint object containing name, id, type, and connection information.
+  in: body
+  type: object
+  required: true
+endpoint_type:
+  description: |
+    The type of cloud service platform.
+  in: body
+  type: string
+  required: true
+endpoint_updated_at:
+  description: |
+    ISO 8601 formatted date of when the endpoint was last updated.
+  in: body
+  type: string
+  required: true
+endpoints_array:
+  description: |
+    Array of endpoint objects.
+  in: body
+  type: array
+  required: true
+instance_array:
+  description: |
+    Array of instance objects
+  in: body
+  type: array
+  required: true
+instance_cores_per_socket:
+  description: |
+    Number of cores per socket used by the instance.
+  in: body
+  type: integer
+  required: false
+instance_devices:
+  description: |
+    Object containing information about instance devices like NICs, disks, etc.
+  in: body
+  type: object
+  required: true
+instance_flavor:
+  description: |
+    Name or ID of the flavor used by the instance.
+  in: body
+  type: string
+  required: true
+instance_id:
+  description: |
+    The id of the instance.
+  in: body
+  type: uuid
+  required: true
+instance_identifier:
+  description: |
+    The unique identifier of a virtual machine.
+  in: body
+  type: string
+  required: true
+instance_memory_mb:
+  description: |
+    The memory of the instance in MB.
+  in: body
+  type: integer
+  required: true
+instance_name:
+  description: |
+    The name of an instance.
+  in: body
+  type: string
+  required: true
+instance_nested_virtualization:
+  description: |
+    Whether the instance is run on a nested virtualization environment.
+  in: body
+  type: boolean
+  required: false
+instance_num_cpu:
+  description: |
+    The numbers of CPUs of an instance.
+  in: body
+  type: string
+  required: true
+instance_object:
+  description: |
+    Object containing information about the requested instance.
+  in: body
+  type: object
+  required: true
+instance_os_type:
+  description: |
+    The OS type of an instance.
+  in: body
+  type: string
+  required: true
+migration_cancel:
+  description: |
+    Object containing information about the type of migration cancellation.
+  in: body
+  type: string
+  required: true
+migration_cancel_force:
+  description: |
+    Boolean representing whether the migration cancellation is forced.
+  in: body
+  type: boolean
+  required: true
+migration_clone_disks:
+  description: |
+    Boolean representing whether the migration is started from replicated disks.
+  in: body
+  type: boolean
+  required: true
+migration_created_at:
+  description: |
+    Timestamp of migration creation.
+  in: body
+  type: string
+  required: true
+migration_deleted:
+  description: |
+    Whether a migration is deleted or not.
+    1 for deleted
+    0 for not deleted
+  in: body
+  type: integer
+  required: true
+migration_deleted_at:
+  description: |
+    The timestamp of deletion for a migration.
+  in: body
+  type: object
+  required: true
+migration_destination_endpoint_id:
+  description: |
+    The id of the migration destination cloud endpoint.
+  in: body
+  type: uuid
+  required: true
+migration_force:
+  description: |
+    Boolean representing whether the migration is forced or not.
+  in: body
+  type: boolean
+  required: true
+migration_id:
+  description: |
+    The id of a coriolis migration.
+  in: body
+  type: uuid
+  required: true
+migration_info:
+  description: |
+    Information about the instance that is migrated.
+  in: body
+  type: object
+  required: true
+migration_instances:
+  description: |
+    An array of all instance identifiers to be migrated.
+  in: body
+  type: array
+  required: true
+migration_notes:
+  description: |
+    Notes about the migration.
+  in: body
+  type: object
+  required: true
+migration_object:
+  description: |
+    Object containing migration details.
+  in: body
+  type: object
+  required: true
+migration_origin_endpoint_id:
+  description: |
+    The id of the migration source cloud endpoint.
+  in: body
+  type: uuid
+  required: true
+migration_replica_id:
+  description: |
+    id of the replica if the migration is created from one.
+  in: body
+  type: uuid
+  required: true
+migration_status:
+  description: |
+    Migration status, can either be ``RUNNING``, ``ERROR`` or ``COMPLETED``.
+  in: body
+  type: string
+  required: true
+migration_tasks:
+  description: |
+    The array of tasks that the migration is going through,
+    contains id,instance name, status, and other details about
+    each task.
+  in: body
+  type: array
+  required: true
+migration_type:
+  description: |
+    The type of migration, can also be a replica.
+  in: body
+  type: string
+  required: true
+migration_updated_at:
+  description: |
+    Timestamp of last migration update.
+  in: body
+  type: string
+  required: true
+migrations_array:
+  description: |
+    Array of migration objects.
+  in: body
+  type: array
+  required: true
+network_id:
+  description: |
+    The unique identifier of a network.
+  in: body
+  type: uuid
+  required: true
+network_map:
+  description: |
+    Object containing the network mapping.
+  in: body
+  type: object
+  required: true
+network_name:
+  description: |
+    The name of a network.
+  type: string
+  in: body
+  required: true
+networks_array:
+  description: |
+    An array of ``network`` objects.
+  type: string
+  in: body
+  required: true
+option_config_default:
+  description: |
+    The default option for the destination parameter.
+  in: body
+  type: string
+  required: true
+option_name:
+  description: |
+    The name of the destination parameter.
+  in: body
+  type: string
+  required: true
+option_values:
+  description: |
+    An array of possible values for the respective destination parameter.
+  in: body
+  type: array
+  required: true
+project_id:
+  description: |
+    Coriolis supports multiple projects, this is the respective project's id.
+  in: body
+  type: uuid
+  required: true
+provider_schemas:
+  description: |
+    Object containing the requested provider schema.
+  in: body
+  type: object
+  required: true
+provider_type:
+  description: |
+    The type of cloud service provider.
+  in: body
+  type: array
+  required: true
+provider_types:
+  description: |
+    Array containing the provider types that a platform currently supports.
+  in: body
+  type: array
+  required: true
+providers:
+  description: |
+    Array that contains all the available types of cloud service providers
+  in: body
+  type: array
+  required: true
+replica_action_id:
+  description: |
+    Id of the replica excution.
+  in: body
+  type: uuid
+  required: true
+replica_created_at:
+  description: |
+    Timestamp of replica creation.
+  in: body
+  type: string
+  required: true
+replica_delete_disks:
+  description: |
+    An object that describes delete disk replica action.
+  in: body
+  type: object
+  required: true
+replica_deleted:
+  description: |
+    Value representing whether the replica is deleted or not
+  in: body
+  type: integer
+  required: true
+replica_deleted_at:
+  description: |
+    Timestamp of replica deletion if applicable.
+  in: body
+  type: string
+  required: true
+replica_destination_endpoint_id:
+  description: |
+    The id of the destination cloud endpoint for the replica action.
+  in: body
+  type: uuid
+  required: true
+replica_destination_environment:
+  description: |
+    The configuration on the destination cloud provider for the replica.
+  in: body
+  type: string
+  required: false
+replica_execution:
+  description: |
+    An ``execution`` object.
+  in: body
+  type: object
+  required: true
+replica_execution_action:
+  description: |
+    An ``action`` object regarding the specific operation.
+  in: body
+  type: array
+  required: true
+replica_execution_array:
+  description: |
+    An array of ``execution`` objects.
+  in: body
+  type: array
+  required: true
+replica_execution_created_at:
+  description: |
+    Timestamp of creation time of the replica execution.
+  in: body
+  type: integer
+  required: true
+replica_execution_deleted:
+  description: |
+    Integer representing whether the execution is deleted or not.
+  in: body
+  type: integer
+  required: true
+replica_execution_deleted_at:
+  description: |
+    Timestamp of deletion time, if applicable for the replica execution.
+  in: body
+  type: integer
+  required: true
+replica_execution_force:
+  description: |
+    A boolean which describes whether to force the cancellation of a replica
+    execution.
+  in: body
+  type: boolean
+  required: true
+replica_execution_id:
+  description: |
+    The id of the replica execution.
+  in: body
+  type: array
+  required: true
+replica_execution_number:
+  description: |
+    Integer representing n'th execution of the replica.
+  in: body
+  type: integer
+  required: true
+replica_execution_object:
+  description: |
+    An ``execution`` object
+  in: body
+  type: boolean
+  required: true
+replica_execution_status:
+  description: >
+    The status of the replica execution, can either be ``RUNNING`` , ``ERROR``
+    or ``COMPLETED``
+  in: body
+  type: string
+  required: true
+replica_execution_tasks:
+  description: |
+    An array of all the tasks regarding a specific replica execution.
+  in: body
+  type: array
+  required: true
+replica_execution_updated_at:
+  description: |
+    Timestamp of last replica execution update.
+  in: body
+  type: string
+  required: true
+replica_id:
+  description: |
+    The id of the replica.
+  in: body
+  type: uuid
+  required: true
+replica_instances:
+  description: |
+    Name array of the  instances to be replicated.
+  in: body
+  type: array
+  required: true
+replica_network_map:
+  description: |
+    Object containing the network mapping.
+  in: body
+  type: object
+  required: false
+replica_notes:
+  description: |
+    Notes about the replica.
+  in: body
+  type: string
+  required: true
+replica_object:
+  description: |
+    Object containing information about a replica.
+  in: body
+  type: object
+  required: true
+replica_origin_endpoint_id:
+  description: |
+    The id of the origin cloud endpoint for the replica action.
+  in: body
+  type: uuid
+  required: true
+replica_schedule:
+  description: |
+    Object containing the schedule information(month, day of month, etc.).
+  in: body
+  type: object
+  required: true
+replica_schedule_created_at:
+  description: |
+    Timestamp of replica schedule creation.
+  in: body
+  type: string
+  required: true
+replica_schedule_day_of_month:
+  description: |
+    The day of the month at which to run.
+  in: body
+  type: integer
+  required: false
+replica_schedule_day_of_week:
+  description: |
+    The day of week in which to run.
+  in: body
+  type: integer
+  required: false
+replica_schedule_deleted:
+  description: |
+    Value representing whether the replica schedule is deleted or not
+  in: body
+  type: string
+  required: true
+replica_schedule_deleted_at:
+  description: |
+    Timestamp of replica schedule deletion if applicable.
+  in: body
+  type: string
+  required: true
+replica_schedule_enabled:
+  description: |
+    Whether the schedule is enabled or not.
+  in: body
+  type: boolean
+  required: true
+replica_schedule_expiration:
+  description: |
+    ISO8601 formatted date which sets the replica schedule expiration date.
+  in: body
+  type: string
+  required: true
+replica_schedule_expiration_request:
+  description: |
+    ISO8601 formatted date which sets the replica schedule expiration date.
+  in: body
+  type: string
+  required: false
+replica_schedule_hour:
+  description: |
+    The hour of the day at which to run.
+  in: body
+  type: integer
+  required: false
+replica_schedule_id:
+  description: |
+    The ID of the replica schedule.
+  in: body
+  type: uuid
+  required: true
+replica_schedule_minute:
+  description: |
+    The minute of the hour at which to run.
+  in: body
+  type: integer
+  required: false
+replica_schedule_month:
+  description: |
+    The month in which to run.
+  in: body
+  type: integer
+  required: false
+replica_schedule_updated_at:
+  description: |
+    Timestamp of last replica schedule update.
+  in: body
+  type: string
+  required: true
+replica_schedules:
+  description: |
+    Array of replica schedules.
+  in: body
+  type: array
+  required: true
+replica_shutdown_instances:
+  description: |
+    A boolean which describes whether the execution to shutdown the source
+    instance for the replication process.
+  in: body
+  type: boolean
+  required: true
+replica_source_environment:
+  description: |
+    The configuration on the source cloud provider for the replica.
+  in: body
+  type: object
+  required: false
+replica_storage_map:
+  description: |
+    Object containing storage backend mapping.
+  in: body
+  type: object
+  required: false
+replica_type:
+  description: |
+    Type of coriolis action, in this case,  a replica.
+  in: body
+  type: string
+  required: true
+replica_update_notes:
+  description: |
+    Notes about the replica.
+  in: body
+  type: string
+  required: false
+replica_updated_at:
+  description: |
+    Timestamp of last replica update.
+  in: body
+  type: string
+  required: true
+replicas_array:
+  description: |
+    Array of replica objects.
+  in: body
+  type: array
+  required: true
+schemas:
+  description: |
+    Object containing the platform's requested schema.
+  in: body
+  type: object
+  required: true
+skip_os_morphing:
+  description: |
+    Boolean whether to skip os morphing or not.
+  in: body
+  type: boolean
+  required: true
+source_environment:
+  description: |
+    JSON containing the options specific to the source cloud of the instance.
+  in: body
+  type: object
+  required: true
+source_environment_schema:
+  description: |
+    Object containing the source environment schema of the platform.
+  in: body
+  type: object
+  required: false
+source_options:
+  description: |
+    An array that contains the parameter options possible for
+    a migration or replica with the endpoint as source.
+  in: body
+  type: object
+  required: true
+storage_backends:
+  description: |
+    Array containing storage backends available to an endpoint.
+  in: body
+  type: array
+  required: true
+storage_id:
+  description: |
+    The unique identifier of a storage backend
+  in: body
+  type: string
+  required: true
+storage_map:
+  description: |
+    Object containing storage backend mapping.
+  in: body
+  type: object
+  required: true
+storage_name:
+  description: |
+    Name of the storage backend
+  in: body
+  type: string
+  required: true
+user_id:
+  description: |
+    Coriolis supports multiple users, this is the respective user's id.
+  in: body
+  type: uuid
+  required: true
+valid_connection:
+  description: |
+    A boolean value representing whether the endpoint connection is valid.
+  in: body
+  type: boolean
+  required: true
+validate_connection:
+  description: |
+    An object that contains the validate connection action for the
+    endpoint connection.
+  in: body
+  type: object
+  required: true
+validation_message:
+  description: |
+    The error message in case of endpoint validation failure.
+  in: body
+  type: string
+  required: true

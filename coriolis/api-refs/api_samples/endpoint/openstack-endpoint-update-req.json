@@ -1,0 +1,30 @@
+{
+  "endpoint": {
+    "connection_info": {
+      "cinder_interface_name": "publicURL",
+      "swift_interface_name": "publicURL",
+      "auth_url": "http://25.48.0.101/identity/v3",
+      "nova_interface_name": "publicURL",
+      "glance_region_name": "RegionOne",
+      "neutron_region_name": "RegionOne",
+      "cinder_region_name": "RegionOne",
+      "glance_api_version": 2,
+      "glance_interface_name": "publicURL",
+      "interface_name": "publicURL",
+      "allow_untrusted_swift": true,
+      "username": "coriolis",
+      "project_name": "coriolis",
+      "project_domain_id": "default",
+      "region_name": "RegionOne",
+      "swift_region_name": "RegionOne",
+      "nova_region_name": "RegionOne",
+      "password": "Passw0rd",
+      "user_domain_id": "default",
+      "allow_untrusted": false,
+      "identity_api_version": 3,
+      "neutron_interface_name": "publicURL"
+    },
+    "name": "Updated Name",
+    "description": "Updated description"
+  }
+}
