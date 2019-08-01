@@ -252,16 +252,21 @@ class SSHBackupWriter(BaseBackupWriter):
             finally:
                 sftp.close()
 
-    @utils.retry_on_error()
+    @utils.retry_on_error(sleep_seconds=30)
     def _connect_ssh(self):
         LOG.info("Connecting to SSH host: %(ip)s:%(port)s" %
                  {"ip": self._ip, "port": self._port})
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(
-            hostname=self._ip,
-            port=self._port,
-            username=self._username,
-            pkey=self._pkey,
-            password=self._password)
+        try:
+            ssh.connect(
+                hostname=self._ip,
+                port=self._port,
+                username=self._username,
+                pkey=self._pkey,
+                password=self._password)
+        except:
+            # No need to log the error as we just raise
+            ssh.close()
+            raise
         return ssh
