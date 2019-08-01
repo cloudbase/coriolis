@@ -74,7 +74,7 @@ def compression_proxy(content, fmt):
             ret.raise_for_status()
             compressed_data = ret.content
         except Exception as err:
-            LOG.error(
+            LOG.exception(
                 "failed to compress using coriolis-compressor: %s" % err)
             LOG.info("falling back to built-in compressor")
             compressed_data = _COMPRESS_FUNC[fmt](content)
@@ -89,7 +89,6 @@ def compression_proxy(content, fmt):
 
     if data_len >= data_len_inflated:
         # No advantage in sending the compressed data
-        LOG.debug("Ignoring compression, not worth")
         compress = False
     else:
         data = compressed_data
