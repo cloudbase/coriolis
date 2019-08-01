@@ -1,5 +1,6 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
+# pylint: disable=anomalous-backslash-in-string
 
 import base64
 import binascii
@@ -15,6 +16,7 @@ import socket
 import subprocess
 import time
 import traceback
+import uuid
 
 import OpenSSL
 from oslo_config import cfg
@@ -39,6 +41,37 @@ logging.register_options(CONF)
 CONF.register_opts(opts)
 
 LOG = logging.getLogger(__name__)
+
+SYSTEMD_TEMPLATE = """
+[Unit]
+Description=Coriolis %(svc_name)s
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%(cmdline)s
+Restart=always
+RestartSec=5s
+User=%(username)s
+
+[Install]
+WantedBy=multi-user.target
+"""
+
+UPSTART_TEMPLATE = """
+# %(svc_name)s - Coriolis %(svc_name)s service
+#
+
+description     "%(svc_name)s service"
+
+start on runlevel [2345]
+stop on runlevel [!2345]
+
+respawn
+umask 022
+
+exec %(cmdline)s
+"""
 
 
 def setup_logging():
@@ -178,7 +211,7 @@ def list_ssh_dir(ssh, remote_path):
 def exec_ssh_cmd(ssh, cmd, environment=None, get_pty=False):
     LOG.debug("Executing SSH command: %s", cmd)
     LOG.debug("SSH command environment: %s", environment)
-    stdin, stdout, stderr = ssh.exec_command(
+    _, stdout, stderr = ssh.exec_command(
         cmd, environment=environment, get_pty=get_pty)
     exit_code = stdout.channel.recv_exit_status()
     std_out = stdout.read()
@@ -498,3 +531,78 @@ def filter_chunking_info_for_task(task_info):
             vol["replica_state"]["chunks"] = "<redacted>"
 
     return cpy
+
+
+def _write_systemd(ssh, cmdline, svcname, run_as=None, start=True):
+    serviceFilePath = "/lib/systemd/system/%s.service" % svcname
+
+    if test_ssh_path(ssh, serviceFilePath):
+        return
+
+    def _reload_and_start(start=True):
+        exec_ssh_cmd(
+            ssh, "sudo systemctl daemon-reload",
+            get_pty=True)
+        if start:
+            exec_ssh_cmd(
+                ssh, "sudo systemctl start %s" % svcname,
+                get_pty=True)
+
+    systemd_args = {
+        "cmdline": cmdline,
+        "username": "root",
+        "svc_name": svcname,
+    }
+    if run_as:
+        systemd_args["username"] = run_as
+
+    systemdService = SYSTEMD_TEMPLATE % systemd_args
+
+    name = str(uuid.uuid4())
+    write_ssh_file(
+        ssh, '/tmp/%s.service' % name, systemdService)
+    exec_ssh_cmd(
+        ssh,
+        "sudo mv /tmp/%s.service %s" % (name, serviceFilePath),
+        get_pty=True)
+    _reload_and_start(start=start)
+
+
+def _write_upstart(ssh, cmdline, svcname, run_as=None, start=True):
+    serviceFilePath = "/etc/init/%s.conf" % svcname
+
+    if test_ssh_path(ssh, serviceFilePath):
+        return
+
+    if run_as:
+        cmdline = "sudo -u %s -- %s" % (run_as, cmdline)
+
+    upstartService = UPSTART_TEMPLATE % {
+        "cmdline": cmdline,
+        "svc_name": svcname,
+    }
+    name = str(uuid.uuid4())
+    write_ssh_file(
+        ssh, '/tmp/%s.conf' % name, upstartService)
+    exec_ssh_cmd(
+        ssh,
+        "sudo mv /tmp/%s.conf %s" % (name, serviceFilePath),
+        get_pty=True)
+    if start:
+        exec_ssh_cmd(ssh, "start %s" % svcname)
+
+
+@retry_on_error()
+def create_service(ssh, cmdline, svcname, run_as=None, start=True):
+    # Simplistic check for init system. We usually use official images,
+    # and none of the supported operating systems come with both upstart
+    # and systemd installed side by side. So if /lib/systemd/system
+    # exists, it's usually systemd enabled. If not, but /etc/init
+    # exists, it's upstart
+    if test_ssh_path(ssh, "/lib/systemd/system"):
+        _write_systemd(ssh, cmdline, svcname, run_as=run_as, start=start)
+    elif test_ssh_path(ssh, "/etc/init"):
+        _write_upstart(ssh, cmdline, svcname, run_as=run_as, start=start)
+    else:
+        raise exception.CoriolisException(
+            "could not determine init system")
