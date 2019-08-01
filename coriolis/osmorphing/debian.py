@@ -97,7 +97,6 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
             return
 
         self.disable_predictable_nic_names()
-        # NOTE: doesn't work with chroot
         if self._test_path("etc/network"):
             ifaces_file = "etc/network/interfaces"
             contents = self._compose_interfaces_config(nics_info)
