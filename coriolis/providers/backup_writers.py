@@ -272,12 +272,6 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
         self._write_error = False
         self._id = None
         self._exception = None
-        self._profile = [{
-            "compress_time": None,
-            "write_time": None,
-            "transferred_compressed": None,
-            "transferred_inflated": None,
-        }]
         self._comp_q = eventlet.Queue(maxsize=5)
         self._sender_q = eventlet.Queue(maxsize=5)
 
@@ -650,16 +644,21 @@ class HTTPBackupWriter(BaseBackupWriter):
         utils.retry_on_error()(
             self._init_writer)(ssh, paths["remote"])
 
-    @utils.retry_on_error()
+    @utils.retry_on_error(sleep_seconds=30)
     def _connect_ssh(self):
         LOG.info("Connecting to SSH host: %(ip)s:%(port)s" %
                  {"ip": self._ip, "port": self._port})
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(
-            hostname=self._ip,
-            port=self._port,
-            username=self._username,
-            pkey=self._pkey,
-            password=self._password)
+        try:
+            ssh.connect(
+                hostname=self._ip,
+                port=self._port,
+                username=self._username,
+                pkey=self._pkey,
+                password=self._password)
+        except:
+            # No need to log the error as we just raise
+            ssh.close()
+            raise
         return ssh
