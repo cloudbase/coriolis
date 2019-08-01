@@ -1,22 +1,21 @@
-import tempfile
-import shutil
-import zipfile
-import json
-import paramiko
 import errno
+import json
 import os
-import time
+import paramiko
 import requests
+import shutil
+import tempfile
+import time
 import uuid
 
-from coriolis import utils
-from coriolis import exception
 from oslo_config import cfg
-
 from oslo_log import log as logging
 from oslo_utils import units
-
 from sshtunnel import SSHTunnelForwarder
+
+from coriolis import exception
+from coriolis import utils
+
 
 LOG = logging.getLogger(__name__)
 
