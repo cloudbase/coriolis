@@ -14,7 +14,7 @@ config_build_file=$basedir/config-build.yml
 set_config_random_value() {
     name=$1
     if [ -z $(python $get_config_value -c $config_file -n $name) ]; then
-        python $set_config_value -c $config_file -n $name -v $(openssl rand 18 -base64)
+        python $set_config_value -c $config_file -n $name -v $(openssl rand -base64 18)
     fi
 }
 
