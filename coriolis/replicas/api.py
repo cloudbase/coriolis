@@ -16,9 +16,9 @@ class API(object):
             source_environment, destination_environment, instances,
             network_map, storage_mappings, notes)
 
-    def update(self, ctxt, replica_id, properties):
+    def update(self, ctxt, replica_id, properties, force=False):
         return self._rpc_client.update_replica(
-            ctxt, replica_id, properties)
+            ctxt, replica_id, properties, force)
 
     def delete(self, ctxt, replica_id):
         self._rpc_client.delete_replica(ctxt, replica_id)
@@ -29,5 +29,5 @@ class API(object):
     def get_replica(self, ctxt, replica_id):
         return self._rpc_client.get_replica(ctxt, replica_id)
 
-    def delete_disks(self, ctxt, replica_id):
-        return self._rpc_client.delete_replica_disks(ctxt, replica_id)
+    def delete_disks(self, ctxt, replica_id, force=False):
+        return self._rpc_client.delete_replica_disks(ctxt, replica_id, force)

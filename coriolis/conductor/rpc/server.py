@@ -308,7 +308,8 @@ class ConductorServerEndpoint(object):
                     task_info=task_info.get(task.instance, {}))
 
     @replica_synchronized
-    def execute_replica_tasks(self, ctxt, replica_id, shutdown_instances):
+    def execute_replica_tasks(
+            self, ctxt, replica_id, shutdown_instances, force):
         replica = self._get_replica(ctxt, replica_id)
         self._check_reservation_for_transfer(replica)
         self._check_replica_running_executions(ctxt, replica)
@@ -319,6 +320,15 @@ class ConductorServerEndpoint(object):
         execution.type = constants.EXECUTION_TYPE_REPLICA_EXECUTION
 
         for instance in execution.action.instances:
+            # After a forced replica update, 'force' parameter will be true in
+            # the replica info, therefore it will linger on to the following
+            # replica executions' task_info. For now, we should reset it for
+            # any other non-update replica executions.
+            if hasattr(replica, 'info'):
+                instance_info = replica.info.get(instance, None)
+                if instance_info:
+                    instance_info['force'] = force
+
             get_instance_info_task = self._create_task(
                 instance, constants.TASK_TYPE_GET_INSTANCE_INFO,
                 execution)
@@ -433,7 +443,7 @@ class ConductorServerEndpoint(object):
         db_api.delete_replica(ctxt, replica_id)
 
     @replica_synchronized
-    def delete_replica_disks(self, ctxt, replica_id):
+    def delete_replica_disks(self, ctxt, replica_id, force):
         replica = self._get_replica(ctxt, replica_id)
         self._check_replica_running_executions(ctxt, replica)
 
@@ -445,12 +455,17 @@ class ConductorServerEndpoint(object):
 
         has_tasks = False
         for instance in replica.instances:
-            if (instance in replica.info and
-                    "volumes_info" in replica.info[instance]):
-                self._create_task(
-                    instance, constants.TASK_TYPE_DELETE_REPLICA_DISKS,
-                    execution)
-                has_tasks = True
+            # After a forced replica update, 'force' parameter will be true in
+            # the replica info, therefore it will linger on to the following
+            # replica executions' task_info. For now, we should reset it for
+            # any other non-update replica executions.
+            if instance in replica.info:
+                replica.info[instance]['force'] = force
+                if "volumes_info" in replica.info[instance]:
+                    self._create_task(
+                        instance, constants.TASK_TYPE_DELETE_REPLICA_DISKS,
+                        execution)
+                    has_tasks = True
 
         if not has_tasks:
             raise exception.InvalidReplicaState(
@@ -1125,7 +1140,7 @@ class ConductorServerEndpoint(object):
 
     @replica_synchronized
     def update_replica(
-            self, ctxt, replica_id, properties):
+            self, ctxt, replica_id, properties, force):
         replica = self._get_replica(ctxt, replica_id)
         self._check_replica_running_executions(ctxt, replica)
         execution = models.TasksExecution()
@@ -1142,6 +1157,7 @@ class ConductorServerEndpoint(object):
             # so we must operate on a copy:
             inst_info_copy = copy.deepcopy(replica.info[instance])
             inst_info_copy.update(properties)
+            inst_info_copy['force'] = force
             replica.info[instance] = inst_info_copy
             get_instance_info_task = self._create_task(
                 instance, constants.TASK_TYPE_GET_INSTANCE_INFO,

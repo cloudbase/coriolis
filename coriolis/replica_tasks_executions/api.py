@@ -8,9 +8,9 @@ class API(object):
     def __init__(self):
         self._rpc_client = rpc_client.ConductorClient()
 
-    def create(self, ctxt, replica_id, shutdown_instances):
+    def create(self, ctxt, replica_id, shutdown_instances, force=False):
         return self._rpc_client.execute_replica_tasks(
-            ctxt, replica_id, shutdown_instances)
+            ctxt, replica_id, shutdown_instances, force)
 
     def delete(self, ctxt, replica_id, execution_id):
         self._rpc_client.delete_replica_tasks_execution(

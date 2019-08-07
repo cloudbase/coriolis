@@ -5,10 +5,11 @@ from oslo_log import log as logging
 from webob import exc
 
 from coriolis import exception
+from coriolis.api import common
+from coriolis.api import wsgi as api_wsgi
 from coriolis.api.v1 import utils as api_utils
 from coriolis.api.v1.views import replica_view
 from coriolis.api.v1.views import replica_tasks_execution_view
-from coriolis.api import wsgi as api_wsgi
 from coriolis.endpoints import api as endpoints_api
 from coriolis.policies import replicas as replica_policies
 from coriolis.replicas import api
@@ -260,10 +261,11 @@ class ReplicaController(api_wsgi.Controller):
                             "updated")
 
         updated_values = self._validate_update_body(id, context, body)
+        force = common.get_force_param(req)
         try:
             return replica_tasks_execution_view.single(
                 req, self._replica_api.update(req.environ['coriolis.context'],
-                                              id, updated_values))
+                                              id, updated_values, force))
         except exception.NotFound as ex:
             raise exc.HTTPNotFound(explanation=ex.msg)
         except exception.InvalidParameterValue as ex:

@@ -10,3 +10,8 @@ def get_paging_params(req):
     if limit is not None:
         limit = utils.parse_int_value(limit)
     return marker, limit
+
+
+def get_force_param(req):
+    force_param = req.GET.get('force', '')
+    return (str(force_param).lower() == "true")

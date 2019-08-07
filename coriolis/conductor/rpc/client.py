@@ -122,10 +122,10 @@ class ConductorClient(object):
             provider_type=provider_type)
 
     def execute_replica_tasks(self, ctxt, replica_id,
-                              shutdown_instances=False):
+                              shutdown_instances=False, force=False):
         return self._client.call(
             ctxt, 'execute_replica_tasks', replica_id=replica_id,
-            shutdown_instances=shutdown_instances)
+            shutdown_instances=shutdown_instances, force=force)
 
     def get_replica_tasks_executions(self, ctxt, replica_id,
                                      include_tasks=False):
@@ -179,9 +179,9 @@ class ConductorClient(object):
         self._client.call(
             ctxt, 'delete_replica', replica_id=replica_id)
 
-    def delete_replica_disks(self, ctxt, replica_id):
+    def delete_replica_disks(self, ctxt, replica_id, force):
         return self._client.call(
-            ctxt, 'delete_replica_disks', replica_id=replica_id)
+            ctxt, 'delete_replica_disks', replica_id=replica_id, force=force)
 
     def get_migrations(self, ctxt, include_tasks=False):
         return self._client.call(ctxt, 'get_migrations',
@@ -284,8 +284,9 @@ class ConductorClient(object):
             schedule_id=schedule_id,
             expired=expired)
 
-    def update_replica(self, ctxt, replica_id, properties):
+    def update_replica(self, ctxt, replica_id, properties, force):
         return self._client.call(
             ctxt, 'update_replica',
             replica_id=replica_id,
-            properties=properties)
+            properties=properties,
+            force=force)

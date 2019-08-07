@@ -96,7 +96,6 @@ class MigrationController(api_wsgi.Controller):
             clone_disks = migration_body.get("clone_disks", True)
             force = migration_body.get("force", False)
             skip_os_morphing = migration_body.get("skip_os_morphing", False)
-
             # NOTE: destination environment for replica should have been
             # validated upon its creation.
             migration = self._migration_api.deploy_replica_instances(

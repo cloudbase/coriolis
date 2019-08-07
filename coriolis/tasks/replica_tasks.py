@@ -9,6 +9,7 @@ from coriolis import exception
 from coriolis.providers import factory as providers_factory
 from coriolis import schemas
 from coriolis.tasks import base
+from coriolis import utils
 
 LOG = logging.getLogger(__name__)
 
@@ -554,23 +555,35 @@ class UpdateSourceReplicaTask(base.TaskRunner):
             raise exception.CoriolisException(
                 "Replica source provider plugin for '%s' does not support"
                 " updating Replicas" % origin["type"])
+        # All replica update errors for the source environment should be
+        # silenced if 'force' param is applied.
+        try:
+            origin_connection_info = base.get_connection_info(ctxt, origin)
+            volumes_info = task_info.get("volumes_info", {})
 
-        origin_connection_info = base.get_connection_info(ctxt, origin)
-        volumes_info = task_info.get("volumes_info", {})
+            LOG.info("Checking source provider environment params")
+            # NOTE: the `source_environment` in the `origin` is the one set
+            # in the dedicated DB column of the Replica and thus stores
+            # the previous value of it:
+            old_source_env = origin.get('source_environment', {})
+            volumes_info = (
+                source_provider.check_update_source_environment_params(
+                    ctxt, origin_connection_info, instance, volumes_info,
+                    old_source_env, new_source_env))
+            schemas.validate_value(
+                volumes_info, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)
 
-        LOG.info("Checking source provider environment params")
-        # NOTE: the `source_environment` in the `origin` is the one set
-        # in the dedicated DB column of the Replica and thus stores
-        # the previous value of it:
-        old_source_env = origin.get('source_environment', {})
-        volumes_info = (
-            source_provider.check_update_source_environment_params(
-                ctxt, origin_connection_info, instance, volumes_info,
-                old_source_env, new_source_env))
-        schemas.validate_value(
-            volumes_info, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)
-
-        task_info['volumes_info'] = volumes_info
+            task_info['volumes_info'] = volumes_info
+        except Exception as ex:
+            if not task_info['force']:
+                raise
+            event_manager.progress_update(
+                "WARNING: An error occurred whilst updating the Replica's "
+                "source parameters. Ignoring all source errors and "
+                "forcefully updating the state of the Replica. This may "
+                "have unintended consequences on future Replica "
+                "executions.")
+            LOG.warn(utils.get_exception_details())
 
         return task_info
 
