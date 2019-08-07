@@ -34,13 +34,15 @@ class BaseEndpointInstancesProvider(BaseEndpointProvider):
     """Defines operations for listing instances off of Endpoints."""
 
     @abc.abstractmethod
-    def get_instances(self, ctxt, connection_info, limit=None,
-                      last_seen_id=None, instance_name_pattern=None):
+    def get_instances(self, ctxt, connection_info, source_environment,
+                      limit=None, last_seen_id=None,
+                      instance_name_pattern=None):
         """Returns a list of instances."""
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def get_instance(self, ctxt, connection_info, instance_name):
+    def get_instance(
+            self, ctxt, connection_info, source_environment, instance_name):
         """Returns detailed info for a given instance."""
         raise NotImplementedError()
 
@@ -477,7 +479,8 @@ class BaseUpdateSourceReplicaProvider(object, with_metaclass(abc.ABCMeta)):
         """
 
 
-class BaseUpdateDestinationReplicaProvider(object, with_metaclass(abc.ABCMeta)):
+class BaseUpdateDestinationReplicaProvider(
+        object, with_metaclass(abc.ABCMeta)):
     """ Class for replica import providers which offer the functionality
     of updating the parameters for a replica.
     """

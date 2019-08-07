@@ -164,7 +164,7 @@ class WorkerServerEndpoint(object):
                 if not result:
                     try:
                         result = mp_q.get(False)
-                    except:
+                    except BaseException:
                         pass
                 break
         return result
@@ -237,7 +237,8 @@ class WorkerServerEndpoint(object):
                 self._check_remove_dir(export_path)
 
     def get_endpoint_instances(self, ctxt, platform_name, connection_info,
-                               marker, limit, instance_name_pattern):
+                               source_environment, marker, limit,
+                               instance_name_pattern):
         export_provider = providers_factory.get_provider(
             platform_name, constants.PROVIDER_TYPE_ENDPOINT_INSTANCES, None)
 
@@ -245,7 +246,8 @@ class WorkerServerEndpoint(object):
             ctxt, connection_info)
 
         instances_info = export_provider.get_instances(
-            ctxt, secret_connection_info, last_seen_id=marker, limit=limit,
+            ctxt, secret_connection_info, source_environment,
+            last_seen_id=marker, limit=limit,
             instance_name_pattern=instance_name_pattern)
         for instance_info in instances_info:
             schemas.validate_value(
@@ -254,7 +256,7 @@ class WorkerServerEndpoint(object):
         return instances_info
 
     def get_endpoint_instance(self, ctxt, platform_name, connection_info,
-                              instance_name):
+                              source_environment, instance_name):
         provider = providers_factory.get_provider(
             platform_name, constants.PROVIDER_TYPE_ENDPOINT_INSTANCES, None)
 
@@ -262,7 +264,8 @@ class WorkerServerEndpoint(object):
             ctxt, connection_info)
 
         instance_info = provider.get_instance(
-            ctxt, secret_connection_info, instance_name)
+            ctxt, secret_connection_info, source_environment,
+            instance_name)
 
         schemas.validate_value(
             instance_info, schemas.CORIOLIS_VM_EXPORT_INFO_SCHEMA)

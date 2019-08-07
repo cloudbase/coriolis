@@ -182,19 +182,21 @@ class ConductorServerEndpoint(object):
                                           q_replicas_count)
         db_api.delete_endpoint(ctxt, endpoint_id)
 
-    def get_endpoint_instances(self, ctxt, endpoint_id, marker, limit,
-                               instance_name_pattern):
+    def get_endpoint_instances(self, ctxt, endpoint_id, source_environment,
+                               marker, limit, instance_name_pattern):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
         return self._rpc_worker_client.get_endpoint_instances(
-            ctxt, endpoint.type, endpoint.connection_info, marker, limit,
-            instance_name_pattern)
+            ctxt, endpoint.type, endpoint.connection_info,
+            source_environment, marker, limit, instance_name_pattern)
 
-    def get_endpoint_instance(self, ctxt, endpoint_id, instance_name):
+    def get_endpoint_instance(
+            self, ctxt, endpoint_id, source_environment, instance_name):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
         return self._rpc_worker_client.get_endpoint_instance(
-            ctxt, endpoint.type, endpoint.connection_info, instance_name)
+            ctxt, endpoint.type, endpoint.connection_info,
+            source_environment, instance_name)
 
     def get_endpoint_source_options(
             self, ctxt, endpoint_id, env, option_names):

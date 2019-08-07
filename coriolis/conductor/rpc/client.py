@@ -49,19 +49,23 @@ class ConductorClient(object):
         return self._client.call(
             ctxt, 'delete_endpoint', endpoint_id=endpoint_id)
 
-    def get_endpoint_instances(self, ctxt, endpoint_id, marker=None,
-                               limit=None, instance_name_pattern=None):
+    def get_endpoint_instances(self, ctxt, endpoint_id, source_environment,
+                               marker=None, limit=None,
+                               instance_name_pattern=None):
         return self._client.call(
             ctxt, 'get_endpoint_instances',
             endpoint_id=endpoint_id,
+            source_environment=source_environment,
             marker=marker,
             limit=limit,
             instance_name_pattern=instance_name_pattern)
 
-    def get_endpoint_instance(self, ctxt, endpoint_id, instance_name):
+    def get_endpoint_instance(
+            self, ctxt, endpoint_id, source_environment, instance_name):
         return self._client.call(
             ctxt, 'get_endpoint_instance',
             endpoint_id=endpoint_id,
+            source_environment=source_environment,
             instance_name=instance_name)
 
     def get_endpoint_source_options(

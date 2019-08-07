@@ -43,22 +43,24 @@ class WorkerClient(object):
         self._client.call(ctxt, "update_migration_status", status=status)
 
     def get_endpoint_instances(self, ctxt, platform_name, connection_info,
-                               marker=None, limit=None,
+                               source_environment, marker=None, limit=None,
                                instance_name_pattern=None):
         return self._client.call(
             ctxt, 'get_endpoint_instances',
             platform_name=platform_name,
             connection_info=connection_info,
+            source_environment=source_environment,
             marker=marker,
             limit=limit,
             instance_name_pattern=instance_name_pattern)
 
     def get_endpoint_instance(self, ctxt, platform_name, connection_info,
-                              instance_name):
+                              source_environment, instance_name):
         return self._client.call(
             ctxt, 'get_endpoint_instance',
             platform_name=platform_name,
             connection_info=connection_info,
+            source_environment=source_environment,
             instance_name=instance_name)
 
     def get_endpoint_destination_options(
