@@ -222,11 +222,11 @@ class ValidateMigrationSourceInputsTask(base.TaskRunner):
         source_provider = providers_factory.get_provider(
             origin_type, constants.PROVIDER_TYPE_VALIDATE_MIGRATION_EXPORT,
             event_handler, raise_if_not_found=False)
+        source_environment = origin.get("source_environment", {})
         export_info = None
         if source_provider:
             export_info = source_provider.validate_migration_export_input(
-                ctxt, origin_connection_info, instance,
-                source_environment=origin.get("source_environment", {}))
+                ctxt, origin_connection_info, instance, source_environment)
         else:
             event_manager.progress_update(
                 "Migration Export Provider for platform '%s' does not "
@@ -242,7 +242,7 @@ class ValidateMigrationSourceInputsTask(base.TaskRunner):
                     "support querying instance export info" % origin_type)
                 return task_info
             export_info = source_endpoint_provider.get_instance(
-                ctxt, origin_connection_info, instance)
+                ctxt, origin_connection_info, source_environment, instance)
 
         # validate Export info:
         schemas.validate_value(
