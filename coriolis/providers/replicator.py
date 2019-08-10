@@ -1,8 +1,9 @@
+# Copyright 2019 Cloudbase Solutions Srl
+# All Rights Reserved.
+
 import errno
 import json
 import os
-import paramiko
-import requests
 import shutil
 import tempfile
 import time
@@ -12,6 +13,8 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import units
 from sshtunnel import SSHTunnelForwarder
+import paramiko
+import requests
 
 from coriolis import exception
 from coriolis import utils
@@ -26,6 +29,7 @@ REPLICATOR_PATH = "/usr/bin/replicator"
 REPLICATOR_DIR = "/etc/coriolis-replicator"
 REPLICATOR_STATE = "/tmp/replicator_state.json"
 REPLICATOR_USERNAME = "replicator"
+REPLICATOR_GROUP_NAME = "replicator"
 REPLICATOR_SVC_NAME = "coriolis-replicator"
 
 DEFAULT_REPLICATOR_PORT = 4433
@@ -242,10 +246,8 @@ class Replicator(object):
 
     def __del__(self):
         if self._cert_dir is not None:
-            try:
-                shutil.rmtree(self._cert_dir)
-            except:
-                pass
+            utils.ignore_exceptions(
+                shutil.rmtree)(self._cert_dir)
 
     def _init_replicator_client(self, credentials):
         """
@@ -268,6 +270,13 @@ class Replicator(object):
             self._conn_info)
         ssh = self._get_ssh_client(args)
         return ssh
+
+    def _reconnect_ssh(self):
+        if self._ssh:
+            utils.ignore_exceptions(self._ssh.close)()
+
+        self._ssh = self._setup_ssh()
+        return self._ssh
 
     def init_replicator(self):
         self._credentials = utils.retry_on_error()(
@@ -386,16 +395,39 @@ class Replicator(object):
         utils.exec_ssh_cmd(
             ssh, "sudo chmod +x %s" % REPLICATOR_PATH, get_pty=True)
 
-    @utils.retry_on_error()
+    def _setup_replicator_group(self, ssh, group_name=REPLICATOR_GROUP_NAME):
+        """ Sets up a group with the given name and adds the
+        user we're connected as to it.
+
+        Returns True if the group already existed, else False.
+        """
+        group_exists = utils.exec_ssh_cmd(
+            ssh,
+            "getent group %(group)s > /dev/null && echo 1 || echo 0" % {
+                "group": REPLICATOR_GROUP_NAME})
+        if int(group_exists) == 0:
+            utils.exec_ssh_cmd(
+                ssh, "sudo groupadd %s" % group_name, get_pty=True)
+            # NOTE: this is required in order for the user we connected
+            # as to be able to read the certs:
+            # NOTE2: the group change will only take effect after we reconnect:
+            utils.exec_ssh_cmd(
+                ssh, "sudo usermod -aG %s %s" % (
+                    REPLICATOR_GROUP_NAME, self._conn_info['username']),
+                get_pty=True)
+
+        return int(group_exists) == 1
+
     def _setup_replicator_user(self, ssh):
+        # check for and create replicator user:
         user_exists = utils.exec_ssh_cmd(
             ssh,
             "getent passwd %(user)s > /dev/null && echo 1 || echo 0" % {
-                "user": REPLICATOR_USERNAME
-            })
+                "user": REPLICATOR_USERNAME})
         if int(user_exists) == 0:
             utils.exec_ssh_cmd(
-                ssh, "sudo useradd -m -s /bin/bash %s" % REPLICATOR_USERNAME,
+                ssh, "sudo useradd -m -s /bin/bash -g %s %s" % (
+                    REPLICATOR_GROUP_NAME, REPLICATOR_USERNAME),
                 get_pty=True)
             utils.exec_ssh_cmd(
                 ssh, "sudo usermod -aG disk %s" % REPLICATOR_USERNAME,
@@ -480,10 +512,15 @@ class Replicator(object):
                 },
                 get_pty=True)
             utils.exec_ssh_cmd(
-                ssh, "sudo chown -R %(user)s:%(user)s %(cert_dir)s" % {
-                        "cert_dir": remote_base_dir,
-                        "user": REPLICATOR_USERNAME
-                    }, get_pty=True)
+                ssh, "sudo chown -R %(user)s:%(group)s %(cert_dir)s" % {
+                    "cert_dir": remote_base_dir,
+                    "user": REPLICATOR_USERNAME,
+                    "group": REPLICATOR_GROUP_NAME
+                }, get_pty=True)
+            utils.exec_ssh_cmd(
+                ssh, "sudo chmod -R g+r %(cert_dir)s" % {
+                    "cert_dir": remote_base_dir,
+                }, get_pty=True)
             force_fetch = True
 
         exists = []
@@ -522,6 +559,12 @@ class Replicator(object):
 
         args = self._parse_replicator_conn_info(self._conn_info)
         self._copy_replicator_cmd(ssh)
+        group_existed = self._setup_replicator_group(
+            ssh, group_name=REPLICATOR_GROUP_NAME)
+        if not group_existed:
+            # NOTE: we must reconnect so that our user being added to the new
+            # Replicator group can take effect:
+            ssh = self._reconnect_ssh()
         self._setup_replicator_user(ssh)
         certs = self._setup_certificates(ssh, args)
         self._exec_replicator(
