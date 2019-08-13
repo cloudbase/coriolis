@@ -376,7 +376,27 @@ class CleanupFailedReplicaInstanceDeploymentTask(base.TaskRunner):
         return task_info
 
 
-class CreateReplicaDiskSnapshotsTask(base.TaskRunner):
+class CleanupFailedReplicaWorkerResourcesTask(base.TaskRunner):
+    def run(self, ctxt, instance, origin, destination, task_info,
+            event_handler):
+        provider = providers_factory.get_provider(
+            destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            event_handler)
+        connection_info = base.get_connection_info(ctxt, destination)
+
+        migr_resources = task_info.get("migr_target_resources")
+
+        if migr_resources:
+            provider.delete_replica_target_resources(
+                ctxt, connection_info, migr_resources)
+
+        task_info["migr_target_resources"] = None
+        task_info["migr_target_connection_info"] = None
+
+        return task_info
+
+
+class CreateReplicaDiskSnapshotsDuringMigrationTask(base.TaskRunner):
     def run(self, ctxt, instance, origin, destination, task_info,
             event_handler):
         provider = providers_factory.get_provider(
@@ -400,7 +420,7 @@ class CreateReplicaDiskSnapshotsTask(base.TaskRunner):
         return task_info
 
 
-class DeleteReplicaDiskSnapshotsTask(base.TaskRunner):
+class DeleteReplicaDiskSnapshotsDuringMigrationTask(base.TaskRunner):
     def run(self, ctxt, instance, origin, destination, task_info,
             event_handler):
         export_info = task_info['export_info']
@@ -424,7 +444,79 @@ class DeleteReplicaDiskSnapshotsTask(base.TaskRunner):
         return task_info
 
 
-class RestoreReplicaDiskSnapshotsTask(base.TaskRunner):
+class RestoreReplicaDiskSnapshotsDuringMigrationTask(base.TaskRunner):
+    def run(self, ctxt, instance, origin, destination, task_info,
+            event_handler):
+        provider = providers_factory.get_provider(
+            destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            event_handler)
+        connection_info = base.get_connection_info(ctxt, destination)
+        export_info = task_info['export_info']
+
+        volumes_info = _get_volumes_info(task_info)
+
+        volumes_info = provider.restore_replica_disk_snapshots(
+            ctxt, connection_info, volumes_info)
+        schemas.validate_value(
+            volumes_info, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)
+
+        volumes_info = _check_ensure_volumes_info_ordering(
+            export_info, volumes_info)
+
+        task_info["volumes_info"] = volumes_info
+
+        return task_info
+
+
+class CreateReplicaDiskSnapshotsDuringReplicaTask(base.TaskRunner):
+    def run(self, ctxt, instance, origin, destination, task_info,
+            event_handler):
+        provider = providers_factory.get_provider(
+            destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            event_handler)
+        connection_info = base.get_connection_info(ctxt, destination)
+        export_info = task_info['export_info']
+
+        volumes_info = _get_volumes_info(task_info)
+
+        volumes_info = provider.create_replica_disk_snapshots(
+            ctxt, connection_info, volumes_info)
+        schemas.validate_value(
+            volumes_info, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)
+
+        volumes_info = _check_ensure_volumes_info_ordering(
+            export_info, volumes_info)
+
+        task_info["volumes_info"] = volumes_info
+
+        return task_info
+
+
+class DeleteReplicaDiskSnapshotsDuringReplicaTask(base.TaskRunner):
+    def run(self, ctxt, instance, origin, destination, task_info,
+            event_handler):
+        export_info = task_info['export_info']
+        provider = providers_factory.get_provider(
+            destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            event_handler)
+        connection_info = base.get_connection_info(ctxt, destination)
+
+        volumes_info = _get_volumes_info(task_info)
+
+        volumes_info = provider.delete_replica_disk_snapshots(
+            ctxt, connection_info, volumes_info)
+        schemas.validate_value(
+            volumes_info, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)
+
+        volumes_info = _check_ensure_volumes_info_ordering(
+            export_info, volumes_info)
+
+        task_info["volumes_info"] = volumes_info
+
+        return task_info
+
+
+class RestoreReplicaDiskSnapshotsDuringReplicaTask(base.TaskRunner):
     def run(self, ctxt, instance, origin, destination, task_info,
             event_handler):
         provider = providers_factory.get_provider(

@@ -346,6 +346,20 @@ class ConductorServerEndpoint(object):
             deploy_replica_disks_task = self._create_task(
                 instance, constants.TASK_TYPE_DEPLOY_REPLICA_DISKS,
                 execution, depends_on=depends_on)
+            depends_on = [deploy_replica_disks_task.id]
+
+            instance_info = replica.info.get(instance, {})
+            snapshot_task_created = False
+            if instance_info:
+                volumes_info = instance_info.get('volumes_info', {})
+                if volumes_info:
+                    create_replica_disk_snapshot_task = self._create_task(
+                        instance,
+                        constants.TASK_TYPE_CREATE_REPLICA_DISK_SNAPSHOTS_R,
+                        execution,
+                        depends_on=depends_on)
+                    depends_on = [create_replica_disk_snapshot_task.id]
+                    snapshot_task_created = True
 
             deploy_replica_source_resources_task = self._create_task(
                 instance,
@@ -355,7 +369,7 @@ class ConductorServerEndpoint(object):
             deploy_replica_target_resources_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_DEPLOY_REPLICA_TARGET_RESOURCES,
-                execution, depends_on=[deploy_replica_disks_task.id])
+                execution, depends_on=depends_on)
 
             replicate_disks_task = self._create_task(
                 instance, constants.TASK_TYPE_REPLICATE_DISKS,
@@ -373,7 +387,27 @@ class ConductorServerEndpoint(object):
                 instance,
                 constants.TASK_TYPE_DELETE_REPLICA_TARGET_RESOURCES,
                 execution, depends_on=[replicate_disks_task.id],
+                on_error=False)
+
+            cleanup_task = self._create_task(
+                instance,
+                constants.TASK_TYPE_CLEANUP_FAILED_REPLICA_WORKER_RESOURCES,
+                execution,
                 on_error=True)
+
+            if snapshot_task_created:
+                self._create_task(
+                    instance,
+                    constants.TASK_TYPE_RESTORE_REPLICA_DISK_SNAPSHOTS_R,
+                    execution,
+                    depends_on=[cleanup_task.id],
+                    on_error=True)
+
+                self._create_task(
+                    instance,
+                    constants.TASK_TYPE_DELETE_REPLICA_DISK_SNAPSHOTS_R,
+                    execution,
+                    depends_on=[replicate_disks_task.id])
 
         db_api.add_replica_tasks_execution(ctxt, execution)
         LOG.info("Replica tasks execution created: %s", execution.id)
@@ -622,7 +656,7 @@ class ConductorServerEndpoint(object):
                     get_optimal_flavor_task.id)
 
             create_snapshot_task = self._create_task(
-                instance, constants.TASK_TYPE_CREATE_REPLICA_DISK_SNAPSHOTS,
+                instance, constants.TASK_TYPE_CREATE_REPLICA_DISK_SNAPSHOTS_M,
                 execution, depends_on=create_snapshot_task_depends_on)
 
             deploy_replica_task = self._create_task(
@@ -654,7 +688,7 @@ class ConductorServerEndpoint(object):
                 execution, depends_on=[next_task.id])
 
             self._create_task(
-                instance, constants.TASK_TYPE_DELETE_REPLICA_DISK_SNAPSHOTS,
+                instance, constants.TASK_TYPE_DELETE_REPLICA_DISK_SNAPSHOTS_M,
                 execution, depends_on=[finalize_deployment_task.id],
                 on_error=clone_disks)
 
@@ -666,7 +700,7 @@ class ConductorServerEndpoint(object):
             if not clone_disks:
                 self._create_task(
                     instance,
-                    constants.TASK_TYPE_RESTORE_REPLICA_DISK_SNAPSHOTS,
+                    constants.TASK_TYPE_RESTORE_REPLICA_DISK_SNAPSHOTS_M,
                     execution, depends_on=[cleanup_deployment_task.id],
                     on_error=True)
 
@@ -922,7 +956,10 @@ class ConductorServerEndpoint(object):
     def _handle_post_task_actions(self, ctxt, task, execution, task_info):
         task_type = task.task_type
 
-        if task_type == constants.TASK_TYPE_RESTORE_REPLICA_DISK_SNAPSHOTS:
+        snapshots_restored_on_replica = \
+            task_type == constants.TASK_TYPE_RESTORE_REPLICA_DISK_SNAPSHOTS_R
+
+        if task_type == constants.TASK_TYPE_RESTORE_REPLICA_DISK_SNAPSHOTS_M:
             # When restoring a snapshot in some import providers (OpenStack),
             # a new volume_id is generated. This needs to be updated in the
             # Replica instance as well.
@@ -932,8 +969,14 @@ class ConductorServerEndpoint(object):
                     ctxt, execution.action_id, task.instance,
                     {"volumes_info": volumes_info})
 
-        elif task_type == constants.TASK_TYPE_DELETE_REPLICA_DISK_SNAPSHOTS:
+        elif snapshots_restored_on_replica:
+            volumes_info = task_info.get("volumes_info")
+            if volumes_info:
+                self._update_replica_volumes_info(
+                    ctxt, execution.action_id, task.instance,
+                    {"volumes_info": volumes_info})
 
+        elif task_type == constants.TASK_TYPE_DELETE_REPLICA_DISK_SNAPSHOTS_M:
             if not task_info.get("clone_disks"):
                 # The migration completed. If the replica is executed again,
                 # new volumes need to be deployed in place of the migrated

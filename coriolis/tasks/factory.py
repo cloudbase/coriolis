@@ -58,12 +58,20 @@ _TASKS_MAP = {
         replica_tasks.FinalizeReplicaInstanceDeploymentTask,
     constants.TASK_TYPE_CLEANUP_FAILED_REPLICA_INSTANCE_DEPLOYMENT:
         replica_tasks.CleanupFailedReplicaInstanceDeploymentTask,
-    constants.TASK_TYPE_CREATE_REPLICA_DISK_SNAPSHOTS:
-        replica_tasks.CreateReplicaDiskSnapshotsTask,
-    constants.TASK_TYPE_DELETE_REPLICA_DISK_SNAPSHOTS:
-        replica_tasks.DeleteReplicaDiskSnapshotsTask,
-    constants.TASK_TYPE_RESTORE_REPLICA_DISK_SNAPSHOTS:
-        replica_tasks.RestoreReplicaDiskSnapshotsTask,
+    constants.TASK_TYPE_CLEANUP_FAILED_REPLICA_WORKER_RESOURCES:
+        replica_tasks.CleanupFailedReplicaWorkerResourcesTask,
+    constants.TASK_TYPE_CREATE_REPLICA_DISK_SNAPSHOTS_M:
+        replica_tasks.CreateReplicaDiskSnapshotsDuringMigrationTask,
+    constants.TASK_TYPE_DELETE_REPLICA_DISK_SNAPSHOTS_M:
+        replica_tasks.DeleteReplicaDiskSnapshotsDuringMigrationTask,
+    constants.TASK_TYPE_RESTORE_REPLICA_DISK_SNAPSHOTS_M:
+        replica_tasks.RestoreReplicaDiskSnapshotsDuringMigrationTask,
+    constants.TASK_TYPE_CREATE_REPLICA_DISK_SNAPSHOTS_R:
+        replica_tasks.CreateReplicaDiskSnapshotsDuringReplicaTask,
+    constants.TASK_TYPE_DELETE_REPLICA_DISK_SNAPSHOTS_R:
+        replica_tasks.DeleteReplicaDiskSnapshotsDuringReplicaTask,
+    constants.TASK_TYPE_RESTORE_REPLICA_DISK_SNAPSHOTS_R:
+        replica_tasks.RestoreReplicaDiskSnapshotsDuringReplicaTask,
     constants.TASK_TYPE_VALIDATE_REPLICA_SOURCE_INPUTS:
         replica_tasks.ValidateReplicaExecutionSourceInputsTask,
     constants.TASK_TYPE_VALIDATE_REPLICA_DESTINATION_INPUTS:
