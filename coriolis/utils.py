@@ -616,7 +616,7 @@ class Grub2ConfigEditor(object):
     /etc/default/grub. This class tries to preserve commented
     and empty lines.
     NOTE: This class does not actually write to file during
-    commit. Rhather, it will mutate it's internal view iof the
+    commit. Rhather, it will mutate it's internal view of the
     contents of that file with the latest changes made.
     Use dump() to get the file contents.
     """

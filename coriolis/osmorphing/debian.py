@@ -2,9 +2,9 @@
 # All Rights Reserved.
 
 import os
-import yaml
-
 from io import StringIO
+
+import yaml
 
 from coriolis import utils
 from coriolis.osmorphing import base
