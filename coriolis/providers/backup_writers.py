@@ -6,8 +6,8 @@ import contextlib
 import errno
 import os
 import tempfile
-import time
 import threading
+import time
 import uuid
 
 import eventlet
