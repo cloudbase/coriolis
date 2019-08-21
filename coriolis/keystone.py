@@ -164,20 +164,24 @@ def create_keystone_session(ctxt, connection_info={}):
                     "Either 'project_domain_name' or 'project_domain_id' is "
                     "required for Keystone v3 Auth.")
 
-            user_domain_name = connection_info.get(
-                "user_domain_name", ctxt.user_domain_name)
-            if user_domain_name:
-                plugin_args["user_domain_name"] = user_domain_name
+            # NOTE: The v3token plugin does not allow the user_domain_name
+            #       or user_domain_id options, while the v3password plugin
+            #       requires at least any of these.
+            if plugin_name != "v3token":
+                user_domain_name = connection_info.get(
+                    "user_domain_name", ctxt.user_domain_name)
+                if user_domain_name:
+                    plugin_args["user_domain_name"] = user_domain_name
 
-            user_domain_id = connection_info.get(
-                "user_domain_id", ctxt.user_domain_id)
-            if user_domain_id:
-                plugin_args["user_domain_id"] = user_domain_id
+                user_domain_id = connection_info.get(
+                    "user_domain_id", ctxt.user_domain_id)
+                if user_domain_id:
+                    plugin_args["user_domain_id"] = user_domain_id
 
-            if not user_domain_name and not user_domain_id:
-                raise exception.CoriolisException(
-                    "Either 'user_domain_name' or 'user_domain_id' is "
-                    "required for Keystone v3 Auth.")
+                if not user_domain_name and not user_domain_id:
+                    raise exception.CoriolisException(
+                        "Either 'user_domain_name' or 'user_domain_id' is "
+                        "required for Keystone v3 Auth.")
 
         loader = loading.get_plugin_loader(plugin_name)
         auth = loader.load_from_options(**plugin_args)
