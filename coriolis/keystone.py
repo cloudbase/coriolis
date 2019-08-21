@@ -15,7 +15,8 @@ opts = [
                default=None,
                help='Default auth URL to be used when not specified in the'
                ' migration\'s connection info.'),
-    cfg.StrOpt('identity_api_version',
+    cfg.IntOpt('identity_api_version',
+               min=2, max=3,
                default=2,
                help='Default Keystone API version.'),
     cfg.BoolOpt('allow_untrusted',
