@@ -13,10 +13,13 @@ import os
 import pickle
 import re
 import socket
+import string
 import subprocess
 import time
 import traceback
 import uuid
+
+from io import StringIO
 
 import OpenSSL
 from oslo_config import cfg
@@ -606,3 +609,198 @@ def create_service(ssh, cmdline, svcname, run_as=None, start=True):
     else:
         raise exception.CoriolisException(
             "could not determine init system")
+        
+        
+class Grub2ConfigEditor(object):
+    """This class edits GRUB2 configs, normally found in
+    /etc/default/grub. This class tries to preserve commented
+    and empty lines.
+    NOTE: This class does not actually write to file during
+    commit. Rhather, it will mutate it's internal view of the
+    contents of that file with the latest changes made.
+    Use dump() to get the file contents.
+    """
+    def __init__(self, cfg):
+        self._cfg = cfg
+        self._parsed = self._parse_cfg(self._cfg)
+
+    def _parse_cfg(self, cfg):
+        ret = []
+        for line in cfg.split("\n")[:-1]:
+            if line.startswith("#") or len(line.strip()) == 0:
+                ret.append(
+                    {
+                        "type": "raw",
+                        "payload": line
+                    }
+                )
+                continue
+            vals = line.split("=", 1)
+            if len(vals) != 2:
+                ret.append(
+                    {
+                        "type": "raw",
+                        "payload": line
+                    }
+                )
+                continue
+
+            quoted = False
+            # should extend to single quotes
+            if vals[1].startswith('"') and vals[1].endswith('"'):
+                quoted = True
+                vals[1] = vals[1].strip('"')
+
+            if len(vals[1]) == 0 or vals[1][0] in string.punctuation:
+                ret.append(
+                    {
+                        "type": "option",
+                        "payload": line,
+                        "quoted": quoted,
+                        "option_name": vals[0],
+                        "option_value": [
+                            {
+                                "opt_type": "single",
+                                "opt_val": vals[1],
+                            },
+                        ]
+                    }
+                )
+                continue
+            val_sections = vals[1].split()
+            opt_vals = []
+            for sect in val_sections:
+                fields = sect.split("=", 1)
+                if len(fields) == 1:
+                    opt_vals.append(
+                        {
+                            "opt_type": "single",
+                            "opt_val": sect,
+                        }
+                    )
+                else:
+                    opt_vals.append(
+                        {
+                            "opt_type": "key_val",
+                            "opt_val": fields[1],
+                            "opt_key": fields[0],
+                        }
+                    )
+            ret.append(
+                {
+                    "type": "option",
+                    "payload": line,
+                    "quoted": quoted,
+                    "option_name": vals[0],
+                    "option_value": opt_vals,
+                }
+            )
+        return ret
+
+    def _validate_value(self, value):
+        if type(value) is not dict:
+            raise ValueError("value was not dict")
+        opt_type = value.get("opt_type")
+        if opt_type not in ("key_val", "single"):
+            raise ValueError("invalid value type %s" % opt_type)
+        if opt_type == "key_val":
+            if "opt_val" not in value or "opt_key" not in value:
+                raise ValueError(
+                        "key_val option type requires "
+                        "opt_key key and opt_val")
+        elif opt_type == "single":
+            if "opt_val" not in value:
+                raise ValueError(
+                        "single option type requires opt_val")
+        else:
+            raise ValueError("unknown option type: %s" % opt_type)
+
+
+    def set_option(self, option, value):
+        """Replaces the value of an option completely
+        """
+        self._validate_value(value)
+        opt_found = False
+        for opt in self._parsed:
+            if opt.get("option_name") == option:
+                opt_found = True
+                opt["option_value"] = value
+                break
+        if not opt_found:
+            self._parsed.append({
+                "type": "option",
+                "quoted": True,
+                "option_name": option,
+                "option_value": [
+                    value
+                ],
+            })
+
+    def append_to_option(self, option, value):
+        """Appends a value to the specified option. If we're passing
+        in a key_val type and the option already exists, the value
+        will be replaced. Options of type "single", if absent from the
+        list, will be appended. If a single value already exists
+        it will be ignored.
+        """
+        self._validate_value(value)
+        opt_found = False
+        for opt in self._parsed:
+            if opt.get("option_name") == option:
+                opt_found = True
+                found = False
+                for val in opt["option_value"]:
+                    if (val["opt_type"] == "key_val" and 
+                            value["opt_type"] == "key_val"):
+                        if str(val["opt_key"]) == str(value["opt_key"]):
+                            val["opt_val"] = value["opt_val"]
+                            found = True
+                    elif (val["opt_type"] == "single" and 
+                            value["opt_type"] == "single"):
+                        if str(val["opt_val"]) == str(value["opt_val"]):
+                            found = True
+                if not found:
+                    opt["option_value"].append(value)
+                break
+        if not opt_found:
+            self._parsed.append({
+                "type": "option",
+                "quoted": True,
+                "option_name": option,
+                "option_value": [
+                    value
+                ],
+            })
+
+    def dump(self):
+        """dumps the contents of the file"""
+        tmp = StringIO()
+        for line in self._parsed:
+            if line["type"] == "raw":
+                tmp.write("%s\n" % line["payload"])
+                continue
+            vals = line["option_value"]
+            flat = []
+            for val in vals:
+                if val["opt_type"] == "key_val":
+                    flat.append("%s=%s" % (val["opt_key"], val["opt_val"]))
+                else:
+                    flat.append(str(val["opt_val"]))
+
+            if len(flat) == 0:
+                tmp.write("%s=\n" % line["option_name"])
+                continue
+
+            val = " ".join(flat)
+            quoted = line["quoted"]
+            if len(flat) > 1:
+                quoted = True
+
+            fmt = '%s=%s' % (line["option_name"], val)
+            if quoted:
+                fmt = '%s="%s"' % (line["option_name"], val)
+            tmp.write("%s\n" % fmt)
+        tmp.seek(0)
+        return tmp.read()
+
+            

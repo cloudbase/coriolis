@@ -17,6 +17,21 @@ RELEASE_CENTOS = "CentOS Linux"
 RELEASE_FEDORA = "Fedora"
 
 
+IFCFG_TEMPLATE = """
+TYPE=Ethernet
+BOOTPROTO=dhcp
+DEFROUTE=yes
+IPV4_FAILURE_FATAL=no
+IPV6INIT=yes
+IPV6_AUTOCONF=yes
+IPV6_DEFROUTE=yes
+IPV6_FAILURE_FATAL=no
+NAME=%(device_name)s
+DEVICE=%(device_name)s
+ONBOOT=yes
+NM_CONTROLLED=no
+"""
+
 class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
     _NETWORK_SCRIPTS_PATH = "etc/sysconfig/network-scripts"
 
@@ -34,8 +49,15 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
                 redhat_release_path).decode().split('\n')[0].strip()
             m = re.match(r"^(.*) release ([0-9].*) \((.*)\).*$", release_info)
             if m:
-                distro, version, codename = m.groups()
+                distro, version, _ = m.groups()
                 return (distro, version)
+
+    def disable_predictable_nic_names(self):
+        kernel_versions = self._list_dir("lib/modules")
+        for version in kernel_versions:
+            cmd = '/sbin/new-kernel-pkg --update --kernel-args="%s" %s'
+            self._exec_cmd_chroot(cmd % (
+                "net.ifnames=0 biosdevname=0", version))
 
     def _get_net_ifaces_info(self, ifcfgs_ethernet, mac_addresses):
         net_ifaces_info = []
@@ -105,12 +127,27 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
                 ifcfgs.append((ifcfg_file, ifcfg))
         return ifcfgs
 
+    def _write_nic_configs(self, nics_info):
+        for idx,_ in enumerate(nics_info):
+            dev_name = "eth%d" % idx
+            cfg_path = "etc/sysconfig/network-scripts/ifcfg-%s" % dev_name
+            if self._test_path(cfg_path):
+                self._exec_cmd_chroot(
+                    "cp %s %s.bak" % (cfg_path, cfg_path)
+                )
+            self._write_file_sudo(
+                cfg_path,
+                IFCFG_TEMPLATE % {
+                    "device_name": dev_name,
+                })
+
     def set_net_config(self, nics_info, dhcp):
-        ifcfgs_ethernet = self._get_ifcfgs_by_type("Ethernet")
-
         if dhcp:
-            self._set_dhcp_net_config(ifcfgs_ethernet)
+            self.disable_predictable_nic_names()
+            self._write_nic_configs(nics_info)
+            return
 
+        ifcfgs_ethernet = self._get_ifcfgs_by_type("Ethernet")
         mac_addresses = [ni.get("mac_address") for ni in nics_info]
         net_ifaces_info = self._get_net_ifaces_info(ifcfgs_ethernet,
                                                     mac_addresses)
@@ -129,7 +166,7 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
 
     def _yum_clean_all(self):
         self._exec_cmd_chroot("yum clean all")
-        if self._test_path('/var/cache/yum'):
+        if self._test_path('var/cache/yum'):
             self._exec_cmd_chroot("rm -rf /var/cache/yum")
 
     def pre_packages_install(self, package_names):
