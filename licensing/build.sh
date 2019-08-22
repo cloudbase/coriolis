@@ -1,20 +1,13 @@
 #!/bin/bash
 set -e
 
-basedir=$(dirname "$(readlink -f "$0")")
+BASE_DIR=$(dirname "$(readlink -f "$0")")
+source "$BASE_DIR/../utils/common.sh"
 
-config_file=$basedir/config-build.yml
-parent_config_file=$basedir/../config-build.yml
+LICENSING_CONFIG_BUILD_FILE="$BASE_DIR/config-build.yml"
 
-# NOTE: Ansible requires that `docker-py` be installed
-# instead of the newer `docker` when building images
-if [ "$(pip freeze | grep docker==)" ]; then
-    pip uninstall -y docker
-fi
-pip install --upgrade --force-reinstall docker-py
+new_config_file "$LICENSING_CONFIG_BUILD_FILE"
 
-if [ ! -f $config_file ]; then
-    cp $config_file.sample $config_file
-fi
-
-ansible-playbook -v $basedir/build.yml -e @$config_file -e @$parent_config_file
+setup_docker_py_pip_package
+ansible-playbook -v "$BASE_DIR/build.yml" \
+                 -e @"$LICENSING_CONFIG_BUILD_FILE" -e @"$CONFIG_BUILD_FILE"

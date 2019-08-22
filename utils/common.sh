@@ -58,6 +58,24 @@ set_config_file_random_value() {
     fi
 }
 
+setup_docker_pip_package() {
+    # NOTE: the Kolla deployment process automatically pulls in `docker-py`
+    # as the module to interact with Docker, though this the module is no
+    # longer supported by Ansible, so we must ensure we have the updated
+    # `docker` package installed.
+    if [[ "$(pip freeze | grep docker-py==)" ]]; then
+        pip uninstall -y docker-py
+    fi
+    pip install --upgrade --force-reinstall docker
+}
+
+setup_docker_py_pip_package() {
+    if [[ "$(pip freeze | grep docker==)" ]]; then
+        pip uninstall -y docker
+    fi
+    pip install --upgrade --force-reinstall docker-py
+}
+
 install_coriolis_client() {
     local CORIOLIS_CLIENT_REPO="https://github.com/cloudbase/python-coriolisclient"
     local GIT_LOCAL_DIR=$(mktemp --directory --suffix="-coriolis-client")
