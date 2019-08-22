@@ -30,6 +30,4 @@ apt-get install -y \
     git gcc make \
     python python-pip python-mysqldb python-virtualenv
 
-# NOTE: make sure the Ansible version is strictly
-# less than 2.6for Kolla versions <= Ocata !!!
 apt-get install -y ansible

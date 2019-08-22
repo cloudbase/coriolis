@@ -7,7 +7,7 @@ source "$BASE_DIR/../utils/common.sh"
 pushd "$BASE_DIR"
 
 if [ ! -d ./kolla ]; then
-    git clone https://github.com/openstack/kolla -b stable/ocata
+    git clone https://github.com/openstack/kolla -b stable/rocky
 fi
 
 if [ ! -d ./kolla/.venv ]; then

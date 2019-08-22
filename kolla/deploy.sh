@@ -20,7 +20,7 @@ DISTRO=${1:-oraclelinux}
 IFACE=${2:-lo} # Defaults to localhost
 
 if [ ! -d ./kolla-ansible ]; then
-    git clone https://github.com/openstack/kolla-ansible -b stable/ocata
+    git clone https://github.com/openstack/kolla-ansible -b stable/rocky
     pip install -q ./kolla-ansible
 fi
 
