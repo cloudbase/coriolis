@@ -28,7 +28,7 @@ apt-get install -y openssl
 # install python and various dev bits and bobs:
 apt-get install -y \
     git gcc make \
-    python python-pip python-mysqldb
+    python python-pip python-mysqldb python-virtualenv
 
 # NOTE: make sure the Ansible version is strictly
 # less than 2.6for Kolla versions <= Ocata !!!
