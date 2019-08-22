@@ -84,6 +84,7 @@ class TasksExecution(BASE, models.TimestampMixin, models.ModelBase,
                              backref=orm.backref('execution'))
     status = sqlalchemy.Column(sqlalchemy.String(100), nullable=False)
     number = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)
+    type = sqlalchemy.Column(sqlalchemy.String(20))
 
 
 class BaseTransferAction(BASE, models.TimestampMixin, models.ModelBase,

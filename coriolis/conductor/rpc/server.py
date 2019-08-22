@@ -316,6 +316,7 @@ class ConductorServerEndpoint(object):
         execution.id = str(uuid.uuid4())
         execution.status = constants.EXECUTION_STATUS_RUNNING
         execution.action = replica
+        execution.type = constants.EXECUTION_TYPE_REPLICA_EXECUTION
 
         for instance in execution.action.instances:
             get_instance_info_task = self._create_task(
@@ -440,6 +441,7 @@ class ConductorServerEndpoint(object):
         execution.id = str(uuid.uuid4())
         execution.status = constants.EXECUTION_STATUS_RUNNING
         execution.action = replica
+        execution.type = constants.EXECUTION_TYPE_REPLICA_DISKS_DELETE
 
         has_tasks = False
         for instance in replica.instances:
@@ -599,6 +601,7 @@ class ConductorServerEndpoint(object):
         migration.executions = [execution]
         execution.status = constants.EXECUTION_STATUS_RUNNING
         execution.number = 1
+        execution.type = constants.EXECUTION_TYPE_REPLICA_DEPLOY
 
         for instance in instances:
             validate_replica_desployment_inputs_task = self._create_task(
@@ -697,6 +700,7 @@ class ConductorServerEndpoint(object):
         execution = models.TasksExecution()
         execution.status = constants.EXECUTION_STATUS_RUNNING
         execution.number = 1
+        execution.type = constants.EXECUTION_TYPE_MIGRATION
         migration.executions = [execution]
         migration.instances = instances
         migration.info = {}
@@ -1128,6 +1132,7 @@ class ConductorServerEndpoint(object):
         execution.id = str(uuid.uuid4())
         execution.status = constants.EXECUTION_STATUS_RUNNING
         execution.action = replica
+        execution.type = constants.EXECUTION_TYPE_REPLICA_UPDATE
 
         LOG.debug(
             "Replica '%s' info pre-replica-update: %s",
