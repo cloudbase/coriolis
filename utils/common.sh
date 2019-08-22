@@ -1,6 +1,8 @@
 #!/bin/bash
 
 UTILS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+GET_CONFIG_VALUE_SCRIPT="$UTILS_DIR/get_config_value.py"
+SET_CONFIG_VALUE_SCRIPT="$UTILS_DIR/set_config_value.py"
 CONFIG_FILE=$(readlink -f "$UTILS_DIR/../config.yml")
 CONFIG_BUILD_FILE=$(readlink -f "$UTILS_DIR/../config-build.yml")
 
