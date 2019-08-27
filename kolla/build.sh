@@ -46,6 +46,7 @@ if [ "$docker_images_tag" ]; then
     BUILD_ARGS="$BUILD_ARGS --tag $docker_images_tag"
 fi
 
+setup_docker_pip_package
 kolla-build -b $DISTRO $BUILD_ARGS \
     keystone barbican rabbitmq mariadb kolla-toolbox fluentd cron memcached
 

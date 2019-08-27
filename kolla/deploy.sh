@@ -62,6 +62,7 @@ fi
 
 python $SET_CONFIG_VALUE_SCRIPT -c /etc/kolla/globals.yml -n enable_barbican -v yes
 
+setup_docker_pip_package
 kolla-ansible deploy -i ./kolla-ansible/ansible/inventory/coriolis
 kolla-ansible post-deploy
 
