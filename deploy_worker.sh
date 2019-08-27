@@ -9,47 +9,21 @@ if [ $# -ne 1 ] || [ ! "$VIP" ]; then
     exit 1
 fi
 
-basedir=$(dirname "$(readlink -f "$0")")
+BASE_DIR=$(dirname "$(readlink -f "$0")")
+source "$BASE_DIR/utils/common.sh"
 
-get_config_value=$basedir/get_config_value.py
-set_config_value=$basedir/set_config_value.py
-config_file=$basedir/config.yml
-config_build_file=$basedir/config-build.yml
+echo "Deploying Coriolis worker component configured to use Controller host IP $VIP"
 
-set_config_random_value() {
-    name=$1
-    if [ -z $(python $get_config_value -c $config_file -n $name) ]; then
-        python $set_config_value -c $config_file -n $name -v $(openssl rand 18 -base64)
-    fi
-}
+new_config_file "$CONFIG_FILE"
+new_config_file "$CONFIG_BUILD_FILE"
+set_config_file_random_value "$CONFIG_FILE" temp_keypair_password
 
-if [ ! -f $config_file ]; then
-    echo "$config_file must be present for deploying Coriolis worker component!"
+KOLLA_PASSWORDS_FILE="/etc/kolla/passwords.yml"
+if [ ! -e "$KOLLA_PASSWORDS_FILE" ]; then
+    echo "$KOLLA_PASSWORDS_FILE must exist in order to deploy Coriolis worker component!"
     exit 1
 fi
 
-if [ ! -f $config_build_file ]; then
-    echo "$config_build_file must be present for deploying Coriolis worker component!"
-    exit 2
-fi
-
-set_config_random_value temp_keypair_password
-
-# NOTE: the Kolla deployment process automatically pull in `docker-py` as the
-# module to interact with Docker, though this the module is no longer supported
-# by Ansible, so we must ensure we have the updated `docker` package installed.
-if [ "$(pip freeze | grep docker-py==)" ]; then
-    pip uninstall -y docker-py
-fi
-pip install --upgrade --force-reinstall docker
-
-kolla_passwords_file="/etc/kolla/passwords.yml"
-if [ ! -e "$kolla_passwords_file" ]; then
-    echo "$kolla_passwords_file must exist in order to deploy Coriolis worker component!"
-    exit 3
-fi
-
-ansible-playbook -v $basedir/deploy_worker.yml \
--e @$kolla_passwords_file \
--e @$config_file \
--e @$basedir/config-build.yml
+setup_docker_pip_package
+ansible-playbook -v "$BASE_DIR/deploy_worker.yml" -e @"$KOLLA_PASSWORDS_FILE" \
+                 -e @"$CONFIG_FILE" -e @"$CONFIG_BUILD_FILE"

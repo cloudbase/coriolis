@@ -42,7 +42,8 @@ password = {{ coriolis_keystone_password }}
 user_domain_id = default
 
 [keystone]
-auth_url = {{ internal_protocol }}://{{ keystone_host }}:{{ keystone_public_port }}
+identity_api_version = 3
+auth_url = {{ internal_protocol }}://{{ keystone_host }}:{{ keystone_public_port }}/v3
 
 [oslo_policy]
 policy_file = {{ coriolis_policy_config_path }}

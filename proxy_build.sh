@@ -1,19 +1,12 @@
 #!/bin/bash
 set -e
 
-basedir=$(dirname "$(readlink -f "$0")")
+BASE_DIR=$(dirname "$(readlink -f "$0")")
+source "$BASE_DIR/utils/common.sh"
 
-config_file=$basedir/config-build.yml
+echo "Building Coriolis web proxy component"
 
-# NOTE: Ansible requires that `docker-py` be installed
-# instead of the newer `docker` when building images
-if [ "$(pip freeze | grep docker==)" ]; then
-    pip uninstall -y docker
-fi
-pip install --upgrade --force-reinstall docker-py
+new_config_file "$CONFIG_BUILD_FILE"
 
-if [ ! -f $config_file ]; then
-    cp $config_file.sample $config_file
-fi
-
-ansible-playbook -v $basedir/proxy_build.yml -e @$config_file
+setup_docker_py_pip_package
+ansible-playbook -v "$BASE_DIR/proxy_build.yml" -e @"$CONFIG_BUILD_FILE"
