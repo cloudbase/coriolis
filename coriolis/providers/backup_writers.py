@@ -35,6 +35,33 @@ _CORIOLIS_HTTP_WRITER_CMD = "coriolis-writer"
 LOG = logging.getLogger(__name__)
 
 
+def _disable_lvm2_lvmetad(ssh):
+    """Disables lvm2-lvmetad service. This service is responsible
+    for automatically activating LVM2 volume groups when a disk is
+    attached or when a volume group is created. During disk replication
+    this service needs to be disabled.
+    """
+    cfg = "/etc/lvm/lvm.conf"
+    if utils.test_ssh_path(ssh, cfg):
+        utils.exec_ssh_cmd(
+            ssh,
+            'sudo sed -i "s/use_lvmetad.*=.*1/use_lvmetad = 0/g" '
+            '%s' % cfg, get_pty=True)
+        # NOTE: lvm2-lvmetad is the name of the lvmetad service
+        # on both debian and RHEL based systems. It needs to be stopped
+        # before we begin disk replication. We disable it in the config
+        # just in case some other process starts the daemon later on, as
+        # a dependency. As the service may not actually exist, even though
+        # the config is present, we ignore errors when stopping it.
+        utils.ignore_exceptions(utils.exec_ssh_cmd)(
+            ssh, "sudo service lvm2-lvmetad stop", get_pty=True)
+        # disable volume groups. Any volume groups that have volumes in use
+        # will remain online. However, volume groups belonging to disks
+        # that have been synced at least once, will be deactivated.
+        utils.ignore_exceptions(utils.exec_ssh_cmd)(
+            ssh, "sudo vgchange -an", get_pty=True)
+
+
 class BaseBackupWriterImpl(with_metaclass(abc.ABCMeta)):
     def __init__(self, path, disk_id):
         self._path = path
@@ -221,6 +248,7 @@ class SSHBackupWriter(BaseBackupWriter):
 
     def _get_impl(self, path, disk_id):
         ssh = self._connect_ssh()
+        _disable_lvm2_lvmetad(ssh)
 
         matching_devs = [
             v for v in self._volumes_info if v["disk_id"] == disk_id]
@@ -529,6 +557,7 @@ class HTTPBackupWriter(BaseBackupWriter):
 
     def _get_impl(self, path, disk_id):
         ssh = self._connect_ssh()
+        _disable_lvm2_lvmetad(ssh)
         self._setup_writer(ssh)
 
         path = [v for v in self._volumes_info
