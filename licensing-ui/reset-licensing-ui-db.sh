@@ -1,19 +1,13 @@
 #!/bin/bash
 set -e
 
-basedir=$(dirname "$(readlink -f "$0")")
+BASE_DIR=$(dirname "$(readlink -f "$0")")
+source "$BASE_DIR/../utils/common.sh"
 
-# Defaults to localhost
-iface=${1:-lo}
+LICENSING_UI_CONFIG_FILE="$BASE_DIR/config.yml"
 
-get_config_value=$basedir/../get_config_value.py
-set_config_value=$basedir/../set_config_value.py
-config_file=$basedir/config.yml
-parent_config_file=$basedir/../config.yml
-parent_config_build_file=$basedir/../config-build.yml
-
-ansible-playbook -v $basedir/reset-licensing-ui-db.yml \
--e @/etc/kolla/passwords.yml \
--e @$config_file \
--e @$parent_config_file \
--e @$parent_config_build_file
+ansible-playbook -v "$BASE_DIR/reset-licensing-ui-db.yml" \
+                 -e @/etc/kolla/passwords.yml \
+                 -e @"$LICENSING_UI_CONFIG_FILE" \
+                 -e @"$CONFIG_FILE" \
+                 -e @"$CONFIG_BUILD_FILE"

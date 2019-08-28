@@ -42,3 +42,4 @@ remove_docker_image "$REPO/coriolis-web-proxy:$TAG"
 remove_docker_image "$REPO/coriolis-replica-cron:$TAG"
 
 bash "$BASE_DIR/licensing/cleanup.sh" "$TAG" "$REPO"
+bash "$BASE_DIR/licensing-ui/cleanup.sh" "$TAG" "$REPO"
