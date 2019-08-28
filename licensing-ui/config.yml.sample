@@ -1,0 +1,12 @@
+auth_url: "{{ keystone_auth_url }}"
+coriolis_licensing_ui_server_port_internal: 3010
+coriolis_licensing_ui_server_port_external: 3010
+coriolis_licensing_ui_database_name: coriolis_licensing_ui
+coriolis_licensing_ui_database_username: coriolis_licensing_ui
+coriolis_licensing_ui_database_password:
+coriolis_licensing_ui_email_host: smtp.example.com 
+coriolis_licensing_ui_email_port: 587 
+coriolis_licensing_ui_email_secure: true 
+coriolis_licensing_ui_email_ignore_tls: false
+coriolis_licensing_ui_email_username: change_me@example.com
+coriolis_licensing_ui_email_password: change_me 

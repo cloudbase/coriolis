@@ -5,6 +5,7 @@ coriolis_admin_endpoint: "{{ coriolis_base_endpoint_url }}/%(tenant_id)s"
 coriolis_internal_endpoint: "{{ coriolis_admin_endpoint }}"
 coriolis_public_endpoint: "{{ coriolis_admin_endpoint }}"
 licensing_server_base_url:
+licensing_ui_server_base_url: ""
 database_address: "{{ coriolis_host }}"
 database_port: 3306
 database_user: "root"
