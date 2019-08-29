@@ -18,7 +18,7 @@ ansible-playbook -v "$BASE_DIR/deploy.yml" -e @/etc/kolla/passwords.yml \
                  -e @"$CONFIG_BUILD_FILE"
 
 LICENSING_UI_PORT=$(python "$GET_CONFIG_VALUE_SCRIPT" -c "$LICENSING_UI_CONFIG_FILE" -n coriolis_licensing_ui_server_port_external)
-LICENSING_UI_BASE_URL="http://127.0.0.1:$LICENSING_UI_PORT"
+LICENSING_UI_BASE_URL="http://127.0.0.1:$LICENSING_UI_PORT/licensing-ui"
 python "$SET_CONFIG_VALUE_SCRIPT" -c "$CONFIG_FILE" -n licensing_ui_server_base_url -v "$LICENSING_UI_BASE_URL"
 
 remove_docker_container "coriolis-web-proxy"
