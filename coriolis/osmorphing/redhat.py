@@ -216,5 +216,3 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         return [os.path.join(self._NETWORK_SCRIPTS_PATH, f) for f in
                 dir_content if re.match("^ifcfg-(.*)", f)]
 
-    def _set_selinux_autorelabel(self):
-        self._exec_cmd_chroot("touch /.autorelabel")
