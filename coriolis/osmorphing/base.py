@@ -211,3 +211,11 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
                 "mv -f /%s /%s.bak" % (fstab_chroot_path, fstab_chroot_path))
             self._write_file(
                 fstab_chroot_path, "\n".join(fstab_contents_lines))
+
+    def _set_selinux_autorelabel(self):
+        LOG.debug("setting autorelabel on /")
+        try:
+            self._exec_cmd_chroot(
+                "touch /.autorelabel")
+        except Exception as err:
+            LOG.warning("Failed to set autorelabel: %r" % err)
