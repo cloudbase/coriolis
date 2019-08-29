@@ -99,7 +99,7 @@ class Client(object):
                     self._ip, self._port))
             try:
                 utils.wait_for_port_connectivity(
-                    self._ip, self._port, max_wait=2)
+                    self._ip, self._port, max_wait=30)
                 return
             except BaseException as err:
                 LOG.debug("failed to connect to %s:%s Error: %s "
