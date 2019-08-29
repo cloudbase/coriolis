@@ -285,7 +285,7 @@ migr_template_name_map = linux: OracleLinux7_template, windows: WS2016_template
 migr_template_username_map = linux: root, windows: Administrator
 
 # Default migration template guest OS password.
-migr_template_password = Passw0rd 
+migr_template_password = Passw0rd
 
 # Default network name used for worker instances
 # during migrations.
@@ -385,6 +385,34 @@ export_root_disk_size = 150
 
 {% if 'azure' in export_providers or 'azure' in import_providers %}
 [azure_migration_provider]
+
+### Export parameters:
+# The Azure location to use for any temporary export resources.
+# Under most circumstances, this should be the same as the location of the VM
+# being Migrated/Replicated which should be specified in the source-env.
+export_location = westus
+
+# Default Migration worker VM size. This will be used if no worker_size is set in
+# the source_environment. If none is provided, Coriolis will list all available
+# flavors on Azure and select the smallest available one that can accommodate
+# the number of disks. If not given, Coriolis will select the first worker
+# size available which can accomodate attaching all the disks for the
+# particular VM being migrated/replicated.
+export_worker_size = Standard_D1
+
+# Params of the Azure image to use for the temporary VM:
+export_worker_image = version: latest, publisher: Canonical, offer: UbuntuServer, sku: 18.04-LTS
+
+# For use with AzureStack, the following ARM Provider API versions must be
+# configured to API versions supported by the AzureStack. If unset, they will
+# default to the latest API versions which are supported by the ARM client
+# libraries bundled with Coriolis.
+# export_arm_resource_api_version = 2016-09-01
+# export_arm_compute_api_version = 2016-03-30
+# export_arm_network_api_version = 2015-06-15
+# export_blob_storage_api_version = 2015-04-05
+
+### Import parameters:
 # The Azure location to which to migrate. The location may also be set for each
 # migration/replica in turn using the destination-environment paramter.
 migr_location = westus
