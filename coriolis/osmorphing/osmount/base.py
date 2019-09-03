@@ -1,5 +1,6 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
+# pylint: disable=anomalous-backslash-in-string
 
 import abc
 import base64
@@ -244,7 +245,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
             try:
                 self._exec_cmd(mountcmd)
                 new_mountpoints.append(chroot_mountpoint)
-            except Exception as ex:
+            except Exception:
                 LOG.warn(
                     "Failed to run fstab filesystem mount command: '%s'. "
                     "Skipping mount. Error details: %s",
@@ -298,6 +299,98 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         LOG.info("Volume block devices: %s", volume_devs)
         return volume_devs
 
+    def _find_dev_with_contents(self, devices, all_files=None,
+                                one_of_files=None):
+        if all_files and one_of_files:
+            raise exception.CoriolisException(
+                "all_files and one_of_files are mutually exclusive")
+        dev_name = None
+        for dev_path in devices:
+            dirs = None
+            tmp_dir = self._exec_cmd('mktemp -d').decode().split('\n')[0]
+            try:
+                self._exec_cmd('sudo mount %s %s' % (dev_path, tmp_dir))
+                # NOTE: it's possible that the device was mounted successfully
+                # but an I/O error occurs later along the line:
+                dirs = self._exec_cmd('ls %s' % tmp_dir).decode().split('\n')
+            except Exception:
+                self._event_manager.progress_update(
+                    "Failed to mount and scan device '%s'" % dev_path)
+                LOG.warn(
+                    "Failed to mount and scan device '%s':\n%s",
+                    dev_path, utils.get_exception_details())
+                utils.ignore_exceptions(self._exec_cmd)(
+                    "sudo umount %s" % tmp_dir
+                )
+                utils.ignore_exceptions(self._exec_cmd)(
+                    "sudo rmdir %s" % tmp_dir
+                )
+                continue
+
+            LOG.debug("Contents of device %s:\n%s", dev_path, dirs)
+
+            if all_files and dirs:
+                common = [i if i in dirs else None for i in all_files]
+                if not all(common):
+                    self._exec_cmd('sudo umount %s' % tmp_dir)
+                    continue
+
+                dev_name = dev_path
+                self._exec_cmd('sudo umount %s' % tmp_dir)
+            elif one_of_files and dirs:
+                common = [i for i in one_of_files if i in dirs]
+                if len(common) > 0:
+                    dev_name = dev_path
+                    self._exec_cmd('sudo umount %s' % tmp_dir)
+                    break
+            else:
+                self._exec_cmd('sudo umount %s' % tmp_dir)
+                continue
+
+        if dev_path:
+            devices.remove(dev_path)
+        return dev_name
+
+    def _find_and_mount_root(self, devices):
+        files = ["etc", "bin", "sbin", "boot"]
+        os_root_dir = None
+        os_root_device = self._find_dev_with_contents(
+            devices, all_files=files)
+
+        if os_root_device is None:
+            raise exception.OperatingSystemNotFound(
+                "root partition not found")
+
+        try:
+            tmp_dir = self._exec_cmd('mktemp -d').decode().split('\n')[0]
+            self._exec_cmd('sudo mount %s %s' % (os_root_device, tmp_dir))
+            os_root_dir = tmp_dir
+        except Exception:
+            self._event_manager.progress_update(
+                "Failed to mount root device '%s'" % os_root_device)
+            LOG.warn(
+                "Failed to mount root device '%s':\n%s",
+                os_root_device, utils.get_exception_details())
+            utils.ignore_exceptions(self._exec_cmd)(
+                "sudo umount %s" % tmp_dir
+            )
+            utils.ignore_exceptions(self._exec_cmd)(
+                "sudo rmdir %s" % tmp_dir
+            )
+            raise
+
+        for directory in ['proc', 'sys', 'dev', 'run']:
+            mount_dir = os.path.join(os_root_dir, directory)
+            if not utils.test_ssh_path(self._ssh, mount_dir):
+                LOG.info(
+                    "No '%s' directory in mounted OS. Skipping mount.",
+                    directory)
+                continue
+            self._exec_cmd(
+                'sudo mount -o bind /%(dir)s/ %(mount_dir)s' %
+                {'dir': directory, 'mount_dir': mount_dir})
+        return os_root_dir, os_root_device
+
     def mount_os(self):
         dev_paths = []
         mounted_devs = self._get_mounted_devices()
@@ -340,43 +433,12 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                     utils.check_fs(self._ssh, fs_type, dev_path)
                 dev_paths_to_mount.append(dev_path)
 
-        os_boot_device = None
-        os_root_device = None
-        os_root_dir = None
-        for dev_path in dev_paths_to_mount:
-            dirs = None
-            tmp_dir = self._exec_cmd('mktemp -d').decode().split('\n')[0]
-            try:
-                self._exec_cmd('sudo mount %s %s' % (dev_path, tmp_dir))
-                # NOTE: it's possible that the device was mounted successfully
-                # but an I/O error occurs later along the line:
-                dirs = self._exec_cmd('ls %s' % tmp_dir).decode().split('\n')
-            except Exception:
-                self._event_manager.progress_update(
-                    "Failed to mount and scan device '%s'" % dev_path)
-                LOG.warn(
-                    "Failed to mount and scan device '%s':\n%s",
-                    dev_path, utils.get_exception_details())
-                continue
+        os_root_dir, os_root_device = self._find_and_mount_root(
+            dev_paths_to_mount)
 
-            LOG.debug("Contents of device %s:\n%s", dev_path, dirs)
-
-            # TODO(alexpilotti): better ways to check for a linux root?
-            if (not os_root_dir and 'etc' in dirs and 'bin' in dirs and
-                    'sbin' in dirs):
-                os_root_dir = tmp_dir
-                os_root_device = dev_path
-                LOG.info("OS root device: %s", dev_path)
-                continue
-            elif (not os_boot_device and ('grub' in dirs or 'grub2' in dirs)):
-                os_boot_device = dev_path
-                LOG.info("OS boot device: %s", dev_path)
-                self._exec_cmd('sudo umount %s' % tmp_dir)
-            else:
-                self._exec_cmd('sudo umount %s' % tmp_dir)
-
-        if not os_root_dir:
-            raise exception.OperatingSystemNotFound("root partition not found")
+        grub_dirs = ["grub", "grub2"]
+        os_boot_device = self._find_dev_with_contents(
+            dev_paths_to_mount, one_of_files=grub_dirs)
 
         if os_boot_device:
             LOG.debug("Mounting boot device '%s'", os_boot_device)
@@ -388,15 +450,6 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         self._check_mount_fstab_partitions(
             os_root_dir, mountable_lvm_devs=lvm_devs)
 
-        for dir in set(dirs).intersection(['proc', 'sys', 'dev', 'run']):
-            mount_dir = os.path.join(os_root_dir, dir)
-            if not utils.test_ssh_path(self._ssh, mount_dir):
-                LOG.info(
-                    "No '%s' directory in mounted OS. Skipping mount.", dir)
-                continue
-            self._exec_cmd(
-                'sudo mount -o bind /%(dir)s/ %(mount_dir)s' %
-                {'dir': dir, 'mount_dir': mount_dir})
         return os_root_dir, os_root_device
 
     def dismount_os(self, root_dir):
