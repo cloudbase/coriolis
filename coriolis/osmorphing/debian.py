@@ -19,6 +19,7 @@ auto %(device_name)s
 iface %(device_name)s inet dhcp
 """
 
+
 class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
     def _check_os(self):
         lsb_release_path = "etc/lsb-release"
@@ -61,7 +62,7 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
         fp = StringIO()
         fp.write(LO_NIC_TPL)
         fp.write("\n\n")
-        for idx,_ in enumerate(nics_info):
+        for idx, _ in enumerate(nics_info):
             dev_name = "eth%d" % idx
             cfg = INTERFACES_NIC_TPL % {
                 "device_name": dev_name,
@@ -73,7 +74,7 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
 
     def _compose_netplan_cfg(self, nics_info):
         cfg = {
-            "network":{
+            "network": {
                 "version": 2,
                 "ethernets": {
                     "lo": {
@@ -85,7 +86,7 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
                 }
             }
         }
-        for idx,_ in enumerate(nics_info):
+        for idx, _ in enumerate(nics_info):
             cfg["network"]["ethernets"]["eth%d" % idx] = {
                 "dhcp4": True,
                 "dhcp6": True,

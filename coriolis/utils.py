@@ -609,8 +609,8 @@ def create_service(ssh, cmdline, svcname, run_as=None, start=True):
     else:
         raise exception.CoriolisException(
             "could not determine init system")
-        
-        
+
+
 class Grub2ConfigEditor(object):
     """This class edits GRUB2 configs, normally found in
     /etc/default/grub. This class tries to preserve commented
@@ -715,7 +715,6 @@ class Grub2ConfigEditor(object):
         else:
             raise ValueError("unknown option type: %s" % opt_type)
 
-
     def set_option(self, option, value):
         """Replaces the value of an option completely
         """
@@ -750,12 +749,12 @@ class Grub2ConfigEditor(object):
                 opt_found = True
                 found = False
                 for val in opt["option_value"]:
-                    if (val["opt_type"] == "key_val" and 
+                    if (val["opt_type"] == "key_val" and
                             value["opt_type"] == "key_val"):
                         if str(val["opt_key"]) == str(value["opt_key"]):
                             val["opt_val"] = value["opt_val"]
                             found = True
-                    elif (val["opt_type"] == "single" and 
+                    elif (val["opt_type"] == "single" and
                             value["opt_type"] == "single"):
                         if str(val["opt_val"]) == str(value["opt_val"]):
                             found = True
@@ -802,5 +801,3 @@ class Grub2ConfigEditor(object):
             tmp.write("%s\n" % fmt)
         tmp.seek(0)
         return tmp.read()
-
-            
