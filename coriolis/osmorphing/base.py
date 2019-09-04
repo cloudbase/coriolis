@@ -144,6 +144,8 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         self._write_file(tmp_file, content)
         self._exec_cmd_chroot("cp /%s /%s" % (tmp_file, chroot_path))
         self._exec_cmd_chroot("rm /%s" % tmp_file)
+        utils.exec_ssh_cmd(
+            self._ssh, "sudo sync", self._environment, get_pty=True)
 
     def _enable_systemd_service(self, service_name):
         self._exec_cmd_chroot("systemctl enable %s.service" % service_name)
