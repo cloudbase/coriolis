@@ -112,7 +112,7 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
                 if cnf.endswith(".yaml") or cnf.endswith(".yml"):
                     pth = "%s/%s" % (netplan_base, cnf)
                     self._exec_cmd_chroot(
-                        "cp %s %s.bak" % (pth, pth)
+                        "mv %s %s.bak" % (pth, pth)
                     )
             new_cfg = self._compose_netplan_cfg(nics_info)
             cfg_name = "%s/coriolis_netplan.yaml" % netplan_base
