@@ -347,8 +347,6 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                 self._exec_cmd('sudo umount %s' % tmp_dir)
                 continue
 
-        if dev_path:
-            devices.remove(dev_path)
         return dev_name
 
     def _find_and_mount_root(self, devices):
@@ -389,6 +387,10 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
             self._exec_cmd(
                 'sudo mount -o bind /%(dir)s/ %(mount_dir)s' %
                 {'dir': directory, 'mount_dir': mount_dir})
+
+        if os_root_device in devices:
+            devices.remove(os_root_device)
+
         return os_root_dir, os_root_device
 
     def mount_os(self):
