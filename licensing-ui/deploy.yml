@@ -2,17 +2,14 @@
 - hosts: localhost
 
   tasks:
-    # TODO(ibalutoiu): At the moment, the licensing-ui-server handles the db
-    # creation as well. Uncomment this once the licensing-ui-server stops
-    # handling the db creation.
-    # - name: Creating Coriolis Licensing UI database
-    #   mysql_db:
-    #     login_host: "{{ database_address }}"
-    #     login_port: "{{ database_port }}"
-    #     login_user: "{{ database_user }}"
-    #     login_password: "{{ database_password }}"
-    #     name: "{{ coriolis_licensing_ui_database_name }}"
-    #   run_once: True
+    - name: Creating Coriolis Licensing UI database
+      mysql_db:
+        login_host: "{{ database_address }}"
+        login_port: "{{ database_port }}"
+        login_user: "{{ database_user }}"
+        login_password: "{{ database_password }}"
+        name: "{{ coriolis_licensing_ui_database_name }}"
+      run_once: True
 
     - name: Creating Licensing UI database user and setting permissions
       mysql_user:
@@ -23,12 +20,7 @@
         name: "{{ coriolis_licensing_ui_database_username }}"
         password: "{{ coriolis_licensing_ui_database_password }}"
         host: "%"
-        # TODO(ibalutoiu): Currently, the licensing-ui-server needs permissions
-        # to create the database. When it will stop handling the database
-        # creation, have the below permissions only restricted to the
-        # licensing-ui database.
-        priv: "*.*:ALL"
-        # priv: "{{ coriolis_licensing_ui_database_name }}.*:ALL"
+        priv: "{{ coriolis_licensing_ui_database_name }}.*:ALL"
         append_privs: "yes"
       run_once: True
 
