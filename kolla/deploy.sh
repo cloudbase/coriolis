@@ -66,8 +66,8 @@ setup_docker_pip_package
 kolla-ansible deploy -i ./kolla-ansible/ansible/inventory/coriolis
 kolla-ansible post-deploy
 
-pip install -q python-openstackclient
-pip install -q python-barbicanclient
+pip install -U -q git+https://github.com/openstack/python-openstackclient@stable/rocky
+pip install -U -q git+https://github.com/openstack/python-barbicanclient@stable/rocky
 source /etc/kolla/admin-openrc.sh
 openstack endpoint list
 openstack secret list
