@@ -4,10 +4,9 @@ FROM {{ docker_registry }}/{{ coriolis_containers_namespace }}/coriolis-common:{
 ADD coriolis-provider-{{item}}/ coriolis-provider-{{item}}
 {% endfor %}
 
-RUN yum install -y qemu-img
 # NOTE: the `openssl` binary is required by python-novaclient when
 # decrypting the password of a Windows worker machine.
-RUN yum install -y openssl
+RUN yum install -y qemu-img vim openssl
 
 {% for item in all_providers %}
 RUN /bin/bash -c "pip3 install -e ./coriolis-provider-{{item}}"

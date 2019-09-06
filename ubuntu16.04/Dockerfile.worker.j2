@@ -7,6 +7,7 @@ ADD coriolis-provider-{{item}}/ coriolis-provider-{{item}}
 RUN add-apt-repository cloud-archive:queens
 RUN apt-get update && apt-get install -y librados2 python3-rados python3-rbd
 
+RUN apt-get install -y vim
 RUN apt-get install -y qemu-utils
 
 # NOTE: the `openssl` binary is required by python-novaclient when
