@@ -687,7 +687,7 @@ class Replicator(object):
             fp.truncate(size)
             perc_step = self._event_manager.add_percentage_step(
                 len(chunks), message_format="Disk download progress for "
-                "/dev/%s (%s GB): {:.0f}%%" % (disk, size_from_chunks))
+                "/dev/%s (%s MB): {:.0f}%%" % (disk, size_from_chunks))
             for chunk in chunks:
                 offset = int(chunk["offset"])
                 # seek to offset
