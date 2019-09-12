@@ -540,17 +540,13 @@ class ConductorServerEndpoint(object):
             raise exception.InvalidReplicaState(
                 "The Replica has never been executed.")
 
-        if (force and sorted_executions[0].status !=
-                constants.EXECUTION_STATUS_COMPLETED):
-            raise exception.InvalidReplicaState(
-                "The last replica tasks execution was not successful. "
-                "Perform a forced migration if you wish to perform a "
-                "migration without a successful last replica execution")
-        elif not [e for e in sorted_executions
-                  if e.status == constants.EXECUTION_STATUS_COMPLETED]:
-            raise exception.InvalidReplicaState(
-                "A replica must have been executed succesfully in order "
-                "to be migrated")
+        if not [e for e in sorted_executions
+                if e.type == constants.EXECUTION_TYPE_REPLICA_EXECUTION and (
+                    e.status == constants.EXECUTION_STATUS_COMPLETED)]:
+            if not force:
+                raise exception.InvalidReplicaState(
+                    "A replica must have been executed successfully at least "
+                    "once in order to be migrated")
 
     def _get_provider_types(self, ctxt, endpoint):
         provider_types = self.get_available_providers(ctxt).get(endpoint.type)
@@ -1128,6 +1124,7 @@ class ConductorServerEndpoint(object):
             self, ctxt, replica_id, properties):
         replica = self._get_replica(ctxt, replica_id)
         self._check_replica_running_executions(ctxt, replica)
+        self._check_valid_replica_tasks_execution(replica, force=True)
         execution = models.TasksExecution()
         execution.id = str(uuid.uuid4())
         execution.status = constants.EXECUTION_STATUS_RUNNING
