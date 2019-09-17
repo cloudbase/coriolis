@@ -546,7 +546,7 @@ class ConductorServerEndpoint(object):
             if not force:
                 raise exception.InvalidReplicaState(
                     "A replica must have been executed successfully at least "
-                    "once in order to be migrated")
+                    "once in order to be migrated.")
 
     def _get_provider_types(self, ctxt, endpoint):
         provider_types = self.get_available_providers(ctxt).get(endpoint.type)
@@ -965,9 +965,7 @@ class ConductorServerEndpoint(object):
                 LOG.debug(
                     "No 'transfer_result' was returned for task type '%s' "
                     "for transfer action '%s'", task_type, execution.action_id)
-        elif task_type in (
-                constants.TASK_TYPE_UPDATE_SOURCE_REPLICA,
-                constants.TASK_TYPE_UPDATE_DESTINATION_REPLICA):
+        elif task_type == constants.TASK_TYPE_UPDATE_DESTINATION_REPLICA:
             # NOTE: perform the actual db update on the Replica's properties:
             db_api.update_replica(ctxt, execution.action_id, task_info)
             # NOTE: remember to update the `volumes_info`:
@@ -1124,12 +1122,23 @@ class ConductorServerEndpoint(object):
             self, ctxt, replica_id, properties):
         replica = self._get_replica(ctxt, replica_id)
         self._check_replica_running_executions(ctxt, replica)
-        self._check_valid_replica_tasks_execution(replica, force=True)
+
         execution = models.TasksExecution()
         execution.id = str(uuid.uuid4())
         execution.status = constants.EXECUTION_STATUS_RUNNING
         execution.action = replica
         execution.type = constants.EXECUTION_TYPE_REPLICA_UPDATE
+
+        if not replica.executions:
+            LOG.debug(
+                "Replica %s has no executions. Updating params.", replica_id)
+            execution.type = constants.EXECUTION_TYPE_FORCED_REPLICA_UPDATE
+            # NOTE: nothing to actually execute on either platform:
+            execution.status = constants.EXECUTION_STATUS_COMPLETED
+            db_api.add_replica_tasks_execution(ctxt, execution)
+            db_api.update_replica(ctxt, replica_id, replica.info)
+            return self.get_replica_tasks_execution(
+                ctxt, replica_id, execution.id)
 
         LOG.debug(
             "Replica '%s' info pre-replica-update: %s",

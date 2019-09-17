@@ -611,8 +611,13 @@ class UpdateDestinationReplicaTask(base.TaskRunner):
         schemas.validate_value(
             volumes_info, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)
 
-        volumes_info = _check_ensure_volumes_info_ordering(
-            export_info, volumes_info)
+        if volumes_info:
+            volumes_info = _check_ensure_volumes_info_ordering(
+                export_info, volumes_info)
+        else:
+            LOG.warn(
+                "No volumes info present after Replica update. "
+                "Presuming disks were deleted.")
 
         task_info['volumes_info'] = volumes_info
 
