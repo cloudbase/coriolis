@@ -109,3 +109,14 @@ components have been deployed and configured properly:
     openstack endpoint list
     openstack secret list
     coriolis endpoint list
+
+
+Updating an existing appliance
+==============================
+
+Given access to the upstream Docker registry, the appliance can be simply
+updated by running:
+
+::
+
+    cd /root/coriolis-docker && git fetch origin && git merge origin/master && bash ./update.sh
