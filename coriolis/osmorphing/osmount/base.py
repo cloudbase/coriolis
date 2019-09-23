@@ -4,7 +4,6 @@
 
 import abc
 import base64
-import json
 import os
 import re
 
@@ -125,26 +124,14 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
     def _get_lv_paths(self):
         """ Returns list with paths of available LVM volumes. """
         lvm_paths = []
-        out = json.loads(
-            self._exec_cmd(
-                "sudo lvs -o lv_path,lv_name --report-format json").decode())
-        LOG.debug("Decoded `lvs` output data: %s", out)
-
-        reports = out.get("report", [])
-        if not reports:
-            return []
-
-        if len(reports) > 1:
-            LOG.warn("Multiple LVM reports found: %s", reports)
-        report = reports[0]
-
-        for i, lvm in enumerate(report.get("lv", [])):
-            lvm_name = lvm.get("lv_name", str(i))
-            lvm_path = lvm.get("lv_path")
-            if not lvm_path:
-                LOG.warn("No path for lvm volume '%s'", lvm_name)
-            else:
-                lvm_paths.append(lvm_path)
+        out = self._exec_cmd("sudo lvdisplay -c").decode().strip()
+        if out:
+            LOG.debug("Decoded `lvdisplay` output data: %s", out)
+            out_lines = out.split('\n')
+            for line in out_lines:
+                lvm_vol = line.strip().split(':')
+                if lvm_vol:
+                    lvm_paths.append(lvm_vol[0])
 
         LOG.debug("Found LVM device paths: %s", lvm_paths)
         return lvm_paths
@@ -213,23 +200,27 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         by_uuid_entry_regex = "^(/dev/disk/by-uuid/%s)$" % fs_uuid_regex
         if not mountable_lvm_devs:
             mountable_lvm_devs = []
+        device_paths = self._get_device_file_paths(mountable_lvm_devs)
         for (mountpoint, details) in mounts.items():
             device = details['device']
             if (re.match(fs_uuid_entry_regex, device) is None and
                     re.match(by_uuid_entry_regex, device) is None):
-                if device not in mountable_lvm_devs:
+                device_file_path = self._get_symlink_target(device)
+                if device not in mountable_lvm_devs and (
+                        device_file_path not in device_paths):
                     LOG.warn(
                         "Found fstab entry for dir %s which references device "
                         "%s. Only LVM volumes or devices referenced by UUID=* "
                         "or /dev/disk/by-uuid/* notation are supported. "
-                        "Skipping mounting directory." % (
+                        "Devicemapper paths for LVM volumes are also "
+                        "supported. Skipping mounting directory." % (
                             mountpoint, device))
                     continue
-            elif mountpoint in skip_mounts:
+            if mountpoint in skip_mounts:
                 LOG.debug(
                     "Skipping undesired mount: %s: %s", mountpoint, details)
                 continue
-            elif details["filesystem"] in skip_filesystems:
+            if details["filesystem"] in skip_filesystems:
                 LOG.debug(
                     "Skipping mounting undesired FS for device %s: %s",
                     device, details)
@@ -257,6 +248,28 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                 "mounted: %s", new_mountpoints)
 
         return new_mountpoints
+
+    def _get_symlink_target(self, symlink):
+        target = None
+        try:
+            target = self._exec_cmd('readlink -en %s' % symlink).decode()
+        except Exception:
+            LOG.warn('Target not found for symlink: %s' % symlink)
+
+        return target
+
+    def _get_device_file_paths(self, symlink_list):
+        """ Reads a list of symlink paths, such as `/dev/GROUP/VOLUME0` or
+        `/dev/mapper/GROUP-VOLUME0` and returns a list of respective links'
+        target device file paths, such as `/dev/dm0`
+        """
+        dev_file_paths = []
+        for link in symlink_list:
+            dev_file = self._get_symlink_target(link)
+            if not dev_file:
+                dev_file = link
+            dev_file_paths.append(dev_file)
+        return dev_file_paths
 
     def _get_mounted_devices(self):
         mounts = self._exec_cmd(
