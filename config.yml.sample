@@ -21,6 +21,7 @@ keystone_public_port: 5000
 keystone_admin_port: 35357
 keystone_host: "{{ coriolis_host }}"
 keystone_auth_url: "{{ admin_protocol }}://{{ keystone_host }}:{{ keystone_admin_port }}"
+mariadb_innodb_log_file_size: 256M
 coriolis_keystone_user: "coriolis"
 coriolis_keystone_password:
 

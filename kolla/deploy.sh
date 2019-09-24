@@ -66,6 +66,12 @@ setup_docker_pip_package
 kolla-ansible deploy -i ./kolla-ansible/ansible/inventory/coriolis
 kolla-ansible post-deploy
 
+innodb_log_file_size=$(python "$GET_CONFIG_VALUE_SCRIPT" -c "$CONFIG_FILE" -n mariadb_innodb_log_file_size)
+if [ "$innodb_log_file_size" ]; then
+    python $SET_INI_CONFIG_VALUE_SCRIPT -c /etc/kolla/mariadb/galera.cnf -s mysqld -n innodb_log_file_size -v $innodb_log_file_size
+    docker restart mariadb
+fi
+
 pip install -U -q git+https://github.com/openstack/python-openstackclient@stable/rocky
 pip install -U -q git+https://github.com/openstack/python-barbicanclient@stable/rocky
 source /etc/kolla/admin-openrc.sh
