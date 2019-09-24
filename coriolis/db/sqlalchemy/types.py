@@ -14,6 +14,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+import zlib
 
 from oslo_serialization import jsonutils
 from sqlalchemy.dialects import mysql
@@ -54,12 +55,18 @@ class Json(LongText):
 class Bson(Blob):
 
     def process_bind_param(self, value, dialect):
-        return jsonutils.dumps(value).encode('utf-8')
+        return zlib.compress(
+                jsonutils.dumps(value).encode('utf-8'))
 
     def process_result_value(self, value, dialect):
         if value is None:
             return None
-        return jsonutils.loads(value.decode('utf-8'))
+        data = None
+        try:
+            data = zlib.decompress(value)
+        except:
+            data = value
+        return jsonutils.loads(data)
 
 
 class List(types.TypeDecorator):
