@@ -172,6 +172,10 @@
             ]
           }
         },
+        "public_ip_address": {
+          "type": "string",
+          "description": "Public IP address of the VM. If there are multiple public IP associations, only the main/preferred one should be returned. Should not be set if no such public IP association exists."
+        },
         "serial_ports": {
           "type": "array",
           "description": "List of additional serial ports attached to the VM.",
