@@ -21,11 +21,6 @@
         - { name: Dockerfile.webproxy}
         - { name: webproxy_start}
 
-    - name: Creating coriolis-web virtualhost config
-      template:
-        src: ./templates/coriolis-web-vhost.conf.j2
-        dest: ./build/coriolis-web-vhost.conf
-
     - name: Cloning coriolis-core
       vars:
         custom_repo_owner: "{{ custom_repo_owner_names['core']|default ('cloudbase') }}"
