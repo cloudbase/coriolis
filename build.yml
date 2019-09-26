@@ -18,8 +18,6 @@
         - { name: Dockerfile.replica_cron}
         - { name: Dockerfile.worker}
         - { name: Dockerfile.web}
-        - { name: Dockerfile.webproxy}
-        - { name: webproxy_start}
 
     - name: Cloning coriolis-core
       vars:
@@ -88,4 +86,3 @@
         - { dockerfile: Dockerfile.replica_cron, name: coriolis-replica-cron}
         - { dockerfile: Dockerfile.worker, name: coriolis-worker}
         - { dockerfile: Dockerfile.web, name: coriolis-web}
-        - { dockerfile: Dockerfile.webproxy, name: coriolis-web-proxy}

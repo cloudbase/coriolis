@@ -8,8 +8,11 @@
         path: ./build
         state: directory
 
-    - name: Creating Proxy Docker build files 
-      template: src={{ docker_template }}/Dockerfile.webproxy.j2 dest=./build/Dockerfile.webproxy
+    - name: Creating Proxy Docker build files
+      template: src={{ docker_template }}/{{ item.name }}.j2 dest=./build/{{ item.name }}
+      with_items:
+        - { name: webproxy_start }
+        - { name: Dockerfile.webproxy }
 
     - name: Building coriolis-web-proxy image
-      docker_image: path=./build dockerfile=Dockerfile.webproxy name={{ docker_registry }}/{{ coriolis_containers_namespace }}/coriolis-web-proxy pull=False push={{ docker_push_images}} tag={{ docker_images_tag }}
+      docker_image: path=./build dockerfile=Dockerfile.webproxy name={{ docker_registry }}/{{ coriolis_containers_namespace }}/coriolis-web-proxy pull=False push={{ docker_push_images }} tag={{ docker_images_tag }}
