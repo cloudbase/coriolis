@@ -16,6 +16,9 @@ ADMIN_RC = "/etc/kolla/admin-openrc.sh"
 KEYSTONE_WSGI_CFG = "/etc/kolla/keystone/wsgi-keystone.conf"
 KEYSTONE_CFG = "/etc/kolla/keystone/keystone.conf"
 BARBICAN_CFG = "/etc/kolla/barbican-api/barbican.conf"
+BARBICAN_VASAL_CFG = "/etc/kolla/barbican-api/vassals/barbican-api.ini"
+BARBICAN_WORKER_CFG = "/etc/kolla/barbican-worker/barbican.conf"
+BARBICAN_KEYSTONE_CFG = "/etc/kolla/barbican-keystone-listener/barbican.conf"
 CORIOLIS_CFG = "/etc/coriolis/coriolis.conf"
 PROXY_CFG = "/etc/coriolis/coriolis-web-vhost.conf"
 
@@ -178,9 +181,8 @@ def set_section_vals(cfg, section, vals, ip_addr):
             print("Could not set %s: %s" % (i, err))
 
 
-def set_barbican_endpoints(ip_addr):
-    print("Configuring barbican")
-    cfg = Config(BARBICAN_CFG)
+def _set_barbican_endpoints(CFG, ip_addr):
+    cfg = Config(CFG)
     cfg.set("DEFAULT", "bind_host", ip_addr)
 
     sections_and_vals = {
@@ -197,6 +199,26 @@ def set_barbican_endpoints(ip_addr):
 
     for i in sections_and_vals:
         set_section_vals(cfg, i, sections_and_vals[i], ip_addr)
+    cfg.save()
+
+
+def set_barbican_endpoints(ip_addr):
+    print("Configuring barbican")
+    cfgs = [
+        BARBICAN_CFG, BARBICAN_WORKER_CFG,
+        BARBICAN_KEYSTONE_CFG]
+    for i in cfgs:
+        _set_barbican_endpoints(i, ip_addr)
+
+    cfg = Config(BARBICAN_VASAL_CFG)
+    try:
+        val = cfg.get("uwsgi", "socket")
+        spl = val.rsplit(":", 1)
+        if len(spl) == 2:
+            val = val.replace(spl[0], ip_addr)
+            cfg.set("uwsgi", "socket", val)
+    except:
+        pass
     cfg.save()
 
 
