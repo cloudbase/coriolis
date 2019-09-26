@@ -17,6 +17,30 @@ KEYSTONE_WSGI_CFG = "/etc/kolla/keystone/wsgi-keystone.conf"
 KEYSTONE_CFG = "/etc/kolla/keystone/keystone.conf"
 BARBICAN_CFG = "/etc/kolla/barbican-api/barbican.conf"
 CORIOLIS_CFG = "/etc/coriolis/coriolis.conf"
+PROXY_CFG = "/etc/coriolis/coriolis-web-vhost.conf"
+
+
+def set_proxy_cfg(ip_addr):
+    print("Configuring web proxy")
+    if os.path.isfile(PROXY_CFG) is False:
+        return
+    contents = open(PROXY_CFG).readlines()
+    tmp = []
+    variables = [
+        "keystone_auth_url_v3", "barbican_endpoint_url",
+        "coriolis_base_endpoint_url",
+    ]
+    for line in contents:
+        for v in variables:
+            if ("Define %s" % v) in line:
+                spl = line.split()
+                parsed = urlparse.urlparse(spl[-1])
+                if parsed.hostname != ip_addr:
+                    line = line.replace(
+                        parsed.hostname, ip_addr)
+        tmp.append(line)
+    with open(PROXY_CFG, 'w') as fd:
+        fd.writelines(tmp)
 
 
 def set_openrc(ip_addr):
@@ -228,6 +252,7 @@ if __name__ == '__main__':
         set_barbican_endpoints(ip)
         set_coriolis_endpoints(ip)
         set_openrc(ip)
+        set_proxy_cfg(ip)
         restart_containers()
     except Exception as err:
         print("Failed to set endpoints: %s" % err)
