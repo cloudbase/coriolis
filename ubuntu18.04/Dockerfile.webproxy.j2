@@ -2,8 +2,7 @@ FROM ubuntu:18.04
 
 RUN apt-get update && apt-get install -y apache2 openssl
 RUN a2enmod ssl headers rewrite proxy proxy_http
-COPY ./coriolis-web-vhost.conf /etc/apache2/sites-available/coriolis-web-vhost.conf
-RUN ln -s ../sites-available/coriolis-web-vhost.conf /etc/apache2/sites-enabled/coriolis-web-vhost.conf
+RUN ln -s /etc/coriolis/coriolis-web-vhost.conf /etc/apache2/sites-enabled/coriolis-web-vhost.conf
 
 # NOTE: the default site will take precedence over the Coriolis vhost(s) so
 # HTTP connections on :80 will not automatically escalate to HTTPS on :443

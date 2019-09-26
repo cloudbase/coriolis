@@ -17,6 +17,11 @@
       shell: |
         $(test -e "{{ coriolis_certs_path_host }}/coriolis.crt" && test -e "{{ coriolis_certs_path_host }}/coriolis.key") || $(rm -rf "{{ coriolis_certs_path_host }}/coriolis.{crt,key}" && openssl req -new -newkey rsa:4096 -days 3650 -nodes -x509 -subj "/C=RO/ST=Timis/L=Timisoara/CN=Coriolis Self Signed" -keyout "{{ coriolis_certs_path_host }}/coriolis.key" -out "{{ coriolis_certs_path_host }}/coriolis.crt")
 
+    - name: Creating coriolis-web-vhost.conf
+      template:
+        src: "./templates/coriolis-web-vhost.conf.j2"
+        dest: "{{ coriolis_config_directory_path_host }}/coriolis-web-vhost.conf"
+
     - name: coriolis-web-proxy container
       docker_container:
         name: coriolis-web-proxy
@@ -27,12 +32,6 @@
         restart: yes
         restart_policy: unless-stopped
         network_mode: host
-        env:
-          KEYSTONE_AUTH_URL: "{{ keystone_auth_url_v3 }}"
-          BARBICAN_ENDPOINT_URL: "{{ barbican_endpoint_url }}"
-          CORIOLIS_BASE_ENDPOINT_URL: "{{ coriolis_base_endpoint_url }}"
-          CORIOLIS_LICENSING_BASE_URL: "{{ licensing_server_base_url }}"
-          CORIOLIS_LICENSING_UI_BASE_URL: "{{ licensing_ui_server_base_url }}"
-          CORIOLIS_INTERNAL_URL: "{{ coriolis_internal_url }}"
         volumes:
         - "{{ coriolis_certs_path_host }}:{{ coriolis_certs_path }}:ro"
+        - "{{ coriolis_config_directory_path_host }}:{{ coriolis_config_directory_path }}"
