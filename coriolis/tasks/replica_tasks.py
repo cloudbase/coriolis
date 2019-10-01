@@ -622,3 +622,19 @@ class UpdateDestinationReplicaTask(base.TaskRunner):
         task_info['volumes_info'] = volumes_info
 
         return task_info
+
+
+class ForceUpdateReplicaTask(base.TaskRunner):
+    def run(self, ctxt, instance, origin, destination, task_info,
+            event_handler):
+        event_manager = events.EventManager(event_handler)
+
+        event_manager.progress_update(
+            "WARN: Forcefully updating Replica parameters may have unintended "
+            "consequences on Replica resources on the destination. It is "
+            "recommended that only non-forced updates be used. "
+            "In the event of issues with the Replica, please delete the "
+            "errored Replica's disks and re-run an execution from scratch.")
+
+        # NOTE: the param update is handled by the conductor:
+        return task_info

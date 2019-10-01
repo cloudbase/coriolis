@@ -1133,10 +1133,23 @@ class ConductorServerEndpoint(object):
             LOG.debug(
                 "Replica %s has no executions. Updating params.", replica_id)
             execution.type = constants.EXECUTION_TYPE_FORCED_REPLICA_UPDATE
-            # NOTE: nothing to actually execute on either platform:
-            execution.status = constants.EXECUTION_STATUS_COMPLETED
-            db_api.add_replica_tasks_execution(ctxt, execution)
+
+            for instance in execution.action.instances:
+                # NOTE: "circular assignment" would lead to a `None` value
+                # so we must operate on a copy:
+                inst_info_copy = copy.deepcopy(replica.info[instance])
+                inst_info_copy.update(properties)
+                replica.info[instance] = inst_info_copy
+
+                self._create_task(
+                    instance, constants.EXECUTION_TYPE_FORCED_REPLICA_UPDATE,
+                    execution)
+
+            # NOTE: the forced update task does nothing so we can
+            # directly update the values here:
             db_api.update_replica(ctxt, replica_id, replica.info)
+
+            db_api.add_replica_tasks_execution(ctxt, execution)
             return self.get_replica_tasks_execution(
                 ctxt, replica_id, execution.id)
 
