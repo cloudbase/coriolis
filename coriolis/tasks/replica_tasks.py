@@ -608,10 +608,10 @@ class UpdateDestinationReplicaTask(base.TaskRunner):
             destination_provider.check_update_destination_environment_params(
                 ctxt, destination_connection_info, export_info, volumes_info,
                 old_destination_env, new_destination_env))
-        schemas.validate_value(
-            volumes_info, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)
 
         if volumes_info:
+            schemas.validate_value(
+                volumes_info, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)
             volumes_info = _check_ensure_volumes_info_ordering(
                 export_info, volumes_info)
         else:
