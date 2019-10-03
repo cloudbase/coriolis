@@ -265,6 +265,22 @@ port_reuse_policy = keep_mac
 # migrated/replicated VMs.
 # instance_tags =
 
+# Whether or not to preserve the fixed IPs of the migrated instances' Neutron
+# ports. When this is set to 'true', the target Openstack cloud will attempt
+# to create ports containing fixed IPs collected from the source VM. A subnet
+# with the right CIDR is required in the mapped network for the VM's first NIC.
+preserve_fixed_ips = False
+
+# Whether or not to attach a floating IP to the already migrated VM. This
+# option must be set to 'true' if the migrated VM is intended to have a public
+# IP attached. The floating IP will be allocated from the 'floating_ip_pool'
+# option.
+use_floating_ip = False
+
+# Name of the floating IP pool to be used for the creation and attachment of
+# floating IPs to the migrated VMs.
+floating_ip_pool = public
+
 # Parameters realted to the OSMorphing process for Windows instances:
 windows_virtio_iso_url = https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso
 cloudbaseinit_x64_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x64.zip
