@@ -1,0 +1,127 @@
+{
+  "execution": {
+    "created_at": "2019-07-23T17:18:38.000000",
+    "updated_at": null,
+    "deleted_at": null,
+    "deleted": "0",
+    "id": "9d64e152-1fcc-4ef1-8b09-60a7fabd97a9",
+    "action_id": "0460aa4d-6b16-4c98-bd56-27ee186e4a22",
+    "status": "RUNNING",
+    "number": 2,
+    "tasks": [
+      {
+        "created_at": "2019-07-23T17:18:38.000000",
+        "updated_at": null,
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "6aeef794-f954-49fd-8259-58503f24a238",
+        "execution_id": "9d64e152-1fcc-4ef1-8b09-60a7fabd97a9",
+        "instance": "CI/coriolis-test-vms/openwrt-no-cbt-clone",
+        "host": null,
+        "process_id": null,
+        "status": "PENDING",
+        "task_type": "GET_INSTANCE_INFO",
+        "exception_details": null,
+        "depends_on": null,
+        "on_error": false,
+        "events": [],
+        "progress_updates": []
+      },
+      {
+        "created_at": "2019-07-23T17:18:38.000000",
+        "updated_at": null,
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "b668eef0-92bd-418c-aee5-19d9fede659e",
+        "execution_id": "9d64e152-1fcc-4ef1-8b09-60a7fabd97a9",
+        "instance": "CI/coriolis-test-vms/openwrt-no-cbt-clone",
+        "host": null,
+        "process_id": null,
+        "status": "PENDING",
+        "task_type": "UPDATE_SOURCE_REPLICA",
+        "exception_details": null,
+        "depends_on": null,
+        "on_error": false,
+        "events": [],
+        "progress_updates": []
+      },
+      {
+        "created_at": "2019-07-23T17:18:38.000000",
+        "updated_at": null,
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "99b89bf0-1fa5-4e5c-b8a8-5d0fc548f4d8",
+        "execution_id": "9d64e152-1fcc-4ef1-8b09-60a7fabd97a9",
+        "instance": "CI/coriolis-test-vms/openwrt-no-cbt-clone",
+        "host": null,
+        "process_id": null,
+        "status": "PENDING",
+        "task_type": "UPDATE_DESTINATION_REPLICA",
+        "exception_details": null,
+        "depends_on": [
+          "6aeef794-f954-49fd-8259-58503f24a238",
+          "b668eef0-92bd-418c-aee5-19d9fede659e"
+        ],
+        "on_error": false,
+        "events": [],
+        "progress_updates": []
+      }
+    ],
+    "action": {
+      "created_at": "2019-07-23T17:01:03.000000",
+      "updated_at": "2019-07-23T17:07:09.000000",
+      "deleted_at": null,
+      "deleted": "0",
+      "base_id": "0460aa4d-6b16-4c98-bd56-27ee186e4a22",
+      "user_id": "7cf9b4745d514517b3eae440438136bc",
+      "project_id": "ffc16db2011e41f28152897c279b6bcc",
+      "destination_environment": {
+        "network_map": {
+          "VM Network": "93b7cbd8-0ac6-4b4d-a90a-48eb445b869f"
+        },
+        "storage_mappings": {
+          "backend_mappings": [
+            {
+              "source": "dg2vd1",
+              "destination": "lvmdriver-1"
+            }
+          ],
+          "disk_mappings": [
+            {
+              "disk_id": "3000",
+              "destination": "lvmdriver-1"
+            }
+          ]
+        }
+      },
+      "type": "replica",
+      "instances": [
+        "CI/coriolis-test-vms/openwrt-no-cbt-clone"
+      ],
+      "reservation_id": null,
+      "notes": "",
+      "origin_endpoint_id": "15a0d68a-40c3-40cd-bcc4-aba390c4c4e1",
+      "destination_endpoint_id": "e19100c7-cc6e-4890-9ce6-4d638b1b5ede",
+      "transfer_result": null,
+      "network_map": {
+        "VM Network": "93b7cbd8-0ac6-4b4d-a90a-48eb445b869f"
+      },
+      "storage_mappings": {
+        "backend_mappings": [
+          {
+            "source": "dg2vd1",
+            "destination": "lvmdriver-1"
+          }
+        ],
+        "disk_mappings": [
+          {
+            "disk_id": "3000",
+            "destination": "lvmdriver-1"
+          }
+        ]
+      },
+      "source_environment": {},
+      "id": "0460aa4d-6b16-4c98-bd56-27ee186e4a22"
+    }
+  }
+}

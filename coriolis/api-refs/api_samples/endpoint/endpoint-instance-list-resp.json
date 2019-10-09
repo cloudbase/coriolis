@@ -1,0 +1,26 @@
+{
+  "instances": [
+    {
+      "num_cpu": 1,
+      "num_cores_per_socket": 1,
+      "memory_mb": 2048,
+      "nested_virtualization": false,
+      "name": "ubuntu-xenial",
+      "id": "3ba07383-6726-4bf8-82d5-d5ce871519bc",
+      "flavor_name": "m1.small",
+      "os_type": "linux",
+      "instance_name": "ubuntu-xenial"
+    },
+    {
+      "num_cpu": 4,
+      "num_cores_per_socket": 1,
+      "memory_mb": 2048,
+      "nested_virtualization": false,
+      "name": "windows",
+      "id": "e93f6d38-9240-4dec-b738-61ca225aba6a",
+      "flavor_name": "windows2012",
+      "os_type": "windows",
+      "instance_name": "windows"
+    }
+  ]
+}

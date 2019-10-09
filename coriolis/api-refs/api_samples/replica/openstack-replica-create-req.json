@@ -1,0 +1,26 @@
+{
+  "replica": {
+    "network_map": {},
+    "origin_endpoint_id": "5a276274-f964-4c07-aec4-01a7971d9eea",
+    "instances": ["ubuntu-xenial"],
+    "storage_mappings": {},
+    "destination_environment": {
+      "network_map": {
+        "private": "provider-net"
+      },
+      "storage_mappings": {
+        "lvmdriver-1": "lvm-1"
+      },
+      "keypair_name": "new-key",
+      "delete_disks_on_vm_termination": false,
+      "migr_image_map": {
+          "linux": "ubuntu-xenial-img",
+          "windows": "63d8f1a4-3192-4edc-b113-0d099b4bc458"
+      },
+      "migr_network": "provider-net",
+      "port_reuse_policy": "keep_mac",
+      "set_dhcp": true
+    },
+    "destination_endpoint_id": "6258fa20-5d1f-44fa-ae12-c94122263fa3"
+  }
+}

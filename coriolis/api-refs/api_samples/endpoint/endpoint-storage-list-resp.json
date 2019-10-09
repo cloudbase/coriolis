@@ -1,0 +1,10 @@
+{
+  "storage": {
+    "storage_backends": [
+      {
+        "id": "486bf200-f4b0-4e3b-a0f3-6e7603203624",
+        "name": "lvmdriver-1"
+      }
+    ]
+  }
+}

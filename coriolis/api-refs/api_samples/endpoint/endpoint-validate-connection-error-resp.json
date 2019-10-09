@@ -1,0 +1,6 @@
+{
+  "validate-connection": {
+    "valid": false,
+    "message": "Unable to establish connection to http://openstack.awesome.our:5000/v3/auth/tokens: HTTPConnectionPool(host='openstack.awesome.our', port=5000): Max retries exceeded with url: /v3/auth/tokens (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f54631feeb8>: Failed to establish a new connection: [Errno -2] No address found',))"
+  }
+}

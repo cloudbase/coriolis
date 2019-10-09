@@ -1,0 +1,212 @@
+{
+  "execution": {
+    "created_at": "2019-07-11T10:01:43.000000",
+    "updated_at": null,
+    "deleted_at": null,
+    "deleted": "0",
+    "id": "e0bee95f-070a-4222-8b0b-d1abed461dbb",
+    "action_id": "78f89897-fca0-465c-bf0c-b23b36dfd619",
+    "status": "RUNNING",
+    "number": 2,
+    "tasks": [
+      {
+        "created_at": "2019-07-11T10:01:43.000000",
+        "updated_at": null,
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "b632f320-674b-48a7-8cb0-385a24fc0e15",
+        "execution_id": "e0bee95f-070a-4222-8b0b-d1abed461dbb",
+        "instance": "ubuntu-xenial",
+        "host": null,
+        "process_id": null,
+        "status": "PENDING",
+        "task_type": "VALIDATE_REPLICA_INPUTS",
+        "exception_details": null,
+        "depends_on": null,
+        "on_error": false,
+        "progress_updates": [],
+        "events": []
+      },
+      {
+        "created_at": "2019-07-11T10:01:43.000000",
+        "updated_at": null,
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "0a7f3d43-7486-49e7-a606-6411694a8178",
+        "execution_id": "e0bee95f-070a-4222-8b0b-d1abed461dbb",
+        "instance": "ubuntu-xenial",
+        "host": null,
+        "process_id": null,
+        "status": "PENDING",
+        "task_type": "GET_INSTANCE_INFO",
+        "exception_details": null,
+        "depends_on": [
+          "b632f320-674b-48a7-8cb0-385a24fc0e15"
+        ],
+        "on_error": false,
+        "progress_updates": [],
+        "events": []
+      },
+      {
+        "created_at": "2019-07-11T10:01:43.000000",
+        "updated_at": null,
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "e82de183-da6d-4115-83a1-9bd445a32d57",
+        "execution_id": "e0bee95f-070a-4222-8b0b-d1abed461dbb",
+        "instance": "ubuntu-xenial",
+        "host": null,
+        "process_id": null,
+        "status": "PENDING",
+        "task_type": "DEPLOY_REPLICA_DISKS",
+        "exception_details": null,
+        "depends_on": [
+          "0a7f3d43-7486-49e7-a606-6411694a8178"
+        ],
+        "on_error": false,
+        "progress_updates": [],
+        "events": []
+      },
+      {
+        "created_at": "2019-07-11T10:01:43.000000",
+        "updated_at": null,
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "c2537438-8b8c-4a66-aaf3-1bb98b9b1958",
+        "execution_id": "e0bee95f-070a-4222-8b0b-d1abed461dbb",
+        "instance": "ubuntu-xenial",
+        "host": null,
+        "process_id": null,
+        "status": "PENDING",
+        "task_type": "DEPLOY_REPLICA_SOURCE_RESOURCES",
+        "exception_details": null,
+        "depends_on": [
+          "e82de183-da6d-4115-83a1-9bd445a32d57"
+        ],
+        "on_error": false,
+        "progress_updates": [],
+        "events": []
+      },
+      {
+        "created_at": "2019-07-11T10:01:43.000000",
+        "updated_at": null,
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "00c3380d-26af-4595-b50d-752326389935",
+        "execution_id": "e0bee95f-070a-4222-8b0b-d1abed461dbb",
+        "instance": "ubuntu-xenial",
+        "host": null,
+        "process_id": null,
+        "status": "PENDING",
+        "task_type": "DEPLOY_REPLICA_TARGET_RESOURCES",
+        "exception_details": null,
+        "depends_on": [
+          "e82de183-da6d-4115-83a1-9bd445a32d57"
+        ],
+        "on_error": false,
+        "progress_updates": [],
+        "events": []
+      },
+      {
+        "created_at": "2019-07-11T10:01:43.000000",
+        "updated_at": null,
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "96de030b-3a12-45a5-a306-3a18e938040b",
+        "execution_id": "e0bee95f-070a-4222-8b0b-d1abed461dbb",
+        "instance": "ubuntu-xenial",
+        "host": null,
+        "process_id": null,
+        "status": "PENDING",
+        "task_type": "REPLICATE_DISKS",
+        "exception_details": null,
+        "depends_on": [
+          "c2537438-8b8c-4a66-aaf3-1bb98b9b1958",
+          "00c3380d-26af-4595-b50d-752326389935"
+        ],
+        "on_error": false,
+        "progress_updates": [],
+        "events": []
+      },
+      {
+        "created_at": "2019-07-11T10:01:43.000000",
+        "updated_at": null,
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "9a32aa7d-70a0-4c0e-a555-925060755f27",
+        "execution_id": "e0bee95f-070a-4222-8b0b-d1abed461dbb",
+        "instance": "ubuntu-xenial",
+        "host": null,
+        "process_id": null,
+        "status": "PENDING",
+        "task_type": "DELETE_REPLICA_SOURCE_RESOURCES",
+        "exception_details": null,
+        "depends_on": [
+          "96de030b-3a12-45a5-a306-3a18e938040b"
+        ],
+        "on_error": true,
+        "progress_updates": [],
+        "events": []
+      },
+      {
+        "created_at": "2019-07-11T10:01:43.000000",
+        "updated_at": null,
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "3d3bc666-8a6d-465c-afc0-5a0f25269228",
+        "execution_id": "e0bee95f-070a-4222-8b0b-d1abed461dbb",
+        "instance": "ubuntu-xenial",
+        "host": null,
+        "process_id": null,
+        "status": "PENDING",
+        "task_type": "DELETE_REPLICA_TARGET_RESOURCES",
+        "exception_details": null,
+        "depends_on": [
+          "96de030b-3a12-45a5-a306-3a18e938040b"
+        ],
+        "on_error": true,
+        "progress_updates": [],
+        "events": []
+      }
+    ],
+    "action": {
+      "created_at": "2019-07-11T09:49:45.000000",
+      "updated_at": "2019-07-11T09:58:18.000000",
+      "deleted_at": null,
+      "deleted": "0",
+      "base_id": "78f89897-fca0-465c-bf0c-b23b36dfd619",
+      "user_id": "7cf9b4745d514517b3eae440438136bc",
+      "project_id": "ffc16db2011e41f28152897c279b6bcc",
+      "destination_environment": {
+        "network_map": {
+          "private": "provider-net"
+        },
+        "storage_mappings": {
+          "lvmdriver-1": "lvm-1"
+        },
+        "keypair_name": "new-key",
+        "delete_disks_on_vm_termination": false,
+        "migr_image_map": {
+            "linux": "ubuntu-xenial-img",
+            "windows": "63d8f1a4-3192-4edc-b113-0d099b4bc458"
+        },
+        "migr_network": "provider-net",
+        "port_reuse_policy": "keep_mac",
+        "set_dhcp": true
+      },
+      "type": "replica",
+      "instances": [
+        "ubuntu-xenial"
+      ],
+      "reservation_id": null,
+      "notes": null,
+      "origin_endpoint_id": "5a276274-f964-4c07-aec4-01a7971d9eea",
+      "destination_endpoint_id": "6258fa20-5d1f-44fa-ae12-c94122263fa3",
+      "transfer_result": null,
+      "network_map": {},
+      "storage_mappings": {},
+      "source_environment": {},
+      "id": "78f89897-fca0-465c-bf0c-b23b36dfd619"
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "migration": {
+    "clone_disks": true,
+    "force": false,
+    "replica_id": "0460aa4d-6b16-4c98-bd56-27ee186e4a22",
+    "skip_os_morphing": false
+  }
+}

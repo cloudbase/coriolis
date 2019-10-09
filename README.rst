@@ -149,6 +149,13 @@ Delete a migration job:
 Note: only completed, failed or cancelled jobs can be deleted.
 
 
+API Documentation
+-----------------
+
+To build the API documentation, while in the repository root directory, run:
+::
+    sphinx-build -W -b html coriolis/api-refs/source $DOCS_PATH
+
 API bindings
 ------------
 

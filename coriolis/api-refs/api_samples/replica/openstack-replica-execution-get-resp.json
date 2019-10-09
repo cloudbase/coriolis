@@ -1,0 +1,279 @@
+{
+  "execution": {
+    "created_at": "2019-07-11T13:18:43.000000",
+    "updated_at": "2019-07-11T13:19:24.000000",
+    "deleted_at": null,
+    "deleted": "0",
+    "id": "220070fe-baa3-4d9c-baa7-8b95775475b8",
+    "action_id": "78f89897-fca0-465c-bf0c-b23b36dfd619",
+    "status": "ERROR",
+    "number": 4,
+    "tasks": [
+      {
+        "created_at": "2019-07-11T13:18:43.000000",
+        "updated_at": "2019-07-11T13:19:02.000000",
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "dbe4eb24-367a-46a1-8934-fceb87a9b694",
+        "execution_id": "220070fe-baa3-4d9c-baa7-8b95775475b8",
+        "instance": "ubuntu-xenial",
+        "host": "coriolis-worker",
+        "process_id": 55,
+        "status": "COMPLETED",
+        "task_type": "VALIDATE_REPLICA_INPUTS",
+        "exception_details": null,
+        "depends_on": null,
+        "on_error": false,
+        "progress_updates": [
+          {
+            "created_at": "2019-07-11T13:19:02.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "3de964e8-d61b-4955-b2d7-8a5218007221",
+            "task_id": "dbe4eb24-367a-46a1-8934-fceb87a9b694",
+            "current_step": 4,
+            "total_steps": null,
+            "message": "Checking Linux worker image"
+          },
+          {
+            "created_at": "2019-07-11T13:19:02.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "443b5557-65a2-444f-8e44-bd617a4b140c",
+            "task_id": "dbe4eb24-367a-46a1-8934-fceb87a9b694",
+            "current_step": 3,
+            "total_steps": null,
+            "message": "Checking shape name"
+          },
+        ],
+        "events": []
+      },
+      {
+        "created_at": "2019-07-11T13:18:43.000000",
+        "updated_at": "2019-07-11T13:19:05.000000",
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "ac0b4373-8b03-453b-b231-51c526039ae8",
+        "execution_id": "220070fe-baa3-4d9c-baa7-8b95775475b8",
+        "instance": "ubuntu-xenial",
+        "host": "coriolis-worker",
+        "process_id": 60,
+        "status": "COMPLETED",
+        "task_type": "GET_INSTANCE_INFO",
+        "exception_details": null,
+        "depends_on": [
+          "dbe4eb24-367a-46a1-8934-fceb87a9b694"
+        ],
+        "on_error": false,
+        "progress_updates": [
+          {
+            "created_at": "2019-07-11T13:19:05.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "95e7c625-c057-4bc9-9ec4-3ebd30a9f36e",
+            "task_id": "ac0b4373-8b03-453b-b231-51c526039ae8",
+            "current_step": 2,
+            "total_steps": null,
+            "message": "Instance \"3ba07383-6726-4bf8-82d5-d5ce871519bc\" was booted off of a volume. Defaulting to OS type: \"linux\""
+          },
+          {
+            "created_at": "2019-07-11T13:19:04.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "9ba35ade-3ebc-45c8-a18a-2c3e32b04bad",
+            "task_id": "ac0b4373-8b03-453b-b231-51c526039ae8",
+            "current_step": 1,
+            "total_steps": null,
+            "message": "Retrieving OpenStack instance"
+          }
+        ],
+        "events": []
+      },
+      {
+        "created_at": "2019-07-11T13:18:43.000000",
+        "updated_at": "2019-07-11T13:19:11.000000",
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "32a87325-7aea-47f1-847f-a33da53f4dff",
+        "execution_id": "220070fe-baa3-4d9c-baa7-8b95775475b8",
+        "instance": "ubuntu-xenial",
+        "host": "coriolis-worker",
+        "process_id": 65,
+        "status": "COMPLETED",
+        "task_type": "DEPLOY_REPLICA_DISKS",
+        "exception_details": null,
+        "depends_on": [
+          "ac0b4373-8b03-453b-b231-51c526039ae8"
+        ],
+        "on_error": false,
+        "progress_updates": [],
+        "events": []
+      },
+      {
+        "created_at": "2019-07-11T13:18:43.000000",
+        "updated_at": "2019-07-11T13:19:15.000000",
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "9e36d393-1b56-4aba-bc43-b7323047e6f6",
+        "execution_id": "220070fe-baa3-4d9c-baa7-8b95775475b8",
+        "instance": "ubuntu-xenial",
+        "host": "coriolis-worker",
+        "process_id": 71,
+        "status": "COMPLETED",
+        "task_type": "DEPLOY_REPLICA_SOURCE_RESOURCES",
+        "exception_details": null,
+        "depends_on": [
+          "32a87325-7aea-47f1-847f-a33da53f4dff"
+        ],
+        "on_error": false,
+        "progress_updates": [],
+        "events": []
+      },
+      {
+        "created_at": "2019-07-11T13:18:43.000000",
+        "updated_at": "2019-07-11T13:19:18.000000",
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "1a91cc54-74b9-46f4-b43e-1e6ecdd0ea50",
+        "execution_id": "220070fe-baa3-4d9c-baa7-8b95775475b8",
+        "instance": "ubuntu-xenial",
+        "host": "coriolis-worker",
+        "process_id": 70,
+        "status": "ERROR",
+        "task_type": "DEPLOY_REPLICA_TARGET_RESOURCES",
+        "exception_details": "You have reached your service limit of 1 in this Availability Domain for VM.Standard2.1. Please try launching the instance in a different Availability Domain or Region, or try using a different shape. If you have reached all Service limits, please contact Oracle support to request a limit increase.",
+        "depends_on": [
+          "32a87325-7aea-47f1-847f-a33da53f4dff"
+        ],
+        "on_error": false,
+        "progress_updates": [
+          {
+            "created_at": "2019-07-11T13:19:16.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "a237317e-db72-4b40-951b-3ded991c6ed7",
+            "task_id": "1a91cc54-74b9-46f4-b43e-1e6ecdd0ea50",
+            "current_step": 1,
+            "total_steps": null,
+            "message": "Creating coriolis worker"
+          },
+          {
+            "created_at": "2019-07-11T13:19:17.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "dce30938-129e-4c75-941c-1da3b156e2b6",
+            "task_id": "1a91cc54-74b9-46f4-b43e-1e6ecdd0ea50",
+            "current_step": 2,
+            "total_steps": null,
+            "message": "Launching worker instance"
+          }
+        ],
+        "events": []
+      },
+      {
+        "created_at": "2019-07-11T13:18:43.000000",
+        "updated_at": "2019-07-11T13:19:18.000000",
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "1d307621-52b1-4c45-a8c7-fbd6d69f469d",
+        "execution_id": "220070fe-baa3-4d9c-baa7-8b95775475b8",
+        "instance": "ubuntu-xenial",
+        "host": null,
+        "process_id": null,
+        "status": "CANCELED",
+        "task_type": "REPLICATE_DISKS",
+        "exception_details": null,
+        "depends_on": [
+          "9e36d393-1b56-4aba-bc43-b7323047e6f6",
+          "1a91cc54-74b9-46f4-b43e-1e6ecdd0ea50"
+        ],
+        "on_error": false,
+        "progress_updates": [],
+        "events": []
+      },
+      {
+        "created_at": "2019-07-11T13:18:43.000000",
+        "updated_at": "2019-07-11T13:19:23.000000",
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "607b09ad-6249-432c-8ab2-5a899311d8cb",
+        "execution_id": "220070fe-baa3-4d9c-baa7-8b95775475b8",
+        "instance": "ubuntu-xenial",
+        "host": "coriolis-worker",
+        "process_id": 80,
+        "status": "COMPLETED",
+        "task_type": "DELETE_REPLICA_SOURCE_RESOURCES",
+        "exception_details": null,
+        "depends_on": [
+          "1d307621-52b1-4c45-a8c7-fbd6d69f469d"
+        ],
+        "on_error": true,
+        "progress_updates": [],
+        "events": []
+      },
+      {
+        "created_at": "2019-07-11T13:18:43.000000",
+        "updated_at": "2019-07-11T13:19:24.000000",
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "ec36692a-99b0-4054-80cb-c8dcc7faaf6e",
+        "execution_id": "220070fe-baa3-4d9c-baa7-8b95775475b8",
+        "instance": "ubuntu-xenial",
+        "host": "coriolis-worker",
+        "process_id": 81,
+        "status": "COMPLETED",
+        "task_type": "DELETE_REPLICA_TARGET_RESOURCES",
+        "exception_details": null,
+        "depends_on": [
+          "1d307621-52b1-4c45-a8c7-fbd6d69f469d"
+        ],
+        "on_error": true,
+        "progress_updates": [],
+        "events": []
+      }
+    ],
+    "action": {
+      "created_at": "2019-07-11T09:49:45.000000",
+      "updated_at": "2019-07-11T13:19:11.000000",
+      "deleted_at": null,
+      "deleted": "0",
+      "base_id": "78f89897-fca0-465c-bf0c-b23b36dfd619",
+      "user_id": "7cf9b4745d514517b3eae440438136bc",
+      "project_id": "ffc16db2011e41f28152897c279b6bcc",
+      "destination_environment": {
+        "network_map": {
+          "private": "provider-net"
+        },
+        "storage_mappings": {
+          "lvmdriver-1": "lvm-1"
+        },
+        "keypair_name": "new-key",
+        "delete_disks_on_vm_termination": false,
+        "migr_image_map": {
+            "linux": "ubuntu-xenial-img",
+            "windows": "63d8f1a4-3192-4edc-b113-0d099b4bc458"
+        },
+        "migr_network": "provider-net",
+        "port_reuse_policy": "keep_mac",
+        "set_dhcp": true
+      },
+      "type": "replica",
+      "instances": ["ubuntu-xenial"],
+      "reservation_id": null,
+      "notes": null,
+      "origin_endpoint_id": "5a276274-f964-4c07-aec4-01a7971d9eea",
+      "destination_endpoint_id": "6258fa20-5d1f-44fa-ae12-c94122263fa3",
+      "transfer_result": null,
+      "network_map": {},
+      "storage_mappings": {},
+      "source_environment": {},
+      "id": "78f89897-fca0-465c-bf0c-b23b36dfd619"
+    }
+  }
+}

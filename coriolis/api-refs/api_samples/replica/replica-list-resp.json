@@ -1,0 +1,82 @@
+{
+  "replicas": [
+    {
+      "created_at": "2019-07-23T17:01:03.000000",
+      "updated_at": "2019-07-23T17:18:53.000000",
+      "deleted_at": null,
+      "deleted": "0",
+      "base_id": "0460aa4d-6b16-4c98-bd56-27ee186e4a22",
+      "user_id": "7cf9b4745d514517b3eae440438136bc",
+      "project_id": "ffc16db2011e41f28152897c279b6bcc",
+      "destination_environment": {
+        "network_map": {
+          "VM Network": "0a6b9c01-9ff8-4afa-afba-fa2058fe6cd2"
+        },
+        "storage_mappings": {
+          "backend_mappings": [
+            {
+              "source": "dg2vd1",
+              "destination": "lvmdriver-1"
+            }
+          ],
+          "disk_mappings": [
+            {
+              "disk_id": "3000",
+              "destination": "lvmdriver-1"
+            }
+          ]
+        }
+      },
+      "type": "replica",
+      "instances": [
+        "CI/coriolis-test-vms/openwrt-no-cbt-clone"
+      ],
+      "reservation_id": null,
+      "notes": "",
+      "origin_endpoint_id": "15a0d68a-40c3-40cd-bcc4-aba390c4c4e1",
+      "destination_endpoint_id": "e19100c7-cc6e-4890-9ce6-4d638b1b5ede",
+      "transfer_result": null,
+      "network_map": {
+        "VM Network": "0a6b9c01-9ff8-4afa-afba-fa2058fe6cd2"
+      },
+      "storage_mappings": {
+        "backend_mappings": [
+          {
+            "source": "dg2vd1",
+            "destination": "lvmdriver-1"
+          }
+        ],
+        "disk_mappings": [
+          {
+            "disk_id": "3000",
+            "destination": "lvmdriver-1"
+          }
+        ]
+      },
+      "source_environment": {},
+      "id": "0460aa4d-6b16-4c98-bd56-27ee186e4a22",
+      "executions": [
+        {
+          "created_at": "2019-07-23T17:01:03.000000",
+          "updated_at": "2019-07-23T17:07:09.000000",
+          "deleted_at": null,
+          "deleted": "0",
+          "id": "84951ec8-9b0d-4d68-b1eb-b0c143213c75",
+          "action_id": "0460aa4d-6b16-4c98-bd56-27ee186e4a22",
+          "status": "COMPLETED",
+          "number": 1
+        },
+        {
+          "created_at": "2019-07-23T17:18:38.000000",
+          "updated_at": "2019-07-23T17:18:53.000000",
+          "deleted_at": null,
+          "deleted": "0",
+          "id": "9d64e152-1fcc-4ef1-8b09-60a7fabd97a9",
+          "action_id": "0460aa4d-6b16-4c98-bd56-27ee186e4a22",
+          "status": "COMPLETED",
+          "number": 2
+        }
+      ]
+    }
+  ]
+}

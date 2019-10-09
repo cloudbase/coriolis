@@ -1,0 +1,8 @@
+{
+  "shutdown_instance": true,
+  "schedule": {
+    "dow": 0,
+    "minute": 30,
+    "hour": 20
+  }
+}
