@@ -58,11 +58,19 @@
       get_url:
         url: "{{ libnfs_rpm_url }}"
         dest: ./build/libnfs.x86_64.rpm
+      register: result
+      retries: 10
+      delay: 5
+      until: result is succeeded
 
     - name: Downloading libqemu
       get_url:
         url: "{{ libqemu_url }}"
         dest: ./build/libqemu.so.gz
+      register: result
+      retries: 10
+      delay: 5
+      until: result is succeeded
 
     - name: Building coriolis-base
       docker_image:

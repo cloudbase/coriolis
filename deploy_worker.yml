@@ -14,6 +14,10 @@
       get_url:
         url: "{{ vmware_disklib_url }}"
         dest: "{{ vmware_vix_disklib_archive_path }}"
+      register: result
+      retries: 10
+      delay: 5
+      until: result is succeeded
 
     - name: Creating VMWare vixDiskLib directory on host
       file:
