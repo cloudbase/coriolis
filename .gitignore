@@ -1,4 +1,6 @@
 .DS_Store
+kolla/kolla
+kolla/kolla-ansible
 logs/
 build/
 mysql/
@@ -7,4 +9,3 @@ rabbitmq/
 build.retry
 config.yml
 config-build.yml
-
