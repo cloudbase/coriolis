@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import argparse
 import os
 
@@ -24,7 +26,7 @@ def main():
 
     if os.path.exists(config_file):
         with open(config_file, 'r') as f:
-                config = yaml.safe_load(f.read())
+            config = yaml.safe_load(f.read())
     else:
         config = {}
 

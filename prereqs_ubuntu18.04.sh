@@ -28,6 +28,7 @@ apt-get install -y openssl
 # install python and various dev bits and bobs:
 apt-get install -y \
     git gcc make \
-    python python-pip python-mysqldb python-virtualenv
+    python3 python3-pip
 
-apt-get install -y ansible
+# Required for our Ansible tasks
+pip3 install ansible pymysql virtualenv oslo_config docker

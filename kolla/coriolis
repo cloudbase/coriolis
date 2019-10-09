@@ -27,3 +27,6 @@ barbican
 
 [barbican-worker:children]
 barbican
+
+[redis:children]
+control

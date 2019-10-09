@@ -24,6 +24,5 @@ if [ ! -e "$KOLLA_PASSWORDS_FILE" ]; then
     exit 1
 fi
 
-setup_docker_pip_package
 ansible-playbook -v "$BASE_DIR/deploy_worker.yml" -e @"$KOLLA_PASSWORDS_FILE" \
                  -e @"$CONFIG_FILE" -e @"$CONFIG_BUILD_FILE"

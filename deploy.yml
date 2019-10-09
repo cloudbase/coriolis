@@ -203,7 +203,7 @@
         restart_policy: unless-stopped
         network_mode: host
         env:
-            LICENSING_SERVER_BASE_URL: "{{ licensing_server_base_url }}"
+            LICENSING_SERVER_BASE_URL: "{{ licensing_server_base_url | string }}"
             LICENSING_SERVER_ALLOW_UNTRUSTED: "true"
         volumes:
         - "{{ coriolis_config_directory_path_host }}:{{ coriolis_config_directory_path }}:ro"

@@ -21,6 +21,14 @@
         version: "{{ custom_repo_branch }}"
 
     - name: Building coriolis docker images
-      docker_image: path=./build dockerfile={{item.dockerfile}} name={{ docker_registry }}/{{ coriolis_containers_namespace }}/{{item.name}} pull=False push={{ docker_push_images}} tag={{ docker_images_tag }}
+      docker_image:
+        name: "{{ docker_registry }}/{{ coriolis_containers_namespace }}/{{ item.name }}"
+        source: build
+        build:
+          dockerfile: "{{ item.dockerfile }}"
+          path: ./build
+          pull: False
+        push: "{{ docker_push_images}}"
+        tag: "{{ docker_images_tag }}"
       with_items:
         - { dockerfile: Dockerfile.server, name: coriolis-licensing-server }

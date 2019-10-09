@@ -1,16 +1,14 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import sys
 import os
-import urlparse
-import ConfigParser
-import netifaces
-import netaddr
 import argparse
-import MySQLdb
+import configparser
+import netifaces
 import subprocess
+import pymysql
 import yaml
-
+import urllib.parse as urlparse
 
 ADMIN_RC = "/etc/kolla/admin-openrc.sh"
 KEYSTONE_WSGI_CFG = "/etc/kolla/keystone/wsgi-keystone.conf"
@@ -67,14 +65,14 @@ def get_main_ip():
     default = gateways.get("default")
     if not default or len(default) == 0:
         return None
-    gw, dev = default.popitem()[1]
+    _, dev = default.popitem()[1]
     devAddrs = netifaces.ifaddresses(dev)[netifaces.AF_INET]
     if not devAddrs or len(devAddrs) == 0:
         return None
     return devAddrs[0]["addr"]
 
 
-def vallidate_ip(ip):
+def validate_ip(ip):
     ifaces = netifaces.interfaces()
     for i in ifaces:
         addrs = netifaces.ifaddresses(i)[netifaces.AF_INET]
@@ -90,7 +88,7 @@ class Config(object):
         self._cfg_file = cfg_file
         if os.path.isfile(cfg_file) is False:
             raise ValueError("Could not find config file: %s" % cfg_file)
-        self._cfg = ConfigParser.ConfigParser()
+        self._cfg = configparser.ConfigParser()
         self._cfg.read(cfg_file)
 
     def save(self):
@@ -108,7 +106,7 @@ def get_keystone_db_cfg():
     cfg = Config(KEYSTONE_CFG)
     try:
         db_uri = cfg.get("database", "connection")
-    except:
+    except Exception:
         raise ValueError(
                 "there is no database connection info in %s" % KEYSTONE_CFG)
     parsed = urlparse.urlparse(db_uri)
@@ -126,7 +124,7 @@ def get_keystone_db_cfg():
 def get_mysql_connection():
     cfg = get_keystone_db_cfg()
     try:
-        return MySQLdb.connect(**cfg)
+        return pymysql.connect(**cfg)
     except Exception as err:
         raise Exception("Failed to connect to database: %s" % err)
 
@@ -139,7 +137,7 @@ def set_keystone_endpoints(ip_addr):
         if line.startswith("Listen "):
             spl = line.split(" ")
             if len(spl) > 1 and ":" in spl[1]:
-                host, port = spl[1].rsplit(":", 1)
+                _, port = spl[1].rsplit(":", 1)
                 spl[1] = "%s:%s" % (ip_addr, port)
             line = " ".join(spl)
         tmp.append(line)
@@ -149,7 +147,7 @@ def set_keystone_endpoints(ip_addr):
 
     db_conn = get_mysql_connection()
     cursor = db_conn.cursor()
-    current_urls = cursor.execute("select id,url from endpoint")
+    cursor.execute("select id,url from endpoint")
     numrows = cursor.rowcount
     to_change = []
     try:
@@ -189,9 +187,6 @@ def _set_barbican_endpoints(CFG, ip_addr):
         "keystone_authtoken": [
             "www_authenticate_uri", "auth_url"
         ],
-        "service_credentials": [
-            "auth_url",
-        ],
         "DEFAULT": [
             "host_href",
         ],
@@ -217,7 +212,7 @@ def set_barbican_endpoints(ip_addr):
         if len(spl) == 2:
             val = val.replace(spl[0], ip_addr)
             cfg.set("uwsgi", "socket", val)
-    except:
+    except Exception:
         pass
     cfg.save()
 
@@ -265,7 +260,7 @@ if __name__ == '__main__':
             "IP address and no --use-address specified")
         sys.exit(1)
 
-    if vallidate_ip(ip) is False:
+    if validate_ip(ip) is False:
         print("IP address %s is not configured on this system" % ip)
         sys.exit(2)
 

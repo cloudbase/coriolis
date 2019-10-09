@@ -15,4 +15,12 @@
         - { name: Dockerfile.webproxy }
 
     - name: Building coriolis-web-proxy image
-      docker_image: path=./build dockerfile=Dockerfile.webproxy name={{ docker_registry }}/{{ coriolis_containers_namespace }}/coriolis-web-proxy pull=False push={{ docker_push_images }} tag={{ docker_images_tag }}
+      docker_image:
+        name: "{{ docker_registry }}/{{ coriolis_containers_namespace }}/coriolis-web-proxy"
+        source: build
+        build:
+          dockerfile: Dockerfile.webproxy
+          path: ./build
+          pull: False
+        push: "{{ docker_push_images }}"
+        tag: "{{ docker_images_tag }}"
