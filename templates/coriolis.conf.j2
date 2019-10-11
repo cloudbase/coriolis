@@ -20,7 +20,6 @@ include_task_info_in_migrations_api = false
 include_task_info_in_replicas_api = false
 include_task_info_in_replica_executions_api = false
 
-
 [database]
 connection = mysql://{{ coriolis_database_name }}:{{ coriolis_database_password }}@{{ database_address }}/{{ coriolis_database_name }}
 
@@ -50,6 +49,11 @@ policy_file = {{ coriolis_policy_config_path }}
 
 [conductor]
 conductor_rpc_timeout = 60
+
+# Whether or not to allow for the debugging of OSMorphing errors
+# by skipping the cleanup stages of failed OSMorphing attempts,
+# allowing for manual inspection.
+debug_os_morphing_errors = false
 
 [worker]
 worker_rpc_timeout = 60
