@@ -15,11 +15,11 @@ if [[ ! -e "$CONFIG_BUILD_FILE" ]] && [[ ! "$TAG" ]] && [[ ! "$REPO" ]]; then
 fi
 
 if [[ ! "$TAG" ]]; then
-    TAG=`python "$GET_CONFIG_VALUE_SCRIPT" -c "$CONFIG_BUILD_FILE" -n docker_images_tag`
+    TAG=`"$GET_CONFIG_VALUE_SCRIPT" -c "$CONFIG_BUILD_FILE" -n docker_images_tag`
 fi
 if [[ ! "$REPO" ]]; then
-    REPO=`python "$GET_CONFIG_VALUE_SCRIPT" -c "$CONFIG_BUILD_FILE" -n docker_registry`
-    NS=`python "$GET_CONFIG_VALUE_SCRIPT" -c "$CONFIG_BUILD_FILE" -n coriolis_containers_namespace`
+    REPO=`"$GET_CONFIG_VALUE_SCRIPT" -c "$CONFIG_BUILD_FILE" -n docker_registry`
+    NS=`"$GET_CONFIG_VALUE_SCRIPT" -c "$CONFIG_BUILD_FILE" -n coriolis_containers_namespace`
     if [[ "$NS" ]]; then
         REPO="$REPO/$NS"
     fi

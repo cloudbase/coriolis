@@ -6,6 +6,5 @@ source "$BASE_DIR/utils/common.sh"
 
 new_config_file "$CONFIG_BUILD_FILE"
 
-setup_docker_py_pip_package
 ansible-playbook -v "$BASE_DIR/build.yml" -e @"$CONFIG_BUILD_FILE"
 bash "$BASE_DIR/proxy_build.sh"

@@ -40,19 +40,7 @@ yum install -y ntp
 systemctl enable ntpd
 systemctl start ntpd
 
-yum install -y python-virtualenv
-yum install -y --enablerepo=epel python-pip
-pip install -U pip
-
-# NOTE: pip >= 10 will refuse to uninstall dist-utils installed packages
-# during the final cleanup phase of kolla/deploy.sh (there are a handful of
-# packages which are installed by yum as part of the
-# `yum install ansible` done in `prereqs_ol7.sh`)
-pip install --upgrade --force-reinstall 'pip<10'
-pip install wheel
-
-# NOTE: needed for Ansible's MySQL tasks:
-yum install -y MySQL-python
+yum install -y python3 python3-pip
 
 yum install docker-engine --enablerepo=ol7_addons -y
 systemctl enable docker
@@ -68,7 +56,8 @@ yum groupinstall development tools -y
 # Required for generating the SSL cert for the Web proxy:
 yum install -y openssl
 
-yum install ansible --enablerepo=epel -y
+# Required for our Ansible tasks
+pip3 install ansible pymysql virtualenv oslo_config docker
 
 firewall-cmd --permanent --zone=public --add-port=35357/tcp
 firewall-cmd --permanent --zone=public --add-port=5000/tcp

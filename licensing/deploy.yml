@@ -36,7 +36,7 @@
         network_mode: host
         env:
             LICENSING_DB_STRING: "{{ coriolis_licensing_database_username }}:{{ coriolis_licensing_database_password }}@/{{ coriolis_licensing_database_name }}"
-            LICENSING_SERVER_PORT: "{{ licensing_server_port_internal }}"
+            LICENSING_SERVER_PORT: "{{ licensing_server_port_internal | string }}"
         expose:
         - "{{ licensing_server_port_internal }}"
         ports:

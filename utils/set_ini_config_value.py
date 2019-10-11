@@ -1,7 +1,9 @@
+#!/usr/bin/env python3
+
 import argparse
 import os
 
-from ConfigParser import SafeConfigParser
+from configparser import SafeConfigParser
 
 
 def main():
@@ -26,7 +28,7 @@ def main():
     ini_parser.read(config_file)
     ini_parser.set(args.section, args.name, args.value)
 
-    with open(config_file, 'wb') as f:
+    with open(config_file, 'w') as f:
         ini_parser.write(f)
 
 

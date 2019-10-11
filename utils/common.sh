@@ -54,33 +54,15 @@ new_config_file() {
 set_config_file_random_value() {
     local CONF_FILE_PATH="$1"
     local NAME="$2"
-    if [[ -z $(python "$GET_CONFIG_VALUE_SCRIPT" -c "$CONF_FILE_PATH" -n "$NAME") ]]; then
-        python "$SET_CONFIG_VALUE_SCRIPT" -c "$CONF_FILE_PATH" -n "$NAME" -v "$(openssl rand -base64 30 | tr -d "=+/" | cut -c1-25)"
+    if [[ -z $("$GET_CONFIG_VALUE_SCRIPT" -c "$CONF_FILE_PATH" -n "$NAME") ]]; then
+        "$SET_CONFIG_VALUE_SCRIPT" -c "$CONF_FILE_PATH" -n "$NAME" -v "$(openssl rand -base64 30 | tr -d "=+/" | cut -c1-25)"
     fi
-}
-
-setup_docker_pip_package() {
-    # NOTE: the Kolla deployment process automatically pulls in `docker-py`
-    # as the module to interact with Docker, though this the module is no
-    # longer supported by Ansible, so we must ensure we have the updated
-    # `docker` package installed.
-    if [[ "$(pip freeze | grep docker-py==)" ]]; then
-        pip uninstall -y docker-py
-    fi
-    pip install --upgrade --force-reinstall docker
-}
-
-setup_docker_py_pip_package() {
-    if [[ "$(pip freeze | grep docker==)" ]]; then
-        pip uninstall -y docker
-    fi
-    pip install --upgrade --force-reinstall docker-py
 }
 
 install_coriolis_client() {
     local CORIOLIS_CLIENT_REPO="https://github.com/cloudbase/python-coriolisclient"
     local GIT_LOCAL_DIR=$(mktemp --directory --suffix="-coriolis-client")
     git clone $CORIOLIS_CLIENT_REPO "$GIT_LOCAL_DIR"
-    pip install "$GIT_LOCAL_DIR"
+    pip3 install "$GIT_LOCAL_DIR"
     rm -rf $GIT_LOCAL_DIR
 }

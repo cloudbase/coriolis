@@ -7,14 +7,14 @@ source "$BASE_DIR/utils/common.sh"
 
 NEW_TAG="$1"
 if [ ! "$NEW_TAG" ]; then
-    NEW_TAG=`python "$GET_CONFIG_VALUE_SCRIPT" -c "$CONFIG_BUILD_FILE" -n "docker_images_tag"`
+    NEW_TAG=`"$GET_CONFIG_VALUE_SCRIPT" -c "$CONFIG_BUILD_FILE" -n "docker_images_tag"`
 fi
 
 # cleanup existing containers:
 bash "$BASE_DIR/cleanup.sh"
 
 # ensure we're logged into the registry:
-REGISTRY=`python "$GET_CONFIG_VALUE_SCRIPT" -c "$CONFIG_BUILD_FILE" -n "docker_registry"`
+REGISTRY=`"$GET_CONFIG_VALUE_SCRIPT" -c "$CONFIG_BUILD_FILE" -n "docker_registry"`
 echo "Log in to $REGISTRY:"
 docker login "$REGISTRY"
 

@@ -10,12 +10,11 @@ VIP=$(/sbin/ip -4 -o addr show dev $IFACE | awk '{split($4,a,"/");print a[1]}')
 new_config_file "$CONFIG_FILE"
 new_config_file "$CONFIG_BUILD_FILE"
 
-python "$SET_CONFIG_VALUE_SCRIPT" -c "$CONFIG_FILE" -n coriolis_host -v $VIP
+"$SET_CONFIG_VALUE_SCRIPT" -c "$CONFIG_FILE" -n coriolis_host -v $VIP
 set_config_file_random_value "$CONFIG_FILE" coriolis_database_password
 set_config_file_random_value "$CONFIG_FILE" coriolis_keystone_password
 set_config_file_random_value "$CONFIG_FILE" temp_keypair_password
 
-setup_docker_pip_package
 ansible-playbook -v "$BASE_DIR/deploy.yml" -e @"/etc/kolla/passwords.yml" \
                  -e @"$CONFIG_FILE" -e @"$CONFIG_BUILD_FILE"
 

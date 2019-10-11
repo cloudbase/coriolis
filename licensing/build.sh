@@ -8,6 +8,5 @@ LICENSING_CONFIG_BUILD_FILE="$BASE_DIR/config-build.yml"
 
 new_config_file "$LICENSING_CONFIG_BUILD_FILE"
 
-setup_docker_py_pip_package
 ansible-playbook -v "$BASE_DIR/build.yml" \
                  -e @"$LICENSING_CONFIG_BUILD_FILE" -e @"$CONFIG_BUILD_FILE"

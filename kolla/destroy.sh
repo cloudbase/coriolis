@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 BASE_DIR=$(dirname "$(readlink -f "$0")")
 source "$BASE_DIR/../utils/common.sh"
@@ -12,7 +13,8 @@ if [ -d /root/kolla-ansible ]; then
     echo "WARN: old kolla-ansible found in /root, moving it to $BASE_DIR."
     mv /root/kolla-ansible "$BASE_DIR"
 fi
-pushd "$BASE_DIR"
+
+source "$BASE_DIR/kolla-ansible/.venv/bin/activate"
 
 kolla-ansible destroy --yes-i-really-really-mean-it ./kolla-ansible/ansible/inventory/coriolis
 
