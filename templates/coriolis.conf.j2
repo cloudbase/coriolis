@@ -351,7 +351,7 @@ set_public_ip = true
 {% if 'opc' in export_providers or 'opc' in import_providers %}
 [opc_migration_provider]
 # Linux and Windows images for the temporary Worker VMs:
-migr_image_name_map = linux: /oracle/public/OL_7.2_UEKR4_x86_64, windows: /Compute-a488347/gsamfira@cloudbasesolutions.com/Windows_2012_R2
+migr_image_name_map = linux: /oracle/public/OL_7.5_UEKR4_x86_64_MIGRATION, windows: /Compute-a488347/gsamfira@cloudbasesolutions.com/Windows_2012_R2
 
 # The shape to use for the migration Worker VMs:
 migr_shape_name = oc3
@@ -366,11 +366,11 @@ use_colocated_snapshots = true
 # The default pool leverages rotary disks, while the latency disks are backed
 # by SSD and low latency storage subsystem. The latency pool is suitable for
 # databases.
-default_volume_pool = default
+default_volume_pool = /oracle/public/storage/default
 
 # Default network name used for worker instances
 # during migrations.
-migr_network_name = private
+# migr_network_name = /Compute-a514847/default
 
 # URL of a zip file with the Windows PV drivers:
 windows_pv_drivers_url = https://cloudbase.it/downloads/ovm_win_pv_drivers_all_323.zip
@@ -384,6 +384,12 @@ export_shape_name = oc3
 # Exporting an instance may require an extra disk to be attached, to accomodate the size of the
 # largest disks that belong to the exported instance. Make sure to allocate enough space here.
 export_root_disk_size = 150
+
+# Default shape name used for migrated instances.
+shape_name = oc3
+
+# Admin username for the export_image_name. Default username is 'opc'.
+# export_img_username =
 {% endif %}
 
 {% if 'azure' in export_providers or 'azure' in import_providers %}
