@@ -23,4 +23,4 @@ bash "$BASE_DIR/proxy_deploy.sh"
 
 install_coriolis_client
 source /etc/kolla/admin-openrc.sh
-coriolis endpoint list
+run_cmd_with_retry 10 10 60 coriolis endpoint list

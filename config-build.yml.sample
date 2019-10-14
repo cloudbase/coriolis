@@ -3,6 +3,7 @@ docker_push_images: false
 docker_images_tag: latest
 docker_template: ubuntu18.04
 kolla_branch: master
+kolla_openstack_release: master
 kolla_containers_namespace: custom
 coriolis_containers_namespace: custom
 vmware_disklib_url: https://cloudbase.it/downloads/VMware-vix-disklib-6.0.3-4888596.x86_64.tar.gz

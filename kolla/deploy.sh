@@ -32,6 +32,8 @@ fi
 
 source "$BASE_DIR/kolla-ansible/.venv/bin/activate"
 
+apt install libffi-dev libssl-dev -y
+
 pip3 install "$BASE_DIR/kolla-ansible"
 
 mkdir -p /etc/kolla/
@@ -41,9 +43,9 @@ if [ ! -f /etc/kolla/passwords.yml ]; then
     cp "$BASE_DIR/kolla-ansible/etc/kolla/passwords.yml" /etc/kolla/
     kolla-genpwd
 fi
+"$BASE_DIR/fix-kolla-passwords.py"
 
-DISTRO=${1:-centos}
-IFACE=${2:-lo} # Defaults to localhost
+IFACE=${1:-lo} # Defaults to localhost
 
 VIP=$(/sbin/ip -4 -o addr show dev $IFACE | awk '{split($4,a,"/");print a[1]}')
 if [ ! "$VIP" ]; then
@@ -51,27 +53,21 @@ if [ ! "$VIP" ]; then
     exit 1
 fi
 
-"$SET_CONFIG_VALUE_SCRIPT" -c /etc/kolla/globals.yml -n kolla_internal_vip_address -v $VIP
-"$SET_CONFIG_VALUE_SCRIPT" -c /etc/kolla/globals.yml -n network_interface -v $IFACE
-"$SET_CONFIG_VALUE_SCRIPT" -c /etc/kolla/globals.yml -n kolla_base_distro -v $DISTRO
+KOLLA_CONF="/etc/kolla/globals.yml"
 
-kolla_containers_namespace=$("$GET_CONFIG_VALUE_SCRIPT" -c "$CONFIG_BUILD_FILE" -n kolla_containers_namespace)
-if [ "$kolla_containers_namespace" ]; then
-    "$SET_CONFIG_VALUE_SCRIPT" -c /etc/kolla/globals.yml -n docker_namespace -v "$kolla_containers_namespace"
-fi
+REGISTRY=$("$GET_CONFIG_VALUE_SCRIPT" -c "$CONFIG_BUILD_FILE" -n docker_registry)
+NAMESPACE=$("$GET_CONFIG_VALUE_SCRIPT" -c "$CONFIG_BUILD_FILE" -n kolla_containers_namespace)
+DOCKER_IMAGES_TAG=$("$GET_CONFIG_VALUE_SCRIPT" -c "$CONFIG_BUILD_FILE" -n docker_images_tag)
 
-docker_registry=$("$GET_CONFIG_VALUE_SCRIPT" -c "$CONFIG_BUILD_FILE" -n docker_registry)
-if [ "$docker_registry" ]; then
-    "$SET_CONFIG_VALUE_SCRIPT" -c /etc/kolla/globals.yml -n docker_registry -v $docker_registry
-fi
-
-docker_images_tag=$("$GET_CONFIG_VALUE_SCRIPT" -c "$CONFIG_BUILD_FILE" -n docker_images_tag)
-if [ "$docker_images_tag" ]; then
-    "$SET_CONFIG_VALUE_SCRIPT" -c /etc/kolla/globals.yml -n openstack_release -v $docker_images_tag
-fi
-
-"$SET_CONFIG_VALUE_SCRIPT" -c /etc/kolla/globals.yml -n enable_barbican -v yes
-"$SET_CONFIG_VALUE_SCRIPT" -c /etc/kolla/globals.yml -n enable_redis -v yes
+"$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n docker_registry -v $REGISTRY
+"$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n docker_namespace -v $NAMESPACE
+"$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n openstack_release -v $DOCKER_IMAGES_TAG
+"$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n enable_barbican -v yes
+"$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n enable_redis -v yes
+"$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n kolla_base_distro -v "ubuntu"
+"$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n kolla_install_type -v "source"
+"$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n network_interface -v $IFACE
+"$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n kolla_internal_vip_address -v $VIP
 
 kolla-ansible -i "$BASE_DIR/coriolis" deploy
 kolla-ansible -i "$BASE_DIR/coriolis" post-deploy
@@ -87,7 +83,7 @@ deactivate
 pip3 install python-openstackclient python-barbicanclient
 
 source /etc/kolla/admin-openrc.sh
-openstack endpoint list
-openstack secret list
+run_cmd_with_retry 10 10 60 openstack endpoint list
+run_cmd_with_retry 10 10 60 openstack secret list
 
 grep -q "^source /etc/kolla/admin-openrc.sh$" ~/.bashrc || echo "source /etc/kolla/admin-openrc.sh" >> ~/.bashrc
