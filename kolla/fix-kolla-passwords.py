@@ -11,7 +11,8 @@ def main():
         passwords = yaml.safe_load(f.read())
 
     key = "barbican_crypto_key"
-    passwords[key] = passwords[key].decode()
+    if type(passwords[key]) is bytes:
+        passwords[key] = passwords[key].decode()
 
     with open(PASSWORDS_FILE, 'w') as f:
         f.write(yaml.safe_dump(passwords, default_flow_style=False))
