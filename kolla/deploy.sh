@@ -32,8 +32,6 @@ fi
 
 source "$BASE_DIR/kolla-ansible/.venv/bin/activate"
 
-apt install libffi-dev libssl-dev -y
-
 pip3 install "$BASE_DIR/kolla-ansible"
 
 mkdir -p /etc/kolla/

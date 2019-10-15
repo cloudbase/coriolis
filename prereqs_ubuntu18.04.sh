@@ -27,7 +27,7 @@ apt-get install -y openssl
 
 # install python and various dev bits and bobs:
 apt-get install -y \
-    git gcc make \
+    git gcc make libffi-dev libssl-dev \
     python3 python3-pip
 
 # Required for our Ansible tasks
