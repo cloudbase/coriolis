@@ -66,3 +66,23 @@ install_coriolis_client() {
     pip3 install "$GIT_LOCAL_DIR"
     rm -rf $GIT_LOCAL_DIR
 }
+
+run_cmd_with_retry() {
+    local RETRIES=$1
+    local WAIT_SLEEP=$2
+    local TIMEOUT=$3
+
+    shift && shift && shift
+
+    for i in $(seq 1 $RETRIES); do
+        timeout $TIMEOUT ${@} && break || \
+        if [ $i -eq $RETRIES ]; then
+            echo "Error: Failed to execute \"$@\" after $i attempts"
+            return 1
+        else
+            echo "Failed to execute \"$@\". Retrying in $WAIT_SLEEP seconds..."
+            sleep $WAIT_SLEEP
+        fi
+    done
+    echo Executed \"$@\" $i times;
+}
