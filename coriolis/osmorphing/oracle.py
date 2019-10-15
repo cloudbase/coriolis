@@ -11,11 +11,13 @@ class BaseOracleMorphingTools(redhat.BaseRedHatMorphingTools):
         oracle_release_path = "etc/oracle-release"
         if self._test_path(oracle_release_path):
             release_info = self._read_file(
-                oracle_release_path).decode().split('\n')[0].strip()
-            m = re.match(r"^(.*) release ([0-9].*)$", release_info)
-            if m:
-                distro, version = m.groups()
-                return (distro, version)
+                oracle_release_path).decode().splitlines()
+            if release_info:
+                m = re.match(r"^(.*) release ([0-9].*)$",
+                             release_info[0].strip())
+                if m:
+                    distro, version = m.groups()
+                    return (distro, version)
 
     def _run_dracut(self):
         self._run_dracut_base('kernel')

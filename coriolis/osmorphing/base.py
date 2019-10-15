@@ -125,11 +125,12 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         return utils.list_ssh_dir(self._ssh, path)
 
     def _exec_cmd(self, cmd):
-        return utils.exec_ssh_cmd(self._ssh, cmd, self._environment)
+        return utils.exec_ssh_cmd(self._ssh, cmd, self._environment,
+                                  get_pty=True)
 
     def _exec_cmd_chroot(self, cmd):
         return utils.exec_ssh_cmd_chroot(
-            self._ssh, self._os_root_dir, cmd, self._environment)
+            self._ssh, self._os_root_dir, cmd, self._environment, get_pty=True)
 
     def _check_user_exists(self, username):
         try:
@@ -163,7 +164,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
     def _get_config(self, config_content):
         config = {}
         regex_expr = '(.*[^-\\s])\\s*=\\s*(?:"|\')?([^"\']*)(?:"|\')?\\s*'
-        for config_line in config_content.split('\n'):
+        for config_line in config_content.splitlines():
             m = re.match(regex_expr, config_line)
             if m:
                 name, value = m.groups()
@@ -193,7 +194,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         fstab_chroot_path = "etc/fstab"
         fstab_contents = self._read_file(fstab_chroot_path).decode()
         LOG.debug("Contents of /%s: %s", fstab_chroot_path, fstab_contents)
-        fstab_contents_lines = fstab_contents.split('\n')
+        fstab_contents_lines = fstab_contents.splitlines()
 
         found = False
         regex = "^(%s)" % current_prefix

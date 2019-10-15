@@ -27,14 +27,15 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
         suse_release_path = "etc/SuSE-release"
         if self._test_path(suse_release_path):
             out = self._read_file(suse_release_path).decode()
-            release = out.split('\n')[0]
+            release = out.splitlines()
             release_info = self._get_config(out)
             version_id = release_info['VERSION']
             patch_level = release_info.get('PATCHLEVEL', None)
             if patch_level:
                 version_id = "%s.%s" % (version_id, patch_level)
             self._version_id = version_id
-            return ('SUSE', release)
+            if release:
+                return ('SUSE', release[0])
 
     def disable_predictable_nic_names(self):
         # TODO(gsamfira): implement once we have networking support
@@ -46,7 +47,7 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
 
     def _run_dracut(self):
         package_names = self._exec_cmd_chroot(
-            'rpm -q kernel-default').decode().split('\n')[:-1]
+            'rpm -q kernel-default').decode().splitlines()
         for package_name in package_names:
             m = re.match(r'^kernel-default-(.*)\.\d\..*$', package_name)
             if m:

@@ -89,7 +89,8 @@ class BaseSSHOSMountTools(BaseOSMountTools):
         pass
 
     def _exec_cmd(self, cmd):
-        return utils.exec_ssh_cmd(self._ssh, cmd, self._environment)
+        return utils.exec_ssh_cmd(self._ssh, cmd, self._environment,
+                                  get_pty=True)
 
     def get_connection(self):
         return self._ssh
@@ -97,7 +98,7 @@ class BaseSSHOSMountTools(BaseOSMountTools):
 
 class BaseLinuxOSMountTools(BaseSSHOSMountTools):
     def _get_pvs(self):
-        out = self._exec_cmd("sudo pvdisplay -c").decode().split("\n")
+        out = self._exec_cmd("sudo pvdisplay -c").decode().splitlines()
         pvs = {}
         for line in out:
             if line == "":
@@ -112,13 +113,14 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
     def _get_vgnames(self):
         vg_names = []
         vgscan_out_lines = self._exec_cmd(
-            "sudo vgscan").decode().split('\n')[1:-1]
-        for vgscan_out_line in vgscan_out_lines:
-            m = re.match(
-                r'\s*Found volume group "(.*)" using metadata type lvm2',
-                vgscan_out_line)
-            if m:
-                vg_names.append(m.groups()[0])
+            "sudo vgscan").decode().splitlines()
+        if len(vgscan_out_lines) > 1:
+            for vgscan_out_line in vgscan_out_lines[1:]:
+                m = re.match(
+                    r'\s*Found volume group "(.*)" using metadata type lvm2',
+                    vgscan_out_line)
+                if m:
+                    vg_names.append(m.groups()[0])
         return vg_names
 
     def _get_lv_paths(self):
@@ -127,7 +129,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         out = self._exec_cmd("sudo lvdisplay -c").decode().strip()
         if out:
             LOG.debug("Decoded `lvdisplay` output data: %s", out)
-            out_lines = out.split('\n')
+            out_lines = out.splitlines()
             for line in out_lines:
                 lvm_vol = line.strip().split(':')
                 if lvm_vol:
@@ -274,7 +276,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
 
     def _get_mounted_devices(self):
         mounts = self._exec_cmd(
-            "cat /proc/mounts").decode().split('\n')[:-1]
+            "cat /proc/mounts").decode().splitlines()
         ret = []
         for line in mounts:
             colls = line.split()
@@ -285,7 +287,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
 
     def _get_mount_destinations(self):
         mounts = self._exec_cmd(
-            "cat /proc/mounts").decode().split('\n')[:-1]
+            "cat /proc/mounts").decode().splitlines()
         ret = set()
         for line in mounts:
             colls = line.split()
@@ -300,7 +302,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         # Querying for the kernel device name (KNAME) should ensure we get the
         # device names we desire both for physical and logical volumes.
         volume_devs = self._exec_cmd(
-            "lsblk -lnao KNAME").decode().split('\n')[:-1]
+            "lsblk -lnao KNAME").decode().splitlines()
         LOG.debug("All block devices: %s", str(volume_devs))
 
         volume_devs = ["/dev/%s" % d for d in volume_devs if
@@ -321,12 +323,12 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         dev_name = None
         for dev_path in devices:
             dirs = None
-            tmp_dir = self._exec_cmd('mktemp -d').decode().split('\n')[0]
+            tmp_dir = self._exec_cmd('mktemp -d').decode().splitlines()[0]
             try:
                 self._exec_cmd('sudo mount %s %s' % (dev_path, tmp_dir))
                 # NOTE: it's possible that the device was mounted successfully
                 # but an I/O error occurs later along the line:
-                dirs = self._exec_cmd('ls %s' % tmp_dir).decode().split('\n')
+                dirs = utils.list_ssh_dir(self._ssh, tmp_dir)
             except Exception:
                 self._event_manager.progress_update(
                     "Failed to mount and scan device '%s'" % dev_path)
@@ -374,7 +376,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                 "root partition not found")
 
         try:
-            tmp_dir = self._exec_cmd('mktemp -d').decode().split('\n')[0]
+            tmp_dir = self._exec_cmd('mktemp -d').decode().splitlines()[0]
             self._exec_cmd('sudo mount %s %s' % (os_root_device, tmp_dir))
             os_root_dir = tmp_dir
         except Exception:
@@ -415,7 +417,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         for volume_dev in volume_devs:
             self._exec_cmd("sudo partx -v -a %s || true" % volume_dev)
             dev_paths += self._exec_cmd(
-                "sudo ls %s*" % volume_dev).decode().split('\n')[:-1]
+                "sudo ls -1 %s*" % volume_dev).decode().splitlines()
 
         pvs = self._get_pvs()
         for vg_name in self._get_vgnames():
@@ -428,7 +430,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                 continue
             self._exec_cmd("sudo vgchange -ay %s" % vg_name)
             lvm_dev_paths = self._exec_cmd(
-                "sudo ls /dev/%s/*" % vg_name).decode().split('\n')[:-1]
+                "sudo ls -1 /dev/%s/*" % vg_name).decode().splitlines()
             dev_paths += lvm_dev_paths
 
         valid_filesystems = ['ext2', 'ext3', 'ext4', 'xfs', 'btrfs']
@@ -441,8 +443,8 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                 continue
             fs_type = self._exec_cmd(
                 "sudo blkid -o value -s TYPE %s || true" %
-                dev_path).decode().split('\n')[0]
-            if fs_type in valid_filesystems:
+                dev_path).decode().splitlines()
+            if fs_type and fs_type[0] in valid_filesystems:
                 if fs_type == "xfs":
                     utils.run_xfs_repair(self._ssh, dev_path)
                 else:

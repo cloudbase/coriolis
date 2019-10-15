@@ -32,8 +32,9 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
                 return (dist_id, release)
         elif self._test_path(debian_version_path):
             release = self._read_file(
-                debian_version_path).decode().split('\n')[0]
-            return ('Debian', release)
+                debian_version_path).decode().splitlines()
+            if release:
+                return ('Debian', release[0])
 
     def disable_predictable_nic_names(self):
         grub_cfg = os.path.join(
