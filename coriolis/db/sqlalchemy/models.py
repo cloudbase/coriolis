@@ -149,6 +149,10 @@ class Migration(BaseTransferAction):
         sqlalchemy.ForeignKey('replica.id'), nullable=True)
     replica = orm.relationship(
         Replica, backref=orm.backref("migrations"), foreign_keys=[replica_id])
+    shutdown_instances = sqlalchemy.Column(
+        sqlalchemy.Boolean, nullable=False, default=False)
+    replication_count = sqlalchemy.Column(
+        sqlalchemy.Integer, nullable=False, default=2)
 
     __mapper_args__ = {
         'polymorphic_identity': 'migration',

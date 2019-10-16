@@ -4,9 +4,13 @@
 import itertools
 
 from oslo_config import cfg as conf
+from oslo_log import log as logging
 
 from coriolis import constants
 from coriolis import utils
+
+
+LOG = logging.getLogger(__name__)
 
 
 REPLICA_EXECUTION_API_OPTS = [
@@ -38,10 +42,19 @@ def _sort_tasks(tasks):
                         constants.TASK_STATUS_ON_ERROR_ONLY and
                         t not in non_error_only_tasks]
 
-    sorted_tasks = utils.topological_graph_sorting(
-        non_error_only_tasks, sort_key="task_type")
-    sorted_tasks += utils.topological_graph_sorting(
-        error_only_tasks, sort_key="task_type")
+    sorted_tasks = []
+    try:
+        sorted_tasks = utils.topological_graph_sorting(
+            non_error_only_tasks, sort_key="task_type")
+        sorted_tasks += utils.topological_graph_sorting(
+            error_only_tasks, sort_key="task_type")
+    except ValueError:
+        LOG.warn(
+            "Failed to sort tasks. Returning them in random order. "
+            "Exception was: %s" % utils.get_exception_details())
+        sorted_tasks = non_error_only_tasks
+        sorted_tasks += error_only_tasks
+
     return sorted_tasks
 
 

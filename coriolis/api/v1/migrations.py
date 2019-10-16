@@ -54,6 +54,13 @@ class MigrationController(api_wsgi.Controller):
             instances = migration["instances"]
             notes = migration.get("notes")
             skip_os_morphing = migration.get("skip_os_morphing", False)
+            shutdown_instances = migration.get(
+                "shutdown_instances", False)
+            replication_count = int(migration.get("replication_count", 2))
+            if replication_count not in range(1, 11):
+                raise ValueError(
+                    "'replication_count' must be an integer between 1 and 10."
+                    " Got: %s" % replication_count)
 
             source_environment = migration.get("source_environment", {})
             self._endpoints_api.validate_source_environment(
@@ -79,7 +86,8 @@ class MigrationController(api_wsgi.Controller):
 
             return (origin_endpoint_id, destination_endpoint_id,
                     source_environment, destination_environment, instances,
-                    notes, skip_os_morphing, network_map, storage_mappings)
+                    notes, skip_os_morphing, replication_count,
+                    shutdown_instances, network_map, storage_mappings)
         except Exception as ex:
             LOG.exception(ex)
             msg = getattr(ex, "message", str(ex))
@@ -108,13 +116,18 @@ class MigrationController(api_wsgi.Controller):
              destination_environment,
              instances,
              notes,
-             skip_os_morphing, network_map,
+             skip_os_morphing,
+             replication_count,
+             shutdown_instances,
+             network_map,
              storage_mappings) = self._validate_migration_input(
-                context, migration_body)
+                 context, migration_body)
             migration = self._migration_api.migrate_instances(
                 context, origin_endpoint_id, destination_endpoint_id,
                 source_environment, destination_environment, instances,
-                network_map, storage_mappings, notes, skip_os_morphing)
+                network_map, storage_mappings, replication_count,
+                shutdown_instances, notes=notes,
+                skip_os_morphing=skip_os_morphing)
 
         return migration_view.single(req, migration)
 

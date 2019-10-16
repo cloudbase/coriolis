@@ -690,8 +690,9 @@ class ConductorServerEndpoint(object):
     def migrate_instances(self, ctxt, origin_endpoint_id,
                           destination_endpoint_id, source_environment,
                           destination_environment, instances, network_map,
-                          storage_mappings, skip_os_morphing=False,
-                          notes=None):
+                          storage_mappings, replication_count,
+                          shutdown_instances=False, notes=None,
+                          skip_os_morphing=False):
         origin_endpoint = self.get_endpoint(ctxt, origin_endpoint_id)
         destination_endpoint = self.get_endpoint(ctxt, destination_endpoint_id)
         self._check_endpoints(ctxt, origin_endpoint, destination_endpoint)
@@ -715,55 +716,103 @@ class ConductorServerEndpoint(object):
         migration.instances = instances
         migration.info = {}
         migration.notes = notes
+        migration.shutdown_instances = shutdown_instances
+        migration.replication_count = replication_count
 
         self._check_create_reservation_for_transfer(
             migration, licensing_client.RESERVATION_TYPE_MIGRATION)
 
         for instance in instances:
-            task_validate_source = self._create_task(
-                instance,
-                constants.TASK_TYPE_VALIDATE_MIGRATION_SOURCE_INPUTS,
+            # NOTE: we must explicitly set this in each VM's info
+            # to prevent the Replica disks from being cloned:
+            migration.info[instance] = {"clone_disks": False}
+
+            get_instance_info_task = self._create_task(
+                instance, constants.TASK_TYPE_GET_INSTANCE_INFO,
                 execution)
 
-            task_validate_destination = self._create_task(
+            validate_replica_source_inputs_task = self._create_task(
                 instance,
-                constants.TASK_TYPE_VALIDATE_MIGRATION_DESTINATION_INPUTS,
+                constants.TASK_TYPE_VALIDATE_REPLICA_SOURCE_INPUTS,
+                execution)
+
+            validate_replica_destination_inputs_task = self._create_task(
+                instance,
+                constants.TASK_TYPE_VALIDATE_REPLICA_DESTINATION_INPUTS,
                 execution,
-                depends_on=[task_validate_source.id])
+                depends_on=[get_instance_info_task.id])
 
-            task_export = self._create_task(
-                instance, constants.TASK_TYPE_EXPORT_INSTANCE, execution,
-                depends_on=[task_validate_destination.id])
+            depends_on = [
+                validate_replica_source_inputs_task.id,
+                validate_replica_destination_inputs_task.id]
 
-            if (constants.PROVIDER_TYPE_INSTANCE_FLAVOR in
-                    destination_provider_types):
-                get_optimal_flavor_task = self._create_task(
-                    instance, constants.TASK_TYPE_GET_OPTIMAL_FLAVOR,
-                    execution, depends_on=[task_export.id])
-                next_task = get_optimal_flavor_task.id
-            else:
-                next_task = task_export.id
+            deploy_replica_disks_task = self._create_task(
+                instance, constants.TASK_TYPE_DEPLOY_REPLICA_DISKS,
+                execution, depends_on=depends_on)
 
-            task_import = self._create_task(
-                instance, constants.TASK_TYPE_IMPORT_INSTANCE,
-                execution, depends_on=[next_task])
+            deploy_replica_source_resources_task = self._create_task(
+                instance,
+                constants.TASK_TYPE_DEPLOY_REPLICA_SOURCE_RESOURCES,
+                execution, depends_on=[deploy_replica_disks_task.id])
 
-            task_deploy_disk_copy_resources = self._create_task(
-                instance, constants.TASK_TYPE_DEPLOY_DISK_COPY_RESOURCES,
-                execution, depends_on=[task_import.id])
+            deploy_replica_target_resources_task = self._create_task(
+                instance,
+                constants.TASK_TYPE_DEPLOY_REPLICA_TARGET_RESOURCES,
+                execution, depends_on=[deploy_replica_disks_task.id])
 
-            task_copy_disk = self._create_task(
-                instance, constants.TASK_TYPE_COPY_DISK_DATA,
-                execution, depends_on=[task_deploy_disk_copy_resources.id])
+            # NOTE(aznashwan): re-executing the REPLICATE_DISKS task only works
+            # if all the source disk snapshotting and worker setup steps are
+            # performed by the source plugin in REPLICATE_DISKS.
+            # This should no longer be a problem when worker pooling lands.
+            # Alternatively, if the DEPLOY_REPLICA_SOURCE/DEST_RESOURCES tasks
+            # will no longer have a state conflict, iterating through and
+            # re-executing DEPLOY_REPLICA_SOURCE_RESOURCES will be required:
+            last_replica_task = None
+            replica_resources_tasks = [
+                deploy_replica_source_resources_task.id,
+                deploy_replica_target_resources_task.id]
+            for i in range(migration.replication_count):
+                # insert SHUTDOWN_INSTANCES task before the last sync:
+                if i == (migration.replication_count - 1) and (
+                        migration.shutdown_instances):
+                    shutdown_deps = replica_resources_tasks
+                    if last_replica_task:
+                        shutdown_deps = [last_replica_task.id]
+                    last_replica_task = self._create_task(
+                        instance, constants.TASK_TYPE_SHUTDOWN_INSTANCE,
+                        execution, depends_on=shutdown_deps)
 
-            task_delete_disk_copy_resources = self._create_task(
-                instance, constants.TASK_TYPE_DELETE_DISK_COPY_RESOURCES,
-                execution, depends_on=[task_copy_disk.id], on_error=True)
+                replication_deps = replica_resources_tasks
+                if last_replica_task:
+                    replication_deps = [last_replica_task.id]
 
+                last_replica_task = self._create_task(
+                    instance, constants.TASK_TYPE_REPLICATE_DISKS,
+                    execution, depends_on=replication_deps)
+
+            delete_source_resources_task = self._create_task(
+                instance,
+                constants.TASK_TYPE_DELETE_REPLICA_SOURCE_RESOURCES,
+                execution, depends_on=[last_replica_task.id],
+                on_error=True)
+
+            delete_destination_resources_task = self._create_task(
+                instance,
+                constants.TASK_TYPE_DELETE_REPLICA_TARGET_RESOURCES,
+                execution, depends_on=[last_replica_task.id],
+                on_error=True)
+
+            deploy_replica_task = self._create_task(
+                instance, constants.TASK_TYPE_DEPLOY_REPLICA_INSTANCE,
+                execution, depends_on=[
+                    delete_source_resources_task.id,
+                    delete_destination_resources_task.id])
+
+            last_task = deploy_replica_task
             if not skip_os_morphing:
                 task_deploy_os_morphing_resources = self._create_task(
                     instance, constants.TASK_TYPE_DEPLOY_OS_MORPHING_RESOURCES,
-                    execution, depends_on=[task_delete_disk_copy_resources.id])
+                    execution, depends_on=[last_task.id])
 
                 task_osmorphing = self._create_task(
                     instance, constants.TASK_TYPE_OS_MORPHING,
@@ -775,17 +824,27 @@ class ConductorServerEndpoint(object):
                     execution, depends_on=[task_osmorphing.id],
                     on_error=True)
 
-                next_task = task_delete_os_morphing_resources
-            else:
-                next_task = task_delete_disk_copy_resources
+                last_task = task_delete_os_morphing_resources
 
-            self._create_task(
-                instance, constants.TASK_TYPE_FINALIZE_IMPORT_INSTANCE,
-                execution, depends_on=[next_task.id])
+            if (constants.PROVIDER_TYPE_INSTANCE_FLAVOR in
+                    destination_provider_types):
+                get_optimal_flavor_task = self._create_task(
+                    instance, constants.TASK_TYPE_GET_OPTIMAL_FLAVOR,
+                    execution, depends_on=[last_task.id])
+                last_task = get_optimal_flavor_task
 
             self._create_task(
                 instance,
-                constants.TASK_TYPE_CLEANUP_FAILED_IMPORT_INSTANCE,
+                constants.TASK_TYPE_FINALIZE_REPLICA_INSTANCE_DEPLOYMENT,
+                execution, depends_on=[last_task.id])
+
+            self._create_task(
+                instance,
+                constants.TASK_TYPE_CLEANUP_FAILED_REPLICA_INSTANCE_DEPLOYMENT,
+                execution, on_error=True)
+
+            self._create_task(
+                instance, constants.TASK_TYPE_DELETE_REPLICA_DISKS,
                 execution, on_error=True)
 
         db_api.add_migration(ctxt, migration)
@@ -952,8 +1011,7 @@ class ConductorServerEndpoint(object):
                     ctxt, execution.action_id, task.instance,
                     {"volumes_info": None})
 
-        elif task_type in (
-                constants.TASK_TYPE_FINALIZE_IMPORT_INSTANCE,
+        elif task_type == (
                 constants.TASK_TYPE_FINALIZE_REPLICA_INSTANCE_DEPLOYMENT):
             # set 'transfer_result' in the 'base_transfer_action'
             # table if the task returned a result.

@@ -18,9 +18,11 @@ CONF = cfg.CONF
 CONF.register_opts(serialization_opts)
 
 PROVIDER_TYPE_MAP = {
-    constants.PROVIDER_TYPE_EXPORT: base.BaseExportProvider,
+    # NOTE(aznashwan): these have been disabled following the transition from
+    # classical disk-export-based migrations to Replica-based ones:
+    # constants.PROVIDER_TYPE_EXPORT: base.BaseExportProvider,
+    # constants.PROVIDER_TYPE_IMPORT: base.BaseImportProvider,
     constants.PROVIDER_TYPE_REPLICA_EXPORT: base.BaseReplicaExportProvider,
-    constants.PROVIDER_TYPE_IMPORT: base.BaseImportProvider,
     constants.PROVIDER_TYPE_REPLICA_IMPORT: base.BaseReplicaImportProvider,
     constants.PROVIDER_TYPE_ENDPOINT: base.BaseEndpointProvider,
     constants.PROVIDER_TYPE_DESTINATION_ENDPOINT_OPTIONS:
@@ -72,8 +74,10 @@ def get_provider(
         platform_name, provider_type, event_handler, raise_if_not_found=True):
     for provider in CONF.providers:
         cls = utils.load_class(provider)
-        if (cls.platform == platform_name and
-                issubclass(cls, PROVIDER_TYPE_MAP[provider_type])):
+        parent = PROVIDER_TYPE_MAP.get(provider_type)
+        if not parent:
+            continue
+        if (cls.platform == platform_name and issubclass(cls, base)):
             return cls(event_handler)
 
     if raise_if_not_found:
