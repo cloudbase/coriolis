@@ -272,6 +272,7 @@ class ConductorServerEndpoint(object):
         task.task_type = task_type
         task.depends_on = depends_on
         task.on_error = on_error
+        task.index = len(task.execution.tasks) + 1
 
         if not on_error:
             task.status = constants.TASK_STATUS_PENDING

@@ -77,7 +77,7 @@ def get_provider(
         parent = PROVIDER_TYPE_MAP.get(provider_type)
         if not parent:
             continue
-        if (cls.platform == platform_name and issubclass(cls, base)):
+        if (cls.platform == platform_name and issubclass(cls, parent)):
             return cls(event_handler)
 
     if raise_if_not_found:
