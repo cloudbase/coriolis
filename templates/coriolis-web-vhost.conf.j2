@@ -24,11 +24,11 @@
     Define coriolis_internal_url {{ coriolis_internal_url }}
 
     # Proxy matches paths to appropiate services
-    RewriteRule "^/identity/(.*)$" "${keystone_auth_url_v3}/$1" [P]
-    RewriteRule "^/barbican/(.*)$" "${barbican_endpoint_url}/$1" [P]
-    RewriteRule "^/coriolis/(.*)$" "${coriolis_base_endpoint_url}/$1" [P]
-    RewriteRule "^/licensing/(.*)$" "${licensing_server_base_url}/$1" [P]
-    RewriteRule "^/licensing-ui/(.*)$" "${licensing_ui_server_base_url}/$1" [P]
+    RewriteRule "^/identity(/?.*)$" "${keystone_auth_url_v3}$1" [P]
+    RewriteRule "^/barbican(/?.*)$" "${barbican_endpoint_url}$1" [P]
+    RewriteRule "^/coriolis(/?.*)$" "${coriolis_base_endpoint_url}$1" [P]
+    RewriteRule "^/licensing-ui(/?.*)$" "${licensing_ui_server_base_url}$1" [P]
+    RewriteRule "^/licensing(/?.*)$" "${licensing_server_base_url}$1" [P]
     RewriteRule "^/((?!identity|coriolis|barbican|licensing|licensing-ui).*)$" "${coriolis_internal_url}/$1" [P]
 
 </VirtualHost>
