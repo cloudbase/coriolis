@@ -26,12 +26,6 @@ if [ ! -d "$BASE_DIR/kolla-ansible" ]; then
     git clone https://github.com/openstack/kolla-ansible -b $kolla_branch "$BASE_DIR/kolla-ansible"
 fi
 
-if [ ! -d "$BASE_DIR/kolla-ansible/.venv" ]; then
-    python3 -m virtualenv "$BASE_DIR/kolla-ansible/.venv"
-fi
-
-source "$BASE_DIR/kolla-ansible/.venv/bin/activate"
-
 pip3 install "$BASE_DIR/kolla-ansible"
 
 mkdir -p /etc/kolla/
@@ -75,8 +69,6 @@ if [ "$innodb_log_file_size" ]; then
     $SET_INI_CONFIG_VALUE_SCRIPT -c /etc/kolla/mariadb/galera.cnf -s mysqld -n innodb_log_file_size -v $innodb_log_file_size
     docker restart mariadb
 fi
-
-deactivate
 
 pip3 install python-openstackclient python-barbicanclient
 
