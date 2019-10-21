@@ -35,7 +35,6 @@ if [ ! -f /etc/kolla/passwords.yml ]; then
     cp "$BASE_DIR/kolla-ansible/etc/kolla/passwords.yml" /etc/kolla/
     kolla-genpwd
 fi
-"$BASE_DIR/fix-kolla-passwords.py"
 
 IFACE=${1:-lo} # Defaults to localhost
 
