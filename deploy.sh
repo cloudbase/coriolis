@@ -14,6 +14,8 @@ new_config_file "$CONFIG_BUILD_FILE"
 set_config_file_random_value "$CONFIG_FILE" coriolis_database_password
 set_config_file_random_value "$CONFIG_FILE" coriolis_keystone_password
 set_config_file_random_value "$CONFIG_FILE" temp_keypair_password
+set_config_file_random_value "$CONFIG_FILE" influxdb_user_password
+set_config_file_random_value "$CONFIG_FILE" influxdb_admin_user_password
 
 ansible-playbook -v "$BASE_DIR/deploy.yml" -e @"/etc/kolla/passwords.yml" \
                  -e @"$CONFIG_FILE" -e @"$CONFIG_BUILD_FILE"

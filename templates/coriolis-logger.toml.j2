@@ -1,0 +1,73 @@
+[apiserver]
+bind = "{{ coriolis_host }}"
+port = {{ coriolis_logger_port }}
+use_tls = false
+
+# Authentication middleware to use. Available options are:
+#  * keystone
+#  * none
+# coriolis-logger will refuse to start if this option is
+# missing. To disable authentication, you must explicitly
+# set this option to "none"
+auth_middleware = "keystone"
+
+    [apiserver.keystone_auth]
+    # The keystone auth URI
+    auth_uri = "{{ internal_protocol }}://{{ keystone_host }}:{{ keystone_public_port }}/v3"
+
+    # API server TLS config
+    [apiserver.tls]
+    #crt = "/tmp/certificate.pem"
+    #key = "/tmp/key.pem"
+    #cacert = "/tmp/ca-cert.pem"
+
+[syslog]
+# Possible values: unixgram, tcp, udp
+listener = "unixgram"
+
+# possible values:
+#   for unixgram: /path/to/socket
+#   for tcp/udp IP:port pair: 0.0.0.0:5144 
+# address = "/tmp/coriolis-logger/syslog"
+address = "{{ coriolis_logger_socket_path }}"
+
+# Log format
+# possible values:
+#   rfc3164
+#   rfc5424
+#   rfc6587
+#   automatic
+format = "automatic"
+
+# Whether to dump logs to stdout or not
+# this should only be enabled for testng purposes
+log_to_stdout = false
+
+# storage backend for logs. Available options are:
+#   * influxdb
+datastore = "influxdb"
+
+    [syslog.influxdb]
+    url = "{{ influxdb_connection_url }}"
+    # If influxDB auth is enabled, use this username
+    username = "{{ influxdb_user_name }}"
+    # A super secret password. Obviously needs changing :-)
+    password = "{{ influxdb_user_password }}"
+    # Logs database
+    database = "{{ influxdb_database_name }}"
+    # duration in seconds after which this datastore
+    # flushes writes to the database
+    write_interval = 5
+    # Verify server enables mutual TLS authentication
+    verify_server = false
+    # Client TLS certificates
+    # cacert = "/tmp/ca.pem"
+    # client_crt = "/tmp/client-crt.pem"
+    # client_key = "/tmp/client-key.pem"
+
+    # The retention period for logs in days. Logs older than
+    # this, will be deleted. If missing, this option default
+    # to 3 days. This setting will be moved in the future
+    # under the [syslog] section, when we will support multiple
+    # datastores.
+    log_retention_period = 3

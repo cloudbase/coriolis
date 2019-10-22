@@ -15,6 +15,7 @@
         - { name: Dockerfile.common}
         - { name: Dockerfile.api}
         - { name: Dockerfile.conductor}
+        - { name: Dockerfile.logger}
         - { name: Dockerfile.replica_cron}
         - { name: Dockerfile.worker}
         - { name: Dockerfile.web}
@@ -53,6 +54,17 @@
         force: yes
         version: "{{ custom_repo_branch }}"
       with_items: "{{ all_providers }}"
+    
+    - name: Cloning coriolis-logger
+      vars:
+        custom_repo_owner: "{{ custom_repo_owner_names['logger']|default ('cloudbase') }}"
+        custom_repo_branch: "{{ custom_repo_branch_names['logger']|default ('master') }}"
+      git:
+        repo: "https://github.com/{{ custom_repo_owner }}/coriolis-logger"
+        dest: "./build/coriolis-logger"
+        update: yes
+        force: yes
+        version: "{{ custom_repo_branch }}"
 
     - name: Downloading libnfs RPM
       get_url:
@@ -98,5 +110,6 @@
         - { dockerfile: Dockerfile.api, name: coriolis-api}
         - { dockerfile: Dockerfile.conductor, name: coriolis-conductor}
         - { dockerfile: Dockerfile.replica_cron, name: coriolis-replica-cron}
+        - { dockerfile: Dockerfile.logger, name: coriolis-logger}
         - { dockerfile: Dockerfile.worker, name: coriolis-worker}
         - { dockerfile: Dockerfile.web, name: coriolis-web}
