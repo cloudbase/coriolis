@@ -45,6 +45,17 @@
         path: /var/log/coriolis
         state: directory
 
+    - name: Creating UI mod directory
+      file:
+        path: "{{ coriolis_web_mod_directory_path_host }}"
+        state: directory
+
+    - name: Creating UI mod file
+      template:
+        src: ./templates/ui-mod.json.j2
+        dest: "{{ coriolis_web_mod_directory_path_host }}/ui-mod.json"
+        force: no
+
     - name: Creating coriolis.conf
       template:
         src: ./templates/coriolis.conf.j2
@@ -233,5 +244,8 @@
         restart: yes
         restart_policy: unless-stopped
         network_mode: host
+        volumes:
+        - "{{ coriolis_web_mod_directory_path_host }}:{{ coriolis_web_mod_directory_path }}:rw"
         env:
           CORIOLIS_LICENSING_BASE_URL: "/licensing"
+          MOD_JSON: "{{ coriolis_web_mod_directory_path }}/ui-mod.json"

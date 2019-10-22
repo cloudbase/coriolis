@@ -24,6 +24,8 @@ keystone_auth_url: "{{ admin_protocol }}://{{ keystone_host }}:{{ keystone_admin
 mariadb_innodb_log_file_size: 256M
 coriolis_keystone_user: "coriolis"
 coriolis_keystone_password:
+coriolis_web_mod_directory_path: /opt/coriolis/mod
+coriolis_web_mod_directory_path_host: /opt/coriolis/mod
 
 keystone_auth_url_v3: "{{ keystone_auth_url }}/v3"
 coriolis_internal_url: "http://{{ coriolis_host }}:3000"
