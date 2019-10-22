@@ -3,6 +3,7 @@ keystoneauth1
 keystonemiddleware
 jsonschema
 PyMySQL
+oslo.cache
 oslo.concurrency
 oslo.config
 oslo.context>=2.19.1
@@ -27,6 +28,7 @@ python-barbicanclient
 python-swiftclient>=3.2
 git+https://github.com/cloudbase/pywinrm.git@requests#egg=pywinrm
 PyYAML
+redis
 requests
 mysqlclient
 schedule
