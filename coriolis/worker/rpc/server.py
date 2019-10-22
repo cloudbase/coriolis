@@ -368,7 +368,7 @@ class WorkerServerEndpoint(object):
     def validate_endpoint_source_environment(
             self, ctxt, platform_name, source_env):
         provider = providers_factory.get_provider(
-            platform_name, constants.PROVIDER_TYPE_EXPORT, None)
+            platform_name, constants.PROVIDER_TYPE_REPLICA_EXPORT, None)
         source_env_schema = provider.get_source_environment_schema()
 
         is_valid = True
@@ -420,13 +420,11 @@ class WorkerServerEndpoint(object):
             schema = provider.get_connection_info_schema()
             schemas["connection_info_schema"] = schema
 
-        if provider_type in [constants.PROVIDER_TYPE_IMPORT,
-                             constants.PROVIDER_TYPE_REPLICA_IMPORT]:
+        if provider_type == constants.PROVIDER_TYPE_REPLICA_IMPORT:
             schema = provider.get_target_environment_schema()
             schemas["destination_environment_schema"] = schema
 
-        if provider_type in [constants.PROVIDER_TYPE_EXPORT,
-                             constants.PROVIDER_TYPE_REPLICA_EXPORT]:
+        if provider_type == constants.PROVIDER_TYPE_REPLICA_EXPORT:
             schema = provider.get_source_environment_schema()
             schemas["source_environment_schema"] = schema
 

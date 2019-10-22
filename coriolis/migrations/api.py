@@ -11,12 +11,15 @@ class API(object):
     def migrate_instances(self, ctxt, origin_endpoint_id,
                           destination_endpoint_id, source_environment,
                           destination_environment, instances, network_map,
-                          storage_mappings, notes=None,
+                          storage_mappings, replication_count,
+                          shutdown_instances, notes=None,
                           skip_os_morphing=False):
         return self._rpc_client.migrate_instances(
             ctxt, origin_endpoint_id, destination_endpoint_id,
             source_environment, destination_environment, instances,
-            network_map, storage_mappings, notes, skip_os_morphing)
+            network_map, storage_mappings,
+            replication_count, shutdown_instances=shutdown_instances,
+            notes=notes, skip_os_morphing=skip_os_morphing)
 
     def deploy_replica_instances(self, ctxt, replica_id, clone_disks=False,
                                  force=False, skip_os_morphing=False):

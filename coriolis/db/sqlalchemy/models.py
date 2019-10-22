@@ -59,6 +59,7 @@ class Task(BASE, models.TimestampMixin, models.SoftDeleteMixin,
     task_type = sqlalchemy.Column(sqlalchemy.String(100), nullable=False)
     exception_details = sqlalchemy.Column(sqlalchemy.Text, nullable=True)
     depends_on = sqlalchemy.Column(types.List, nullable=True)
+    index = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
     on_error = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False)
     # TODO(alexpilotti): Add soft delete filter
     events = orm.relationship(TaskEvent, cascade="all,delete",
@@ -149,6 +150,10 @@ class Migration(BaseTransferAction):
         sqlalchemy.ForeignKey('replica.id'), nullable=True)
     replica = orm.relationship(
         Replica, backref=orm.backref("migrations"), foreign_keys=[replica_id])
+    shutdown_instances = sqlalchemy.Column(
+        sqlalchemy.Boolean, nullable=False, default=False)
+    replication_count = sqlalchemy.Column(
+        sqlalchemy.Integer, nullable=False, default=2)
 
     __mapper_args__ = {
         'polymorphic_identity': 'migration',

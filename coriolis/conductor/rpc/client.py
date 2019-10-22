@@ -194,7 +194,8 @@ class ConductorClient(object):
     def migrate_instances(self, ctxt, origin_endpoint_id,
                           destination_endpoint_id, source_environment,
                           destination_environment, instances, network_map,
-                          storage_mappings, notes=None,
+                          storage_mappings, replication_count,
+                          shutdown_instances=False, notes=None,
                           skip_os_morphing=False):
         return self._client.call(
             ctxt, 'migrate_instances',
@@ -203,6 +204,8 @@ class ConductorClient(object):
             destination_environment=destination_environment,
             instances=instances,
             notes=notes,
+            replication_count=replication_count,
+            shutdown_instances=shutdown_instances,
             skip_os_morphing=skip_os_morphing,
             network_map=network_map,
             storage_mappings=storage_mappings,
