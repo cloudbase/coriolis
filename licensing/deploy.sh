@@ -12,7 +12,8 @@ set_config_file_random_value "$LICENSING_CONFIG_FILE" coriolis_licensing_databas
 ansible-playbook -v "$BASE_DIR/deploy.yml" -e @/etc/kolla/passwords.yml \
                  -e @"$LICENSING_CONFIG_FILE" \
                  -e @"$CONFIG_FILE" \
-                 -e @"$CONFIG_BUILD_FILE"
+                 -e @"$CONFIG_BUILD_FILE" \
+                 -e @"$CONFIG_COMMON_FILE"
 
 LICENSING_SERVER_PORT=$("$GET_CONFIG_VALUE_SCRIPT" -c "$LICENSING_CONFIG_FILE" -n licensing_server_port_external)
 LICENSING_SERVER_BASE_URL="http://127.0.0.1:$LICENSING_SERVER_PORT/v1"

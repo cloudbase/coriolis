@@ -9,3 +9,5 @@ RUN apt-get update && apt-get install -y \
 
 RUN /bin/bash -c "pip3 install -U pip"
 RUN /bin/bash -c "pip3 install wheel"
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh

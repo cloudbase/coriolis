@@ -19,6 +19,7 @@
         - { name: Dockerfile.replica_cron}
         - { name: Dockerfile.worker}
         - { name: Dockerfile.web}
+        - { name: entrypoint.sh}
 
     - name: Cloning coriolis-core
       vars:

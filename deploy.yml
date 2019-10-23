@@ -82,7 +82,7 @@
       template:
         src: ./templates/coriolis-logger.toml.j2
         dest: "{{ coriolis_logger_config_directory_host }}/coriolis-logger.toml"
-        force: no
+        force: yes
     
     - name: Create influxdb data volume
       docker_volume:
@@ -269,8 +269,6 @@
         restart: yes
         restart_policy: unless-stopped
         network_mode: host
-        env:
-          CORIOLIS_LOGGER_CONFIG: "{{coriolis_logger_config}}"
         volumes:
         - "{{coriolis_logger_config_directory_host}}/coriolis-logger.toml:{{coriolis_logger_config}}"
         - "{{ coriolis_logger_volume }}:{{ coriolis_logger_socket_dir }}"
@@ -358,7 +356,7 @@
         volumes:
         - "{{ coriolis_config_directory_path_host }}:{{ coriolis_config_directory_path }}:ro"
         - "/var/log/coriolis:/var/log/coriolis:rw"
-        - "/var/lib/docker/volumes/{{coriolis_logger_volume}}/_data/{{coriolis_logger_socket_name}}:/dev/log"
+        - "{{ coriolis_logger_volume }}:{{ coriolis_logger_socket_dir }}"
         ports:
         - "7667:7667"
 
@@ -375,10 +373,11 @@
         env:
             LICENSING_SERVER_BASE_URL: "{{ licensing_server_base_url | string }}"
             LICENSING_SERVER_ALLOW_UNTRUSTED: "true"
+            RUN_DBSYNC: "yes"
         volumes:
         - "{{ coriolis_config_directory_path_host }}:{{ coriolis_config_directory_path }}:ro"
         - "/var/log/coriolis:/var/log/coriolis:rw"
-        - "/var/lib/docker/volumes/{{coriolis_logger_volume}}/_data/{{coriolis_logger_socket_name}}:/dev/log"
+        - "{{ coriolis_logger_volume }}:{{ coriolis_logger_socket_dir }}"
 
     - name: coriolis-replica-cron container
       docker_container:
@@ -393,7 +392,7 @@
         volumes:
         - "{{ coriolis_config_directory_path_host }}:{{ coriolis_config_directory_path }}:ro"
         - "/var/log/coriolis:/var/log/coriolis:rw"
-        - "/var/lib/docker/volumes/{{coriolis_logger_volume}}/_data/{{coriolis_logger_socket_name}}:/dev/log"
+        - "{{ coriolis_logger_volume }}:{{ coriolis_logger_socket_dir }}"
 
     - name: coriolis-web container
       docker_container:
@@ -407,7 +406,7 @@
         network_mode: host
         volumes:
         - "{{ coriolis_web_mod_directory_path_host }}:{{ coriolis_web_mod_directory_path }}:rw"
-        - "/var/lib/docker/volumes/{{coriolis_logger_volume}}/_data/{{coriolis_logger_socket_name}}:/dev/log"
+        - "{{ coriolis_logger_volume }}:{{ coriolis_logger_socket_dir }}"
         env:
           CORIOLIS_LICENSING_BASE_URL: "/licensing"
           MOD_JSON: "{{ coriolis_web_mod_directory_path }}/ui-mod.json"

@@ -14,8 +14,6 @@ coriolis_certs_path: "{{ coriolis_config_directory_path }}/ssl"
 export_providers: ['openstack', 'oracle-vm', 'opc', 'vmware', 'azure', 'aws', 'scvmm']
 import_providers: ['openstack', 'oracle-vm', 'opc', 'oci', 'azure', 'scvmm']
 
-
-
 # In the case that some repo needs to be cloned on some other branch instead of
 # the default cloudbase/master that can be set using the two following dict
 # variables.

@@ -8,3 +8,4 @@ RUN /bin/bash -c "pip3 install -e ./coriolis-core"
 
 # This can be mapped in a volume
 RUN mkdir -p /var/log/coriolis
+ENTRYPOINT ["/entrypoint.sh"]

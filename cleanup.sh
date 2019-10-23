@@ -31,6 +31,8 @@ remove_docker_container "coriolis-api"
 remove_docker_container "coriolis-web"
 remove_docker_container "coriolis-web-proxy"
 remove_docker_container "coriolis-replica-cron"
+remove_docker_container "coriolis-logger"
+remove_docker_container "influxdb"
 
 remove_docker_image "$REPO/coriolis-worker:$TAG"
 remove_docker_image "$REPO/coriolis-conductor:$TAG"
@@ -40,6 +42,9 @@ remove_docker_image "$REPO/coriolis-base:$TAG"
 remove_docker_image "$REPO/coriolis-web:$TAG"
 remove_docker_image "$REPO/coriolis-web-proxy:$TAG"
 remove_docker_image "$REPO/coriolis-replica-cron:$TAG"
+remove_docker_image "$REPO/coriolis-logger:$TAG"
+
+docker volume rm influxdb 2>/dev/null|| true
 
 bash "$BASE_DIR/licensing/cleanup.sh" "$TAG" "$REPO"
 bash "$BASE_DIR/licensing-ui/cleanup.sh" "$TAG" "$REPO"

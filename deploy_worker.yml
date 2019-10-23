@@ -77,4 +77,4 @@
         - "{{ coriolis_export_base_path_host }}:{{ coriolis_export_base_path }}:rw"
         - "{{ vmware_vix_disklib_path_host }}:{{ vmware_vix_disklib_path }}:ro"
         - "{{ hyperv_share_local_path_host }}:{{ hyperv_share_local_path }}:rw"
-        - "/var/lib/docker/volumes/{{coriolis_logger_volume}}/_data/{{coriolis_logger_socket_name}}:/dev/log"
+        - "{{ coriolis_logger_volume }}:{{ coriolis_logger_socket_dir }}"

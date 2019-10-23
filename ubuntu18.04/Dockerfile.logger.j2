@@ -7,6 +7,9 @@ WORKDIR /tmp/coriolis-logger/cmd/coriolis-logger/
 RUN go build -o /usr/local/bin/coriolis-logger .
 
 WORKDIR /
-RUN rm -rf "/tmp/coriolis-compressor"
+RUN rm -rf "/tmp/coriolis-logger"
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-ENTRYPOINT ["/bin/bash", "-c", "/usr/local/bin/coriolis-logger -config $CORIOLIS_LOGGER_CONFIG"]
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["/usr/local/bin/coriolis-logger", "-config", "{{coriolis_logger_config}}"]
