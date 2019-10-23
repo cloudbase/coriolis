@@ -365,6 +365,10 @@ def get_resources_dir():
         os.path.dirname(os.path.abspath(__file__)), "resources")
 
 
+def get_resources_bin_dir():
+    return os.path.join(get_resources_dir(), "bin")
+
+
 def serialize_key(key, password=None):
     key_io = io.StringIO()
     key.write_private_key(key_io, password)

@@ -390,7 +390,7 @@ class Replicator(object):
     @utils.retry_on_error()
     def _copy_replicator_cmd(self, ssh):
         local_path = os.path.join(
-            utils.get_resources_dir(), 'replicator')
+            utils.get_resources_bin_dir(), 'replicator')
         self._copy_file(ssh, local_path, REPLICATOR_PATH)
         utils.exec_ssh_cmd(
             ssh, "sudo chmod +x %s" % REPLICATOR_PATH, get_pty=True)

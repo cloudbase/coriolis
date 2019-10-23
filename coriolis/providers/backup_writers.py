@@ -276,7 +276,7 @@ class SSHBackupWriter(BaseBackupWriter):
         with self._lock:
             sftp = ssh.open_sftp()
             local_path = os.path.join(
-                utils.get_resources_dir(), 'write_data')
+                utils.get_resources_bin_dir(), 'write_data')
             try:
                 # Check if the remote file already exists
                 sftp.stat('write_data')
@@ -577,7 +577,7 @@ class HTTPBackupWriter(BaseBackupWriter):
     @utils.retry_on_error()
     def _copy_writer(self, ssh):
         local_path = os.path.join(
-            utils.get_resources_dir(), _CORIOLIS_HTTP_WRITER_CMD)
+            utils.get_resources_bin_dir(), _CORIOLIS_HTTP_WRITER_CMD)
         remote_tmp_path = os.path.join("/tmp", _CORIOLIS_HTTP_WRITER_CMD)
         with self._lock:
             sftp = ssh.open_sftp()
