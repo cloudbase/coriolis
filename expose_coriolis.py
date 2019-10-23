@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 
-import sys
-import os
 import argparse
 import configparser
 import netifaces
-import subprocess
 import pymysql
-import yaml
+import os
+import sys
+import subprocess
+import toml
 import urllib.parse as urlparse
+import yaml
 
 ADMIN_RC = "/etc/kolla/admin-openrc.sh"
 KEYSTONE_WSGI_CFG = "/etc/kolla/keystone/wsgi-keystone.conf"
@@ -19,6 +20,7 @@ BARBICAN_WORKER_CFG = "/etc/kolla/barbican-worker/barbican.conf"
 BARBICAN_KEYSTONE_CFG = "/etc/kolla/barbican-keystone-listener/barbican.conf"
 CORIOLIS_CFG = "/etc/coriolis/coriolis.conf"
 PROXY_CFG = "/etc/coriolis/coriolis-web-vhost.conf"
+LOGGER_CONF = "/etc/coriolis-logger/coriolis-logger.toml"
 
 
 def set_proxy_cfg(ip_addr):
@@ -29,7 +31,8 @@ def set_proxy_cfg(ip_addr):
     tmp = []
     variables = [
         "keystone_auth_url_v3", "barbican_endpoint_url",
-        "coriolis_base_endpoint_url",
+        "coriolis_base_endpoint_url", "coriolis_logger_ws_url",
+        "coriolis_logger_log_url",
     ]
     for line in contents:
         for v in variables:
@@ -217,6 +220,27 @@ def set_barbican_endpoints(ip_addr):
     cfg.save()
 
 
+def set_logger_ip(ip):
+    cfg = toml.load(open(LOGGER_CONF))
+    apiserver = cfg.get("apiserver")
+    if not apiserver:
+        raise Exception("Invalid logger config. Missing apiserver section")
+    bind = apiserver.get("bind")
+    if bind != ip:
+        cfg["apiserver"]["bind"] = ip
+    
+    keystone = apiserver.get("keystone_auth")
+    if keystone:
+        url = keystone["auth_uri"]
+        parsed = urlparse.urlparse(url)
+        if parsed.hostname != ip:
+            new = url.replace(parsed.hostname, ip)
+            cfg["apiserver"]["keystone_auth"]["auth_uri"] = new
+    
+    with open(LOGGER_CONF, "w") as fd:
+        fd.write(toml.dumps(cfg)) 
+
+
 def set_coriolis_endpoints(ip_addr):
     print("Configuring coriolis")
     cfg = Config(CORIOLIS_CFG)
@@ -268,6 +292,7 @@ if __name__ == '__main__':
         set_keystone_endpoints(ip)
         set_barbican_endpoints(ip)
         set_coriolis_endpoints(ip)
+        set_logger_ip(ip)
         set_openrc(ip)
         set_proxy_cfg(ip)
         restart_containers()

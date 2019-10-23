@@ -54,6 +54,7 @@ influxdb_database_name: coriolis
 influxdb_image_tag: influxdb:1.7
 influxdb_data_dir: /var/lib/influxdb
 influxdb_data_volume_name: influxdb
+
 coriolis_logger_config_directory_host: /etc/coriolis-logger
 coriolis_logger_config_directory_container: /etc/coriolis-logger
 coriolis_logger_config: "{{coriolis_logger_config_directory_container}}/coriolis-logger.toml"
@@ -63,3 +64,4 @@ coriolis_logger_socket_dir: /var/run/coriolis-logger
 coriolis_logger_socket_name: logger.socket
 coriolis_logger_socket_path: "{{ coriolis_logger_socket_dir }}/{{ coriolis_logger_socket_name }}"
 coriolis_logger_endpoint: "http://{{ coriolis_host }}:{{ coriolis_logger_port }}/api/v1"
+coriolis_logger_ws_url: "ws://{{ coriolis_host }}:{{ coriolis_logger_port }}/api/v1/ws"
