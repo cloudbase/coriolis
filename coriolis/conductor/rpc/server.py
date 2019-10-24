@@ -803,13 +803,13 @@ class ConductorServerEndpoint(object):
                 execution, depends_on=[last_migration_task.id],
                 on_error=True)
 
-            deploy_instance_resources_task = self._create_task(
+            deploy_instance_task = self._create_task(
                 instance, constants.TASK_TYPE_DEPLOY_INSTANCE_RESOURCES,
                 execution, depends_on=[
                     delete_source_resources_task.id,
                     delete_destination_resources_task.id])
 
-            last_task = deploy_instance_resources_task
+            last_task = deploy_instance_task
             if not skip_os_morphing:
                 task_deploy_os_morphing_resources = self._create_task(
                     instance, constants.TASK_TYPE_DEPLOY_OS_MORPHING_RESOURCES,
