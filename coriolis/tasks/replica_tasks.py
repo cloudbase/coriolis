@@ -470,6 +470,13 @@ class ValidateReplicaExecutionSourceInputsTask(base.TaskRunner):
 
 
 class ValidateReplicaExecutionDestinationInputsTask(base.TaskRunner):
+    def _validate_provider_replica_import_input(
+            self, provider, ctxt, conn_info, target_environment, export_info):
+        provider.validate_replica_import_input(
+            ctxt, conn_info, target_environment, export_info,
+            check_os_morphing_resources=False,
+            check_final_vm_params=False)
+
     def run(self, ctxt, instance, origin, destination, task_info,
             event_handler):
         event_manager = events.EventManager(event_handler)
@@ -497,9 +504,9 @@ class ValidateReplicaExecutionDestinationInputsTask(base.TaskRunner):
         # NOTE: the target environment JSON schema should have been validated
         # upon accepting the Replica API creation request.
         target_environment = destination.get("target_environment", {})
-        destination_provider.validate_replica_import_input(
-            ctxt, destination_connection_info, target_environment,
-            export_info)
+        self._validate_provider_replica_import_input(
+            destination_provider, ctxt, destination_connection_info,
+            target_environment, export_info)
 
         return task_info
 

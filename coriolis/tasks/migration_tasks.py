@@ -74,7 +74,12 @@ class ValidateMigrationSourceInputsTask(
 
 class ValidateMigrationDestinationInputsTask(
         replica_tasks.ValidateReplicaExecutionDestinationInputsTask):
-    pass
+    def _validate_provider_replica_import_input(
+            self, provider, ctxt, conn_info, target_environment, export_info):
+        provider.validate_replica_import_input(
+            ctxt, conn_info, target_environment, export_info,
+            check_os_morphing_resources=True,
+            check_final_vm_params=True)
 
 
 class DeleteMigrationSourceResourcesTask(
