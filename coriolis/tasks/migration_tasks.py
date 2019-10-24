@@ -10,6 +10,7 @@ from coriolis.migrations import manager
 from coriolis.providers import factory as providers_factory
 from coriolis import schemas
 from coriolis.tasks import base
+from coriolis.tasks import replica_tasks
 
 LOG = logging.getLogger(__name__)
 
@@ -212,77 +213,129 @@ class GetOptimalFlavorTask(base.TaskRunner):
         return task_info
 
 
-class ValidateMigrationSourceInputsTask(base.TaskRunner):
-    def run(self, ctxt, instance, origin, destination, task_info,
-            event_handler):
-        event_manager = events.EventManager(event_handler)
-        origin_connection_info = base.get_connection_info(ctxt, origin)
-        origin_type = origin["type"]
+# class ValidateMigrationSourceInputsTask(base.TaskRunner):
+    # def run(self, ctxt, instance, origin, destination, task_info,
+    #         event_handler):
+    #     event_manager = events.EventManager(event_handler)
+    #     origin_connection_info = base.get_connection_info(ctxt, origin)
+    #     origin_type = origin["type"]
 
-        source_provider = providers_factory.get_provider(
-            origin_type, constants.PROVIDER_TYPE_VALIDATE_MIGRATION_EXPORT,
-            event_handler, raise_if_not_found=False)
-        source_environment = origin.get("source_environment", {})
-        export_info = None
-        if source_provider:
-            export_info = source_provider.validate_migration_export_input(
-                ctxt, origin_connection_info, instance, source_environment)
-        else:
-            event_manager.progress_update(
-                "Migration Export Provider for platform '%s' does not "
-                "support Migration input validation" % origin_type)
+    #     source_provider = providers_factory.get_provider(
+    #         origin_type, constants.PROVIDER_TYPE_VALIDATE_MIGRATION_EXPORT,
+    #         event_handler, raise_if_not_found=False)
+    #     source_environment = origin.get("source_environment", {})
+    #     export_info = None
+    #     if source_provider:
+    #         export_info = source_provider.validate_migration_export_input(
+    #             ctxt, origin_connection_info, instance, source_environment)
+    #     else:
+    #         event_manager.progress_update(
+    #             "Migration Export Provider for platform '%s' does not "
+    #             "support Migration input validation" % origin_type)
 
-        if export_info is None:
-            source_endpoint_provider = providers_factory.get_provider(
-                origin_type, constants.PROVIDER_TYPE_ENDPOINT_INSTANCES,
-                event_handler, raise_if_not_found=False)
-            if not source_endpoint_provider:
-                event_manager.progress_update(
-                    "Migration Export Provider for platform '%s' does not "
-                    "support querying instance export info" % origin_type)
-                return task_info
-            export_info = source_endpoint_provider.get_instance(
-                ctxt, origin_connection_info, source_environment, instance)
+    #     if export_info is None:
+    #         source_endpoint_provider = providers_factory.get_provider(
+    #             origin_type, constants.PROVIDER_TYPE_ENDPOINT_INSTANCES,
+    #             event_handler, raise_if_not_found=False)
+    #         if not source_endpoint_provider:
+    #             event_manager.progress_update(
+    #                 "Migration Export Provider for platform '%s' does not "
+    #                 "support querying instance export info" % origin_type)
+    #             return task_info
+    #         export_info = source_endpoint_provider.get_instance(
+    #             ctxt, origin_connection_info, source_environment, instance)
 
-        # validate Export info:
-        schemas.validate_value(
-            export_info, schemas.CORIOLIS_VM_EXPORT_INFO_SCHEMA)
-        # NOTE: this export info will get overridden with updated values
-        # and disk paths after the ExportInstanceTask.
-        task_info["export_info"] = export_info
+    #     # validate Export info:
+    #     schemas.validate_value(
+    #         export_info, schemas.CORIOLIS_VM_EXPORT_INFO_SCHEMA)
+    #     # NOTE: this export info will get overridden with updated values
+    #     # and disk paths after the ExportInstanceTask.
+    #     task_info["export_info"] = export_info
 
-        return task_info
+    #     return task_info
 
 
-class ValidateMigrationDestinationInputsTask(base.TaskRunner):
-    def run(self, ctxt, instance, origin, destination, task_info,
-            event_handler):
-        event_manager = events.EventManager(event_handler)
-        destination_type = destination["type"]
-        if task_info.get("export_info") is None:
-            event_manager.progress_update(
-                "Instance export info is not set. Cannot perform Migration "
-                "Import validation for destination platform "
-                "'%s'" % destination_type)
-            return task_info
+# class ValidateMigrationDestinationInputsTask(base.TaskRunner):
+    # def run(self, ctxt, instance, origin, destination, task_info,
+    #         event_handler):
+    #     event_manager = events.EventManager(event_handler)
+    #     destination_type = destination["type"]
+    #     if task_info.get("export_info") is None:
+    #         event_manager.progress_update(
+    #             "Instance export info is not set. Cannot perform Migration "
+    #             "Import validation for destination platform "
+    #             "'%s'" % destination_type)
+    #         return task_info
 
-        destination_connection_info = base.get_connection_info(
-            ctxt, destination)
-        destination_provider = providers_factory.get_provider(
-            destination_type,
-            constants.PROVIDER_TYPE_VALIDATE_MIGRATION_IMPORT, event_handler,
-            raise_if_not_found=False)
-        if not destination_provider:
-            event_manager.progress_update(
-                "Migration Import Provider for platform '%s' does not "
-                "support Migration input validation" % destination_type)
-            return task_info
+    #     destination_connection_info = base.get_connection_info(
+    #         ctxt, destination)
+    #     destination_provider = providers_factory.get_provider(
+    #         destination_type,
+    #         constants.PROVIDER_TYPE_VALIDATE_MIGRATION_IMPORT, event_handler,
+    #         raise_if_not_found=False)
+    #     if not destination_provider:
+    #         event_manager.progress_update(
+    #             "Migration Import Provider for platform '%s' does not "
+    #             "support Migration input validation" % destination_type)
+    #         return task_info
 
-        # NOTE: the target environment JSON schema should have been validated
-        # upon accepting the Migration API creation request.
-        target_environment = destination.get("target_environment", {})
-        destination_provider.validate_migration_import_input(
-            ctxt, destination_connection_info, target_environment,
-            task_info["export_info"])
+    #     # NOTE: the target environment JSON schema should have been validated
+    #     # upon accepting the Migration API creation request.
+    #     target_environment = destination.get("target_environment", {})
+    #     destination_provider.validate_migration_import_input(
+    #         ctxt, destination_connection_info, target_environment,
+    #         task_info["export_info"])
 
-        return task_info
+    #     return task_info
+
+class DeployMigrationSourceResourcesTask(
+        replica_tasks.DeployReplicaSourceResourcesTask):
+    pass
+
+
+class DeployMigrationTargetResourcesTask(
+        replica_tasks.DeployReplicaTargetResourcesTask):
+    pass
+
+
+class CreateInstanceDisksTask(
+        replica_tasks.DeployReplicaDisksTask):
+    pass
+
+
+class CleanupInstanceStorageTask(replica_tasks.DeleteReplicaDisksTask):
+    pass
+
+
+class FinalizeInstanceDeploymentTask(
+        replica_tasks.FinalizeReplicaInstanceDeploymentTask):
+    pass
+
+
+class CleanupFailedInstanceDeploymentTask(
+        replica_tasks.CleanupFailedReplicaInstanceDeploymentTask):
+    pass
+
+
+class ValidateMigrationSourceInputsTask(
+        replica_tasks.ValidateReplicaExecutionSourceInputsTask):
+    pass
+
+
+class ValidateMigrationDestinationInputsTask(
+        replica_tasks.ValidateReplicaExecutionDestinationInputsTask):
+    pass
+
+
+class DeleteMigrationSourceResourcesTask(
+        replica_tasks.DeleteReplicaSourceResourcesTask):
+    pass
+
+
+class DeleteMigrationTargetResourcesTask(
+        replica_tasks.DeleteReplicaTargetResourcesTask):
+    pass
+
+
+class DeployInstanceResourcesTask(replica_tasks.DeployReplicaInstanceTask):
+    pass

@@ -22,6 +22,24 @@ _TASKS_MAP = {
         migration_tasks.DeleteDiskCopyResources,
     constants.TASK_TYPE_CLEANUP_FAILED_IMPORT_INSTANCE:
         migration_tasks.CleanupFailedImportInstanceTask,
+    constants.TASK_TYPE_DEPLOY_MIGRATION_SOURCE_RESOURCES:
+        migration_tasks.DeployMigrationSourceResourcesTask,
+    constants.TASK_TYPE_DEPLOY_MIGRATION_TARGET_RESOURCES:
+        migration_tasks.DeployMigrationTargetResourcesTask,
+    constants.TASK_TYPE_DELETE_MIGRATION_SOURCE_RESOURCES:
+        migration_tasks.DeleteMigrationSourceResourcesTask,
+    constants.TASK_TYPE_DELETE_MIGRATION_TARGET_RESOURCES:
+        migration_tasks.DeleteMigrationTargetResourcesTask,
+    constants.TASK_TYPE_DEPLOY_INSTANCE_RESOURCES:
+        migration_tasks.DeployInstanceResourcesTask,
+    constants.TASK_TYPE_FINALIZE_INSTANCE_DEPLOYMENT:
+        migration_tasks.FinalizeInstanceDeploymentTask,
+    constants.TASK_TYPE_CREATE_INSTANCE_DISKS:
+        migration_tasks.CreateInstanceDisksTask,
+    constants.TASK_TYPE_CLEANUP_FAILED_INSTANCE_DEPLOYMENT:
+        migration_tasks.CleanupFailedInstanceDeploymentTask,
+    constants.TASK_TYPE_CLEANUP_INSTANCE_STORAGE:
+        migration_tasks.CleanupInstanceStorageTask,
     constants.TASK_TYPE_GET_OPTIMAL_FLAVOR:
         migration_tasks.GetOptimalFlavorTask,
     constants.TASK_TYPE_VALIDATE_MIGRATION_SOURCE_INPUTS:
