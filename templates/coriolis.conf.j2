@@ -20,6 +20,15 @@ include_task_info_in_migrations_api = false
 include_task_info_in_replicas_api = false
 include_task_info_in_replica_executions_api = false
 
+caching = True
+# Time in seconds
+cache_time = 86400
+
+[cache]
+enabled = True
+backend = dogpile.cache.memcached
+backend_argument = url:127.0.0.1:11211
+
 [database]
 connection = mysql://{{ coriolis_database_name }}:{{ coriolis_database_password }}@{{ database_address }}/{{ coriolis_database_name }}
 
