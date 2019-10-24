@@ -966,12 +966,7 @@ class ConductorServerEndpoint(object):
                                 start_task = False
                                 break
                     if start_task:
-                        # instance imports need to be executed on the same host
                         server = None
-                        if (task.task_type ==
-                                constants.TASK_TYPE_IMPORT_INSTANCE):
-                            server = parent_task.host
-
                         self._rpc_worker_client.begin_task(
                             ctxt, server=server,
                             task_id=task.id,
