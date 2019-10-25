@@ -24,6 +24,9 @@ caching = True
 # Time in seconds
 cache_time = 86400
 
+syslog_log_facility = LOG_LOCAL0
+use_syslog = yes
+
 [cache]
 enabled = True
 backend = dogpile.cache.memcached

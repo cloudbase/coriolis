@@ -44,3 +44,21 @@ hyperv_share_local_path: /opt/coriolis/hyperv-exports
 hyperv_share_local_path_host: /opt/coriolis/hyperv-exports
 
 pull_coriolis_docker_images: true
+
+influxdb_connection_url: "http://{{ coriolis_host }}:8086"
+influxdb_user_name: coriolis
+influxdb_user_password:
+influxdb_admin_user_name: admin
+influxdb_admin_user_password:
+influxdb_database_name: coriolis
+influxdb_image_tag: influxdb:1.7
+influxdb_data_dir: /var/lib/influxdb
+influxdb_data_volume_name: influxdb
+
+coriolis_logger_config_directory_host: /etc/coriolis-logger
+coriolis_logger_config_directory_container: /etc/coriolis-logger
+coriolis_logger_config: "{{coriolis_logger_config_directory_container}}/coriolis-logger.toml"
+coriolis_logger_port: 9998
+coriolis_logger_volume: coriolis-logger
+coriolis_logger_endpoint: "http://{{ coriolis_host }}:{{ coriolis_logger_port }}/api/v1"
+coriolis_logger_ws_url: "ws://{{ coriolis_host }}:{{ coriolis_logger_port }}/api/v1/ws"

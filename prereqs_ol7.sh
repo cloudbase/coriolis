@@ -57,7 +57,7 @@ yum groupinstall development tools -y
 yum install -y openssl
 
 # Required for our Ansible tasks
-pip3 install ansible pymysql virtualenv oslo_config docker
+pip3 install ansible pymysql virtualenv oslo_config docker toml
 
 firewall-cmd --permanent --zone=public --add-port=35357/tcp
 firewall-cmd --permanent --zone=public --add-port=5000/tcp

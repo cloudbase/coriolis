@@ -26,4 +26,4 @@ RUN gunzip /usr/lib/libqemu.so.gz
 RUN ldconfig
 
 # Mapped volume: /etc/coriolis/coriolis.conf
-ENTRYPOINT ["/bin/bash", "-c", "coriolis-worker", "--config-file={{ coriolis_config_directory_path }}/coriolis.conf"]
+CMD ["/bin/bash", "-c", "coriolis-worker", "--config-file={{ coriolis_config_directory_path }}/coriolis.conf"]

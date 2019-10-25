@@ -31,4 +31,4 @@ apt-get install -y \
     python3 python3-pip
 
 # Required for our Ansible tasks
-pip3 install ansible pymysql virtualenv oslo_config docker
+pip3 install ansible pymysql virtualenv oslo_config docker toml

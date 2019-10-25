@@ -13,6 +13,20 @@
     Header add Access-Control-Expose-Headers "X-Subject-Token"
     # Added a rewrite to respond with a 200 SUCCESS on every OPTIONS request.
     RewriteEngine On
+
+    Define coriolis_logger_ws_url {{ coriolis_logger_ws_url }}
+
+    RewriteCond %{HTTP:Upgrade} =websocket [NC]
+    RewriteRule "^/log-stream(/?.*)$"  "${coriolis_logger_ws_url}$1" [P,L]
+
+    ProxyRequests off
+    <Location /log-stream>
+         ProxyPass        "${coriolis_logger_ws_url}"
+         ProxyPassReverse "${coriolis_logger_ws_url}"
+    </Location>
+
+    RewriteCond %{HTTP:Upgrade} !=websocket [NC]
+
     RewriteCond %{REQUEST_METHOD} OPTIONS
     RewriteRule ^(.*)$ $1 [R=200,L]
 
@@ -22,8 +36,10 @@
     Define licensing_server_base_url {{ licensing_server_base_url }}
     Define licensing_ui_server_base_url {{ licensing_ui_server_base_url }}
     Define coriolis_internal_url {{ coriolis_internal_url }}
+    Define coriolis_logger_log_url {{ coriolis_logger_endpoint }}
 
     # Proxy matches paths to appropiate services
+    RewriteRule "^/logs(/?.*)$" "${coriolis_logger_log_url}/logs$1" [P]
     RewriteRule "^/identity(/?.*)$" "${keystone_auth_url_v3}$1" [P]
     RewriteRule "^/barbican(/?.*)$" "${barbican_endpoint_url}$1" [P]
     RewriteRule "^/coriolis(/?.*)$" "${coriolis_base_endpoint_url}$1" [P]

@@ -25,4 +25,4 @@ if [ ! -e "$KOLLA_PASSWORDS_FILE" ]; then
 fi
 
 ansible-playbook -v "$BASE_DIR/deploy_worker.yml" -e @"$KOLLA_PASSWORDS_FILE" \
-                 -e @"$CONFIG_FILE" -e @"$CONFIG_BUILD_FILE"
+                 -e @"$CONFIG_FILE" -e @"$CONFIG_BUILD_FILE" -e @"$CONFIG_COMMON_FILE"

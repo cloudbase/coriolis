@@ -40,10 +40,26 @@
         path: "{{ coriolis_config_directory_path_host }}"
         state: directory
 
+    - name: Creating coriolis-logger config directory
+      file:
+        path: "{{ coriolis_logger_config_directory_host }}"
+        state: directory
+
     - name: Creating log directory
       file:
         path: /var/log/coriolis
         state: directory
+    
+    - name: Creating influxdb config dir
+      file:
+        path: /etc/influxdb
+        state: directory
+    
+    - name: Creating influxdb config file
+      template:
+        src: ./templates/influxdb.conf.j2
+        dest: "/etc/influxdb/influxdb.conf"
+        force: no
 
     - name: Creating UI mod directory
       file:
@@ -61,6 +77,20 @@
         src: ./templates/coriolis.conf.j2
         dest: "{{ coriolis_config_directory_path_host }}/coriolis.conf"
         force: no
+    
+    - name: Creating coriolis-logger.toml
+      template:
+        src: ./templates/coriolis-logger.toml.j2
+        dest: "{{ coriolis_logger_config_directory_host }}/coriolis-logger.toml"
+        force: yes
+    
+    - name: Create influxdb data volume
+      docker_volume:
+        name: "{{ influxdb_data_volume_name }}"
+    
+    - name: Create coriolis-logger volume
+      docker_volume:
+        name: "{{ coriolis_logger_volume }}"
 
     - name: Creating api-paste.ini
       template:
@@ -187,6 +217,132 @@
       retries: 10
       delay: 5
 
+    - name: influxdb container
+      docker_container:
+        name: influxdb
+        image: "{{ influxdb_image_tag }}"
+        hostname: influxdb
+        state: started
+        restart_policy: unless-stopped
+        network_mode: host
+        volumes:
+        - "{{ influxdb_data_volume_name }}:{{influxdb_data_dir}}:rw"
+        - "/etc/influxdb/influxdb.conf:/etc/influxdb/influxdb.conf:ro"
+    
+    - name: Create influxdb admin user
+      command: "docker exec influxdb influx -username {{ influxdb_admin_user_name }} -password {{ influxdb_admin_user_password }} -execute \"CREATE USER {{ influxdb_admin_user_name }} WITH PASSWORD '{{ influxdb_admin_user_password }}' WITH ALL PRIVILEGES\""
+      run_once: True
+      retries: 10
+      delay: 5
+      register: influx_admin_user
+      failed_when: "influx_admin_user.rc > 0"
+
+    - name: Create influxdb coriolis user
+      command: "docker exec influxdb influx -username {{ influxdb_admin_user_name }} -password {{ influxdb_admin_user_password }} -execute \"CREATE USER {{ influxdb_user_name }} WITH PASSWORD '{{ influxdb_user_password }}' WITH ALL PRIVILEGES\""
+      run_once: True
+      retries: 10
+      delay: 5
+      register: influx_user
+      failed_when: "influx_user.rc > 0"
+
+    - name: Create influxdb database
+      command: "docker exec influxdb influx -username {{ influxdb_admin_user_name }} -password {{ influxdb_admin_user_password }} -execute \"CREATE DATABASE {{ influxdb_database_name }}\""
+      run_once: True
+      retries: 10
+      delay: 5
+
+    - name: Grant access to influxdb database
+      command: "docker exec influxdb influx -username {{ influxdb_admin_user_name }} -password {{ influxdb_admin_user_password }} -execute \"GRANT ALL on {{ influxdb_database_name }} TO {{ influxdb_user_name }}\""
+      run_once: True
+      retries: 10
+      delay: 5
+      register: influx_db
+      failed_when: "influx_db.rc > 0"
+    
+    - name: coriolis-logger container
+      docker_container:
+        name: coriolis-logger
+        image: "{{ docker_registry }}/{{ coriolis_containers_namespace }}/coriolis-logger:{{ docker_images_tag }}"
+        pull: "{{ pull_coriolis_docker_images }}"
+        hostname: coriolis-logger
+        state: started
+        restart: yes
+        restart_policy: unless-stopped
+        network_mode: host
+        volumes:
+        - "{{coriolis_logger_config_directory_host}}/coriolis-logger.toml:{{coriolis_logger_config}}"
+        - "{{ coriolis_logger_volume }}:{{ coriolis_logger_socket_dir }}"
+        ports:
+        - "{{coriolis_logger_port}}:{{coriolis_logger_port}}"
+    
+    - name: Checking Coriolis logger service
+      shell: openstack service list -c Name | grep coriolis-logger
+      environment:
+        OS_AUTH_URL: "{{ keystone_auth_url }}"
+        OS_IDENTITY_API_VERSION: 3
+        OS_PASSWORD: "{{ keystone_admin_password }}"
+        OS_PROJECT_NAME: admin
+        OS_TENANT_NAME: admin
+        OS_USERNAME: admin
+        OS_USER_DOMAIN_NAME: "default"
+        OS_PROJECT_DOMAIN_NAME: "default"
+      retries: 10
+      delay: 5
+      register: service_list_logger
+      failed_when: "service_list_logger.rc > 1"
+
+    - name: Creating Coriolis logger Keystone service
+      command: openstack service create --name coriolis-logger --description "Coriolis logger service" coriolis-logger
+      environment:
+        OS_AUTH_URL: "{{ keystone_auth_url }}"
+        OS_IDENTITY_API_VERSION: 3
+        OS_PASSWORD: "{{ keystone_admin_password }}"
+        OS_PROJECT_NAME: admin
+        OS_TENANT_NAME: admin
+        OS_USERNAME: admin
+        OS_USER_DOMAIN_NAME: "default"
+        OS_PROJECT_DOMAIN_NAME: "default"
+      run_once: True
+      retries: 10
+      delay: 5
+      when: service_list_logger.rc == 1
+
+    - name: Checking Coriolis logger Keystone endpoints
+      shell: openstack endpoint list -c "Service Name" | grep coriolis-logger
+      environment:
+        OS_AUTH_URL: "{{ keystone_auth_url }}"
+        OS_IDENTITY_API_VERSION: 3
+        OS_PASSWORD: "{{ keystone_admin_password }}"
+        OS_PROJECT_NAME: admin
+        OS_TENANT_NAME: admin
+        OS_USERNAME: admin
+        OS_USER_DOMAIN_NAME: "default"
+        OS_PROJECT_DOMAIN_NAME: "default"
+      retries: 10
+      delay: 5
+      register: endpoint_list_logger
+      failed_when: "endpoint_list_logger.rc > 1"
+
+    - name: Creating Coriolis logger Keystone endpoints
+      command: "openstack endpoint create coriolis-logger {{ item.interface }} {{ item.url }}"
+      environment:
+        OS_AUTH_URL: "{{ keystone_auth_url }}"
+        OS_IDENTITY_API_VERSION: 3
+        OS_PASSWORD: "{{ keystone_admin_password }}"
+        OS_PROJECT_NAME: admin
+        OS_TENANT_NAME: admin
+        OS_USERNAME: admin
+        OS_USER_DOMAIN_NAME: "default"
+        OS_PROJECT_DOMAIN_NAME: "default"
+      run_once: True
+      retries: 10
+      delay: 5
+      when: endpoint_list_logger.rc == 1
+      with_items:
+        - {'interface': 'admin', 'url': '{{ coriolis_logger_endpoint }}'}
+        - {'interface': 'internal', 'url': '{{ coriolis_logger_endpoint }}'}
+        - {'interface': 'public', 'url': '{{ coriolis_logger_endpoint }}'}
+
     - name: coriolis-api container
       docker_container:
         name: coriolis-api
@@ -200,6 +356,7 @@
         volumes:
         - "{{ coriolis_config_directory_path_host }}:{{ coriolis_config_directory_path }}:ro"
         - "/var/log/coriolis:/var/log/coriolis:rw"
+        - "{{ coriolis_logger_volume }}:{{ coriolis_logger_socket_dir }}"
         ports:
         - "7667:7667"
 
@@ -216,9 +373,11 @@
         env:
             LICENSING_SERVER_BASE_URL: "{{ licensing_server_base_url | string }}"
             LICENSING_SERVER_ALLOW_UNTRUSTED: "true"
+            RUN_DBSYNC: "yes"
         volumes:
         - "{{ coriolis_config_directory_path_host }}:{{ coriolis_config_directory_path }}:ro"
         - "/var/log/coriolis:/var/log/coriolis:rw"
+        - "{{ coriolis_logger_volume }}:{{ coriolis_logger_socket_dir }}"
 
     - name: coriolis-replica-cron container
       docker_container:
@@ -233,6 +392,7 @@
         volumes:
         - "{{ coriolis_config_directory_path_host }}:{{ coriolis_config_directory_path }}:ro"
         - "/var/log/coriolis:/var/log/coriolis:rw"
+        - "{{ coriolis_logger_volume }}:{{ coriolis_logger_socket_dir }}"
 
     - name: coriolis-web container
       docker_container:
@@ -246,6 +406,7 @@
         network_mode: host
         volumes:
         - "{{ coriolis_web_mod_directory_path_host }}:{{ coriolis_web_mod_directory_path }}:rw"
+        - "{{ coriolis_logger_volume }}:{{ coriolis_logger_socket_dir }}"
         env:
           CORIOLIS_LICENSING_BASE_URL: "/licensing"
           MOD_JSON: "{{ coriolis_web_mod_directory_path }}/ui-mod.json"
