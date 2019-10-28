@@ -65,6 +65,7 @@ firewall-cmd --permanent --zone=public --add-port=9311/tcp
 firewall-cmd --permanent --zone=public --add-port=7667/tcp
 firewall-cmd --permanent --zone=public --add-port=80/tcp
 firewall-cmd --permanent --zone=public --add-port=443/tcp
+firewall-cmd --permanent --zone=public --add-port=9998/tcp
 firewall-cmd --reload
 
 # Optional, in case a Cisco VPN is needed
