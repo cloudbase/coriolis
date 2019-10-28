@@ -33,7 +33,7 @@ class LicensingClient(object):
         Returns None if 'LICENSING_SERVER_BASE_URL' is not defined.
         """
         base_url = os.environ.get("LICENSING_SERVER_BASE_URL")
-        if base_url in [None, "None", "null"]:
+        if base_url in ["", None, "None", "null"]:
             LOG.warn(
                 "No 'LICENSING_SERVER_BASE_URL' env var present. Cannot "
                 "instantiate licensing client.")
