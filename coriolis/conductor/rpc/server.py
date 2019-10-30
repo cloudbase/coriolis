@@ -1018,8 +1018,9 @@ class ConductorServerEndpoint(object):
                     ctxt, execution.action_id, task.instance,
                     {"volumes_info": None})
 
-        elif task_type == (
-                constants.TASK_TYPE_FINALIZE_REPLICA_INSTANCE_DEPLOYMENT):
+        elif task_type in (
+                constants.TASK_TYPE_FINALIZE_REPLICA_INSTANCE_DEPLOYMENT,
+                constants.TASK_TYPE_FINALIZE_INSTANCE_DEPLOYMENT):
             # set 'transfer_result' in the 'base_transfer_action'
             # table if the task returned a result.
             if "transfer_result" in task_info:
