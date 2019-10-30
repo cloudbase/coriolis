@@ -10,6 +10,11 @@ use_tls = false
 # missing. To disable authentication, you must explicitly
 # set this option to "none"
 auth_middleware = "keystone"
+# Set a list of allowed origins
+# By default, if this option is ommited or empty, we will check
+# only that the origin is the same as the originating server.
+# A literal of "*" will allow any origin
+cors_origins = ["*"]
 
     [apiserver.keystone_auth]
     # The keystone auth URI
