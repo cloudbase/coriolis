@@ -265,7 +265,8 @@ class BaseReplicaImportValidationProvider(
 
     @abc.abstractmethod
     def validate_replica_import_input(
-            self, ctxt, connection_info, target_environment, export_info):
+            self, ctxt, connection_info, target_environment, export_info,
+            check_os_morphing_resources=False, check_final_vm_params=False):
         """ Validates the provided Replica parameters """
         pass
 

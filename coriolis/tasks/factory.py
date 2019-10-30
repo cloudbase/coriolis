@@ -8,20 +8,24 @@ from coriolis.tasks import osmorphing_tasks
 from coriolis.tasks import replica_tasks
 
 _TASKS_MAP = {
-    constants.TASK_TYPE_EXPORT_INSTANCE:
-        migration_tasks.ExportInstanceTask,
-    constants.TASK_TYPE_IMPORT_INSTANCE:
-        migration_tasks.ImportInstanceTask,
-    constants.TASK_TYPE_FINALIZE_IMPORT_INSTANCE:
-        migration_tasks.FinalizeImportInstanceTask,
-    constants.TASK_TYPE_DEPLOY_DISK_COPY_RESOURCES:
-        migration_tasks.DeployDiskCopyResources,
-    constants.TASK_TYPE_COPY_DISK_DATA:
-        migration_tasks.CopyDiskData,
-    constants.TASK_TYPE_DELETE_DISK_COPY_RESOURCES:
-        migration_tasks.DeleteDiskCopyResources,
-    constants.TASK_TYPE_CLEANUP_FAILED_IMPORT_INSTANCE:
-        migration_tasks.CleanupFailedImportInstanceTask,
+    constants.TASK_TYPE_DEPLOY_MIGRATION_SOURCE_RESOURCES:
+        migration_tasks.DeployMigrationSourceResourcesTask,
+    constants.TASK_TYPE_DEPLOY_MIGRATION_TARGET_RESOURCES:
+        migration_tasks.DeployMigrationTargetResourcesTask,
+    constants.TASK_TYPE_DELETE_MIGRATION_SOURCE_RESOURCES:
+        migration_tasks.DeleteMigrationSourceResourcesTask,
+    constants.TASK_TYPE_DELETE_MIGRATION_TARGET_RESOURCES:
+        migration_tasks.DeleteMigrationTargetResourcesTask,
+    constants.TASK_TYPE_DEPLOY_INSTANCE_RESOURCES:
+        migration_tasks.DeployInstanceResourcesTask,
+    constants.TASK_TYPE_FINALIZE_INSTANCE_DEPLOYMENT:
+        migration_tasks.FinalizeInstanceDeploymentTask,
+    constants.TASK_TYPE_CREATE_INSTANCE_DISKS:
+        migration_tasks.CreateInstanceDisksTask,
+    constants.TASK_TYPE_CLEANUP_FAILED_INSTANCE_DEPLOYMENT:
+        migration_tasks.CleanupFailedInstanceDeploymentTask,
+    constants.TASK_TYPE_CLEANUP_INSTANCE_STORAGE:
+        migration_tasks.CleanupInstanceStorageTask,
     constants.TASK_TYPE_GET_OPTIMAL_FLAVOR:
         migration_tasks.GetOptimalFlavorTask,
     constants.TASK_TYPE_VALIDATE_MIGRATION_SOURCE_INPUTS:
