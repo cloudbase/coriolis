@@ -171,6 +171,11 @@ class DeployReplicaDisksTask(base.TaskRunner):
 class DeleteReplicaDisksTask(base.TaskRunner):
     def run(self, ctxt, instance, origin, destination, task_info,
             event_handler):
+        if not task_info.get("volumes_info"):
+            LOG.debug(
+                "No volumes_info present. Skipping disk deletion.")
+            return task_info
+
         provider = providers_factory.get_provider(
             destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
             event_handler)
