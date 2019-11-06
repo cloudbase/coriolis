@@ -1,0 +1,14 @@
+FROM node:11.11.0
+
+RUN curl -o- -L https://yarnpkg.com/install.sh | bash
+
+ENV BASENAME=/licensing-ui
+
+WORKDIR /usr/src/app
+ADD coriolis-licensing-ui ./
+
+RUN yarn install
+RUN yarn build
+
+# NOTE: the afferent port is exposed in the Ansible playbook.
+ENTRYPOINT [ "node", "server.js" ]

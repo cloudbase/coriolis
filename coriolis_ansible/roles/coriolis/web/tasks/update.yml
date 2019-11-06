@@ -1,0 +1,5 @@
+---
+- name: "Trigger coriolis-web update"
+  command: /bin/true
+  notify:
+    - "setup coriolis-web"

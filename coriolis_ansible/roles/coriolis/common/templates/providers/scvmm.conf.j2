@@ -1,0 +1,21 @@
+[scvmm_migration_provider]
+### Export parameters:
+
+# Attempt application consistent snapshots, and if that fails, fallback to
+# crash consistent snapshots.
+fallback_to_crash_consistent_snapshots = True
+
+# Verify the SSL certificate of the RTC service.
+# Set this to False if using a self signed certificate.
+verify_rct_server = False
+
+### Import parameters:
+
+# Default vm templates used for worker instances during migrations
+# migr_template_name_map =
+
+# Default migration template guest OS username.
+# migr_template_username_map =
+
+# Cloud name, used for scheduling VMs.
+# cloud_name =

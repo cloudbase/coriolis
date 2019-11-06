@@ -1,0 +1,7 @@
+---
+- name: Reset database
+  import_role:
+    name: common/mariadb
+    tasks_from: reset_db
+  vars:
+    database_name: "{{ coriolis_licensing_server_database_name }}"

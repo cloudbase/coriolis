@@ -1,0 +1,16 @@
+---
+- name: "build coriolis-logger"
+  include_tasks: "{{ playbook_dir }}/roles/common/docker/tasks/build_image.yml"
+  vars:
+    image_name: coriolis-logger
+    remove_existing: true
+
+- name: "setup influxdb"
+  include_tasks: "{{ role_path }}/tasks/setup_influxdb_container.yml"
+  vars:
+    restart: yes
+
+- name: "setup coriolis-logger"
+  include_tasks: "{{ role_path }}/tasks/setup_logger_container.yml"
+  vars:
+    restart: yes

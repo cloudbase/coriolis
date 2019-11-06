@@ -1,0 +1,16 @@
+---
+- name: Remove Docker container
+  docker_container:
+    state: absent
+    name: coriolis-web
+
+- name: Remove Docker image
+  docker_image:
+    state: absent
+    force_absent: yes
+    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-web"
+
+- name: Remove mod directory
+  file:
+    state: absent
+    path: "{{ coriolis_web_mod_dir }}"

@@ -1,0 +1,3 @@
+---
+mariadb_max_allowed_packet: 64M
+mariadb_innodb_log_file_size: 256M

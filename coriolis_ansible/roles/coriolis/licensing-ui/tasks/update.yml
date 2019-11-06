@@ -1,0 +1,15 @@
+---
+- name: Gather Kolla deployment facts
+  kolla_deployment_facts:
+  register: kolla_deployment
+
+- name: Set Kolla deployment facts
+  set_fact:
+    database_address: "{{ kolla_deployment.result.listen_address }}"
+    database_port: "{{ kolla_deployment.result.db_port }}"
+    keystone_auth_url: "{{ kolla_deployment.result.keystone_protocol }}://{{ kolla_deployment.result.listen_address }}:{{ kolla_deployment.result.keystone_public_port }}/v3"
+
+- name: "Trigger coriolis-licensing-ui update"
+  command: /bin/true
+  notify:
+    - "setup coriolis-licensing-ui"

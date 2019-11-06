@@ -1,0 +1,41 @@
+---
+- name: Create build directory
+  file:
+    path: "{{ build_dir }}"
+    state: directory
+
+- name: Clone git repository
+  git:
+    repo: "https://github.com/{{ repo_owner }}/coriolis-logger"
+    dest: "{{ build_dir }}/coriolis-logger"
+    update: yes
+    force: yes
+    version: "{{ repo_branch }}"
+  vars:
+    repo_owner: "{{ custom_repo_owner_names['logger'] | default('cloudbase') }}"
+    repo_branch: "{{ custom_repo_branch_names['logger'] | default('master') }}"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+  notify:
+    - "build coriolis-logger"
+
+- name: Render templates
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+  with_items:
+    - { src: Dockerfile.j2,
+        dest: "{{ build_dir }}/coriolis-logger.Dockerfile" }
+    - { src: "{{ playbook_dir }}/roles/coriolis/common/templates/entrypoint.sh.j2",
+        dest: "{{ build_dir }}/coriolis-logger-entrypoint.sh" }
+  notify:
+    - "build coriolis-logger"
+
+- import_role:
+    name: common/docker
+    tasks_from: build_image
+  vars:
+    image_name: coriolis-logger
+    remove_existing: false

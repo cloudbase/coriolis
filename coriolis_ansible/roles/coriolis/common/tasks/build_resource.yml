@@ -1,0 +1,18 @@
+---
+- name: Build resource
+  docker_container:
+    name: coriolis-resource-builder
+    image: golang:1.12
+    detach: no
+    command: "bash -c 'export GO112MODULE=on && {{ resource_build_script }}'"
+    volumes:
+      - "{{ build_dir }}:{{ build_dir }}"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+
+- name: Cleanup temporary container used for the resource build
+  docker_container:
+    name: coriolis-resource-builder
+    state: absent

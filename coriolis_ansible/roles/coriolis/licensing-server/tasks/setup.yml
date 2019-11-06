@@ -1,0 +1,47 @@
+---
+- name: Gather Kolla deployment facts
+  kolla_deployment_facts:
+  register: kolla_deployment
+
+- name: Set Kolla deployment facts
+  set_fact:
+    database_address: "{{ kolla_deployment.result.listen_address }}"
+    database_port: "{{ kolla_deployment.result.db_port }}"
+    database_login_user: "{{ kolla_deployment.result.db_user_name }}"
+    database_login_password: "{{ kolla_deployment.result.db_user_password }}"
+
+- name: Create database
+  mysql_db:
+    login_host: "{{ database_address }}"
+    login_port: "{{ database_port }}"
+    login_user: "{{ database_login_user }}"
+    login_password: "{{ database_login_password }}"
+    name: "{{ coriolis_licensing_server_database_name }}"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+  notify:
+    - "setup coriolis-licensing-server"
+
+- name: Create database user with proper permissions
+  mysql_user:
+    login_host: "{{ database_address }}"
+    login_port: "{{ database_port }}"
+    login_user: "{{ database_login_user }}"
+    login_password: "{{ database_login_password }}"
+    name: "{{ coriolis_licensing_server_database_user }}"
+    password: "{{ coriolis_licensing_server_database_password }}"
+    host: "%"
+    priv: "{{ coriolis_licensing_server_database_name }}.*:ALL"
+    append_privs: "yes"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+  notify:
+    - "setup coriolis-licensing-server"
+
+- include_tasks: setup_licensing_server_container.yml
+  vars:
+    restart: no

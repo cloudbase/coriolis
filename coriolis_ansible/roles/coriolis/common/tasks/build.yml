@@ -1,0 +1,95 @@
+---
+- name: Create build directories
+  file:
+    path: "{{ item }}"
+    state: directory
+  with_items:
+    - "{{ build_dir }}"
+    - "{{ build_resources_dir }}"
+
+- name: Clone coriolis-replicator
+  git:
+    repo: "git@bitbucket.org:{{ repo_owner }}/coriolis-replicator"
+    dest: "{{ build_dir }}/coriolis-replicator"
+    update: yes
+    force: yes
+    version: "{{ repo_branch }}"
+    key_file: "{{ bitbucket_ssh_key_file if bitbucket_ssh_key_file is defined else '' }}"
+    accept_hostkey: yes
+  vars:
+    repo_owner: "{{ custom_repo_owner_names['replicator'] | default('cloudbase') }}"
+    repo_branch: "{{ custom_repo_branch_names['replicator'] | default('master') }}"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+  notify:
+    -  "build coriolis replicator"
+
+- name: Clone coriolis-writer
+  git:
+    repo: "git@bitbucket.org:{{ repo_owner }}/coriolis-writer"
+    dest: "{{ build_dir }}/coriolis-writer"
+    update: yes
+    force: yes
+    version: "{{ repo_branch }}"
+    key_file: "{{ bitbucket_ssh_key_file if bitbucket_ssh_key_file is defined else '' }}"
+    accept_hostkey: yes
+  vars:
+    repo_owner: "{{ custom_repo_owner_names['writer'] | default('cloudbase') }}"
+    repo_branch: "{{ custom_repo_branch_names['writer'] | default('master') }}"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+  notify:
+    - "build coriolis writer"
+
+- name: Clone coriolis core
+  git:
+    repo: "https://github.com/{{ repo_owner }}/coriolis"
+    dest: "{{ build_dir }}/coriolis-core"
+    update: yes
+    force: yes
+    version: "{{ repo_branch }}"
+  vars:
+    repo_owner: "{{ custom_repo_owner_names['core'] | default('cloudbase') }}"
+    repo_branch: "{{ custom_repo_branch_names['core'] | default('master') }}"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+  notify:
+    - "build coriolis core resources"
+    - "build coriolis core components"
+
+- name: "Build coriolis resources binaries"
+  block:
+    - include_tasks: build_replicator.yml
+      vars:
+        overwrite_existing: false
+
+    - include_tasks: build_writer.yml
+      vars:
+        overwrite_existing: false
+
+    - include_tasks: build_core_resources.yml
+      vars:
+        overwrite_existing: false
+
+- name: Render templates
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+  with_items:
+    - { src: "Dockerfile.j2",    dest: "{{ build_dir }}/coriolis-common.Dockerfile" }
+    - { src: "entrypoint.sh.j2", dest: "{{ build_dir }}/coriolis-common-entrypoint.sh" }
+  notify:
+    - "build coriolis core components"
+
+- import_role:
+    name: common/docker
+    tasks_from: build_image
+  vars:
+    image_name: coriolis-common
+    remove_existing: false

@@ -1,0 +1,5 @@
+---
+- name: "Trigger coriolis-api update"
+  command: /bin/true
+  notify:
+    - "setup coriolis-api"

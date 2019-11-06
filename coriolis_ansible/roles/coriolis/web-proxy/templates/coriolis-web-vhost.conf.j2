@@ -1,0 +1,55 @@
+<VirtualHost *:443>
+
+    SSLEngine on
+    SSLproxyEngine on
+    SSLCertificateFile {{ coriolis_certs_dir }}/coriolis.crt
+    SSLCertificateKeyFile {{ coriolis_certs_dir }}/coriolis.key
+
+    Header always set Access-Control-Allow-Origin "*"
+    Header always set Access-Control-Allow-Methods "POST, GET, OPTIONS, DELETE, PUT, PATCH"
+    Header always set Access-Control-Max-Age "1000"
+    Header always set Access-Control-Allow-Headers "x-requested-with, X-Auth-Token, X-Subject-Token, Content-Type, origin, authorization, accept, client-security-token"
+    Header always set Access-Control-Allow-Credentials "true"
+    Header add Access-Control-Expose-Headers "X-Subject-Token"
+    # Added a rewrite to respond with a 200 SUCCESS on every OPTIONS request.
+    RewriteEngine On
+
+    Define coriolis_logger_ws_url {{ coriolis_logger_ws_url }}
+
+    RewriteCond %{HTTP:Upgrade} =websocket [NC]
+    RewriteRule "^/log-stream(/?.*)$"  "${coriolis_logger_ws_url}$1" [P,L]
+
+    ProxyRequests off
+    <Location /log-stream>
+         ProxyPass        "${coriolis_logger_ws_url}"
+         ProxyPassReverse "${coriolis_logger_ws_url}"
+    </Location>
+
+    RewriteCond %{HTTP:Upgrade} !=websocket [NC]
+
+    RewriteCond %{REQUEST_METHOD} OPTIONS
+    RewriteRule ^(.*)$ $1 [R=200,L]
+
+    Define logger_endpoint {{ coriolis_logger_endpoint }}
+    Define keystone_auth_url {{ keystone_auth_url }}
+    Define barbican_endpoint {{ barbican_endpoint }}
+    Define coriolis_base_url {{ coriolis_base_url }}
+    Define licensing_server_endpoint {{ coriolis_licensing_server_endpoint }}
+    Define licensing_ui_endpoint {{ coriolis_licensing_ui_endpoint }}
+    Define web_ui_base_url {{ coriolis_web_ui_base_url }}
+
+    # Proxy matches paths to appropiate services
+    RewriteRule "^/logs(/?.*)$" "${logger_endpoint}/logs$1" [P]
+    RewriteRule "^/identity(/?.*)$" "${keystone_auth_url}$1" [P]
+    RewriteRule "^/barbican(/?.*)$" "${barbican_endpoint}$1" [P]
+    RewriteRule "^/coriolis(/?.*)$" "${coriolis_base_url}$1" [P]
+    RewriteRule "^/licensing-ui(/?.*)$" "${licensing_ui_endpoint}$1" [P]
+    RewriteRule "^/licensing(/?.*)$" "${licensing_server_endpoint}$1" [P]
+    RewriteRule "^/((?!identity|coriolis|barbican|licensing|licensing-ui).*)$" "${web_ui_base_url}/$1" [P]
+
+</VirtualHost>
+
+<VirtualHost *:80>
+    RewriteEngine On
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}$1 [R=301,L]
+</VirtualHost>

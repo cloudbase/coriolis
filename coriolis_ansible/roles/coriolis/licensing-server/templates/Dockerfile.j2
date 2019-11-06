@@ -1,0 +1,15 @@
+FROM golang:1.11
+
+WORKDIR $GOPATH/src/bitbucket.org/cloudbase/coriolis-licensing-server
+
+COPY coriolis-licensing-server/ ./
+
+RUN go get -d -v ./...
+RUN go install -v ./...
+
+WORKDIR /
+
+RUN rm -rf "$GOPATH/src/bitbucket.org/cloudbase/coriolis-licensing-server"
+
+# NOTE: the afferent port is exposed in the Ansible playbook.
+ENTRYPOINT ["/bin/bash", "-c", "$GOPATH/bin/server start --port $LICENSING_SERVER_PORT --database $LICENSING_DB_STRING --hostname $LICENSING_HOSTNAME"]

@@ -1,0 +1,96 @@
+[DEFAULT]
+default_messaging_timeout = 60
+messaging_transport_url = rabbit://{{ rabbitmq_user }}:{{ rabbitmq_password }}@{{ rabbitmq_host }}:{{ rabbitmq_port }}/
+
+debug = {{ coriolis_debug }}
+log_dir = {{  coriolis_log_dir }}
+logging_exception_prefix = %(color)s%(asctime)s.%(msecs)03d TRACE %(name)s [01;35m%(instance)s[00m
+logging_debug_format_suffix = [00;33mfrom (pid=%(process)d) %(funcName)s %(pathname)s:%(lineno)d[00m
+logging_default_format_string = %(asctime)s.%(msecs)03d %(color)s%(levelname)s %(name)s [[00;36m-%(color)s] [01;35m%(instance)s%(color)s%(message)s[00m
+logging_context_format_string = %(asctime)s.%(msecs)03d %(color)s%(levelname)s %(name)s [[01;36m%(request_id)s [00;36m %(color)s] [01;35m%(instance)s%(color)s%(message)s[00m
+
+providers=
+{%- for item in coriolis_export_providers %}
+coriolis_provider_{{ item | replace("-", "_") }}{% if item == "vmware" %}_vsphere{% endif %}.{% if item == "scvmm" %}HyperV{% endif %}ExportProvider,
+{%- endfor %}
+{%- for item in coriolis_import_providers %}
+coriolis_provider_{{ item | replace("-", "_") }}.ImportProvider{% if not loop.last %},{% endif %}
+{% endfor %}
+
+
+# Whether or not to expose the internal 'info' field of
+# a Migration as part of a `GET` request.
+include_task_info_in_migrations_api = False
+
+# Whether or not to expose the internal 'info' field of
+# a Replica as part of a `GET` request.
+include_task_info_in_replicas_api = False
+include_task_info_in_replica_executions_api = False
+
+caching = True
+# Time in seconds
+cache_time = 86400
+
+syslog_log_facility = LOG_LOCAL0
+use_syslog = yes
+
+[cache]
+enabled = True
+backend = dogpile.cache.memcached
+backend_argument = url:{{ memcached_host }}:11211
+
+[database]
+connection = mysql://{{ coriolis_database_user }}:{{ coriolis_database_password }}@{{ database_host }}/{{ coriolis_database_name }}
+
+[keystone_authtoken]
+auth_type = password
+auth_uri = {{ keystone_protocol }}://{{ keystone_host }}:{{ keystone_public_port }}
+auth_url = {{ keystone_protocol }}://{{ keystone_host }}:{{ keystone_admin_port }}
+username = {{ coriolis_keystone_user }}
+password = {{ coriolis_keystone_password }}
+user_domain_id = default
+project_name = service
+project_domain_id = default
+
+[trustee]
+auth_type = password
+auth_url = {{ keystone_protocol }}://{{ keystone_host }}:{{ keystone_admin_port }}/v3
+username = {{ coriolis_keystone_user }}
+password = {{ coriolis_keystone_password }}
+user_domain_id = default
+
+[keystone]
+identity_api_version = 3
+auth_url = {{ keystone_protocol }}://{{ keystone_host }}:{{ keystone_public_port }}/v3
+
+[oslo_policy]
+policy_file = {{ coriolis_policy_file }}
+
+[conductor]
+conductor_rpc_timeout = 60
+
+# Whether or not to allow for the debugging of OSMorphing errors
+# by skipping the cleanup stages of failed OSMorphing attempts,
+# allowing for manual inspection.
+debug_os_morphing_errors = False
+
+[worker]
+worker_rpc_timeout = 60
+export_base_path = {{ coriolis_export_dir }}
+
+[serialization]
+temp_keypair_password = {{ temp_keypair_password }}
+
+[proxy]
+# url = http://proxy:3128
+# Optional proxy credentials
+# username =
+# password =
+# Optional comma separated list of proxy exclusions
+# no_proxy =
+
+{% for provider in coriolis_providers %}
+
+{% include ("providers/" + provider + ".conf.j2") %}
+
+{% endfor %}

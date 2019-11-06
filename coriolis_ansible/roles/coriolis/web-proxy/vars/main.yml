@@ -1,0 +1,2 @@
+---
+coriolis_certs_dir: "{{ coriolis_config_dir }}/ssl"

@@ -1,11 +1,5 @@
 .DS_Store
-kolla/kolla
-kolla/kolla-ansible
-logs/
-build/
-mysql/
-rabbitmq/
-.venv/
-build.retry
-config.yml
-config-build.yml
+*.retry
+/config.yml
+/passwords.yml
+/coriolis_ansible/build

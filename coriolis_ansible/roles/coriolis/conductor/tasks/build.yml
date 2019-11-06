@@ -1,0 +1,19 @@
+---
+- name: Create build directory
+  file:
+    path: "{{ build_dir }}"
+    state: directory
+
+- name: Render template
+  template:
+    src: Dockerfile.j2
+    dest: "{{ build_dir }}/coriolis-conductor.Dockerfile"
+  notify:
+    - "build coriolis-conductor"
+
+- import_role:
+    name: common/docker
+    tasks_from: build_image
+  vars:
+    image_name: coriolis-conductor
+    remove_existing: false

@@ -1,0 +1,103 @@
+---
+- name: Copy resources binaries
+  copy:
+    mode: preserve
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+  with_items:
+    - { src: "{{ build_resources_dir }}/write_data",          dest: "{{ coriolis_resources_bin_dir }}/write_data"}
+    - { src: "{{ build_resources_dir }}/coriolis-writer",     dest: "{{ coriolis_resources_bin_dir }}/coriolis-writer"}
+    - { src: "{{ build_resources_dir }}/coriolis-replicator", dest: "{{ coriolis_resources_bin_dir }}/coriolis-replicator"}
+  notify:
+    - "setup coriolis core components"
+
+- name: Gather Kolla deployment facts
+  kolla_deployment_facts:
+  register: kolla_deployment
+
+- name: Set Kolla deployment facts
+  set_fact:
+    rabbitmq_host: "{{ kolla_deployment.result.listen_address }}"
+    rabbitmq_port: "{{ kolla_deployment.result.rabbitmq_port }}"
+    rabbitmq_user: "{{ kolla_deployment.result.rabbitmq_user_name }}"
+    rabbitmq_password: "{{ kolla_deployment.result.rabbitmq_user_password }}"
+    memcached_host: "{{ kolla_deployment.result.listen_address }}"
+    database_host: "{{ kolla_deployment.result.listen_address }}"
+    keystone_protocol: "{{ kolla_deployment.result.keystone_protocol }}"
+    keystone_host: "{{ kolla_deployment.result.listen_address }}"
+    keystone_public_port: "{{ kolla_deployment.result.keystone_public_port }}"
+    keystone_admin_port: "{{ kolla_deployment.result.keystone_admin_port }}"
+    keystone_project_name: "{{ kolla_deployment.result.keystone_project_name }}"
+    keystone_admin_name: "{{ kolla_deployment.result.keystone_admin_name }}"
+    keystone_admin_password: "{{ kolla_deployment.result.keystone_admin_password }}"
+
+- name: Create database
+  mysql_db:
+    login_host: "{{ kolla_deployment.result.listen_address }}"
+    login_port: "{{ kolla_deployment.result.db_port }}"
+    login_user: "{{ kolla_deployment.result.db_user_name }}"
+    login_password: "{{ kolla_deployment.result.db_user_password }}"
+    name: "{{ coriolis_database_name }}"
+
+- name: Create database user with proper permissions
+  mysql_user:
+    login_host: "{{ kolla_deployment.result.listen_address }}"
+    login_port: "{{ kolla_deployment.result.db_port }}"
+    login_user: "{{ kolla_deployment.result.db_user_name }}"
+    login_password: "{{ kolla_deployment.result.db_user_password }}"
+    name: "{{ coriolis_database_user }}"
+    password: "{{ coriolis_database_password }}"
+    host: "%"
+    priv: "{{ coriolis_database_name }}.*:ALL"
+    append_privs: "yes"
+
+- name: Render templates
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+  with_items:
+    - { src: coriolis.conf.j2, dest: "{{ coriolis_config_dir }}/coriolis.conf" }
+    - { src: api-paste.ini.j2, dest: "{{ coriolis_config_dir }}/api-paste.ini" }
+    - { src: policy.yml.j2,    dest: "{{ coriolis_config_dir }}/policy.yml" }
+  vars:
+    coriolis_providers: "{{ coriolis_export_providers | union(coriolis_import_providers) }}"
+  notify:
+    - "setup coriolis core components"
+
+- name: Create Keystone user
+  os_user:
+    state: present
+    name: "{{ coriolis_keystone_user }}"
+    password: "{{ coriolis_keystone_password }}"
+    update_password: "always"
+    default_project: service
+    domain: default
+    email: coriolis@localhost
+    enabled: yes
+    wait: yes
+
+- name: Assign Keystone role admin
+  os_user_role:
+    state: present
+    user: "{{ coriolis_keystone_user }}"
+    role: admin
+    project: service
+
+- name: Create Keystone service
+  os_keystone_service:
+    state: present
+    name: coriolis
+    service_type: migration
+    description: "Cloud Migration as a Service"
+
+- name: Create Keystone endpoints
+  os_keystone_endpoint:
+    state: present
+    service: coriolis
+    region: RegionOne
+    endpoint_interface: "{{ item.interface }}"
+    url: "{{ item.url }}"
+  with_items:
+    - { interface: admin,    url: "{{ coriolis_base_url }}/%(tenant_id)s" }
+    - { interface: internal, url: "{{ coriolis_base_url }}/%(tenant_id)s" }
+    - { interface: public,   url: "{{ coriolis_base_url }}/%(tenant_id)s" }

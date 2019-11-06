@@ -1,0 +1,12 @@
+---
+- name: Create directories
+  file:
+    path: "{{ item }}"
+    state: directory
+  with_items:
+    - "{{ coriolis_config_dir }}"
+    - "{{ coriolis_log_dir }}"
+    - "{{ coriolis_usr_dir }}"
+    - "{{ coriolis_resources_bin_dir }}"
+
+- include_tasks: setup.yml

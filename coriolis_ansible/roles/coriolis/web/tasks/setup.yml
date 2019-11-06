@@ -1,0 +1,11 @@
+---
+- name: Render mod template
+  template:
+    src: ui-mod.json.j2
+    dest: "{{ coriolis_web_mod_dir }}/ui-mod.json"
+  notify:
+    - "setup coriolis-web"
+
+- include_tasks: setup_web_container.yml
+  vars:
+    restart: no

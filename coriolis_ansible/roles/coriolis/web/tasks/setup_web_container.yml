@@ -1,0 +1,17 @@
+---
+- name: Setup coriolis-web container
+  docker_container:
+    name: coriolis-web
+    image: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-web:{{ docker_images_tag }}"
+    pull: "{{ docker_pull_images }}"
+    hostname: coriolis-web
+    state: started
+    restart: "{{ restart }}"
+    restart_policy: unless-stopped
+    network_mode: host
+    env:
+      CORIOLIS_LICENSING_BASE_URL: "/licensing"
+      MOD_JSON: "{{ coriolis_web_mod_dir }}/ui-mod.json"
+    volumes:
+      - "{{ coriolis_web_mod_dir }}:{{ coriolis_web_mod_dir }}:rw"
+      - "{{ coriolis_logger_volume_name }}:{{ coriolis_logger_socket_dir }}"

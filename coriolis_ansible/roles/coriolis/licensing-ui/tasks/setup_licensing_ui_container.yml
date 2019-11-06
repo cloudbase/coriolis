@@ -1,0 +1,26 @@
+---
+- name: Setup coriolis-licensing-ui container
+  docker_container:
+    name: coriolis-licensing-ui
+    image: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-licensing-ui:{{ docker_images_tag }}"
+    pull: "{{ docker_pull_images }}"
+    hostname: coriolis-licensing-ui
+    state: started
+    restart: "{{ restart }}"
+    restart_policy: unless-stopped
+    network_mode: host
+    env:
+      BASENAME: "/licensing-ui"
+      IDENTITY_API: "{{ keystone_auth_url }}"
+      PORT: "{{ coriolis_licensing_ui_port | string }}"
+      MARIA_DB_HOST: "{{ database_address }}"
+      MARIA_DB_PORT: "{{ database_port | string }}"
+      MARIA_DB_NAME: "{{ coriolis_licensing_ui_database_name }}"
+      MARIA_DB_USER: "{{ coriolis_licensing_ui_database_user }}"
+      MARIA_DB_PASSWORD: "{{ coriolis_licensing_ui_database_password }}"
+      EMAIL_HOST: "{{ coriolis_licensing_ui_email_host }}"
+      EMAIL_PORT: "{{ coriolis_licensing_ui_email_port | string }}"
+      EMAIL_SECURE: "{{ coriolis_licensing_ui_email_secure | string }}"
+      EMAIL_IGNORE_TLS: "{{ coriolis_licensing_ui_email_ignore_tls | string }}"
+      EMAIL_USER: "{{ coriolis_licensing_ui_email_username }}"
+      EMAIL_PASSWORD: "{{ coriolis_licensing_ui_email_password }}"

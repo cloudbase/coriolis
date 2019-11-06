@@ -1,3 +1,0 @@
-FROM {{ docker_registry }}/{{ coriolis_containers_namespace }}/coriolis-common:{{ docker_images_tag }}
-# Mapped volume: /etc/coriolis/coriolis.conf
-CMD ["/bin/bash", "-c", "coriolis-replica-cron", "--config-file={{ coriolis_config_directory_path }}/coriolis.conf"]

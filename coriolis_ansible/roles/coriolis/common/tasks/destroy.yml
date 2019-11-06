@@ -1,0 +1,16 @@
+---
+- name: Remove directories
+  file:
+    state: absent
+    path: "{{ item }}"
+  with_items:
+    - "{{ coriolis_config_dir }}"
+    - "{{ coriolis_log_dir }}"
+    - "{{ coriolis_usr_dir }}"
+    - "{{ coriolis_resources_bin_dir }}"
+
+- name: Remove Docker image
+  docker_image:
+    state: absent
+    force_absent: yes
+    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-common"
