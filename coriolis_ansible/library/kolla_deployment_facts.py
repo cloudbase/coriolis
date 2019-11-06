@@ -12,6 +12,19 @@ short_description: Module for collecting Kolla deployment facts
 description:
   - A module targeting at collecting Kolla deployment facts. It is used for
     gathering info to connect to an OpenStack deployed via Kolla.
+options:
+  globals_file:
+    description:
+      - The path to the Kolla globals config YAML file
+    required: False
+    type: str
+    default: /etc/kolla/globals.yml
+  passwords_file:
+    description:
+      - The path to the Kolla passwords YAML file
+    required: False
+    type: str
+    default: /etc/kolla/passwords.yml
 author: Ionut Balutoiu
 '''
 
@@ -25,12 +38,22 @@ EXAMPLES = '''
 
 
 def main():
-    module = AnsibleModule(argument_spec=dict())
+    argument_spec = dict(
+        globals_file=dict(required=False,
+                          type="str",
+                          default="/etc/kolla/globals.yml"),
+        passwords_file=dict(required=False,
+                            type="str",
+                            default="/etc/kolla/passwords.yml")
+    )
+    module = AnsibleModule(
+        argument_spec=argument_spec
+    )
 
-    with open("/etc/kolla/passwords.yml", 'r') as f:
+    with open(module.params.get('passwords_file'), 'r') as f:
         passwords = yaml.safe_load(f.read())
 
-    with open("/etc/kolla/globals.yml", 'r') as f:
+    with open(module.params.get('globals_file'), 'r') as f:
         global_vars = yaml.safe_load(f.read())
 
     return_val = dict(changed=False)
