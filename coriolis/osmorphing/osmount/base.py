@@ -104,9 +104,9 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                 continue
             line = line.strip().split(":")
             if pvs.get(line[1]) is None:
-                pvs[line[1]] = [self._get_symlink_target(line[0]), ]
+                pvs[line[1]] = [line[0], ]
             else:
-                pvs[line[1]].append(self._get_symlink_target(line[0]))
+                pvs[line[1]].append(line[0])
         return pvs
 
     def _get_vgnames(self):
@@ -429,13 +429,13 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
             self._exec_cmd("sudo vgchange -ay %s" % vg_name)
             lvm_dev_paths = self._exec_cmd(
                 "sudo ls /dev/%s/*" % vg_name).decode().split('\n')[:-1]
-            dev_paths += self._get_device_file_paths(lvm_dev_paths)
+            dev_paths += lvm_dev_paths
 
         valid_filesystems = ['ext2', 'ext3', 'ext4', 'xfs', 'btrfs']
 
         dev_paths_to_mount = []
         for dev_path in dev_paths:
-            if dev_path in mounted_devs:
+            if self._get_symlink_target(dev_path) in mounted_devs:
                 # this device is already mounted. Skip it, as it most likely
                 # means this device belongs to the worker VM.
                 continue
