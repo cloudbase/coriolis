@@ -1,5 +1,0 @@
-licensing_server_port_internal: 37667
-licensing_server_port_external: 37667
-coriolis_licensing_database_name: coriolis_licensing
-coriolis_licensing_database_username: coriolis_licensing
-coriolis_licensing_database_password:

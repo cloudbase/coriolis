@@ -1,0 +1,16 @@
+[vmware_vsphere_migration_provider]
+# Required in order to set the compatibility of the vixDiskLib release
+# Coriolis will use during replication/CBT-based migration from VMWare.
+# This value should ideally match the ESXi/vCenter hosts versions.
+vixdisklib_compatibility_version = 6.0
+
+# The path where the SOs for vixDiskLib are located:
+# NOTE: for Ubuntu worker VMs, we must prevent the libglib shipped with
+# vixDiskLib to override the system's libglib by prepending the system's
+# library paths (for 16.04 and 18.04, respectively):
+vixdisklib_library_directory = /lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:{{ coriolis_vmware_vix_disklib_dir }}
+
+# Whether or not Coriolis should attempt to automatically enable CBT on
+# the VM before Replication.
+# This requires that the VM have no pre-existing snapshots.
+automatically_enable_cbt = False

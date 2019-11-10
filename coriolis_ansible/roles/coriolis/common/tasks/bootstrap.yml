@@ -1,0 +1,35 @@
+---
+- name: Gather facts
+  setup:
+
+- name: Update /etc/hosts
+  blockinfile:
+    dest: /etc/hosts
+    marker: "# {mark} ANSIBLE GENERATED HOSTS"
+    block: "{{ bind_address }}    {{ ansible_hostname }}"
+
+- name: Fail if the hostname resolves to multiple addresses
+  vars:
+    hostname_addresses: "{{ lookup('dig', ansible_hostname).split(',') }}"
+  fail:
+    msg: >-
+      The hostname '{{ ansible_hostname }}' resolves to: {{ hostname_addresses }}.
+      It should resolve only to {{ [bind_address] }} ('coriolis-ansible'
+      automatically updates /etc/hosts with this entry). Please remove the
+      other entries: {{ hostname_addresses | difference([bind_address]) }}.
+  when: hostname_addresses | length != 1
+
+- name: Check whether cloud-init is installed, and ensure manage_etc_hosts is disabled
+  block:
+    - name: Get /etc/cloud/cloud.cfg file stat
+      stat:
+        path: /etc/cloud/cloud.cfg
+      register: cloud_init
+
+    - name: Disable cloud-init manage_etc_hosts
+      copy:
+        content: >
+          manage_etc_hosts: false
+        dest: /etc/cloud/cloud.cfg.d/99-coriolis.cfg
+        mode: "0660"
+      when: cloud_init.stat.exists

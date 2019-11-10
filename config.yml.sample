@@ -1,64 +1,28 @@
-coriolis_debug: true
-coriolis_host: localhost
-coriolis_base_endpoint_url: "http://{{ coriolis_host }}:7667/v1"
-coriolis_admin_endpoint: "{{ coriolis_base_endpoint_url }}/%(tenant_id)s"
-coriolis_internal_endpoint: "{{ coriolis_admin_endpoint }}"
-coriolis_public_endpoint: "{{ coriolis_admin_endpoint }}"
-licensing_server_base_url:
-licensing_ui_server_base_url: ""
-database_address: "{{ coriolis_host }}"
-database_port: 3306
-database_user: "root"
-coriolis_database_name: "coriolis"
-coriolis_database_password:
-rabbitmq_user: "openstack"
-rabbitmq_host: "{{ coriolis_host }}"
-barbican_host: "{{ coriolis_host }}"
-rabbitmq_port: 5672
-internal_protocol: "http"
-admin_protocol: "http"
-keystone_public_port: 5000
-keystone_admin_port: 35357
-keystone_host: "{{ coriolis_host }}"
-keystone_auth_url: "{{ admin_protocol }}://{{ keystone_host }}:{{ keystone_admin_port }}"
-mariadb_innodb_log_file_size: 256M
-coriolis_keystone_user: "coriolis"
-coriolis_keystone_password:
-coriolis_web_mod_directory_path: /opt/coriolis/mod
-coriolis_web_mod_directory_path_host: /opt/coriolis/mod
+---
+#
+# Any options in this file overwrite the global 'coriolis_ansible' values from:
+#   ./coriolis_ansible/group_vars/all.yml
+#   ./coriolis_ansible/roles/<ROLE_NAME>/vars/main.yml
+#
 
-keystone_auth_url_v3: "{{ keystone_auth_url }}/v3"
-coriolis_internal_url: "http://{{ coriolis_host }}:3000"
-barbican_endpoint_url: "http://{{ barbican_host }}:9311"
+kolla_branch: master
+kolla_openstack_release: master
 
-temp_keypair_password:
-coriolis_config_directory_path_host: /etc/coriolis
-coriolis_certs_path_host: "{{ coriolis_config_directory_path_host }}/ssl"
-coriolis_policy_config_path: "{{ coriolis_config_directory_path_host }}/policy.yml"
-coriolis_export_base_path: /opt/coriolis/export
-coriolis_export_base_path_host: /opt/coriolis/export
-vmware_vix_disklib_path: /opt/coriolis/vmware-vix-disklib
-vmware_vix_disklib_path_host: /opt/coriolis/vmware-vix-disklib
+coriolis_export_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "vmware", "aws"]
+coriolis_import_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "oci"]
 
-hyperv_share_local_path: /opt/coriolis/hyperv-exports
-hyperv_share_local_path_host: /opt/coriolis/hyperv-exports
+# In the case that some repo needs to be cloned on some other branch instead of
+# the default cloudbase/master that can be set using the two following dict
+# variables.
+# In both of these dicts, the key is expected to be either a provider name
+# (like in the export/import_providers lists above) or one of the following:
+# "core", "web", "licensing-server", "licensing-ui", "logger".
+# Examples:
+# {openstack: cloudbase, aws: cloudengineer, etc: etc} - owner dict
+# {openstack: master, aws: branch2, etc: etc} - branch dict
+custom_repo_owner_names: {}
+custom_repo_branch_names: {}
 
-pull_coriolis_docker_images: true
-
-influxdb_connection_url: "http://{{ coriolis_host }}:8086"
-influxdb_user_name: coriolis
-influxdb_user_password:
-influxdb_admin_user_name: admin
-influxdb_admin_user_password:
-influxdb_database_name: coriolis
-influxdb_image_tag: influxdb:1.7
-influxdb_data_dir: /var/lib/influxdb
-influxdb_data_volume_name: influxdb
-
-coriolis_logger_config_directory_host: /etc/coriolis-logger
-coriolis_logger_config_directory_container: /etc/coriolis-logger
-coriolis_logger_config: "{{coriolis_logger_config_directory_container}}/coriolis-logger.toml"
-coriolis_logger_port: 9998
-coriolis_logger_volume: coriolis-logger
-coriolis_logger_endpoint: "http://{{ coriolis_host }}:{{ coriolis_logger_port }}/api/v1"
-coriolis_logger_ws_url: "ws://{{ coriolis_host }}:{{ coriolis_logger_port }}/api/v1/ws"
+# Set this variable if the ssh-agent isn't set, with the authorized Bitbucket
+# SSH private key loaded.
+# bitbucket_ssh_key_file: "/root/.ssh/id_rsa"

@@ -1,5 +1,3 @@
-# These initial groups are the only groups required to be modified. The
-# additional groups are for more control of the environment.
 [control]
 localhost       ansible_connection=local
 
@@ -15,10 +13,18 @@ control
 [memcached:children]
 control
 
+# Kolla will error out if the redis Ansible server group is missing
+# as the keystone.conf.j2 template rendering requires this defined.
+# Keystone works independently of the Redis service (this is disabled
+# anyway via `enable_redis: no` from /etc/kolla/globals.yml), but
+# unfortunately, the Kolla Keystone Ansible role is not atomic, and it
+# requires this (even though it's not used anyway when Redis is disabled).
+[redis:children]
+control
+
 [barbican:children]
 control
 
-# Barbican
 [barbican-api:children]
 barbican
 
@@ -27,6 +33,3 @@ barbican
 
 [barbican-worker:children]
 barbican
-
-[redis:children]
-control

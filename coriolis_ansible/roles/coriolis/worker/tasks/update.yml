@@ -1,0 +1,5 @@
+---
+- name: "Trigger coriolis-worker update"
+  command: /bin/true
+  notify:
+    - "setup coriolis-worker"

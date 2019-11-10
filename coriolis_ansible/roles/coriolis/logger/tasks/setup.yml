@@ -1,0 +1,68 @@
+---
+- name: Gather Kolla deployment facts
+  kolla_deployment_facts:
+  register: kolla_deployment
+
+- name: Render influxdb templates
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+  vars:
+    keystone_protocol: "{{ kolla_deployment.result.keystone_protocol }}"
+    keystone_host: "{{ kolla_deployment.result.listen_address }}"
+    keystone_public_port: "{{ kolla_deployment.result.keystone_public_port }}"
+  with_items:
+    - { src: influxdb.conf.j2,        dest: "{{ influxdb_config_dir }}/influxdb.conf" }
+    - { src: coriolis-logger.toml.j2, dest: "{{ coriolis_logger_config_dir }}/coriolis-logger.toml" }
+  notify:
+    - "setup influxdb"
+    - "setup coriolis-logger"
+
+- include_tasks: setup_influxdb_container.yml
+  vars:
+    restart: no
+
+- name: Create influxdb database
+  influxdb_database:
+    database_name: "{{ influxdb_database_name }}"
+    login_username: admin
+    login_password: "{{ influxdb_admin_password }}"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+
+- name: Create influxdb user
+  influxdb_user:
+    user_name: "{{ influxdb_user_name }}"
+    user_password: "{{ influxdb_user_password }}"
+    admin: yes
+    login_username: admin
+    login_password: "{{ influxdb_admin_password }}"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+
+- name: Create Keystone service
+  os_keystone_service:
+    state: present
+    name: coriolis-logger
+    service_type: coriolis-logger
+    description: "Coriolis logger service"
+
+- name: Create Keystone endpoints
+  os_keystone_endpoint:
+    state: present
+    service: coriolis-logger
+    region: RegionOne
+    endpoint_interface: "{{ item.interface }}"
+    url: "{{ item.url }}"
+  with_items:
+    - { interface: admin,    url: "{{ coriolis_logger_endpoint }}" }
+    - { interface: internal, url: "{{ coriolis_logger_endpoint }}" }
+    - { interface: public,   url: "{{ coriolis_logger_endpoint }}" }
+
+- include_tasks: setup_logger_container.yml
+  vars:
+    restart: no

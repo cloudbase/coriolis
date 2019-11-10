@@ -1,0 +1,24 @@
+FROM ubuntu:18.04
+
+WORKDIR /root
+
+RUN apt-get update && apt-get install -y \
+    python3-dev python3-cffi python3-pip \
+    gcc make git python3-pip zlib1g-dev libmysqlclient-dev \
+    software-properties-common
+
+RUN /bin/bash -c "pip3 install -U pip"
+RUN /bin/bash -c "pip3 install wheel"
+
+COPY coriolis-common-entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+COPY coriolis-core coriolis-core
+
+RUN /bin/bash -c "pip3 install git+https://github.com/cloudbase/pywinrm.git@requests#egg=pywinrm"
+RUN /bin/bash -c "pip3 install -e ./coriolis-core"
+
+# This can be mapped in a volume
+RUN mkdir -p /var/log/coriolis
+
+ENTRYPOINT ["/entrypoint.sh"]

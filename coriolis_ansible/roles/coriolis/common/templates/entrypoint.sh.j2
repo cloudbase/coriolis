@@ -1,0 +1,18 @@
+#!/bin/sh
+
+if [ -e "/dev/log" ]
+then
+    rm -rf /dev/log
+fi
+
+ln -s "{{ coriolis_logger_socket_file }}" /dev/log
+
+if [ "x$RUN_DBSYNC" != "x" ] && [ "x$RUN_DBSYNC" = "xyes" ]
+then
+    if [ -x "/usr/local/bin/coriolis-dbsync" ]
+    then
+        /usr/local/bin/coriolis-dbsync
+    fi
+fi
+
+exec "$@"

@@ -1,0 +1,7 @@
+---
+- name: Create mod directory
+  file:
+    path: "{{ coriolis_web_mod_dir }}"
+    state: directory
+
+- include_tasks: setup.yml

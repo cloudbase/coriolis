@@ -1,0 +1,10 @@
+---
+- name: "Trigger influxdb update"
+  command: /bin/true
+  notify:
+    - "setup influxdb"
+
+- name: "Trigger coriolis-logger update"
+  command: /bin/true
+  notify:
+    - "setup coriolis-logger"

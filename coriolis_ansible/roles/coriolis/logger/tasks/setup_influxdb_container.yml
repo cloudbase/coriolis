@@ -1,0 +1,18 @@
+---
+- name: Setup influxdb container
+  docker_container:
+    name: influxdb
+    image: "{{ influxdb_image }}"
+    pull: "{{ docker_pull_images }}"
+    hostname: influxdb
+    state: started
+    restart: "{{ restart }}"
+    restart_policy: unless-stopped
+    network_mode: host
+    env:
+      INFLUXDB_ADMIN_USER: "admin"
+      INFLUXDB_ADMIN_PASSWORD: "{{ influxdb_admin_password }}"
+    volumes:
+      - "{{ influxdb_data_volume_name }}:{{ influxdb_data_dir }}:rw"
+      - "{{ influxdb_config_dir }}/influxdb.conf:{{ influxdb_config_dir }}/influxdb.conf:ro"
+

@@ -1,0 +1,9 @@
+---
+- name: Apply bootstrap role
+  any_errors_fatal: true
+  hosts:
+    - all
+  tasks:
+    - import_role:
+        name: coriolis/common
+        tasks_from: bootstrap

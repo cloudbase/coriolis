@@ -1,0 +1,29 @@
+---
+- block:
+  - name: "Get Docker image stat"
+    docker_image_info:
+      name: "{{ docker_registry }}/{{ docker_namespace }}/{{ image_name }}"
+    register: docker_image_info
+
+  - name: "Remove existing Docker image"
+    docker_image:
+      name: "{{ docker_registry }}/{{ docker_namespace }}/{{ image_name }}"
+      state: absent
+      force_absent: yes
+    when: docker_image_info.images | length != 0
+  when: remove_existing
+
+- name: "Build Docker image"
+  docker_image:
+    name: "{{ docker_registry }}/{{ docker_namespace }}/{{ image_name }}"
+    source: build
+    build:
+      dockerfile: "{{ image_name }}.Dockerfile"
+      path: "{{ build_dir }}"
+      pull: False
+    push: "{{ docker_push_images }}"
+    tag: "{{ docker_images_tag }}"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded

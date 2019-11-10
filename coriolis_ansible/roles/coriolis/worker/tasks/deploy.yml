@@ -1,0 +1,43 @@
+---
+- name: Create directories
+  file:
+    path: "{{ item }}"
+    state: directory
+  with_items:
+    - "{{ coriolis_export_dir }}"
+    - "{{ coriolis_vmware_vix_disklib_dir }}"
+    - "{{ coriolis_hyperv_share_local_dir }}"
+    - "{{ ceph_dir }}"
+
+- name: Download VMware vixDiskLib
+  get_url:
+    url: "{{ vmware_vix_disklib_url }}"
+    dest: "{{ vmware_vix_disklib_local_archive }}"
+  register: vixdisklib_download
+  retries: 10
+  delay: 5
+  until: vixdisklib_download is succeeded
+
+- block:
+  - name: Remove VMWare vixDiskLib directory
+    file:
+      path: "{{ coriolis_vmware_vix_disklib_dir }}"
+      state: absent
+
+  - name: Create VMWare vixDiskLib directory
+    file:
+      path: "{{ coriolis_vmware_vix_disklib_dir }}"
+      state: directory
+
+  - name: Extract VMWare vixDiskLib
+    unarchive:
+      src: "{{ vmware_vix_disklib_local_archive }}"
+      dest: "{{ coriolis_vmware_vix_disklib_dir }}"
+      extra_opts:
+        - --strip-components=2
+        - vmware-vix-disklib-distrib/lib64
+  when: vixdisklib_download.changed
+
+- include_tasks: setup_worker_container.yml
+  vars:
+    restart: no

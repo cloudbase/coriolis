@@ -1,0 +1,49 @@
+---
+- name: Gather Kolla deployment facts
+  kolla_deployment_facts:
+  register: kolla_deployment
+
+- name: Set Kolla deployment facts
+  set_fact:
+    barbican_protocol: "{{ kolla_deployment.result.barbican_protocol }}"
+    barbican_host: "{{ kolla_deployment.result.listen_address }}"
+    barbican_port: "{{ kolla_deployment.result.barbican_port }}"
+    keystone_protocol: "{{ kolla_deployment.result.keystone_protocol }}"
+    keystone_host: "{{ kolla_deployment.result.listen_address }}"
+    keystone_public_port: "{{ kolla_deployment.result.keystone_public_port }}"
+
+- name: Get cert file stat
+  stat:
+    path: "{{ coriolis_certs_dir }}/coriolis.crt"
+  register: cert_file
+
+- name: Get cert key file stat
+  stat:
+    path: "{{ coriolis_certs_dir }}/coriolis.key"
+  register: cert_key_file
+
+- name: Generate SSL certs
+  shell: |
+    $(test -e "{{ coriolis_certs_dir }}/coriolis.crt" && \
+      test -e "{{ coriolis_certs_dir }}/coriolis.key") || \
+    $(rm -rf "{{ coriolis_certs_dir }}/coriolis.{crt,key}" && \
+      openssl req -new -newkey rsa:4096 -days 820 -nodes -x509 \
+                  -subj "/C=RO/ST=Timis/L=Timisoara/CN=Coriolis Self Signed" \
+                  -keyout "{{ coriolis_certs_dir }}/coriolis.key" -out "{{ coriolis_certs_dir }}/coriolis.crt")
+  when: not cert_file.stat.exists or not cert_key_file.stat.exists
+  notify:
+    - "setup coriolis-web-proxy"
+
+- name: Render template
+  template:
+    src: coriolis-web-vhost.conf.j2
+    dest: "{{ coriolis_config_dir }}/coriolis-web-vhost.conf"
+  vars:
+    keystone_auth_url: "{{ keystone_protocol }}://{{ keystone_host }}:{{ keystone_public_port }}/v3"
+    barbican_endpoint: "{{ barbican_protocol }}://{{ barbican_host }}:{{ barbican_port }}"
+  notify:
+    - "setup coriolis-web-proxy"
+
+- include_tasks: setup_web_proxy_container.yml
+  vars:
+    restart: no

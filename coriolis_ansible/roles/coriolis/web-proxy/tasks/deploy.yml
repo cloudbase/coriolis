@@ -1,0 +1,7 @@
+---
+- name: Create SSL certs directory
+  file:
+    path: "{{ coriolis_certs_dir }}"
+    state: directory
+
+- include_tasks: setup.yml

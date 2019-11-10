@@ -1,0 +1,19 @@
+---
+- name: Remove Docker container
+  docker_container:
+    state: absent
+    name: coriolis-web-proxy
+
+- name: Remove Docker image
+  docker_image:
+    state: absent
+    force_absent: yes
+    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-web-proxy"
+
+- name: Remove certs directory and config file
+  file:
+    state: absent
+    path: "{{ item }}"
+  with_items:
+    - "{{ coriolis_certs_dir }}"
+    - "{{ coriolis_config_dir }}/coriolis-web-vhost.conf"

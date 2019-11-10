@@ -1,0 +1,5 @@
+---
+- name: "Trigger coriolis-licensing-server update"
+  command: /bin/true
+  notify:
+    - "setup coriolis-licensing-server"

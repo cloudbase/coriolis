@@ -1,0 +1,34 @@
+---
+- name: Check if 'database_name' is set
+  fail:
+    msg: "The variable 'database_name' is not set or it's empty"
+  when: database_name is not defined or not database_name
+
+- name: Gather Kolla deployment facts
+  kolla_deployment_facts:
+  register: kolla_deployment
+
+- name: Remove existing database
+  mysql_db:
+    state: absent
+    login_host: "{{ kolla_deployment.result.listen_address }}"
+    login_port: "{{ kolla_deployment.result.db_port }}"
+    login_user: "{{ kolla_deployment.result.db_user_name }}"
+    login_password: "{{ kolla_deployment.result.db_user_password }}"
+    name: "{{ database_name }}"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+
+- name: Create database
+  mysql_db:
+    login_host: "{{ kolla_deployment.result.listen_address }}"
+    login_port: "{{ kolla_deployment.result.db_port }}"
+    login_user: "{{ kolla_deployment.result.db_user_name }}"
+    login_password: "{{ kolla_deployment.result.db_user_password }}"
+    name: "{{ database_name }}"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded

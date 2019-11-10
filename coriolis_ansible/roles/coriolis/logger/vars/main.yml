@@ -1,0 +1,10 @@
+---
+influxdb_image: influxdb:1.7
+influxdb_data_volume_name: influxdb
+influxdb_data_dir: /var/lib/influxdb
+influxdb_config_dir: /etc/influxdb
+influxdb_database_name: coriolis
+influxdb_user_name: coriolis
+influxdb_connection_url: "http://{{ bind_address }}:8086"
+
+coriolis_logger_config_dir: /etc/coriolis-logger

@@ -1,0 +1,71 @@
+#!/bin/bash
+set -e
+
+usage() {
+    echo "USAGE: $0 <coriolis_action>"
+    echo "Valid options for <coriolis_action> are: ['bootstrap', 'build', 'deploy', 'reconfigure', 'update', 'destroy', 'reset-licensing-db']"
+}
+
+if [[ $# -ne 1 ]]; then
+    usage
+    exit 1
+fi
+
+BASE_DIR=$(dirname "$(readlink -f "$0")")
+ADMIN_OPENRC_FILE="/etc/kolla/admin-openrc.sh"
+
+source "$BASE_DIR/utils/common.sh"
+
+new_config_file $CONFIG_FILE
+new_config_file $PASSWORDS_FILE
+
+$UTILS_DIR/gen_pwd.py --passwords-file $PASSWORDS_FILE
+
+PLAYBOOK="appliance.yml"
+ANSIBLE_CMD="ansible-playbook -v -i inventory/appliance -e @$CONFIG_FILE -e @$PASSWORDS_FILE"
+
+cd $BASE_DIR/coriolis_ansible
+
+case "$1" in
+    bootstrap)
+        PLAYBOOK="bootstrap.yml"
+        run_cmd_with_retry 10 10 60 pip3 install -r "$BASE_DIR/requirements.txt"
+        $ANSIBLE_CMD $PLAYBOOK
+        ;;
+
+    build)
+        $ANSIBLE_CMD -e coriolis_action=build $PLAYBOOK
+        ;;
+
+    deploy)
+        source $ADMIN_OPENRC_FILE
+        $ANSIBLE_CMD -e coriolis_action=deploy $PLAYBOOK
+        ;;
+
+    reconfigure)
+        source $ADMIN_OPENRC_FILE
+        $ANSIBLE_CMD -e coriolis_action=reconfigure $PLAYBOOK
+        ;;
+
+    update)
+        source $ADMIN_OPENRC_FILE
+        docker login "$(get_global_config_value docker_registry)"
+        $SET_CONFIG_VALUE_SCRIPT -c $CONFIG_FILE -n docker_images_tag -v latest
+        $ANSIBLE_CMD -e coriolis_action=update -e docker_pull_images=true $PLAYBOOK
+        ;;
+
+    destroy)
+        $ANSIBLE_CMD -e coriolis_action=destroy $PLAYBOOK
+        ;;
+
+    reset-licensing-db)
+        docker stop coriolis-licensing-server
+        ansible --playbook-dir "$BASE_DIR/coriolis_ansible" -m import_role -a "name=coriolis/licensing-server tasks_from=reset_db" localhost
+        ;;
+
+    *)
+        echo "ERROR: Invalid <coriolis_action> parameter"
+        usage
+        exit 1
+        ;;
+esac

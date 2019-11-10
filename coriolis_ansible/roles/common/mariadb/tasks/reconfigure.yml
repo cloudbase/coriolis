@@ -1,0 +1,13 @@
+---
+- name: Set mariadb configs 'innodb_log_file_size' and 'max_allowed_packet'
+  ini_file:
+    path: /etc/kolla/mariadb/galera.cnf
+    section: mysqld
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+    backup: yes
+  with_items:
+    - { option: "max_allowed_packet",   value: "{{ mariadb_max_allowed_packet }}" }
+    - { option: "innodb_log_file_size", value: "{{ mariadb_innodb_log_file_size }}" }
+  notify:
+    - "restart mariadb"

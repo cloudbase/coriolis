@@ -1,0 +1,19 @@
+---
+- name: Create build directory
+  file:
+    path: "{{ build_dir }}"
+    state: directory
+
+- name: Render template
+  template:
+    src: Dockerfile.j2
+    dest: "{{ build_dir }}/coriolis-replica-cron.Dockerfile"
+  notify:
+    - "build coriolis-replica-cron"
+
+- import_role:
+    name: common/docker
+    tasks_from: build_image
+  vars:
+    image_name: coriolis-replica-cron
+    remove_existing: false

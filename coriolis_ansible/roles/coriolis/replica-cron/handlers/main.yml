@@ -1,0 +1,13 @@
+---
+- name: "build coriolis-replica-cron"
+  listen: "build coriolis core components"
+  include_tasks: "{{ playbook_dir }}/roles/common/docker/tasks/build_image.yml"
+  vars:
+    image_name: coriolis-replica-cron
+    remove_existing: true
+
+- name: "setup coriolis-replica-cron"
+  listen: "setup coriolis core components"
+  include_tasks: "{{ role_path }}/tasks/setup_replica_cron_container.yml"
+  vars:
+    restart: yes

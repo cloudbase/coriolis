@@ -1,0 +1,16 @@
+---
+- name: Get resource file stat
+  stat:
+    path: "{{ build_resources_dir }}/write_data"
+  register: resource
+  when: not overwrite_existing
+
+- include_tasks: build_resource.yml
+  vars:
+    resource_build_script: >-
+      apt-get update && apt-get install zlib1g-dev &&
+      cd {{ build_dir }}/coriolis-core/coriolis/resources &&
+      make &&
+      cp ./bin/write_data {{ build_resources_dir }}/write_data &&
+      chmod +x {{ build_resources_dir }}/write_data
+  when: overwrite_existing or not resource.stat.exists

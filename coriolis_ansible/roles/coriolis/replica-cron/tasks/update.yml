@@ -1,0 +1,5 @@
+---
+- name: "Trigger coriolis-replica-cron update"
+  command: /bin/true
+  notify:
+    - "setup coriolis-replica-cron"

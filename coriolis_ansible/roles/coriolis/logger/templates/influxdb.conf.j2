@@ -1,0 +1,10 @@
+[meta]
+  dir = "{{ influxdb_data_dir }}/meta"
+
+[data]
+  dir = "{{ influxdb_data_dir }}/data"
+  engine = "tsm1"
+  wal-dir = "{{ influxdb_data_dir }}/wal"
+
+[http]
+  auth-enabled = true

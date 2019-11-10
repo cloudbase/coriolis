@@ -1,0 +1,22 @@
+---
+- name: Create build directory
+  file:
+    path: "{{ build_dir }}"
+    state: directory
+
+- name: Render templates
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+  with_items:
+    - { src: "Dockerfile.j2",    dest: "{{ build_dir }}/coriolis-web-proxy.Dockerfile" }
+    - { src: "webproxy_start.j2", dest: "{{ build_dir }}/webproxy_start" }
+  notify:
+    - "build coriolis-web-proxy"
+
+- import_role:
+    name: common/docker
+    tasks_from: build_image
+  vars:
+    image_name: coriolis-web-proxy
+    remove_existing: false

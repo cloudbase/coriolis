@@ -1,0 +1,34 @@
+---
+- name: List Keystone endpoints
+  block:
+    - shell: "openstack endpoint list"
+      register: result
+      retries: 10
+      delay: 5
+      until: result is succeeded
+
+    - debug:
+        msg: "{{ result.stdout_lines }}"
+
+
+- name: List Barbican secrets
+  block:
+    - shell: "openstack secret list"
+      register: result
+      retries: 10
+      delay: 5
+      until: result is succeeded
+
+    - debug:
+        msg: "{{ result.stdout_lines }}"
+
+- name: List Coriolis endpoints
+  block:
+    - shell: "coriolis endpoint list"
+      register: result
+      retries: 10
+      delay: 5
+      until: result is succeeded
+
+    - debug:
+        msg: "{{ result.stdout_lines }}"

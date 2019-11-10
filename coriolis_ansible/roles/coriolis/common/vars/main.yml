@@ -1,0 +1,5 @@
+---
+coriolis_database_name: "coriolis"
+coriolis_database_user: "coriolis"
+coriolis_keystone_user: "coriolis"
+coriolis_policy_file: "{{ coriolis_config_dir }}/policy.yml"

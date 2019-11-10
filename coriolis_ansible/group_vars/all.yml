@@ -1,0 +1,48 @@
+---
+#
+# The options in this file can be overridden in 'config.yml'
+#
+
+build_dir: "{{ playbook_dir }}/build"
+build_resources_dir: "{{ build_dir }}/resources"
+
+bind_address: 127.0.0.1
+
+enable_coriolis_licensing_server: false
+
+docker_registry: registry.cloudbase.it
+docker_namespace: custom
+docker_images_tag: latest
+docker_pull_images: true
+docker_push_images: false
+
+coriolis_debug: true
+
+coriolis_port: 7667
+coriolis_base_url: "http://{{ bind_address }}:{{ coriolis_port }}/v1"
+coriolis_web_ui_base_url: "http://{{ bind_address }}:3000"
+
+coriolis_config_dir: /etc/coriolis
+coriolis_log_dir: /var/log/coriolis
+coriolis_usr_dir: /usr/local/coriolis
+coriolis_resources_bin_dir: "{{ coriolis_usr_dir }}/resources/bin"
+coriolis_container_resources_bin_dir: /root/coriolis-core/coriolis/resources/bin
+coriolis_vmware_vix_disklib_dir: /opt/coriolis/vmware-vix-disklib
+coriolis_hyperv_share_local_dir: /opt/coriolis/hyperv-exports
+coriolis_export_dir: /opt/coriolis/export
+
+coriolis_export_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "vmware", "aws"]
+coriolis_import_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "oci"]
+
+coriolis_logger_socket_dir: /var/run/coriolis-logger
+coriolis_logger_socket_name: logger.socket
+coriolis_logger_socket_file: "{{ coriolis_logger_socket_dir }}/{{ coriolis_logger_socket_name }}"
+coriolis_logger_volume_name: coriolis-logger
+coriolis_logger_port: 9998
+coriolis_logger_endpoint: "http://{{ bind_address }}:{{ coriolis_logger_port }}/api/v1"
+coriolis_logger_ws_url: "ws://{{ bind_address }}:{{ coriolis_logger_port }}/api/v1/ws"
+
+coriolis_licensing_server_port: 37667
+coriolis_licensing_server_endpoint: "http://{{ bind_address }}:{{ coriolis_licensing_server_port }}/v1"
+coriolis_licensing_ui_port: 3010
+coriolis_licensing_ui_endpoint: "http://{{ bind_address }}:{{ coriolis_licensing_ui_port }}/licensing-ui"

@@ -1,0 +1,18 @@
+---
+- name: Gather facts
+  setup:
+
+- name: Setup coriolis-licensing-server container
+  docker_container:
+    name: coriolis-licensing-server
+    image: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-licensing-server:{{ docker_images_tag }}"
+    pull: "{{ docker_pull_images }}"
+    hostname: coriolis-licensing-server
+    state: started
+    restart: "{{ restart }}"
+    restart_policy: unless-stopped
+    network_mode: host
+    env:
+      LICENSING_HOSTNAME: "{{ ansible_hostname }}"
+      LICENSING_DB_STRING: "{{ coriolis_licensing_server_database_user }}:{{ coriolis_licensing_server_database_password }}@tcp({{ bind_address }})/{{ coriolis_licensing_server_database_name }}"
+      LICENSING_SERVER_PORT: "{{ coriolis_licensing_server_port | string }}"

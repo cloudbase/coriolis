@@ -1,0 +1,13 @@
+---
+- name: "build coriolis-api"
+  listen: "build coriolis core components"
+  include_tasks: "{{ playbook_dir }}/roles/common/docker/tasks/build_image.yml"
+  vars:
+    image_name: coriolis-api
+    remove_existing: true
+
+- name: "setup coriolis-api"
+  listen: "setup coriolis core components"
+  include_tasks: "{{ role_path }}/tasks/setup_api_container.yml"
+  vars:
+    restart: yes

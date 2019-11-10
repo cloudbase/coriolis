@@ -1,0 +1,16 @@
+---
+- name: Setup coriolis-replica-cron container
+  docker_container:
+    name: coriolis-replica-cron
+    image: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-replica-cron:{{ docker_images_tag }}"
+    pull: "{{ docker_pull_images }}"
+    hostname: coriolis-replica-cron
+    state: started
+    restart: "{{ restart }}"
+    restart_policy: unless-stopped
+    network_mode: host
+    volumes:
+      - "{{ coriolis_config_dir }}:{{ coriolis_config_dir }}:ro"
+      - "{{ coriolis_log_dir }}:{{ coriolis_log_dir }}"
+      - "{{ coriolis_logger_volume_name }}:{{ coriolis_logger_socket_dir }}"
+      - "{{ coriolis_resources_bin_dir }}:{{ coriolis_container_resources_bin_dir }}"

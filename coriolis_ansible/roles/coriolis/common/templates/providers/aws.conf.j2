@@ -1,0 +1,25 @@
+[aws_migration_provider]
+# Mapping between AWS regions and the ID of subnets in which to boot
+# the disk copy workers. The subnet must have a security group rule
+# to allow TCP ingress on port 22.
+# worker_subnet_map = us-west-2: subnet-2551c740
+
+# Mapping between AWS regions and the ID of an Ubuntu 14.04 AMI
+# to be used as an image for the disk copy workers.
+# The AMIs must have cloud-init configured for an initial run.
+# worker_ami_map = us-west-2: ami-50946030
+
+# Name of the instance type to be used for the disk copy workers.
+# Default is t2.medium.
+worker_instance_type = t2.medium
+
+# Migrating requires the machine to be off on AWS. If set to True,
+# Coriolis will power off the machine itself before the migration,
+# else, Coriolis will error and ask the user to stop the instance.
+shutdown_migrated_instance = False
+
+# URL of a csv file containing the information of the instance types
+# available on AWS. Can also be a local file URL of the form
+# 'file:///home/user/aws_instance_types.csv'
+# An updated file may be retrieved from http://www.ec2instances.info
+instance_types_csv_url = http://pastebin.com/raw/YbuQE64m

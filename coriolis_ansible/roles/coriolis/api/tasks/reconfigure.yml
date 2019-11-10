@@ -1,0 +1,4 @@
+---
+- include_tasks: setup_api_container.yml
+  vars:
+    restart: yes

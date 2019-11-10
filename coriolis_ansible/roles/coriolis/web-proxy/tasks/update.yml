@@ -1,0 +1,5 @@
+---
+- name: "Trigger coriolis-web-proxy update"
+  command: /bin/true
+  notify:
+    - "setup coriolis-web-proxy"

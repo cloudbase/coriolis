@@ -1,0 +1,5 @@
+---
+- name: "Trigger Coriolis core components update"
+  command: /bin/true
+  notify:
+    - "setup coriolis core components"

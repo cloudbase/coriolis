@@ -1,4 +1,0 @@
-FROM {{ docker_registry }}/{{ coriolis_containers_namespace }}/coriolis-common:{{ docker_images_tag }}
-# Mapped volume: /etc/coriolis/coriolis.conf
-ENTRYPOINT ["/bin/bash", "-c", "coriolis-api", "--config-file={{ coriolis_config_directory_path }}/coriolis.conf"]
-EXPOSE 7667

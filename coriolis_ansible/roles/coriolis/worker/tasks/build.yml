@@ -1,0 +1,55 @@
+---
+- name: Create build directory
+  file:
+    path: "{{ build_dir }}"
+    state: directory
+
+- set_fact:
+    coriolis_providers: "{{ coriolis_export_providers | union(coriolis_import_providers) }}"
+
+- name: Clone provider git repositories
+  git:
+    repo: "git@bitbucket.org:{{ repo_owner }}/coriolis-provider-{{ provider }}"
+    dest: "{{ build_dir }}/coriolis-provider-{{ provider }}"
+    update: yes
+    force: yes
+    version: "{{ repo_branch }}"
+    key_file: "{{ bitbucket_ssh_key_file if bitbucket_ssh_key_file is defined else '' }}"
+    accept_hostkey: yes
+  vars:
+    provider: "{{ item }}"
+    repo_owner: "{{ custom_repo_owner_names[provider] | default('cloudbase') }}"
+    repo_branch: "{{ custom_repo_branch_names[provider] | default('master') }}"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+  with_items:
+    - "{{ coriolis_providers }}"
+  notify:
+    - "build coriolis-worker"
+
+- name: Download libqemu
+  get_url:
+    url: "{{ libqemu_url }}"
+    dest: "{{ build_dir }}/libqemu.so.gz"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+  notify:
+    - "build coriolis-worker"
+
+- name: Render template
+  template:
+    src: Dockerfile.j2
+    dest: "{{ build_dir }}/coriolis-worker.Dockerfile"
+  notify:
+    - "build coriolis-worker"
+
+- import_role:
+    name: common/docker
+    tasks_from: build_image
+  vars:
+    image_name: coriolis-worker
+    remove_existing: false

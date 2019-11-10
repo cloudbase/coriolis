@@ -1,0 +1,9 @@
+ansible==2.9.0
+dnspython
+docker
+influxdb
+oslo_config
+pymysql
+toml
+virtualenv
+git+https://github.com/cloudbase/python-coriolisclient
