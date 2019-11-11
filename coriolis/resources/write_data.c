@@ -25,14 +25,17 @@
 #define ERR_READ_MSG_ID         11
 #define ERR_MSG_SIZE_INFLATED   12
 #define ERR_ZLIB                13
+#define ERR_WRITE_MSG_ID        14
+#define ERR_OUT_OF_BOUDS        15
+
 
 int write_msg_id(uint32_t msg_id)
 {
     size_t c = fwrite(&msg_id, 1, sizeof(msg_id), stdout);
     if (c != sizeof(msg_id))
-       return ERR_IO_WRITE;
+        return ERR_WRITE_MSG_ID;
     if(fflush(stdout))
-        return ERR_IO_WRITE;
+        return ERR_WRITE_MSG_ID;
     return ERR_DONE;
 }
 
@@ -130,10 +133,21 @@ int handle_msg(FILE* input_stream)
     FILE* f = fopen(path, "rb+");
     if (!f)
         return ERR_OPEN_FILE;
+
+    if (fseek(f, 0, SEEK_END))
+        return ERR_IO_SEEK;
+
+    long disk_size = ftell(f);
     if (fseek(f, (long)offset, SEEK_SET))
         return ERR_IO_SEEK;
 
     size_t data_size = msg_size - (data - buf);
+    long end_write = (long)data_size + (long)offset;
+
+    if (end_write > disk_size) {
+        return ERR_OUT_OF_BOUDS;
+    }
+
     c = fwrite(data, 1, data_size, f);
     if (c != data_size)
         return ERR_IO_WRITE;
