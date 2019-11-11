@@ -7,7 +7,7 @@
     hostname: coriolis-licensing-ui
     state: started
     restart: "{{ restart }}"
-    restart_policy: unless-stopped
+    restart_policy: always
     network_mode: host
     env:
       BASENAME: "/licensing-ui"

@@ -10,7 +10,7 @@
     hostname: coriolis-licensing-server
     state: started
     restart: "{{ restart }}"
-    restart_policy: unless-stopped
+    restart_policy: always
     network_mode: host
     env:
       LICENSING_HOSTNAME: "{{ ansible_hostname }}"
