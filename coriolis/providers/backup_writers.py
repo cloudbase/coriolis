@@ -34,6 +34,26 @@ _CORIOLIS_HTTP_WRITER_CMD = "coriolis-writer"
 
 LOG = logging.getLogger(__name__)
 
+_WRITER_ERR_MAP = {
+    -1: "ERR_MORE_MSG",
+    0: "ERR_DONE",
+    1: "ERR_READ_MSG_SIZE",
+    2: "ERR_MSG_SIZE",
+    3: "ERR_OPEN_FILE",
+    4: "ERR_DATA",
+    5: "ERR_IO_OPEN",
+    6: "ERR_IO_SEEK",
+    7: "ERR_IO_WRITE",
+    8: "ERR_IO_CLOSE",
+    9: "ERR_NO_MEM",
+    10: "ERR_INVALID_ARGS",
+    11: "ERR_READ_MSG_ID",
+    12: "ERR_MSG_SIZE_INFLATED",
+    13: "ERR_ZLIB",
+    14: "ERR_WRITE_MSG_ID",
+    15: "ERR_OUT_OF_BOUDS",
+}
+
 
 def _disable_lvm2_lvmetad(ssh):
     """Disables lvm2-lvmetad service. This service is responsible
@@ -186,6 +206,13 @@ class SSHBackupWriterImpl(BaseBackupWriterImpl):
 
     @utils.retry_on_error()
     def _send_msg(self, data):
+        # check if write_data is still alive
+        if self._stdout.channel.exit_status_ready():
+            ret_val = self._stdout.channel.recv_exit_status()
+            if int(ret_val) > 0:
+                raise exception.CoriolisException(
+                    "write_data exited with error code %r (%s)" % (
+                        ret_val, _WRITER_ERR_MAP.get(int(ret_val))))
         self._msg_id += 1
         self._stdin.write(data)
         self._stdin.flush()
@@ -300,7 +327,7 @@ class SSHBackupWriter(BaseBackupWriter):
                 username=self._username,
                 pkey=self._pkey,
                 password=self._password)
-        except:
+        except (Exception, KeyboardInterrupt):
             # No need to log the error as we just raise
             ssh.close()
             raise
@@ -713,7 +740,7 @@ class HTTPBackupWriter(BaseBackupWriter):
                 username=self._username,
                 pkey=self._pkey,
                 password=self._password)
-        except:
+        except (Exception, KeyboardInterrupt):
             # No need to log the error as we just raise
             ssh.close()
             raise
