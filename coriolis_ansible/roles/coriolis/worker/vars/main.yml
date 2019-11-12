@@ -6,4 +6,4 @@ custom_repo_branch_names: {}
 
 libqemu_url: https://cloudbase.it/downloads/libqemu.so.gz
 vmware_vix_disklib_url: https://cloudbase.it/downloads/VMware-vix-disklib-6.0.3-4888596.x86_64.tar.gz
-vmware_vix_disklib_local_archive: "{{ build_dir }}/VMware-vix-disklib.tar.gz"
+vmware_vix_disklib_local_archive: "/tmp/VMware-vix-disklib.tar.gz"
