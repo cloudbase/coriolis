@@ -7,26 +7,26 @@ source "$BASE_DIR/../utils/common.sh"
 new_config_file $CONFIG_FILE
 
 KOLLA_BRANCH="$(get_global_config_value kolla_branch)"
-KOLLA_OPENSTACK_RELEASE="$(get_global_config_value kolla_openstack_release)"
 
-run_cmd_with_retry 10 10 60 pip3 install git+https://github.com/openstack/kolla-ansible@${KOLLA_BRANCH:-master}
+run_cmd_with_retry 10 10 60 pip3 install -U git+https://github.com/openstack/kolla-ansible@${KOLLA_BRANCH:-stable/train}
 
 mkdir -p /etc/kolla/
 chmod 700 /etc/kolla/
 
 if [ ! -f /etc/kolla/passwords.yml ]; then
     run_cmd_with_retry 10 10 60 curl --silent \
-        https://raw.githubusercontent.com/openstack/kolla-ansible/${KOLLA_BRANCH:-master}/etc/kolla/passwords.yml \
+        https://raw.githubusercontent.com/openstack/kolla-ansible/${KOLLA_BRANCH:-stable/train}/etc/kolla/passwords.yml \
         -o /etc/kolla/passwords.yml
     kolla-genpwd
 fi
 
 KOLLA_CONF="/etc/kolla/globals.yml"
+KOLLA_DOCKER_IMAGES_TAG=$(get_global_config_value kolla_docker_images_tag)
 BIND_ADDRESS=$(get_global_config_value bind_address)
 
 "$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n docker_registry -v "$(get_global_config_value docker_registry)"
-"$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n docker_namespace -v "$(get_global_config_value docker_namespace)"
-"$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n openstack_release -v "$(get_global_config_value docker_images_tag)"
+"$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n docker_namespace -v "kolla"
+"$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n openstack_release -v ${KOLLA_DOCKER_IMAGES_TAG:-latest}
 "$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n network_interface -v $($UTILS_DIR/get_network_interface.py --address $BIND_ADDRESS)
 "$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n kolla_internal_vip_address -v $BIND_ADDRESS
 "$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n kolla_base_distro -v "ubuntu"
