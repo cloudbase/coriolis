@@ -5,12 +5,6 @@ migr_image_name_map = linux: /oracle/public/OL_7.5_UEKR4_x86_64_MIGRATION, windo
 # The shape to use for the migration Worker VMs:
 migr_shape_name = oc3
 
-# If this option is used, please disable clone disks when deploying form replica
-# colocated snapshots are faster, but they create a dependency chain
-# parent volume --> snapshot --> restored volume
-# only the top level object can be deleted.
-use_colocated_snapshots = True
-
 # Default volume pool to use. Oracle exposes 2 pools: "default" and "latency".
 # The default pool leverages rotary disks, while the latency disks are backed
 # by SSD and low latency storage subsystem. The latency pool is suitable for

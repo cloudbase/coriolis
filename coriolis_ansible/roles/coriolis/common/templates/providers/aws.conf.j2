@@ -1,25 +1,36 @@
 [aws_migration_provider]
-# Mapping between AWS regions and the ID of subnets in which to boot
-# the disk copy workers. The subnet must have a security group rule
-# to allow TCP ingress on port 22.
-# worker_subnet_map = us-west-2: subnet-2551c740
+# The OS migration image map to use. This mapping will be used to spin up
+# the disk export worker needed to replicate the export disks and OS morphing
+# worker needed to morph the OS being migrated.
+migr_image_map = linux: ami-50946030, windows: ami-50946031
 
-# Mapping between AWS regions and the ID of an Ubuntu 14.04 AMI
-# to be used as an image for the disk copy workers.
-# The AMIs must have cloud-init configured for an initial run.
-# worker_ami_map = us-west-2: ami-50946030
+# A map similar with migr_image_map, where we specify the username for each OS
+# image. On EC2, various linux distributions, have different usernames.
+# Default is 'ubuntu' for Linux and 'coriolis' for Windows.
+migr_image_username_map = linux: ubuntu, windows: coriolis
 
 # Name of the instance type to be used for the disk copy workers.
 # Default is t2.medium.
 worker_instance_type = t2.medium
 
-# Migrating requires the machine to be off on AWS. If set to True,
-# Coriolis will power off the machine itself before the migration,
-# else, Coriolis will error and ask the user to stop the instance.
+# Indicate whether or not to shut the VM down during the
+# migration process in order to ensure data consitency.
 shutdown_migrated_instance = False
 
-# URL of a csv file containing the information of the instance types
-# available on AWS. Can also be a local file URL of the form
-# 'file:///home/user/aws_instance_types.csv'
-# An updated file may be retrieved from http://www.ec2instances.info
-instance_types_csv_url = http://pastebin.com/raw/YbuQE64m
+# Default instance type used for final migrated instances.
+# instance_type = t2.medium
+
+# Whether or not to attempt to retain the IP addresses the VM had on the
+# source. This requires that the mapped subnets on AWS include the respective
+# IP address(es) in their ranges.
+# Default is False.
+retain_source_ip = false
+
+# The storage type to default to for the disks of Migrated VMs if an explicit
+# storage mapping was not supplied during the Replica/Migration creation.
+# Default is 'standard'
+default_storage_type = standard
+
+# Default AD to use when creating resources for Migrated/Replicated VMs.
+# Must be in the same region as specified within the connection info.
+# availability_zone = az1
