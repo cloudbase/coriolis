@@ -2,9 +2,9 @@
 - name: Build resource
   docker_container:
     name: coriolis-resource-builder
-    image: golang:1.12
+    image: golang:1.13
     detach: no
-    command: "bash -c 'export GO112MODULE=on && {{ resource_build_script }}'"
+    command: "bash -c 'export GO111MODULE=on && {{ resource_build_script }}'"
     volumes:
       - "{{ build_dir }}:{{ build_dir }}"
   register: result
