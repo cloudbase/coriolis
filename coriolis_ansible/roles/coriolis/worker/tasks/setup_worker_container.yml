@@ -1,4 +1,25 @@
 ---
+- name: Get resources directory stat
+  stat:
+    path: "{{ coriolis_resources_bin_dir }}"
+  register: resources_dir_info
+
+- name: Set Docker volumes list
+  block:
+    - set_fact:
+        docker_volumes_list:
+          - "{{ coriolis_config_dir }}:{{ coriolis_config_dir }}:ro"
+          - "{{ coriolis_log_dir }}:{{ coriolis_log_dir }}"
+          - "{{ coriolis_logger_volume_name }}:{{ coriolis_logger_socket_dir }}"
+          - "{{ ceph_dir }}:{{ ceph_dir }}:ro"
+          - "{{ coriolis_export_dir }}:{{ coriolis_export_dir }}:rw"
+          - "{{ coriolis_vmware_vix_disklib_dir }}:{{ coriolis_vmware_vix_disklib_dir }}:ro"
+          - "{{ coriolis_hyperv_share_local_dir }}:{{ coriolis_hyperv_share_local_dir }}:rw"
+
+    - set_fact:
+        docker_volumes_list: "{{ docker_volumes_list + [(coriolis_resources_bin_dir + ':' + coriolis_container_resources_bin_dir)] }}"
+      when: resources_dir_info.stat.exists
+
 - name: Setup coriolis-worker container
   docker_container:
     name: coriolis-worker
@@ -9,12 +30,4 @@
     restart: "{{ restart }}"
     restart_policy: unless-stopped
     network_mode: host
-    volumes:
-      - "{{ coriolis_config_dir }}:{{ coriolis_config_dir }}:ro"
-      - "{{ coriolis_log_dir }}:{{ coriolis_log_dir }}"
-      - "{{ coriolis_logger_volume_name }}:{{ coriolis_logger_socket_dir }}"
-      - "{{ ceph_dir }}:{{ ceph_dir }}:ro"
-      - "{{ coriolis_export_dir }}:{{ coriolis_export_dir }}:rw"
-      - "{{ coriolis_vmware_vix_disklib_dir }}:{{ coriolis_vmware_vix_disklib_dir }}:ro"
-      - "{{ coriolis_hyperv_share_local_dir }}:{{ coriolis_hyperv_share_local_dir }}:rw"
-      - "{{ coriolis_resources_bin_dir }}:{{ coriolis_container_resources_bin_dir }}"
+    volumes: "{{ docker_volumes_list }}"
