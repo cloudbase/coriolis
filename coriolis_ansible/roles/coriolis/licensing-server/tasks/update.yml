@@ -1,4 +1,15 @@
 ---
+- name: Remove Docker container
+  docker_container:
+    state: absent
+    name: coriolis-licensing-server
+
+- name: Remove Docker image
+  docker_image:
+    state: absent
+    force_absent: yes
+    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-licensing-server"
+
 - name: "Trigger coriolis-licensing-server update"
   command: /bin/true
   notify:

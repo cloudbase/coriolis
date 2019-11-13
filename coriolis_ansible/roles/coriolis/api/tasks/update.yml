@@ -1,4 +1,15 @@
 ---
+- name: Remove Docker container
+  docker_container:
+    state: absent
+    name: coriolis-api
+
+- name: Remove Docker image
+  docker_image:
+    state: absent
+    force_absent: yes
+    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-api"
+
 - name: "Trigger coriolis-api update"
   command: /bin/true
   notify:
