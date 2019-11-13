@@ -49,7 +49,7 @@
 
 - name: "Get Docker image stat"
   docker_image_info:
-    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-worker"
+    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-worker:{{ docker_images_tag }}"
   register: docker_image_info
 
 - name: "Trigger Docker image build"

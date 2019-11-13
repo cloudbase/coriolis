@@ -8,7 +8,7 @@
   docker_image:
     state: absent
     force_absent: yes
-    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-api"
+    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-api:{{ docker_images_tag }}"
 
 - name: "Trigger coriolis-api update"
   command: /bin/true

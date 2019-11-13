@@ -108,7 +108,7 @@
 
 - name: "Get Docker image stat"
   docker_image_info:
-    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-common"
+    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-common:{{ docker_images_tag }}"
   register: docker_image_info
 
 - name: "Trigger Docker image build"

@@ -8,7 +8,7 @@
   docker_image:
     state: absent
     force_absent: yes
-    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-logger"
+    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-logger:{{ docker_images_tag }}"
 
 - name: "Trigger influxdb update"
   command: /bin/true

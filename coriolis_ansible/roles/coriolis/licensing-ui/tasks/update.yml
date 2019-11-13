@@ -18,7 +18,7 @@
   docker_image:
     state: absent
     force_absent: yes
-    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-licensing-ui"
+    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-licensing-ui:{{ docker_images_tag }}"
 
 - name: "Trigger coriolis-licensing-ui update"
   command: /bin/true

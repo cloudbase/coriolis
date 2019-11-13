@@ -1,7 +1,7 @@
 ---
 - name: "Remove existing Docker image"
   docker_image:
-    name: "{{ docker_registry }}/{{ docker_namespace }}/{{ image_name }}"
+    name: "{{ docker_registry }}/{{ docker_namespace }}/{{ image_name }}:{{ docker_images_tag }}"
     state: absent
     force_absent: yes
 
