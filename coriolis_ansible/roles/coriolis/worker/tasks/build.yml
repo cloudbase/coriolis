@@ -47,9 +47,13 @@
   notify:
     - "build coriolis-worker"
 
-- import_role:
-    name: common/docker
-    tasks_from: build_image
-  vars:
-    image_name: coriolis-worker
-    remove_existing: false
+- name: "Get Docker image stat"
+  docker_image_info:
+    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-worker"
+  register: docker_image_info
+
+- name: "Trigger Docker image build"
+  command: /bin/true
+  notify:
+    - "build coriolis-worker"
+  when: docker_image_info.images | length == 0

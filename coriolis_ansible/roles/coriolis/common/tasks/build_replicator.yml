@@ -1,10 +1,4 @@
 ---
-- name: Get resource file stat
-  stat:
-    path: "{{ build_resources_dir }}/coriolis-replicator"
-  register: resource
-  when: not overwrite_existing
-
 - include_tasks: build_resource.yml
   vars:
     resource_build_script: >-
@@ -12,4 +6,3 @@
       go build cmd/replicator/replicator.go &&
       cp ./replicator {{ build_resources_dir }}/coriolis-replicator &&
       chmod +x {{ build_resources_dir }}/coriolis-replicator
-  when: overwrite_existing or not resource.stat.exists

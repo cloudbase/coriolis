@@ -1,17 +1,9 @@
 ---
-- block:
-  - name: "Get Docker image stat"
-    docker_image_info:
-      name: "{{ docker_registry }}/{{ docker_namespace }}/{{ image_name }}"
-    register: docker_image_info
-
-  - name: "Remove existing Docker image"
-    docker_image:
-      name: "{{ docker_registry }}/{{ docker_namespace }}/{{ image_name }}"
-      state: absent
-      force_absent: yes
-    when: docker_image_info.images | length != 0
-  when: remove_existing
+- name: "Remove existing Docker image"
+  docker_image:
+    name: "{{ docker_registry }}/{{ docker_namespace }}/{{ image_name }}"
+    state: absent
+    force_absent: yes
 
 - name: "Build Docker image"
   docker_image:

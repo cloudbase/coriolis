@@ -24,7 +24,7 @@
   delay: 5
   until: result is succeeded
   notify:
-    -  "build coriolis replicator"
+    - "build coriolis replicator"
 
 - name: Clone coriolis-writer
   git:
@@ -63,19 +63,38 @@
     - "build coriolis core resources"
     - "build coriolis core components"
 
-- name: "Build coriolis resources binaries"
-  block:
-    - include_tasks: build_replicator.yml
-      vars:
-        overwrite_existing: false
+- name: Get coriolis-writer file stat
+  stat:
+    path: "{{ build_resources_dir }}/coriolis-writer"
+  register: coriolis_writer_file
 
-    - include_tasks: build_writer.yml
-      vars:
-        overwrite_existing: false
+- name: "Trigger coriolis-writer build"
+  command: /bin/true
+  notify:
+    - "build coriolis writer"
+  when: not coriolis_writer_file.stat.exists
 
-    - include_tasks: build_core_resources.yml
-      vars:
-        overwrite_existing: false
+- name: Get coriolis-replicator file stat
+  stat:
+    path: "{{ build_resources_dir }}/coriolis-replicator"
+  register: coriolis_replicator_file
+
+- name: "Trigger coriolis-replicator build"
+  command: /bin/true
+  notify:
+    - "build coriolis replicator"
+  when: not coriolis_replicator_file.stat.exists
+
+- name: Get write_data file stat
+  stat:
+    path: "{{ build_resources_dir }}/write_data"
+  register: write_data_file
+
+- name: "Trigger core resources build"
+  command: /bin/true
+  notify:
+    - "build coriolis core resources"
+  when: not write_data_file.stat.exists
 
 - name: Render templates
   template:
@@ -87,9 +106,13 @@
   notify:
     - "build coriolis core components"
 
-- import_role:
-    name: common/docker
-    tasks_from: build_image
-  vars:
-    image_name: coriolis-common
-    remove_existing: false
+- name: "Get Docker image stat"
+  docker_image_info:
+    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-common"
+  register: docker_image_info
+
+- name: "Trigger Docker image build"
+  command: /bin/true
+  notify:
+    - "build coriolis-common"
+  when: docker_image_info.images | length == 0

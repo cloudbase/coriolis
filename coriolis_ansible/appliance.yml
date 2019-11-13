@@ -7,7 +7,6 @@
   tasks:
     - import_role:
         name: common/mariadb
-      when: coriolis_action in ["deploy", "reconfigure", "update"]
 
     - import_role:
         name: coriolis/common
@@ -36,8 +35,6 @@
     - import_role:
         name: coriolis/licensing-server
       when: enable_coriolis_licensing_server | bool
-
-    - meta: flush_handlers
 
     - import_role:
         name: coriolis/common
