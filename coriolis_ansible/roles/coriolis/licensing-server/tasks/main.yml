@@ -1,2 +1,3 @@
 ---
 - include_tasks: "{{ coriolis_action }}.yml"
+  when: enable_coriolis_licensing_server | bool

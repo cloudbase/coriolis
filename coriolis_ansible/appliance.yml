@@ -34,7 +34,6 @@
 
     - import_role:
         name: coriolis/licensing-server
-      when: enable_coriolis_licensing_server | bool
 
 - name: Apply roles for the Coriolis appliance validation
   any_errors_fatal: true
