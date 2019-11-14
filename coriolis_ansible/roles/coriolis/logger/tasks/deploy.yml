@@ -7,8 +7,11 @@
     - "{{ influxdb_config_dir }}"
     - "{{ coriolis_logger_config_dir }}"
 
-- name: Create influxdb data volume
+- name: Create data volumes
   docker_volume:
-    name: "{{ influxdb_data_volume_name }}"
+    name: "{{ item }}"
+  with_items:
+    - "{{ influxdb_data_volume_name }}"
+    - "{{ coriolis_logger_volume_name }}"
 
 - include_tasks: setup.yml
