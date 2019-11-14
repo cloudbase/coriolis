@@ -4,13 +4,13 @@
     state: absent
     name: "{{ item }}"
   with_items:
-    - influxdb
-    - coriolis-logger
     - coriolis-api
     - coriolis-conductor
     - coriolis-replica-cron
     - coriolis-worker
     - coriolis-web
+    - coriolis-logger
+    - influxdb
 
 - name: Remove Docker image
   docker_image:
