@@ -3,7 +3,6 @@
   include_tasks: "{{ playbook_dir }}/roles/common/docker/tasks/build_image.yml"
   vars:
     image_name: coriolis-licensing-server
-    remove_existing: true
 
 - name: "setup coriolis-licensing-server"
   include_tasks: "{{ role_path }}/tasks/setup_licensing_server_container.yml"

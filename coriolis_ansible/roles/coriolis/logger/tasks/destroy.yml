@@ -4,27 +4,19 @@
     state: absent
     name: "{{ item }}"
   with_items:
-    - influxdb
-    - coriolis-logger
     - coriolis-api
     - coriolis-conductor
     - coriolis-replica-cron
     - coriolis-worker
     - coriolis-web
+    - coriolis-logger
+    - influxdb
 
 - name: Remove Docker image
   docker_image:
     state: absent
     force_absent: yes
-    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-logger"
-
-- name: Remove directories
-  file:
-    state: absent
-    path: "{{ item }}"
-  with_items:
-    - "{{ influxdb_config_dir }}"
-    - "{{ coriolis_logger_config_dir }}"
+    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-logger:{{ docker_images_tag }}"
 
 - name: Remove volumes
   docker_volume:

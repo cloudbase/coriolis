@@ -8,12 +8,9 @@
   docker_image:
     state: absent
     force_absent: yes
-    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-web-proxy"
+    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-web-proxy:{{ docker_images_tag }}"
 
-- name: Remove certs directory and config file
+- name: Remove certs directory
   file:
     state: absent
-    path: "{{ item }}"
-  with_items:
-    - "{{ coriolis_certs_dir }}"
-    - "{{ coriolis_config_dir }}/coriolis-web-vhost.conf"
+    path: "{{ coriolis_certs_dir }}"

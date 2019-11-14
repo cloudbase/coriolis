@@ -7,6 +7,7 @@
   template:
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
+    backup: yes
   vars:
     keystone_protocol: "{{ kolla_deployment.result.keystone_protocol }}"
     keystone_host: "{{ kolla_deployment.result.listen_address }}"

@@ -3,6 +3,7 @@
   template:
     src: ui-mod.json.j2
     dest: "{{ coriolis_web_mod_dir }}/ui-mod.json"
+    backup: yes
   notify:
     - "setup coriolis-web"
 

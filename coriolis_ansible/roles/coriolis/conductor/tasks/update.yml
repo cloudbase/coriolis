@@ -1,4 +1,15 @@
 ---
+- name: Remove Docker container
+  docker_container:
+    state: absent
+    name: coriolis-conductor
+
+- name: Remove Docker image
+  docker_image:
+    state: absent
+    force_absent: yes
+    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-conductor:{{ docker_images_tag }}"
+
 - name: "Trigger coriolis-conductor update"
   command: /bin/true
   notify:

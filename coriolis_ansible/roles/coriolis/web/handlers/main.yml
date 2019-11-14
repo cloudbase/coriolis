@@ -3,7 +3,6 @@
   include_tasks: "{{ playbook_dir }}/roles/common/docker/tasks/build_image.yml"
   vars:
     image_name: coriolis-web
-    remove_existing: true
 
 - name: "setup coriolis-web"
   include_tasks: "{{ role_path }}/tasks/setup_web_container.yml"

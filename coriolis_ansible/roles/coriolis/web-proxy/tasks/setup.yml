@@ -38,6 +38,7 @@
   template:
     src: coriolis-web-vhost.conf.j2
     dest: "{{ coriolis_config_dir }}/coriolis-web-vhost.conf"
+    backup: yes
   vars:
     keystone_auth_url: "{{ keystone_protocol }}://{{ keystone_host }}:{{ keystone_public_port }}/v3"
     barbican_endpoint: "{{ barbican_protocol }}://{{ barbican_host }}:{{ barbican_port }}"
