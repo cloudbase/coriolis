@@ -16,12 +16,10 @@
     - { src: influxdb.conf.j2,        dest: "{{ influxdb_config_dir }}/influxdb.conf" }
     - { src: coriolis-logger.toml.j2, dest: "{{ coriolis_logger_config_dir }}/coriolis-logger.toml" }
   notify:
-    - "setup influxdb"
-    - "setup coriolis-logger"
+    - "restart influxdb"
+    - "restart coriolis-logger"
 
 - include_tasks: setup_influxdb_container.yml
-  vars:
-    restart: no
 
 - name: Create influxdb database
   influxdb_database:
@@ -65,5 +63,3 @@
     - { interface: public,   url: "{{ coriolis_logger_endpoint }}" }
 
 - include_tasks: setup_logger_container.yml
-  vars:
-    restart: no

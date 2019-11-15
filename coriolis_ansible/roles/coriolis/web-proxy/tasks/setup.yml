@@ -32,7 +32,7 @@
                   -keyout "{{ coriolis_certs_dir }}/coriolis.key" -out "{{ coriolis_certs_dir }}/coriolis.crt")
   when: not cert_file.stat.exists or not cert_key_file.stat.exists
   notify:
-    - "setup coriolis-web-proxy"
+    - "restart coriolis-web-proxy"
 
 - name: Render template
   template:
@@ -43,8 +43,6 @@
     keystone_auth_url: "{{ keystone_protocol }}://{{ keystone_host }}:{{ keystone_public_port }}/v3"
     barbican_endpoint: "{{ barbican_protocol }}://{{ barbican_host }}:{{ barbican_port }}"
   notify:
-    - "setup coriolis-web-proxy"
+    - "restart coriolis-web-proxy"
 
 - include_tasks: setup_web_proxy_container.yml
-  vars:
-    restart: no

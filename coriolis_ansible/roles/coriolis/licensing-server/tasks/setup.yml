@@ -22,7 +22,7 @@
   delay: 5
   until: result is succeeded
   notify:
-    - "setup coriolis-licensing-server"
+    - "restart coriolis-licensing-server"
 
 - name: Create database user with proper permissions
   mysql_user:
@@ -40,8 +40,6 @@
   delay: 5
   until: result is succeeded
   notify:
-    - "setup coriolis-licensing-server"
+    - "restart coriolis-licensing-server"
 
 - include_tasks: setup_licensing_server_container.yml
-  vars:
-    restart: no

@@ -27,7 +27,6 @@
     pull: "{{ docker_pull_images }}"
     hostname: coriolis-worker
     state: started
-    restart: "{{ restart }}"
     restart_policy: unless-stopped
     network_mode: host
     volumes: "{{ docker_volumes_list }}"

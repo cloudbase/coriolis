@@ -39,5 +39,3 @@
   when: vixdisklib_download.changed
 
 - include_tasks: setup_worker_container.yml
-  vars:
-    restart: no

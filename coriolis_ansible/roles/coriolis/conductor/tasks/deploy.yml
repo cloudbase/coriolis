@@ -1,4 +1,2 @@
 ---
 - include_tasks: setup_conductor_container.yml
-  vars:
-    restart: no

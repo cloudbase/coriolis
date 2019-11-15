@@ -6,7 +6,6 @@
     pull: "{{ docker_pull_images }}"
     hostname: coriolis-web
     state: started
-    restart: "{{ restart }}"
     restart_policy: unless-stopped
     network_mode: host
     env:

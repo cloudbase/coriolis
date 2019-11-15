@@ -4,12 +4,8 @@
   vars:
     image_name: coriolis-logger
 
-- name: "setup influxdb"
-  include_tasks: "{{ role_path }}/tasks/setup_influxdb_container.yml"
-  vars:
-    restart: yes
+- name: "restart influxdb"
+  shell: "docker restart influxdb"
 
-- name: "setup coriolis-logger"
-  include_tasks: "{{ role_path }}/tasks/setup_logger_container.yml"
-  vars:
-    restart: yes
+- name: "restart coriolis-logger"
+  shell: "docker restart coriolis-logger"

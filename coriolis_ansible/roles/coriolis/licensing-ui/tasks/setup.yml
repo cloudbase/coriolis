@@ -23,7 +23,7 @@
   delay: 5
   until: result is succeeded
   notify:
-    - "setup coriolis-licensing-ui"
+    - "restart coriolis-licensing-ui"
 
 - name: Create database user with proper permissions
   mysql_user:
@@ -41,8 +41,6 @@
   delay: 5
   until: result is succeeded
   notify:
-    - "setup coriolis-licensing-ui"
+    - "restart coriolis-licensing-ui"
 
 - include_tasks: setup_licensing_ui_container.yml
-  vars:
-    restart: no
