@@ -579,8 +579,9 @@ class UpdateSourceReplicaTask(base.TaskRunner):
             source_provider.check_update_source_environment_params(
                 ctxt, origin_connection_info, instance, volumes_info,
                 old_source_env, new_source_env))
-        schemas.validate_value(
-            volumes_info, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)
+        if volumes_info:
+            schemas.validate_value(
+                volumes_info, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)
 
         task_info['volumes_info'] = volumes_info
 
