@@ -568,7 +568,7 @@ class UpdateSourceReplicaTask(base.TaskRunner):
                 " updating Replicas" % origin["type"])
 
         origin_connection_info = base.get_connection_info(ctxt, origin)
-        volumes_info = task_info.get("volumes_info", {})
+        volumes_info = task_info.get("volumes_info", [])
 
         LOG.info("Checking source provider environment params")
         # NOTE: the `source_environment` in the `origin` is the one set
@@ -610,7 +610,7 @@ class UpdateDestinationReplicaTask(base.TaskRunner):
         destination_connection_info = base.get_connection_info(
             ctxt, destination)
         export_info = task_info.get("export_info", {})
-        volumes_info = task_info.get("volumes_info", {})
+        volumes_info = task_info.get("volumes_info", [])
 
         LOG.info("Checking destination provider environment params")
         # NOTE: the `target_environment` in the `destination` is the one
