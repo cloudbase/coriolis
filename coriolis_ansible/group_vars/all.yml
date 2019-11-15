@@ -11,7 +11,7 @@ bind_address: 127.0.0.1
 enable_coriolis_licensing_server: false
 
 docker_registry: registry.cloudbase.it
-docker_namespace: custom
+docker_images_namespace: "{{ docker_registry }}"
 docker_images_tag: latest
 docker_pull_images: true
 docker_push_images: false
