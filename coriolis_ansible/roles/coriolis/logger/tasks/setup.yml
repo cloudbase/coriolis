@@ -3,7 +3,7 @@
   kolla_deployment_facts:
   register: kolla_deployment
 
-- name: Render influxdb templates
+- name: Render templates
   template:
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
