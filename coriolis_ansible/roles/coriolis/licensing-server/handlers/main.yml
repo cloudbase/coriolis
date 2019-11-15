@@ -4,7 +4,5 @@
   vars:
     image_name: coriolis-licensing-server
 
-- name: "setup coriolis-licensing-server"
-  include_tasks: "{{ role_path }}/tasks/setup_licensing_server_container.yml"
-  vars:
-    restart: yes
+- name: "restart coriolis-licensing-server"
+  shell: "docker restart coriolis-licensing-server"

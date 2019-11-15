@@ -20,7 +20,7 @@
         - { src: "{{ build_resources_dir }}/coriolis-writer",     dest: "{{ coriolis_resources_bin_dir }}/coriolis-writer"}
         - { src: "{{ build_resources_dir }}/coriolis-replicator", dest: "{{ coriolis_resources_bin_dir }}/coriolis-replicator"}
       notify:
-        - "setup coriolis core components"
+        - "restart coriolis core components"
   when: build_resources_dir_info.stat.exists
 
 - name: Gather Kolla deployment facts
@@ -75,7 +75,7 @@
   vars:
     coriolis_providers: "{{ coriolis_export_providers | union(coriolis_import_providers) }}"
   notify:
-    - "setup coriolis core components"
+    - "restart coriolis core components"
 
 - name: Create Keystone user
   os_user:

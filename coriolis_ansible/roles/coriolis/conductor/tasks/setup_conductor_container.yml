@@ -23,7 +23,6 @@
     pull: "{{ docker_pull_images }}"
     hostname: coriolis-conductor
     state: started
-    restart: "{{ restart }}"
     restart_policy: unless-stopped
     network_mode: host
     env:

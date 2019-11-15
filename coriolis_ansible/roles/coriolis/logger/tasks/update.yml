@@ -10,12 +10,4 @@
     force_absent: yes
     name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-logger:{{ docker_images_tag }}"
 
-- name: "Trigger influxdb update"
-  command: /bin/true
-  notify:
-    - "setup influxdb"
-
-- name: "Trigger coriolis-logger update"
-  command: /bin/true
-  notify:
-    - "setup coriolis-logger"
+- include_tasks: setup_logger_container.yml

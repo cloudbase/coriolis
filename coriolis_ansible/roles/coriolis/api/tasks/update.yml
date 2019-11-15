@@ -10,7 +10,4 @@
     force_absent: yes
     name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-api:{{ docker_images_tag }}"
 
-- name: "Trigger coriolis-api update"
-  command: /bin/true
-  notify:
-    - "setup coriolis-api"
+- include_tasks: setup_api_container.yml

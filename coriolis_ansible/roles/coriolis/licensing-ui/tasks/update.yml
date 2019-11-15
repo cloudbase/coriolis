@@ -20,7 +20,4 @@
     force_absent: yes
     name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-licensing-ui:{{ docker_images_tag }}"
 
-- name: "Trigger coriolis-licensing-ui update"
-  command: /bin/true
-  notify:
-    - "setup coriolis-licensing-ui"
+- include_tasks: setup_licensing_ui_container.yml

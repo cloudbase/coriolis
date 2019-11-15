@@ -10,7 +10,4 @@
     force_absent: yes
     name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-web:{{ docker_images_tag }}"
 
-- name: "Trigger coriolis-web update"
-  command: /bin/true
-  notify:
-    - "setup coriolis-web"
+- include_tasks: setup_web_container.yml

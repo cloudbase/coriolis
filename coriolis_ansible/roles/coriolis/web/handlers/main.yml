@@ -4,7 +4,5 @@
   vars:
     image_name: coriolis-web
 
-- name: "setup coriolis-web"
-  include_tasks: "{{ role_path }}/tasks/setup_web_container.yml"
-  vars:
-    restart: yes
+- name: "restart coriolis-web"
+  shell: "docker restart coriolis-web"

@@ -10,7 +10,4 @@
     force_absent: yes
     name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-conductor:{{ docker_images_tag }}"
 
-- name: "Trigger coriolis-conductor update"
-  command: /bin/true
-  notify:
-    - "setup coriolis-conductor"
+- include_tasks: setup_conductor_container.yml

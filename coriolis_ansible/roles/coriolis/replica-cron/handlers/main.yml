@@ -5,8 +5,6 @@
   vars:
     image_name: coriolis-replica-cron
 
-- name: "setup coriolis-replica-cron"
-  listen: "setup coriolis core components"
-  include_tasks: "{{ role_path }}/tasks/setup_replica_cron_container.yml"
-  vars:
-    restart: yes
+- name: "restart coriolis-replica-cron"
+  listen: "restart coriolis core components"
+  shell: "docker restart coriolis-replica-cron"

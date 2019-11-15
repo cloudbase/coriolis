@@ -5,8 +5,6 @@
   vars:
     image_name: coriolis-worker
 
-- name: "setup coriolis-worker"
-  listen: "setup coriolis core components"
-  include_tasks: "{{ role_path }}/tasks/setup_worker_container.yml"
-  vars:
-    restart: yes
+- name: "restart coriolis-worker"
+  listen: "restart coriolis core components"
+  shell: "docker restart coriolis-worker"

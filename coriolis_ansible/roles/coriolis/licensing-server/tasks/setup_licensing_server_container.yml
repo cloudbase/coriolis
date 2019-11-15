@@ -9,7 +9,6 @@
     pull: "{{ docker_pull_images }}"
     hostname: coriolis-licensing-server
     state: started
-    restart: "{{ restart }}"
     restart_policy: always
     network_mode: host
     env:

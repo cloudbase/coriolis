@@ -10,7 +10,4 @@
     force_absent: yes
     name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-licensing-server:{{ docker_images_tag }}"
 
-- name: "Trigger coriolis-licensing-server update"
-  command: /bin/true
-  notify:
-    - "setup coriolis-licensing-server"
+- include_tasks: setup_licensing_server_container.yml

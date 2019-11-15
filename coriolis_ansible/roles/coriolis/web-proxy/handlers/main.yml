@@ -4,7 +4,5 @@
   vars:
     image_name: coriolis-web-proxy
 
-- name: "setup coriolis-web-proxy"
-  include_tasks: "{{ role_path }}/tasks/setup_web_proxy_container.yml"
-  vars:
-    restart: yes
+- name: "restart coriolis-web-proxy"
+  shell: "docker restart coriolis-web-proxy"

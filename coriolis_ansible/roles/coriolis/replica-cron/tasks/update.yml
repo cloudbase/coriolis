@@ -10,7 +10,4 @@
     force_absent: yes
     name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-replica-cron:{{ docker_images_tag }}"
 
-- name: "Trigger coriolis-replica-cron update"
-  command: /bin/true
-  notify:
-    - "setup coriolis-replica-cron"
+- include_tasks: setup_replica_cron_container.yml
