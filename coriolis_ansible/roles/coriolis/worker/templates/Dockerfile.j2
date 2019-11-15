@@ -1,4 +1,4 @@
-FROM {{ docker_registry }}/{{ docker_namespace }}/coriolis-common:{{ docker_images_tag }}
+FROM {{ docker_images_namespace }}/coriolis-common:{{ docker_images_tag }}
 
 {% for item in coriolis_providers %}
 COPY coriolis-provider-{{ item }}/ coriolis-provider-{{ item }}
