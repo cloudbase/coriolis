@@ -18,7 +18,7 @@
       with_items:
         - { src: "{{ build_resources_dir }}/write_data",          dest: "{{ coriolis_resources_bin_dir }}/write_data"}
         - { src: "{{ build_resources_dir }}/coriolis-writer",     dest: "{{ coriolis_resources_bin_dir }}/coriolis-writer"}
-        - { src: "{{ build_resources_dir }}/coriolis-replicator", dest: "{{ coriolis_resources_bin_dir }}/coriolis-replicator"}
+        - { src: "{{ build_resources_dir }}/coriolis-replicator", dest: "{{ coriolis_resources_bin_dir }}/replicator"}
       notify:
         - "restart coriolis core components"
   when: build_resources_dir_info.stat.exists
