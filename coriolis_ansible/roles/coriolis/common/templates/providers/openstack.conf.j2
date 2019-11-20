@@ -21,12 +21,6 @@ volume_backups_container = coriolis
 # Default is False
 allow_untrusted_swift = False
 
-# The format in which to fetch Cinder volumes during normal migrations.
-# Must be a format supported by Glance
-# Default is 'qcow2'
-# can be qcow, qcow2, raw, vmdk, vhd, vhdx:
-intermediate_volume_format = qcow2
-
 # Custom mapping between the 'os_type' or 'os_distro' of Glance images on the
 # source OpenStack. Mapping values must be one of the supported OS types in
 # Coriolis.
@@ -178,6 +172,9 @@ use_floating_ip = False
 # Name of the floating IP pool to be used for the creation and attachment of
 # floating IPs to the migrated VMs.
 floating_ip_pool = public
+
+# Name or ID of the Nove Server Group to use when recreating the final VMs on Openstack
+# server_group =
 
 # Parameters realted to the OSMorphing process for Windows instances:
 windows_virtio_iso_url = https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso

@@ -5,6 +5,10 @@
 # us-phoenix-1
 # migr_image_map = linux: ocid1.image.oc1.phx.aaaaaaaatel6prh7kwlb77zp6m4v523pegz3fh2j5ulq2lwtmhionpy37wkq, windows: ocid1.image.oc1.phx.aaaaaaaam3rbuegojxzdomvbp6qa2fb45ex24ng7c5ykawuqmomerfblveaq
 
+# Whether to use paravirtualized mode by default for
+# instances that use BIOS.
+default_to_pv_mode = true
+
 # Default shape name used for final instances
 shape_name = VM.Standard1.2
 
@@ -22,8 +26,8 @@ migr_shape_name = VM.Standard1.2
 # Whether or not to set Public IPs on the Migrated/Replicated VMs:
 set_public_ip = True
 
-# The GA drivers can be found at:
-# https://objectstorage.us-ashburn-1.oraclecloud.com/p/2dopDVhGFBBsBi7xQNuEEmrSK9KxA3ZsY31EblRf_xI/n/internalcraigcarl/b/drivers/o/virtio-1.1.3.zip
-# but for some reason, trying to download it using the usual OS morpher downloaders from that location, errs out
-# I recommend you host it on some other web server somewhere
+# Windows VMs that are migrated to OCI need virtio drivers.
+# The steps to downloading GA drivers can be found at:
+# https://blogs.oracle.com/linux/announcing-oracle-virtio-drivers-113-for-microsoft-windows
+# The downloaded ZIP has to be self-hosted. Pass the ZIP URL to the option below:
 # windows_virtio_zip_url = https://example.com/virtio-1.1.3.zip
