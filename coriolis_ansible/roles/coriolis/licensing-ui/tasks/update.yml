@@ -18,6 +18,6 @@
   docker_image:
     state: absent
     force_absent: yes
-    name: "{{ docker_images_namespace }}/coriolis-licensing-ui:{{ docker_images_tag }}"
+    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-licensing-ui:{{ docker_images_tag }}"
 
 - include_tasks: setup_licensing_ui_container.yml

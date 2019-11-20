@@ -1,13 +1,13 @@
 ---
 - name: "Remove existing Docker image"
   docker_image:
-    name: "{{ docker_images_namespace }}/{{ image_name }}:{{ docker_images_tag }}"
+    name: "{{ docker_registry }}/{{ docker_namespace }}/{{ image_name }}:{{ docker_images_tag }}"
     state: absent
     force_absent: yes
 
 - name: "Build Docker image"
   docker_image:
-    name: "{{ docker_images_namespace }}/{{ image_name }}"
+    name: "{{ docker_registry }}/{{ docker_namespace }}/{{ image_name }}"
     source: build
     build:
       dockerfile: "{{ image_name }}.Dockerfile"

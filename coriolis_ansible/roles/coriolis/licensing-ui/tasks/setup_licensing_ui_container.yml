@@ -2,7 +2,7 @@
 - name: Setup coriolis-licensing-ui container
   docker_container:
     name: coriolis-licensing-ui
-    image: "{{ docker_images_namespace }}/coriolis-licensing-ui:{{ docker_images_tag }}"
+    image: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-licensing-ui:{{ docker_images_tag }}"
     pull: "{{ docker_pull_images }}"
     hostname: coriolis-licensing-ui
     state: started
