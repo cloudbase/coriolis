@@ -469,15 +469,24 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         return os_root_dir, os_root_device
 
     def dismount_os(self, root_dir):
+        self._exec_cmd('sudo fuser --kill --mount %s || true' % root_dir)
         mounted_fs = self._get_mount_destinations()
         # Sort all mounted filesystems by length. This will ensure that
         # the first in the list is a subfolder of the next in the list,
         # and we unmount them in the proper order
-        mounted_fs = list(reversed(sorted(mounted_fs)))
+        mounted_fs = list(reversed(sorted(mounted_fs, key=len)))
         for d in mounted_fs:
+            # umount these two at the very end
+            if d.endswith('/dev') or d.rstrip('/') == root_dir.rstrip('/'):
+                continue
             if d.startswith(root_dir):
                 # mounted filesystem is a subfolder of our root_dir
                 self._exec_cmd('sudo umount %s' % d)
+
+        dev_fs = "%s/%s" % (root_dir.rstrip('/'), "dev")
+        self._exec_cmd('mountpoint -q %s && sudo umount %s' % (dev_fs, dev_fs))
+        self._exec_cmd(
+            'mountpoint -q %s && sudo umount %s' % (root_dir, root_dir))
 
     def set_proxy(self, proxy_settings):
         url = proxy_settings.get('url')
