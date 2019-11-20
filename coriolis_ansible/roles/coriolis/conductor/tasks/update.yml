@@ -8,6 +8,6 @@
   docker_image:
     state: absent
     force_absent: yes
-    name: "{{ docker_images_namespace }}/coriolis-conductor:{{ docker_images_tag }}"
+    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-conductor:{{ docker_images_tag }}"
 
 - include_tasks: setup_conductor_container.yml

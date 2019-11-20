@@ -25,7 +25,7 @@ KOLLA_DOCKER_IMAGES_TAG=$(get_global_config_value kolla_docker_images_tag)
 BIND_ADDRESS=$(get_global_config_value bind_address)
 
 "$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n docker_registry -v "$(get_global_config_value docker_registry)"
-"$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n docker_namespace -v "kolla"
+"$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n docker_namespace -v "$(get_global_config_value docker_namespace)"
 "$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n openstack_release -v ${KOLLA_DOCKER_IMAGES_TAG:-latest}
 "$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n network_interface -v $($UTILS_DIR/get_network_interface.py --address $BIND_ADDRESS)
 "$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n kolla_internal_vip_address -v $BIND_ADDRESS

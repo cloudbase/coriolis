@@ -2,7 +2,7 @@
 - name: Setup coriolis-logger container
   docker_container:
     name: coriolis-logger
-    image: "{{ docker_images_namespace }}/coriolis-logger:{{ docker_images_tag }}"
+    image: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-logger:{{ docker_images_tag }}"
     pull: "{{ docker_pull_images }}"
     hostname: coriolis-logger
     state: started

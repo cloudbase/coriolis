@@ -23,7 +23,7 @@
 - name: Setup coriolis-worker container
   docker_container:
     name: coriolis-worker
-    image: "{{ docker_images_namespace }}/coriolis-worker:{{ docker_images_tag }}"
+    image: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-worker:{{ docker_images_tag }}"
     pull: "{{ docker_pull_images }}"
     hostname: coriolis-worker
     state: started
