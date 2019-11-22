@@ -51,19 +51,10 @@ Skip this unless new images are needed.
 ./coriolis-docker/coriolis-ansible build
 ```
 
-To push the images to the Docker registry, set the following before building
-the images:
-
-* Add the following option to `./coriolis-docker/config.yml` file (if the
-file doesn't exist, create it via
-`cp ./coriolis-docker/config.yml.sample ./coriolis-docker/config.yml`):
-```
-docker_push_images: true
-```
-
-* Login to Docker registry:
+To push the images to the Docker registry, login to the Docker registry and use the `push-docker-images` subcommand:
 ```
 docker login registry.cloudbase.it
+./coriolis-docker/coriolis-ansible push-docker-images
 ```
 
 ## Deploy Coriolis

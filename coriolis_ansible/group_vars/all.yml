@@ -14,7 +14,6 @@ docker_registry: registry.cloudbase.it
 docker_namespace: appliance
 docker_images_tag: latest
 docker_pull_images: true
-docker_push_images: false
 
 coriolis_debug: true
 

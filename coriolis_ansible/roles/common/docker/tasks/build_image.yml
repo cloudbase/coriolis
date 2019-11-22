@@ -13,7 +13,6 @@
       dockerfile: "{{ image_name }}.Dockerfile"
       path: "{{ build_dir }}"
       pull: False
-    push: "{{ docker_push_images }}"
     tag: "{{ docker_images_tag }}"
   register: result
   retries: 10

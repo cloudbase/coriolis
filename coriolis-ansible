@@ -63,6 +63,11 @@ case "$1" in
         ansible --playbook-dir "$BASE_DIR/coriolis_ansible" -m import_role -a "name=coriolis/licensing-server tasks_from=reset_db" localhost
         ;;
 
+    push-docker-images)
+        PLAYBOOK="push-docker-images.yml"
+        $ANSIBLE_CMD $PLAYBOOK
+        ;;
+
     *)
         echo "ERROR: Invalid <coriolis_action> parameter"
         usage
