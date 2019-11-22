@@ -1,0 +1,25 @@
+---
+- name: Push Coriolis Docker images
+  any_errors_fatal: true
+  hosts:
+    - appliance
+  tasks:
+    - docker_image:
+        name: "{{ docker_registry }}/{{ docker_namespace }}/{{ item }}"
+        tag: "{{ docker_images_tag }}"
+        source: local
+        push: True
+      register: result
+      retries: 10
+      delay: 5
+      until: result is succeeded
+      with_items:
+        - "coriolis-common"
+        - "coriolis-api"
+        - "coriolis-conductor"
+        - "coriolis-replica-cron"
+        - "coriolis-worker"
+        - "coriolis-logger"
+        - "coriolis-web"
+        - "coriolis-web-proxy"
+        - "coriolis-licensing-server"
