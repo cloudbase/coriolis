@@ -1,11 +1,8 @@
 ---
-- name: Create build directories
+- name: Create build directory
   file:
-    path: "{{ item }}"
+    path: "{{ build_dir }}"
     state: directory
-  with_items:
-    - "{{ build_dir }}"
-    - "{{ build_resources_dir }}"
 
 - name: Clone coriolis-replicator
   git:
@@ -24,7 +21,7 @@
   delay: 5
   until: result is succeeded
   notify:
-    - "build coriolis replicator"
+    - "build coriolis core components"
 
 - name: Clone coriolis-writer
   git:
@@ -43,7 +40,7 @@
   delay: 5
   until: result is succeeded
   notify:
-    - "build coriolis writer"
+    - "build coriolis core components"
 
 - name: Clone coriolis core
   git:
@@ -60,41 +57,7 @@
   delay: 5
   until: result is succeeded
   notify:
-    - "build coriolis core resources"
     - "build coriolis core components"
-
-- name: Get coriolis-writer file stat
-  stat:
-    path: "{{ build_resources_dir }}/coriolis-writer"
-  register: coriolis_writer_file
-
-- name: "Trigger coriolis-writer build"
-  command: /bin/true
-  notify:
-    - "build coriolis writer"
-  when: not coriolis_writer_file.stat.exists
-
-- name: Get coriolis-replicator file stat
-  stat:
-    path: "{{ build_resources_dir }}/coriolis-replicator"
-  register: coriolis_replicator_file
-
-- name: "Trigger coriolis-replicator build"
-  command: /bin/true
-  notify:
-    - "build coriolis replicator"
-  when: not coriolis_replicator_file.stat.exists
-
-- name: Get write_data file stat
-  stat:
-    path: "{{ build_resources_dir }}/write_data"
-  register: write_data_file
-
-- name: "Trigger core resources build"
-  command: /bin/true
-  notify:
-    - "build coriolis core resources"
-  when: not write_data_file.stat.exists
 
 - name: Render templates
   template:
@@ -111,8 +74,20 @@
     name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-common:{{ docker_images_tag }}"
   register: docker_image_info
 
-- name: "Trigger Docker image build"
+- name: Get coriolis-replicator file stat
+  stat:
+    path: "{{ build_dir }}/coriolis-replicator/cmd/replicator"
+  register: coriolis_replicator_file
+
+- name: Get coriolis-writer file stat
+  stat:
+    path: "{{ build_dir }}/coriolis-writer/cmd/writer"
+  register: coriolis_writer_file
+
+- name: "Trigger core components build"
   command: /bin/true
   notify:
-    - "build coriolis-common"
-  when: docker_image_info.images | length == 0
+    - "build coriolis core components"
+  when: ((not coriolis_replicator_file.stat.exists) or
+         (not coriolis_writer_file.stat.exists) or
+         (docker_image_info.images | length == 0))

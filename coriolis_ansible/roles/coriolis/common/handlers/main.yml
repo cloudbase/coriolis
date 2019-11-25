@@ -1,15 +1,14 @@
 ---
+- name: "build coriolis replicator"
+  listen: "build coriolis core components"
+  include_tasks: "{{ role_path }}/tasks/build_replicator.yml"
+
+- name: "build coriolis writer"
+  listen: "build coriolis core components"
+  include_tasks: "{{ role_path }}/tasks/build_writer.yml"
+
 - name: "build coriolis-common"
   listen: "build coriolis core components"
   include_tasks: "{{ playbook_dir }}/roles/common/docker/tasks/build_image.yml"
   vars:
     image_name: coriolis-common
-
-- name: "build coriolis writer"
-  include_tasks: "{{ role_path }}/tasks/build_writer.yml"
-
-- name: "build coriolis replicator"
-  include_tasks: "{{ role_path }}/tasks/build_replicator.yml"
-
-- name: "build coriolis core resources"
-  include_tasks: "{{ role_path }}/tasks/build_core_resources.yml"

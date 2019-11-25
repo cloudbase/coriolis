@@ -3,6 +3,4 @@
   vars:
     resource_build_script: >-
       cd {{ build_dir }}/coriolis-replicator &&
-      go build cmd/replicator/replicator.go &&
-      cp ./replicator {{ build_resources_dir }}/coriolis-replicator &&
-      chmod +x {{ build_resources_dir }}/coriolis-replicator
+      go build -o ./replicator cmd/replicator/replicator.go

@@ -1,28 +1,4 @@
 ---
-- name: Get build resources directory stat
-  stat:
-    path: "{{ build_resources_dir }}"
-  register: build_resources_dir_info
-
-- block:
-    - name: Create resources directory
-      file:
-        path: "{{ coriolis_resources_bin_dir }}"
-        state: directory
-
-    - name: Copy resources binaries
-      copy:
-        mode: preserve
-        src: "{{ item.src }}"
-        dest: "{{ item.dest }}"
-      with_items:
-        - { src: "{{ build_resources_dir }}/write_data",          dest: "{{ coriolis_resources_bin_dir }}/write_data"}
-        - { src: "{{ build_resources_dir }}/coriolis-writer",     dest: "{{ coriolis_resources_bin_dir }}/coriolis-writer"}
-        - { src: "{{ build_resources_dir }}/coriolis-replicator", dest: "{{ coriolis_resources_bin_dir }}/replicator"}
-      notify:
-        - "restart coriolis core components"
-  when: build_resources_dir_info.stat.exists
-
 - name: Gather Kolla deployment facts
   kolla_deployment_facts:
   register: kolla_deployment

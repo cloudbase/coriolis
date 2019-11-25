@@ -1,12 +1,4 @@
 ---
-- name: Remove directories
-  file:
-    state: absent
-    path: "{{ item }}"
-  with_items:
-    - "{{ coriolis_usr_dir }}"
-    - "{{ coriolis_resources_bin_dir }}"
-
 - name: Remove Docker image
   docker_image:
     state: absent
