@@ -3,6 +3,4 @@
   vars:
     resource_build_script: >-
       cd {{ build_dir }}/coriolis-writer &&
-      go build cmd/coriolis-writer/writer.go &&
-      cp ./writer {{ build_resources_dir }}/coriolis-writer &&
-      chmod +x {{ build_resources_dir }}/coriolis-writer
+      go build -o ./writer cmd/coriolis-writer/writer.go
