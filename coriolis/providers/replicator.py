@@ -283,6 +283,133 @@ class Replicator(object):
             self._setup_replicator)(self._ssh)
         utils.retry_on_error()(
             self._init_replicator_client)(self._credentials)
+        LOG.debug(
+            "Disk status after Replicator initialization: %s",
+            self._cli.get_status(device=None, brief=True))
+
+    def get_current_disks_status(self):
+        """ Returns a list of the current status of the attached data disks.
+        The root disk of the worker VM is NOT returned.
+        The result is a list with elements of the following format:
+        [{
+            'device-path': '/dev/xvdf',
+            'device-name': 'xvdf',
+            'size': 10737418240,
+            'checksum-algorithm': 'sha256',
+            'chunk-size': 10485760,
+            'logical-sector-size': 512,
+            'physical-sector-size': 512,
+            'alignment-offset': 0,
+            'has-mounted-partitions': False,
+            'checksum-status': {
+                'status': 'running',
+                'total-chunks': 1024,
+                'completed-chunks': 0,
+                'percentage': 0},
+            'partitions': [{
+                'name': 'xvdf1',
+                'sectors': 20969439,
+                'uuid': '73e9659d-2fd9-46ca-a341-5a8637c416ee',
+                'fs': 'ext4',
+                'start-sector': 2048,
+                'end-sector': 20971486,
+                'alignment-offset': 0}]
+        }]
+        """
+        return self._cli.get_status()
+
+    def attach_new_disk(
+            self, disk_id, attachf, previous_disks_status=None,
+            retry_period=30, retry_count=10):
+        """ Returns the volumes_info for the disk attached by running
+        `attachf`. This is achieved by comparing the disk statuses before and
+        after the execution of the attachment operation.
+
+        param disk_id: str(): the 'disk_id' of the info from self._volumes_info
+            for the disk which shall be attached by `attachf()`.
+        param attachf: fun(): argument-less function which attaches the disk.
+            The function should perform any waits required to reasonably expect
+            the worker OS to have noticed the new disk, or reboot the worker VM
+            and re-run `init_replicator()` if deemed necessary.
+        param previous_disks_status: dict(): previous status of the disks as
+            returned by `get_current_disks_status()`.
+
+        return: dict(): returns the volumes_info associated to the new disk.
+        """
+        # check if volume with given ID is present in self._volumes_info:
+        matching_vols = [
+            vol for vol in self._volumes_info
+            if vol['disk_id'] == disk_id]
+        if not matching_vols:
+            raise exception.CoriolisException(
+                "No information regarding volume with ID '%s'. "
+                "Cannot track its attachment." % disk_id)
+        if len(matching_vols) > 1:
+            raise exception.CoriolisException(
+                "Multiple volumes info with ID '%s' found: %s" % (
+                    disk_id, matching_vols))
+        vol_info = matching_vols[0]
+
+        # get/refresh current device paths:
+        if not previous_disks_status:
+            previous_disks_status = self._cli.get_status()
+        LOG.debug(
+            "Disks status pre-attachment of %s: %s",
+            disk_id, previous_disks_status)
+        previous_device_paths = [
+            dev['device-path'] for dev in previous_disks_status]
+
+        # run attachment function and get new device paths:
+        attachf()
+
+        # graciously wait for disk to appear:
+        new_disks_status = None
+        new_device_paths = None
+        for i in range(retry_count):
+            new_disks_status = self._cli.get_status()
+            new_device_paths = [dev['device-path'] for dev in new_disks_status]
+            LOG.debug(
+                "Polled devices while waiting for disk '%s' to attach "
+                "(try %d/%d): %s", disk_id, i+1, retry_count, new_device_paths)
+
+            # check for missing/multiple new device paths:
+            missing_device_paths = (
+                set(previous_device_paths) - set(new_device_paths))
+            if missing_device_paths:
+                LOG.warn(
+                    "The following devices from the previous disk state qeury "
+                    "are no longer detected: %s", [
+                        dev for dev in previous_disks_status
+                        if dev['device-path'] in missing_device_paths])
+
+            new_device_paths = set(new_device_paths) - set(previous_device_paths)
+            if new_device_paths:
+                break
+            else:
+                LOG.debug(
+                    "Sleeping %d seconds for disk '%s' to get attached.",
+                    retry_period, disk_id)
+                time.sleep(retry_period)
+
+        if not new_device_paths:
+            raise exception.CoriolisException(
+                "No new device paths have appeared after volume attachment of "
+                "disk with ID: %s" % disk_id)
+        if len(new_device_paths) > 1:
+            raise exception.CoriolisException(
+                "Multiple device paths have appeared after attachment of disk "
+                "with ID %s: %s" % (
+                    disk_id,
+                    [dev for dev in new_disks_status
+                     if dev['device-path'] in new_device_paths]))
+
+        # record the new 'disk_path' for the volume:
+        vol_info['disk_path'] = new_device_paths.pop()
+        LOG.debug(
+            "New device following attachment of disk '%s': %s",
+            disk_id, vol_info['disk_path'])
+
+        return vol_info
 
     def wait_for_chunks(self):
         if self._cli is None:
