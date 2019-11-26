@@ -9,6 +9,7 @@ from coriolis import exception
 from coriolis.providers import factory as providers_factory
 from coriolis import schemas
 from coriolis.tasks import base
+from coriolis import utils
 
 LOG = logging.getLogger(__name__)
 
@@ -45,12 +46,18 @@ def _check_ensure_volumes_info_ordering(export_info, volumes_info):
 
         ordered_volumes_info.append(matching_volumes[0])
 
+    vol_info_cpy = utils.filter_chunking_info_for_task(
+        {"volumes_info": volumes_info}).get("volumes_info")
+
+    ordered_vol_info_cpy = utils.filter_chunking_info_for_task(
+        {"volumes_info": ordered_volumes_info}).get("volumes_info")
+
     LOG.debug(
         "volumes_info returned by provider for instance "
-        "'%s': %s", instance, volumes_info)
+        "'%s': %s", instance, vol_info_cpy)
     LOG.debug(
         "volumes_info for instance '%s' after "
-        "reordering: %s", instance, ordered_volumes_info)
+        "reordering: %s", instance, ordered_vol_info_cpy)
 
     return ordered_volumes_info
 
