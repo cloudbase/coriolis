@@ -334,14 +334,16 @@ class ConductorServerEndpoint(object):
         execution.type = constants.EXECUTION_TYPE_REPLICA_EXECUTION
 
         for instance in execution.action.instances:
-            get_instance_info_task = self._create_task(
-                instance, constants.TASK_TYPE_GET_INSTANCE_INFO,
-                execution)
-
             validate_replica_source_inputs_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_VALIDATE_REPLICA_SOURCE_INPUTS,
                 execution)
+
+            get_instance_info_task = self._create_task(
+                instance,
+                constants.TASK_TYPE_GET_INSTANCE_INFO,
+                execution,
+                depends_on=[validate_replica_source_inputs_task.id])
 
             validate_replica_destination_inputs_task = self._create_task(
                 instance,
@@ -728,14 +730,16 @@ class ConductorServerEndpoint(object):
             # to prevent the Replica disks from being cloned:
             migration.info[instance] = {"clone_disks": False}
 
-            get_instance_info_task = self._create_task(
-                instance, constants.TASK_TYPE_GET_INSTANCE_INFO,
-                execution)
-
             validate_migration_source_inputs_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_VALIDATE_MIGRATION_SOURCE_INPUTS,
                 execution)
+
+            get_instance_info_task = self._create_task(
+                instance,
+                constants.TASK_TYPE_GET_INSTANCE_INFO,
+                execution,
+                depends_on=[validate_migration_source_inputs_task.id])
 
             validate_migration_destination_inputs_task = self._create_task(
                 instance,
