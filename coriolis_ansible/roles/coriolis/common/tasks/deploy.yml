@@ -7,4 +7,15 @@
     - "{{ coriolis_config_dir }}"
     - "{{ coriolis_log_dir }}"
 
+- name: Install Coriolis Python client
+  pip:
+    name: "git+https://github.com/{{ repo_owner }}/python-coriolisclient@{{ repo_branch }}"
+  vars:
+    repo_owner: "{{ custom_repo_owner_names['python-client'] | default('cloudbase') }}"
+    repo_branch: "{{ custom_repo_branch_names['python-client'] | default('master') }}"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+
 - include_tasks: setup.yml
