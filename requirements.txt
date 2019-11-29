@@ -7,4 +7,3 @@ pymysql
 toml
 virtualenv
 python-openstackclient
-git+https://github.com/cloudbase/python-coriolisclient
