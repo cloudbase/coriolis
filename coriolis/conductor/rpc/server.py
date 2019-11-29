@@ -1290,3 +1290,6 @@ class ConductorServerEndpoint(object):
                   execution.id)
         self._begin_tasks(ctxt, execution, replica.info)
         return self.get_replica_tasks_execution(ctxt, replica_id, execution.id)
+
+    def get_diagnostics(self, ctxt):
+        return utils.get_diagnostics_info()

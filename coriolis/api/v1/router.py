@@ -4,6 +4,7 @@
 from oslo_log import log as logging
 
 from coriolis import api
+from coriolis.api.v1 import diagnostics
 from coriolis.api.v1 import endpoint_actions
 from coriolis.api.v1 import endpoint_destination_options
 from coriolis.api.v1 import endpoint_instances
@@ -147,3 +148,8 @@ class APIRouter(api.APIRouter):
                         controller=self.resources['replica_schedules'],
                         collection={'index': 'GET'},
                         member={'action': 'POST'})
+
+        diag = diagnostics.create_resource()
+        self.resources['diagnostics'] = diag
+        mapper.resource('diagnostics', 'diagnostics',
+                        controller=self.resources['diagnostics'])

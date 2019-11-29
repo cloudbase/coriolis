@@ -18,6 +18,7 @@ import subprocess
 import time
 import traceback
 import uuid
+import __main__ as main
 
 from io import StringIO
 
@@ -26,6 +27,12 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 import paramiko
+# NOTE(gsamfira): I am aware that this is not ideal, but pip
+# developers have decided to move all logic inside an _internal
+# package, and I really don't want to do an exec call to pip
+# just to get installed packages and their versions, when I can
+# simply call a function.
+from pip._internal.operations import freeze
 from six.moves.urllib import parse
 from webob import exc
 
@@ -75,6 +82,16 @@ umask 022
 
 exec %(cmdline)s
 """
+
+
+def get_diagnostics_info():
+    # TODO(gsamfira): decide if we want any other kind of
+    # diagnostics.
+    packages = list(freeze.freeze())
+    return {
+        "application": os.path.basename(main.__file__),
+        "packages": packages
+    }
 
 
 def setup_logging():
@@ -392,40 +409,6 @@ def to_dict(obj, max_depth=10):
         return jsonutils.to_primitive(
             value, convert_instances, convert_datetime, level, max_depth)
     return jsonutils.loads(jsonutils.dumps(obj, default=_to_primitive))
-
-
-def topological_graph_sorting(items, id="id", depends_on="depends_on",
-                              sort_key=None):
-    """Kahn's algorithm"""
-    if sort_key:
-        # Sort siblings
-        items = sorted(items, key=lambda t: t[sort_key], reverse=True)
-
-    a = []
-    for i in items:
-        a.append({"id": i[id],
-                  "depends_on": list(i[depends_on] or []),
-                  "item": i})
-
-    s = []
-    l = []
-    for n in a:
-        if not n["depends_on"]:
-            s.append(n)
-    while s:
-        n = s.pop()
-        l.append(n["item"])
-
-        for m in a:
-            if n["id"] in m["depends_on"]:
-                m["depends_on"].remove(n["id"])
-                if not m["depends_on"]:
-                    s.append(m)
-
-    if len(l) != len(a):
-        raise ValueError("The graph contains cycles")
-
-    return l
 
 
 def load_class(class_path):

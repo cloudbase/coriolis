@@ -125,3 +125,6 @@ class WorkerClient(object):
             ctxt, 'get_provider_schemas',
             platform_name=platform_name,
             provider_type=provider_type)
+
+    def get_diagnostics(self, ctxt):
+        return self._client.call(ctxt, 'get_diagnostics')

@@ -429,6 +429,9 @@ class WorkerServerEndpoint(object):
             schemas["source_environment_schema"] = schema
 
         return schemas
+    
+    def get_diagnostics(self, ctxt):
+        return utils.get_diagnostics_info()
 
 
 def _get_task_export_path(task_id, create=False):
