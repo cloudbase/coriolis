@@ -11,6 +11,7 @@ import io
 import json
 import os
 import pickle
+import platform
 import re
 import socket
 import string
@@ -26,6 +27,8 @@ import OpenSSL
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
+
+import netifaces
 import paramiko
 # NOTE(gsamfira): I am aware that this is not ideal, but pip
 # developers have decided to move all logic inside an _internal
@@ -84,13 +87,43 @@ exec %(cmdline)s
 """
 
 
+def _get_local_ips():
+    ifaces = netifaces.interfaces()
+    ret = []
+    for iface in ifaces:
+        if iface == "lo":
+            continue
+        addrs = netifaces.ifaddresses(iface)
+        ret.append(
+            {
+                iface: {
+                    "ipv4": addrs.get(netifaces.AF_INET),
+                    "ipv6": addrs.get(netifaces.AF_INET6),
+                },
+            }
+        )
+    return ret
+
+
+def _get_host_os_info():
+    info = None
+    # This exists on all modern Linux systems
+    if os.path.isfile("/etc/os-release"):
+        with open("/etc/os-release") as fd:
+            info = fd.read().split('\n')
+    return info
+
+
 def get_diagnostics_info():
     # TODO(gsamfira): decide if we want any other kind of
     # diagnostics.
     packages = list(freeze.freeze())
     return {
         "application": os.path.basename(main.__file__),
-        "packages": packages
+        "packages": packages,
+        "os_info": _get_host_os_info(),
+        "hostname": platform.node(),
+        "ip_addresses": _get_local_ips(),
     }
 
 

@@ -105,6 +105,16 @@ class ConductorServerEndpoint(object):
         self._rpc_worker_client = rpc_worker_client.WorkerClient()
         self._replica_cron_client = rpc_cron_client.ReplicaCronClient()
 
+    def get_all_diagnostics(self, ctxt):
+        conductor = self.get_diagnostics(ctxt)
+        cron = self._replica_cron_client.get_diagnostics(ctxt)
+        worker = self._rpc_worker_client.get_diagnostics(ctxt)
+        return [
+            conductor,
+            cron,
+            worker,
+        ]
+
     def _check_delete_reservation_for_transfer(self, transfer_action):
         action_id = transfer_action.base_id
         if not self._licensing_client:

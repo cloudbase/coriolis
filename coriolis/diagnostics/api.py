@@ -12,13 +12,7 @@ class API(object):
         self._worker_cli = worker_rpc.WorkerClient()
 
     def get(self, ctxt):
-        conductor = self._conductor_cli.get_diagnostics(ctxt)
-        cron = self._cron_cli.get_diagnostics(ctxt)
-        worker = self._worker_cli.get_diagnostics(ctxt)
+        diag = self._conductor_cli.get_all_diagnostics(ctxt)
         api = utils.get_diagnostics_info()
-        return [
-            conductor,
-            cron,
-            worker,
-            api,
-        ]
+        diag.append(api)
+        return diag

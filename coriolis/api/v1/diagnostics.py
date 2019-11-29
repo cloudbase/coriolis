@@ -20,7 +20,6 @@ class DiagnosticsController(api_wsgi.Controller):
 
     def index(self, req):
         context = req.environ['coriolis.context']
-        LOG.debug(">>> %r" % context.to_dict())
         context.can(
             diagnostics.get_diagnostics_policy_label("get"))
 
