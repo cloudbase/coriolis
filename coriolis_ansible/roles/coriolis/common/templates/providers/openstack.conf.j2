@@ -93,6 +93,10 @@ migr_worker_boot_from_volume = False
 # If not set, Coriolis will use the disk size set the selected "migr_flavor_name".
 # migr_worker_volume_size =
 
+# Name of the precreated Cinder volume type to use when creating temporary worker volumes.
+# This option is only effective if "migr_worker_boot_from_volume" is set.
+# migr_worker_volume_type =
+
 # Name of the Cinder volume type to be used for
 # volumes with unspecified storage backing option from the
 # source or which could not be mapped in the "storage_map".
