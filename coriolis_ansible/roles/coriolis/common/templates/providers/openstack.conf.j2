@@ -45,15 +45,16 @@ replica_export_mechanism = swift_backups
 # administrator account, or the credentials used by Cinder-volume (if
 # 'replica_export_mechanism' is 'ceph_snapshots'), or those of
 # Cinder-backup (if 'replica_export_mechanism' is 'ceph_snapshots')
-cinder_ceph_volumes_username = cinder-backup
-cinder_ceph_pool_name = cinder-backup
-cinder_ceph_cluster_name = cinder-backup
+# cinder_ceph_volumes_username = cinder-backup
+# cinder_ceph_pool_name = cinder-backup
+# cinder_ceph_cluster_name = cinder-backup
+
 # NOTE: please ensure the Ceph-related files are either somewhere in
 # '/etc/ceph', or under the path set as the 'export_base_path' option.
-cinder_ceph_conf_path = /etc/ceph/ceph.conf
-cinder_ceph_keyring_path = /etc/ceph/ceph.client.cinder-backup.keyring
-cinder_ceph_backups_diff_hash_algorithm = sha1
-cinder_ceph_timeout = 30
+# cinder_ceph_conf_path = /etc/ceph/ceph.conf
+# cinder_ceph_keyring_path = /etc/ceph/ceph.client.cinder-backup.keyring
+# cinder_ceph_backups_diff_hash_algorithm = sha1
+# cinder_ceph_timeout = 30
 
 ### Import parameters:
 
@@ -115,7 +116,7 @@ delete_disks_on_vm_termination = True
 # Name or ID of an existing Neutron network on the destination
 # OpenStack where to attach the Neutron port of the temporary disk
 # copy/OSMorphing worker VMs. (string value)
-migr_network = private
+# migr_network = private
 
 # Whether or not to allocate floating IPs from the "migr_fip_pool_name"
 # for the temporary disk copy/OSMorphing worker VMs.
@@ -127,13 +128,13 @@ migr_worker_use_fip = True
 # These floating IPs will be associated to the temporary disk copy/OSMorphing
 # worker VMs.
 # Default is "public"
-migr_fip_pool_name = public
+# migr_fip_pool_name = public
 
 # Name of an existing Nova flavor which to boot the temporary
 # disk copy/OSMorphing worker VMs as.
 # Default is "m1.small"
 # (string value)
-migr_flavor_name = m1.small
+# migr_flavor_name = m1.small
 
 # Whether or not to use config drive to send metadata to the temporary
 # disk copy/OSMorphing worker VMs in case Neutron metadata is not available
@@ -171,7 +172,7 @@ use_floating_ip = False
 
 # Name of the floating IP pool to be used for the creation and attachment of
 # floating IPs to the migrated VMs.
-floating_ip_pool = public
+# floating_ip_pool = public
 
 # Name or ID of the Nove Server Group to use when recreating the final VMs on Openstack
 # server_group =
