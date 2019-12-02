@@ -2,12 +2,12 @@
 # The OS migration image map to use. This mapping will be used to spin up
 # the disk export worker needed to replicate the export disks and OS morphing
 # worker needed to morph the OS being migrated.
-migr_image_map = linux: ami-50946030, windows: ami-50946031
+# migr_image_map = linux: ami-50946030, windows: ami-50946031
 
 # A map similar with migr_image_map, where we specify the username for each OS
 # image. On EC2, various linux distributions, have different usernames.
 # Default is 'ubuntu' for Linux and 'coriolis' for Windows.
-migr_image_username_map = linux: ubuntu, windows: coriolis
+# migr_image_username_map = linux: ubuntu, windows: coriolis
 
 # Name of the instance type to be used for the disk copy workers.
 # Default is t2.medium.
