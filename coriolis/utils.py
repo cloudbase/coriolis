@@ -205,6 +205,28 @@ def write_ssh_file(ssh, remote_path, content):
 
 
 @retry_on_error()
+def write_winrm_file(conn, remote_path, content):
+    """This is a poor man's scp command that transfers small
+    files, in chunks, over WinRM.
+    """
+    conn.exec_ps_command("rm -Force %s" % remote_path)
+    idx = 0
+    while True:
+        data = content[idx:idx+2048]
+        if not data:
+            break
+        asb64 = base64.b64encode(data).decode()
+        cmd = ("$ErrorActionPreference = 'Stop';"
+               "$x = [System.IO.FileStream]::new('%s', "
+               "[System.IO.FileMode]::Append); $bytes = "
+               "[Convert]::FromBase64String('%s'); $x.Write($bytes, "
+               "0, $bytes.Length); $x.Close()") % (
+                    remote_path, asb64)
+        conn.exec_ps_command(cmd)
+        idx += 2048
+
+
+@retry_on_error()
 def list_ssh_dir(ssh, remote_path):
     sftp = ssh.open_sftp()
     return sftp.listdir(remote_path)

@@ -74,18 +74,18 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
         key_name = str(uuid.uuid4())
 
         self._load_registry_hive(
-            "HKLM\%s" % key_name,
+            "HKLM\\%s" % key_name,
             "%sWindows\\System32\\config\\SOFTWARE" % self._os_root_dir)
         try:
             version_info_str = self._conn.exec_ps_command(
                 "Get-ItemProperty "
-                "'HKLM:\%s\Microsoft\Windows NT\CurrentVersion' "
+                "'HKLM:\\%s\\Microsoft\\Windows NT\\CurrentVersion' "
                 "| select CurrentVersion, CurrentMajorVersionNumber, "
                 "CurrentMinorVersionNumber,  CurrentBuildNumber, "
                 "InstallationType, ProductName, EditionID | FL" %
                 key_name).replace(self._conn.EOL, os.linesep)
         finally:
-            self._unload_registry_hive("HKLM\%s" % key_name)
+            self._unload_registry_hive("HKLM\\%s" % key_name)
 
         version_info = {}
         for n in ["CurrentVersion", "CurrentMajorVersionNumber",
@@ -221,3 +221,31 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
              "service_account": service_account,
              "start_mode": start_mode},
             ignore_stdout=True)
+
+    def run_user_script(self, user_script):
+        if len(user_script) == 0:
+            return
+
+        script_path = "$env:TMP\\coriolis_user_script.ps1"
+        try:
+            utils.write_winrm_file(
+                self._conn,
+                script_path,
+                user_script)
+        except Exception as err:
+            LOG.exception(err)
+            raise exception.CoriolisException(
+                "Failed to copy user script to target system."
+                " Error was: %s" % err)
+
+        cmd = '& "%(script)s" "%(os_root_dir)s"' % {
+            "script": script_path,
+            "os_root_dir": self._os_root_dir,
+        }
+        try:
+            self._conn.exec_ps_command(cmd)
+        except Exception as err:
+            LOG.exception(err)
+            raise exception.CoriolisException(
+                "Failed to run user script."
+                " Error was: %s" % err)

@@ -39,7 +39,7 @@ def _get_proxy_settings():
 
 
 def morph_image(origin_provider, destination_provider, connection_info,
-                osmorphing_info, event_handler):
+                osmorphing_info, user_script, event_handler):
     event_manager = events.EventManager(event_handler)
 
     event_manager.progress_update("Preparing instance for target platform")
@@ -75,6 +75,14 @@ def morph_image(origin_provider, destination_provider, connection_info,
     (import_os_morphing_tools,
      os_info) = destination_provider.get_os_morphing_tools(
          conn, osmorphing_info)
+
+    if user_script:
+        event_manager.progress_update(
+            'Running OS morphing user script')
+        import_os_morphing_tools.run_user_script(user_script)
+    else:
+        event_manager.progress_update(
+            'No OS morphing user script specified')
 
     if not import_os_morphing_tools:
         event_manager.progress_update(

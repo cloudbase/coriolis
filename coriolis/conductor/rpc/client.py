@@ -196,7 +196,7 @@ class ConductorClient(object):
                           destination_environment, instances, network_map,
                           storage_mappings, replication_count,
                           shutdown_instances=False, notes=None,
-                          skip_os_morphing=False):
+                          skip_os_morphing=False, user_scripts=None):
         return self._client.call(
             ctxt, 'migrate_instances',
             origin_endpoint_id=origin_endpoint_id,
@@ -209,14 +209,17 @@ class ConductorClient(object):
             skip_os_morphing=skip_os_morphing,
             network_map=network_map,
             storage_mappings=storage_mappings,
-            source_environment=source_environment)
+            source_environment=source_environment,
+            user_scripts=user_scripts)
 
     def deploy_replica_instances(self, ctxt, replica_id, clone_disks=False,
-                                 force=False, skip_os_morphing=False):
+                                 force=False, skip_os_morphing=False,
+                                 user_scripts=None):
         return self._client.call(
             ctxt, 'deploy_replica_instances', replica_id=replica_id,
             clone_disks=clone_disks, force=force,
-            skip_os_morphing=skip_os_morphing)
+            skip_os_morphing=skip_os_morphing,
+            user_scripts=user_scripts)
 
     def delete_migration(self, ctxt, migration_id):
         self._client.call(
