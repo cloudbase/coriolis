@@ -3,7 +3,7 @@ import json
 from coriolis.conductor.rpc import client as rpc_client
 from coriolis import context
 from coriolis import exception
-# from coriolis import utils
+from coriolis import utils
 from coriolis.replica_cron import cron
 
 from oslo_log import log as logging
@@ -89,3 +89,6 @@ class ReplicaCronServerEndpoint(object):
         schedule_id = schedule["id"]
         LOG.debug("removing schedule %s" % schedule_id)
         self._cron.unregister(schedule_id)
+
+    def get_diagnostics(self, ctxt):
+        return utils.get_diagnostics_info()

@@ -292,3 +292,9 @@ class ConductorClient(object):
             ctxt, 'update_replica',
             replica_id=replica_id,
             properties=properties)
+
+    def get_diagnostics(self, ctxt):
+        return self._client.call(ctxt, 'get_diagnostics')
+
+    def get_all_diagnostics(self, ctxt):
+        return self._client.call(ctxt, 'get_all_diagnostics')

@@ -19,3 +19,6 @@ class ReplicaCronClient(object):
 
     def unregister(self, ctxt, schedule):
         self._client.call(ctxt, 'unregister', schedule=schedule)
+    
+    def get_diagnostics(self, ctxt):
+        return self._client.call(ctxt, 'get_diagnostics')
