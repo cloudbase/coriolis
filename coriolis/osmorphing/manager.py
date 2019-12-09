@@ -70,6 +70,9 @@ def morph_image(origin_provider, destination_provider, connection_info,
             conn, osmorphing_info)
         export_os_morphing_tools.set_environment(environment)
     except exception.OSMorphingToolsNotFound:
+        LOG.warn(
+            "No tools found for export provider of type: %s",
+            type(origin_provider))
         export_os_morphing_tools = None
 
     (import_os_morphing_tools,
