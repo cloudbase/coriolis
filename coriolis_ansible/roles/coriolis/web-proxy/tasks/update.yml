@@ -4,10 +4,4 @@
     state: absent
     name: coriolis-web-proxy
 
-- name: Remove Docker image
-  docker_image:
-    state: absent
-    force_absent: yes
-    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-web-proxy:{{ docker_images_tag }}"
-
 - include_tasks: setup_web_proxy_container.yml
