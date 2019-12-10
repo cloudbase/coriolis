@@ -233,19 +233,18 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
                 script_path,
                 user_script)
         except Exception as err:
-            LOG.exception(err)
             raise exception.CoriolisException(
-                "Failed to copy user script to target system."
-                " Error was: %s" % err)
+                "Failed to copy user script to target system.") from err
 
-        cmd = '& "%(script)s" "%(os_root_dir)s"' % {
+        cmd = ('$ErrorActionPreference = "Stop"; powershell.exe '
+               '-NonInteractive -ExecutionPolicy RemoteSigned '
+               '-File "%(script)s" "%(os_root_dir)s"') % {
             "script": script_path,
             "os_root_dir": self._os_root_dir,
         }
         try:
-            self._conn.exec_ps_command(cmd)
+            out = self._conn.exec_ps_command(cmd)
+            LOG.debug("User script output: %s" % out)
         except Exception as err:
-            LOG.exception(err)
             raise exception.CoriolisException(
-                "Failed to run user script."
-                " Error was: %s" % err)
+                "Failed to run user script.") from err

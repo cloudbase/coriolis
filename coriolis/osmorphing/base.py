@@ -7,10 +7,10 @@ import os
 import re
 import uuid
 
-from coriolis import exception
 from oslo_log import log as logging
 from six import with_metaclass
 
+from coriolis import exception
 from coriolis import utils
 
 
@@ -111,10 +111,8 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
                 script_path,
                 user_script)
         except Exception as err:
-            LOG.exception(err)
             raise exception.CoriolisException(
-                "Failed to copy user script to target system."
-                " Error was: %s" % err)
+                "Failed to copy user script to target system.") from err
 
         try:
             utils.exec_ssh_cmd(
@@ -127,10 +125,8 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
                 'sudo "%s" "%s"' % (script_path, self._os_root_dir),
                 get_pty=True)
         except Exception as err:
-            LOG.exception(err)
             raise exception.CoriolisException(
-                "Failed to run user script."
-                " Error was: %s" % err)
+                "Failed to run user script.") from err
 
     def pre_packages_install(self, package_names):
         self._copy_resolv_conf()

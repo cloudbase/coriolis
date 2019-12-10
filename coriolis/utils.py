@@ -204,20 +204,28 @@ def write_ssh_file(ssh, remote_path, content):
     fd.close()
 
 
-@retry_on_error()
-def write_winrm_file(conn, remote_path, content):
+def write_winrm_file(conn, remote_path, content, overwrite=True):
     """This is a poor man's scp command that transfers small
     files, in chunks, over WinRM.
     """
-    conn.exec_ps_command("rm -Force -ErrorAction SilentlyContinue %s" % remote_path)
+    if conn.test_path(remote_path):
+        if overwrite:
+            conn.exec_ps_command(
+                'Remove-Item -Force "%s"' % remote_path)
+        else:
+            raise exception.CoriolisException(
+                "File %s already exists" % remote_path)
     idx = 0
     while True:
         data = content[idx:idx+2048]
         if not data:
             break
+
+        if type(data) is str:
+            data = data.encode()
         asb64 = base64.b64encode(data).decode()
         cmd = ("$ErrorActionPreference = 'Stop';"
-               "$x = [System.IO.FileStream]::new('%s', "
+               "$x = [System.IO.FileStream]::new(\"%s\", "
                "[System.IO.FileMode]::Append); $bytes = "
                "[Convert]::FromBase64String('%s'); $x.Write($bytes, "
                "0, $bytes.Length); $x.Close()") % (
