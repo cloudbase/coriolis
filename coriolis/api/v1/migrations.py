@@ -98,7 +98,7 @@ class MigrationController(api_wsgi.Controller):
         migration_body = body.get("migration", {})
         context = req.environ['coriolis.context']
         context.can(migration_policies.get_migrations_policy_label("create"))
-        user_scripts = migration_body.get("user_scripts")
+        user_scripts = migration_body.get("user_scripts", {})
         replica_id = migration_body.get("replica_id")
         if replica_id:
             clone_disks = migration_body.get("clone_disks", True)

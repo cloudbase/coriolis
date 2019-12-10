@@ -693,6 +693,7 @@ class ConductorServerEndpoint(object):
         return self.get_migration(ctxt, migration.id)
 
     def _get_instance_scripts(self, user_scripts, instance):
+        user_scripts = user_scripts or {}
         ret = {
             "global": user_scripts.get("global", {}),
             "instances": {},
