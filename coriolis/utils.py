@@ -209,7 +209,7 @@ def write_winrm_file(conn, remote_path, content):
     """This is a poor man's scp command that transfers small
     files, in chunks, over WinRM.
     """
-    conn.exec_ps_command("rm -Force %s" % remote_path)
+    conn.exec_ps_command("rm -Force -ErrorAction SilentlyContinue %s" % remote_path)
     idx = 0
     while True:
         data = content[idx:idx+2048]
