@@ -54,8 +54,7 @@ class WindowsMountTools(base.BaseOSMountTools):
             pass
 
     def _refresh_storage(self):
-        self._conn.exec_ps_command(
-            "Update-HostStorageCache", ignore_stdout=True)
+        self._run_diskpart_script("RESCAN")
 
     def _run_diskpart_script(self, script):
         """Executes the given script with diskpart.exe.
