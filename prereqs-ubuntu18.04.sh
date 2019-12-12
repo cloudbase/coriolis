@@ -1,19 +1,26 @@
 #!/usr/bin/env bash
-set -e
-set -x
-
-DIR=$(dirname $0)
-
-# NOTE: this has only been tested on Ubuntu 18.04, though it should
+#
+# NOTE: This has only been tested on Ubuntu 18.04, though it should
 # work relatively seamlessly on other releases as well.
+#
+set -o errexit
+set -o xtrace
+set -o pipefail
 
 if [ $UID -ne 0 ]; then
     echo "Must be root!"
     exit 1
 fi
 
-# install Docker:
-apt-get install -y docker.io
+CURRENT_DIR=$(dirname $0)
+
+# Install Docker
+apt-get install -y apt-transport-https ca-certificates curl \
+                   gnupg-agent software-properties-common
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+apt-get update
+apt-get install -y docker-ce docker-ce-cli containerd.io
 systemctl enable docker
 systemctl start docker
 
@@ -22,13 +29,15 @@ systemctl start docker
 sysctl -w net.ipv4.ip_forward=1
 echo "net.ipv4.ip_forward=1" > /etc/sysctl.d/99-docker-ipv4-forwarding.conf
 
-# NOTE: required to generate SSL cert for Web proxy component:
+# NOTE: Required to generate SSL cert for Web proxy component
 apt-get install -y openssl
 
-# install python and various dev bits and bobs:
+# Install Python3 and various dev bits
 apt-get install -y \
     git gcc make libffi-dev libssl-dev \
     python3 python3-pip
 
+ln -sf python3 /usr/bin/python
+
 # Required for our Ansible tasks
-pip3 install -r $DIR/requirements.txt
+pip3 install -r $CURRENT_DIR/requirements.txt

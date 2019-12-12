@@ -14,10 +14,4 @@
     state: absent
     name: coriolis-licensing-ui
 
-- name: Remove Docker image
-  docker_image:
-    state: absent
-    force_absent: yes
-    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-licensing-ui:{{ docker_images_tag }}"
-
 - include_tasks: setup_licensing_ui_container.yml

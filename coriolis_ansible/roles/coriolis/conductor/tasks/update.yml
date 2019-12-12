@@ -4,10 +4,4 @@
     state: absent
     name: coriolis-conductor
 
-- name: Remove Docker image
-  docker_image:
-    state: absent
-    force_absent: yes
-    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-conductor:{{ docker_images_tag }}"
-
 - include_tasks: setup_conductor_container.yml

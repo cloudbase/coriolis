@@ -4,10 +4,4 @@
     state: absent
     name: coriolis-worker
 
-- name: Remove Docker image
-  docker_image:
-    state: absent
-    force_absent: yes
-    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-worker:{{ docker_images_tag }}"
-
 - include_tasks: setup_worker_container.yml

@@ -4,10 +4,4 @@
     state: absent
     name: coriolis-replica-cron
 
-- name: Remove Docker image
-  docker_image:
-    state: absent
-    force_absent: yes
-    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-replica-cron:{{ docker_images_tag }}"
-
 - include_tasks: setup_replica_cron_container.yml
