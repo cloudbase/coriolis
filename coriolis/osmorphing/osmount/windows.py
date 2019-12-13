@@ -156,15 +156,12 @@ class WindowsMountTools(base.BaseOSMountTools):
             logmsg_fmt="Bringing offline disk with ID %s online.")
 
     def _set_basic_disks_rw_mode(self):
-        # NOTE: The PowerShell cmdlets use APIs which do not expose foreign
-        # disks at all (Dynamic disks will always show up as foreign to the
-        # worker), thus this method will only work for basic disks.
-        # Dynamic Disks are set to R/W upon their importing in
-        # self._import_foreign_disks()
-        LOG.info("Setting RW mode on RO basic disks")
-        self._conn.exec_ps_command(
-            "Get-Disk |? IsReadOnly | Set-Disk -IsReadOnly $False",
-            ignore_stdout=True)
+        set_rw_foreign_disk_script_fmt = (
+            "SELECT DISK %s\r\nATTRIBUTES DISK CLEAR READONLY\r\nEXIT")
+        self._service_disks_with_status(
+            "Online", set_rw_foreign_disk_script_fmt,
+            logmsg_fmt="Clearing R/O flag on disk with ID '%s'.",
+            skip_on_error=True)
 
     def _bring_disk_offline(self, drive_letter):
         self._conn.exec_ps_command(
