@@ -8,12 +8,6 @@
 # Default is 1
 glance_api_version = 1
 
-# The name of the Swift container in which to store the Cinder backups.
-# If pre-existing, the container will be reused. If it doesn't exist, a new one
-# will be created.
-# Default is 'coriolis'
-volume_backups_container = coriolis
-
 # Whether to skip certificate verification if the Swift proxy is HTTPS-only
 # with self-signed certificates.
 # This value may be overriden on a per-cloud basis with the
@@ -23,38 +17,98 @@ allow_untrusted_swift = False
 
 # Custom mapping between the 'os_type' or 'os_distro' of Glance images on the
 # source OpenStack. Mapping values must be one of the supported OS types in
-# Coriolis.
+# Coriolis. ('linux', 'windows', or 'solaris')
 # custom_os_type_map =
 
-### Options for replicating from a Ceph-based OpenStack.
-
-# The method Coriolis should use for replication.
-# If set to 'swift_backups', Coriolis will create Cinder backups and
-# fetch the disk chunks from Swift. The Cinder-backup service must
-# be configured to use Swift as a storage backend.
-# If set to 'ceph_backups', Coriolis will try to read the Cinder
-# backups disk chunks directly from Ceph (via librbd). The Cinder-backup
-# service must be configured to use Ceph as a storage backend.
-# If set to 'ceph_snapshots', Coriolis will create Cinder volume
-# snapshots and read the snapshot data chunks from Ceph. The Cinder
-# volume service must be confiured to use Ceph as a driver.
+# What Cinder implementation to leverage during replica exports.
+# If set to 'swift_backups', Coriolis will create Cinder backups for each
+# replicated VM disk and fetch the backup objects from Swift.
+# If set to 'ceph_backups', Coriolis will create Cinder backups and connect
+# to the source OpenStack's Ceph via RADOS to retrieve the chunks of each disk.
+# If set to 'ceph_snapshots', Coriolis will create Cinder snapshots for each disk
+# and fetch the diff chunks from the source OpenStack's Ceph.
+# Both the 'ceph_backups' and 'ceph_snapshots' options require that the
+# coriolis-worker component have network access to the source OpenStack's Ceph
+# through librbd/librados.
+# If set to 'coriolis_backups', Coriolis will create a temporary VM on the source
+# and use its in-built Replication engine through it to diff/export the disks.
+# Only the 'coriolis_backups' mechanism works for VMs which were booted from a
+# Glance image, and all other options only work on Cinder-based VMs.
 # Default is 'swift_backups'
 replica_export_mechanism = swift_backups
 
-# Set the following Ceph options to either the credentials of a cluster
-# administrator account, or the credentials used by Cinder-volume (if
-# 'replica_export_mechanism' is 'ceph_snapshots'), or those of
-# Cinder-backup (if 'replica_export_mechanism' is 'ceph_snapshots')
-# cinder_ceph_volumes_username = cinder-backup
-# cinder_ceph_pool_name = cinder-backup
-# cinder_ceph_cluster_name = cinder-backup
+## Options for 'replica_export_mechanism = swift_backups'
 
-# NOTE: please ensure the Ceph-related files are either somewhere in
-# '/etc/ceph', or under the path set as the 'export_base_path' option.
-# cinder_ceph_conf_path = /etc/ceph/ceph.conf
-# cinder_ceph_keyring_path = /etc/ceph/ceph.client.cinder-backup.keyring
-# cinder_ceph_backups_diff_hash_algorithm = sha1
-# cinder_ceph_timeout = 30
+# The name of the Swift container in which to store the Cinder backups.
+# If pre-existing, the container will be reused. If it doesn't exist, a new one
+# will be created.
+# Default is 'coriolis'
+volume_backups_container = coriolis
+
+## Options for 'replica_export_mechanism = ceph_backups/snapshots'
+
+# Integer timeout (seconds) when connecting to Ceph.
+# Default is 30
+cinder_ceph_timeout = 30
+
+# String name of algorith in Python's hashlib to use for hashing disk chunks to
+# compare them. If unset, the diff will be compared directly instead of hashing.
+# cinder_ceph_backups_diff_hash_algorithm = None
+
+## Options for 'replica_export_mechanism = coriolis_backups'
+
+# Name or ID of a pre-existing Glance Ubuntu 18.04 image on the source OpenStack
+# to be used for the temporary export worker VM on the source. The image must be
+# available to the project/tenant provided in the Coriolis Endpoint. The images
+# must have cloud-init installed and configured for first boot.
+# export_image = ubuntu-18.04-coriolis-worker
+
+# Name of pre-existing Cinder volume type on the source to use for the temporary
+# volumes Coriolis will be creating for exporting instance Glance images. In the
+# case of secondary volumes, the storage type already used by the individual
+# volumes will be used to avoid a cross-backend volume transfer while the clone
+# is occurring. If unset, the default Cinder volume type will be used.
+# export_interim_volume_type = 
+
+# Whether or not to download the worker image to a Cinder volume and boot the
+# worker from that. The root disk size" on the configured 'export_flavor_name'
+# will be used for the worker VM volume.
+export_worker_boot_from_volume = false
+
+# Name of the precreated Cinder volume type to use when creating temporary worker volumes.
+# This option is only effective if "export_worker_boot_from_volume" is set.
+# export_worker_volume_type = cinder-volume-type
+
+# The integer size (in GBs) of the Cinder volume to boot temporary worker VMs from.
+# This option is only effective if "export_worker_boot_from_volume" is set. If not set,
+# Coriolis will use the disk size set the selected "export_flavor_name".
+# export_worker_volume_size = 100
+
+# Name of the flavor to use for the temporary disk export VM.
+# The flavor must be compatible with the selected 'export_image'.
+# export_flavor_name = m1.small
+
+# Name or ID of an existing Neutron network on the source OpenStack where to attach
+# the Neutron port of the temporary disk export worker VMs. The selected network
+# must either be in the same project/tenant as set in the Coriolis endpoint or
+# be a shared/external network and thus available to said project. If
+# export_worker_use_fip is set to 'false', the Coriolis installation must be
+# able to route to addresses allocated from this network."
+# export_network = external-network-name
+
+# Whether or not to allocate floating IPs from 'export_fip_pool_name' for the
+# temporary disk export worker VMs.
+# Default is true
+# export_worker_use_fip = true
+
+# Name of an external Neutron network from which to allocate floating IPs for the
+# temporary worker VMs Coriolis boots up during the disk export process. The
+# Coriolis installation must be able to route to addresses allocated from this network.
+# export_fip_pool_name = external
+
+# Whether or not to use config drive to send metadata to the temporary disk disk
+# export worker VMs in case Neutron metadata is not available. Default is false.
+# export_worker_use_config_drive = false
 
 ### Import parameters:
 
