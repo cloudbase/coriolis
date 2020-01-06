@@ -277,15 +277,16 @@ def exec_ssh_cmd(ssh, cmd, environment=None, get_pty=False):
     return std_out
 
 
-def exec_ssh_cmd_chroot(ssh, chroot_dir, cmd, environment=None):
+def exec_ssh_cmd_chroot(ssh, chroot_dir, cmd, environment=None, get_pty=False):
     return exec_ssh_cmd(ssh, "sudo -E chroot %s %s" % (chroot_dir, cmd),
-                        environment=environment)
+                        environment=environment, get_pty=get_pty)
 
 
 def check_fs(ssh, fs_type, dev_path):
     try:
         out = exec_ssh_cmd(
-            ssh, "sudo fsck -p -t %s %s" % (fs_type, dev_path)).decode()
+            ssh, "sudo fsck -p -t %s %s" % (fs_type, dev_path),
+            get_pty=True).decode()
         LOG.debug("File system checked:\n%s", out)
     except Exception as ex:
         LOG.warn("Checking file system returned an error:\n%s", str(ex))
@@ -297,14 +298,15 @@ def run_xfs_repair(ssh, dev_path):
             ssh, "mktemp -d").decode().rstrip("\n")
         LOG.debug("mounting %s on %s" % (dev_path, tmp_dir))
         mount_out = exec_ssh_cmd(
-            ssh, "sudo mount %s %s" % (dev_path, tmp_dir)).decode()
+            ssh, "sudo mount %s %s" % (dev_path, tmp_dir),
+            get_pty=True).decode()
         LOG.debug("mount returned: %s" % mount_out)
         LOG.debug("Umounting %s" % tmp_dir)
         umount_out = exec_ssh_cmd(
-            ssh, "sudo umount %s" % tmp_dir).decode()
+            ssh, "sudo umount %s" % tmp_dir, get_pty=True).decode()
         LOG.debug("umounting returned: %s" % umount_out)
         out = exec_ssh_cmd(
-            ssh, "sudo xfs_repair %s" % dev_path).decode()
+            ssh, "sudo xfs_repair %s" % dev_path, get_pty=True).decode()
         LOG.debug("File system repaired:\n%s", out)
     except Exception as ex:
         LOG.warn("xfs_repair returned an error:\n%s", str(ex))
@@ -646,7 +648,7 @@ class Grub2ConfigEditor(object):
 
     def _parse_cfg(self, cfg):
         ret = []
-        for line in cfg.split("\n")[:-1]:
+        for line in cfg.splitlines():
             if line.startswith("#") or len(line.strip()) == 0:
                 ret.append(
                     {

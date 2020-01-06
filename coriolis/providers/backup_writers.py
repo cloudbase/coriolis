@@ -580,7 +580,7 @@ class HTTPBackupWriter(BaseBackupWriter):
         utils.exec_ssh_cmd(
             ssh,
             "sudo /sbin/iptables -I INPUT -p tcp --dport %s "
-            "-j ACCEPT" % self._writer_port)
+            "-j ACCEPT" % self._writer_port, get_pty=True)
 
     def _get_impl(self, path, disk_id):
         ssh = self._connect_ssh()

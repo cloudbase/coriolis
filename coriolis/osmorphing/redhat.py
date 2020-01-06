@@ -46,11 +46,13 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         redhat_release_path = "etc/redhat-release"
         if self._test_path(redhat_release_path):
             release_info = self._read_file(
-                redhat_release_path).decode().split('\n')[0].strip()
-            m = re.match(r"^(.*) release ([0-9].*) \((.*)\).*$", release_info)
-            if m:
-                distro, version, _ = m.groups()
-                return (distro, version)
+                redhat_release_path).decode().splitlines()
+            if release_info:
+                m = re.match(r"^(.*) release ([0-9].*) \((.*)\).*$",
+                             release_info[0].strip())
+                if m:
+                    distro, version, _ = m.groups()
+                    return (distro, version)
 
     def disable_predictable_nic_names(self):
         kernel_versions = self._list_dir("lib/modules")
@@ -185,7 +187,7 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
 
     def _run_dracut_base(self, rpm_base_name):
         package_names = self._exec_cmd_chroot(
-            'rpm -q %s' % rpm_base_name).decode().split('\n')[:-1]
+            'rpm -q %s' % rpm_base_name).decode().splitlines()
         for package_name in package_names:
             m = re.match('^%s-(.*)$' % rpm_base_name, package_name)
             if m:
