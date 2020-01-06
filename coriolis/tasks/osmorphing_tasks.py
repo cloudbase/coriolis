@@ -25,11 +25,22 @@ class OSMorphingTask(base.TaskRunner):
             task_info['osmorphing_connection_info'])
         osmorphing_info = task_info.get('osmorphing_info', {})
 
+        user_scripts = task_info.get("user_scripts")
+        instance_script = None
+        if user_scripts:
+            instance_script = user_scripts.get("instances", {}).get(instance)
+            if not instance_script:
+                os_type = osmorphing_info.get("os_type")
+                if os_type:
+                    instance_script = user_scripts.get(
+                        "global", {}).get(os_type)
+
         osmorphing_manager.morph_image(
             origin_provider,
             destination_provider,
             osmorphing_connection_info,
             osmorphing_info,
+            instance_script,
             event_handler)
 
         return task_info

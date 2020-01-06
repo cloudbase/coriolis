@@ -98,7 +98,7 @@ class MigrationController(api_wsgi.Controller):
         migration_body = body.get("migration", {})
         context = req.environ['coriolis.context']
         context.can(migration_policies.get_migrations_policy_label("create"))
-
+        user_scripts = migration_body.get("user_scripts", {})
         replica_id = migration_body.get("replica_id")
         if replica_id:
             clone_disks = migration_body.get("clone_disks", True)
@@ -108,7 +108,8 @@ class MigrationController(api_wsgi.Controller):
             # NOTE: destination environment for replica should have been
             # validated upon its creation.
             migration = self._migration_api.deploy_replica_instances(
-                context, replica_id, clone_disks, force, skip_os_morphing)
+                context, replica_id, clone_disks, force, skip_os_morphing,
+                user_scripts=user_scripts)
         else:
             (origin_endpoint_id,
              destination_endpoint_id,
@@ -127,7 +128,8 @@ class MigrationController(api_wsgi.Controller):
                 source_environment, destination_environment, instances,
                 network_map, storage_mappings, replication_count,
                 shutdown_instances, notes=notes,
-                skip_os_morphing=skip_os_morphing)
+                skip_os_morphing=skip_os_morphing,
+                user_scripts=user_scripts)
 
         return migration_view.single(req, migration)
 

@@ -584,7 +584,7 @@ class ConductorServerEndpoint(object):
 
     @replica_synchronized
     def deploy_replica_instances(self, ctxt, replica_id, clone_disks, force,
-                                 skip_os_morphing=False):
+                                 skip_os_morphing=False, user_scripts=None):
         replica = self._get_replica(ctxt, replica_id)
         self._check_reservation_for_transfer(replica)
         self._check_replica_running_executions(ctxt, replica)
@@ -619,6 +619,8 @@ class ConductorServerEndpoint(object):
 
         for instance in instances:
             migration.info[instance]["clone_disks"] = clone_disks
+            scripts = self._get_instance_scripts(user_scripts, instance)
+            migration.info[instance]["user_scripts"] = scripts
 
         execution = models.TasksExecution()
         migration.executions = [execution]
@@ -700,12 +702,25 @@ class ConductorServerEndpoint(object):
 
         return self.get_migration(ctxt, migration.id)
 
+    def _get_instance_scripts(self, user_scripts, instance):
+        user_scripts = user_scripts or {}
+        ret = {
+            "global": user_scripts.get("global", {}),
+            "instances": {},
+        }
+        if user_scripts:
+            instance_script = user_scripts.get(
+                "instances", {}).get(instance)
+            if instance_script:
+                ret["instances"][instance] = instance_script
+        return ret
+
     def migrate_instances(self, ctxt, origin_endpoint_id,
                           destination_endpoint_id, source_environment,
                           destination_environment, instances, network_map,
                           storage_mappings, replication_count,
                           shutdown_instances=False, notes=None,
-                          skip_os_morphing=False):
+                          skip_os_morphing=False, user_scripts=None):
         origin_endpoint = self.get_endpoint(ctxt, origin_endpoint_id)
         destination_endpoint = self.get_endpoint(ctxt, destination_endpoint_id)
         self._check_endpoints(ctxt, origin_endpoint, destination_endpoint)
@@ -739,6 +754,8 @@ class ConductorServerEndpoint(object):
             # NOTE: we must explicitly set this in each VM's info
             # to prevent the Replica disks from being cloned:
             migration.info[instance] = {"clone_disks": False}
+            scripts = self._get_instance_scripts(user_scripts, instance)
+            migration.info[instance]["user_scripts"] = scripts
 
             validate_migration_source_inputs_task = self._create_task(
                 instance,
@@ -1049,7 +1066,7 @@ class ConductorServerEndpoint(object):
                     db_api.set_transfer_action_result(
                         ctxt, execution.action_id, task.instance,
                         transfer_result)
-                except exception.SchemaValidationException as ex:
+                except exception.SchemaValidationException:
                     LOG.warn(
                         "Could not validate transfer result '%s' against the "
                         "VM export info schema. NOT saving value in Database. "
