@@ -1,6 +1,4 @@
 ---
-ceph_dir: /etc/ceph
-
 custom_repo_owner_names: {}
 custom_repo_branch_names: {}
 
