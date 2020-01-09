@@ -304,7 +304,10 @@ def exec_ssh_cmd(ssh, cmd, environment=None, get_pty=False):
             "Command \"%s\" failed with exit code: %s\n"
             "stdout: %s\nstd_err: %s" %
             (cmd, exit_code, std_out, std_err))
-    return std_out
+    # Most of the commands will use pseudo-terminal which unfortunately will
+    # include a '\r' to every newline. This will affect all plugins too, so
+    # best we can do now is replace them.
+    return std_out.replace(b'\r\n', b'\n').replace(b'\n\r', b'\n')
 
 
 def exec_ssh_cmd_chroot(ssh, chroot_dir, cmd, environment=None, get_pty=False):
