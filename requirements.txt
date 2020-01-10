@@ -6,4 +6,5 @@ oslo_config
 pymysql
 toml
 virtualenv
+python-barbicanclient
 python-openstackclient
