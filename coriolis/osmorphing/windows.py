@@ -61,12 +61,29 @@ CLOUDBASE_INIT_DEFAULT_METADATA_SVCS = [
 
 
 class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
+    def __init__(
+            self, conn, os_root_dir, os_root_device, hypervisor,
+            event_manager):
+        super(BaseWindowsMorphingTools, self).__init__(
+            conn, os_root_dir, os_root_device, hypervisor,
+            event_manager)
+
+        self._version_number = None
+        self._edition_id = None
+        self._installation_type = None
+        self._product_name = None
+
     def _check_os(self):
         try:
             (self._version_number,
              self._edition_id,
              self._installation_type,
              self._product_name) = self._get_image_version_info()
+            LOG.debug(
+                "Identified Windows release as: Version no.: %s; "
+                "Edition id: %s; Install type: %s; Name: %s",
+                self._version_number, self._edition_id,
+                self._installation_type, self._product_name)
             return ('Windows', self._product_name)
         except exception.CoriolisException as ex:
             LOG.debug("Exception during OS detection: %s", ex)
