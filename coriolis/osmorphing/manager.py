@@ -123,7 +123,14 @@ def morph_image(origin_provider, destination_provider, connection_info,
         if packages_add:
             event_manager.progress_update(
                 "Adding packages: %s" % str(packages_add))
-            import_os_morphing_tools.install_packages(packages_add)
+            try:
+                import_os_morphing_tools.install_packages(
+                    packages_add)
+            except Exception as err:
+                raise exception.CoriolisException(
+                    "Failed to install packages: %s. Please review logs"
+                    " for more details." % ", ".join(
+                        packages_add)) from err
 
         LOG.info("Post packages install")
         import_os_morphing_tools.post_packages_install(packages_add)
