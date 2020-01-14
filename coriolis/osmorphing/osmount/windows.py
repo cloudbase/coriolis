@@ -172,9 +172,12 @@ class WindowsMountTools(base.BaseOSMountTools):
     def _get_system_drive(self):
         return self._conn.exec_ps_command("$env:SystemDrive")
 
-    def _get_fs_roots(self):
-        return self._conn.exec_ps_command(
+    def _get_fs_roots(self, fail_if_empty=False):
+        drives = self._conn.exec_ps_command(
             "(get-psdrive -PSProvider FileSystem).Root").split(self._conn.EOL)
+        if len(drives) == 0 and fail_if_empty:
+            raise exception.CoriolisException("No filesystems found")
+        return drives
 
     def mount_os(self):
         self._refresh_storage()
@@ -183,7 +186,8 @@ class WindowsMountTools(base.BaseOSMountTools):
         self._set_foreign_disks_rw_mode()
         self._import_foreign_disks()
         self._refresh_storage()
-        fs_roots = self._get_fs_roots()
+        fs_roots = utils.retry_on_error(sleep_seconds=5)(self._get_fs_roots)(
+                fail_if_empty=True)
         system_drive = self._get_system_drive()
 
         for fs_root in [r for r in fs_roots if not r[:-1] == system_drive]:
