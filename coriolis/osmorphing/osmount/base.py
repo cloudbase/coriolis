@@ -172,7 +172,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         # fstab entry format:
         # <device> <mountpoint> <filesystem> <options> <dump> <fsck>
         fstab_entry_regex = (
-            "^(\s*([^#\s]+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\d)\s+(\d)\s*)$")
+            "^(\s*([^#\s]+)\s+(\S+)\s+(\S+)\s+(\S+)(\s+(\d)(\s+(\d))?)?\s*)$")
         for line in etc_fstab.splitlines():
             match = re.match(fstab_entry_regex, line)
 
