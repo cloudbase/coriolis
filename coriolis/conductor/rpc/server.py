@@ -382,7 +382,9 @@ class ConductorServerEndpoint(object):
             deploy_replica_target_resources_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_DEPLOY_REPLICA_TARGET_RESOURCES,
-                execution, depends_on=[deploy_replica_disks_task.id])
+                execution, depends_on=[
+                    deploy_replica_disks_task.id,
+                    deploy_replica_source_resources_task.id])
 
             replicate_disks_task = self._create_task(
                 instance, constants.TASK_TYPE_REPLICATE_DISKS,
@@ -390,16 +392,18 @@ class ConductorServerEndpoint(object):
                     deploy_replica_source_resources_task.id,
                     deploy_replica_target_resources_task.id])
 
-            self._create_task(
+            delete_source_resources_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_DELETE_REPLICA_SOURCE_RESOURCES,
-                execution, depends_on=[replicate_disks_task.id],
+                execution,
+                depends_on=[replicate_disks_task.id],
                 on_error=True)
 
             self._create_task(
                 instance,
                 constants.TASK_TYPE_DELETE_REPLICA_TARGET_RESOURCES,
-                execution, depends_on=[replicate_disks_task.id],
+                execution, depends_on=[
+                    replicate_disks_task.id, delete_source_resources_task.id],
                 on_error=True)
 
         db_api.add_replica_tasks_execution(ctxt, execution)
@@ -676,7 +680,8 @@ class ConductorServerEndpoint(object):
             finalize_deployment_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_FINALIZE_REPLICA_INSTANCE_DEPLOYMENT,
-                execution, depends_on=[next_task.id])
+                execution,
+                depends_on=[next_task.id])
 
             self._create_task(
                 instance, constants.TASK_TYPE_DELETE_REPLICA_DISK_SNAPSHOTS,
@@ -692,7 +697,8 @@ class ConductorServerEndpoint(object):
                 self._create_task(
                     instance,
                     constants.TASK_TYPE_RESTORE_REPLICA_DISK_SNAPSHOTS,
-                    execution, depends_on=[cleanup_deployment_task.id],
+                    execution,
+                    depends_on=[cleanup_deployment_task.id],
                     on_error=True)
 
         db_api.add_migration(ctxt, migration)
@@ -790,7 +796,9 @@ class ConductorServerEndpoint(object):
             deploy_migration_target_resources_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_DEPLOY_MIGRATION_TARGET_RESOURCES,
-                execution, depends_on=[create_instance_disks_task.id])
+                execution, depends_on=[
+                    create_instance_disks_task.id,
+                    deploy_migration_source_resources_task.id])
 
             # NOTE(aznashwan): re-executing the REPLICATE_DISKS task only works
             # if all the source disk snapshotting and worker setup steps are
@@ -831,7 +839,9 @@ class ConductorServerEndpoint(object):
             delete_destination_resources_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_DELETE_MIGRATION_TARGET_RESOURCES,
-                execution, depends_on=[last_migration_task.id],
+                execution, depends_on=[
+                    last_migration_task.id,
+                    delete_source_resources_task.id],
                 on_error=True)
 
             deploy_instance_task = self._create_task(
