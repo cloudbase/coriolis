@@ -926,9 +926,11 @@ class ConductorServerEndpoint(object):
         has_error_tasks = False
         has_running_tasks = False
         for task in execution.tasks:
-            if task.on_error:
+            if task.on_error and task.status in (
+                    constants.TASK_STATUS_RUNNING,
+                    constants.TASK_STATUS_PENDING):
                 # NOTE: always allow on_error tasks to execute
-                # as they may do required cleanup:
+                # as they may be required for cleanup:
                 has_error_tasks = True
                 continue
 
