@@ -30,6 +30,7 @@ CONF = cfg.CONF
 CONF.register_opts(compressor_opts)
 
 LOG = logging.getLogger(__name__)
+
 _COMPRESS_FUNC = {
     constants.COMPRESSION_FORMAT_GZIP: gzip.compress,
     constants.COMPRESSION_FORMAT_ZLIB: zlib.compress,
