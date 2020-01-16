@@ -33,6 +33,12 @@ vm_domain_type = XEN_HVM_PV_DRIVERS
 # virtual_disk_clone_type can be: THIN_CLONE, SPARSE_COPY, NON_SPARSE_COPY
 virtual_disk_clone_type = THIN_CLONE
 
+# Location of the Cloudbase-Init ZIP for each supported architecture.
+# Cloudbase-Init is installed in Windows VMs for some of the auxiliary
+# functionality it offers to the migrated VMs (most notably, startup scripts)
+cloudbaseinit_x86_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x86.zip
+cloudbaseinit_x64_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x64.zip
+
 windows_pv_drivers_url = https://cloudbase.it/downloads/app/ovm/ovm_win_pv_drivers_all_323_bare_root.zip
 
 # For export we may need to use a different template than the linux one
