@@ -26,6 +26,11 @@ migr_shape_name = VM.Standard1.2
 # Whether or not to set Public IPs on the Migrated/Replicated VMs:
 set_public_ip = True
 
+# Default attach type to be used when attaching secondary
+# disks to the migrated instance. Accepted values:
+# 'iscsi', 'emulated', 'paravirtualized'
+default_attach_type = iscsi
+
 # Windows VMs that are migrated to OCI need virtio drivers.
 # The steps to downloading GA drivers can be found at:
 # https://blogs.oracle.com/linux/announcing-oracle-virtio-drivers-113-for-microsoft-windows
