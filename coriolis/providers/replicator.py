@@ -422,12 +422,14 @@ class Replicator(object):
             done = []
             for vol in status:
                 devName = vol["device-path"]
+                dev_size = vol['size'] / units.Mi
                 perc_step = perc_steps.get(devName)
                 if perc_step is None:
                     perc_step = self._event_manager.add_percentage_step(
                         100,
-                        message_format=("Chunking progress for disk %s: "
-                                        "{:.0f}%%") % devName)
+                        message_format=(
+                            "Chunking progress for disk %s (%.2f MB): "
+                            "{:.0f}%%") % (devName, dev_size))
                     perc_steps[devName] = perc_step
                 perc_done = vol["checksum-status"]["percentage"]
                 self._event_manager.set_percentage_step(
@@ -761,10 +763,17 @@ class Replicator(object):
                 # subsequent sync. Get changes.
                 chunks = self._cli.get_changes(devName)
 
+            if not chunks:
+                self._event_manager.progress_update(
+                    "No new chunks to replicate for disk \"%s\" (%s)" % (
+                        volume['disk_id'], devName))
+
             size = self._get_size_from_chunks(chunks)
 
-            msg = ("Disk replication progress for %s (%.3f MB):"
-                   " {:.0f}%%") % (volume["disk_path"], size)
+            msg = (
+                "Disk replication progress for disk \"%s\" (device \"%s\" "
+                "written chunks: %.2f MB): {:.0f}%%") % (
+                    volume["disk_id"], devName, size)
             perc_step = self._event_manager.add_percentage_step(
                 len(chunks), message_format=msg)
 
