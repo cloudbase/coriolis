@@ -1,0 +1,3 @@
+---
+- include_tasks: "{{ coriolis_action }}.yml"
+  when: enable_coriolis_compressor | bool

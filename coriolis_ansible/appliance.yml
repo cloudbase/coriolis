@@ -9,6 +9,9 @@
         name: common/mariadb
 
     - import_role:
+        name: coriolis/compressor
+
+    - import_role:
         name: coriolis/common
 
     - import_role:

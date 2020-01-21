@@ -1,0 +1,42 @@
+---
+- name: Create build directory
+  file:
+    path: "{{ build_dir }}"
+    state: directory
+
+- name: Clone git repository
+  git:
+    repo: "https://github.com/{{ repo_owner }}/coriolis-compressor"
+    dest: "{{ build_dir }}/coriolis-compressor"
+    update: yes
+    force: yes
+    version: "{{ repo_branch }}"
+    key_file: "{{ bitbucket_ssh_key_file if bitbucket_ssh_key_file is defined else '' }}"
+    accept_hostkey: yes
+  vars:
+    repo_owner: "{{ custom_repo_owner_names['compressor'] | default('cloudbase') }}"
+    repo_branch: "{{ custom_repo_branch_names['compressor'] | default('master') }}"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+  notify:
+    - "build coriolis-compressor"
+
+- name: Render template
+  template:
+    src: Dockerfile.j2
+    dest: "{{ build_dir }}/coriolis-compressor.Dockerfile"
+  notify:
+    - "build coriolis-compressor"
+
+- name: "Get Docker image stat"
+  docker_image_info:
+    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-compressor:{{ docker_images_tag }}"
+  register: docker_image_info
+
+- name: "Trigger Docker image build"
+  command: /bin/true
+  notify:
+    - "build coriolis-compressor"
+  when: docker_image_info.images | length == 0
