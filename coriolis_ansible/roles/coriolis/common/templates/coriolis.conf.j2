@@ -34,6 +34,10 @@ cache_time = 86400
 syslog_log_facility = LOG_LOCAL0
 use_syslog = yes
 
+{% if enable_coriolis_compressor %}
+compressor_address = {{ compressor_address }}
+
+{% endif %}
 [cache]
 enabled = True
 backend = dogpile.cache.memcached

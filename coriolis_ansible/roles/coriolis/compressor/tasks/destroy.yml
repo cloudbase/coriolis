@@ -1,0 +1,11 @@
+---
+- name: Remove Docker container
+  docker_container:
+    state: absent
+    name: coriolis-compressor
+
+- name: Remove Docker image
+  docker_image:
+    state: absent
+    force_absent: yes
+    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-compressor:{{ docker_images_tag }}"

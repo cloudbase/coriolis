@@ -1,0 +1,12 @@
+FROM golang:1.13
+
+ENV GO111MODULE=on
+ADD coriolis-compressor/ /tmp/coriolis-compressor
+WORKDIR /tmp/coriolis-compressor/cmd/coriolis-compressor/
+
+RUN go build -o /usr/local/bin/coriolis-compressor -mod vendor .
+
+WORKDIR /
+RUN rm -rf "/tmp/coriolis-compressor"
+
+ENTRYPOINT ["/bin/bash", "-c", "/usr/local/bin/coriolis-compressor -bind $COMPRESSOR_ADDRESS"]

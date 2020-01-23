@@ -1,0 +1,7 @@
+---
+- name: Remove Docker container
+  docker_container:
+    state: absent
+    name: coriolis-compressor
+
+- include_tasks: setup_compressor_container.yml

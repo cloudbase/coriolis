@@ -13,6 +13,8 @@ docker_pull_images: true
 
 enable_coriolis_licensing_server: false
 
+enable_coriolis_compressor: true
+
 coriolis_export_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "vmware", "aws"]
 coriolis_import_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "oci", "aws"]
 
