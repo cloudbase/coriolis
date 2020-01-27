@@ -248,7 +248,7 @@ def delete_replica_schedule(context, replica_id,
     if is_user_context(context):
         if not q.join(models.Replica).filter(
                 models.Replica.project_id == context.tenant).first():
-                raise exception.NotAuthorized()
+            raise exception.NotAuthorized()
     if pre_delete_callable:
         pre_delete_callable(context, schedule)
     count = q.soft_delete()
