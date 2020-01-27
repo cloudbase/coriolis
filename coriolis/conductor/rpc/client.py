@@ -183,9 +183,11 @@ class ConductorClient(object):
         return self._client.call(
             ctxt, 'delete_replica_disks', replica_id=replica_id)
 
-    def get_migrations(self, ctxt, include_tasks=False):
+    def get_migrations(self, ctxt, include_tasks=False,
+                       include_info=False):
         return self._client.call(ctxt, 'get_migrations',
-                                 include_tasks=include_tasks)
+                                 include_tasks=include_tasks,
+                                 include_info=include_info)
 
     def get_migration(self, ctxt, migration_id):
         return self._client.call(
