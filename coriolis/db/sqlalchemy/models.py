@@ -26,6 +26,19 @@ class TaskEvent(BASE, models.TimestampMixin, models.SoftDeleteMixin,
     level = sqlalchemy.Column(sqlalchemy.String(20), nullable=False)
     message = sqlalchemy.Column(sqlalchemy.String(1024), nullable=False)
 
+    def to_dict(self):
+        result = {
+            "id": self.id,
+            "task_id": self.task_id,
+            "level": self.level,
+            "message": self.message,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "deleted_at": self.deleted_at,
+            "deleted": self.deleted,
+        }
+        return result
+
 
 class TaskProgressUpdate(BASE, models.TimestampMixin, models.SoftDeleteMixin,
                          models.ModelBase):
@@ -40,6 +53,20 @@ class TaskProgressUpdate(BASE, models.TimestampMixin, models.SoftDeleteMixin,
     current_step = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)
     total_steps = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
     message = sqlalchemy.Column(sqlalchemy.String(1024), nullable=True)
+
+    def to_dict(self):
+        result = {
+            "id": self.id,
+            "task_id": self.task_id,
+            "current_step": self.current_step,
+            "total_steps": self.total_steps,
+            "message": self.message,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "deleted_at": self.deleted_at,
+            "deleted": self.deleted,
+        }
+        return result
 
 
 class Task(BASE, models.TimestampMixin, models.SoftDeleteMixin,
@@ -69,6 +96,35 @@ class Task(BASE, models.TimestampMixin, models.SoftDeleteMixin,
                                         cascade="all,delete",
                                         backref=orm.backref('task'))
 
+    def to_dict(self):
+        result = {
+            "id": self.id,
+            "execution_id": self.execution_id,
+            "instance": self.instance,
+            "host": self.host,
+            "process_id": self.process_id,
+            "status": self.status,
+            "task_type": self.task_type,
+            "exception_details": self.exception_details,
+            "depends_on": self.depends_on,
+            "index": self.index,
+            "on_error": self.on_error,
+            "events": [],
+            "progress_updates": [],
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "deleted_at": self.deleted_at,
+            "deleted": self.deleted,
+        }
+
+        for evt in self.events:
+            result["events"].append(evt.to_dict())
+
+        for pgu in self.progress_updates:
+            result["progress_updates"].append(
+                pgu.to_dict())
+        return result
+
 
 class TasksExecution(BASE, models.TimestampMixin, models.ModelBase,
                      models.SoftDeleteMixin):
@@ -86,6 +142,23 @@ class TasksExecution(BASE, models.TimestampMixin, models.ModelBase,
     status = sqlalchemy.Column(sqlalchemy.String(100), nullable=False)
     number = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)
     type = sqlalchemy.Column(sqlalchemy.String(20))
+
+    def to_dict(self):
+        result = {
+            "id": self.id,
+            "action_id": self.action_id,
+            "tasks": [],
+            "status": self.status,
+            "number": self.number,
+            "type": self.type,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "deleted_at": self.deleted_at,
+            "deleted": self.deleted,
+        }
+        for tsk in self.tasks:
+            result["tasks"].append(tsk.to_dict())
+        return result
 
 
 class BaseTransferAction(BASE, models.TimestampMixin, models.ModelBase,
@@ -124,6 +197,34 @@ class BaseTransferAction(BASE, models.TimestampMixin, models.ModelBase,
         'polymorphic_on': type,
     }
 
+    def to_dict(self, include_info=True):
+        result = {
+            "base_id": self.base_id,
+            "user_id": self.user_id,
+            "project_id": self.project_id,
+            "destination_environment": self.destination_environment,
+            "type": self.type,
+            "executions": [],
+            "instances": self.instances,
+            "reservation_id": self.reservation_id,
+            "notes": self.notes,
+            "origin_endpoint_id": self.origin_endpoint_id,
+            "destination_endpoint_id": self.destination_endpoint_id,
+            "transfer_result": self.transfer_result,
+            "network_map": self.network_map,
+            "storage_mappings": self.storage_mappings,
+            "source_environment": self.source_environment,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "deleted_at": self.deleted_at,
+            "deleted": self.deleted,
+        }
+        for ex in self.executions:
+            result["executions"].append(ex.to_dict())
+        if include_info:
+            result["info"] = self.info
+        return result
+
 
 class Replica(BaseTransferAction):
     __tablename__ = 'replica'
@@ -136,6 +237,12 @@ class Replica(BaseTransferAction):
     __mapper_args__ = {
         'polymorphic_identity': 'replica',
     }
+
+    def to_dict(self, include_info=True):
+        base = super(Replica, self).to_dict(
+            include_info=include_info)
+        base.update({"id": self.id})
+        return base
 
 
 class Migration(BaseTransferAction):
@@ -158,6 +265,17 @@ class Migration(BaseTransferAction):
     __mapper_args__ = {
         'polymorphic_identity': 'migration',
     }
+
+    def to_dict(self, include_info=True):
+        base = super(Migration, self).to_dict(
+            include_info=include_info)
+        base.update({
+            "id": self.id,
+            "replica_id": self.replica_id,
+            "shutdown_instances": self.shutdown_instances,
+            "replication_count": self.replication_count,
+        })
+        return base
 
 
 class Endpoint(BASE, models.TimestampMixin, models.ModelBase,

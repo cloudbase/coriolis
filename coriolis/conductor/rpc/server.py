@@ -536,8 +536,11 @@ class ConductorServerEndpoint(object):
             raise exception.NotFound("Replica not found")
         return replica
 
-    def get_migrations(self, ctxt, include_tasks):
-        return db_api.get_migrations(ctxt, include_tasks)
+    def get_migrations(self, ctxt, include_tasks,
+                       include_info=False):
+        return db_api.get_migrations(
+            ctxt, include_tasks,
+            include_info=include_info)
 
     @migration_synchronized
     def get_migration(self, ctxt, migration_id):

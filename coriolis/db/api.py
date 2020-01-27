@@ -350,16 +350,22 @@ def get_replica_migrations(context, replica_id):
 
 
 @enginefacade.reader
-def get_migrations(context, include_tasks=False):
+def get_migrations(context, include_tasks=False,
+                   include_info=False):
     q = _soft_delete_aware_query(context, models.Migration)
     if include_tasks:
         q = _get_migration_task_query_options(q)
     else:
         q = q.options(orm.joinedload("executions"))
+    if include_info is False:
+        q = q.options(orm.defer('info'))
+
     args = {}
     if is_user_context(context):
         args["project_id"] = context.tenant
-    return q.filter_by(**args).all()
+    result = q.filter_by(**args).all()
+    to_dict = [i.to_dict(include_info=include_info) for i in result]
+    return to_dict
 
 
 def _get_tasks_with_details_options(query):

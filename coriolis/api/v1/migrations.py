@@ -1,5 +1,6 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
+import json
 
 from oslo_log import log as logging
 from webob import exc
@@ -30,15 +31,34 @@ class MigrationController(api_wsgi.Controller):
 
         return migration_view.single(req, migration)
 
+    def _get_show_deleted(self, val):
+        if val is None:
+            return val
+        try:
+            show_deleted = json.loads(val)
+            if type(show_deleted) is bool:
+                return show_deleted
+        except Exception as err:
+            LOG.warn(
+                "failed to parse show_deleted: %s" % err)
+            pass
+        return None
+
     def index(self, req):
+        show_deleted = self._get_show_deleted(
+            req.GET.get("show_deleted", None))
         context = req.environ["coriolis.context"]
+        context.show_deleted = show_deleted
         context.can(migration_policies.get_migrations_policy_label("show"))
         return migration_view.collection(
             req, self._migration_api.get_migrations(
                 context, include_tasks=False))
 
     def detail(self, req):
+        show_deleted = self._get_show_deleted(
+            req.GET.get("show_deleted", None))
         context = req.environ["coriolis.context"]
+        context.show_deleted = show_deleted
         context.can(
             migration_policies.get_migrations_policy_label("show_execution"))
         return migration_view.collection(
