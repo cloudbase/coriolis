@@ -31,21 +31,8 @@ class MigrationController(api_wsgi.Controller):
 
         return migration_view.single(req, migration)
 
-    def _get_show_deleted(self, val):
-        if val is None:
-            return val
-        try:
-            show_deleted = json.loads(val)
-            if type(show_deleted) is bool:
-                return show_deleted
-        except Exception as err:
-            LOG.warn(
-                "failed to parse show_deleted: %s" % err)
-            pass
-        return None
-
     def index(self, req):
-        show_deleted = self._get_show_deleted(
+        show_deleted = api_utils._get_show_deleted(
             req.GET.get("show_deleted", None))
         context = req.environ["coriolis.context"]
         context.show_deleted = show_deleted
@@ -55,7 +42,7 @@ class MigrationController(api_wsgi.Controller):
                 context, include_tasks=False))
 
     def detail(self, req):
-        show_deleted = self._get_show_deleted(
+        show_deleted = api_utils._get_show_deleted(
             req.GET.get("show_deleted", None))
         context = req.environ["coriolis.context"]
         context.show_deleted = show_deleted
