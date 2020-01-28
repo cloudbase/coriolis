@@ -31,17 +31,21 @@ class ReplicaController(api_wsgi.Controller):
 
         return replica_view.single(req, replica)
 
-    def index(self, req, show_deleted=False):
+    def index(self, req):
+        show_deleted = api_utils._get_show_deleted(
+            req.GET.get("show_deleted", None))
         context = req.environ["coriolis.context"]
-        context["show_deleted"] = show_deleted
+        context.show_deleted = show_deleted
         context.can(replica_policies.get_replicas_policy_label("list"))
         return replica_view.collection(
             req, self._replica_api.get_replicas(
                 context, include_tasks_executions=False))
 
-    def detail(self, req, show_deleted=False):
+    def detail(self, req):
+        show_deleted = api_utils._get_show_deleted(
+            req.GET.get("show_deleted", None))
         context = req.environ["coriolis.context"]
-        context["show_deleted"] = show_deleted
+        context.show_deleted = show_deleted
         context.can(
             replica_policies.get_replicas_policy_label("show_executions"))
         return replica_view.collection(

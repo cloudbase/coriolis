@@ -276,15 +276,20 @@ def _get_replica_with_tasks_executions_options(q):
 
 
 @enginefacade.reader
-def get_replicas(context, include_tasks_executions=False):
+def get_replicas(context,
+                 include_tasks_executions=False,
+                 include_info=False):
     q = _soft_delete_aware_query(context, models.Replica)
     if include_tasks_executions:
         q = _get_replica_with_tasks_executions_options(q)
+    if include_info is False:
+        q = q.options(orm.defer('info'))
     q = q.filter()
     if is_user_context(context):
         q = q.filter(
             models.Replica.project_id == context.tenant)
-    return q.all()
+    db_result = q.all()
+    return [i.to_dict(include_info=include_info) for i in db_result]
 
 
 @enginefacade.reader

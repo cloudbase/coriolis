@@ -27,10 +27,10 @@ def _format_migration(req, migration, keys=None):
     migration_dict = dict(itertools.chain.from_iterable(
         transform(k, v) for k, v in migration.items()))
 
-    if len(migration_dict["executions"]):
-
+    if len(migration_dict.get("executions", [])):
         execution = view.format_replica_tasks_execution(
             req, migration_dict["executions"][0])
+        del migration_dict["executions"]
     else:
         execution = {}
 
@@ -42,8 +42,6 @@ def _format_migration(req, migration, keys=None):
     if not CONF.include_task_info_in_migrations_api and (
             "info" in migration_dict):
         migration_dict.pop("info")
-
-    del migration_dict["executions"]
     return migration_dict
 
 
