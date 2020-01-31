@@ -248,7 +248,7 @@ def delete_replica_schedule(context, replica_id,
     if is_user_context(context):
         if not q.join(models.Replica).filter(
                 models.Replica.project_id == context.tenant).first():
-                raise exception.NotAuthorized()
+            raise exception.NotAuthorized()
     if pre_delete_callable:
         pre_delete_callable(context, schedule)
     count = q.soft_delete()
@@ -276,15 +276,20 @@ def _get_replica_with_tasks_executions_options(q):
 
 
 @enginefacade.reader
-def get_replicas(context, include_tasks_executions=False):
+def get_replicas(context,
+                 include_tasks_executions=False,
+                 include_info=False):
     q = _soft_delete_aware_query(context, models.Replica)
     if include_tasks_executions:
         q = _get_replica_with_tasks_executions_options(q)
+    if include_info is False:
+        q = q.options(orm.defer('info'))
     q = q.filter()
     if is_user_context(context):
         q = q.filter(
             models.Replica.project_id == context.tenant)
-    return q.all()
+    db_result = q.all()
+    return [i.to_dict(include_info=include_info) for i in db_result]
 
 
 @enginefacade.reader
@@ -350,16 +355,22 @@ def get_replica_migrations(context, replica_id):
 
 
 @enginefacade.reader
-def get_migrations(context, include_tasks=False):
+def get_migrations(context, include_tasks=False,
+                   include_info=False):
     q = _soft_delete_aware_query(context, models.Migration)
     if include_tasks:
         q = _get_migration_task_query_options(q)
     else:
         q = q.options(orm.joinedload("executions"))
+    if include_info is False:
+        q = q.options(orm.defer('info'))
+
     args = {}
     if is_user_context(context):
         args["project_id"] = context.tenant
-    return q.filter_by(**args).all()
+    result = q.filter_by(**args).all()
+    to_dict = [i.to_dict(include_info=include_info) for i in result]
+    return to_dict
 
 
 def _get_tasks_with_details_options(query):
