@@ -344,7 +344,9 @@ class ConductorServerEndpoint(object):
             LOG.debug(
                 "Attempting to check reservation with ID '%s' for transfer "
                 "action '%s'", reservation_id, action_id)
-            self._licensing_client.check_reservation(reservation_id)
+            transfer_action.reservation_id = (
+                self._licensing_client.check_refresh_reservation(
+                    reservation_id)['id'])
         else:
             LOG.debug(
                 "Transfer action '%s' has no reservation ID set. Skipping "
