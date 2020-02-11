@@ -112,17 +112,17 @@ class ReplicateDisksTask(base.TaskRunner):
             schemas.CORIOLIS_DISK_SYNC_RESOURCES_INFO_SCHEMA)
 
         migr_source_conn_info = task_info["migr_source_connection_info"]
-        if migr_source_conn_info:
-            schemas.validate_value(
-                migr_source_conn_info,
-                schemas.CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA)
+        #if migr_source_conn_info:
+        #    schemas.validate_value(
+        #        migr_source_conn_info,
+        #        schemas.CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA)
         migr_source_conn_info = base.unmarshal_migr_conn_info(
             migr_source_conn_info)
 
         migr_target_conn_info = task_info["migr_target_connection_info"]
-        schemas.validate_value(
-            migr_target_conn_info,
-            schemas.CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA)
+        #schemas.validate_value(
+        #    migr_target_conn_info,
+        #    schemas.CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA)
         migr_target_conn_info = base.unmarshal_migr_conn_info(
             migr_target_conn_info)
 
@@ -220,12 +220,12 @@ class DeployReplicaSourceResourcesTask(base.TaskRunner):
         if migr_connection_info:
             migr_connection_info = base.marshal_migr_conn_info(
                 migr_connection_info)
-            schemas.validate_value(
-                migr_connection_info,
-                schemas.CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA,
-                # NOTE: we avoid raising so that the cleanup task
-                # can [try] to deal with the temporary resources.
-                raise_on_error=False)
+            #schemas.validate_value(
+            #    migr_connection_info,
+            #    schemas.CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA,
+            #    # NOTE: we avoid raising so that the cleanup task
+            #    # can [try] to deal with the temporary resources.
+            #    raise_on_error=False)
 
         task_info["migr_source_connection_info"] = migr_connection_info
 
@@ -286,12 +286,12 @@ class DeployReplicaTargetResourcesTask(base.TaskRunner):
         migr_connection_info = replica_resources_info["connection_info"]
         migr_connection_info = base.marshal_migr_conn_info(
             migr_connection_info)
-        schemas.validate_value(
-            migr_connection_info,
-            schemas.CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA,
-            # NOTE: we avoid raising so that the cleanup task
-            # can [try] to deal with the temporary resources.
-            raise_on_error=False)
+        #schemas.validate_value(
+        #    migr_connection_info,
+        #    schemas.CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA,
+        #    # NOTE: we avoid raising so that the cleanup task
+        #    # can [try] to deal with the temporary resources.
+        #    raise_on_error=False)
 
         task_info["migr_target_connection_info"] = migr_connection_info
 

@@ -1,7 +1,8 @@
-# Copyright 2016 Cloudbase Solutions Srl
+# Copyright 2016 Cloudbase :Solutions Srl
 # All Rights Reserved.
 
 from oslo_config import cfg
+from oslo_log import log as logging
 
 from coriolis import constants
 from coriolis import exception
@@ -14,6 +15,7 @@ serialization_opts = [
                 help='List of provider class paths'),
 ]
 
+LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
 CONF.register_opts(serialization_opts)
 
