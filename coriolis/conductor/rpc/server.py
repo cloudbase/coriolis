@@ -331,7 +331,8 @@ class ConductorServerEndpoint(object):
             transfer_type, ninstances)
         transfer_action.reservation_id = reservation['id']
 
-    def _check_reservation_for_transfer(self, transfer_action):
+    def _check_reservation_for_transfer(
+            self, transfer_action, reservation_type):
         action_id = transfer_action.base_id
         if not self._licensing_client:
             LOG.warn(
@@ -344,13 +345,37 @@ class ConductorServerEndpoint(object):
             LOG.debug(
                 "Attempting to check reservation with ID '%s' for transfer "
                 "action '%s'", reservation_id, action_id)
-            transfer_action.reservation_id = (
-                self._licensing_client.check_refresh_reservation(
-                    reservation_id)['id'])
+            try:
+                transfer_action.reservation_id = (
+                    self._licensing_client.check_refresh_reservation(
+                        reservation_id)['id'])
+            except Exception as ex:
+                exc_code = getattr(ex, 'code', None)
+                if exc_code in [404, 409]:
+                    if exc_code == 409:
+                        LOG.debug(
+                            "Server-side exception occurred while trying to "
+                            "check the existing reservation '%s' for action "
+                            "'%s'. Attempting to create a new reservation. "
+                            "Trace was: %s",
+                            reservation_id, action_id,
+                            utils.get_exception_details())
+                    elif exc_code == 404:
+                        LOG.debug(
+                            "Could not find previous reservation with ID '%s' "
+                            "for action '%s'. Attempting to create a new "
+                            "reservation. Trace was: %s",
+                            reservation_id, action_id,
+                            utils.get_exception_details())
+                    self._check_create_reservation_for_transfer(
+                        transfer_action, reservation_type)
+                else:
+                    raise ex
         else:
             LOG.debug(
-                "Transfer action '%s' has no reservation ID set. Skipping "
-                "all reservation licensing checks.", action_id)
+                "Transfer action '%s' has no reservation ID set.", action_id)
+            self._check_create_reservation_for_transfer(
+                transfer_action, reservation_type)
 
     def create_endpoint(self, ctxt, name, endpoint_type, description,
                         connection_info, mapped_regions=None):
@@ -922,7 +947,8 @@ class ConductorServerEndpoint(object):
     @replica_synchronized
     def execute_replica_tasks(self, ctxt, replica_id, shutdown_instances):
         replica = self._get_replica(ctxt, replica_id)
-        self._check_reservation_for_transfer(replica)
+        self._check_reservation_for_transfer(
+            replica, licensing_client.RESERVATION_TYPE_REPLICA)
         self._check_replica_running_executions(ctxt, replica)
         self._check_minion_pools_for_action(ctxt, replica)
 
@@ -1487,7 +1513,8 @@ class ConductorServerEndpoint(object):
                                  skip_os_morphing=False,
                                  user_scripts=None):
         replica = self._get_replica(ctxt, replica_id)
-        self._check_reservation_for_transfer(replica)
+        self._check_reservation_for_transfer(
+            replica, licensing_client.RESERVATION_TYPE_REPLICA)
         self._check_replica_running_executions(ctxt, replica)
         self._check_valid_replica_tasks_execution(replica, force)
 

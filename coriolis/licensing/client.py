@@ -3,7 +3,6 @@
 
 import json
 import os
-import uuid
 
 import requests
 
@@ -23,7 +22,7 @@ RESERVATION_TYPE_MIGRATION = "migration"
 class LicensingClient(object):
     """ Class for accessing the Coriolis licensing server API. """
 
-    def __init__(self, base_url, appliance_id, allow_untrusted=False):
+    def __init__(self, base_url, appliance_id=None, allow_untrusted=False):
         """ :param base_url: URL for the API service, including scheme """
         self._base_url = base_url.rstrip('/')
         self._verify = not allow_untrusted
@@ -46,30 +45,16 @@ class LicensingClient(object):
             return None
         allow_untrusted = os.environ.get(
             "LICENSING_SERVER_ALLOW_UNTRUSTED", False)
-        appliance_id_file = os.environ.get("LICENSING_SERVER_APPLIANCE_ID")
-        if appliance_id_file in ["", None, "None", "null"]:
-            LOG.warn(
-                "No 'LICENSING_SERVER_APPLIANCE_ID' env var present. "
-                "Cannot instantiate licensing client.")
-            return None
-
-        if not os.path.exists(appliance_id_file):
-            raise ValueError(
-                "Appliance licensing file '%s' doesn't exist.")
-
-        appliance_id = None
-        with open(appliance_id_file, 'r') as fin:
-            appliance_id = fin.read(36)
-        try:
-            uuid.UUID(hex=appliance_id)
-        except ValueError as ex:
-            raise ValueError(
-                "Improperly formatted appliance ID in '%s' for licensing "
-                "client connection: '%s'" % (
-                    appliance_id_file, appliance_id)) from ex
-
-        # try out client:
-        client = cls(base_url, appliance_id, allow_untrusted=allow_untrusted)
+        client = cls(
+            base_url, appliance_id=None, allow_untrusted=allow_untrusted)
+        appliance_ids = client.get_appliances()
+        if not appliance_ids:
+            client._appliance_id = client.create_appliance().get("id")
+        elif len(appliance_ids) == 1:
+            client._appliance_id = appliance_ids[0].get('id')
+        else:
+            raise exception.CoriolisException(
+                'More than one appliance IDs found.')
         client.get_licence_status()
 
         return client
@@ -140,7 +125,8 @@ class LicensingClient(object):
         return resp_data
 
     def _get(self, resource, response_key=None, appliance_scoped=True):
-        return self._do_req("GET", resource, response_key=response_key)
+        return self._do_req("GET", resource, response_key=response_key,
+                            appliance_scoped=appliance_scoped)
 
     def _post(self, resource, body, response_key=None, appliance_scoped=True):
         return self._do_req(
@@ -170,7 +156,12 @@ class LicensingClient(object):
     def get_appliance(self):
         """ Get the appliance corresponding to this client instance. """
         return self._get(
-            "/%s" % self._appliance_id, response_key="appliance",
+            "/appliances/%s" % self._appliance_id, response_key="appliance",
+            appliance_scoped=False)
+
+    def create_appliance(self):
+        return self._post(
+            "/appliances", body=None, response_key="appliance",
             appliance_scoped=False)
 
     def get_licence_status(self):
