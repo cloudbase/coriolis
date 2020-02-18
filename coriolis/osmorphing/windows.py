@@ -365,7 +365,7 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
 
         conf_content = (
             "[DEFAULT]\n"
-            "username = opc\n"
+            "username = Admin\n"
             "groups = Administrators\n"
             "verbose = true\n"
             "bsdtar_path = %(bin_path)s\\bsdtar.exe\n"
