@@ -778,7 +778,7 @@ class Grub2ConfigEditor(object):
         for opt in self._parsed:
             if opt.get("option_name") == option:
                 opt_found = True
-                opt["option_value"] = value
+                opt["option_value"] = [value, ]
                 break
         if not opt_found:
             self._parsed.append({
