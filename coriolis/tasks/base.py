@@ -24,6 +24,9 @@ LOG = logging.getLogger(__name__)
 
 class TaskRunner(with_metaclass(abc.ABCMeta)):
 
+    def __init__(self):
+        pass
+
     def get_shared_libs_for_providers(
             self, ctxt, origin, destination, event_handler):
         """ Returns a list of directories containing libraries needed

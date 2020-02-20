@@ -888,10 +888,6 @@ class ConductorServerEndpoint(object):
                 constants.TASK_TYPE_CLEANUP_FAILED_INSTANCE_DEPLOYMENT,
                 execution, on_error=True)
 
-            self._create_task(
-                instance, constants.TASK_TYPE_CLEANUP_INSTANCE_STORAGE,
-                execution, on_error=True)
-
         db_api.add_migration(ctxt, migration)
         LOG.info("Migration created: %s", migration.id)
 

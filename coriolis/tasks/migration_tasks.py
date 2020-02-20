@@ -53,18 +53,28 @@ class CreateInstanceDisksTask(
     pass
 
 
-class CleanupInstanceStorageTask(replica_tasks.DeleteReplicaDisksTask):
-    pass
-
-
 class FinalizeInstanceDeploymentTask(
         replica_tasks.FinalizeReplicaInstanceDeploymentTask):
     pass
 
 
-class CleanupFailedInstanceDeploymentTask(
-        replica_tasks.CleanupFailedReplicaInstanceDeploymentTask):
-    pass
+class CleanupFailedInstanceDeploymentTask(base.TaskRunner):
+    """ Combines the functionality of Replica cleanup and Replica
+    disk deletion tasks sequentially to ensure no conflicts occur.
+    """
+    def __init__(self):
+        self._cleanup_task = (
+            replica_tasks.CleanupFailedReplicaInstanceDeploymentTask())
+        self._del_disk_task = (
+            replica_tasks.DeleteReplicaDisksTask())
+
+    def run(self, ctxt, instance, origin, destination, task_info,
+            event_handler):
+        task_info = self._cleanup_task.run(
+            ctxt, instance, origin, destination, task_info, event_handler)
+        task_info = self._del_disk_task.run(
+            ctxt, instance, origin, destination, task_info, event_handler)
+        return task_info
 
 
 class ValidateMigrationSourceInputsTask(

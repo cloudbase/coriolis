@@ -24,8 +24,6 @@ _TASKS_MAP = {
         migration_tasks.CreateInstanceDisksTask,
     constants.TASK_TYPE_CLEANUP_FAILED_INSTANCE_DEPLOYMENT:
         migration_tasks.CleanupFailedInstanceDeploymentTask,
-    constants.TASK_TYPE_CLEANUP_INSTANCE_STORAGE:
-        migration_tasks.CleanupInstanceStorageTask,
     constants.TASK_TYPE_GET_OPTIMAL_FLAVOR:
         migration_tasks.GetOptimalFlavorTask,
     constants.TASK_TYPE_VALIDATE_MIGRATION_SOURCE_INPUTS:
