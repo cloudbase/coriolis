@@ -10,7 +10,6 @@ from coriolis import utils
 
 
 def get_secret(ctxt, secret_ref):
-    keystone.create_trust(ctxt)
     session = keystone.create_keystone_session(ctxt)
     barbican = barbican_client.Client(session=session)
     sec = utils.retry_on_error()(barbican.secrets.get)(secret_ref)
