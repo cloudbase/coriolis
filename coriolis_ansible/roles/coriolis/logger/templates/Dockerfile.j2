@@ -1,15 +1,14 @@
-FROM golang:1.13
+FROM golang:1.13 AS builder
+LABEL stage=builder
 
 ENV GO111MODULE=on
 COPY coriolis-logger/ /tmp/coriolis-logger
 WORKDIR /tmp/coriolis-logger/cmd/coriolis-logger/
 
-RUN go build -o /usr/local/bin/coriolis-logger .
+RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -a -ldflags="-w -s" -o /coriolis-logger .
 
-WORKDIR /
-RUN rm -rf "/tmp/coriolis-logger"
-COPY coriolis-logger-entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+FROM busybox
+COPY --from=builder /coriolis-logger /coriolis-logger
+RUN chmod +x /coriolis-logger
 
-ENTRYPOINT ["/entrypoint.sh"]
-CMD ["/usr/local/bin/coriolis-logger", "-config", "{{ coriolis_logger_config_dir }}/coriolis-logger.toml"]
+ENTRYPOINT ["/coriolis-logger", "-config", "{{ coriolis_logger_config_dir }}/coriolis-logger.toml"]

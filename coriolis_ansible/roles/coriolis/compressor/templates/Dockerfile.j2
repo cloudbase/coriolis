@@ -1,12 +1,14 @@
-FROM golang:1.13
+FROM golang:1.13 AS builder
+LABEL stage=builder
 
 ENV GO111MODULE=on
 ADD coriolis-compressor/ /tmp/coriolis-compressor
 WORKDIR /tmp/coriolis-compressor/cmd/coriolis-compressor/
 
-RUN go build -o /usr/local/bin/coriolis-compressor -mod vendor .
+RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -a -ldflags="-w -s" -o /coriolis-compressor -mod vendor .
 
-WORKDIR /
-RUN rm -rf "/tmp/coriolis-compressor"
+FROM busybox
+COPY --from=builder /coriolis-compressor /coriolis-compressor
+RUN chmod +x /coriolis-compressor
 
-ENTRYPOINT ["/bin/bash", "-c", "/usr/local/bin/coriolis-compressor -bind $COMPRESSOR_ADDRESS"]
+ENTRYPOINT ["/bin/sh", "-c", "/coriolis-compressor -bind $COMPRESSOR_ADDRESS"]
