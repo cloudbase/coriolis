@@ -7,6 +7,7 @@ from coriolis import constants
 from coriolis import events
 from coriolis import exception
 from coriolis.providers import factory as providers_factory
+from coriolis.providers import backup_writers
 from coriolis import schemas
 from coriolis.tasks import base
 from coriolis import utils
@@ -120,12 +121,6 @@ class ReplicateDisksTask(base.TaskRunner):
             migr_source_conn_info)
 
         migr_target_conn_info = task_info["migr_target_connection_info"]
-        schemas.validate_value(
-            migr_target_conn_info,
-            schemas.CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA)
-        migr_target_conn_info = base.unmarshal_migr_conn_info(
-            migr_target_conn_info)
-
         incremental = task_info.get("incremental", True)
 
         source_environment = origin.get('source_environment') or {}
@@ -284,14 +279,12 @@ class DeployReplicaTargetResourcesTask(base.TaskRunner):
             "migr_resources"]
 
         migr_connection_info = replica_resources_info["connection_info"]
-        migr_connection_info = base.marshal_migr_conn_info(
-            migr_connection_info)
-        schemas.validate_value(
-            migr_connection_info,
-            schemas.CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA,
-            # NOTE: we avoid raising so that the cleanup task
-            # can [try] to deal with the temporary resources.
-            raise_on_error=False)
+        try:
+            backup_writers.BackupWritersFactory(
+                migr_connection_info, None).get_writer()
+        except BaseException as err:
+            LOG.exception(
+                "Invalid connection info: %s" % err)
 
         task_info["migr_target_connection_info"] = migr_connection_info
 

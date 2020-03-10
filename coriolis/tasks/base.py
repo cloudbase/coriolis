@@ -2,6 +2,7 @@
 # All Rights Reserved.
 
 import abc
+import paramiko
 
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -64,9 +65,10 @@ def get_connection_info(ctxt, data):
 def marshal_migr_conn_info(migr_connection_info):
     if migr_connection_info and "pkey" in migr_connection_info:
         migr_connection_info = migr_connection_info.copy()
-        migr_connection_info["pkey"] = utils.serialize_key(
-            migr_connection_info["pkey"],
-            CONF.serialization.temp_keypair_password)
+        pkey = migr_connection_info["pkey"]
+        if isinstance(pkey, str) is False:
+            migr_connection_info["pkey"] = utils.serialize_key(
+                pkey, CONF.serialization.temp_keypair_password)
     return migr_connection_info
 
 
@@ -74,6 +76,7 @@ def unmarshal_migr_conn_info(migr_connection_info):
     if migr_connection_info and "pkey" in migr_connection_info:
         migr_connection_info = migr_connection_info.copy()
         pkey_str = migr_connection_info["pkey"]
-        migr_connection_info["pkey"] = utils.deserialize_key(
-            pkey_str, CONF.serialization.temp_keypair_password)
+        if isinstance(pkey_str, paramiko.rsakey.RSAKey) is False:
+            migr_connection_info["pkey"] = utils.deserialize_key(
+                pkey_str, CONF.serialization.temp_keypair_password)
     return migr_connection_info
