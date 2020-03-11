@@ -180,6 +180,11 @@ class InvalidConfigurationValue(Invalid):
                 'configuration option "%(option)s"')
 
 
+class InvalidTaskState(Invalid):
+    message = _(
+        'Task "%(task_id)s" in in an invalid state: %(task_state)s')
+
+
 class InvalidActionTasksExecutionState(Invalid):
     message = _("Invalid tasks execution state: %(reason)s")
 
