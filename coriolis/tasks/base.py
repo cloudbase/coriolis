@@ -9,6 +9,7 @@ from oslo_log import log as logging
 from six import with_metaclass
 
 from coriolis import constants
+from coriolis import exception
 from coriolis import utils
 from coriolis.providers import factory as providers_factory
 
@@ -51,10 +52,75 @@ class TaskRunner(with_metaclass(abc.ABCMeta)):
 
         return required_libs
 
+    @property
     @abc.abstractmethod
+    def required_task_info_properties(self):
+        """ Returns a list of the string fields which are required
+        to be present during the tasks' run method. """
+        pass
+
+    @property
+    @abc.abstractmethod
+    def returned_task_info_properties(self):
+        """ Returns a list of the string fields which are returned by the
+        tasks' run method to be added to the task info.
+        """
+        pass
+
+    @abc.abstractmethod
+    def _run(self, ctxt, instance, origin, destination, task_info,
+             event_handler):
+        """ The actual logic run by the task.
+        Should return a dict with all the fields declared by
+        'self.returned_task_info_properties'.
+        Must be implemented in all child classes.
+        """
+        pass
+
     def run(self, ctxt, instance, origin, destination, task_info,
             event_handler):
-        pass
+        """ Runs the task with the given params and returns
+        a dict with the results.
+        NOTE: This should NOT modify the existing task_info in any way.
+        """
+        missing_info_props = [
+            prop for prop in self.required_task_info_properties
+            if prop not in task_info]
+        if missing_info_props:
+            raise exception.CoriolisException(
+                "Task type '%s' asked to run on task info with "
+                "missing properties: %s" % (
+                    self.__class__, missing_info_props))
+
+        result = self._run(
+            ctxt, instance, origin, destination, task_info, event_handler)
+
+        if type(result) is not dict:
+            raise exception.CoriolisException(
+                "Task type '%s' returned result of type %s "
+                "instead of a dict: %s" % (
+                    self.__class__, type(result), result))
+
+        missing_returns = [
+            prop for prop in self.returned_task_info_properties
+            if prop not in result.keys()]
+        if missing_returns:
+            raise exception.CoriolisException(
+                "Task type '%s' failed to return the following "
+                "declared return values in its result: %s. "
+                "Result was: %s" % (
+                    self.__class__, missing_returns, result))
+
+        undeclared_returns = [
+            prop for prop in result.keys()
+            if prop not in self.returned_task_info_properties]
+        if undeclared_returns:
+            raise exception.CoriolisException(
+                "Task type '%s' returned the following undeclared "
+                "keys in its result: %s" % (
+                    self.__class__, undeclared_returns))
+
+        return result
 
 
 def get_connection_info(ctxt, data):

@@ -81,9 +81,9 @@ _TASKS_MAP = {
 }
 
 
-def get_task_runner(task_type):
+def get_task_runner_class(task_type):
     cls = _TASKS_MAP.get(task_type)
     if not cls:
         raise exception.NotFound(
             "TaskRunner not found for task type: %s" % task_type)
-    return cls()
+    return cls

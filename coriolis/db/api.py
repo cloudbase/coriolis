@@ -5,6 +5,7 @@ from oslo_config import cfg
 from oslo_db import api as db_api
 from oslo_db import options as db_options
 from oslo_db.sqlalchemy import enginefacade
+from oslo_log import log as logging
 from oslo_utils import timeutils
 from sqlalchemy import func
 from sqlalchemy import or_
@@ -17,6 +18,7 @@ from coriolis import exception
 CONF = cfg.CONF
 db_options.set_defaults(CONF)
 
+LOG = logging.getLogger(__name__)
 
 _BACKEND_MAPPING = {'sqlalchemy': 'coriolis.db.sqlalchemy.api'}
 IMPL = db_api.DBAPI.from_config(CONF, backend_mapping=_BACKEND_MAPPING)
@@ -449,17 +451,33 @@ def get_action(context, action_id):
 
 
 @enginefacade.writer
-def set_transfer_action_info(context, action_id, instance, instance_info):
+def update_transfer_action_info_for_instance(
+        context, action_id, instance, new_instance_info):
+    """ Updates the info for the given action with the provided dict.
+    Returns the updated value.
+    Sub-fields of the dict already in the info will get overwritten entirely!
+    """
     action = get_action(context, action_id)
+    if not new_instance_info:
+        LOG.debug(
+            "No new info provided for action '%s' and instance '%s'",
+            action_id, instance)
+        return action.info.get(instance, {})
 
     # Copy is needed, otherwise sqlalchemy won't save the changes
     action_info = action.info.copy()
     if instance in action_info:
         instance_info_old = action_info[instance].copy()
-        instance_info_old.update(instance_info)
+        overwritten_keys = [
+            k for k in new_instance_info.keys()
+            if k in instance_info_old.keys()]
+        if overwritten_keys:
+            LOG.debug(
+                "Overwriting the values of the following keys for info of "
+                "instance '%s' of action with ID '%s': %s",
+                instance, action_id, overwritten_keys)
+        instance_info_old.update(new_instance_info)
         action_info[instance] = instance_info_old
-    else:
-        action_info[instance] = instance_info
     action.info = action_info
 
     return action_info[instance]

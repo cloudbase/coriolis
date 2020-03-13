@@ -236,9 +236,9 @@ class ConductorClient(object):
             ctxt, 'set_task_host', task_id=task_id, host=host,
             process_id=process_id)
 
-    def task_completed(self, ctxt, task_id, task_info):
+    def task_completed(self, ctxt, task_id, task_result):
         self._client.call(
-            ctxt, 'task_completed', task_id=task_id, task_info=task_info)
+            ctxt, 'task_completed', task_id=task_id, task_result=task_result)
 
     def set_task_error(self, ctxt, task_id, exception_details):
         self._client.call(ctxt, 'set_task_error', task_id=task_id,
@@ -292,11 +292,11 @@ class ConductorClient(object):
             schedule_id=schedule_id,
             expired=expired)
 
-    def update_replica(self, ctxt, replica_id, properties):
+    def update_replica(self, ctxt, replica_id, updated_properties):
         return self._client.call(
             ctxt, 'update_replica',
             replica_id=replica_id,
-            properties=properties)
+            updated_properties=updated_properties)
 
     def get_diagnostics(self, ctxt):
         return self._client.call(ctxt, 'get_diagnostics')

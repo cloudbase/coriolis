@@ -32,6 +32,10 @@ LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
 
 
+TASK_ALREADY_CANCELLING_EXCEPTION_FMT = (
+    "Task %(task_id)s is in CANCELLING status.")
+
+
 class ConvertedException(webob.exc.WSGIHTTPException):
 
     def __init__(self, code=500, title="", explanation=""):
@@ -183,6 +187,10 @@ class InvalidConfigurationValue(Invalid):
 class InvalidTaskState(Invalid):
     message = _(
         'Task "%(task_id)s" in in an invalid state: %(task_state)s')
+
+
+class TaskIsCancelling(InvalidTaskState):
+    message = _(TASK_ALREADY_CANCELLING_EXCEPTION_FMT)
 
 
 class InvalidActionTasksExecutionState(Invalid):

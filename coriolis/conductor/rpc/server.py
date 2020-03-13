@@ -19,6 +19,7 @@ from coriolis import keystone
 from coriolis.licensing import client as licensing_client
 from coriolis.replica_cron.rpc import client as rpc_cron_client
 from coriolis import schemas
+from coriolis.tasks import factory as tasks_factory
 from coriolis import utils
 from coriolis.worker.rpc import client as rpc_worker_client
 
@@ -28,7 +29,7 @@ VERSION = "1.0"
 LOG = logging.getLogger(__name__)
 
 
-conductor_opts = [
+CONDUCTOR_OPTS = [
     cfg.BoolOpt("debug_os_morphing_errors",
                 default=False,
                 help="If set, any OSMorphing task which errors out will have "
@@ -37,7 +38,7 @@ conductor_opts = [
 ]
 
 CONF = cfg.CONF
-CONF.register_opts(conductor_opts, 'conductor')
+CONF.register_opts(CONDUCTOR_OPTS, 'conductor')
 
 TASK_LOCK_NAME_FORMAT = "task-%s"
 EXECUTION_LOCK_NAME_FORMAT = "execution-%s"
@@ -55,7 +56,7 @@ def endpoint_synchronized(func):
     @functools.wraps(func)
     def wrapper(self, ctxt, endpoint_id, *args, **kwargs):
         @lockutils.synchronized(
-                ENDPOINT_LOCK_NAME_FORMAT % endpoint_id)
+            ENDPOINT_LOCK_NAME_FORMAT % endpoint_id)
         def inner():
             return func(self, ctxt, endpoint_id, *args, **kwargs)
         return inner()
@@ -66,7 +67,7 @@ def replica_synchronized(func):
     @functools.wraps(func)
     def wrapper(self, ctxt, replica_id, *args, **kwargs):
         @lockutils.synchronized(
-                REPLICA_LOCK_NAME_FORMAT % replica_id)
+            REPLICA_LOCK_NAME_FORMAT % replica_id)
         def inner():
             return func(self, ctxt, replica_id, *args, **kwargs)
         return inner()
@@ -100,9 +101,9 @@ def task_and_execution_synchronized(func):
     def wrapper(self, ctxt, task_id, *args, **kwargs):
         task = db_api.get_task(ctxt, task_id)
         @lockutils.synchronized(
-                EXECUTION_LOCK_NAME_FORMAT % task.execution_id)
+            EXECUTION_LOCK_NAME_FORMAT % task.execution_id)
         @lockutils.synchronized(
-                TASK_LOCK_NAME_FORMAT % task_id)
+            TASK_LOCK_NAME_FORMAT % task_id)
         def inner():
             return func(self, ctxt, task_id, *args, **kwargs)
         return inner()
@@ -113,7 +114,7 @@ def migration_synchronized(func):
     @functools.wraps(func)
     def wrapper(self, ctxt, migration_id, *args, **kwargs):
         @lockutils.synchronized(
-                MIGRATION_LOCK_NAME_FORMAT % migration_id)
+            MIGRATION_LOCK_NAME_FORMAT % migration_id)
         def inner():
             return func(self, ctxt, migration_id, *args, **kwargs)
         return inner()
@@ -124,7 +125,7 @@ def tasks_execution_synchronized(func):
     @functools.wraps(func)
     def wrapper(self, ctxt, replica_id, execution_id, *args, **kwargs):
         @lockutils.synchronized(
-                EXECUTION_LOCK_NAME_FORMAT % execution_id)
+            EXECUTION_LOCK_NAME_FORMAT % execution_id)
         def inner():
             return func(self, ctxt, replica_id, execution_id, *args, **kwargs)
         return inner()
@@ -373,6 +374,139 @@ class ConductorServerEndpoint(object):
                     instance=task.instance,
                     task_info=task_info.get(task.instance, {}))
 
+    def _check_execution_tasks_sanity(
+            self, execution, initial_task_info):
+        """ Checks whether the given execution's tasks are:
+        - properly odered and not set to deadlock off the bat
+        - properly manipulate the task_info in the right order
+        """
+        all_instances_in_tasks = {
+            t.instance for t in execution.tasks}
+        instances_tasks_mapping = {
+            instance: [
+                t for t in execution.tasks if t.instance == instance]
+            for instance in all_instances_in_tasks}
+
+        def _check_task_cls_param_requirements(task, instance_task_info_keys):
+            task_cls = tasks_factory.get_task_runner_class(task.task_type)()
+            missing_params = [
+                p for p in task_cls.required_task_info_properties
+                if p not in instance_task_info_keys]
+            if missing_params:
+                raise exception.CoriolisException(
+                    "The following task parameters for instance '%s' "
+                    "are missing from the task_info for task '%s' of "
+                    "type '%s': %s" % (
+                        task.instance, task.id, task.task_type,
+                        missing_params))
+            return task_cls.returned_task_info_properties
+
+        for instance, instance_tasks in instances_tasks_mapping.items():
+            task_info_keys = set(initial_task_info.get(
+                instance, {}).keys())
+            # mapping between the ID and associated object of processed tasks:
+            processed_tasks = {}
+            tasks_to_process = {
+                t.id: t for t in instance_tasks}
+            while tasks_to_process:
+                queued_tasks = []
+                # gather all tasks which will be queued to run in parallel:
+                for task in tasks_to_process.values():
+                    if task.status in (
+                            constants.TASK_STATUS_PENDING,
+                            constants.TASK_STATUS_ON_ERROR_ONLY):
+                        if not task.depends_on:
+                            queued_tasks.append(task)
+                        else:
+                            missing_deps = [
+                                dep_id
+                                for dep_id in task.depends_on
+                                if dep_id not in tasks_to_process and (
+                                    dep_id not in processed_tasks)]
+                            if missing_deps:
+                                raise exception.CoriolisException(
+                                    "Task '%s' (type '%s') for instance '%s' "
+                                    "has non-exitent tasks referenced as "
+                                    "dependencies: %s" % (
+                                        task.id, task.task_type,
+                                        instance, missing_deps))
+                            if all(
+                                    [dep_id in processed_tasks
+                                     for dep_id in task.depends_on]):
+                                queued_tasks.append(task)
+                    else:
+                        raise exception.CoriolisException(
+                            "Invalid initial state '%s' for task '%s' "
+                            "of type '%s'."% (
+                                task.status, task.id, task.task_type))
+
+                # check if nothing was left queued:
+                if not queued_tasks:
+                    remaining_tasks_deps_map = {
+                        (tid, t.task_type): t.depends_on
+                        for tid, t in tasks_to_process.items()}
+                    processed_tasks_type_map = {
+                        tid: t.task_type
+                        for tid, t in processed_tasks.items()}
+                    raise exception.CoriolisException(
+                        "Execution '%s' (type '%s') is bound to be deadlocked:"
+                        " there are leftover tasks for instance '%s 'which "
+                        "will never get queued. Already processed tasks are: "
+                        "%s. Tasks left: %s" % (
+                            execution.id, execution.type, instance,
+                            processed_tasks_type_map, remaining_tasks_deps_map))
+
+                # mapping for task_info fields modified by each task:
+                modified_fields_by_queued_tasks = {}
+                # check that each task has what it needs and
+                # register what they return/modify:
+                for task in queued_tasks:
+                    for new_field in _check_task_cls_param_requirements(
+                            task, task_info_keys):
+                        if new_field not in modified_fields_by_queued_tasks:
+                            modified_fields_by_queued_tasks[new_field] = [task]
+                        else:
+                            modified_fields_by_queued_tasks[new_field].append(
+                                task)
+
+                # check if any queued tasks would manipulate the same fields:
+                conflicting_fields = {
+                    new_field: [t.task_type for t in tasks]
+                    for new_field, tasks in (
+                        modified_fields_by_queued_tasks.items())
+                    if len(tasks) > 1}
+                if conflicting_fields:
+                    raise exception.CoriolisException(
+                        "There are fields which will encounter a state "
+                        "conflict following the parallelized execution of "
+                        "tasks for execution '%s' (type '%s') for instance "
+                        "'%s'. Conflicting fields and tasks will be: : %s" % (
+                            execution.id, execution.type, instance,
+                            conflicting_fields))
+
+                # register queued tasks as processed before continuing:
+                for task in queued_tasks:
+                    processed_tasks[task.id] = task
+                    tasks_to_process.pop(task.id)
+                # update current state fields at this point:
+                task_info_keys = task_info_keys.union(set(
+                    modified_fields_by_queued_tasks.keys()))
+                LOG.debug(
+                    "Successfully processed following tasks for instance '%s' "
+                    "for execution %s (type '%s') for any state conflict "
+                    "checks: %s",
+                    instance, execution.id, execution.type, [
+                        (t.id, t.task_type) for t in queued_tasks])
+            LOG.debug(
+                "Successfully checked all tasks for instance '%s' as part of "
+                "execution '%s' (type '%s') for any state conflicts: %s",
+                instance, execution.id, execution.type,
+                [(t.id, t.task_type) for t in instance_tasks])
+        LOG.debug(
+            "Successfully checked all tasks for execution '%s' (type '%s') "
+            "for ordering or state conflicts.",
+            execution.id, execution.type)
+
     @replica_synchronized
     def execute_replica_tasks(self, ctxt, replica_id, shutdown_instances):
         replica = self._get_replica(ctxt, replica_id)
@@ -385,6 +519,18 @@ class ConductorServerEndpoint(object):
         execution.type = constants.EXECUTION_TYPE_REPLICA_EXECUTION
 
         for instance in execution.action.instances:
+            # NOTE: we update all of the param values before triggering an
+            # execution to ensure that the latest parameters are used:
+            if instance not in replica.info:
+                replica.info[instance] = {'volumes_info': []}
+            replica.info[instance].update({
+                "source_environment": replica.source_environment,
+                "target_environment": replica.destination_environment})
+                # TODO(aznashwan): have these passed separately to the tasks
+                # (they're currently passed inside the dest-env)
+                # "network_map": network_map,
+                # "storage_mappings": storage_mappings,
+
             validate_replica_source_inputs_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_VALIDATE_REPLICA_SOURCE_INPUTS,
@@ -393,8 +539,7 @@ class ConductorServerEndpoint(object):
             get_instance_info_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_GET_INSTANCE_INFO,
-                execution,
-                depends_on=[validate_replica_source_inputs_task.id])
+                execution)
 
             validate_replica_destination_inputs_task = self._create_task(
                 instance,
@@ -402,18 +547,11 @@ class ConductorServerEndpoint(object):
                 execution,
                 depends_on=[get_instance_info_task.id])
 
-            depends_on = [
-                validate_replica_source_inputs_task.id,
-                validate_replica_destination_inputs_task.id]
-            if shutdown_instances:
-                shutdown_instance_task = self._create_task(
-                    instance, constants.TASK_TYPE_SHUTDOWN_INSTANCE,
-                    execution, depends_on=depends_on)
-                depends_on = [shutdown_instance_task.id]
-
             deploy_replica_disks_task = self._create_task(
                 instance, constants.TASK_TYPE_DEPLOY_REPLICA_DISKS,
-                execution, depends_on=depends_on)
+                execution, depends_on=[
+                    validate_replica_source_inputs_task.id,
+                    validate_replica_destination_inputs_task.id])
 
             deploy_replica_source_resources_task = self._create_task(
                 instance,
@@ -424,16 +562,22 @@ class ConductorServerEndpoint(object):
                 instance,
                 constants.TASK_TYPE_DEPLOY_REPLICA_TARGET_RESOURCES,
                 execution, depends_on=[
-                    deploy_replica_disks_task.id,
-                    deploy_replica_source_resources_task.id])
+                    deploy_replica_disks_task.id])
+
+            depends_on = [
+                deploy_replica_source_resources_task.id,
+                deploy_replica_target_resources_task.id]
+            if shutdown_instances:
+                shutdown_instance_task = self._create_task(
+                    instance, constants.TASK_TYPE_SHUTDOWN_INSTANCE,
+                    execution, depends_on=depends_on)
+                depends_on = [shutdown_instance_task.id]
 
             replicate_disks_task = self._create_task(
                 instance, constants.TASK_TYPE_REPLICATE_DISKS,
-                execution, depends_on=[
-                    deploy_replica_source_resources_task.id,
-                    deploy_replica_target_resources_task.id])
+                execution, depends_on=depends_on)
 
-            delete_source_resources_task = self._create_task(
+            self._create_task(
                 instance,
                 constants.TASK_TYPE_DELETE_REPLICA_SOURCE_RESOURCES,
                 execution,
@@ -443,14 +587,22 @@ class ConductorServerEndpoint(object):
             self._create_task(
                 instance,
                 constants.TASK_TYPE_DELETE_REPLICA_TARGET_RESOURCES,
-                execution, depends_on=[
-                    replicate_disks_task.id, delete_source_resources_task.id],
+                execution, depends_on=[replicate_disks_task.id],
                 on_error=True)
 
+        self._check_execution_tasks_sanity(
+            execution, replica.info)
+
+        # update the action info for all of the Replicas:
+        for instance in execution.action.instances:
+            db_api.update_transfer_action_info_for_instance(
+                ctxt, replica.id, instance, replica.info[instance])
+
+        # add new execution to DB:
         db_api.add_replica_tasks_execution(ctxt, execution)
         LOG.info("Replica tasks execution created: %s", execution.id)
 
-        self._begin_tasks(ctxt, execution, replica.info)
+        self._begin_tasks(ctxt, execution, task_info=replica.info)
         return self.get_replica_tasks_execution(ctxt, replica_id, execution.id)
 
     @replica_synchronized
@@ -534,14 +686,14 @@ class ConductorServerEndpoint(object):
 
         if not has_tasks:
             raise exception.InvalidReplicaState(
-                "This replica does not have volumes information for any "
+                "Replica '%s' does not have volumes information for any "
                 "instance. Ensure that the replica has been executed "
-                "successfully priorly")
+                "successfully priorly" % replica_id)
 
         db_api.add_replica_tasks_execution(ctxt, execution)
         LOG.info("Replica tasks execution created: %s", execution.id)
 
-        self._begin_tasks(ctxt, execution, replica.info)
+        self._begin_tasks(ctxt, execution, task_info=replica.info)
         return self.get_replica_tasks_execution(ctxt, replica_id, execution.id)
 
     @staticmethod
@@ -567,7 +719,8 @@ class ConductorServerEndpoint(object):
         replica.source_environment = source_environment
         replica.instances = instances
         replica.executions = []
-        replica.info = {}
+        replica.info = {instance: {
+            'volumes_info': []} for instance in instances}
         replica.notes = notes
         replica.network_map = network_map
         replica.storage_mappings = storage_mappings
@@ -599,15 +752,16 @@ class ConductorServerEndpoint(object):
     @staticmethod
     def _check_running_replica_migrations(ctxt, replica_id):
         migrations = db_api.get_replica_migrations(ctxt, replica_id)
-        if [m.id for m in migrations if m.executions[0].status ==
-                constants.EXECUTION_STATUS_RUNNING]:
+        if [m.id for m in migrations if m.executions[0].status in (
+                constants.ACTIVE_EXECUTION_STATUSES)]:
             raise exception.InvalidReplicaState(
                 "This replica is currently being migrated")
 
     @staticmethod
     def _check_running_executions(action):
-        if [e for e in action.executions
-                if e.status == constants.EXECUTION_STATUS_RUNNING]:
+        if [
+                e for e in action.executions
+                if e.status in constants.ACTIVE_EXECUTION_STATUSES]:
             raise exception.InvalidActionTasksExecutionState(
                 "Another tasks execution is in progress")
 
@@ -753,10 +907,11 @@ class ConductorServerEndpoint(object):
                     depends_on=[cleanup_deployment_task.id],
                     on_error=True)
 
+        self._check_execution_tasks_sanity(execution, migration.info)
         db_api.add_migration(ctxt, migration)
         LOG.info("Migration created: %s", migration.id)
 
-        self._begin_tasks(ctxt, execution, migration.info)
+        self._begin_tasks(ctxt, execution, task_info=migration.info)
 
         return self.get_migration(ctxt, migration.id)
 
@@ -809,22 +964,24 @@ class ConductorServerEndpoint(object):
             migration, licensing_client.RESERVATION_TYPE_MIGRATION)
 
         for instance in instances:
-            # NOTE: we must explicitly set this in each VM's info
-            # to prevent the Replica disks from being cloned:
-            migration.info[instance] = {"clone_disks": False}
-            scripts = self._get_instance_scripts(user_scripts, instance)
-            migration.info[instance]["user_scripts"] = scripts
-
-            validate_migration_source_inputs_task = self._create_task(
-                instance,
-                constants.TASK_TYPE_VALIDATE_MIGRATION_SOURCE_INPUTS,
-                execution)
+            migration.info[instance] = {
+                "volumes_info": [],
+                "source_environment": source_environment,
+                "target_environment": destination_environment,
+                "user_scripts": self._get_instance_scripts(
+                    user_scripts, instance),
+                # NOTE: we must explicitly set this in each VM's info
+                # to prevent the Replica disks from being cloned:
+                "clone_disks": False}
+                # TODO(aznashwan): have these passed separately to the tasks
+                # (they're currently passed inside the dest-env)
+                # "network_map": network_map,
+                # "storage_mappings": storage_mappings,
 
             get_instance_info_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_GET_INSTANCE_INFO,
-                execution,
-                depends_on=[validate_migration_source_inputs_task.id])
+                execution)
 
             validate_migration_destination_inputs_task = self._create_task(
                 instance,
@@ -832,33 +989,35 @@ class ConductorServerEndpoint(object):
                 execution,
                 depends_on=[get_instance_info_task.id])
 
-            depends_on = [
-                validate_migration_source_inputs_task.id,
-                validate_migration_destination_inputs_task.id]
-
-            create_instance_disks_task = self._create_task(
-                instance, constants.TASK_TYPE_CREATE_INSTANCE_DISKS,
-                execution, depends_on=depends_on)
+            validate_migration_source_inputs_task = self._create_task(
+                instance,
+                constants.TASK_TYPE_VALIDATE_MIGRATION_SOURCE_INPUTS,
+                execution)
 
             deploy_migration_source_resources_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_DEPLOY_MIGRATION_SOURCE_RESOURCES,
-                execution, depends_on=[create_instance_disks_task.id])
+                execution, depends_on=[validate_migration_source_inputs_task.id])
+
+            create_instance_disks_task = self._create_task(
+                instance, constants.TASK_TYPE_CREATE_INSTANCE_DISKS,
+                execution, depends_on=[
+                    validate_migration_source_inputs_task.id,
+                    validate_migration_destination_inputs_task.id])
 
             deploy_migration_target_resources_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_DEPLOY_MIGRATION_TARGET_RESOURCES,
-                execution, depends_on=[
-                    create_instance_disks_task.id,
-                    deploy_migration_source_resources_task.id])
+                execution, depends_on=[create_instance_disks_task.id])
 
             # NOTE(aznashwan): re-executing the REPLICATE_DISKS task only works
             # if all the source disk snapshotting and worker setup steps are
             # performed by the source plugin in REPLICATE_DISKS.
             # This should no longer be a problem when worker pooling lands.
-            # Alternatively, if the DEPLOY_REPLICA_SOURCE/DEST_RESOURCES tasks
-            # will no longer have a state conflict, iterating through and
-            # re-executing DEPLOY_REPLICA_SOURCE_RESOURCES will be required:
+            # Alternatively, REPLICATE_DISKS could be modfied to re-use the
+            # resources deployed during 'DEPLOY_SOURCE_RESOURCES'.
+            # These are currently not even passed to REPLICATE_DISKS (just
+            # their connection info), and should be fixed later.
             last_migration_task = None
             migration_resources_tasks = [
                 deploy_migration_source_resources_task.id,
@@ -892,17 +1051,16 @@ class ConductorServerEndpoint(object):
                 instance,
                 constants.TASK_TYPE_DELETE_MIGRATION_TARGET_RESOURCES,
                 execution, depends_on=[
-                    last_migration_task.id,
-                    delete_source_resources_task.id],
+                    last_migration_task.id],
                 on_error=True)
 
             deploy_instance_task = self._create_task(
                 instance, constants.TASK_TYPE_DEPLOY_INSTANCE_RESOURCES,
                 execution, depends_on=[
-                    delete_source_resources_task.id,
                     delete_destination_resources_task.id])
 
             last_task = deploy_instance_task
+            task_delete_os_morphing_resources = None
             if not skip_os_morphing:
                 task_deploy_os_morphing_resources = self._create_task(
                     instance, constants.TASK_TYPE_DEPLOY_OS_MORPHING_RESOURCES,
@@ -938,17 +1096,23 @@ class ConductorServerEndpoint(object):
                 execution, depends_on=[finalize_deployment_task.id],
                 on_error_only=True)
 
+            cleanup_deps = [
+                create_instance_disks_task.id,
+                delete_destination_resources_task.id,
+                cleanup_failed_deployment_task.id]
+            if not skip_os_morphing:
+                cleanup_deps.append(task_delete_os_morphing_resources.id)
             self._create_task(
                 instance, constants.TASK_TYPE_CLEANUP_INSTANCE_STORAGE,
-                execution, depends_on=[
-                    create_instance_disks_task.id,
-                    cleanup_failed_deployment_task.id],
+                execution, depends_on=cleanup_deps,
                 on_error_only=True)
 
+        self._check_execution_tasks_sanity(
+            execution, migration.info)
         db_api.add_migration(ctxt, migration)
-        LOG.info("Migration created: %s", migration.id)
 
-        self._begin_tasks(ctxt, execution)
+        LOG.info("Migration created: %s", migration.id)
+        self._begin_tasks(ctxt, execution, task_info=migration.info)
 
         return self.get_migration(ctxt, migration.id)
 
@@ -983,7 +1147,8 @@ class ConductorServerEndpoint(object):
         self._cancel_tasks_execution(ctxt, execution, force)
         self._check_delete_reservation_for_transfer(migration)
 
-    def _cancel_tasks_execution(self, ctxt, execution, force=False):
+    def _cancel_tasks_execution(
+            self, ctxt, execution, requery=True, force=False):
         """ Cancels a running Execution by:
         - telling workers to kill any already running non-on-error tasks
         - cancelling any non-on-error tasks which are pending
@@ -995,13 +1160,15 @@ class ConductorServerEndpoint(object):
         LOG.debug(
             "Cancelling tasks execution %s. Current status before "
             "cancellation is '%s'", execution.id, execution.status)
-
         # mark execution as cancelling:
         self._set_tasks_execution_status(
             ctxt, execution.id, constants.EXECUTION_STATUS_CANCELLING)
         # iterate through and kill/cancel any non-error
         # tasks which are running/pending:
         for task in execution.tasks:
+            if requery:
+                task = db_api.get_task(ctxt, task.id)
+
             if force and task.status == constants.TASK_STATUS_CANCELLING:
                 LOG.warn(
                     "Task '%s' is in %s state, but forcibly setting to "
@@ -1080,10 +1247,12 @@ class ConductorServerEndpoint(object):
         """ Saves the ID of the worker host which has accepted and started
         the task to the DB and marks the task as 'RUNNING'. """
         task = db_api.get_task(ctxt, task_id)
-        if task.status != constants.TASK_STATUS_SCHEDULED:
+        if task.status == constants.TASK_STATUS_CANCELLING:
+            raise exception.TaskIsCancelling(task_id=task_id)
+        elif task.status != constants.TASK_STATUS_SCHEDULED:
             raise exception.InvalidTaskState(
                 "Task with ID '%s' is in '%s' status instead of the "
-                "expected '%s' required for it to be executed." % (
+                "expected '%s' required for it to have a task host set." % (
                     task_id, task.status, constants.TASK_STATUS_SCHEDULED))
         db_api.set_task_host(ctxt, task_id, host, process_id)
         db_api.set_task_status(
@@ -1107,7 +1276,7 @@ class ConductorServerEndpoint(object):
         determined_state = constants.EXECUTION_STATUS_RUNNING
         status_vals = task_statuses.values()
         if constants.TASK_STATUS_PENDING in status_vals and (
-                constants.TASK_STATUS_RUNNING not in status_vals or (
+                constants.TASK_STATUS_RUNNING not in status_vals and (
                     constants.TASK_STATUS_SCHEDULED not in status_vals)):
             LOG.warn(
                 "Execution '%s' is deadlocked. Task statuses are: %s",
@@ -1382,7 +1551,7 @@ class ConductorServerEndpoint(object):
     def _update_replica_volumes_info(self, ctxt, replica_id, instance,
                                      updated_task_info):
         """ WARN: the lock for the Replica must be pre-acquired. """
-        db_api.set_transfer_action_info(
+        db_api.update_transfer_action_info_for_instance(
             ctxt, replica_id, instance,
             updated_task_info)
 
@@ -1398,7 +1567,8 @@ class ConductorServerEndpoint(object):
             self._update_replica_volumes_info(
                 ctxt, replica_id, instance, updated_task_info)
 
-    def _handle_post_task_actions(self, ctxt, task, execution, task_info):
+    def _handle_post_task_actions(
+            self, ctxt, task, execution, task_info):
         task_type = task.task_type
 
         if task_type == constants.TASK_TYPE_RESTORE_REPLICA_DISK_SNAPSHOTS:
@@ -1451,8 +1621,6 @@ class ConductorServerEndpoint(object):
         elif task_type in (
                 constants.TASK_TYPE_UPDATE_SOURCE_REPLICA,
                 constants.TASK_TYPE_UPDATE_DESTINATION_REPLICA):
-            # NOTE: perform the actual db update on the Replica's properties:
-            db_api.update_replica(ctxt, execution.action_id, task_info)
             # NOTE: remember to update the `volumes_info`:
             # NOTE: considering this method is only called with a lock on the
             # `execution.action_id` (in a Replica update tasks' case that's the
@@ -1460,25 +1628,54 @@ class ConductorServerEndpoint(object):
             # `_update_replica_volumes_info` below:
             self._update_replica_volumes_info(
                 ctxt, execution.action_id, task.instance,
-                {"volumes_info": task_info.get("volumes_info")})
+                {"volumes_info": task_info.get("volumes_info", [])})
+
+            if task_type == constants.TASK_TYPE_UPDATE_DESTINATION_REPLICA:
+                # check if this was the last task in the update execution:
+                still_running = False
+                for other_task in execution.tasks:
+                    if other_task.id == task.id:
+                        continue
+                    if other_task.status in constants.ACTIVE_TASK_STATUSES:
+                        still_running = True
+                        break
+                if not still_running:
+                    # it means this was the last update task in the Execution
+                    # and we may safely update the params of the Replica
+                    # as they are in the DB:
+                    db_api.update_replica(
+                        ctxt, execution.action_id, task_info)
 
     @task_and_execution_synchronized
-    def task_completed(self, ctxt, task_id, task_info):
+    def task_completed(self, ctxt, task_id, task_result):
         LOG.info("Task completed: %s", task_id)
 
         db_api.set_task_status(
             ctxt, task_id, constants.TASK_STATUS_COMPLETED)
-
         task = db_api.get_task(ctxt, task_id)
 
         execution = db_api.get_tasks_execution(ctxt, task.execution_id)
         action_id = execution.action_id
         with lockutils.lock(action_id):
-            LOG.info("Setting instance %(instance)s "
-                     "action info: %(task_info)s",
-                     {"instance": task.instance, "task_info": task_info})
-            updated_task_info = db_api.set_transfer_action_info(
-                ctxt, action_id, task.instance, task_info)
+            updated_task_info = None
+            if task_result:
+                LOG.info(
+                    "Setting task %(task_id)s result for instance %(instance)s "
+                    "into action %(action_id)s info: %(task_result)s", {
+                        "task_id": task_id,
+                        "instance": task.instance,
+                        "action_id": action_id,
+                        "task_result": task_result})
+                updated_task_info = (
+                    db_api.update_transfer_action_info_for_instance(
+                        ctxt, action_id, task.instance, task_result))
+            else:
+                action = db_api.get_action(ctxt, action_id)
+                updated_task_info = action.info[task.instance]
+                LOG.info(
+                    "Task '%s' for instance '%s' of transfer action '%s' "
+                    "has completed successfuly but has not returned "
+                    "any result.", task.id, task.instance, action_id)
 
             self._handle_post_task_actions(
                 ctxt, task, execution, updated_task_info)
@@ -1564,7 +1761,8 @@ class ConductorServerEndpoint(object):
                         action_id, action.info.get(task.instance, {}).get(
                             'osmorphing_connection_info', {}))
                     self._set_tasks_execution_status(
-                        ctxt, execution.id, constants.EXECUTION_STATUS_ERROR)
+                        ctxt, execution.id,
+                        constants.EXECUTION_STATUS_CANCELED_FOR_DEBUGGING)
                 else:
                     LOG.warn(
                         "Some tasks are running in parallel with the "
@@ -1660,7 +1858,7 @@ class ConductorServerEndpoint(object):
 
     @replica_synchronized
     def update_replica(
-            self, ctxt, replica_id, properties):
+            self, ctxt, replica_id, updated_properties):
         replica = self._get_replica(ctxt, replica_id)
         self._check_replica_running_executions(ctxt, replica)
         self._check_valid_replica_tasks_execution(replica, force=True)
@@ -1670,15 +1868,32 @@ class ConductorServerEndpoint(object):
         execution.action = replica
         execution.type = constants.EXECUTION_TYPE_REPLICA_UPDATE
 
-        LOG.debug(
-            "Replica '%s' info pre-replica-update: %s",
-            replica_id, replica.info)
         for instance in execution.action.instances:
+            LOG.debug(
+                "Pre-replica-update task_info for instance '%s' of Replica "
+                "'%s': %s", instance, replica_id,
+                utils.filter_chunking_info_for_task(
+                    replica.info[instance]))
             # NOTE: "circular assignment" would lead to a `None` value
             # so we must operate on a copy:
             inst_info_copy = copy.deepcopy(replica.info[instance])
-            inst_info_copy.update(properties)
+            # NOTE: we update the various values in the task info itself
+            # As a result, the values within the task_info will be the updated
+            # values which will be checked. The old values will be send to the
+            # tasks through the origin/destination parameters for them to be
+            # compared to the new ones.
+            # The actual values on the Replica object itself will be set
+            # during _handle_post_task_actions once the final destination-side
+            # update task will be completed.
+            inst_info_copy.update(updated_properties)
             replica.info[instance] = inst_info_copy
+
+            LOG.debug(
+                "Updated task_info for instance '%s' of Replica "
+                "'%s' which will be verified during update procedure: %s",
+                instance, replica_id, utils.filter_chunking_info_for_task(
+                    replica.info[instance]))
+
             get_instance_info_task = self._create_task(
                 instance, constants.TASK_TYPE_GET_INSTANCE_INFO,
                 execution)
@@ -1690,14 +1905,16 @@ class ConductorServerEndpoint(object):
                 execution,
                 depends_on=[
                     get_instance_info_task.id,
+                    # NOTE: the dest-side update task must be done after
+                    # the source-side one as both can potentially modify
+                    # the 'volumes_info' together:
                     update_source_replica_task.id])
-        LOG.debug(
-            "Replica '%s' info post-replica-update: %s",
-            replica_id, replica.info)
+
+        self._check_execution_tasks_sanity(execution, replica.info)
         db_api.add_replica_tasks_execution(ctxt, execution)
         LOG.debug("Execution for Replica update tasks created: %s",
                   execution.id)
-        self._begin_tasks(ctxt, execution, replica.info)
+        self._begin_tasks(ctxt, execution, task_info=replica.info)
         return self.get_replica_tasks_execution(ctxt, replica_id, execution.id)
 
     def get_diagnostics(self, ctxt):
