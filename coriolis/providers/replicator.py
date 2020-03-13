@@ -467,6 +467,11 @@ class Replicator(object):
             raise exception.CoriolisException(
                 "Either password or pkey is required")
 
+        if pkey:
+            if type(pkey) is str:
+                pkey = utils.deserialize_key(
+                    pkey, CONF.serialization.temp_keypair_password)
+
         args = {
             "hostname": conn_info["ip"],
             "username": conn_info["username"],
