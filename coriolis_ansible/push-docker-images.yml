@@ -14,6 +14,7 @@
       delay: 5
       until: result is succeeded
       with_items:
+        - "coriolis-compressor"
         - "coriolis-common"
         - "coriolis-api"
         - "coriolis-conductor"
