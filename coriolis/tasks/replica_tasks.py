@@ -16,7 +16,7 @@ LOG = logging.getLogger(__name__)
 
 
 def _get_volumes_info(task_info):
-    volumes_info = task_info.get("volumes_info")
+    volumes_info = task_info.get("volumes_info", [])
     if not volumes_info:
         raise exception.InvalidActionTasksExecutionState(
             "No volumes information present")
@@ -48,10 +48,10 @@ def _check_ensure_volumes_info_ordering(export_info, volumes_info):
         ordered_volumes_info.append(matching_volumes[0])
 
     vol_info_cpy = utils.filter_chunking_info_for_task(
-        {"volumes_info": volumes_info}).get("volumes_info")
+        {"volumes_info": volumes_info}).get("volumes_info", [])
 
     ordered_vol_info_cpy = utils.filter_chunking_info_for_task(
-        {"volumes_info": ordered_volumes_info}).get("volumes_info")
+        {"volumes_info": ordered_volumes_info}).get("volumes_info", [])
 
     LOG.debug(
         "volumes_info returned by provider for instance "
@@ -198,7 +198,7 @@ class DeployReplicaDisksTask(base.TaskRunner):
             event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
 
-        volumes_info = task_info.get("volumes_info")
+        volumes_info = task_info.get("volumes_info", [])
         volumes_info = provider.deploy_replica_disks(
             ctxt, connection_info, target_environment, instance, export_info,
             volumes_info)

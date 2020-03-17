@@ -533,10 +533,15 @@ class ConductorServerEndpoint(object):
         execution.type = constants.EXECUTION_TYPE_REPLICA_EXECUTION
 
         for instance in execution.action.instances:
-            # NOTE: we update all of the param values before triggering an
-            # execution to ensure that the latest parameters are used:
+            # NOTE: we default/convert the volumes info to an empty list
+            # to preserve backwards-compatibility with older versions
+            # of Coriolis dating before the scheduling overhaul (PR##114)
             if instance not in replica.info:
                 replica.info[instance] = {'volumes_info': []}
+            elif replica.info[instance].get('volumes_info') is None:
+                 replica.info[instance]['volumes_info'] = []
+            # NOTE: we update all of the param values before triggering an
+            # execution to ensure that the latest parameters are used:
             replica.info[instance].update({
                 "source_environment": replica.source_environment,
                 "target_environment": replica.destination_environment})
@@ -1666,7 +1671,7 @@ class ConductorServerEndpoint(object):
             # When restoring a snapshot in some import providers (OpenStack),
             # a new volume_id is generated. This needs to be updated in the
             # Replica instance as well.
-            volumes_info = task_info.get("volumes_info")
+            volumes_info = task_info.get("volumes_info", [])
             if volumes_info:
                 self._update_volumes_info_for_migration_parent_replica(
                     ctxt, execution.action_id, task.instance,
@@ -1680,7 +1685,7 @@ class ConductorServerEndpoint(object):
                 # ones.
                 self._update_volumes_info_for_migration_parent_replica(
                     ctxt, execution.action_id, task.instance,
-                    {"volumes_info": None})
+                    {"volumes_info": []})
 
         elif task_type in (
                 constants.TASK_TYPE_FINALIZE_REPLICA_INSTANCE_DEPLOYMENT,
