@@ -220,7 +220,8 @@ class ConductorServerEndpoint(object):
     def get_endpoint(self, ctxt, endpoint_id):
         endpoint = db_api.get_endpoint(ctxt, endpoint_id)
         if not endpoint:
-            raise exception.NotFound("Endpoint not found")
+            raise exception.NotFound(
+                "Endpoint with ID '%s' not found." % endpoint_id)
         return endpoint
 
     @endpoint_synchronized
@@ -666,7 +667,9 @@ class ConductorServerEndpoint(object):
         execution = db_api.get_replica_tasks_execution(
             ctxt, replica_id, execution_id)
         if not execution:
-            raise exception.NotFound("Tasks execution not found")
+            raise exception.NotFound(
+                "Execution with ID '%s' for Replica '%s' not found." % (
+                    execution_id, replica_id))
         return execution
 
     def get_replicas(self, ctxt, include_tasks_executions=False):
@@ -697,7 +700,7 @@ class ConductorServerEndpoint(object):
         has_tasks = False
         for instance in replica.instances:
             if (instance in replica.info and
-                    "volumes_info" in replica.info[instance]):
+                    replica.info[instance].get('volumes_info')):
                 self._create_task(
                     instance, constants.TASK_TYPE_DELETE_REPLICA_DISKS,
                     execution)
@@ -706,7 +709,7 @@ class ConductorServerEndpoint(object):
         if not has_tasks:
             raise exception.InvalidReplicaState(
                 "Replica '%s' does not have volumes information for any "
-                "instance. Ensure that the replica has been executed "
+                "instances. Ensure that the replica has been executed "
                 "successfully priorly" % replica_id)
 
         db_api.add_replica_tasks_execution(ctxt, execution)
@@ -754,7 +757,8 @@ class ConductorServerEndpoint(object):
     def _get_replica(self, ctxt, replica_id):
         replica = db_api.get_replica(ctxt, replica_id)
         if not replica:
-            raise exception.NotFound("Replica not found")
+            raise exception.NotFound(
+                "Replica with ID '%s' not found." % replica_id)
         return replica
 
     def get_migrations(self, ctxt, include_tasks,
@@ -1150,7 +1154,8 @@ class ConductorServerEndpoint(object):
     def _get_migration(self, ctxt, migration_id):
         migration = db_api.get_migration(ctxt, migration_id)
         if not migration:
-            raise exception.NotFound("Migration not found")
+            raise exception.NotFound(
+                "Migration with ID '%s' not found." % migration_id)
         return migration
 
     @migration_synchronized
@@ -1258,8 +1263,9 @@ class ConductorServerEndpoint(object):
             else:
                 LOG.debug(
                     "No action currently taken with respect to task '%s' "
-                    "(status '%s') during cancellation of execution '%s'",
-                    task.id, task.status, execution.id)
+                    "(status '%s', on_error=%s) during cancellation of "
+                    "execution '%s'",
+                    task.id, task.status, task.on_error, execution.id)
 
         started_tasks = self._advance_execution_state(ctxt, execution)
         if started_tasks:
@@ -1892,7 +1898,9 @@ class ConductorServerEndpoint(object):
         schedule = db_api.get_replica_schedule(
             ctxt, replica_id, schedule_id, expired=expired)
         if not schedule:
-            raise exception.NotFound("Schedule not found")
+            raise exception.NotFound(
+                "Schedule with ID '%s' for Replica '%s' not found." %  (
+                    schedule_id, replica_id))
         return schedule
 
     def create_replica_schedule(self, ctxt, replica_id,
@@ -1948,11 +1956,8 @@ class ConductorServerEndpoint(object):
     @schedule_synchronized
     def get_replica_schedule(self, ctxt, replica_id,
                              schedule_id, expired=True):
-        schedule = self._get_replica_schedule(
-            ctxt, replica_id, schedule_id, expired=True)
-        if not schedule:
-            raise exception.NotFound("Schedule not found")
-        return schedule
+        return self._get_replica_schedule(
+            ctxt, replica_id, schedule_id, expired=expired)
 
     @replica_synchronized
     def update_replica(
