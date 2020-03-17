@@ -243,7 +243,9 @@ class DeleteReplicaDisksTask(base.TaskRunner):
         if volumes_info:
             LOG.warn(
                 "'volumes_info' should have been void after disk "
-                "deletion: %s" % volumes_info)
+                "deletion task but it is: %s" % volumes_info)
+        elif volumes_info is None:
+            volumes_info = []
 
         return {
             'volumes_info': volumes_info}
