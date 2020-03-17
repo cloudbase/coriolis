@@ -609,8 +609,7 @@ class ConductorServerEndpoint(object):
                     replicate_disks_task.id],
                 on_error=True)
 
-        self._check_execution_tasks_sanity(
-            execution, replica.info)
+        self._check_execution_tasks_sanity(execution, replica.info)
 
         # update the action info for all of the Replicas:
         for instance in execution.action.instances:
@@ -712,6 +711,7 @@ class ConductorServerEndpoint(object):
                 "instances. Ensure that the replica has been executed "
                 "successfully priorly" % replica_id)
 
+        self._check_execution_tasks_sanity(execution, replica.info)
         db_api.add_replica_tasks_execution(ctxt, execution)
         LOG.info("Replica tasks execution created: %s", execution.id)
 
@@ -1142,8 +1142,7 @@ class ConductorServerEndpoint(object):
                 execution, depends_on=cleanup_deps,
                 on_error_only=True)
 
-        self._check_execution_tasks_sanity(
-            execution, migration.info)
+        self._check_execution_tasks_sanity(execution, migration.info)
         db_api.add_migration(ctxt, migration)
 
         LOG.info("Migration created: %s", migration.id)

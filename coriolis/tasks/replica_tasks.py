@@ -228,7 +228,7 @@ class DeleteReplicaDisksTask(base.TaskRunner):
         if not task_info.get("volumes_info"):
             LOG.debug(
                 "No volumes_info present. Skipping disk deletion.")
-            return task_info
+            return {'volumes_info': []}
 
         provider = providers_factory.get_provider(
             destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
@@ -644,7 +644,7 @@ class ValidateReplicaExecutionDestinationInputsTask(base.TaskRunner):
             event_manager.progress_update(
                 "Replica Import Provider for platform '%s' does not support "
                 "Replica input validation" % destination_type)
-            return task_info
+            return {}
 
         export_info = task_info.get("export_info")
         if not export_info:
@@ -692,7 +692,7 @@ class ValidateReplicaDeploymentParametersTask(base.TaskRunner):
                 "Replica Deployment Provider for platform '%s' does not "
                 "support Replica Deployment input validation" % (
                     destination_type))
-            return task_info
+            return {}
 
         # NOTE: the target environment JSON schema should have been validated
         # upon accepting the Replica API creation request.
@@ -717,10 +717,11 @@ class UpdateSourceReplicaTask(base.TaskRunner):
              event_handler):
         event_manager = events.EventManager(event_handler)
         new_source_env = task_info.get('source_environment', {})
+        volumes_info = task_info.get("volumes_info", [])
         if not new_source_env:
             event_manager.progress_update(
                 "No new source environment options provided")
-            return task_info
+            return {'volumes_info': volumes_info}
 
         source_provider = providers_factory.get_provider(
             origin["type"], constants.PROVIDER_TYPE_SOURCE_REPLICA_UPDATE,
@@ -731,7 +732,6 @@ class UpdateSourceReplicaTask(base.TaskRunner):
                 " updating Replicas" % origin["type"])
 
         origin_connection_info = base.get_connection_info(ctxt, origin)
-        volumes_info = task_info.get("volumes_info", [])
 
         LOG.info("Checking source provider environment params")
         # NOTE: the `source_environment` in the `origin` is the one set
@@ -764,10 +764,11 @@ class UpdateDestinationReplicaTask(base.TaskRunner):
             event_handler):
         event_manager = events.EventManager(event_handler)
         new_destination_env = task_info.get('target_environment', {})
+        volumes_info = task_info.get("volumes_info", [])
         if not new_destination_env:
             event_manager.progress_update(
                 "No new destination environment options provided")
-            return task_info
+            return {"volumes_info": volumes_info}
 
         destination_provider = providers_factory.get_provider(
             destination["type"],
@@ -781,7 +782,6 @@ class UpdateDestinationReplicaTask(base.TaskRunner):
         destination_connection_info = base.get_connection_info(
             ctxt, destination)
         export_info = task_info.get("export_info", {})
-        volumes_info = task_info.get("volumes_info", [])
 
         LOG.info("Checking destination provider environment params")
         # NOTE: the `target_environment` in the `destination` is the one
