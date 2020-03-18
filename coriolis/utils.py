@@ -580,15 +580,31 @@ def filter_chunking_info_for_task(task_info):
     """ Returns a copy of the given task info with any chunking
     info on volumes removed.
     """
-    cpy = copy.deepcopy(task_info)
-    if not cpy.get("volumes_info"):
-        return cpy
+    new = {}
+    for key in task_info.keys():
+        if key != "volumes_info":
+            new[key] = copy.deepcopy(task_info[key])
 
-    for vol in cpy['volumes_info']:
-        if vol.get("replica_state", {}).get("chunks"):
-            vol["replica_state"]["chunks"] = "<redacted>"
+    if 'volumes_info' in task_info:
+        new['volumes_info'] = []
+        for vol in task_info['volumes_info']:
+            vol_cpy = {}
+            for key in vol:
+                if key != "replica_state":
+                    vol_cpy[key] = copy.deepcopy(vol[key])
+                else:
+                    vol_cpy['replica_state'] = {}
+                    for statekey in vol['replica_state']:
+                        if statekey != "chunks":
+                            vol_cpy['replica_state'][statekey] = (
+                                copy.deepcopy(
+                                    vol['replica_state'][statekey]))
+                        else:
+                            vol_cpy['replica_state']["chunks"] = (
+                                ["<redacted>"])
+            new['volumes_info'].append(vol_cpy)
 
-    return cpy
+    return new
 
 
 def _write_systemd(ssh, cmdline, svcname, run_as=None, start=True):

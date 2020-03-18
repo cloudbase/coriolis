@@ -109,7 +109,8 @@ class TaskRunner(with_metaclass(abc.ABCMeta)):
                 "Task type '%s' failed to return the following "
                 "declared return values in its result: %s. "
                 "Result was: %s" % (
-                    self.__class__, missing_returns, result))
+                    self.__class__, missing_returns,
+                    utils.filter_chunking_info_for_task(result)))
 
         undeclared_returns = [
             prop for prop in result.keys()

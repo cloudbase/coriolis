@@ -1243,19 +1243,35 @@ class ConductorServerEndpoint(object):
                     ctxt, task.id, constants.TASK_STATUS_FORCE_CANCELED)
                 continue
 
-            if not task.on_error:
-                # cancel any currently running/pending tasks:
-                if task.status in (
-                        constants.TASK_STATUS_RUNNING,
-                        constants.TASK_STATUS_PENDING):
+            if task.status in (
+                    constants.TASK_STATUS_RUNNING,
+                    constants.TASK_STATUS_PENDING):
+                # cancel any currently running/pending non-error tasks:
+                if not task.on_error:
                     LOG.debug(
-                        "Killing %s task '%s' as part of "
+                        "Killing %s non-error task '%s' as part of "
                         "cancellation of execution '%s'",
                         task.status, task.id, execution.id)
                     db_api.set_task_status(
                         ctxt, task.id, constants.TASK_STATUS_CANCELLING)
                     self._rpc_worker_client.cancel_task(
                         ctxt, task.host, task.id, task.process_id, force)
+                # let any on-error tasks run to completion but mark
+                # them as CANCELLING_AFTER_COMPLETION so they will
+                # be marked as cancelled once they are completed:
+                else:
+                    LOG.debug(
+                        "Marking %s on-error task %s as %s as part of "
+                        "cancellation of execution  %s",
+                        task.status, task.id,
+                        constants.TASK_STATUS_CANCELLING_AFTER_COMPLETION,
+                        execution.id)
+                    db_api.set_task_status(
+                        ctxt, task.id,
+                        constants.TASK_STATUS_CANCELLING_AFTER_COMPLETION,
+                        exception_details=(
+                            "Task will be marked as cancelled after completion"
+                            " as it is a cleanup task."))
             elif task.status == constants.TASK_STATUS_ON_ERROR_ONLY:
                 # mark all on-error-only tasks as scheduled:
                 LOG.debug(
@@ -1296,8 +1312,24 @@ class ConductorServerEndpoint(object):
         """ Saves the ID of the worker host which has accepted and started
         the task to the DB and marks the task as 'RUNNING'. """
         task = db_api.get_task(ctxt, task_id)
+        new_status = constants.TASK_STATUS_RUNNING
+        exception_details = None
         if task.status == constants.TASK_STATUS_CANCELLING:
             raise exception.TaskIsCancelling(task_id=task_id)
+        elif task.status == constants.TASK_STATUS_CANCELLING_AFTER_COMPLETION:
+            if not task.on_error:
+                LOG.warn(
+                    "Non-error task '%s' was in '%s' status although it should"
+                    " not have been. Setting a task host for it anyway.",
+                    task.id, task.status)
+            LOG.debug(
+                "Task '%s' is in %s status, so it will be allowed to "
+                "have a host set for it and run to completion.",
+                task.id, task.status)
+            new_status = constants.TASK_STATUS_CANCELLING_AFTER_COMPLETION
+            exception_details = (
+                "This is a cleanup task so it will be allowed to run to "
+                "completion despite user-cancellation.")
         elif task.status != constants.TASK_STATUS_PENDING:
             raise exception.InvalidTaskState(
                 "Task with ID '%s' is in '%s' status instead of the "
@@ -1305,7 +1337,8 @@ class ConductorServerEndpoint(object):
                     task_id, task.status, constants.TASK_STATUS_PENDING))
         db_api.set_task_host(ctxt, task_id, host, process_id)
         db_api.set_task_status(
-            ctxt, task_id, constants.TASK_STATUS_RUNNING)
+            ctxt, task_id, new_status,
+            exception_details=exception_details)
 
     def _check_clean_execution_deadlock(
             self, ctxt, execution, task_statuses=None, requery=True):
@@ -1380,7 +1413,9 @@ class ConductorServerEndpoint(object):
                 is_canceled = True
             if task.status == constants.TASK_STATUS_ERROR:
                 is_errord = True
-            if task.status == constants.TASK_STATUS_CANCELLING:
+            if task.status in (
+                    constants.TASK_STATUS_CANCELLING,
+                    constants.TASK_STATUS_CANCELLING_AFTER_COMPLETION):
                 is_cancelling = True
             if task.status == constants.TASK_STATUS_SCHEDULED:
                 has_scheduled_tasks = True
@@ -1747,22 +1782,39 @@ class ConductorServerEndpoint(object):
         LOG.info("Task completed: %s", task_id)
 
         task = db_api.get_task(ctxt, task_id)
-        if task.status != constants.TASK_STATUS_RUNNING:
-            LOG.warn(
-                "Task '%s' was in '%s' state instead of the expected "
-                "RUNNING state. Marking as COMPLETED anyway.",
-                task_id, task.status)
-
-        db_api.set_task_status(
-            ctxt, task_id, constants.TASK_STATUS_COMPLETED)
-        task = db_api.get_task(ctxt, task_id)
+        if task.status == constants.TASK_STATUS_CANCELLING_AFTER_COMPLETION:
+            if not task.on_error:
+                LOG.warn(
+                    "Non-error task '%s' was marked as %s although it should "
+                    "not have. Running to completion anyway.",
+                    task.id, task.status)
+            LOG.info(
+                "On-error task '%s' which was in '%s' has just completed "
+                "successfully.  Marking it as '%s' as a final status, "
+                "but processing its result as if it completed successfully.",
+                task_id, task.status,
+                constants.TASK_STATUS_CANCELED_AFTER_COMPLETION)
+            db_api.set_task_status(
+                ctxt, task_id, constants.TASK_STATUS_CANCELED_AFTER_COMPLETION,
+                exception_details=(
+                    "This is a cleanup task so it was allowed to run to "
+                    "completion after user-cancellation."))
+        else:
+            if task.status != constants.TASK_STATUS_RUNNING:
+                LOG.warn(
+                    "Task '%s' was in '%s' state instead of the expected "
+                    "RUNNING state. Marking as COMPLETED anyway.",
+                    task_id, task.status)
+            db_api.set_task_status(
+                ctxt, task_id, constants.TASK_STATUS_COMPLETED)
 
         execution = db_api.get_tasks_execution(ctxt, task.execution_id)
-        action_id = execution.action_id
-        action = db_api.get_action(ctxt, action_id)
         with lockutils.lock(
                 constants.EXECUTION_TYPE_TO_ACTION_LOCK_NAME_FORMAT_MAP[
-                    execution.type] % action_id):
+                    execution.type] % execution.action_id):
+            action_id = execution.action_id
+            action = db_api.get_action(ctxt, action_id)
+
             updated_task_info = None
             if task_result:
                 LOG.info(
@@ -1771,10 +1823,13 @@ class ConductorServerEndpoint(object):
                         "task_id": task_id,
                         "instance": task.instance,
                         "action_id": action_id,
-                        "task_result": task_result})
+                        "task_result": utils.filter_chunking_info_for_task(
+                            task_result)})
                 updated_task_info = (
                     db_api.update_transfer_action_info_for_instance(
-                        ctxt, action_id, task.instance, task_result))
+                        ctxt, action_id, task.instance,
+                        utils.filter_chunking_info_for_task(
+                            task_result)))
             else:
                 action = db_api.get_action(ctxt, action_id)
                 updated_task_info = action.info[task.instance]
@@ -1783,6 +1838,8 @@ class ConductorServerEndpoint(object):
                     "has completed successfuly but has not returned "
                     "any result.", task.id, task.instance, action_id)
 
+            # NOTE: refresh the execution just in case:
+            execution = db_api.get_tasks_execution(ctxt, task.execution_id)
             self._handle_post_task_actions(
                 ctxt, task, execution, updated_task_info)
 
@@ -1827,6 +1884,24 @@ class ConductorServerEndpoint(object):
         final_status = constants.TASK_STATUS_ERROR
         if task.status == constants.TASK_STATUS_CANCELLING:
             final_status = constants.TASK_STATUS_CANCELED
+        elif task.status == constants.TASK_STATUS_CANCELLING_AFTER_COMPLETION:
+            if not task.on_error:
+                LOG.warn(
+                    "Non-error '%s' was in '%s' status although it should "
+                    "never have been marked as such. Marking as '%s' anyway.",
+                    task.id, task.status,
+                    constants.TASK_STATUS_CANCELED_AFTER_COMPLETION)
+            else:
+                LOG.warn(
+                    "On-error task '%s' which was in '%s' status ended up "
+                    "error-ing. Marking as '%s'",
+                    task.id, task.status,
+                    constants.TASK_STATUS_CANCELED_AFTER_COMPLETION)
+                exception_details = (
+                    "This is a cleanup task so was allowed to complete "
+                    "following user-cancellation, but encountered an "
+                    "error: %s" % exception_details)
+            final_status = constants.TASK_STATUS_CANCELED_AFTER_COMPLETION
         elif task.status == constants.TASK_STATUS_FORCE_CANCELED:
             # it means a force cancel has been issued before the
             # confirmation that the task was canceled came in:
