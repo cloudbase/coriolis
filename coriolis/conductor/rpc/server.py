@@ -919,7 +919,9 @@ class ConductorServerEndpoint(object):
 
             self._create_task(
                 instance, constants.TASK_TYPE_DELETE_REPLICA_DISK_SNAPSHOTS,
-                execution, depends_on=[finalize_deployment_task.id],
+                execution, depends_on=[
+                    create_snapshot_task.id,
+                    finalize_deployment_task.id],
                 on_error=clone_disks)
 
             cleanup_deployment_task = self._create_task(
