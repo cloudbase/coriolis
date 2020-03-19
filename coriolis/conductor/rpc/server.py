@@ -1834,6 +1834,35 @@ class ConductorServerEndpoint(object):
                 exception_details=(
                     "This is a cleanup task so it was allowed to run to "
                     "completion after user-cancellation."))
+        elif task.status == constants.TASK_STATUS_CANCELLING:
+            LOG.error(
+                "Received confirmation that presumably cancelling task '%s' "
+                "(status '%s') has just completed successfully. "
+                "This should have never happened and indicates that its worker "
+                "host ('%s') has failed to cancel it properly. Please "
+                "check the worker logs for more details. "
+                "Marking as %s and processing its result as if it completed "
+                "successfully.",
+                task.id, task.status, task.host,
+                constants.TASK_STATUS_CANCELED_AFTER_COMPLETION)
+            db_api.set_task_status(
+                ctxt, task_id, constants.TASK_STATUS_CANCELED_AFTER_COMPLETION,
+                exception_details=(
+                    "The worker host for this task ('%s') has failed at "
+                    "cancelling it so this task was unintentionally run to "
+                    "completion. Please review the worker logs for "
+                    "more relevant details and contact support." % (
+                        task.host)))
+        elif task.status in constants.FINALIZED_TASK_STATUSES:
+            LOG.error(
+                "Received confirmation that presumably finalized task '%s' "
+                "(status '%s') has just completed successfully from worker "
+                "host '%s'. This should have never happened and indicates "
+                "that there is an inconsistency with the task scheduling. "
+                "Check the rest of the logs for further details. "
+                "The results of this task will NOT be processed.",
+                task.id, task.status, task.host)
+            return
         else:
             if task.status != constants.TASK_STATUS_RUNNING:
                 LOG.warn(
@@ -1944,6 +1973,22 @@ class ConductorServerEndpoint(object):
                 "Only just received error confirmation for force-cancelled "
                 "task '%s'. Leaving marked as force-cancelled.", task.id)
             final_status = constants.TASK_STATUS_FORCE_CANCELED
+            exception_details = (
+                "This task was force-cancelled. Confirmation of its "
+                "cancellation did eventually come in. The exception message "
+                "was: %s" % exception_details)
+        elif task.status in constants.FINALIZED_TASK_STATUSES:
+            LOG.error(
+                "Error confirmation on task '%s' arrived despite it being "
+                "in a terminal state ('%s'). This should never happen and "
+                "indicates an issue with its scheduling/handling. Error "
+                "was: %s", task.id, task.status, exception_details)
+            exception_details = (
+                "Error confirmation came in for this task despite it having "
+                "already been marked as %s. Please notify support of this "
+                "occurence and share the Conductor and Worker logs. "
+                "Error message in confirmation was: %s" % (
+                    task.status, exception_details))
         LOG.debug(
             "Transitioning errored task '%s' from '%s' to '%s'",
             task.id, task.status, final_status)
