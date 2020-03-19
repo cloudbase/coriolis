@@ -532,6 +532,14 @@ class ConductorServerEndpoint(object):
         execution.action = replica
         execution.type = constants.EXECUTION_TYPE_REPLICA_EXECUTION
 
+        # TODO(aznashwan): have these passed separately to the relevant
+        # provider methods. They're currently passed directly inside
+        # dest-env by the API service when accepting the call, but we
+        # re-overwrite them here in case of Replica updates.
+        dest_env = copy.deepcopy(replica.destination_environment)
+        dest_env['network_map'] = replica.network_map
+        dest_env['storage_mappings'] = replica.storage_mappings
+
         for instance in execution.action.instances:
             # NOTE: we default/convert the volumes info to an empty list
             # to preserve backwards-compatibility with older versions
@@ -544,7 +552,7 @@ class ConductorServerEndpoint(object):
             # execution to ensure that the latest parameters are used:
             replica.info[instance].update({
                 "source_environment": replica.source_environment,
-                "target_environment": replica.destination_environment})
+                "target_environment": dest_env})
                 # TODO(aznashwan): have these passed separately to the relevant
                 # provider methods (they're currently passed directly inside
                 # dest-env by the API service when accepting the call)
@@ -849,18 +857,18 @@ class ConductorServerEndpoint(object):
         migration.id = str(uuid.uuid4())
         migration.origin_endpoint_id = replica.origin_endpoint_id
         migration.destination_endpoint_id = replica.destination_endpoint_id
-        migration.destination_environment = replica.destination_environment
+        # TODO(aznashwan): have these passed separately to the relevant
+        # provider methods instead of through the dest-env:
+        dest_env = copy.deepcopy(replica.destination_environment)
+        dest_env['network_map'] = replica.network_map
+        dest_env['storage_mappings'] = replica.storage_mappings
+        migration.destination_environment = dest_env
         migration.source_environment = replica.source_environment
         migration.network_map = replica.network_map
         migration.storage_mappings = replica.storage_mappings
         migration.instances = instances
         migration.replica = replica
         migration.info = replica.info
-
-        for instance in instances:
-            migration.info[instance]["clone_disks"] = clone_disks
-            scripts = self._get_instance_scripts(user_scripts, instance)
-            migration.info[instance]["user_scripts"] = scripts
 
         execution = models.TasksExecution()
         migration.executions = [execution]
@@ -869,6 +877,28 @@ class ConductorServerEndpoint(object):
         execution.type = constants.EXECUTION_TYPE_REPLICA_DEPLOY
 
         for instance in instances:
+            migration.info[instance]["clone_disks"] = clone_disks
+            scripts = self._get_instance_scripts(user_scripts, instance)
+            migration.info[instance]["user_scripts"] = scripts
+
+            # NOTE: we default/convert the volumes info to an empty list
+            # to preserve backwards-compatibility with older versions
+            # of Coriolis dating before the scheduling overhaul (PR##114)
+            if instance not in migration.info:
+                migration.info[instance] = {'volumes_info': []}
+            # NOTE: we update all of the param values before triggering an
+            # execution to ensure that the params on the Replica are used
+            # in case there was a failed Replica update (where the new values
+            # could be in the `.info` field instead of the old ones)
+            migration.info[instance].update({
+                "source_environment": migration.source_environment,
+                "target_environment": dest_env})
+                # TODO(aznashwan): have these passed separately to the relevant
+                # provider methods (they're currently passed directly inside
+                # dest-env by the API service when accepting the call)
+                # "network_map": network_map,
+                # "storage_mappings": storage_mappings,
+
             validate_replica_deployment_inputs_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_VALIDATE_REPLICA_DEPLOYMENT_INPUTS,
@@ -1805,6 +1835,14 @@ class ConductorServerEndpoint(object):
                     # it means this was the last update task in the Execution
                     # and we may safely update the params of the Replica
                     # as they are in the DB:
+                    LOG.info(
+                        "All tasks of the '%s' Replica update procedure have "
+                        "completed successfully.  Setting the updated parameter "
+                        "values on the parent Replica itself.",
+                        execution.action_id)
+                    # NOTE: considering all the instances of the Replica get
+                    # the same params, it doesn't matter which instance's
+                    # update task finishes last:
                     db_api.update_replica(
                         ctxt, execution.action_id, task_info)
         else:
@@ -2130,24 +2168,34 @@ class ConductorServerEndpoint(object):
         execution.action = replica
         execution.type = constants.EXECUTION_TYPE_REPLICA_UPDATE
 
-        for instance in execution.action.instances:
+        for instance in replica.instances:
             LOG.debug(
                 "Pre-replica-update task_info for instance '%s' of Replica "
                 "'%s': %s", instance, replica_id,
                 utils.filter_chunking_info_for_task(
                     replica.info[instance]))
+
             # NOTE: "circular assignment" would lead to a `None` value
             # so we must operate on a copy:
             inst_info_copy = copy.deepcopy(replica.info[instance])
+
             # NOTE: we update the various values in the task info itself
             # As a result, the values within the task_info will be the updated
-            # values which will be checked. The old values will be send to the
+            # values which will be checked. The old values will be sent to the
             # tasks through the origin/destination parameters for them to be
             # compared to the new ones.
             # The actual values on the Replica object itself will be set
             # during _handle_post_task_actions once the final destination-side
             # update task will be completed.
-            inst_info_copy.update(updated_properties)
+            inst_info_copy.update({
+                key: updated_properties[key]
+                for key in updated_properties
+                if key != "destination_environment"})
+            # NOTE: the API service labels the target-env as the
+            # "destination_environment":
+            if "destination_environment" in updated_properties:
+                inst_info_copy["target_environment"] = updated_properties[
+                    "destination_environment"]
             replica.info[instance] = inst_info_copy
 
             LOG.debug(
@@ -2173,10 +2221,18 @@ class ConductorServerEndpoint(object):
                     update_source_replica_task.id])
 
         self._check_execution_tasks_sanity(execution, replica.info)
+
+        # update the action info for all of the instances in the Replica:
+        for instance in execution.action.instances:
+            db_api.update_transfer_action_info_for_instance(
+                ctxt, replica.id, instance, replica.info[instance])
+
         db_api.add_replica_tasks_execution(ctxt, execution)
         LOG.debug("Execution for Replica update tasks created: %s",
                   execution.id)
+
         self._begin_tasks(ctxt, execution, task_info=replica.info)
+
         return self.get_replica_tasks_execution(ctxt, replica_id, execution.id)
 
     def get_diagnostics(self, ctxt):

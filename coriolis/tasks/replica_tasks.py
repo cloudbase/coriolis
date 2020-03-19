@@ -755,17 +755,24 @@ class UpdateSourceReplicaTask(base.TaskRunner):
 
     @property
     def returned_task_info_properties(self):
-        return ["volumes_info"]
+        return ["volumes_info", "source_environment"]
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
         event_manager = events.EventManager(event_handler)
-        new_source_env = task_info.get('source_environment', {})
+
         volumes_info = task_info.get("volumes_info", [])
+        new_source_env = task_info.get('source_environment', {})
+        # NOTE: the `source_environment` in the `origin` is the one set
+        # in the dedicated DB column of the Replica and thus stores
+        # the previous value of it:
+        old_source_env = origin.get('source_environment')
         if not new_source_env:
             event_manager.progress_update(
                 "No new source environment options provided")
-            return {'volumes_info': volumes_info}
+            return {
+                'volumes_info': volumes_info,
+                'source_environment': old_source_env}
 
         source_provider = providers_factory.get_provider(
             origin["type"], constants.PROVIDER_TYPE_SOURCE_REPLICA_UPDATE,
@@ -778,10 +785,6 @@ class UpdateSourceReplicaTask(base.TaskRunner):
         origin_connection_info = base.get_connection_info(ctxt, origin)
 
         LOG.info("Checking source provider environment params")
-        # NOTE: the `source_environment` in the `origin` is the one set
-        # in the dedicated DB column of the Replica and thus stores
-        # the previous value of it:
-        old_source_env = origin.get('source_environment')
         volumes_info = (
             source_provider.check_update_source_environment_params(
                 ctxt, origin_connection_info, instance, volumes_info,
@@ -791,7 +794,8 @@ class UpdateSourceReplicaTask(base.TaskRunner):
                 volumes_info, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)
 
         return {
-            "volumes_info": volumes_info}
+            "volumes_info": volumes_info,
+            "source_environment": new_source_env}
 
 
 class UpdateDestinationReplicaTask(base.TaskRunner):
@@ -802,17 +806,24 @@ class UpdateDestinationReplicaTask(base.TaskRunner):
 
     @property
     def returned_task_info_properties(self):
-        return ["volumes_info"]
+        return ["volumes_info", "target_environment"]
 
     def _run(self, ctxt, instance, origin, destination, task_info,
             event_handler):
         event_manager = events.EventManager(event_handler)
-        new_destination_env = task_info.get('target_environment', {})
+
         volumes_info = task_info.get("volumes_info", [])
+        new_destination_env = task_info.get('target_environment', {})
+        # NOTE: the `target_environment` in the `destination` is the one
+        # set in the dedicated DB column of the Replica and thus stores
+        # the previous value of it:
+        old_destination_env = destination.get('target_environment', {})
         if not new_destination_env:
             event_manager.progress_update(
                 "No new destination environment options provided")
-            return {"volumes_info": volumes_info}
+            return {
+                "target_environment": old_destination_env,
+                "volumes_info": volumes_info}
 
         destination_provider = providers_factory.get_provider(
             destination["type"],
@@ -828,10 +839,6 @@ class UpdateDestinationReplicaTask(base.TaskRunner):
         export_info = task_info.get("export_info", {})
 
         LOG.info("Checking destination provider environment params")
-        # NOTE: the `target_environment` in the `destination` is the one
-        # set in the dedicated DB column of the Replica and thus stores
-        # the previous value of it:
-        old_destination_env = destination.get('target_environment', {})
         volumes_info = (
             destination_provider.check_update_destination_environment_params(
                 ctxt, destination_connection_info, export_info, volumes_info,
@@ -844,4 +851,5 @@ class UpdateDestinationReplicaTask(base.TaskRunner):
                 export_info, volumes_info)
 
         return {
-            "volumes_info": volumes_info}
+            "volumes_info": volumes_info,
+            "target_environment": new_destination_env}

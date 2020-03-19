@@ -588,10 +588,31 @@ def update_replica(context, replica_id, updated_values):
     replica = get_replica(context, replica_id)
     if not replica:
         raise exception.NotFound("Replica not found")
-    for n in ["source_environment", "destination_environment", "notes",
-              "network_map", "storage_mappings"]:
-        if n in updated_values:
-            setattr(replica, n, updated_values[n])
+
+    mapped_info_fields = {
+        'destination_environment': 'target_environment'}
+
+    updateable_fields = [
+        "source_environment", "destination_environment", "notes",
+        "network_map", "storage_mappings"]
+    for field in updateable_fields:
+        if mapped_info_fields.get(field, field) in updated_values:
+            LOG.debug(
+                "Updating the '%s' field of Replica '%s' to: '%s'",
+                field, replica_id, updated_values[
+                    mapped_info_fields.get(field, field)])
+            setattr(
+                replica, field,
+                updated_values[mapped_info_fields.get(field, field)])
+
+    non_updateable_fields = set(
+        updated_values.keys()).difference({
+            mapped_info_fields.get(field, field)
+            for field in updateable_fields})
+    if non_updateable_fields:
+        LOG.warn(
+            "The following Replica fields can NOT be updated: %s",
+            non_updateable_fields)
 
     # the oslo_db library uses this method for both the `created_at` and
     # `updated_at` fields
