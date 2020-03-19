@@ -37,11 +37,11 @@ def _check_ensure_volumes_info_ordering(export_info, volumes_info):
         matching_volumes = [
             vol for vol in volumes_info if vol['disk_id'] == disk_id]
         if not matching_volumes:
-            raise exception.CoriolisException(
+            raise exception.InvalidActionTasksExecutionState(
                 "Could not find source disk '%s' (ID '%s') in Replica "
                 "volumes info: %s" % (disk, disk_id, volumes_info))
         elif len(matching_volumes) > 1:
-            raise exception.CoriolisException(
+            raise exception.InvalidActionTasksExecutionState(
                 "Multiple disks with ID '%s' foind in Replica "
                 "volumes info: %s" % (disk_id, volumes_info))
 
@@ -272,19 +272,41 @@ class DeployReplicaSourceResourcesTask(base.TaskRunner):
         replica_resources_info = provider.deploy_replica_source_resources(
             ctxt, connection_info, source_environment)
 
-        migr_connection_info = replica_resources_info.get("connection_info")
-        if migr_connection_info:
-            migr_connection_info = base.marshal_migr_conn_info(
-                migr_connection_info)
-            schemas.validate_value(
-                migr_connection_info,
-                schemas.CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA,
-                # NOTE: we avoid raising so that the cleanup task
-                # can [try] to deal with the temporary resources.
-                raise_on_error=False)
+        migr_connection_info = replica_resources_info.get(
+            "connection_info", {})
+        if 'connection_info' not in replica_resources_info:
+            LOG.warn(
+                "Replica source provider for '%s' did NOT return any "
+                "'connection_info'. Defaulting to '%s'",
+                origin["type"], migr_connection_info)
+        else:
+            migr_connection_info = replica_resources_info['connection_info']
+            if migr_connection_info:
+                migr_connection_info = base.marshal_migr_conn_info(
+                    migr_connection_info)
+                schemas.validate_value(
+                    migr_connection_info,
+                    schemas.CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA,
+                    # NOTE: we avoid raising so that the cleanup task
+                    # can [try] to deal with the temporary resources.
+                    raise_on_error=False)
+            else:
+                LOG.warn(
+                    "Replica source provider for '%s' returned empty "
+                    "'connection_info' in source resources deployment: %s",
+                    origin["type"], migr_connection_info)
+
+        migr_resources = {}
+        if 'migr_resources' not in replica_resources_info:
+            LOG.warn(
+                "Replica source provider for '%s' did NOT return any "
+                "'migr_resources'. Defaulting to %s",
+                origin["type"], migr_resources)
+        else:
+            migr_resources = replica_resources_info['migr_resources']
 
         return {
-            "source_resources": replica_resources_info["migr_resources"],
+            "source_resources": migr_resources,
             "source_resources_connection_info": migr_connection_info}
 
 
@@ -350,21 +372,43 @@ class DeployReplicaTargetResourcesTask(base.TaskRunner):
             # can [try] to deal with the temporary resources.
             raise_on_error=False)
 
-        volumes_info = _check_ensure_volumes_info_ordering(
-            export_info, replica_resources_info["volumes_info"])
-
-        migr_connection_info = replica_resources_info["connection_info"]
-        try:
-            backup_writers.BackupWritersFactory(
-                migr_connection_info, None).get_writer()
-        except BaseException as err:
+        if "volumes_info" in replica_resources_info:
+            volumes_info = replica_resources_info["volumes_info"]
+            volumes_info = _check_ensure_volumes_info_ordering(
+                export_info, volumes_info)
+        else:
             LOG.warn(
-                "Seemingly invalid connection info. Replica will likely "
-                "fail during disk Replication. Error is: %s" % err)
+                "Replica target provider for '%s' did not return any "
+                "'volumes_info'. Using the previous value of it.")
+
+        migr_connection_info = {}
+        if 'connection_info' in replica_resources_info:
+            migr_connection_info = replica_resources_info['connection_info']
+            try:
+                backup_writers.BackupWritersFactory(
+                    migr_connection_info, None).get_writer()
+            except Exception as err:
+                LOG.warn(
+                    "Seemingly invalid connection info. Replica will likely "
+                    "fail during disk Replication. Error is: %s" % str(err))
+        else:
+            LOG.warn(
+                "Replica target provider for '%s' did NOT return any "
+                "'connection_info'. Defaulting to %s",
+                destination["type"], migr_connection_info)
+
+        target_resources = {}
+        if 'migr_resources' not in replica_resources_info:
+            LOG.warn(
+                "Replica target provider for '%s' did NOT return any "
+                "'migr_resources'. Defaulting to %s",
+                destination["type"], target_resources)
+        else:
+            target_resources = replica_resources_info["migr_resources"]
 
         return {
             "volumes_info": volumes_info,
-            "target_resources": replica_resources_info["migr_resources"],
+            "target_resources": target_resources,
             "target_resources_connection_info": migr_connection_info}
 
 
@@ -648,7 +692,7 @@ class ValidateReplicaExecutionDestinationInputsTask(base.TaskRunner):
 
         export_info = task_info.get("export_info")
         if not export_info:
-            raise exception.CoriolisException(
+            raise exception.InvalidActionTasksExecutionState(
                 "Instance export info is not set. Cannot perform "
                 "Replica Import validation for destination platform "
                 "'%s'" % destination_type)
@@ -727,7 +771,7 @@ class UpdateSourceReplicaTask(base.TaskRunner):
             origin["type"], constants.PROVIDER_TYPE_SOURCE_REPLICA_UPDATE,
             event_handler, raise_if_not_found=False)
         if not source_provider:
-            raise exception.CoriolisException(
+            raise exception.InvalidActionTasksExecutionState(
                 "Replica source provider plugin for '%s' does not support"
                 " updating Replicas" % origin["type"])
 
@@ -775,7 +819,7 @@ class UpdateDestinationReplicaTask(base.TaskRunner):
             constants.PROVIDER_TYPE_DESTINATION_REPLICA_UPDATE,
             event_handler, raise_if_not_found=False)
         if not destination_provider:
-            raise exception.CoriolisException(
+            raise exception.InvalidActionTasksExecutionState(
                 "Replica destination provider plugin for '%s' does not "
                 "support updating Replicas" % destination["type"])
 

@@ -1,11 +1,17 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from oslo_log import log as logging
+
 from coriolis import constants
+from coriolis import exception
+from coriolis import schemas
 from coriolis.osmorphing import manager as osmorphing_manager
 from coriolis.providers import factory as providers_factory
-from coriolis import schemas
 from coriolis.tasks import base
+
+
+LOG = logging.getLogger(__name__)
 
 
 class OSMorphingTask(base.TaskRunner):
@@ -79,20 +85,38 @@ class DeployOSMorphingResourcesTask(base.TaskRunner):
         import_info = provider.deploy_os_morphing_resources(
             ctxt, connection_info, instance_deployment_info)
 
-        result = {}
-        result["os_morphing_resources"] = import_info.get(
-            "os_morphing_resources")
-        result["osmorphing_info"] = import_info.get("osmorphing_info", {})
-        result["osmorphing_connection_info"] = base.marshal_migr_conn_info(
-            import_info["osmorphing_connection_info"])
-
         schemas.validate_value(
-            task_info, schemas.CORIOLIS_OS_MORPHING_RESOURCES_SCHEMA,
+            import_info, schemas.CORIOLIS_OS_MORPHING_RESOURCES_SCHEMA,
             # NOTE: we avoid raising so that the cleanup task
             # can [try] to deal with the temporary resources.
             raise_on_error=False)
 
-        return result
+        os_morphing_resources = import_info.get('os_morphing_resources')
+        if not os_morphing_resources:
+            raise exception.InvalidTaskResult(
+                "Target provider for '%s' did NOT return any "
+                "'os_morphing_resources'." % (
+                    destination["type"]))
+
+        osmorphing_connection_info = import_info.get(
+            'osmorphing_connection_info')
+        if not osmorphing_connection_info:
+            raise exception.InvalidTaskResult(
+                "Target provider '%s' did NOT return any "
+                "'osmorphing_connection_info'." % (
+                    destination["type"]))
+
+        os_morphing_info = import_info.get("osmorphing_info", {})
+        if not os_morphing_info:
+            LOG.warn(
+                "Target provider for '%s' did NOT return any "
+                "'osmorphing_info'. Defaulting to %s",
+                destination["type"], os_morphing_info)
+
+        return {
+            "os_morphing_resources": os_morphing_resources,
+            "osmorphing_connection_info": osmorphing_connection_info,
+            "osmorphing_info": os_morphing_info}
 
 
 class DeleteOSMorphingResourcesTask(base.TaskRunner):

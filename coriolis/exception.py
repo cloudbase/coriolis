@@ -193,6 +193,10 @@ class TaskIsCancelling(InvalidTaskState):
     message = _(TASK_ALREADY_CANCELLING_EXCEPTION_FMT)
 
 
+class InvalidTaskResult(InvalidTaskState):
+    message = _('Task returned an invalid result.')
+
+
 class InvalidActionTasksExecutionState(Invalid):
     message = _("Invalid tasks execution state: %(reason)s")
 
