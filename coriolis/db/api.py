@@ -460,24 +460,33 @@ def update_transfer_action_info_for_instance(
     action = get_action(context, action_id)
     if not new_instance_info:
         LOG.debug(
-            "No new info provided for action '%s' and instance '%s'",
+            "No new info provided for action '%s' and instance '%s'. "
+            "Nothing to update in the DB.",
             action_id, instance)
         return action.info.get(instance, {})
 
     # Copy is needed, otherwise sqlalchemy won't save the changes
     action_info = action.info.copy()
     if instance in action_info:
-        instance_info_old = action_info[instance].copy()
-        overwritten_keys = [
-            k for k in new_instance_info.keys()
-            if k in instance_info_old.keys()]
+        instance_info_old = action_info[instance]
+        old_keys = set(instance_info_old.keys())
+        new_keys = set(new_instance_info.keys())
+        overwritten_keys = old_keys.intersection(new_keys)
         if overwritten_keys:
             LOG.debug(
                 "Overwriting the values of the following keys for info of "
                 "instance '%s' of action with ID '%s': %s",
                 instance, action_id, overwritten_keys)
-        instance_info_old.update(new_instance_info)
-        action_info[instance] = instance_info_old
+        newly_added_keys = new_keys.difference(old_keys)
+        if newly_added_keys:
+            LOG.debug(
+                "The following new keys will be added for info of instance "
+                "'%s' in action with ID '%s': %s",
+                instance, action_id, newly_added_keys)
+
+        instance_info_old_copy = instance_info_old.copy()
+        instance_info_old_copy.update(new_instance_info)
+        action_info[instance] = instance_info_old_copy
     action.info = action_info
 
     return action_info[instance]
