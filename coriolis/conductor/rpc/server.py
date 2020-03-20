@@ -913,10 +913,11 @@ class ConductorServerEndpoint(object):
                 instance, constants.TASK_TYPE_DEPLOY_REPLICA_INSTANCE,
                 execution, [create_snapshot_task.id])
 
+            depends_on = [deploy_replica_task.id]
             if not skip_os_morphing:
                 task_deploy_os_morphing_resources = self._create_task(
                     instance, constants.TASK_TYPE_DEPLOY_OS_MORPHING_RESOURCES,
-                    execution, depends_on=[deploy_replica_task.id])
+                    execution, depends_on=depends_on)
 
                 task_osmorphing = self._create_task(
                     instance, constants.TASK_TYPE_OS_MORPHING,
@@ -930,22 +931,22 @@ class ConductorServerEndpoint(object):
                         task_osmorphing.id],
                     on_error=True)
 
-                next_task = task_delete_os_morphing_resources
-            else:
-                next_task = deploy_replica_task
+                depends_on = [
+                    task_osmorphing.id,
+                    task_delete_os_morphing_resources.id]
 
             if (constants.PROVIDER_TYPE_INSTANCE_FLAVOR in
                     destination_provider_types):
                 get_optimal_flavor_task = self._create_task(
                     instance, constants.TASK_TYPE_GET_OPTIMAL_FLAVOR,
-                    execution, depends_on=[next_task.id])
-                next_task = get_optimal_flavor_task
+                    execution, depends_on=depends_on)
+                depends_on = [get_optimal_flavor_task.id]
 
             finalize_deployment_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_FINALIZE_REPLICA_INSTANCE_DEPLOYMENT,
                 execution,
-                depends_on=[next_task.id])
+                depends_on=depends_on)
 
             self._create_task(
                 instance, constants.TASK_TYPE_DELETE_REPLICA_DISK_SNAPSHOTS,
@@ -1127,12 +1128,12 @@ class ConductorServerEndpoint(object):
                 execution, depends_on=[
                     delete_destination_resources_task.id])
 
-            last_task = deploy_instance_task
+            depends_on = [deploy_instance_task.id]
             task_delete_os_morphing_resources = None
             if not skip_os_morphing:
                 task_deploy_os_morphing_resources = self._create_task(
                     instance, constants.TASK_TYPE_DEPLOY_OS_MORPHING_RESOURCES,
-                    execution, depends_on=[last_task.id])
+                    execution, depends_on=depends_on)
 
                 task_osmorphing = self._create_task(
                     instance, constants.TASK_TYPE_OS_MORPHING,
@@ -1146,19 +1147,21 @@ class ConductorServerEndpoint(object):
                         task_osmorphing.id],
                     on_error=True)
 
-                last_task = task_delete_os_morphing_resources
+                depends_on = [
+                    task_osmorphing.id,
+                    task_delete_os_morphing_resources.id]
 
             if (constants.PROVIDER_TYPE_INSTANCE_FLAVOR in
                     destination_provider_types):
                 get_optimal_flavor_task = self._create_task(
                     instance, constants.TASK_TYPE_GET_OPTIMAL_FLAVOR,
-                    execution, depends_on=[last_task.id])
-                last_task = get_optimal_flavor_task
+                    execution, depends_on=depends_on)
+                depends_on = [get_optimal_flavor_task.id]
 
             finalize_deployment_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_FINALIZE_INSTANCE_DEPLOYMENT,
-                execution, depends_on=[last_task.id])
+                execution, depends_on=depends_on)
 
             cleanup_failed_deployment_task = self._create_task(
                 instance,
