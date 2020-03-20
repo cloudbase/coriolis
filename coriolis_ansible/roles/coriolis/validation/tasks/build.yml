@@ -1,1 +1,7 @@
 ---
+- name: "Prune dangling images"
+  docker_prune:
+    images: yes
+    images_filters:
+      dangling: true
+      label: "stage=builder"
