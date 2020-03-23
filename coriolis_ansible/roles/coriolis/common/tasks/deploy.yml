@@ -6,6 +6,8 @@
   with_items:
     - "{{ coriolis_config_dir }}"
     - "{{ coriolis_log_dir }}"
+    - "{{ coriolis_locks_dir_host }}"
+    - "{{ coriolis_conductor_locks_dir_host }}"
 
 - name: Install Coriolis Python client
   pip:

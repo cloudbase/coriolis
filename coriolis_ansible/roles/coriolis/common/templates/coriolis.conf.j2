@@ -70,6 +70,9 @@ auth_url = {{ keystone_protocol }}://{{ keystone_host }}:{{ keystone_public_port
 [oslo_policy]
 policy_file = {{ coriolis_policy_file }}
 
+[oslo_concurrency]
+lock_path = {{ coriolis_locks_dir_containers }}
+
 [conductor]
 conductor_rpc_timeout = 60
 
