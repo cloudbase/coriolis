@@ -16,3 +16,4 @@
       - "{{ coriolis_config_dir }}:{{ coriolis_config_dir }}:ro"
       - "{{ coriolis_log_dir }}:{{ coriolis_log_dir }}"
       - "{{ coriolis_logger_volume_name }}:{{ coriolis_logger_socket_dir }}"
+      - "{{ coriolis_conductor_locks_dir_host }}:{{ coriolis_locks_dir_containers }}"

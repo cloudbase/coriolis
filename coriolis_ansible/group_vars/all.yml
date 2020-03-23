@@ -41,3 +41,10 @@ coriolis_licensing_server_port: 37667
 coriolis_licensing_server_endpoint: "http://{{ bind_address }}:{{ coriolis_licensing_server_port }}/v1"
 coriolis_licensing_ui_port: 3010
 coriolis_licensing_ui_endpoint: "http://{{ bind_address }}:{{ coriolis_licensing_ui_port }}/licensing-ui"
+
+# We can only specify one global "[oslo_concurrency] lock_path" in
+# coriolis.conf so we will map separate directories on the host to
+# the same subpath within all of the containers:
+coriolis_locks_dir_containers: "/opt/coriolis/locks"
+coriolis_locks_dir_host: "/opt/coriolis/locks"
+coriolis_conductor_locks_dir_host: "{{ coriolis_locks_dir_host }}/conductor"
