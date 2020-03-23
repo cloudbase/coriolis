@@ -326,6 +326,10 @@ class TaskProcessException(CoriolisException):
     safe = True
 
 
+class TaskProcessCanceledException(TaskProcessException):
+    pass
+
+
 class OperatingSystemNotFound(NotFound):
     pass
 

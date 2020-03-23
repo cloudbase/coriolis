@@ -89,9 +89,14 @@ class WorkerServerEndpoint(object):
                 LOG.info("Sending SIGINT to process: %s", process_id)
                 p.send_signal(signal.SIGINT)
         except psutil.NoSuchProcess:
-            err_msg = "Task process not found: %s" % process_id
-            LOG.info(err_msg)
-            self._rpc_conductor_client.set_task_error(ctxt, task_id, err_msg)
+            msg = (
+                "Unable to find process '%s' for task '%s' for cancellation. "
+                "Presuming it was already canceled or had "
+                "completed/error'd." % (
+                    process_id, task_id))
+            LOG.error(msg)
+            self._rpc_conductor_client.confirm_task_cancellation(
+                ctxt, task_id, cancellation_details=msg)
 
     def _handle_mp_log_events(self, p, mp_log_q):
         while True:
@@ -199,7 +204,8 @@ class WorkerServerEndpoint(object):
         p.join()
 
         if result is None:
-            raise exception.CoriolisException("Task canceled")
+            raise exception.TaskProcessCanceledException(
+                "Task was canceled.")
 
         if isinstance(result, str):
             raise exception.TaskProcessException(result)
@@ -219,6 +225,10 @@ class WorkerServerEndpoint(object):
 
             self._rpc_conductor_client.task_completed(
                 ctxt, task_id, task_result)
+        except exception.TaskProcessCanceledException as ex:
+            LOG.exception(ex)
+            self._rpc_conductor_client.confirm_task_cancellation(
+                ctxt, task_id, cancellation_details=str(ex))
         except Exception as ex:
             LOG.exception(ex)
             self._rpc_conductor_client.set_task_error(ctxt, task_id, str(ex))

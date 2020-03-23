@@ -240,6 +240,11 @@ class ConductorClient(object):
         self._client.call(
             ctxt, 'task_completed', task_id=task_id, task_result=task_result)
 
+    def confirm_task_cancellation(self, ctxt, task_id, cancellation_details):
+        self._client.call(
+            ctxt, 'confirm_task_cancellation', task_id=task_id,
+            cancellation_details=cancellation_details)
+
     def set_task_error(self, ctxt, task_id, exception_details):
         self._client.call(ctxt, 'set_task_error', task_id=task_id,
                           exception_details=exception_details)
