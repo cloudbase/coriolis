@@ -792,6 +792,12 @@ class UpdateSourceReplicaTask(base.TaskRunner):
         if volumes_info:
             schemas.validate_value(
                 volumes_info, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)
+        else:
+            LOG.warn(
+                "Source update method for '%s' source provider did NOT "
+                "return any volumes info. Defaulting to old value.",
+                origin["type"])
+            volumes_info = task_info.get("volumes_info", [])
 
         return {
             "volumes_info": volumes_info,
@@ -849,6 +855,12 @@ class UpdateDestinationReplicaTask(base.TaskRunner):
                 volumes_info, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)
             volumes_info = _check_ensure_volumes_info_ordering(
                 export_info, volumes_info)
+        else:
+            LOG.warn(
+                "Destination update method for '%s' dest provider did NOT "
+                "return any volumes info. Defaulting to old value.",
+                destination["type"])
+            volumes_info = task_info.get("volumes_info", [])
 
         return {
             "volumes_info": volumes_info,

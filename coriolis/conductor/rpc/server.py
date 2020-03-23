@@ -3,7 +3,6 @@
 
 import copy
 import functools
-import itertools
 import uuid
 
 from oslo_concurrency import lockutils
@@ -49,7 +48,8 @@ def endpoint_synchronized(func):
     @functools.wraps(func)
     def wrapper(self, ctxt, endpoint_id, *args, **kwargs):
         @lockutils.synchronized(
-            constants.ENDPOINT_LOCK_NAME_FORMAT % endpoint_id)
+            constants.ENDPOINT_LOCK_NAME_FORMAT % endpoint_id,
+            external=True)
         def inner():
             return func(self, ctxt, endpoint_id, *args, **kwargs)
         return inner()
@@ -60,7 +60,8 @@ def replica_synchronized(func):
     @functools.wraps(func)
     def wrapper(self, ctxt, replica_id, *args, **kwargs):
         @lockutils.synchronized(
-            constants.REPLICA_LOCK_NAME_FORMAT % replica_id)
+            constants.REPLICA_LOCK_NAME_FORMAT % replica_id,
+            external=True)
         def inner():
             return func(self, ctxt, replica_id, *args, **kwargs)
         return inner()
@@ -71,7 +72,8 @@ def schedule_synchronized(func):
     @functools.wraps(func)
     def wrapper(self, ctxt, replica_id, schedule_id, *args, **kwargs):
         @lockutils.synchronized(
-                constants.SCHEDULE_LOCK_NAME_FORMAT % schedule_id)
+            constants.SCHEDULE_LOCK_NAME_FORMAT % schedule_id,
+            external=True)
         def inner():
             return func(self, ctxt, replica_id, schedule_id, *args, **kwargs)
         return inner()
@@ -82,21 +84,24 @@ def task_synchronized(func):
     @functools.wraps(func)
     def wrapper(self, ctxt, task_id, *args, **kwargs):
         @lockutils.synchronized(
-                constants.TASK_LOCK_NAME_FORMAT % task_id)
+            constants.TASK_LOCK_NAME_FORMAT % task_id,
+            external=True)
         def inner():
             return func(self, ctxt, task_id, *args, **kwargs)
         return inner()
     return wrapper
 
 
-def task_and_execution_synchronized(func):
+def parent_tasks_execution_synchronized(func):
     @functools.wraps(func)
     def wrapper(self, ctxt, task_id, *args, **kwargs):
         task = db_api.get_task(ctxt, task_id)
         @lockutils.synchronized(
-            constants.EXECUTION_LOCK_NAME_FORMAT % task.execution_id)
+            constants.EXECUTION_LOCK_NAME_FORMAT % task.execution_id,
+            external=True)
         @lockutils.synchronized(
-            constants.TASK_LOCK_NAME_FORMAT % task_id)
+            constants.TASK_LOCK_NAME_FORMAT % task_id,
+            external=True)
         def inner():
             return func(self, ctxt, task_id, *args, **kwargs)
         return inner()
@@ -107,7 +112,8 @@ def migration_synchronized(func):
     @functools.wraps(func)
     def wrapper(self, ctxt, migration_id, *args, **kwargs):
         @lockutils.synchronized(
-            constants.MIGRATION_LOCK_NAME_FORMAT % migration_id)
+            constants.MIGRATION_LOCK_NAME_FORMAT % migration_id,
+            external=True)
         def inner():
             return func(self, ctxt, migration_id, *args, **kwargs)
         return inner()
@@ -118,7 +124,8 @@ def tasks_execution_synchronized(func):
     @functools.wraps(func)
     def wrapper(self, ctxt, replica_id, execution_id, *args, **kwargs):
         @lockutils.synchronized(
-            constants.EXECUTION_LOCK_NAME_FORMAT % execution_id)
+            constants.EXECUTION_LOCK_NAME_FORMAT % execution_id,
+            external=True)
         def inner():
             return func(self, ctxt, replica_id, execution_id, *args, **kwargs)
         return inner()
@@ -1225,7 +1232,8 @@ class ConductorServerEndpoint(object):
                 "force option if you'd like to force-cancel it.")
 
         with lockutils.lock(
-                constants.EXECUTION_LOCK_NAME_FORMAT % execution.id):
+                constants.EXECUTION_LOCK_NAME_FORMAT % execution.id,
+                external=True):
             self._cancel_tasks_execution(ctxt, execution, force=force)
         self._check_delete_reservation_for_transfer(migration)
 
@@ -1344,7 +1352,7 @@ class ConductorServerEndpoint(object):
         if ctxt.delete_trust_id:
             keystone.delete_trust(ctxt)
 
-    @task_and_execution_synchronized
+    @parent_tasks_execution_synchronized
     def set_task_host(self, ctxt, task_id, host, process_id):
         """ Saves the ID of the worker host which has accepted and started
         the task to the DB and marks the task as 'RUNNING'. """
@@ -1755,7 +1763,8 @@ class ConductorServerEndpoint(object):
         replica_id = migration.replica_id
 
         with lockutils.lock(
-                constants.REPLICA_LOCK_NAME_FORMAT % replica_id):
+                constants.REPLICA_LOCK_NAME_FORMAT % replica_id,
+                external=True):
             LOG.debug(
                 "Updating volume_info in replica due to snapshot "
                 "restore during migration. replica id: %s", replica_id)
@@ -1870,7 +1879,7 @@ class ConductorServerEndpoint(object):
                 "No post-task actions required for task '%s' of type '%s'",
                 task.id, task_type)
 
-    @task_and_execution_synchronized
+    @parent_tasks_execution_synchronized
     def task_completed(self, ctxt, task_id, task_result):
         LOG.info("Task completed: %s", task_id)
 
@@ -1934,7 +1943,8 @@ class ConductorServerEndpoint(object):
         execution = db_api.get_tasks_execution(ctxt, task.execution_id)
         with lockutils.lock(
                 constants.EXECUTION_TYPE_TO_ACTION_LOCK_NAME_FORMAT_MAP[
-                    execution.type] % execution.action_id):
+                    execution.type] % execution.action_id,
+                external=True):
             action_id = execution.action_id
             action = db_api.get_action(ctxt, action_id)
 
@@ -1999,7 +2009,7 @@ class ConductorServerEndpoint(object):
                     ctxt, subtask.id,
                     constants.TASK_STATUS_CANCELED_FOR_DEBUGGING)
 
-    @tasks_execution_synchronized
+    @parent_tasks_execution_synchronized
     def confirm_task_cancellation(self, ctxt, task_id, cancellation_details):
         LOG.info(
             "Received confirmation of cancellation for task '%s': %s",
@@ -2009,7 +2019,7 @@ class ConductorServerEndpoint(object):
         final_status = constants.TASK_STATUS_CANCELED
         exception_details = (
             "This task was user-cancelled. Additional cancellation "
-            "info: '%s'", cancellation_details)
+            "info from worker service: '%s'" % cancellation_details)
         if task.status == constants.TASK_STATUS_CANCELLING_AFTER_COMPLETION:
             LOG.error(
                 "Received cancellation confirmation for task '%s' which was "
@@ -2036,8 +2046,9 @@ class ConductorServerEndpoint(object):
 
         if final_status == task.status:
             LOG.debug(
-                "NOT altering state of task '%s' ('%s') following confirmation"
-                " of cancellation. Updating its exception details though.")
+                "NOT altering state of finalized task '%s' ('%s') following "
+                "confirmation of cancellation. Updating its exception "
+                "details though: %s", task.id, task.status, exception_details)
             db_api.set_task_status(
                 ctxt, task.id, final_status,
                 exception_details=exception_details)
@@ -2052,7 +2063,7 @@ class ConductorServerEndpoint(object):
             execution = db_api.get_tasks_execution(ctxt, task.execution_id)
             self._advance_execution_state(ctxt, execution, requery=False)
 
-    @task_and_execution_synchronized
+    @parent_tasks_execution_synchronized
     def set_task_error(self, ctxt, task_id, exception_details):
         LOG.error(
             "Received error confirmation for task: %(task_id)s - %(ex)s",
@@ -2115,7 +2126,8 @@ class ConductorServerEndpoint(object):
         action = db_api.get_action(ctxt, action_id)
         with lockutils.lock(
                 constants.EXECUTION_TYPE_TO_ACTION_LOCK_NAME_FORMAT_MAP[
-                    execution.type] % action_id):
+                    execution.type] % action_id,
+                external=True):
             if task.task_type == constants.TASK_TYPE_OS_MORPHING and (
                     CONF.conductor.debug_os_morphing_errors):
                 LOG.debug(

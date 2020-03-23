@@ -96,7 +96,7 @@ class WorkerServerEndpoint(object):
                     process_id, task_id))
             LOG.error(msg)
             self._rpc_conductor_client.confirm_task_cancellation(
-                ctxt, task_id, cancellation_details=msg)
+                ctxt, task_id, msg)
 
     def _handle_mp_log_events(self, p, mp_log_q):
         while True:
@@ -228,7 +228,7 @@ class WorkerServerEndpoint(object):
         except exception.TaskProcessCanceledException as ex:
             LOG.exception(ex)
             self._rpc_conductor_client.confirm_task_cancellation(
-                ctxt, task_id, cancellation_details=str(ex))
+                ctxt, task_id, str(ex))
         except Exception as ex:
             LOG.exception(ex)
             self._rpc_conductor_client.set_task_error(ctxt, task_id, str(ex))
