@@ -132,7 +132,7 @@ class ReplicateDisksTask(base.TaskRunner):
         return ["volumes_info"]
 
     def _run(self, ctxt, instance, origin, destination, task_info,
-            event_handler):
+             event_handler):
         provider = providers_factory.get_provider(
             origin["type"], constants.PROVIDER_TYPE_REPLICA_EXPORT,
             event_handler)
@@ -157,16 +157,11 @@ class ReplicateDisksTask(base.TaskRunner):
 
         source_environment = task_info['source_environment']
 
-        # TODO(aznashwan): in order to facilitate parallelized setups,
-        # we should modify the replicate_disks provider method to allow for the
-        # passing in of source_resources info as well.
-        # This could be used to for example pass in the ID/info of a
-        # pre-created source worker VM which can then be (re)used by the
-        # Replicate disks task during PMR.
+        source_resources = task_info.get('source_resources', {})
         volumes_info = provider.replicate_disks(
             ctxt, connection_info, source_environment, instance,
-            migr_source_conn_info, migr_target_conn_info, volumes_info,
-            incremental)
+            source_resources, migr_source_conn_info, migr_target_conn_info,
+            volumes_info, incremental)
         schemas.validate_value(
             volumes_info, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)
 
@@ -189,7 +184,7 @@ class DeployReplicaDisksTask(base.TaskRunner):
         return ["volumes_info"]
 
     def _run(self, ctxt, instance, origin, destination, task_info,
-            event_handler):
+             event_handler):
         target_environment = task_info['target_environment']
         export_info = task_info["export_info"]
 
@@ -224,7 +219,7 @@ class DeleteReplicaDisksTask(base.TaskRunner):
         return ["volumes_info"]
 
     def _run(self, ctxt, instance, origin, destination, task_info,
-            event_handler):
+             event_handler):
         if not task_info.get("volumes_info"):
             LOG.debug(
                 "No volumes_info present. Skipping disk deletion.")
@@ -255,7 +250,7 @@ class DeployReplicaSourceResourcesTask(base.TaskRunner):
 
     @property
     def required_task_info_properties(self):
-        return ["source_environment"]
+        return ["source_environment", "export_info"]
 
     @property
     def returned_task_info_properties(self):
@@ -269,8 +264,9 @@ class DeployReplicaSourceResourcesTask(base.TaskRunner):
         connection_info = base.get_connection_info(ctxt, origin)
 
         source_environment = task_info['source_environment'] or {}
+        export_info = task_info['export_info']
         replica_resources_info = provider.deploy_replica_source_resources(
-            ctxt, connection_info, source_environment)
+            ctxt, connection_info, export_info, source_environment)
 
         migr_connection_info = replica_resources_info.get(
             "connection_info", {})
@@ -424,7 +420,7 @@ class DeleteReplicaTargetResourcesTask(base.TaskRunner):
             "target_resources", "target_resources_connection_info"]
 
     def _run(self, ctxt, instance, origin, destination, task_info,
-            event_handler):
+             event_handler):
         provider = providers_factory.get_provider(
             destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
             event_handler)
@@ -815,7 +811,7 @@ class UpdateDestinationReplicaTask(base.TaskRunner):
         return ["volumes_info", "target_environment"]
 
     def _run(self, ctxt, instance, origin, destination, task_info,
-            event_handler):
+             event_handler):
         event_manager = events.EventManager(event_handler)
 
         volumes_info = task_info.get("volumes_info", [])

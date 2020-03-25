@@ -401,7 +401,7 @@ class BaseReplicaExportProvider(BaseExportInstanceProvider):
 
     @abc.abstractmethod
     def deploy_replica_source_resources(self, ctxt, connection_info,
-                                        source_environment):
+                                        export_info, source_environment):
         pass
 
     @abc.abstractmethod
@@ -412,8 +412,8 @@ class BaseReplicaExportProvider(BaseExportInstanceProvider):
 
     @abc.abstractmethod
     def replicate_disks(self, ctxt, connection_info, source_environment,
-                        instance_name, source_conn_info, target_conn_info,
-                        volumes_info, incremental):
+                        instance_name, source_resources, source_conn_info,
+                        target_conn_info, volumes_info, incremental):
         pass
 
     @abc.abstractmethod
