@@ -47,10 +47,10 @@ def _check_ensure_volumes_info_ordering(export_info, volumes_info):
 
         ordered_volumes_info.append(matching_volumes[0])
 
-    vol_info_cpy = utils.filter_chunking_info_for_task(
+    vol_info_cpy = utils.sanitize_task_info(
         {"volumes_info": volumes_info}).get("volumes_info", [])
 
-    ordered_vol_info_cpy = utils.filter_chunking_info_for_task(
+    ordered_vol_info_cpy = utils.sanitize_task_info(
         {"volumes_info": ordered_volumes_info}).get("volumes_info", [])
 
     LOG.debug(

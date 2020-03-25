@@ -1790,7 +1790,7 @@ class ConductorServerEndpoint(object):
                     "Updating volumes_info for instance '%s' in parent action "
                     "'%s' following completion of task '%s' (type '%s'): %s",
                     task.instance, execution.action_id, task.id, task_type,
-                    utils.filter_chunking_info_for_task(
+                    utils.sanitize_task_info(
                         {'volumes_info': volumes_info}))
                 self._update_volumes_info_for_migration_parent_replica(
                     ctxt, execution.action_id, task.instance,
@@ -1956,12 +1956,12 @@ class ConductorServerEndpoint(object):
                         "task_id": task_id,
                         "instance": task.instance,
                         "action_id": action_id,
-                        "task_result": utils.filter_chunking_info_for_task(
+                        "task_result": utils.sanitize_task_info(
                             task_result)})
                 updated_task_info = (
                     db_api.update_transfer_action_info_for_instance(
                         ctxt, action_id, task.instance,
-                        utils.filter_chunking_info_for_task(
+                        utils.sanitize_task_info(
                             task_result)))
             else:
                 action = db_api.get_action(ctxt, action_id)
@@ -2277,7 +2277,7 @@ class ConductorServerEndpoint(object):
             LOG.debug(
                 "Pre-replica-update task_info for instance '%s' of Replica "
                 "'%s': %s", instance, replica_id,
-                utils.filter_chunking_info_for_task(
+                utils.sanitize_task_info(
                     replica.info[instance]))
 
             # NOTE: "circular assignment" would lead to a `None` value
@@ -2306,7 +2306,7 @@ class ConductorServerEndpoint(object):
             LOG.debug(
                 "Updated task_info for instance '%s' of Replica "
                 "'%s' which will be verified during update procedure: %s",
-                instance, replica_id, utils.filter_chunking_info_for_task(
+                instance, replica_id, utils.sanitize_task_info(
                     replica.info[instance]))
 
             get_instance_info_task = self._create_task(

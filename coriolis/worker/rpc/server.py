@@ -221,7 +221,7 @@ class WorkerServerEndpoint(object):
             LOG.info(
                 "Output of completed %s task with ID %s: %s",
                 task_type, task_type,
-                utils.filter_chunking_info_for_task(task_result))
+                utils.sanitize_task_info(task_result))
 
             self._rpc_conductor_client.task_completed(
                 ctxt, task_id, task_result)
@@ -458,7 +458,7 @@ def _task_process(ctxt, task_id, task_type, origin, destination, instance,
                   {"task_id": task_id, "task_type": task_type,
                    "origin": origin, "destination": destination,
                    "instance": instance,
-                   "task_info": utils.filter_chunking_info_for_task(
+                   "task_info": utils.sanitize_task_info(
                        task_info)})
 
         task_result = task_runner.run(
