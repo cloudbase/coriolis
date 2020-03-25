@@ -2005,9 +2005,19 @@ class ConductorServerEndpoint(object):
             if subtask.status in [
                     constants.TASK_STATUS_SCHEDULED,
                     constants.TASK_STATUS_ON_ERROR_ONLY]:
+                msg = (
+                    "This task was unscheduled for debugging an error in the "
+                    "OSMorphing process.")
+                if subtask.on_error:
+                    msg = (
+                        "%s Please note that any cleanup operations this task "
+                        "should have included will need to performed manually "
+                        "once the debugging process has been completed." % (
+                            msg))
                 db_api.set_task_status(
                     ctxt, subtask.id,
-                    constants.TASK_STATUS_CANCELED_FOR_DEBUGGING)
+                    constants.TASK_STATUS_CANCELED_FOR_DEBUGGING,
+                    exception_details=msg)
 
     @parent_tasks_execution_synchronized
     def confirm_task_cancellation(self, ctxt, task_id, cancellation_details):
@@ -2142,6 +2152,14 @@ class ConductorServerEndpoint(object):
                 if not running:
                     self._cancel_execution_for_osmorphing_debugging(
                         ctxt, execution)
+                    db_api.set_task_status(
+                        ctxt, task_id, final_status,
+                        exception_details=(
+                            "An error has occured during OSMorphing. Cleanup "
+                            "will not be performed for debugging reasons. "
+                            "Please review the Conductor logs for the debug "
+                            "connection info. Original error was: %s" % (
+                                exception_details)))
                     LOG.warn(
                         "All subtasks for Migration '%s' have been cancelled "
                         "to allow for OSMorphing debugging. The connection "
