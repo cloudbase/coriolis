@@ -25,14 +25,8 @@ from coriolis.tasks import factory as task_runners_factory
 from coriolis import utils
 
 
-worker_opts = [
-    cfg.StrOpt('export_base_path',
-               default='/tmp',
-               help='The path used for hosting exported disks.'),
-]
-
 CONF = cfg.CONF
-CONF.register_opts(worker_opts, 'worker')
+CONF.register_opts([], 'worker')
 
 LOG = logging.getLogger(__name__)
 
@@ -95,9 +89,14 @@ class WorkerServerEndpoint(object):
                 LOG.info("Sending SIGINT to process: %s", process_id)
                 p.send_signal(signal.SIGINT)
         except psutil.NoSuchProcess:
-            err_msg = "Task process not found: %s" % process_id
-            LOG.info(err_msg)
-            self._rpc_conductor_client.set_task_error(ctxt, task_id, err_msg)
+            msg = (
+                "Unable to find process '%s' for task '%s' for cancellation. "
+                "Presuming it was already canceled or had "
+                "completed/error'd." % (
+                    process_id, task_id))
+            LOG.error(msg)
+            self._rpc_conductor_client.confirm_task_cancellation(
+                ctxt, task_id, msg)
 
     def _handle_mp_log_events(self, p, mp_log_q):
         while True:
@@ -146,7 +145,8 @@ class WorkerServerEndpoint(object):
         libraries needed by the source/destination providers.
         """
         event_handler = _ConductorProviderEventHandler(ctxt, task_id)
-        task_runner = task_runners_factory.get_task_runner(task_type)
+        task_runner = task_runners_factory.get_task_runner_class(
+            task_type)()
 
         return task_runner.get_shared_libs_for_providers(
             ctxt, origin, destination, event_handler)
@@ -184,8 +184,18 @@ class WorkerServerEndpoint(object):
 
         self._start_process_with_custom_library_paths(p, extra_library_paths)
         LOG.info("Task process started: %s", task_id)
-        self._rpc_conductor_client.set_task_host(
-            ctxt, task_id, self._server, p.pid)
+        try:
+            self._rpc_conductor_client.set_task_host(
+                ctxt, task_id, self._server, p.pid)
+        except (Exception, KeyboardInterrupt) as ex:
+            # NOTE: because the task error classes are wrapped,
+            # it's easiest to just check that the messages align:
+            cancelling_msg = exception.TASK_ALREADY_CANCELLING_EXCEPTION_FMT % {
+                "task_id": task_id}
+            if cancelling_msg in str(ex):
+                raise exception.TaskIsCancelling(
+                    "Task '%s' was already in cancelling status." % task_id)
+            raise
 
         evt = eventlet.spawn(self._wait_for_process, p, mp_q)
         eventlet.spawn(self._handle_mp_log_events, p, mp_log_q)
@@ -193,8 +203,9 @@ class WorkerServerEndpoint(object):
         result = evt.wait()
         p.join()
 
-        if not result:
-            raise exception.CoriolisException("Task canceled")
+        if result is None:
+            raise exception.TaskProcessCanceledException(
+                "Task was canceled.")
 
         if isinstance(result, str):
             raise exception.TaskProcessException(result)
@@ -202,39 +213,25 @@ class WorkerServerEndpoint(object):
 
     def exec_task(self, ctxt, task_id, task_type, origin, destination,
                   instance, task_info):
-        export_path = task_info.get("export_path")
-        if not export_path:
-            export_path = _get_task_export_path(task_id, create=True)
-            task_info["export_path"] = export_path
-        retain_export_path = False
-        task_info["retain_export_path"] = retain_export_path
-
         try:
-            new_task_info = self._exec_task_process(
+            task_result = self._exec_task_process(
                 ctxt, task_id, task_type, origin, destination,
                 instance, task_info)
 
-            if new_task_info:
-                LOG.info(
-                    "Task info: %s",
-                    utils.filter_chunking_info_for_task(new_task_info))
+            LOG.info(
+                "Output of completed %s task with ID %s: %s",
+                task_type, task_type,
+                utils.filter_chunking_info_for_task(task_result))
 
-            # TODO(alexpilotti): replace the temp storage with a host
-            # independent option
-            retain_export_path = new_task_info.get("retain_export_path", False)
-            if not retain_export_path:
-                del new_task_info["export_path"]
-
-            LOG.info("Task completed: %s", task_id)
-            self._rpc_conductor_client.task_completed(ctxt, task_id,
-                                                      new_task_info)
+            self._rpc_conductor_client.task_completed(
+                ctxt, task_id, task_result)
+        except exception.TaskProcessCanceledException as ex:
+            LOG.exception(ex)
+            self._rpc_conductor_client.confirm_task_cancellation(
+                ctxt, task_id, str(ex))
         except Exception as ex:
             LOG.exception(ex)
-            self._check_remove_dir(export_path)
             self._rpc_conductor_client.set_task_error(ctxt, task_id, str(ex))
-        finally:
-            if not retain_export_path:
-                self._check_remove_dir(export_path)
 
     def get_endpoint_instances(self, ctxt, platform_name, connection_info,
                                source_environment, marker, limit,
@@ -429,16 +426,9 @@ class WorkerServerEndpoint(object):
             schemas["source_environment_schema"] = schema
 
         return schemas
-    
+
     def get_diagnostics(self, ctxt):
         return utils.get_diagnostics_info()
-
-
-def _get_task_export_path(task_id, create=False):
-    export_path = os.path.join(CONF.worker.export_base_path, task_id)
-    if create and not os.path.exists(export_path):
-        os.makedirs(export_path)
-    return export_path
 
 
 def _setup_task_process(mp_log_q):
@@ -458,7 +448,8 @@ def _task_process(ctxt, task_id, task_type, origin, destination, instance,
     try:
         _setup_task_process(mp_log_q)
 
-        task_runner = task_runners_factory.get_task_runner(task_type)
+        task_runner = task_runners_factory.get_task_runner_class(
+            task_type)()
         event_handler = _ConductorProviderEventHandler(ctxt, task_id)
 
         LOG.debug("Executing task: %(task_id)s, type: %(task_type)s, "
@@ -470,11 +461,11 @@ def _task_process(ctxt, task_id, task_type, origin, destination, instance,
                    "task_info": utils.filter_chunking_info_for_task(
                        task_info)})
 
-        new_task_info = task_runner.run(
+        task_result = task_runner.run(
             ctxt, instance, origin, destination, task_info, event_handler)
         # mq_p.put() doesn't raise if new_task_info is not serializable
-        utils.is_serializable(new_task_info)
-        mp_q.put(new_task_info)
+        utils.is_serializable(task_result)
+        mp_q.put(task_result)
     except Exception as ex:
         mp_q.put(str(ex))
         LOG.exception(ex)

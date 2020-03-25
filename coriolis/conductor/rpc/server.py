@@ -18,6 +18,7 @@ from coriolis import keystone
 from coriolis.licensing import client as licensing_client
 from coriolis.replica_cron.rpc import client as rpc_cron_client
 from coriolis import schemas
+from coriolis.tasks import factory as tasks_factory
 from coriolis import utils
 from coriolis.worker.rpc import client as rpc_worker_client
 
@@ -27,7 +28,7 @@ VERSION = "1.0"
 LOG = logging.getLogger(__name__)
 
 
-conductor_opts = [
+CONDUCTOR_OPTS = [
     cfg.BoolOpt("debug_os_morphing_errors",
                 default=False,
                 help="If set, any OSMorphing task which errors out will have "
@@ -36,13 +37,19 @@ conductor_opts = [
 ]
 
 CONF = cfg.CONF
-CONF.register_opts(conductor_opts, 'conductor')
+CONF.register_opts(CONDUCTOR_OPTS, 'conductor')
+
+TASK_DEADLOCK_ERROR_MESSAGE = (
+    "A fatal deadlock has occurred. Further debugging is required. "
+    "Please review the Conductor logs and contact support for assistance.")
 
 
 def endpoint_synchronized(func):
     @functools.wraps(func)
     def wrapper(self, ctxt, endpoint_id, *args, **kwargs):
-        @lockutils.synchronized(endpoint_id)
+        @lockutils.synchronized(
+            constants.ENDPOINT_LOCK_NAME_FORMAT % endpoint_id,
+            external=True)
         def inner():
             return func(self, ctxt, endpoint_id, *args, **kwargs)
         return inner()
@@ -52,7 +59,9 @@ def endpoint_synchronized(func):
 def replica_synchronized(func):
     @functools.wraps(func)
     def wrapper(self, ctxt, replica_id, *args, **kwargs):
-        @lockutils.synchronized(replica_id)
+        @lockutils.synchronized(
+            constants.REPLICA_LOCK_NAME_FORMAT % replica_id,
+            external=True)
         def inner():
             return func(self, ctxt, replica_id, *args, **kwargs)
         return inner()
@@ -62,7 +71,9 @@ def replica_synchronized(func):
 def schedule_synchronized(func):
     @functools.wraps(func)
     def wrapper(self, ctxt, replica_id, schedule_id, *args, **kwargs):
-        @lockutils.synchronized(schedule_id)
+        @lockutils.synchronized(
+            constants.SCHEDULE_LOCK_NAME_FORMAT % schedule_id,
+            external=True)
         def inner():
             return func(self, ctxt, replica_id, schedule_id, *args, **kwargs)
         return inner()
@@ -72,7 +83,25 @@ def schedule_synchronized(func):
 def task_synchronized(func):
     @functools.wraps(func)
     def wrapper(self, ctxt, task_id, *args, **kwargs):
-        @lockutils.synchronized(task_id)
+        @lockutils.synchronized(
+            constants.TASK_LOCK_NAME_FORMAT % task_id,
+            external=True)
+        def inner():
+            return func(self, ctxt, task_id, *args, **kwargs)
+        return inner()
+    return wrapper
+
+
+def parent_tasks_execution_synchronized(func):
+    @functools.wraps(func)
+    def wrapper(self, ctxt, task_id, *args, **kwargs):
+        task = db_api.get_task(ctxt, task_id)
+        @lockutils.synchronized(
+            constants.EXECUTION_LOCK_NAME_FORMAT % task.execution_id,
+            external=True)
+        @lockutils.synchronized(
+            constants.TASK_LOCK_NAME_FORMAT % task_id,
+            external=True)
         def inner():
             return func(self, ctxt, task_id, *args, **kwargs)
         return inner()
@@ -82,7 +111,9 @@ def task_synchronized(func):
 def migration_synchronized(func):
     @functools.wraps(func)
     def wrapper(self, ctxt, migration_id, *args, **kwargs):
-        @lockutils.synchronized(migration_id)
+        @lockutils.synchronized(
+            constants.MIGRATION_LOCK_NAME_FORMAT % migration_id,
+            external=True)
         def inner():
             return func(self, ctxt, migration_id, *args, **kwargs)
         return inner()
@@ -92,7 +123,9 @@ def migration_synchronized(func):
 def tasks_execution_synchronized(func):
     @functools.wraps(func)
     def wrapper(self, ctxt, replica_id, execution_id, *args, **kwargs):
-        @lockutils.synchronized(execution_id)
+        @lockutils.synchronized(
+            constants.EXECUTION_LOCK_NAME_FORMAT % execution_id,
+            external=True)
         def inner():
             return func(self, ctxt, replica_id, execution_id, *args, **kwargs)
         return inner()
@@ -194,7 +227,8 @@ class ConductorServerEndpoint(object):
     def get_endpoint(self, ctxt, endpoint_id):
         endpoint = db_api.get_endpoint(ctxt, endpoint_id)
         if not endpoint:
-            raise exception.NotFound("Endpoint not found")
+            raise exception.NotFound(
+                "Endpoint with ID '%s' not found." % endpoint_id)
         return endpoint
 
     @endpoint_synchronized
@@ -274,7 +308,14 @@ class ConductorServerEndpoint(object):
 
     @staticmethod
     def _create_task(instance, task_type, execution, depends_on=None,
-                     on_error=False):
+                     on_error=False, on_error_only=False):
+        """ Creates a task with the given properties.
+
+        NOTE: for on_error and on_error_only tasks, the parent dependencies who
+        are the ones which require cleanup should also be included!
+        Ex: for the DELETE_OS_MORPHING_RESOURCES task, include both the
+        OSMorphing task, as well as the DEPLOY_OS_MORPHIN_RESOURCES one!
+        """
         task = models.Task()
         task.id = str(uuid.uuid4())
         task.instance = instance
@@ -284,15 +325,22 @@ class ConductorServerEndpoint(object):
         task.on_error = on_error
         task.index = len(task.execution.tasks) + 1
 
-        if not on_error:
-            task.status = constants.TASK_STATUS_PENDING
+        # non-error tasks are automatically set to scheduled:
+        if not on_error and not on_error_only:
+            task.status = constants.TASK_STATUS_SCHEDULED
         else:
             task.status = constants.TASK_STATUS_ON_ERROR_ONLY
-            if depends_on:
+            # on-error-only tasks remain marked as such
+            # regardless of dependencies:
+            if on_error_only:
+                task.on_error = True
+            # plain on-error but depend on already-defined
+            # scheduled tasks count as scheduled:
+            elif depends_on:
                 for task_id in depends_on:
                     if [t for t in task.execution.tasks if t.id == task_id and
                             t.status != constants.TASK_STATUS_ON_ERROR_ONLY]:
-                        task.status = constants.TASK_STATUS_PENDING
+                        task.status = constants.TASK_STATUS_SCHEDULED
                         break
         return task
 
@@ -313,6 +361,7 @@ class ConductorServerEndpoint(object):
         }
 
     def _begin_tasks(self, ctxt, execution, task_info={}):
+        """ Starts all non-error-only tasks which have no depencies. """
         if not ctxt.trust_id:
             keystone.create_trust(ctxt)
             ctxt.delete_trust_id = True
@@ -320,9 +369,15 @@ class ConductorServerEndpoint(object):
         origin = self._get_task_origin(ctxt, execution.action)
         destination = self._get_task_destination(ctxt, execution.action)
 
+        newly_started_tasks = []
         for task in execution.tasks:
             if (not task.depends_on and
-                    task.status == constants.TASK_STATUS_PENDING):
+                    task.status == constants.TASK_STATUS_SCHEDULED):
+                LOG.info(
+                    "Starting dependency-less task '%s' for execution '%s'",
+                    task.id, execution.id)
+                db_api.set_task_status(
+                    ctxt, task.id, constants.TASK_STATUS_PENDING)
                 self._rpc_worker_client.begin_task(
                     ctxt, server=None,
                     task_id=task.id,
@@ -331,6 +386,147 @@ class ConductorServerEndpoint(object):
                     destination=destination,
                     instance=task.instance,
                     task_info=task_info.get(task.instance, {}))
+                newly_started_tasks.append(task.id)
+
+        # NOTE: this should never happen if _check_execution_tasks_sanity
+        # was called before this method:
+        if not newly_started_tasks:
+            raise exception.InvalidActionTasksExecutionState(
+                "No tasks were started at the beginning of execution '%s'" % (
+                    execution.id))
+
+    def _check_execution_tasks_sanity(
+            self, execution, initial_task_info):
+        """ Checks whether the given execution's tasks are:
+        - properly odered and not set to deadlock off the bat
+        - properly manipulate the task_info in the right order
+        """
+        all_instances_in_tasks = {
+            t.instance for t in execution.tasks}
+        instances_tasks_mapping = {
+            instance: [
+                t for t in execution.tasks if t.instance == instance]
+            for instance in all_instances_in_tasks}
+
+        def _check_task_cls_param_requirements(task, instance_task_info_keys):
+            task_cls = tasks_factory.get_task_runner_class(task.task_type)()
+            missing_params = [
+                p for p in task_cls.required_task_info_properties
+                if p not in instance_task_info_keys]
+            if missing_params:
+                raise exception.CoriolisException(
+                    "The following task parameters for instance '%s' "
+                    "are missing from the task_info for task '%s' of "
+                    "type '%s': %s" % (
+                        task.instance, task.id, task.task_type,
+                        missing_params))
+            return task_cls.returned_task_info_properties
+
+        for instance, instance_tasks in instances_tasks_mapping.items():
+            task_info_keys = set(initial_task_info.get(
+                instance, {}).keys())
+            # mapping between the ID and associated object of processed tasks:
+            processed_tasks = {}
+            tasks_to_process = {
+                t.id: t for t in instance_tasks}
+            while tasks_to_process:
+                queued_tasks = []
+                # gather all tasks which will be queued to run in parallel:
+                for task in tasks_to_process.values():
+                    if task.status in (
+                            constants.TASK_STATUS_SCHEDULED,
+                            constants.TASK_STATUS_ON_ERROR_ONLY):
+                        if not task.depends_on:
+                            queued_tasks.append(task)
+                        else:
+                            missing_deps = [
+                                dep_id
+                                for dep_id in task.depends_on
+                                if dep_id not in tasks_to_process and (
+                                    dep_id not in processed_tasks)]
+                            if missing_deps:
+                                raise exception.CoriolisException(
+                                    "Task '%s' (type '%s') for instance '%s' "
+                                    "has non-exitent tasks referenced as "
+                                    "dependencies: %s" % (
+                                        task.id, task.task_type,
+                                        instance, missing_deps))
+                            if all(
+                                    [dep_id in processed_tasks
+                                     for dep_id in task.depends_on]):
+                                queued_tasks.append(task)
+                    else:
+                        raise exception.CoriolisException(
+                            "Invalid initial state '%s' for task '%s' "
+                            "of type '%s'."% (
+                                task.status, task.id, task.task_type))
+
+                # check if nothing was left queued:
+                if not queued_tasks:
+                    remaining_tasks_deps_map = {
+                        (tid, t.task_type): t.depends_on
+                        for tid, t in tasks_to_process.items()}
+                    processed_tasks_type_map = {
+                        tid: t.task_type
+                        for tid, t in processed_tasks.items()}
+                    raise exception.CoriolisException(
+                        "Execution '%s' (type '%s') is bound to be deadlocked:"
+                        " there are leftover tasks for instance '%s' which "
+                        "will never get queued. Already processed tasks are: "
+                        "%s. Tasks left: %s" % (
+                            execution.id, execution.type, instance,
+                            processed_tasks_type_map, remaining_tasks_deps_map))
+
+                # mapping for task_info fields modified by each task:
+                modified_fields_by_queued_tasks = {}
+                # check that each task has what it needs and
+                # register what they return/modify:
+                for task in queued_tasks:
+                    for new_field in _check_task_cls_param_requirements(
+                            task, task_info_keys):
+                        if new_field not in modified_fields_by_queued_tasks:
+                            modified_fields_by_queued_tasks[new_field] = [task]
+                        else:
+                            modified_fields_by_queued_tasks[new_field].append(
+                                task)
+
+                # check if any queued tasks would manipulate the same fields:
+                conflicting_fields = {
+                    new_field: [t.task_type for t in tasks]
+                    for new_field, tasks in (
+                        modified_fields_by_queued_tasks.items())
+                    if len(tasks) > 1}
+                if conflicting_fields:
+                    raise exception.CoriolisException(
+                        "There are fields which will encounter a state "
+                        "conflict following the parallelized execution of "
+                        "tasks for execution '%s' (type '%s') for instance "
+                        "'%s'. Conflicting fields and tasks will be: : %s" % (
+                            execution.id, execution.type, instance,
+                            conflicting_fields))
+
+                # register queued tasks as processed before continuing:
+                for task in queued_tasks:
+                    processed_tasks[task.id] = task
+                    tasks_to_process.pop(task.id)
+                # update current state fields at this point:
+                task_info_keys = task_info_keys.union(set(
+                    modified_fields_by_queued_tasks.keys()))
+                LOG.debug(
+                    "Successfully processed following tasks for instance '%s' "
+                    "for execution %s (type '%s') for any state conflict "
+                    "checks: %s",
+                    instance, execution.id, execution.type, [
+                        (t.id, t.task_type) for t in queued_tasks])
+            LOG.debug(
+                "Successfully checked all tasks for instance '%s' as part of "
+                "execution '%s' (type '%s') for any state conflicts: %s",
+                instance, execution.id, execution.type,
+                [(t.id, t.task_type) for t in instance_tasks])
+        LOG.debug(
+            "Successfully checked all tasks for execution '%s' (type '%s') "
+            "for ordering or state conflicts.",
+            execution.id, execution.type)
 
     @replica_synchronized
     def execute_replica_tasks(self, ctxt, replica_id, shutdown_instances):
@@ -343,7 +539,33 @@ class ConductorServerEndpoint(object):
         execution.action = replica
         execution.type = constants.EXECUTION_TYPE_REPLICA_EXECUTION
 
+        # TODO(aznashwan): have these passed separately to the relevant
+        # provider methods. They're currently passed directly inside
+        # dest-env by the API service when accepting the call, but we
+        # re-overwrite them here in case of Replica updates.
+        dest_env = copy.deepcopy(replica.destination_environment)
+        dest_env['network_map'] = replica.network_map
+        dest_env['storage_mappings'] = replica.storage_mappings
+
         for instance in execution.action.instances:
+            # NOTE: we default/convert the volumes info to an empty list
+            # to preserve backwards-compatibility with older versions
+            # of Coriolis dating before the scheduling overhaul (PR##114)
+            if instance not in replica.info:
+                replica.info[instance] = {'volumes_info': []}
+            elif replica.info[instance].get('volumes_info') is None:
+                 replica.info[instance]['volumes_info'] = []
+            # NOTE: we update all of the param values before triggering an
+            # execution to ensure that the latest parameters are used:
+            replica.info[instance].update({
+                "source_environment": replica.source_environment,
+                "target_environment": dest_env})
+                # TODO(aznashwan): have these passed separately to the relevant
+                # provider methods (they're currently passed directly inside
+                # dest-env by the API service when accepting the call)
+                # "network_map": network_map,
+                # "storage_mappings": storage_mappings,
+
             validate_replica_source_inputs_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_VALIDATE_REPLICA_SOURCE_INPUTS,
@@ -352,8 +574,7 @@ class ConductorServerEndpoint(object):
             get_instance_info_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_GET_INSTANCE_INFO,
-                execution,
-                depends_on=[validate_replica_source_inputs_task.id])
+                execution)
 
             validate_replica_destination_inputs_task = self._create_task(
                 instance,
@@ -361,18 +582,11 @@ class ConductorServerEndpoint(object):
                 execution,
                 depends_on=[get_instance_info_task.id])
 
-            depends_on = [
-                validate_replica_source_inputs_task.id,
-                validate_replica_destination_inputs_task.id]
-            if shutdown_instances:
-                shutdown_instance_task = self._create_task(
-                    instance, constants.TASK_TYPE_SHUTDOWN_INSTANCE,
-                    execution, depends_on=depends_on)
-                depends_on = [shutdown_instance_task.id]
-
             deploy_replica_disks_task = self._create_task(
                 instance, constants.TASK_TYPE_DEPLOY_REPLICA_DISKS,
-                execution, depends_on=depends_on)
+                execution, depends_on=[
+                    validate_replica_source_inputs_task.id,
+                    validate_replica_destination_inputs_task.id])
 
             deploy_replica_source_resources_task = self._create_task(
                 instance,
@@ -383,33 +597,50 @@ class ConductorServerEndpoint(object):
                 instance,
                 constants.TASK_TYPE_DEPLOY_REPLICA_TARGET_RESOURCES,
                 execution, depends_on=[
-                    deploy_replica_disks_task.id,
-                    deploy_replica_source_resources_task.id])
+                    deploy_replica_disks_task.id])
+
+            depends_on = [
+                deploy_replica_source_resources_task.id,
+                deploy_replica_target_resources_task.id]
+            if shutdown_instances:
+                shutdown_instance_task = self._create_task(
+                    instance, constants.TASK_TYPE_SHUTDOWN_INSTANCE,
+                    execution, depends_on=depends_on)
+                depends_on = [shutdown_instance_task.id]
 
             replicate_disks_task = self._create_task(
                 instance, constants.TASK_TYPE_REPLICATE_DISKS,
-                execution, depends_on=[
-                    deploy_replica_source_resources_task.id,
-                    deploy_replica_target_resources_task.id])
+                execution, depends_on=depends_on)
 
-            delete_source_resources_task = self._create_task(
+            self._create_task(
                 instance,
                 constants.TASK_TYPE_DELETE_REPLICA_SOURCE_RESOURCES,
                 execution,
-                depends_on=[replicate_disks_task.id],
+                depends_on=[
+                    deploy_replica_source_resources_task.id,
+                    replicate_disks_task.id],
                 on_error=True)
 
             self._create_task(
                 instance,
                 constants.TASK_TYPE_DELETE_REPLICA_TARGET_RESOURCES,
                 execution, depends_on=[
-                    replicate_disks_task.id, delete_source_resources_task.id],
+                    deploy_replica_target_resources_task.id,
+                    replicate_disks_task.id],
                 on_error=True)
 
+        self._check_execution_tasks_sanity(execution, replica.info)
+
+        # update the action info for all of the Replicas:
+        for instance in execution.action.instances:
+            db_api.update_transfer_action_info_for_instance(
+                ctxt, replica.id, instance, replica.info[instance])
+
+        # add new execution to DB:
         db_api.add_replica_tasks_execution(ctxt, execution)
         LOG.info("Replica tasks execution created: %s", execution.id)
 
-        self._begin_tasks(ctxt, execution, replica.info)
+        self._begin_tasks(ctxt, execution, task_info=replica.info)
         return self.get_replica_tasks_execution(ctxt, replica_id, execution.id)
 
     @replica_synchronized
@@ -427,9 +658,11 @@ class ConductorServerEndpoint(object):
     def delete_replica_tasks_execution(self, ctxt, replica_id, execution_id):
         execution = self._get_replica_tasks_execution(
             ctxt, replica_id, execution_id)
-        if execution.status == constants.EXECUTION_STATUS_RUNNING:
+        if execution.status in constants.ACTIVE_EXECUTION_STATUSES:
             raise exception.InvalidMigrationState(
-                "Cannot delete a running replica tasks execution")
+                "Cannot delete execution '%s' for Replica '%s' as it is "
+                "currently in '%s' state." % (
+                    execution_id, replica_id, execution.status))
         db_api.delete_replica_tasks_execution(ctxt, execution_id)
 
     @tasks_execution_synchronized
@@ -437,16 +670,25 @@ class ConductorServerEndpoint(object):
                                        force):
         execution = self._get_replica_tasks_execution(
             ctxt, replica_id, execution_id)
-        if execution.status != constants.EXECUTION_STATUS_RUNNING:
+        if execution.status not in constants.ACTIVE_EXECUTION_STATUSES:
             raise exception.InvalidReplicaState(
-                "The replica tasks execution is not running")
-        self._cancel_tasks_execution(ctxt, execution, force)
+                "Replica '%s' has no running execution to cancel." % (
+                    replica_id))
+        if execution.status == constants.EXECUTION_STATUS_CANCELLING and (
+                not force):
+            raise exception.InvalidReplicaState(
+                "Replica '%s' is already being cancelled. Please use the "
+                "force option if you'd like to force-cancel it." % (
+                    replica_id))
+        self._cancel_tasks_execution(ctxt, execution, force=force)
 
     def _get_replica_tasks_execution(self, ctxt, replica_id, execution_id):
         execution = db_api.get_replica_tasks_execution(
             ctxt, replica_id, execution_id)
         if not execution:
-            raise exception.NotFound("Tasks execution not found")
+            raise exception.NotFound(
+                "Execution with ID '%s' for Replica '%s' not found." % (
+                    execution_id, replica_id))
         return execution
 
     def get_replicas(self, ctxt, include_tasks_executions=False):
@@ -477,7 +719,7 @@ class ConductorServerEndpoint(object):
         has_tasks = False
         for instance in replica.instances:
             if (instance in replica.info and
-                    "volumes_info" in replica.info[instance]):
+                    replica.info[instance].get('volumes_info')):
                 self._create_task(
                     instance, constants.TASK_TYPE_DELETE_REPLICA_DISKS,
                     execution)
@@ -485,14 +727,15 @@ class ConductorServerEndpoint(object):
 
         if not has_tasks:
             raise exception.InvalidReplicaState(
-                "This replica does not have volumes information for any "
-                "instance. Ensure that the replica has been executed "
-                "successfully priorly")
+                "Replica '%s' does not have volumes information for any "
+                "instances. Ensure that the replica has been executed "
+                "successfully priorly" % replica_id)
 
+        self._check_execution_tasks_sanity(execution, replica.info)
         db_api.add_replica_tasks_execution(ctxt, execution)
         LOG.info("Replica tasks execution created: %s", execution.id)
 
-        self._begin_tasks(ctxt, execution, replica.info)
+        self._begin_tasks(ctxt, execution, task_info=replica.info)
         return self.get_replica_tasks_execution(ctxt, replica_id, execution.id)
 
     @staticmethod
@@ -518,7 +761,8 @@ class ConductorServerEndpoint(object):
         replica.source_environment = source_environment
         replica.instances = instances
         replica.executions = []
-        replica.info = {}
+        replica.info = {instance: {
+            'volumes_info': []} for instance in instances}
         replica.notes = notes
         replica.network_map = network_map
         replica.storage_mappings = storage_mappings
@@ -533,7 +777,8 @@ class ConductorServerEndpoint(object):
     def _get_replica(self, ctxt, replica_id):
         replica = db_api.get_replica(ctxt, replica_id)
         if not replica:
-            raise exception.NotFound("Replica not found")
+            raise exception.NotFound(
+                "Replica with ID '%s' not found." % replica_id)
         return replica
 
     def get_migrations(self, ctxt, include_tasks,
@@ -550,17 +795,20 @@ class ConductorServerEndpoint(object):
     @staticmethod
     def _check_running_replica_migrations(ctxt, replica_id):
         migrations = db_api.get_replica_migrations(ctxt, replica_id)
-        if [m.id for m in migrations if m.executions[0].status ==
-                constants.EXECUTION_STATUS_RUNNING]:
+        if [m.id for m in migrations if m.executions[0].status in (
+                constants.ACTIVE_EXECUTION_STATUSES)]:
             raise exception.InvalidReplicaState(
-                "This replica is currently being migrated")
+                "Replica '%s' is currently being migrated" % replica_id)
 
     @staticmethod
     def _check_running_executions(action):
-        if [e for e in action.executions
-                if e.status == constants.EXECUTION_STATUS_RUNNING]:
+        running_executions = [
+            e.id for e in action.executions
+            if e.status in constants.ACTIVE_EXECUTION_STATUSES]
+        if running_executions:
             raise exception.InvalidActionTasksExecutionState(
-                "Another tasks execution is in progress")
+                "Another tasks execution is in progress: %s" % (
+                    running_executions))
 
     def _check_replica_running_executions(self, ctxt, replica):
         self._check_running_executions(replica)
@@ -616,18 +864,18 @@ class ConductorServerEndpoint(object):
         migration.id = str(uuid.uuid4())
         migration.origin_endpoint_id = replica.origin_endpoint_id
         migration.destination_endpoint_id = replica.destination_endpoint_id
-        migration.destination_environment = replica.destination_environment
+        # TODO(aznashwan): have these passed separately to the relevant
+        # provider methods instead of through the dest-env:
+        dest_env = copy.deepcopy(replica.destination_environment)
+        dest_env['network_map'] = replica.network_map
+        dest_env['storage_mappings'] = replica.storage_mappings
+        migration.destination_environment = dest_env
         migration.source_environment = replica.source_environment
         migration.network_map = replica.network_map
         migration.storage_mappings = replica.storage_mappings
         migration.instances = instances
         migration.replica = replica
         migration.info = replica.info
-
-        for instance in instances:
-            migration.info[instance]["clone_disks"] = clone_disks
-            scripts = self._get_instance_scripts(user_scripts, instance)
-            migration.info[instance]["user_scripts"] = scripts
 
         execution = models.TasksExecution()
         migration.executions = [execution]
@@ -636,35 +884,47 @@ class ConductorServerEndpoint(object):
         execution.type = constants.EXECUTION_TYPE_REPLICA_DEPLOY
 
         for instance in instances:
-            validate_replica_desployment_inputs_task = self._create_task(
+            migration.info[instance]["clone_disks"] = clone_disks
+            scripts = self._get_instance_scripts(user_scripts, instance)
+            migration.info[instance]["user_scripts"] = scripts
+
+            # NOTE: we default/convert the volumes info to an empty list
+            # to preserve backwards-compatibility with older versions
+            # of Coriolis dating before the scheduling overhaul (PR##114)
+            if instance not in migration.info:
+                migration.info[instance] = {'volumes_info': []}
+            # NOTE: we update all of the param values before triggering an
+            # execution to ensure that the params on the Replica are used
+            # in case there was a failed Replica update (where the new values
+            # could be in the `.info` field instead of the old ones)
+            migration.info[instance].update({
+                "source_environment": migration.source_environment,
+                "target_environment": dest_env})
+                # TODO(aznashwan): have these passed separately to the relevant
+                # provider methods (they're currently passed directly inside
+                # dest-env by the API service when accepting the call)
+                # "network_map": network_map,
+                # "storage_mappings": storage_mappings,
+
+            validate_replica_deployment_inputs_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_VALIDATE_REPLICA_DEPLOYMENT_INPUTS,
                 execution)
 
-            create_snapshot_task_depends_on = [
-                validate_replica_desployment_inputs_task.id]
-
-            if (constants.PROVIDER_TYPE_INSTANCE_FLAVOR in
-                    destination_provider_types):
-                get_optimal_flavor_task = self._create_task(
-                    instance, constants.TASK_TYPE_GET_OPTIMAL_FLAVOR,
-                    execution, depends_on=[
-                        validate_replica_desployment_inputs_task.id])
-                create_snapshot_task_depends_on.append(
-                    get_optimal_flavor_task.id)
-
             create_snapshot_task = self._create_task(
                 instance, constants.TASK_TYPE_CREATE_REPLICA_DISK_SNAPSHOTS,
-                execution, depends_on=create_snapshot_task_depends_on)
+                execution, depends_on=[
+                    validate_replica_deployment_inputs_task.id])
 
             deploy_replica_task = self._create_task(
                 instance, constants.TASK_TYPE_DEPLOY_REPLICA_INSTANCE,
                 execution, [create_snapshot_task.id])
 
+            depends_on = [deploy_replica_task.id]
             if not skip_os_morphing:
                 task_deploy_os_morphing_resources = self._create_task(
                     instance, constants.TASK_TYPE_DEPLOY_OS_MORPHING_RESOURCES,
-                    execution, depends_on=[deploy_replica_task.id])
+                    execution, depends_on=depends_on)
 
                 task_osmorphing = self._create_task(
                     instance, constants.TASK_TYPE_OS_MORPHING,
@@ -673,28 +933,43 @@ class ConductorServerEndpoint(object):
 
                 task_delete_os_morphing_resources = self._create_task(
                     instance, constants.TASK_TYPE_DELETE_OS_MORPHING_RESOURCES,
-                    execution, depends_on=[task_osmorphing.id],
+                    execution, depends_on=[
+                        task_deploy_os_morphing_resources.id,
+                        task_osmorphing.id],
                     on_error=True)
 
-                next_task = task_delete_os_morphing_resources
-            else:
-                next_task = deploy_replica_task
+                depends_on = [
+                    task_osmorphing.id,
+                    task_delete_os_morphing_resources.id]
+
+            if (constants.PROVIDER_TYPE_INSTANCE_FLAVOR in
+                    destination_provider_types):
+                get_optimal_flavor_task = self._create_task(
+                    instance, constants.TASK_TYPE_GET_OPTIMAL_FLAVOR,
+                    execution, depends_on=depends_on)
+                depends_on = [get_optimal_flavor_task.id]
 
             finalize_deployment_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_FINALIZE_REPLICA_INSTANCE_DEPLOYMENT,
                 execution,
-                depends_on=[next_task.id])
+                depends_on=depends_on)
 
             self._create_task(
                 instance, constants.TASK_TYPE_DELETE_REPLICA_DISK_SNAPSHOTS,
-                execution, depends_on=[finalize_deployment_task.id],
+                execution, depends_on=[
+                    create_snapshot_task.id,
+                    finalize_deployment_task.id],
                 on_error=clone_disks)
 
             cleanup_deployment_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_CLEANUP_FAILED_REPLICA_INSTANCE_DEPLOYMENT,
-                execution, on_error=True)
+                execution,
+                depends_on=[
+                    deploy_replica_task.id,
+                    finalize_deployment_task.id],
+                on_error_only=True)
 
             if not clone_disks:
                 self._create_task(
@@ -704,10 +979,11 @@ class ConductorServerEndpoint(object):
                     depends_on=[cleanup_deployment_task.id],
                     on_error=True)
 
+        self._check_execution_tasks_sanity(execution, migration.info)
         db_api.add_migration(ctxt, migration)
         LOG.info("Migration created: %s", migration.id)
 
-        self._begin_tasks(ctxt, execution, migration.info)
+        self._begin_tasks(ctxt, execution, task_info=migration.info)
 
         return self.get_migration(ctxt, migration.id)
 
@@ -760,22 +1036,25 @@ class ConductorServerEndpoint(object):
             migration, licensing_client.RESERVATION_TYPE_MIGRATION)
 
         for instance in instances:
-            # NOTE: we must explicitly set this in each VM's info
-            # to prevent the Replica disks from being cloned:
-            migration.info[instance] = {"clone_disks": False}
-            scripts = self._get_instance_scripts(user_scripts, instance)
-            migration.info[instance]["user_scripts"] = scripts
-
-            validate_migration_source_inputs_task = self._create_task(
-                instance,
-                constants.TASK_TYPE_VALIDATE_MIGRATION_SOURCE_INPUTS,
-                execution)
+            migration.info[instance] = {
+                "volumes_info": [],
+                "source_environment": source_environment,
+                "target_environment": destination_environment,
+                "user_scripts": self._get_instance_scripts(
+                    user_scripts, instance),
+                # NOTE: we must explicitly set this in each VM's info
+                # to prevent the Replica disks from being cloned:
+                "clone_disks": False}
+                # TODO(aznashwan): have these passed separately to the relevant
+                # provider methods (they're currently passed directly inside
+                # dest-env by the API service when accepting the call)
+                # "network_map": network_map,
+                # "storage_mappings": storage_mappings,
 
             get_instance_info_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_GET_INSTANCE_INFO,
-                execution,
-                depends_on=[validate_migration_source_inputs_task.id])
+                execution)
 
             validate_migration_destination_inputs_task = self._create_task(
                 instance,
@@ -783,33 +1062,35 @@ class ConductorServerEndpoint(object):
                 execution,
                 depends_on=[get_instance_info_task.id])
 
-            depends_on = [
-                validate_migration_source_inputs_task.id,
-                validate_migration_destination_inputs_task.id]
-
-            create_instance_disks_task = self._create_task(
-                instance, constants.TASK_TYPE_CREATE_INSTANCE_DISKS,
-                execution, depends_on=depends_on)
+            validate_migration_source_inputs_task = self._create_task(
+                instance,
+                constants.TASK_TYPE_VALIDATE_MIGRATION_SOURCE_INPUTS,
+                execution)
 
             deploy_migration_source_resources_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_DEPLOY_MIGRATION_SOURCE_RESOURCES,
-                execution, depends_on=[create_instance_disks_task.id])
+                execution, depends_on=[validate_migration_source_inputs_task.id])
+
+            create_instance_disks_task = self._create_task(
+                instance, constants.TASK_TYPE_CREATE_INSTANCE_DISKS,
+                execution, depends_on=[
+                    validate_migration_source_inputs_task.id,
+                    validate_migration_destination_inputs_task.id])
 
             deploy_migration_target_resources_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_DEPLOY_MIGRATION_TARGET_RESOURCES,
-                execution, depends_on=[
-                    create_instance_disks_task.id,
-                    deploy_migration_source_resources_task.id])
+                execution, depends_on=[create_instance_disks_task.id])
 
             # NOTE(aznashwan): re-executing the REPLICATE_DISKS task only works
             # if all the source disk snapshotting and worker setup steps are
             # performed by the source plugin in REPLICATE_DISKS.
             # This should no longer be a problem when worker pooling lands.
-            # Alternatively, if the DEPLOY_REPLICA_SOURCE/DEST_RESOURCES tasks
-            # will no longer have a state conflict, iterating through and
-            # re-executing DEPLOY_REPLICA_SOURCE_RESOURCES will be required:
+            # Alternatively, REPLICATE_DISKS could be modfied to re-use the
+            # resources deployed during 'DEPLOY_SOURCE_RESOURCES'.
+            # These are currently not even passed to REPLICATE_DISKS (just
+            # their connection info), and should be fixed later.
             last_migration_task = None
             migration_resources_tasks = [
                 deploy_migration_source_resources_task.id,
@@ -836,28 +1117,30 @@ class ConductorServerEndpoint(object):
             delete_source_resources_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_DELETE_MIGRATION_SOURCE_RESOURCES,
-                execution, depends_on=[last_migration_task.id],
+                execution, depends_on=[
+                    deploy_migration_source_resources_task.id,
+                    last_migration_task.id],
                 on_error=True)
 
             delete_destination_resources_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_DELETE_MIGRATION_TARGET_RESOURCES,
                 execution, depends_on=[
-                    last_migration_task.id,
-                    delete_source_resources_task.id],
+                    deploy_migration_target_resources_task.id,
+                    last_migration_task.id],
                 on_error=True)
 
             deploy_instance_task = self._create_task(
                 instance, constants.TASK_TYPE_DEPLOY_INSTANCE_RESOURCES,
                 execution, depends_on=[
-                    delete_source_resources_task.id,
                     delete_destination_resources_task.id])
 
-            last_task = deploy_instance_task
+            depends_on = [deploy_instance_task.id]
+            task_delete_os_morphing_resources = None
             if not skip_os_morphing:
                 task_deploy_os_morphing_resources = self._create_task(
                     instance, constants.TASK_TYPE_DEPLOY_OS_MORPHING_RESOURCES,
-                    execution, depends_on=[last_task.id])
+                    execution, depends_on=depends_on)
 
                 task_osmorphing = self._create_task(
                     instance, constants.TASK_TYPE_OS_MORPHING,
@@ -866,166 +1149,611 @@ class ConductorServerEndpoint(object):
 
                 task_delete_os_morphing_resources = self._create_task(
                     instance, constants.TASK_TYPE_DELETE_OS_MORPHING_RESOURCES,
-                    execution, depends_on=[task_osmorphing.id],
+                    execution, depends_on=[
+                        task_deploy_os_morphing_resources.id,
+                        task_osmorphing.id],
                     on_error=True)
 
-                last_task = task_delete_os_morphing_resources
+                depends_on = [
+                    task_osmorphing.id,
+                    task_delete_os_morphing_resources.id]
 
             if (constants.PROVIDER_TYPE_INSTANCE_FLAVOR in
                     destination_provider_types):
                 get_optimal_flavor_task = self._create_task(
                     instance, constants.TASK_TYPE_GET_OPTIMAL_FLAVOR,
-                    execution, depends_on=[last_task.id])
-                last_task = get_optimal_flavor_task
+                    execution, depends_on=depends_on)
+                depends_on = [get_optimal_flavor_task.id]
 
-            self._create_task(
+            finalize_deployment_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_FINALIZE_INSTANCE_DEPLOYMENT,
-                execution, depends_on=[last_task.id])
+                execution, depends_on=depends_on)
 
-            self._create_task(
+            cleanup_failed_deployment_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_CLEANUP_FAILED_INSTANCE_DEPLOYMENT,
-                execution, on_error=True)
+                execution, depends_on=[
+                    deploy_instance_task.id,
+                    finalize_deployment_task.id],
+                on_error_only=True)
 
+            cleanup_deps = [
+                create_instance_disks_task.id,
+                delete_destination_resources_task.id,
+                cleanup_failed_deployment_task.id]
+            if task_delete_os_morphing_resources:
+                cleanup_deps.append(task_delete_os_morphing_resources.id)
             self._create_task(
                 instance, constants.TASK_TYPE_CLEANUP_INSTANCE_STORAGE,
-                execution, on_error=True)
+                execution, depends_on=cleanup_deps,
+                on_error_only=True)
 
+        self._check_execution_tasks_sanity(execution, migration.info)
         db_api.add_migration(ctxt, migration)
-        LOG.info("Migration created: %s", migration.id)
 
-        self._begin_tasks(ctxt, execution)
+        LOG.info("Migration created: %s", migration.id)
+        self._begin_tasks(ctxt, execution, task_info=migration.info)
 
         return self.get_migration(ctxt, migration.id)
 
     def _get_migration(self, ctxt, migration_id):
         migration = db_api.get_migration(ctxt, migration_id)
         if not migration:
-            raise exception.NotFound("Migration not found")
+            raise exception.NotFound(
+                "Migration with ID '%s' not found." % migration_id)
         return migration
 
     @migration_synchronized
     def delete_migration(self, ctxt, migration_id):
         migration = self._get_migration(ctxt, migration_id)
         execution = migration.executions[0]
-        if execution.status == constants.EXECUTION_STATUS_RUNNING:
+        if execution.status in constants.ACTIVE_EXECUTION_STATUSES:
             raise exception.InvalidMigrationState(
-                "Cannot delete a running migration")
+                "Cannot delete Migration '%s' as it is currently in "
+                "'%s' state." % (migration_id, execution.status))
         db_api.delete_migration(ctxt, migration_id)
 
     @migration_synchronized
     def cancel_migration(self, ctxt, migration_id, force):
         migration = self._get_migration(ctxt, migration_id)
-        execution = migration.executions[0]
-        if execution.status != constants.EXECUTION_STATUS_RUNNING:
+        if len(migration.executions) != 1:
             raise exception.InvalidMigrationState(
-                "The migration is not running")
+                "Migration '%s' has in improper number of tasks "
+                "executions: %d" % (migration_id, len(migration.executions)))
         execution = migration.executions[0]
-        self._cancel_tasks_execution(ctxt, execution, force)
+        if execution.status not in constants.ACTIVE_EXECUTION_STATUSES:
+            raise exception.InvalidMigrationState(
+                "Migration '%s' is not currently running" % migration_id)
+        if execution.status == constants.EXECUTION_STATUS_CANCELLING and (
+                not force):
+            raise exception.InvalidMigrationState(
+                "Migration '%s' is already being cancelled. Please use the "
+                "force option if you'd like to force-cancel it.")
+
+        with lockutils.lock(
+                constants.EXECUTION_LOCK_NAME_FORMAT % execution.id,
+                external=True):
+            self._cancel_tasks_execution(ctxt, execution, force=force)
         self._check_delete_reservation_for_transfer(migration)
 
-    def _cancel_tasks_execution(self, ctxt, execution, force=False):
-        has_error_tasks = False
-        has_running_tasks = False
+    def _cancel_tasks_execution(
+            self, ctxt, execution, requery=True, force=False):
+        """ Cancels a running Execution by:
+        - telling workers to kill any already running non-on-error tasks
+        - cancelling any non-on-error tasks which are pending
+        - making all on-error-only tasks as scheduled
+
+        NOTE: affects whole execution, only call this
+        with a lock on the Execution as a whole!
+        """
+        if requery:
+            execution = db_api.get_tasks_execution(ctxt, execution.id)
+        if execution.status == constants.EXECUTION_STATUS_RUNNING:
+            LOG.info(
+                "Cancelling tasks execution %s. Current status before "
+                "cancellation is '%s'", execution.id, execution.status)
+            # mark execution as cancelling:
+            self._set_tasks_execution_status(
+                ctxt, execution.id, constants.EXECUTION_STATUS_CANCELLING)
+        elif execution.status == constants.EXECUTION_STATUS_CANCELLING and (
+                not force):
+            LOG.info(
+                "Execution '%s' is already in CANCELLING status and no "
+                "force flag was provided, skipping re-cancellation.",
+                execution.id)
+            self._advance_execution_state(
+                ctxt, execution, requery=not requery)
+            return
+        elif execution.status in constants.FINALIZED_TASK_STATUSES:
+            LOG.info(
+                "Execution '%s' is in a finalized status '%s'. "
+                "Skipping re-cancellation.", execution.id, execution.status)
+            return
+
+        # iterate through and kill/cancel any non-error
+        # tasks which are running/pending:
         for task in execution.tasks:
-            if task.on_error and task.status in (
-                    constants.TASK_STATUS_RUNNING,
-                    constants.TASK_STATUS_PENDING):
-                # NOTE: always allow on_error tasks to execute
-                # as they may be required for cleanup:
-                has_error_tasks = True
+
+            # if force is provided, force-cancel tasks directly:
+            if force and task.status in constants.ACTIVE_TASK_STATUSES:
+                LOG.warn(
+                    "Task '%s' is in %s state, but forcibly setting to "
+                    "'%s' because 'force' flag was provided",
+                    task.id, task.status,
+                    constants.TASK_STATUS_FORCE_CANCELED)
+                db_api.set_task_status(
+                    ctxt, task.id, constants.TASK_STATUS_FORCE_CANCELED,
+                    exception_details=(
+                        "This task was force-canceled at user request."))
                 continue
 
-            if task.status == constants.TASK_STATUS_RUNNING:
-                self._rpc_worker_client.cancel_task(
-                    ctxt, task.host, task.id, task.process_id, force)
-                has_running_tasks = True
-            elif task.status == constants.TASK_STATUS_PENDING:
+            if task.status in (
+                    constants.TASK_STATUS_RUNNING,
+                    constants.TASK_STATUS_PENDING):
+                # cancel any currently running/pending non-error tasks:
+                if not task.on_error:
+                    LOG.debug(
+                        "Killing %s non-error task '%s' as part of "
+                        "cancellation of execution '%s'",
+                        task.status, task.id, execution.id)
+                    db_api.set_task_status(
+                        ctxt, task.id, constants.TASK_STATUS_CANCELLING)
+                    self._rpc_worker_client.cancel_task(
+                        ctxt, task.host, task.id, task.process_id, force)
+                # let any on-error tasks run to completion but mark
+                # them as CANCELLING_AFTER_COMPLETION so they will
+                # be marked as cancelled once they are completed:
+                else:
+                    LOG.debug(
+                        "Marking %s on-error task %s as %s as part of "
+                        "cancellation of execution  %s",
+                        task.status, task.id,
+                        constants.TASK_STATUS_CANCELLING_AFTER_COMPLETION,
+                        execution.id)
+                    db_api.set_task_status(
+                        ctxt, task.id,
+                        constants.TASK_STATUS_CANCELLING_AFTER_COMPLETION,
+                        exception_details=(
+                            "Task will be marked as cancelled after completion"
+                            " as it is a cleanup task."))
+            elif task.status == constants.TASK_STATUS_ON_ERROR_ONLY:
+                # mark all on-error-only tasks as scheduled:
+                LOG.debug(
+                    "Marking on-error-only task '%s' as scheduled following "
+                    "cancellation of execution '%s'",
+                    task.id, execution.id)
                 db_api.set_task_status(
-                    ctxt, task.id, constants.TASK_STATUS_CANCELED)
+                    ctxt, task.id, constants.TASK_STATUS_SCHEDULED)
+            else:
+                LOG.debug(
+                    "No action currently taken with respect to task '%s' "
+                    "(status '%s', on_error=%s) during cancellation of "
+                    "execution '%s'",
+                    task.id, task.status, task.on_error, execution.id)
 
-        if not has_running_tasks:
-            try:
-                origin = self._get_task_origin(ctxt, execution.action)
-                destination = self._get_task_destination(
-                    ctxt, execution.action)
-
-                for task in execution.tasks:
-                    if task.status in [constants.TASK_STATUS_PENDING,
-                                       constants.TASK_STATUS_ON_ERROR_ONLY]:
-                        if task.on_error:
-                            action = db_api.get_action(
-                                ctxt, execution.action_id)
-                            task_info = action.info.get(task.instance, {})
-
-                            self._rpc_worker_client.begin_task(
-                                ctxt, server=None,
-                                task_id=task.id,
-                                task_type=task.task_type,
-                                origin=origin,
-                                destination=destination,
-                                instance=task.instance,
-                                task_info=task_info)
-
-                            has_running_tasks = True
-            except exception.NotFound as ex:
-                LOG.error("A required endpoint could not be found")
-                LOG.exception(ex)
-
-        # NOTE: only set the whole execution to 'ERROR' if nothing's
-        # running and no on_error=True tasks are pending.
-        # Otherwise, the lifecycle of the rest of the execution will
-        # be governed in `task_completed` when any of the
-        # running/pending tasks finish:
-        if not has_running_tasks and not has_error_tasks:
-            self._set_tasks_execution_status(
-                ctxt, execution.id, constants.EXECUTION_STATUS_ERROR)
+        started_tasks = self._advance_execution_state(ctxt, execution)
+        if started_tasks:
+            LOG.info(
+                "The following tasks were started after state advancement "
+                "of execution '%s' after cancellation request: %s",
+                execution.id, started_tasks)
+        else:
+            LOG.debug(
+                "No new tasks were started for execution '%s' following "
+                "state advancement after cancellation.", execution.id)
 
     @staticmethod
     def _set_tasks_execution_status(ctxt, execution_id, execution_status):
-        LOG.info("Tasks execution %(id)s completed with status: %(status)s",
-                 {"id": execution_id, "status": execution_status})
+        LOG.info(
+            "Tasks execution %(id)s status updated to: %(status)s",
+            {"id": execution_id, "status": execution_status})
         db_api.set_execution_status(ctxt, execution_id, execution_status)
         if ctxt.delete_trust_id:
             keystone.delete_trust(ctxt)
 
-    @task_synchronized
+    @parent_tasks_execution_synchronized
     def set_task_host(self, ctxt, task_id, host, process_id):
+        """ Saves the ID of the worker host which has accepted and started
+        the task to the DB and marks the task as 'RUNNING'. """
+        task = db_api.get_task(ctxt, task_id)
+        new_status = constants.TASK_STATUS_RUNNING
+        exception_details = None
+        if task.status == constants.TASK_STATUS_CANCELLING:
+            raise exception.TaskIsCancelling(task_id=task_id)
+        elif task.status == constants.TASK_STATUS_CANCELLING_AFTER_COMPLETION:
+            if not task.on_error:
+                LOG.warn(
+                    "Non-error task '%s' was in '%s' status although it should"
+                    " not have been. Setting a task host for it anyway.",
+                    task.id, task.status)
+            LOG.debug(
+                "Task '%s' is in %s status, so it will be allowed to "
+                "have a host set for it and run to completion.",
+                task.id, task.status)
+            new_status = constants.TASK_STATUS_CANCELLING_AFTER_COMPLETION
+            exception_details = (
+                "This is a cleanup task so it will be allowed to run to "
+                "completion despite user-cancellation.")
+        elif task.status != constants.TASK_STATUS_PENDING:
+            raise exception.InvalidTaskState(
+                "Task with ID '%s' is in '%s' status instead of the "
+                "expected '%s' required for it to have a task host set." % (
+                    task_id, task.status, constants.TASK_STATUS_PENDING))
         db_api.set_task_host(ctxt, task_id, host, process_id)
         db_api.set_task_status(
-            ctxt, task_id, constants.TASK_STATUS_RUNNING)
+            ctxt, task_id, new_status,
+            exception_details=exception_details)
 
-    def _start_pending_tasks(self, ctxt, execution, parent_task, task_info):
+    def _check_clean_execution_deadlock(
+            self, ctxt, execution, task_statuses=None, requery=True):
+        """ Checks whether an execution is deadlocked.
+        Deadlocked executions have no currently running/pending tasks
+        but some remaining scheduled tasks.
+        If this occurs, all pending/error-only tasks are marked
+        as DEADLOCKED, and the execution is marked as such too.
+        Returns the state of the execution when the check occured
+        (either RUNNING or DEADLOCKED)
+        """
+        if requery:
+            execution = db_api.get_tasks_execution(ctxt, execution.id)
+        if not task_statuses:
+            task_statuses = {}
+            for task in execution.tasks:
+                task_statuses[task.id] = task.status
+
+        determined_state = constants.EXECUTION_STATUS_RUNNING
+        status_vals = task_statuses.values()
+        if constants.TASK_STATUS_SCHEDULED in status_vals and not (
+                any([stat in status_vals
+                     for stat in constants.ACTIVE_TASK_STATUSES])):
+            LOG.warn(
+                "Execution '%s' is deadlocked. Cleaning up now. "
+                "Task statuses are: %s",
+                execution.id, task_statuses)
+            for task_id, stat in task_statuses.items():
+                if stat in (
+                        constants.TASK_STATUS_SCHEDULED,
+                        constants.TASK_STATUS_ON_ERROR_ONLY):
+                    LOG.warn(
+                        "Marking deadlocked task '%s' as that (current "
+                        "state: %s)", task_id, stat)
+                    db_api.set_task_status(
+                        ctxt, task_id,
+                        constants.TASK_STATUS_CANCELED_FROM_DEADLOCK,
+                        exception_details=TASK_DEADLOCK_ERROR_MESSAGE)
+            LOG.warn(
+                "Marking deadlocked execution '%s' as DEADLOCKED", execution.id)
+            self._set_tasks_execution_status(
+                ctxt, execution.id, constants.EXECUTION_STATUS_DEADLOCKED)
+            LOG.error(
+                "Execution '%s' is deadlocked. Cleanup has been performed. "
+                "Task statuses at time of deadlock were: %s",
+                execution.id, task_statuses)
+            determined_state = constants.EXECUTION_STATUS_DEADLOCKED
+        return determined_state
+
+    def _get_execution_status(self, ctxt, execution, requery=False):
+        """ Returns the global status of an execution.
+        RUNNING - at least one task is RUNNING, PENDING or CANCELLING
+        COMPLETED - all non-error-only tasks are COMPLETED
+        CANCELED - no more RUNNING/PENDING/SCHEDULED tasks but some CANCELED
+        CANCELIING - at least one task in CANCELLING status
+        ERROR - not RUNNING and at least one is ERROR'd
+        DEADLOCKED - has SCHEDULED tasks but none RUNNING/PENDING/CANCELLING
+        """
+        is_running = False
+        is_canceled = False
+        is_cancelling = False
+        is_errord = False
+        has_scheduled_tasks = False
+        task_stat_map = {}
+        if requery:
+            execution = db_api.get_tasks_execution(ctxt, execution.id)
+        for task in execution.tasks:
+            task_stat_map[task.id] = task.status
+            if task.status in constants.ACTIVE_TASK_STATUSES:
+                is_running = True
+            if task.status in constants.CANCELED_TASK_STATUSES:
+                is_canceled = True
+            if task.status == constants.TASK_STATUS_ERROR:
+                is_errord = True
+            if task.status in (
+                    constants.TASK_STATUS_CANCELLING,
+                    constants.TASK_STATUS_CANCELLING_AFTER_COMPLETION):
+                is_cancelling = True
+            if task.status == constants.TASK_STATUS_SCHEDULED:
+                has_scheduled_tasks = True
+
+        status = constants.EXECUTION_STATUS_COMPLETED
+        if has_scheduled_tasks and not is_running:
+            status = constants.EXECUTION_STATUS_DEADLOCKED
+        elif is_cancelling:
+            status = constants.EXECUTION_STATUS_CANCELLING
+        elif is_running:
+            if is_canceled:
+                # means that a cancel was issued but some cleanup tasks are
+                # currently being run, so the final status is CANCELLING:
+                status = constants.EXECUTION_STATUS_CANCELLING
+            else:
+                status = constants.EXECUTION_STATUS_RUNNING
+        elif is_errord:
+            status = constants.EXECUTION_STATUS_ERROR
+        # NOTE: user-canceled executions should never have ERROR'd tasks
+        # (they should also be marked as CANCELED) so this comes last:
+        elif is_canceled:
+            status = constants.EXECUTION_STATUS_CANCELED
+
+        LOG.debug(
+            "Overall status for Execution '%s' determined to be '%s'."
+            "Task statuses at time of decision: %s",
+            execution.id, status, task_stat_map)
+        return status
+
+    def _advance_execution_state(
+            self, ctxt, execution, requery=True, instance=None):
+        """ Advances the state of the execution by starting/refreshing
+        the state of all child tasks.
+        If the execution has finalized (either completed or error'd),
+        updates its state to the finalized one.
+        Returns a list of all the tasks which were started.
+        NOTE: should only be called with a lock on the Execution!
+
+        Requirements for a task to be started:
+        - any SCHEDULED task with no deps will be instantly started
+        - any task where all parent tasks got UNSCHEDULED will
+          also be UNSCHEDULED
+        - normal tasks (task.on_error==False & task.status==SCHEDULED):
+            * started if all parent dependency tasks have been COMPLETED
+            * instantly unscheduled if all parents finalized but some
+              didn't complete successfuly.
+        - on-error tasks (task.on_error==True & task.status==SCHEDULED):
+            * all parent tasks (including on-error parents) must have
+              reached a terminal state
+            * at least one non-error parent task must have been COMPLETED
+        """
+        if requery:
+            execution = db_api.get_tasks_execution(ctxt, execution.id)
+        if execution.status not in constants.ACTIVE_EXECUTION_STATUSES:
+            LOG.warn(
+                "Execution state advancement called on Execution '%s' which "
+                "is not in an active status in the DB (it's currently '%s'). "
+                "Double-checking for deadlock and returning early.",
+                execution.id, execution.status)
+            if self._check_clean_execution_deadlock(
+                    ctxt, execution, task_statuses=None,
+                    requery=not requery) == (
+                        constants.EXECUTION_STATUS_DEADLOCKED):
+                LOG.error(
+                    "Execution '%s' deadlocked even before Replica state "
+                    "advancement . Cleanup has been perfomed. Returning.",
+                    execution.id)
+            return []
+
+        tasks_to_process = execution.tasks
+        if instance:
+            tasks_to_process = [
+                task for task in execution.tasks
+                if task.instance == instance]
+        if not tasks_to_process:
+            raise exception.InvalidActionTasksExecutionState(
+                "State advancement requested for execution '%s' for "
+                "instance '%s', which has no tasks defined for it." % (
+                    execution.id, instance))
+
+        LOG.debug(
+            "State of execution '%s' before state advancement is: %s",
+            execution.id, execution.status)
+
         origin = self._get_task_origin(ctxt, execution.action)
         destination = self._get_task_destination(ctxt, execution.action)
+        action = db_api.get_action(ctxt, execution.action_id)
 
+        started_tasks = []
+
+        def _start_task(task):
+            task_info = None
+            if task.instance not in action.info:
+                LOG.error(
+                    "No info present for instance '%s' in action '%s' for task"
+                    " '%s' (type '%s') of execution '%s' (type '%s'). "
+                    "Defaulting to empty dict." % (
+                        task.instance, action.id, task.id, task.task_type,
+                        execution.id, execution.type))
+                task_info = {}
+            else:
+                task_info = action.info[task.instance]
+            db_api.set_task_status(
+                ctxt, task.id, constants.TASK_STATUS_PENDING)
+            self._rpc_worker_client.begin_task(
+                ctxt, server=None,
+                task_id=task.id,
+                task_type=task.task_type,
+                origin=origin,
+                destination=destination,
+                instance=task.instance,
+                task_info=task_info)
+            started_tasks.append(task.id)
+
+        # aggregate all tasks and statuses:
+        task_statuses = {}
+        task_deps = {}
+        on_error_tasks = []
         for task in execution.tasks:
-            if task.status == constants.TASK_STATUS_PENDING:
-                if task.depends_on and parent_task.id in task.depends_on:
-                    start_task = True
-                    for depend_task_id in task.depends_on:
-                        if depend_task_id != parent_task.id:
-                            depend_task = db_api.get_task(ctxt, depend_task_id)
-                            if (depend_task.status !=
-                                    constants.TASK_STATUS_COMPLETED):
-                                start_task = False
-                                break
-                    if start_task:
-                        server = None
-                        self._rpc_worker_client.begin_task(
-                            ctxt, server=server,
-                            task_id=task.id,
-                            task_type=task.task_type,
-                            origin=origin,
-                            destination=destination,
-                            instance=task.instance,
-                            task_info=task_info)
+            task_statuses[task.id] = task.status
+
+            if task.depends_on:
+                task_deps[task.id] = task.depends_on
+            else:
+                task_deps[task.id] = []
+
+            if task.on_error:
+                on_error_tasks.append(task.id)
+
+        LOG.debug(
+            "All task statuses before execution '%s' lifecycle iteration "
+            "(for tasks of instance '%s'): %s",
+            instance, execution.id, task_statuses)
+
+        # NOTE: the tasks are saved in a random order in the DB, which
+        # complicates the processing logic so we just pre-sort:
+        for task in sorted(tasks_to_process, key=lambda t: t.index):
+
+            if task_statuses[task.id] == constants.TASK_STATUS_SCHEDULED:
+
+                # immediately start depency-less tasks (on-error or otherwise)
+                if not task_deps[task.id]:
+                    LOG.info(
+                        "Starting depency-less task '%s'", task.id)
+                    _start_task(task)
+                    task_statuses[task.id] = constants.TASK_STATUS_PENDING
+                    continue
+
+                parent_task_statuses = {
+                    dep_id: task_statuses[dep_id]
+                    for dep_id in task_deps[task.id]}
+
+                # immediately unschedule tasks (on-error or otherwise)
+                # if all of their parent tasks got un-scheduled:
+                if task_deps[task.id] and all([
+                        dep_stat == constants.TASK_STATUS_UNSCHEDULED
+                        for dep_stat in parent_task_statuses.values()]):
+                    LOG.info(
+                        "Unscheduling task '%s' as all parent "
+                        "tasks got unscheduled: %s",
+                        task.id, parent_task_statuses)
+                    db_api.set_task_status(
+                        ctxt, task.id, constants.TASK_STATUS_UNSCHEDULED,
+                        exception_details=(
+                            "Unscheduled due to the unscheduling of all "
+                            "parent tasks."))
+                    task_statuses[task.id] = constants.TASK_STATUS_UNSCHEDULED
+                    continue
+
+                # check all parents have finalized:
+                if all([
+                        dep_stat in constants.FINALIZED_TASK_STATUSES
+                        for dep_stat in parent_task_statuses.values()]):
+
+                    # handle non-error tasks:
+                    if task.id not in on_error_tasks:
+                        # start non-error tasks whose parents have
+                        # all completed successfully:
+                        if all([
+                                dep_stat == constants.TASK_STATUS_COMPLETED
+                                for dep_stat in (
+                                        parent_task_statuses.values())]):
+                            LOG.info(
+                                "Starting task '%s' as all dependencies have "
+                                "completed successfully: %s",
+                                task.id, parent_task_statuses)
+                            _start_task(task)
+                            task_statuses[task.id] = (
+                                constants.TASK_STATUS_PENDING)
+                        else:
+                            # it means one/more parents error'd/unscheduled
+                            # so we mark this task as unscheduled:
+                            LOG.info(
+                                "Unscheduling plain task '%s' as not all "
+                                "parent tasks completed successfully: %s",
+                                task.id, parent_task_statuses)
+                            db_api.set_task_status(
+                                ctxt, task.id,
+                                constants.TASK_STATUS_UNSCHEDULED,
+                                exception_details=(
+                                    "Unscheduled due to some parent tasks not "
+                                    "having completed successfully."))
+                            task_statuses[task.id] = (
+                                constants.TASK_STATUS_UNSCHEDULED)
+
+                    # handle on-error tasks:
+                    else:
+                        non_error_parents = {
+                            dep_id: task_statuses[dep_id]
+                            for dep_id in parent_task_statuses.keys()
+                            if dep_id not in on_error_tasks}
+
+                        # start on-error tasks only if at least one non-error
+                        # parent task has completed successfully:
+                        if constants.TASK_STATUS_COMPLETED in (
+                                non_error_parents.values()):
+                            LOG.info(
+                                "Starting on-error task '%s' as all parent "
+                                "tasks have been finalized and at least one "
+                                "non-error parent (%s) was completed: %s",
+                                task.id, list(non_error_parents.keys()),
+                                parent_task_statuses)
+                            _start_task(task)
+                            task_statuses[task.id] = (
+                                constants.TASK_STATUS_PENDING)
+                        else:
+                            LOG.info(
+                                "Unscheduling on-error task '%s' as none of "
+                                "its parent non-error tasks (%s) have "
+                                "completed successfully: %s",
+                                task.id, list(non_error_parents.keys()),
+                                parent_task_statuses)
+                            db_api.set_task_status(
+                                ctxt, task.id,
+                                constants.TASK_STATUS_UNSCHEDULED,
+                                exception_details=(
+                                    "Unscheduled due to no non-error parent "
+                                    "tasks having completed successfully."))
+                            task_statuses[task.id] = (
+                                constants.TASK_STATUS_UNSCHEDULED)
+
+                else:
+                    LOG.debug(
+                        "No lifecycle decision was taken with respect to task "
+                        "%s of execution %s as not all parent tasks have "
+                        "reached a terminal state: %s",
+                        task.id, execution.id, parent_task_statuses)
+            else:
+                LOG.debug(
+                    "No lifecycle decision to make for task '%s' of execution "
+                    "'%s' as it is not in a position to be scheduled: %s",
+                    task.id, execution.id, task_statuses[task.id])
+
+        if started_tasks:
+            LOG.debug(
+                "Started the following tasks for execution '%s': %s",
+                execution.id, started_tasks)
+        else:
+            # check for deadlock:
+            if self._check_clean_execution_deadlock(
+                    ctxt, execution, task_statuses=task_statuses) == (
+                        constants.EXECUTION_STATUS_DEADLOCKED):
+                LOG.error(
+                    "Execution '%s' deadlocked after Replica state advancement"
+                    ". Cleanup has been perfomed. Returning early.",
+                    execution.id)
+                return []
+            LOG.debug(
+                "No new tasks were started for execution '%s'", execution.id)
+
+        # check if execution status has changed:
+        latest_execution_status = self._get_execution_status(
+            ctxt, execution, requery=True)
+        if latest_execution_status != execution.status:
+            LOG.info(
+                "Execution '%s' transitioned from status %s to %s "
+                "following the updated task statuses: %s",
+                execution.id, execution.status,
+                latest_execution_status, task_statuses)
+            self._set_tasks_execution_status(
+                ctxt, execution.id, latest_execution_status)
+        else:
+            LOG.debug(
+                "Execution '%s' has remained in status '%s' following "
+                "state advancement. task statuses are: %s",
+                execution.id, latest_execution_status, task_statuses)
+
+        return started_tasks
 
     def _update_replica_volumes_info(self, ctxt, replica_id, instance,
                                      updated_task_info):
         """ WARN: the lock for the Replica must be pre-acquired. """
-        db_api.set_transfer_action_info(
+        db_api.update_transfer_action_info_for_instance(
             ctxt, replica_id, instance,
             updated_task_info)
 
@@ -1034,7 +1762,9 @@ class ConductorServerEndpoint(object):
         migration = db_api.get_migration(ctxt, migration_id)
         replica_id = migration.replica_id
 
-        with lockutils.lock(replica_id):
+        with lockutils.lock(
+                constants.REPLICA_LOCK_NAME_FORMAT % replica_id,
+                external=True):
             LOG.debug(
                 "Updating volume_info in replica due to snapshot "
                 "restore during migration. replica id: %s", replica_id)
@@ -1045,11 +1775,23 @@ class ConductorServerEndpoint(object):
         task_type = task.task_type
 
         if task_type == constants.TASK_TYPE_RESTORE_REPLICA_DISK_SNAPSHOTS:
+
             # When restoring a snapshot in some import providers (OpenStack),
             # a new volume_id is generated. This needs to be updated in the
             # Replica instance as well.
-            volumes_info = task_info.get("volumes_info")
-            if volumes_info:
+            volumes_info = task_info.get('volumes_info')
+            if not volumes_info:
+                LOG.warn(
+                    "No volumes_info was provided by task '%s' (type '%s') "
+                    "after completion. NOT updating parent action '%s'",
+                    task.id, task_type, execution.action_id)
+            else:
+                LOG.debug(
+                    "Updating volumes_info for instance '%s' in parent action "
+                    "'%s' following completion of task '%s' (type '%s'): %s",
+                    task.instance, execution.action_id, task.id, task_type,
+                    utils.filter_chunking_info_for_task(
+                        {'volumes_info': volumes_info}))
                 self._update_volumes_info_for_migration_parent_replica(
                     ctxt, execution.action_id, task.instance,
                     {"volumes_info": volumes_info})
@@ -1060,9 +1802,15 @@ class ConductorServerEndpoint(object):
                 # The migration completed. If the replica is executed again,
                 # new volumes need to be deployed in place of the migrated
                 # ones.
+                LOG.info(
+                    "Unsetting 'volumes_info' for instance '%s' in Replica "
+                    "'%s' after completion of Replica task '%s' (type '%s') "
+                    "with clone_disks=False.",
+                    task.instance, execution.action_id, task.id,
+                    task_type)
                 self._update_volumes_info_for_migration_parent_replica(
                     ctxt, execution.action_id, task.instance,
-                    {"volumes_info": None})
+                    {"volumes_info": []})
 
         elif task_type in (
                 constants.TASK_TYPE_FINALIZE_REPLICA_INSTANCE_DEPLOYMENT,
@@ -1094,8 +1842,6 @@ class ConductorServerEndpoint(object):
         elif task_type in (
                 constants.TASK_TYPE_UPDATE_SOURCE_REPLICA,
                 constants.TASK_TYPE_UPDATE_DESTINATION_REPLICA):
-            # NOTE: perform the actual db update on the Replica's properties:
-            db_api.update_replica(ctxt, execution.action_id, task_info)
             # NOTE: remember to update the `volumes_info`:
             # NOTE: considering this method is only called with a lock on the
             # `execution.action_id` (in a Replica update tasks' case that's the
@@ -1103,51 +1849,147 @@ class ConductorServerEndpoint(object):
             # `_update_replica_volumes_info` below:
             self._update_replica_volumes_info(
                 ctxt, execution.action_id, task.instance,
-                {"volumes_info": task_info.get("volumes_info")})
+                {"volumes_info": task_info.get("volumes_info", [])})
 
-    @task_synchronized
-    def task_completed(self, ctxt, task_id, task_info):
+            if task_type == constants.TASK_TYPE_UPDATE_DESTINATION_REPLICA:
+                # check if this was the last task in the update execution:
+                still_running = False
+                for other_task in execution.tasks:
+                    if other_task.id == task.id:
+                        continue
+                    if other_task.status in constants.ACTIVE_TASK_STATUSES:
+                        still_running = True
+                        break
+                if not still_running:
+                    # it means this was the last update task in the Execution
+                    # and we may safely update the params of the Replica
+                    # as they are in the DB:
+                    LOG.info(
+                        "All tasks of the '%s' Replica update procedure have "
+                        "completed successfully.  Setting the updated parameter "
+                        "values on the parent Replica itself.",
+                        execution.action_id)
+                    # NOTE: considering all the instances of the Replica get
+                    # the same params, it doesn't matter which instance's
+                    # update task finishes last:
+                    db_api.update_replica(
+                        ctxt, execution.action_id, task_info)
+        else:
+            LOG.debug(
+                "No post-task actions required for task '%s' of type '%s'",
+                task.id, task_type)
+
+    @parent_tasks_execution_synchronized
+    def task_completed(self, ctxt, task_id, task_result):
         LOG.info("Task completed: %s", task_id)
 
-        db_api.set_task_status(
-            ctxt, task_id, constants.TASK_STATUS_COMPLETED)
-
         task = db_api.get_task(ctxt, task_id)
+        if task.status == constants.TASK_STATUS_CANCELLING_AFTER_COMPLETION:
+            if not task.on_error:
+                LOG.warn(
+                    "Non-error task '%s' was marked as %s although it should "
+                    "not have. It was run to completion anyway.",
+                    task.id, task.status)
+            LOG.info(
+                "On-error task '%s' which was '%s' has just completed "
+                "successfully.  Marking it as '%s' as a final status, "
+                "but processing its result as if it completed successfully.",
+                task_id, task.status,
+                constants.TASK_STATUS_CANCELED_AFTER_COMPLETION)
+            db_api.set_task_status(
+                ctxt, task_id, constants.TASK_STATUS_CANCELED_AFTER_COMPLETION,
+                exception_details=(
+                    "This is a cleanup task so it was allowed to run to "
+                    "completion after user-cancellation."))
+        elif task.status == constants.TASK_STATUS_CANCELLING:
+            LOG.error(
+                "Received confirmation that presumably cancelling task '%s' "
+                "(status '%s') has just completed successfully. "
+                "This should have never happened and indicates that its worker "
+                "host ('%s') has failed to cancel it properly. Please "
+                "check the worker logs for more details. "
+                "Marking as %s and processing its result as if it completed "
+                "successfully.",
+                task.id, task.status, task.host,
+                constants.TASK_STATUS_CANCELED_AFTER_COMPLETION)
+            db_api.set_task_status(
+                ctxt, task_id, constants.TASK_STATUS_CANCELED_AFTER_COMPLETION,
+                exception_details=(
+                    "The worker host for this task ('%s') has failed at "
+                    "cancelling it so this task was unintentionally run to "
+                    "completion. Please review the worker logs for "
+                    "more relevant details and contact support." % (
+                        task.host)))
+        elif task.status in constants.FINALIZED_TASK_STATUSES:
+            LOG.error(
+                "Received confirmation that presumably finalized task '%s' "
+                "(status '%s') has just completed successfully from worker "
+                "host '%s'. This should have never happened and indicates "
+                "that there is an inconsistency with the task scheduling. "
+                "Check the rest of the logs for further details. "
+                "The results of this task will NOT be processed.",
+                task.id, task.status, task.host)
+            return
+        else:
+            if task.status != constants.TASK_STATUS_RUNNING:
+                LOG.warn(
+                    "Just-completed task '%s' was in '%s' state instead of "
+                    "the expected '%s' state. Marking as '%s' anyway.",
+                    task_id, task.status, constants.TASK_STATUS_RUNNING,
+                    constants.TASK_STATUS_COMPLETED)
+            db_api.set_task_status(
+                ctxt, task_id, constants.TASK_STATUS_COMPLETED)
+
         execution = db_api.get_tasks_execution(ctxt, task.execution_id)
+        with lockutils.lock(
+                constants.EXECUTION_TYPE_TO_ACTION_LOCK_NAME_FORMAT_MAP[
+                    execution.type] % execution.action_id,
+                external=True):
+            action_id = execution.action_id
+            action = db_api.get_action(ctxt, action_id)
 
-        task_error_states = [
-            constants.TASK_STATUS_ERROR,
-            constants.TASK_STATUS_CANCELED,
-            constants.TASK_STATUS_CANCELED_FOR_DEBUGGING]
+            updated_task_info = None
+            if task_result:
+                LOG.info(
+                    "Setting task %(task_id)s result for instance %(instance)s "
+                    "into action %(action_id)s info: %(task_result)s", {
+                        "task_id": task_id,
+                        "instance": task.instance,
+                        "action_id": action_id,
+                        "task_result": utils.filter_chunking_info_for_task(
+                            task_result)})
+                updated_task_info = (
+                    db_api.update_transfer_action_info_for_instance(
+                        ctxt, action_id, task.instance,
+                        utils.filter_chunking_info_for_task(
+                            task_result)))
+            else:
+                action = db_api.get_action(ctxt, action_id)
+                updated_task_info = action.info[task.instance]
+                LOG.info(
+                    "Task '%s' for instance '%s' of transfer action '%s' "
+                    "has completed successfuly but has not returned "
+                    "any result.", task.id, task.instance, action_id)
 
-        action_id = execution.action_id
-        with lockutils.lock(action_id):
-            LOG.info("Setting instance %(instance)s "
-                     "action info: %(task_info)s",
-                     {"instance": task.instance, "task_info": task_info})
-            updated_task_info = db_api.set_transfer_action_info(
-                ctxt, action_id, task.instance, task_info)
-
+            # NOTE: refresh the execution just in case:
+            execution = db_api.get_tasks_execution(ctxt, task.execution_id)
             self._handle_post_task_actions(
                 ctxt, task, execution, updated_task_info)
 
-            if execution.status == constants.EXECUTION_STATUS_RUNNING:
-                self._start_pending_tasks(
-                    ctxt, execution, task, updated_task_info)
-
-                if not [t for t in execution.tasks
-                        if t.status in [constants.TASK_STATUS_RUNNING,
-                                        constants.TASK_STATUS_PENDING]]:
-                    # The execution is in error status if there's one or more
-                    # tasks in error or canceled status
-                    if [t for t in execution.tasks
-                            if t.status in task_error_states]:
-                        execution_status = constants.EXECUTION_STATUS_ERROR
-                    else:
-                        execution_status = constants.EXECUTION_STATUS_COMPLETED
-
-                    self._set_tasks_execution_status(
-                        ctxt, execution.id, execution_status)
+            newly_started_tasks = self._advance_execution_state(
+                ctxt, execution, instance=task.instance)
+            if newly_started_tasks:
+                LOG.info(
+                    "The following tasks were started for execution '%s' "
+                    "following the completion of task '%s' for instance %s: "
+                    "%s" % (
+                        execution.id, task.id, task.instance,
+                        newly_started_tasks))
+            else:
+                LOG.debug(
+                    "No new tasks were started for execution '%s' for instance "
+                    "'%s' following the successful completion of task '%s'.",
+                    execution.id, task.instance, task.id)
 
     def _cancel_execution_for_osmorphing_debugging(self, ctxt, execution):
         # go through all scheduled tasks and cancel them:
@@ -1155,45 +1997,169 @@ class ConductorServerEndpoint(object):
             if subtask.task_type == constants.TASK_TYPE_OS_MORPHING:
                 continue
 
-            if subtask.status == constants.TASK_STATUS_RUNNING:
-                raise execution.CoriolisException(
-                    "Task %s is still running although it should not!",
-                    subtask.id)
+            if subtask.status in constants.ACTIVE_TASK_STATUSES:
+                raise exception.CoriolisException(
+                    "Task %s is still in an active state (%s) although "
+                    "it should not!" % (subtask.id, subtask.status))
 
             if subtask.status in [
-                    constants.TASK_STATUS_PENDING,
+                    constants.TASK_STATUS_SCHEDULED,
                     constants.TASK_STATUS_ON_ERROR_ONLY]:
+                msg = (
+                    "This task was unscheduled for debugging an error in the "
+                    "OSMorphing process.")
+                if subtask.on_error:
+                    msg = (
+                        "%s Please note that any cleanup operations this task "
+                        "should have included will need to performed manually "
+                        "once the debugging process has been completed." % (
+                            msg))
                 db_api.set_task_status(
                     ctxt, subtask.id,
-                    constants.TASK_STATUS_CANCELED_FOR_DEBUGGING)
+                    constants.TASK_STATUS_CANCELED_FOR_DEBUGGING,
+                    exception_details=msg)
 
-    @task_synchronized
+    @parent_tasks_execution_synchronized
+    def confirm_task_cancellation(self, ctxt, task_id, cancellation_details):
+        LOG.info(
+            "Received confirmation of cancellation for task '%s': %s",
+            task_id, cancellation_details)
+        task = db_api.get_task(ctxt, task_id)
+
+        final_status = constants.TASK_STATUS_CANCELED
+        exception_details = (
+            "This task was user-cancelled. Additional cancellation "
+            "info from worker service: '%s'" % cancellation_details)
+        if task.status == constants.TASK_STATUS_CANCELLING_AFTER_COMPLETION:
+            LOG.error(
+                "Received cancellation confirmation for task '%s' which was "
+                "in '%s' state. This likely means that a double-cancellation "
+                "occurred. Marking task as '%s' either way.",
+                task.id, task.status, final_status)
+        elif task.status == constants.TASK_STATUS_FORCE_CANCELED:
+            # it means a force cancel has been issued before the
+            # confirmation that the task was canceled came in:
+            LOG.warn(
+                "Only just received error confirmation for force-cancelled "
+                "task '%s'. Leaving marked as force-cancelled.", task.id)
+            final_status = constants.TASK_STATUS_FORCE_CANCELED
+            exception_details = (
+                "This task was force-cancelled. Confirmation of its "
+                "cancellation did eventually come in. Additional details on "
+                "the cancellation: %s" % cancellation_details)
+        elif task.status in constants.FINALIZED_TASK_STATUSES:
+            LOG.warn(
+                "Received confirmation of cancellation for already finalized "
+                "task '%s' (status '%s') from host '%s'. NOT modifying "
+                "its status.", task.id, task.status, task.host)
+            final_status = task.status
+
+        if final_status == task.status:
+            LOG.debug(
+                "NOT altering state of finalized task '%s' ('%s') following "
+                "confirmation of cancellation. Updating its exception "
+                "details though: %s", task.id, task.status, exception_details)
+            db_api.set_task_status(
+                ctxt, task.id, final_status,
+                exception_details=exception_details)
+        else:
+            LOG.info(
+                "Transitioning canceled task '%s' from '%s' to '%s' following "
+                "confirmation of its cancellation.",
+                task.id, task.status, final_status)
+            db_api.set_task_status(
+                ctxt, task.id, final_status,
+                exception_details=exception_details)
+            execution = db_api.get_tasks_execution(ctxt, task.execution_id)
+            self._advance_execution_state(ctxt, execution, requery=False)
+
+    @parent_tasks_execution_synchronized
     def set_task_error(self, ctxt, task_id, exception_details):
-        LOG.error("Task error: %(task_id)s - %(ex)s",
-                  {"task_id": task_id, "ex": exception_details})
+        LOG.error(
+            "Received error confirmation for task: %(task_id)s - %(ex)s",
+            {"task_id": task_id, "ex": exception_details})
 
+        task = db_api.get_task(ctxt, task_id)
+
+        final_status = constants.TASK_STATUS_ERROR
+        if task.status == constants.TASK_STATUS_CANCELLING:
+            final_status = constants.TASK_STATUS_CANCELED
+        elif task.status == constants.TASK_STATUS_CANCELLING_AFTER_COMPLETION:
+            final_status = constants.TASK_STATUS_CANCELED
+            if not task.on_error:
+                LOG.warn(
+                    "Non-error '%s' was in '%s' status although it should "
+                    "never have been marked as such. Marking as '%s' anyway.",
+                    task.id, task.status, final_status)
+            else:
+                LOG.warn(
+                    "On-error task '%s' which was in '%s' status ended up "
+                    "error-ing. Marking as '%s'",
+                    task.id, task.status, final_status)
+                exception_details = (
+                    "This is a cleanup task so was allowed to complete "
+                    "following user-cancellation, but encountered an "
+                    "error: %s" % exception_details)
+        elif task.status == constants.TASK_STATUS_FORCE_CANCELED:
+            # it means a force cancel has been issued priorly but
+            # the task has error'd anyway:
+            LOG.warn(
+                "Only just received error confirmation for force-cancelled "
+                "task '%s'. Leaving marked as force-cancelled.", task.id)
+            final_status = constants.TASK_STATUS_FORCE_CANCELED
+            exception_details = (
+                "This task was force-cancelled but ended up errorring anyway. "
+                "The error details were: '%s'" % exception_details)
+        elif task.status in constants.FINALIZED_TASK_STATUSES:
+            LOG.error(
+                "Error confirmation on task '%s' arrived despite it being "
+                "in a terminal state ('%s'). This should never happen and "
+                "indicates an issue with its scheduling/handling. Error "
+                "was: %s", task.id, task.status, exception_details)
+            exception_details = (
+                "Error confirmation came in for this task despite it having "
+                "already been marked as %s. Please notify support of this "
+                "occurence and share the Conductor and Worker logs. "
+                "Error message in confirmation was: %s" % (
+                    task.status, exception_details))
+
+        LOG.debug(
+            "Transitioning errored task '%s' from '%s' to '%s'",
+            task.id, task.status, final_status)
         db_api.set_task_status(
-            ctxt, task_id, constants.TASK_STATUS_ERROR, exception_details)
+            ctxt, task_id, final_status, exception_details)
 
         task = db_api.get_task(ctxt, task_id)
         execution = db_api.get_tasks_execution(ctxt, task.execution_id)
 
         action_id = execution.action_id
         action = db_api.get_action(ctxt, action_id)
-        with lockutils.lock(action_id):
+        with lockutils.lock(
+                constants.EXECUTION_TYPE_TO_ACTION_LOCK_NAME_FORMAT_MAP[
+                    execution.type] % action_id,
+                external=True):
             if task.task_type == constants.TASK_TYPE_OS_MORPHING and (
                     CONF.conductor.debug_os_morphing_errors):
-                LOG.debug("Attempting to cancel execution '%s' for OSMorphing "
-                          "debugging.", execution.id)
+                LOG.debug(
+                    "Attempting to cancel execution '%s' of action '%s' "
+                    "for OSMorphing debugging.", execution.id, action_id)
                 # NOTE: the OSMorphing task always runs by itself so no
                 # further tasks should be running, but we double-check here:
                 running = [
                     t for t in execution.tasks
-                    if t.status == constants.TASK_STATUS_RUNNING
+                    if t.status in constants.ACTIVE_TASK_STATUSES
                     and t.task_type != constants.TASK_TYPE_OS_MORPHING]
                 if not running:
                     self._cancel_execution_for_osmorphing_debugging(
                         ctxt, execution)
+                    db_api.set_task_status(
+                        ctxt, task_id, final_status,
+                        exception_details=(
+                            "An error has occured during OSMorphing. Cleanup "
+                            "will not be performed for debugging reasons. "
+                            "Please review the Conductor logs for the debug "
+                            "connection info. Original error was: %s" % (
+                                exception_details)))
                     LOG.warn(
                         "All subtasks for Migration '%s' have been cancelled "
                         "to allow for OSMorphing debugging. The connection "
@@ -1201,7 +2167,8 @@ class ConductorServerEndpoint(object):
                         action_id, action.info.get(task.instance, {}).get(
                             'osmorphing_connection_info', {}))
                     self._set_tasks_execution_status(
-                        ctxt, execution.id, constants.EXECUTION_STATUS_ERROR)
+                        ctxt, execution.id,
+                        constants.EXECUTION_STATUS_CANCELED_FOR_DEBUGGING)
                 else:
                     LOG.warn(
                         "Some tasks are running in parallel with the "
@@ -1211,10 +2178,10 @@ class ConductorServerEndpoint(object):
             else:
                 self._cancel_tasks_execution(ctxt, execution)
 
-        # NOTE: if this is a migration, make sure to delete
-        # its associated reservation.
-        if action.type == "migration":
-            self._check_delete_reservation_for_transfer(action)
+            # NOTE: if this was a migration, make sure to delete
+            # its associated reservation.
+            if execution.type == constants.EXECUTION_TYPE_MIGRATION:
+                self._check_delete_reservation_for_transfer(action)
 
     @task_synchronized
     def task_event(self, ctxt, task_id, level, message):
@@ -1233,7 +2200,9 @@ class ConductorServerEndpoint(object):
         schedule = db_api.get_replica_schedule(
             ctxt, replica_id, schedule_id, expired=expired)
         if not schedule:
-            raise exception.NotFound("Schedule not found")
+            raise exception.NotFound(
+                "Schedule with ID '%s' for Replica '%s' not found." %  (
+                    schedule_id, replica_id))
         return schedule
 
     def create_replica_schedule(self, ctxt, replica_id,
@@ -1289,15 +2258,12 @@ class ConductorServerEndpoint(object):
     @schedule_synchronized
     def get_replica_schedule(self, ctxt, replica_id,
                              schedule_id, expired=True):
-        schedule = self._get_replica_schedule(
-            ctxt, replica_id, schedule_id, expired=True)
-        if not schedule:
-            raise exception.NotFound("Schedule not found")
-        return schedule
+        return self._get_replica_schedule(
+            ctxt, replica_id, schedule_id, expired=expired)
 
     @replica_synchronized
     def update_replica(
-            self, ctxt, replica_id, properties):
+            self, ctxt, replica_id, updated_properties):
         replica = self._get_replica(ctxt, replica_id)
         self._check_replica_running_executions(ctxt, replica)
         self._check_valid_replica_tasks_execution(replica, force=True)
@@ -1307,15 +2273,42 @@ class ConductorServerEndpoint(object):
         execution.action = replica
         execution.type = constants.EXECUTION_TYPE_REPLICA_UPDATE
 
-        LOG.debug(
-            "Replica '%s' info pre-replica-update: %s",
-            replica_id, replica.info)
-        for instance in execution.action.instances:
+        for instance in replica.instances:
+            LOG.debug(
+                "Pre-replica-update task_info for instance '%s' of Replica "
+                "'%s': %s", instance, replica_id,
+                utils.filter_chunking_info_for_task(
+                    replica.info[instance]))
+
             # NOTE: "circular assignment" would lead to a `None` value
             # so we must operate on a copy:
             inst_info_copy = copy.deepcopy(replica.info[instance])
-            inst_info_copy.update(properties)
+
+            # NOTE: we update the various values in the task info itself
+            # As a result, the values within the task_info will be the updated
+            # values which will be checked. The old values will be sent to the
+            # tasks through the origin/destination parameters for them to be
+            # compared to the new ones.
+            # The actual values on the Replica object itself will be set
+            # during _handle_post_task_actions once the final destination-side
+            # update task will be completed.
+            inst_info_copy.update({
+                key: updated_properties[key]
+                for key in updated_properties
+                if key != "destination_environment"})
+            # NOTE: the API service labels the target-env as the
+            # "destination_environment":
+            if "destination_environment" in updated_properties:
+                inst_info_copy["target_environment"] = updated_properties[
+                    "destination_environment"]
             replica.info[instance] = inst_info_copy
+
+            LOG.debug(
+                "Updated task_info for instance '%s' of Replica "
+                "'%s' which will be verified during update procedure: %s",
+                instance, replica_id, utils.filter_chunking_info_for_task(
+                    replica.info[instance]))
+
             get_instance_info_task = self._create_task(
                 instance, constants.TASK_TYPE_GET_INSTANCE_INFO,
                 execution)
@@ -1327,14 +2320,24 @@ class ConductorServerEndpoint(object):
                 execution,
                 depends_on=[
                     get_instance_info_task.id,
+                    # NOTE: the dest-side update task must be done after
+                    # the source-side one as both can potentially modify
+                    # the 'volumes_info' together:
                     update_source_replica_task.id])
-        LOG.debug(
-            "Replica '%s' info post-replica-update: %s",
-            replica_id, replica.info)
+
+        self._check_execution_tasks_sanity(execution, replica.info)
+
+        # update the action info for all of the instances in the Replica:
+        for instance in execution.action.instances:
+            db_api.update_transfer_action_info_for_instance(
+                ctxt, replica.id, instance, replica.info[instance])
+
         db_api.add_replica_tasks_execution(ctxt, execution)
         LOG.debug("Execution for Replica update tasks created: %s",
                   execution.id)
-        self._begin_tasks(ctxt, execution, replica.info)
+
+        self._begin_tasks(ctxt, execution, task_info=replica.info)
+
         return self.get_replica_tasks_execution(ctxt, replica_id, execution.id)
 
     def get_diagnostics(self, ctxt):

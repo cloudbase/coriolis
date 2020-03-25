@@ -13,29 +13,38 @@ LOG = logging.getLogger(__name__)
 
 
 class GetOptimalFlavorTask(base.TaskRunner):
-    def run(self, ctxt, instance, origin, destination, task_info,
-            event_handler):
+
+    @property
+    def required_task_info_properties(self):
+        return ["export_info", "target_environment"]
+
+    @property
+    def returned_task_info_properties(self):
+        return ["instance_deployment_info"]
+
+    def _run(self, ctxt, instance, origin, destination, task_info,
+             event_handler):
         provider = providers_factory.get_provider(
             destination["type"], constants.PROVIDER_TYPE_INSTANCE_FLAVOR,
             event_handler)
 
         connection_info = base.get_connection_info(ctxt, destination)
-        target_environment = destination.get("target_environment") or {}
+        target_environment = task_info["target_environment"]
         export_info = task_info["export_info"]
 
         flavor = provider.get_optimal_flavor(
             ctxt, connection_info, target_environment, export_info)
 
-        if task_info.get("instance_deployment_info") is None:
-            task_info["instance_deployment_info"] = {}
-        task_info["instance_deployment_info"]["selected_flavor"] = flavor
+        instance_deployment_info = task_info.get("instance_deployment_info")
+        if instance_deployment_info is None:
+            instance_deployment_info = {}
+        instance_deployment_info["selected_flavor"] = flavor
 
         events.EventManager(event_handler).progress_update(
             "Selected flavor: %s" % flavor)
 
-        task_info["retain_export_path"] = True
-
-        return task_info
+        return {
+            "instance_deployment_info": instance_deployment_info}
 
 
 class DeployMigrationSourceResourcesTask(

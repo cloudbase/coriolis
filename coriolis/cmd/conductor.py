@@ -16,6 +16,7 @@ def main():
     CONF(sys.argv[1:], project='coriolis',
          version="1.0.0")
     utils.setup_logging()
+    service.check_locks_dir_empty()
 
     server = service.MessagingService(
         'coriolis_conductor', [rpc_server.ConductorServerEndpoint()],

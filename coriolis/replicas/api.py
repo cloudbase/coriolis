@@ -16,9 +16,9 @@ class API(object):
             source_environment, destination_environment, instances,
             network_map, storage_mappings, notes)
 
-    def update(self, ctxt, replica_id, properties):
+    def update(self, ctxt, replica_id, updated_properties):
         return self._rpc_client.update_replica(
-            ctxt, replica_id, properties)
+            ctxt, replica_id, updated_properties)
 
     def delete(self, ctxt, replica_id):
         self._rpc_client.delete_replica(ctxt, replica_id)
