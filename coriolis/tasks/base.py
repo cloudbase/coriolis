@@ -110,7 +110,7 @@ class TaskRunner(with_metaclass(abc.ABCMeta)):
                 "declared return values in its result: %s. "
                 "Result was: %s" % (
                     self.__class__, missing_returns,
-                    utils.filter_chunking_info_for_task(result)))
+                    utils.sanitize_task_info(result)))
 
         undeclared_returns = [
             prop for prop in result.keys()

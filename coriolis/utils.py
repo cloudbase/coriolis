@@ -576,14 +576,23 @@ def bad_request_on_error(error_message):
     return _bad_request_on_error
 
 
-def filter_chunking_info_for_task(task_info):
+def sanitize_task_info(task_info):
     """ Returns a copy of the given task info with any chunking
-    info on volumes removed.
+    info for volumes and sensitive credentials removed.
     """
     new = {}
+
+    special_keys = ['volumes_info', 'origin', 'destination']
+
     for key in task_info.keys():
-        if key != "volumes_info":
+        if key not in special_keys:
             new[key] = copy.deepcopy(task_info[key])
+
+    for key in ['origin', 'destination']:
+        if key in task_info.keys():
+            new[key] = copy.deepcopy(task_info[key])
+            if type(new[key]) is dict and 'connection_info' in new[key]:
+                new[key]['connection_info'] = {"got": "redacted"}
 
     if 'volumes_info' in task_info:
         new['volumes_info'] = []
