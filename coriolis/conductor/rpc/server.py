@@ -2053,11 +2053,11 @@ class ConductorServerEndpoint(object):
                 "task '%s' (status '%s') from host '%s'. NOT modifying "
                 "its status.", task.id, task.status, task.host)
             final_status = task.status
-        else:
+        elif task.status != constants.TASK_STATUS_CANCELLING:
             LOG.warn(
                 "Received confirmation of cancellation for non-CANCELLING "
                 "task '%s' (status '%s'). Marking as '%s' anyway.",
-                task.id, task.status. final_status)
+                task.id, task.status, final_status)
 
         if final_status == task.status:
             LOG.debug(
