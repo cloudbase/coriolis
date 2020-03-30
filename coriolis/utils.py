@@ -55,6 +55,9 @@ CONF.register_opts(opts)
 
 LOG = logging.getLogger(__name__)
 
+UNSPACED_MAC_ADDRESS_REGEX = "^([0-9a-f]{12})$"
+SPACED_MAC_ADDRESS_REGEX = "^(([0-9a-f]{2}:){5}([0-9a-f]{2}))$"
+
 SYSTEMD_TEMPLATE = """
 [Unit]
 Description=Coriolis %(svc_name)s
@@ -521,6 +524,36 @@ def decode_base64_param(value, is_json=False):
 
 def quote_url(text):
     return parse.quote(text.encode('UTF-8'), safe='')
+
+
+def normalize_mac_address(original_mac_address):
+    """ Normalizez capitalized MAC addresses with or without '-' or ':'
+    as separators into all-lower-case ':'-separated form. """
+    if not isinstance(original_mac_address, str):
+        raise ValueError(
+            "MAC address must be a str, got type '%s': %s" % (
+                type(original_mac_address), original_mac_address))
+
+    res = ""
+    mac_address = original_mac_address.strip().lower().replace('-', ':')
+    if re.match(SPACED_MAC_ADDRESS_REGEX, mac_address):
+        res = mac_address
+    elif re.match(UNSPACED_MAC_ADDRESS_REGEX, mac_address):
+        for i in range(0, len(mac_address), 2):
+            res = "%s:%s" % (res, mac_address[i:i+2])
+        res = res.strip(':')
+        if not re.match(SPACED_MAC_ADDRESS_REGEX, res):
+            raise ValueError(
+                "Failed to normalize MAC address '%s': ended up "
+                "with: '%s'" % (original_mac_address, res))
+    else:
+        raise ValueError(
+            "Improperly formatted MAC address: %s" % original_mac_address)
+
+    LOG.debug(
+        "Normalized MAC address '%s' to '%s'",
+        original_mac_address, res)
+    return res
 
 
 def get_url_with_credentials(url, username, password):
