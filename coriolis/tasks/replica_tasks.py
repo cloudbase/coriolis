@@ -246,11 +246,9 @@ class DeleteReplicaDisksTask(base.TaskRunner):
                 "deletion task but it is: %s" % (
                     utils.sanitize_task_info({
                         'volumes_info': volumes_info})))
-        elif volumes_info is None:
-            volumes_info = []
 
         return {
-            'volumes_info': volumes_info}
+            'volumes_info': []}
 
 
 class DeployReplicaSourceResourcesTask(base.TaskRunner):
