@@ -731,7 +731,21 @@ class ConductorServerEndpoint(object):
                 "instances. Ensure that the replica has been executed "
                 "successfully priorly" % replica_id)
 
+        # ensure we're passing the updated target-env options on the
+        # parent Replica itself in case of a Replica update:
+        dest_env = copy.deepcopy(replica.destination_environment)
+        dest_env['network_map'] = replica.network_map
+        dest_env['storage_mappings'] = replica.storage_mappings
+        for instance in replica.instances:
+            replica.info[instance].update({
+                "target_environment": dest_env})
+
         self._check_execution_tasks_sanity(execution, replica.info)
+
+        # update the action info for all of the Replicas' instnaces:
+        for instance in replica.instances:
+            db_api.update_transfer_action_info_for_instance(
+                ctxt, replica.id, instance, replica.info[instance])
         db_api.add_replica_tasks_execution(ctxt, execution)
         LOG.info("Replica tasks execution created: %s", execution.id)
 
