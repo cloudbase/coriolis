@@ -1960,9 +1960,7 @@ class ConductorServerEndpoint(object):
                             task_result)})
                 updated_task_info = (
                     db_api.update_transfer_action_info_for_instance(
-                        ctxt, action_id, task.instance,
-                        utils.sanitize_task_info(
-                            task_result)))
+                        ctxt, action_id, task.instance, task_result))
             else:
                 action = db_api.get_action(ctxt, action_id)
                 updated_task_info = action.info[task.instance]
