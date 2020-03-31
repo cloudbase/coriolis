@@ -385,8 +385,19 @@ class DeployReplicaTargetResourcesTask(base.TaskRunner):
                     migr_connection_info, None).get_writer()
             except Exception as err:
                 LOG.warn(
-                    "Seemingly invalid connection info. Replica will likely "
-                    "fail during disk Replication. Error is: %s" % str(err))
+                    "Seemingly invalid backup writer conn info. Replica will "
+                    "likely fail during disk Replication. Error is: %s" % (
+                        str(err)))
+
+            if migr_connection_info:
+                migr_connection_info = base.marshal_migr_conn_info(
+                    migr_connection_info)
+                schemas.validate_value(
+                    migr_connection_info,
+                    schemas.CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA,
+                    # NOTE: we avoid raising so that the cleanup task
+                    # can [try] to deal with the temporary resources.
+                    raise_on_error=False)
         else:
             LOG.warn(
                 "Replica target provider for '%s' did NOT return any "

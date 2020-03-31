@@ -105,6 +105,8 @@ class DeployOSMorphingResourcesTask(base.TaskRunner):
                 "Target provider '%s' did NOT return any "
                 "'osmorphing_connection_info'." % (
                     destination["type"]))
+        osmorphing_connection_info = base.marshal_migr_conn_info(
+            osmorphing_connection_info)
 
         os_morphing_info = import_info.get("osmorphing_info", {})
         if not os_morphing_info:
