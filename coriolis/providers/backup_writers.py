@@ -928,12 +928,22 @@ class HTTPBackupWriter(BaseBackupWriter):
         """
         ip = conn_info.get("ip")
         port = conn_info.get("port")
-        certs = conn_info.get("certificates")
+        certs = conn_info.get("certificates", {})
 
         required = ["ip", "port", "certificates"]
         if not all([ip, port, certs]):
             raise exception.CoriolisException(
                 "Missing required connection info: %s" % ", ".join(required))
+
+        required_cert_options = ["client_crt", "client_key", "ca_crt"]
+        missing_cert_options = [
+            opt for opt in required_cert_options
+            if opt not in certs]
+        if missing_cert_options:
+            raise exception.CoriolisException(
+                "Missing the following HTTPBackupWriter fields from the "
+                "'certificates' options: %s" % missing_cert_options)
+
         return cls(ip, port, volumes_info, certs)
 
     def __del__(self):
