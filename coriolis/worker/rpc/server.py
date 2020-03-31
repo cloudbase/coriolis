@@ -220,7 +220,7 @@ class WorkerServerEndpoint(object):
 
             LOG.info(
                 "Output of completed %s task with ID %s: %s",
-                task_type, task_type,
+                task_type, task_id,
                 utils.sanitize_task_info(task_result))
 
             self._rpc_conductor_client.task_completed(

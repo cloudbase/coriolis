@@ -1920,8 +1920,9 @@ class ConductorServerEndpoint(object):
                 "Received confirmation that presumably cancelling task '%s' "
                 "(status '%s') has just completed successfully. "
                 "This should have never happened and indicates that its worker "
-                "host ('%s') has failed to cancel it properly. Please "
-                "check the worker logs for more details. "
+                "host ('%s') has either failed to cancel it properly, or it "
+                "was completed before the cancellation request was received. "
+                "Please check the worker logs for more details. "
                 "Marking as %s and processing its result as if it completed "
                 "successfully.",
                 task.id, task.status, task.host,
@@ -1929,10 +1930,11 @@ class ConductorServerEndpoint(object):
             db_api.set_task_status(
                 ctxt, task_id, constants.TASK_STATUS_CANCELED_AFTER_COMPLETION,
                 exception_details=(
-                    "The worker host for this task ('%s') has failed at "
-                    "cancelling it so this task was unintentionally run to "
+                    "The worker host for this task ('%s') has either failed "
+                    "at cancelling it or the cancellation request arrived "
+                    "after it was already completed so this task was run to "
                     "completion. Please review the worker logs for "
-                    "more relevant details and contact support." % (
+                    "more relevant details." % (
                         task.host)))
         elif task.status in constants.FINALIZED_TASK_STATUSES:
             LOG.error(
