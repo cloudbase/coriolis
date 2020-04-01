@@ -1101,10 +1101,6 @@ class ConductorServerEndpoint(object):
             # if all the source disk snapshotting and worker setup steps are
             # performed by the source plugin in REPLICATE_DISKS.
             # This should no longer be a problem when worker pooling lands.
-            # Alternatively, REPLICATE_DISKS could be modfied to re-use the
-            # resources deployed during 'DEPLOY_SOURCE_RESOURCES'.
-            # These are currently not even passed to REPLICATE_DISKS (just
-            # their connection info), and should be fixed later.
             last_migration_task = None
             migration_resources_tasks = [
                 deploy_migration_source_resources_task.id,
@@ -1147,6 +1143,7 @@ class ConductorServerEndpoint(object):
             deploy_instance_task = self._create_task(
                 instance, constants.TASK_TYPE_DEPLOY_INSTANCE_RESOURCES,
                 execution, depends_on=[
+                    last_migration_task.id,
                     delete_destination_resources_task.id])
 
             depends_on = [deploy_instance_task.id]
