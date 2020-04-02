@@ -129,21 +129,27 @@ def get_connection_info(ctxt, data):
     return utils.get_secret_connection_info(ctxt, connection_info)
 
 
-def marshal_migr_conn_info(migr_connection_info):
-    if migr_connection_info and "pkey" in migr_connection_info:
+def marshal_migr_conn_info(
+        migr_connection_info, private_key_field_name="pkey"):
+    if migr_connection_info and (
+            private_key_field_name in migr_connection_info):
         migr_connection_info = migr_connection_info.copy()
-        pkey = migr_connection_info["pkey"]
+        pkey = migr_connection_info[private_key_field_name]
         if isinstance(pkey, str) is False:
-            migr_connection_info["pkey"] = utils.serialize_key(
-                pkey, CONF.serialization.temp_keypair_password)
+            migr_connection_info[private_key_field_name] = (
+                utils.serialize_key(
+                    pkey, CONF.serialization.temp_keypair_password))
     return migr_connection_info
 
 
-def unmarshal_migr_conn_info(migr_connection_info):
-    if migr_connection_info and "pkey" in migr_connection_info:
+def unmarshal_migr_conn_info(
+        migr_connection_info, private_key_field_name="pkey"):
+    if migr_connection_info and (
+            private_key_field_name in migr_connection_info):
         migr_connection_info = migr_connection_info.copy()
-        pkey_str = migr_connection_info["pkey"]
+        pkey_str = migr_connection_info[private_key_field_name]
         if isinstance(pkey_str, paramiko.rsakey.RSAKey) is False:
-            migr_connection_info["pkey"] = utils.deserialize_key(
-                pkey_str, CONF.serialization.temp_keypair_password)
+            migr_connection_info[private_key_field_name] = (
+                utils.deserialize_key(
+                    pkey_str, CONF.serialization.temp_keypair_password))
     return migr_connection_info

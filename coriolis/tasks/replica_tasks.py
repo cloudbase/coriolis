@@ -148,11 +148,18 @@ class ReplicateDisksTask(base.TaskRunner):
         if migr_source_conn_info:
             schemas.validate_value(
                 migr_source_conn_info,
-                schemas.CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA)
-        migr_source_conn_info = base.unmarshal_migr_conn_info(
-            migr_source_conn_info)
+                schemas.CORIOLIS_REPLICATION_WORKER_CONN_INFO_SCHEMA)
+            migr_source_conn_info = base.unmarshal_migr_conn_info(
+                migr_source_conn_info)
 
         migr_target_conn_info = task_info["target_resources_connection_info"]
+        if migr_target_conn_info:
+            schemas.validate_value(
+                migr_target_conn_info,
+                schemas.CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA)
+            migr_target_conn_info['connection_details'] = (
+                base.unmarshal_migr_conn_info(
+                    migr_target_conn_info['connection_details']))
         incremental = task_info.get("incremental", True)
 
         source_environment = task_info['source_environment']
@@ -282,7 +289,7 @@ class DeployReplicaSourceResourcesTask(base.TaskRunner):
                     migr_connection_info)
                 schemas.validate_value(
                     migr_connection_info,
-                    schemas.CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA,
+                    schemas.CORIOLIS_REPLICATION_WORKER_CONN_INFO_SCHEMA,
                     # NOTE: we avoid raising so that the cleanup task
                     # can [try] to deal with the temporary resources.
                     raise_on_error=False)
@@ -390,8 +397,10 @@ class DeployReplicaTargetResourcesTask(base.TaskRunner):
                         str(err)))
 
             if migr_connection_info:
-                migr_connection_info = base.marshal_migr_conn_info(
-                    migr_connection_info)
+                if 'connection_details' in migr_connection_info:
+                    migr_connection_info['connection_details'] = (
+                        base.marshal_migr_conn_info(
+                            migr_connection_info['connection_details']))
                 schemas.validate_value(
                     migr_connection_info,
                     schemas.CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA,

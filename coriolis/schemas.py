@@ -38,6 +38,8 @@ _CORIOLIS_DISK_SYNC_RESOURCES_INFO_SCHEMA_NAME = (
     "disk_sync_resources_info_schema.json")
 _CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA_NAME = (
     "disk_sync_resources_conn_info_schema.json")
+_CORIOLIS_REPLICATION_WORKER_CONN_INFO_SCHEMA_NAME = (
+    "replication_worker_conn_info_schema.json")
 
 
 def get_schema(package_name, schema_name,
@@ -128,3 +130,6 @@ CORIOLIS_DISK_SYNC_RESOURCES_INFO_SCHEMA = get_schema(
 
 CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA = get_schema(
     __name__, _CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA_NAME)
+
+CORIOLIS_REPLICATION_WORKER_CONN_INFO_SCHEMA = get_schema(
+    __name__, _CORIOLIS_REPLICATION_WORKER_CONN_INFO_SCHEMA_NAME)
