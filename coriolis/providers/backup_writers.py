@@ -93,6 +93,24 @@ def _disable_lvm2_lvmetad(ssh):
             ssh, "sudo vgchange -an", get_pty=True)
 
 
+def _check_deserialize_key(key):
+    res = None
+    if isinstance(key, paramiko.RSAKey):
+        LOG.trace("Key is already in the proper format.")
+        res = key
+    elif type(key) is str:
+        LOG.trace("Deserializing PEM-encoded private key.")
+        res = utils.deserialize_key(
+            key, CONF.serialization.temp_keypair_password)
+    else:
+        raise exception.CoriolisException(
+            "Private key must be either a PEM-encoded string or "
+            "a paramiko.RSAKey instance. Got type '%s'." % (
+                type(key)))
+
+    return res
+
+
 class BackupWritersFactory(object):
 
     def __init__(self, writer_connection_info, volumes_info):
@@ -431,11 +449,7 @@ class SSHBackupWriter(BaseBackupWriter):
                 "Either pkey or password are required")
 
         if pkey:
-            if type(pkey) is not str:
-                raise exception.CoriolisException(
-                    "pkey must be a PEM encoded RSA private key")
-            pkey = utils.deserialize_key(
-                pkey, CONF.serialization.temp_keypair_password)
+            pkey = _check_deserialize_key(pkey)
 
         return cls(ip, port, username, pkey, password, volumes_info)
 
@@ -729,8 +743,7 @@ class HTTPBackupWriterBoostrapper(object):
             raise exception.CoriolisException(
                 "Either password or pkey are required")
         if self._pkey:
-            self._pkey = utils.deserialize_key(
-                self._pkey, CONF.serialization.temp_keypair_password)
+            self._pkey = _check_deserialize_key(self._pkey)
         self._ssh = self._connect_ssh()
 
     @utils.retry_on_error(sleep_seconds=30)
@@ -915,12 +928,22 @@ class HTTPBackupWriter(BaseBackupWriter):
         """
         ip = conn_info.get("ip")
         port = conn_info.get("port")
-        certs = conn_info.get("certificates")
+        certs = conn_info.get("certificates", {})
 
         required = ["ip", "port", "certificates"]
         if not all([ip, port, certs]):
             raise exception.CoriolisException(
                 "Missing required connection info: %s" % ", ".join(required))
+
+        required_cert_options = ["client_crt", "client_key", "ca_crt"]
+        missing_cert_options = [
+            opt for opt in required_cert_options
+            if opt not in certs]
+        if missing_cert_options:
+            raise exception.CoriolisException(
+                "Missing the following HTTPBackupWriter fields from the "
+                "'certificates' options: %s" % missing_cert_options)
+
         return cls(ip, port, volumes_info, certs)
 
     def __del__(self):

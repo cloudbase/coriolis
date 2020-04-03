@@ -1101,10 +1101,6 @@ class ConductorServerEndpoint(object):
             # if all the source disk snapshotting and worker setup steps are
             # performed by the source plugin in REPLICATE_DISKS.
             # This should no longer be a problem when worker pooling lands.
-            # Alternatively, REPLICATE_DISKS could be modfied to re-use the
-            # resources deployed during 'DEPLOY_SOURCE_RESOURCES'.
-            # These are currently not even passed to REPLICATE_DISKS (just
-            # their connection info), and should be fixed later.
             last_migration_task = None
             migration_resources_tasks = [
                 deploy_migration_source_resources_task.id,
@@ -1147,6 +1143,7 @@ class ConductorServerEndpoint(object):
             deploy_instance_task = self._create_task(
                 instance, constants.TASK_TYPE_DEPLOY_INSTANCE_RESOURCES,
                 execution, depends_on=[
+                    last_migration_task.id,
                     delete_destination_resources_task.id])
 
             depends_on = [deploy_instance_task.id]
@@ -1920,8 +1917,9 @@ class ConductorServerEndpoint(object):
                 "Received confirmation that presumably cancelling task '%s' "
                 "(status '%s') has just completed successfully. "
                 "This should have never happened and indicates that its worker "
-                "host ('%s') has failed to cancel it properly. Please "
-                "check the worker logs for more details. "
+                "host ('%s') has either failed to cancel it properly, or it "
+                "was completed before the cancellation request was received. "
+                "Please check the worker logs for more details. "
                 "Marking as %s and processing its result as if it completed "
                 "successfully.",
                 task.id, task.status, task.host,
@@ -1929,10 +1927,11 @@ class ConductorServerEndpoint(object):
             db_api.set_task_status(
                 ctxt, task_id, constants.TASK_STATUS_CANCELED_AFTER_COMPLETION,
                 exception_details=(
-                    "The worker host for this task ('%s') has failed at "
-                    "cancelling it so this task was unintentionally run to "
+                    "The worker host for this task ('%s') has either failed "
+                    "at cancelling it or the cancellation request arrived "
+                    "after it was already completed so this task was run to "
                     "completion. Please review the worker logs for "
-                    "more relevant details and contact support." % (
+                    "more relevant details." % (
                         task.host)))
         elif task.status in constants.FINALIZED_TASK_STATUSES:
             LOG.error(

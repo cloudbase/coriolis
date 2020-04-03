@@ -459,13 +459,17 @@ class Replicator(object):
         port = conn_info.get('port', 22)
         password = conn_info.get('password', None)
         pkey = conn_info.get('pkey', None)
-        for i in required:
-            if conn_info.get(i) is None:
-                raise exception.CoriolisException(
-                    "missing required field: %s" % i)
+        missing = [
+            field for field in required
+            if field not in conn_info]
+        if missing:
+            raise exception.CoriolisException(
+                "Missing some required fields from source replication "
+                "worker VM connection info: %s" % missing)
         if any([password, pkey]) is False:
             raise exception.CoriolisException(
-                "Either password or pkey is required")
+                "Either 'password' or 'pkey' for source worker VM is required "
+                "to initialize the Coriolis replicator.")
 
         if pkey:
             if type(pkey) is str:

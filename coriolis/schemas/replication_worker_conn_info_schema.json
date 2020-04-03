@@ -1,0 +1,32 @@
+{
+  "$schema": "http://cloudbase.it/coriolis/schemas/replication_worker_conn_info#",
+  "type": "object",
+  "description": "Object defining SSH connection parameters for the source-side temporary minion VM which will carry out disk exports using Coriolis' in-built data replication engine.",
+  "properties": {
+    "ip": {
+      "type": "string"
+    },
+    "port": {
+      "type": "integer"
+    },
+    "username": {
+      "type": "string"
+    },
+    "password": {
+      "$ref": "#/definitions/nullableString"
+    },
+    "pkey": {
+      "$ref": "#/definitions/nullableString"
+    }
+  },
+  "required": ["ip", "port", "username"],
+  "definitions": {
+    "nullableString": {
+      "oneOf": [{
+        "type": "string"
+      }, {
+        "type": "null"
+      }]
+    }
+  }
+}
