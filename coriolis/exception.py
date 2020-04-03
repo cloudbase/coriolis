@@ -351,3 +351,10 @@ if six.PY2:
         pass
 else:
     ConnectionRefusedError = six.moves.builtins.ConnectionRefusedError
+
+
+class UnrecognizedWorkerInitSystem(CoriolisException):
+    message = _(
+        "Could not determine init system for temporary worker VM. The image "
+        "used for the worker VM must use systemd as an init system for "
+        "Coriolis to be able to use it for data Replication.")
