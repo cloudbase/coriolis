@@ -440,6 +440,25 @@ class Replicator(object):
             else:
                 time.sleep(5)
 
+    def start(self):
+        utils.start_service(self._ssh, REPLICATOR_SVC_NAME)
+
+    def stop(self):
+        utils.stop_service(self._ssh, REPLICATOR_SVC_NAME)
+
+    def restart(self):
+        utils.restart_service(self._ssh, REPLICATOR_SVC_NAME)
+
+    def update_state(self, state, restart=False):
+        state_file = tempfile.mkstemp()[1]
+        with open(state_file, 'w') as fp:
+            json.dump(state, fp)
+
+        self._copy_file(self._ssh, state_file, REPLICATOR_STATE)
+        if restart:
+            self.restart()
+            self._cli._test_connection()
+
     @utils.retry_on_error()
     def _get_ssh_client(self, args):
         """
@@ -510,20 +529,13 @@ class Replicator(object):
 
     @utils.retry_on_error()
     def _copy_file(self, ssh, localPath, remotePath):
-        tmp = os.path.join("/tmp", str(uuid.uuid4()))
+        tmp = tempfile.mktemp(dir="/tmp")
 
         sftp = paramiko.SFTPClient.from_transport(ssh.get_transport())
-        try:
-            # Check if the remote file already exists
-            sftp.stat(remotePath)
-        except IOError as ex:
-            if ex.errno != errno.ENOENT:
-                raise
-            sftp.put(localPath, tmp)
-            utils.exec_ssh_cmd(
-                ssh, "sudo mv %s %s" % (tmp, remotePath), get_pty=True)
-        finally:
-            sftp.close()
+        sftp.put(localPath, tmp)
+        utils.exec_ssh_cmd(
+            ssh, "sudo mv %s %s" % (tmp, remotePath), get_pty=True)
+        sftp.close()
 
     @utils.retry_on_error()
     def _copy_replicator_cmd(self, ssh):

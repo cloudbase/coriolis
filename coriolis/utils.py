@@ -724,6 +724,36 @@ def create_service(ssh, cmdline, svcname, run_as=None, start=True):
             "could not determine init system")
 
 
+@retry_on_error()
+def restart_service(ssh, svcname):
+    if test_ssh_path(ssh, "/lib/systemd/system"):
+        exec_ssh_cmd(ssh, "sudo systemctl restart %s" % svcname, get_pty=True)
+    elif test_ssh_path(ssh, "/etc/init"):
+        exec_ssh_cmd(ssh, "restart %s" % svcname)
+    else:
+        raise exception.UnrecognizedWorkerInitSystem()
+
+
+@retry_on_error()
+def start_service(ssh, svcname):
+    if test_ssh_path(ssh, "/lib/systemd/system"):
+        exec_ssh_cmd(ssh, "sudo systemctl start %s" % svcname, get_pty=True)
+    elif test_ssh_path(ssh, "/etc/init"):
+        exec_ssh_cmd(ssh, "start %s" % svcname)
+    else:
+        raise exception.UnrecognizedWorkerInitSystem()
+
+
+@retry_on_error()
+def stop_service(ssh, svcname):
+    if test_ssh_path(ssh, "/lib/systemd/system"):
+        exec_ssh_cmd(ssh, "sudo systemctl stop %s" % svcname, get_pty=True)
+    elif test_ssh_path(ssh, "/etc/init"):
+        exec_ssh_cmd(ssh, "stop %s" % svcname)
+    else:
+        raise exception.UnrecognizedWorkerInitSystem()
+
+
 class Grub2ConfigEditor(object):
     """This class edits GRUB2 configs, normally found in
     /etc/default/grub. This class tries to preserve commented
