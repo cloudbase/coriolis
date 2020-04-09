@@ -2,16 +2,17 @@
 # All Rights Reserved.
 
 from coriolis.osmorphing import base
+from coriolis.osmorphing.osdetect import coreos as coreos_detect
 
 
 class BaseCoreOSMorphingTools(base.BaseLinuxOSMorphingTools):
-    def _check_os(self):
-        os_release = self._get_os_release()
-        id = os_release.get("ID")
-        if id == "coreos":
-            name = os_release.get("NAME")
-            version = os_release.get("VERSION_ID")
-            return (name, version)
+
+    @classmethod
+    def check_os_supported(cls, detected_os_info):
+        if detected_os_info['distribution_name'] == (
+                coreos_detect.COREOS_DISTRO_IDENTIFIER):
+            return True
+        return False
 
     def disable_predictable_nic_names(self):
         pass

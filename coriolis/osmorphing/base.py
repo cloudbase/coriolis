@@ -12,62 +12,101 @@ from six import with_metaclass
 
 from coriolis import exception
 from coriolis import utils
+from coriolis.osmorphing.osdetect import base as base_os_detect
 
 
 LOG = logging.getLogger(__name__)
+
+
+# Required OS release fields which are expected from the OSDetect tools.
+# 'schemas.CORIOLIS_DETECTED_OS_MORPHING_INFO_SCHEMA' schema:
+REQUIRED_DETECTED_OS_FIELDS = [
+    "os_type", "distribution_name", "release_version", "friendly_release_name"]
 
 
 class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
 
     def __init__(
             self, conn, os_root_dir, os_root_device, hypervisor,
-            event_manager):
+            event_manager, detected_os_info):
+
+        self.check_detected_os_info_parameters(detected_os_info)
+
         self._conn = conn
         self._os_root_dir = os_root_dir
         self._os_root_device = os_root_device
-        self._distro = None
-        self._version = None
+        self._distro = detected_os_info['distribution_name']
+        self._version = detected_os_info['release_version']
         self._hypervisor = hypervisor
         self._event_manager = event_manager
+        self._detected_os_info = detected_os_info
         self._environment = {}
 
-    def check_os(self):
-        if not self._distro:
-            os_info = self._check_os()
-            if os_info:
-                self._distro, self._version = os_info
-        if self._distro:
-            return self._distro, self._version
+    @abc.abstractclassmethod
+    def get_required_detected_os_info_fields(cls):
+        raise NotImplementedError("Required OS params not defined.")
 
-    @abc.abstractmethod
-    def _check_os(self):
-        pass
+    @classmethod
+    def check_detected_os_info_parameters(cls, detected_os_info):
+        required_fields = cls.get_required_detected_os_info_fields()
+        missing_os_info_fields = [
+            field for field in required_fields
+            if field not in detected_os_info]
+        if missing_os_info_fields:
+            raise exception.InvalidDetectedOSParams(
+                "There are parameters (%s) which are required by %s but "
+                "are missing from the detected OS info: %s" % (
+                    missing_os_info_fields, cls.__name__, detected_os_info))
+
+        extra_os_info_fields = [
+            field for field in detected_os_info
+            if field not in required_fields]
+        if extra_os_info_fields:
+            raise exception.InvalidDetectedOSParams(
+                "There were detected OS info parameters (%s) which were not "
+                "expected by %s: %s" % (
+                    extra_os_info_fields, cls.__name__, detected_os_info))
+        return True
+
+    @abc.abstractclassmethod
+    def check_os_supported(cls, detected_os_info):
+        raise NotImplementedError(
+            "OS compatibility check not implemented for tools class %s" % (
+                cls.__name__))
 
     @abc.abstractmethod
     def set_net_config(self, nics_info, dhcp):
         pass
 
+    @abc.abstractmethod
     def get_packages(self):
         return [], []
 
+    @abc.abstractmethod
     def run_user_script(self, user_script):
         pass
 
+    @abc.abstractmethod
     def pre_packages_install(self, package_names):
         pass
 
+    @abc.abstractmethod
     def install_packages(self, package_names):
         pass
 
+    @abc.abstractmethod
     def post_packages_install(self, package_names):
         pass
 
+    @abc.abstractmethod
     def pre_packages_uninstall(self, package_names):
         pass
 
+    @abc.abstractmethod
     def uninstall_packages(self, package_names):
         pass
 
+    @abc.abstractmethod
     def post_packages_uninstall(self, package_names):
         pass
 
@@ -80,10 +119,55 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
     _packages = {}
 
     def __init__(self, conn, os_root_dir, os_root_dev, hypervisor,
-                 event_manager):
+                 event_manager, detected_os_info):
         super(BaseLinuxOSMorphingTools, self).__init__(
-            conn, os_root_dir, os_root_dev, hypervisor, event_manager)
+            conn, os_root_dir, os_root_dev, hypervisor, event_manager,
+            detected_os_info)
         self._ssh = conn
+
+    @classmethod
+    def get_required_detected_os_info_fields(cls):
+        return REQUIRED_DETECTED_OS_FIELDS
+
+    @classmethod
+    def _version_supported_util(cls, version, minimum, maximum=None):
+        """ Parses version strings which are prefixed with a floating point and
+        checks whether the value is between the provided minimum and maximum
+        (excluding the maximum).
+        If a check for specific version is desired, the provided minimum and
+        maximum values should be set to equal.
+        Ex: "18.04LTS" => 18.04
+        """
+        if not version:
+            return False
+
+        float_regex = "([0-9]+(\\.[0-9]+)?)"
+        match = re.match(float_regex, version)
+        if not match:
+            LOG.debug(
+                "Version string '%s' does not contain a float", version)
+            return False
+
+        version_float = None
+        try:
+            version_float = float(match.groups()[0])
+        except ValueError:
+            LOG.debug(
+                "Failed to parse float OS release '%s'", match.groups()[0])
+
+        if version_float < minimum:
+            LOG.debug(
+                "Version '%s' smaller than the minimum of '%s' for "
+                "release: %s", version_float, minimum, version)
+            return False
+
+        if maximum and (maximum != minimum) and version_float >= maximum:
+            LOG.debug(
+                "Version '%s' is larger or equal to the maximum of '%s' for "
+                "release: %s", version_float, maximum, version)
+            return False
+
+        return True
 
     def get_packages(self):
         k_add = [h for h in self._packages.keys() if
@@ -157,12 +241,13 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         return utils.list_ssh_dir(self._ssh, path)
 
     def _exec_cmd(self, cmd):
-        return utils.exec_ssh_cmd(self._ssh, cmd, self._environment,
-                                  get_pty=True)
+        return utils.exec_ssh_cmd(
+            self._ssh, cmd, environment=self._environment, get_pty=True)
 
     def _exec_cmd_chroot(self, cmd):
         return utils.exec_ssh_cmd_chroot(
-            self._ssh, self._os_root_dir, cmd, self._environment, get_pty=True)
+            self._ssh, self._os_root_dir, cmd,
+            environment=self._environment, get_pty=True)
 
     def _check_user_exists(self, username):
         try:
@@ -187,21 +272,9 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         return self._read_config_file("etc/os-release", check_exists=True)
 
     def _read_config_file(self, chroot_path, check_exists=False):
-        if not check_exists or self._test_path(chroot_path):
-            content = self._read_file(chroot_path).decode()
-            return self._get_config(content)
-        else:
-            return {}
-
-    def _get_config(self, config_content):
-        config = {}
-        regex_expr = '(.*[^-\\s])\\s*=\\s*(?:"|\')?([^"\']*)(?:"|\')?\\s*'
-        for config_line in config_content.splitlines():
-            m = re.match(regex_expr, config_line)
-            if m:
-                name, value = m.groups()
-                config[name] = value
-        return config
+        full_path = os.path.join(self._os_root_dir, chroot_path)
+        return utils.read_ssh_ini_config_file(
+            self._ssh, full_path, check_exists=check_exists)
 
     def _copy_resolv_conf(self):
         resolv_conf_path = os.path.join(self._os_root_dir, "etc/resolv.conf")

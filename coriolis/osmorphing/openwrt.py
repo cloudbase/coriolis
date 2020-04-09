@@ -2,17 +2,20 @@
 # All Rights Reserved.
 
 from coriolis.osmorphing import base
+from coriolis.osmorphing.osdetect import openwrt as openwrt_detect
+
+
+OPENWRT_DISTRO_IDENTIFIER = openwrt_detect.OPENWRT_DISTRO_IDENTIFIER
 
 
 class BaseOpenWRTMorphingTools(base.BaseLinuxOSMorphingTools):
-    def _check_os(self):
-        openwrt_release = self._read_config_file(
-            "etc/openwrt_release", check_exists=True)
-        distrib_id = openwrt_release.get("DISTRIB_ID")
-        if distrib_id == "OpenWrt":
-            name = openwrt_release.get("DISTRIB_DESCRIPTION", distrib_id)
-            version = openwrt_release.get("DISTRIB_RELEASE")
-            return (name, version)
+
+    @classmethod
+    def check_os_supported(cls, detected_os_info):
+        if detected_os_info['distribution_name'] == (
+                OPENWRT_DISTRO_IDENTIFIER):
+            return True
+        return False
 
     def disable_predictable_nic_names(self):
         pass

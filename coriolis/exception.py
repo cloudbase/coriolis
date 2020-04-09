@@ -148,6 +148,18 @@ class Invalid(CoriolisException):
     code = 400
     safe = True
 
+class InvalidCustomOSDetectTools(Invalid):
+    message = _("The provided custom OS detect tools are invalid.")
+
+
+class InvalidOSMorphingTools(Invalid):
+    message = _("Invalid OSMorphing tools received: %(tools_class)s")
+
+
+class InvalidDetectedOSParams(CoriolisException):
+    message = _("One or more detected OS parameters were invalid.")
+    safe = True
+
 
 class InvalidResults(Invalid):
     message = _("The results are invalid.")
@@ -234,7 +246,25 @@ class NotFound(CoriolisException):
 
 
 class OSMorphingToolsNotFound(NotFound):
-    message = _("Couldn't find any morphing tools for this OS.")
+    message = _(
+        'No OSMorphing tools were found for OS type "%(os_type)s" for this VM.'
+        ' This would indicate that it was either not possible to determine the'
+        ' exact OS release, or this OS release is not supported by Coriolis. '
+        'Suggestions include performing any needed OSMorphing steps manually '
+        'within the source VM and then re-syncing with the "Skip OS Morphing" '
+        'option enabled to bypass this stage, or contacting Cloudbase support '
+        'for further assistance.')
+
+
+class OSDetectToolsNotFound(NotFound):
+    message = _(
+        'No "%(os_type)s" OS detect tools were able to identify the OS for this VM. '
+        'This would indicate that it was either not possible to determine the '
+        'exact OS release, or this OS release is not supported by Coriolis. '
+        'Suggestions include performing any needed OSMorphing steps manually '
+        'within the source VM and then re-syncing with the "Skip OS Morphing" '
+        'option enabled to bypass this stage, or contacting Cloudbase support '
+        'for further assistance.')
 
 
 class FileNotFound(NotFound):

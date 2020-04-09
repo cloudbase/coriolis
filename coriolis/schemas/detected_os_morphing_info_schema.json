@@ -1,0 +1,24 @@
+{
+  "$schema": "http://cloudbase.it/coriolis/schemas/detected_os_morphing_info#",
+  "type": "object",
+  "description": "Schema defining the format the OS Morphing detection tools should return. Additional distro-specific properties may be freely added if needed.",
+  "properties": {
+    "os_type": {
+      "enum": ["bsd", "linux", "osx", "solaris", "windows"]
+    },
+    "distribution_name": {
+      "type": "string",
+      "description": "String identifier of the OS or distribution. Ex: 'Ubuntu' for Linux or 'Server' for Windows."
+    },
+    "release_version": {
+      "type": "string",
+      "description": "String version for the OS. (ex: '2012R2' for Windows or '18.04LTS' for Ubuntu Trusty)"
+    },
+    "friendly_release_name": {
+      "type": "string",
+      "description": "String friendly name for the OS. (ex: 'Suse Linux Enterprise 13.1' for SLES 13 SP1)"
+    }
+  },
+  "required": ["os_type", "distribution_name", "release_version", "friendly_release_name"],
+  "additionalProperties": true
+}

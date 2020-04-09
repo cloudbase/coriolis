@@ -7,13 +7,19 @@ import uuid
 
 from oslo_log import log as logging
 
-from coriolis.osmorphing import base
 from coriolis import utils
+from coriolis.osmorphing import base
+from coriolis.osmorphing.osdetect import centos as centos_detect
+from coriolis.osmorphing.osdetect import redhat as redhat_detect
+
+
+RED_HAT_DISTRO_IDENTIFIER = redhat_detect.RED_HAT_DISTRO_IDENTIFIER
 
 LOG = logging.getLogger(__name__)
 
-RELEASE_RHEL = "Red Hat Enterprise Linux Server"
-RELEASE_CENTOS = "CentOS Linux"
+# NOTE: some constants duplicated for backwards-compatibility:
+RELEASE_RHEL = RED_HAT_DISTRO_IDENTIFIER
+RELEASE_CENTOS = centos_detect.CENTOS_DISTRO_IDENTIFIER
 RELEASE_FEDORA = "Fedora"
 
 
@@ -35,24 +41,20 @@ NM_CONTROLLED=no
 class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
     _NETWORK_SCRIPTS_PATH = "etc/sysconfig/network-scripts"
 
+    @classmethod
+    def check_os_supported(cls, detected_os_info):
+        if detected_os_info['distribution_name'] != (
+                RED_HAT_DISTRO_IDENTIFIER):
+            return False
+        return cls._version_supported_util(
+            detected_os_info['release_version'], minimum=7)
+
     def __init__(self, conn, os_root_dir, os_root_dev,
-                 hypervisor, event_manager):
+                 hypervisor, event_manager, detected_os_info):
         super(BaseRedHatMorphingTools, self).__init__(
             conn, os_root_dir, os_root_dev,
-            hypervisor, event_manager)
+            hypervisor, event_manager, detected_os_info)
         self._enable_repos = []
-
-    def _check_os(self):
-        redhat_release_path = "etc/redhat-release"
-        if self._test_path(redhat_release_path):
-            release_info = self._read_file(
-                redhat_release_path).decode().splitlines()
-            if release_info:
-                m = re.match(r"^(.*) release ([0-9].*) \((.*)\).*$",
-                             release_info[0].strip())
-                if m:
-                    distro, version, _ = m.groups()
-                    return (distro, version)
 
     def disable_predictable_nic_names(self):
         kernel_versions = self._list_dir("lib/modules")

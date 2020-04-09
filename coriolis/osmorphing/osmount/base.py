@@ -67,13 +67,14 @@ class BaseSSHOSMountTools(BaseOSMountTools):
         pkey = connection_info.get("pkey")
         password = connection_info.get("password")
 
-        LOG.info("Waiting for connectivity on host: %(ip)s:%(port)s",
-                 {"ip": ip, "port": port})
+        LOG.info(
+            "Waiting for SSH connectivity on OSMorphing host: %(ip)s:%(port)s",
+            {"ip": ip, "port": port})
         utils.wait_for_port_connectivity(ip, port)
 
         self._event_manager.progress_update(
-            "Connecting to SSH host: %(ip)s:%(port)s" %
-            {"ip": ip, "port": port})
+            "Connecting through SSH to OSMorphing host on: %(ip)s:%(port)s" % (
+                {"ip": ip, "port": port}))
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(hostname=ip, port=port, username=username, pkey=pkey,
