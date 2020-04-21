@@ -723,7 +723,7 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
             self._compressor_evt = None
 
 
-class HTTPBackupWriterBoostrapper(object):
+class HTTPBackupWriterBootstrapper(object):
 
     def __init__(self, ssh_conn_info, writer_port):
         self._lock = threading.Lock()
