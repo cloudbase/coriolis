@@ -235,6 +235,17 @@ use_floating_ip = False
 # Name or ID of the Nove Server Group to use when recreating the final VMs on Openstack
 # server_group =
 
+# What mechanism to use when sending disk data from the Coriolis installation
+# to the temporary VMs on the target OpenStack to be written to their
+# respective disk. The HTTPS-based transfer mechanism (TCP/4433) is faster but
+# might not work if there are firewalls in the way. The SSH-based transfer
+# mechanism (TCP/22) is more costly but will be allowed by most firewalls since
+# SSH access from the Coriolis installation to the temporary worker VM is always
+# required. Coriolis automatically sets security groups rules for the temporary
+# VMs accordingly.
+# Choices are 'SSH' or 'HTTPS'. Default is 'SSH'.
+data_transfer_mechanism = SSH
+
 # Parameters realted to the OSMorphing process for Windows instances:
 windows_virtio_iso_url = https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso
 cloudbaseinit_x64_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x64.zip
