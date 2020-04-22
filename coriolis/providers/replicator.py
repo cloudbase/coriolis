@@ -719,6 +719,7 @@ class Replicator(object):
         certs = self._setup_certificates(ssh, args)
         self._exec_replicator(
             ssh, args["port"], certs["remote"], REPLICATOR_STATE)
+        self.start()
         return certs["local"]
 
     def _get_size_from_chunks(self, chunks):
