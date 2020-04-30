@@ -5,6 +5,7 @@ import re
 
 from oslo_log import log as logging
 
+from coriolis import exception
 from coriolis import utils
 from coriolis.osmorphing import base
 
@@ -87,6 +88,46 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
             return True
         except Exception:
             return False
+
+    def _enable_sles_module(self, module):
+        available_modules = self._exec_cmd_chroot(
+            "SUSEConnect --list-extensions").decode()
+        module_match = re.search("%s.*" % module, available_modules)
+        try:
+            module_path = module_match.group(0)
+            self._event_manager.progress_update(
+                "Enabling module: %s" % module_path)
+            conf = "/etc/zypp/zypp.conf"
+            self._exec_cmd_chroot("cp %s %s.tmp" % (conf, conf))
+            self._exec_cmd_chroot(
+                "sed -i -e 's/^gpgcheck.*//g' -e '$ a\gpgcheck = off' %s" % (
+                    conf))
+            self._exec_cmd_chroot("SUSEConnect -p %s" % module_path)
+            self._exec_cmd_chroot("mv -f %s.tmp %s" % (conf, conf))
+            self._exec_cmd_chroot(
+                "zypper --non-interactive --no-gpg-checks refresh")
+        except Exception as err:
+            raise exception.CoriolisException(
+                "Failed to activate SLES module: %s. Please review logs"
+                " for more details." % module) from err
+
+    def _add_cloud_tools_repo(self):
+        repo_suffix = ""
+        if self._version_id:
+            repo_suffix = "_%s" % self._version_id
+        repo = "obs://Cloud:Tools/%s%s" % (
+            self._distro.replace(" ", "_"), repo_suffix)
+        self._event_manager.progress_update(
+            "Adding repository: %s" % repo)
+        try:
+            self._exec_cmd_chroot(
+                "zypper --non-interactive addrepo -f %s Cloud-Tools" % repo)
+            self._exec_cmd_chroot(
+                "zypper --non-interactive --no-gpg-checks refresh")
+        except Exception as err:
+            raise exception.CoriolisException(
+                "Failed to add Cloud-Tools repo: %s. Please review logs"
+                " for more details." % repo) from err
 
     def install_packages(self, package_names):
         self._exec_cmd_chroot(
