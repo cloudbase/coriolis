@@ -362,3 +362,7 @@ class UnrecognizedWorkerInitSystem(CoriolisException):
 
 class EphemeralVolumesDeleted(CoriolisException):
     pass
+
+
+class AttachmentsNotFound(NotFound):
+    pass
