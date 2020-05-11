@@ -105,3 +105,13 @@ cd /root/coriolis-docker
 git pull origin master
 ./coriolis-ansible update
 ```
+
+## Deploy external workers
+
+Given access to VMs external to Coriolis they can be deployed as worker components
+this requires Coriolis to be exposed and adding the ips / credentials in the ansible worker inventory
+```
+vim coriolis-docker/coriolis_ansible/inventory/external_workers
+./coriolis-docker/expose_coriolis.py
+./coriolis-docker/coriolis-ansible deploy-workers
+```

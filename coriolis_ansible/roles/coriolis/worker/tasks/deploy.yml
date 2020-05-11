@@ -32,6 +32,7 @@
     unarchive:
       src: "{{ vmware_vix_disklib_local_archive }}"
       dest: "{{ coriolis_vmware_vix_disklib_dir }}"
+      remote_src: yes
       extra_opts:
         - --strip-components=2
         - vmware-vix-disklib-distrib/lib64

@@ -79,6 +79,12 @@ case "$1" in
         $ANSIBLE_CMD $PLAYBOOK
         ;;
 
+    deploy-workers)
+        PLAYBOOK="external-worker.yml"
+        ANSIBLE_CMD="ansible-playbook -v -i inventory/appliance -i inventory/external_workers -e @$CONFIG_FILE -e @$DOCKER_IMAGES_CONFIG_FILE -e @$PASSWORDS_FILE"
+        $ANSIBLE_CMD -e coriolis_action=deploy $PLAYBOOK
+        ;;
+
     *)
         echo "ERROR: Invalid <coriolis_action> parameter"
         usage

@@ -1,0 +1,119 @@
+---
+- name: Build dict of required containers and tags
+  hosts: all
+  tasks:
+    - set_fact:
+        required_containers:
+          - name: coriolis-compressor
+            img_tag: "{{ coriolis_compressor_docker_image_tag }}"
+          - name: coriolis-worker
+            img_tag: "{{ coriolis_worker_docker_image_tag }}"
+
+- name: Export Docker container images on appliance
+  hosts: coriolis
+  tasks:
+    - name: Tmp dir for image export
+      file:
+        path: "{{ coriolis_docker_image_dir }}"
+        state: directory
+
+    - name: Ensure rsync on appliance
+      apt:
+        update_cache: yes
+        force_apt_get: yes
+        name:
+          - rsync
+        state: present
+      become: yes
+
+    - name: Archive docker images on appliance
+      docker_image:
+        name: "{{ docker_registry }}/{{ docker_namespace }}/{{ item.name }}"
+        tag: "{{ item.img_tag }}"
+        archive_path: "{{ coriolis_docker_image_dir }}/{{ item.name }}-{{ item.img_tag }}.tar"
+        source: local
+        state: present
+      with_items: "{{ required_containers }}"
+      register: result
+      retries: 10
+      delay: 5
+      until: result is succeeded
+
+
+- name: Install Minimum required packages on Worker VM to launch containers
+  hosts: external_workers
+  tasks:
+    - name: Apt install docker and pip
+      apt:
+        update_cache: yes
+        force_apt_get: yes
+        name:
+          - python3-pip
+          - docker.io
+        state: present
+      become: yes
+
+    - name: Pip install docker-py
+      pip:
+        name: docker-py
+        state: present
+      become: yes
+
+
+- name: Push docker images and configs to coriolis external workers
+  hosts: external_workers
+  any_errors_fatal: true
+  tasks:
+    - name: Create directories
+      file:
+        path: "{{ item }}"
+        state: directory
+      become: yes
+      with_items:
+        - "{{ coriolis_config_dir }}"
+        - "{{ coriolis_log_dir }}"
+        - "{{ coriolis_docker_image_dir }}"
+
+    - name: Copy coriolis conf
+      copy:
+        src: "{{ coriolis_config_dir }}/coriolis.conf"
+        dest: "{{ coriolis_config_dir }}"
+      become: yes
+
+    - name: Sync the docker image files from appliance to workers
+      synchronize:
+        src: "{{ coriolis_docker_image_dir }}/{{ item.name }}-{{ item.img_tag }}.tar"
+        dest: "{{ coriolis_docker_image_dir }}/{{ item.name }}-{{ item.img_tag }}.tar"
+      become: yes
+      with_items: "{{ required_containers }}"
+
+    - name: Load docker images on external workers
+      docker_image:
+        name: "{{ docker_registry }}/{{ docker_namespace }}/{{ item.name }}"
+        tag: "{{ item.img_tag }}"
+        load_path: "{{ coriolis_docker_image_dir }}/{{ item.name }}-{{ item.img_tag }}.tar"
+        source: load
+      become: yes
+      with_items: "{{ required_containers }}"
+      register: result
+      retries: 10
+      delay: 5
+      until: result is succeeded
+
+
+- name: Apply roles for the Coriolis external workers
+  any_errors_fatal: true
+  gather_facts: false
+  hosts: external_workers
+  become: yes
+  tasks:
+    - import_role:
+        name: coriolis/compressor
+
+    - import_role:
+        name: coriolis/worker
+
+    - import_role:
+        name: coriolis/validation
+        tasks_from: default_region_configuration
+      delegate_to: coriolis

@@ -31,7 +31,7 @@
     var: default_region_id
 
 - name: Get Worker service ID
-  shell: "coriolis service list | grep {{ coriolis_worker_hostname }} | awk '{print $2}' | cat"
+  shell: "coriolis service list | grep {{ coriolis_worker_service_hostname }} | awk '{print $2}' | cat"
   register: worker_result
   retries: 10
   delay: 5
