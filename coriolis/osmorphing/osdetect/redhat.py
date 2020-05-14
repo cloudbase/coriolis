@@ -10,7 +10,7 @@ from coriolis.osmorphing.osdetect import base
 
 
 LOG = logging.getLogger(__name__)
-RED_HAT_DISTRO_IDENTIFIER = "Red Hat Enterprise Linux Server"
+RED_HAT_DISTRO_IDENTIFIER = "Red Hat Enterprise Linux"
 
 
 class RedHatOSDetectTools(base.BaseLinuxOSDetectTools):
