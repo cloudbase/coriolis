@@ -46,8 +46,7 @@ class SUSEOSDetectTools(base.BaseLinuxOSDetectTools):
                     "distribution_name": distro_name,
                     DETECTED_SUSE_RELEASE_FIELD_NAME: name,
                     "release_version": version,
-                    "friendly_release_name": "%s %s" % (
-                        distro_name, version)}
+                    "friendly_release_name": name}
 
         # NOTE: should be redundant as all SUSEs which have a
         # SuSE-release but no os-release have been deprecated
