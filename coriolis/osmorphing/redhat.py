@@ -48,7 +48,7 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
                 RED_HAT_DISTRO_IDENTIFIER):
             return False
         return cls._version_supported_util(
-            detected_os_info['release_version'], minimum=7)
+            detected_os_info['release_version'], minimum=6)
 
     def __init__(self, conn, os_root_dir, os_root_dev,
                  hypervisor, event_manager, detected_os_info):

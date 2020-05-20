@@ -17,4 +17,4 @@ class BaseCentOSMorphingTools(redhat.BaseRedHatMorphingTools):
                 CENTOS_DISTRO_IDENTIFIER):
             return False
         return cls._version_supported_util(
-            detected_os_info['release_version'], minimum=7)
+            detected_os_info['release_version'], minimum=6)

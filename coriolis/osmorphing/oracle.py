@@ -1,8 +1,6 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-import re
-
 from coriolis.osmorphing import redhat
 from coriolis.osmorphing.osdetect import oracle as oracle_detect
 
@@ -18,7 +16,7 @@ class BaseOracleMorphingTools(redhat.BaseRedHatMorphingTools):
                 ORACLE_DISTRO_IDENTIFIER):
             return False
         return cls._version_supported_util(
-            detected_os_info['release_version'], minimum=7)
+            detected_os_info['release_version'], minimum=6)
 
     def _run_dracut(self):
         self._run_dracut_base('kernel')
