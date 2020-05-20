@@ -144,7 +144,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         float_regex = "([0-9]+(\\.[0-9]+)?)"
         match = re.match(float_regex, version)
         if not match:
-            LOG.debug(
+            LOG.warn(
                 "Version string '%s' does not contain a float", version)
             return False
 
@@ -152,8 +152,12 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         try:
             version_float = float(match.groups()[0])
         except ValueError:
-            LOG.debug(
+            LOG.warn(
                 "Failed to parse float OS release '%s'", match.groups()[0])
+            return False
+        LOG.debug(
+            "Extracted float version from string '%s' is: %s",
+            version, version_float)
 
         if version_float < minimum:
             LOG.debug(
@@ -161,11 +165,17 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
                 "release: %s", version_float, minimum, version)
             return False
 
-        if maximum and (maximum != minimum) and version_float >= maximum:
-            LOG.debug(
-                "Version '%s' is larger or equal to the maximum of '%s' for "
-                "release: %s", version_float, maximum, version)
-            return False
+        if maximum:
+            if maximum == minimum and version_float == minimum:
+                LOG.debug(
+                    "Version '%s' coincides exactly with the required "
+                    "minimum/maximum version: %s", version_float, minimum)
+                return True
+            if version_float >= maximum:
+                LOG.debug(
+                    "Version '%s' is larger or equal to the maximum of '%s' "
+                    "for release: %s", version_float, maximum, version)
+                return False
 
         return True
 
