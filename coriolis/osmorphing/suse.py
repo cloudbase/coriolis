@@ -128,7 +128,8 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
 
     def _add_cloud_tools_repo(self):
         repo_suffix = ""
-        if self._version:
+        if self._version != (
+                OPENSUSE_TUMBLEWEED_VERSION_IDENTIFIER):
             repo_suffix = "_%s" % self._version
         repo = "obs://Cloud:Tools/%s%s" % (
             self._detected_os_info[DETECTED_SUSE_RELEASE_FIELD_NAME].replace(

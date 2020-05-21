@@ -31,14 +31,18 @@ class SUSEOSDetectTools(base.BaseLinuxOSDetectTools):
         name = os_release.get("NAME")
         if name and (name == "SLES" or name.startswith("openSUSE")):
             distro_name = None
+            friendly_release_name = name
             if name == "SLES":
                 distro_name = SLES_DISTRO_IDENTIFIER
             elif name.lower().startswith("opensuse"):
                 distro_name = OPENSUSE_DISTRO_IDENTIFIER
             version = os_release.get(
                 "VERSION_ID", constants.OS_TYPE_UNKNOWN)
-            if 'tumbleweed' in distro_name.lower():
+            if 'tumbleweed' in name.lower():
                 version = OPENSUSE_TUMBLEWEED_VERSION_IDENTIFIER
+            else:
+                friendly_release_name = "%s %s" % (
+                    distro_name, version)
 
             if distro_name:
                 info = {
@@ -46,7 +50,7 @@ class SUSEOSDetectTools(base.BaseLinuxOSDetectTools):
                     "distribution_name": distro_name,
                     DETECTED_SUSE_RELEASE_FIELD_NAME: name,
                     "release_version": version,
-                    "friendly_release_name": name}
+                    "friendly_release_name": friendly_release_name}
 
         # NOTE: should be redundant as all SUSEs which have a
         # SuSE-release but no os-release have been deprecated
