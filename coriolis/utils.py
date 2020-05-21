@@ -654,7 +654,7 @@ def parse_ini_config(file_contents):
     returns a dict with the options/values within it.
     """
     config = {}
-    regex_expr = '(.*[^-\\s])\\s*=\\s*(?:"|\')?([^"\']*)(?:"|\')?\\s*'
+    regex_expr = '([^#]*[^-\\s#])\\s*=\\s*(?:"|\')?([^#"\']*)(?:"|\')?\\s*'
     for config_line in file_contents.splitlines():
         m = re.match(regex_expr, config_line)
         if m:
