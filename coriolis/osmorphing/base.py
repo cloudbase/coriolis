@@ -141,6 +141,11 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         if not version:
             return False
 
+        if type(version) is not str:
+            raise ValueError(
+                "Non-string version provided: %s (type %s)" % (
+                    version, type(version)))
+
         float_regex = "([0-9]+(\\.[0-9]+)?)"
         match = re.match(float_regex, version)
         if not match:
