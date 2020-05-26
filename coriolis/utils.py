@@ -649,6 +649,29 @@ def sanitize_task_info(task_info):
     return new
 
 
+def parse_ini_config(file_contents):
+    """ Parses the contents of the given .ini config file and
+    returns a dict with the options/values within it.
+    """
+    config = {}
+    regex_expr = '([^#]*[^-\\s#])\\s*=\\s*(?:"|\')?([^#"\']*)(?:"|\')?\\s*'
+    for config_line in file_contents.splitlines():
+        m = re.match(regex_expr, config_line)
+        if m:
+            name, value = m.groups()
+            config[name] = value
+    return config
+
+
+def read_ssh_ini_config_file(ssh, path, check_exists=False):
+    """ Reads and parses the contents of an .ini file at the given path. """
+    if not check_exists or test_ssh_path(ssh, path):
+        content = read_ssh_file(ssh, path).decode()
+        return parse_ini_config(content)
+    else:
+        return {}
+
+
 def _write_systemd(ssh, cmdline, svcname, run_as=None, start=True):
     serviceFilePath = "/lib/systemd/system/%s.service" % svcname
 

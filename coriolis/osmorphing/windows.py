@@ -1,18 +1,24 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-from distutils import version
+import copy
 import os
 import re
 import uuid
 
 from oslo_log import log as logging
 
+from coriolis import constants
 from coriolis import exception
 from coriolis import utils
 from coriolis.osmorphing import base
+from coriolis.osmorphing.osdetect import windows as windows_osdetect
+
 
 LOG = logging.getLogger(__name__)
+
+WINDOWS_CLIENT_IDENTIFIER = windows_osdetect.WINDOWS_CLIENT_IDENTIFIER
+WINDOWS_SERVER_IDENTIFIER = windows_osdetect.WINDOWS_SERVER_IDENTIFIER
 
 SERVICE_START_AUTO = 2
 SERVICE_START_MANUAL = 3
@@ -59,38 +65,36 @@ CLOUDBASE_INIT_DEFAULT_METADATA_SVCS = [
     '.opennebulaservice.OpenNebulaService',
 ]
 
+REQUIRED_DETECTED_WINDOWS_OS_FIELDS = [
+    "version_number", "edition_id", "installation_type", "product_name"]
+
 
 class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
+
+    @classmethod
+    def get_required_detected_os_info_fields(cls):
+        base_fields = copy.deepcopy(base.REQUIRED_DETECTED_OS_FIELDS)
+        base_fields.extend(REQUIRED_DETECTED_WINDOWS_OS_FIELDS)
+        return base_fields
+
+    @classmethod
+    def check_os_supported(cls, detected_os_info):
+        # TODO(aznashwan): add more detailed checks for Windows:
+        if detected_os_info['os_type'] == constants.OS_TYPE_WINDOWS:
+            return True
+        return False
+
     def __init__(
             self, conn, os_root_dir, os_root_device, hypervisor,
-            event_manager):
+            event_manager, detected_os_info):
         super(BaseWindowsMorphingTools, self).__init__(
             conn, os_root_dir, os_root_device, hypervisor,
-            event_manager)
+            event_manager, detected_os_info)
 
-        self._version_number = None
-        self._edition_id = None
-        self._installation_type = None
-        self._product_name = None
-
-    def _check_os(self):
-        try:
-            (self._version_number,
-             self._edition_id,
-             self._installation_type,
-             self._product_name) = self._get_image_version_info()
-            LOG.debug(
-                "Identified Windows release as: Version no.: %s; "
-                "Edition id: %s; Install type: %s; Name: %s",
-                self._version_number, self._edition_id,
-                self._installation_type, self._product_name)
-            return ('Windows', self._product_name)
-        except exception.CoriolisException as ex:
-            LOG.debug("Exception during OS detection: %s", ex)
-
-    def set_net_config(self, nics_info, dhcp):
-        # TODO(alexpilotti): implement
-        pass
+        self._version_number = detected_os_info['version_number']
+        self._edition_id = detected_os_info['edition_id']
+        self._installation_type = detected_os_info['installation_type']
+        self._product_name = detected_os_info['product_name']
 
     def _get_worker_os_drive_path(self):
         return self._conn.exec_ps_command(
@@ -125,49 +129,6 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
         m = re.search(r'^%s\s*: (.*)$' % name, data, re.MULTILINE)
         if m:
             return m.groups()[0]
-
-    def _get_image_version_info(self):
-        key_name = str(uuid.uuid4())
-
-        self._load_registry_hive(
-            "HKLM\\%s" % key_name,
-            "%sWindows\\System32\\config\\SOFTWARE" % self._os_root_dir)
-        try:
-            version_info_str = self._conn.exec_ps_command(
-                "Get-ItemProperty "
-                "'HKLM:\\%s\\Microsoft\\Windows NT\\CurrentVersion' "
-                "| select CurrentVersion, CurrentMajorVersionNumber, "
-                "CurrentMinorVersionNumber,  CurrentBuildNumber, "
-                "InstallationType, ProductName, EditionID | FL" %
-                key_name).replace(self._conn.EOL, os.linesep)
-        finally:
-            self._unload_registry_hive("HKLM\\%s" % key_name)
-
-        version_info = {}
-        for n in ["CurrentVersion", "CurrentMajorVersionNumber",
-                  "CurrentMinorVersionNumber", "CurrentBuildNumber",
-                  "InstallationType", "ProductName", "EditionID"]:
-            version_info[n] = self._get_ps_fl_value(version_info_str, n)
-
-        if (not version_info["CurrentMajorVersionNumber"] and
-                not version_info["CurrentVersion"]):
-            raise exception.CoriolisException(
-                "Cannot find Windows version info")
-
-        if version_info["CurrentMajorVersionNumber"]:
-            version_str = "%s.%s.%s" % (
-                version_info["CurrentMajorVersionNumber"],
-                version_info["CurrentMinorVersionNumber"],
-                version_info["CurrentBuildNumber"])
-        else:
-            version_str = "%s.%s" % (
-                version_info["CurrentVersion"],
-                version_info["CurrentBuildNumber"])
-
-        return (version.LooseVersion(version_str),
-                version_info["EditionID"],
-                version_info["InstallationType"],
-                version_info["ProductName"])
 
     def _add_dism_driver(self, driver_path):
         LOG.info("Adding driver: %s" % driver_path)
@@ -461,3 +422,27 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
             self._unload_registry_hive("HKLM\\%s" % key_name)
 
         return cloudbaseinit_base_dir
+
+    def set_net_config(self, nics_info, dhcp):
+        pass
+
+    def get_packages(self):
+        return [], []
+
+    def pre_packages_install(self, package_names):
+        pass
+
+    def install_packages(self, package_names):
+        pass
+
+    def post_packages_install(self, package_names):
+        pass
+
+    def pre_packages_uninstall(self, package_names):
+        pass
+
+    def uninstall_packages(self, package_names):
+        pass
+
+    def post_packages_uninstall(self, package_names):
+        pass

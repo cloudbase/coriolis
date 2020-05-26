@@ -1,6 +1,7 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+import copy
 import re
 
 from oslo_log import log as logging
@@ -8,35 +9,47 @@ from oslo_log import log as logging
 from coriolis import exception
 from coriolis import utils
 from coriolis.osmorphing import base
+from coriolis.osmorphing.osdetect import suse as suse_detect
 
 
 LOG = logging.getLogger(__name__)
 
+DETECTED_SUSE_RELEASE_FIELD_NAME = suse_detect.DETECTED_SUSE_RELEASE_FIELD_NAME
+SLES_DISTRO_IDENTIFIER = suse_detect.SLES_DISTRO_IDENTIFIER
+OPENSUSE_DISTRO_IDENTIFIER = suse_detect.OPENSUSE_DISTRO_IDENTIFIER
+OPENSUSE_TUMBLEWEED_VERSION_IDENTIFIER = (
+    suse_detect.OPENSUSE_TUMBLEWEED_VERSION_IDENTIFIER)
+
 
 class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
-    def _check_os(self):
-        os_release = self._get_os_release()
-        name = os_release.get("NAME")
-        if name and (name == "SLES" or name.startswith("openSUSE")):
-            pretty_name = os_release.get("PRETTY_NAME")
-            if name == "openSUSE Tumbleweed":
-                self._version_id = None
-            else:
-                self._version_id = os_release.get("VERSION_ID")
-            return (name, pretty_name)
 
-        suse_release_path = "etc/SuSE-release"
-        if self._test_path(suse_release_path):
-            out = self._read_file(suse_release_path).decode()
-            release = out.splitlines()
-            release_info = self._get_config(out)
-            version_id = release_info['VERSION']
-            patch_level = release_info.get('PATCHLEVEL', None)
-            if patch_level:
-                version_id = "%s.%s" % (version_id, patch_level)
-            self._version_id = version_id
-            if release:
-                return ('SUSE', release[0])
+    @classmethod
+    def get_required_detected_os_info_fields(cls):
+        common_fields = super(
+            BaseSUSEMorphingTools, cls).get_required_detected_os_info_fields()
+        fields = copy.deepcopy(common_fields)
+        fields.append(DETECTED_SUSE_RELEASE_FIELD_NAME)
+        return fields
+
+    @classmethod
+    def check_os_supported(cls, detected_os_info):
+        distro = detected_os_info['distribution_name']
+        if distro not in (
+                SLES_DISTRO_IDENTIFIER, OPENSUSE_DISTRO_IDENTIFIER):
+            return False
+
+        version = detected_os_info['release_version']
+        if distro == OPENSUSE_DISTRO_IDENTIFIER:
+            if version == OPENSUSE_TUMBLEWEED_VERSION_IDENTIFIER:
+                return True
+            else:
+                return cls._version_supported_util(
+                    version, minimum=15)
+        elif distro == SLES_DISTRO_IDENTIFIER:
+            return cls._version_supported_util(
+                version, minimum=12)
+
+        return False
 
     def disable_predictable_nic_names(self):
         # TODO(gsamfira): implement once we have networking support
@@ -77,7 +90,9 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
                     utils.get_exception_details()))
 
     def _rebuild_initrds(self):
-        if float(self._version_id) < 12:
+        if self._version_supported_util(
+                self._detected_os_info['release_version'],
+                minimum=0, maximum=12):
             self._run_mkinitrd()
         else:
             self._run_dracut()
@@ -113,10 +128,13 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
 
     def _add_cloud_tools_repo(self):
         repo_suffix = ""
-        if self._version_id:
-            repo_suffix = "_%s" % self._version_id
+        if self._version != (
+                OPENSUSE_TUMBLEWEED_VERSION_IDENTIFIER):
+            repo_suffix = "_%s" % self._version
         repo = "obs://Cloud:Tools/%s%s" % (
-            self._distro.replace(" ", "_"), repo_suffix)
+            self._detected_os_info[DETECTED_SUSE_RELEASE_FIELD_NAME].replace(
+                " ", "_"),
+            repo_suffix)
         self._event_manager.progress_update(
             "Adding repository: %s" % repo)
         try:

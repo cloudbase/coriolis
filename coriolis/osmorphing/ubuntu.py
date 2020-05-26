@@ -8,18 +8,31 @@ import yaml
 from oslo_log import log as logging
 
 from coriolis.osmorphing import debian
+from coriolis.osmorphing.osdetect import ubuntu as ubuntu_osdetect
 
 
 LOG = logging.getLogger(__name__)
 
+UBUNTU_DISTRO_IDENTIFIER = ubuntu_osdetect.UBUNTU_DISTRO_IDENTIFIER
+
 
 class BaseUbuntuMorphingTools(debian.BaseDebianMorphingTools):
-    def _check_os(self):
-        config = self._read_config_file("etc/lsb-release", check_exists=True)
-        dist_id = config.get('DISTRIB_ID')
-        if dist_id == 'Ubuntu':
-            release = config.get('DISTRIB_RELEASE')
-            return (dist_id, release)
+
+    @classmethod
+    def check_os_supported(cls, detected_os_info):
+        if detected_os_info['distribution_name'] != (
+                UBUNTU_DISTRO_IDENTIFIER):
+            return False
+
+        lts_releases = [12.04, 14.04, 16.04, 18.04]
+        for lts_release in lts_releases:
+            if cls._version_supported_util(
+                    detected_os_info['release_version'],
+                    minimum=lts_release, maximum=lts_release):
+                return True
+
+        return cls._version_supported_util(
+            detected_os_info['release_version'], minimum=20.04)
 
     def _set_netplan_ethernet_configs(
             self, nics_info, dhcp=False, iface_name_prefix=None):

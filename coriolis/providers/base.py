@@ -190,11 +190,26 @@ class BaseEndpointSourceOptionsProvider(
 
 class BaseInstanceProvider(BaseProvider):
 
-    def get_os_morphing_tools(self, conn, osmorphing_info):
-        """ Returns a tuple containing the instantiated OSMorphing tools class
-        to use as well as the OS info returned by the tools' `check_os` method.
+    @abc.abstractmethod
+    def get_os_morphing_tools(self, os_type, osmorphing_info):
+        """ Returns a list of possible OSMorphing classes for the given
+        os type and osmorphing info.
+        The OSMorphing classes will be asked to validate compatibility
+        in order using their `check_os` method in order, so any classes whose
+        `check_os` classmethods might both return a positive result should be
+        placed in the correct order (from more specific to less specific).
         """
-        raise exception.OSMorphingToolsNotFound()
+        raise exception.OSMorphingToolsNotFound(os_type=os_type)
+
+
+    def get_custom_os_detect_tools(self, os_type, osmorphing_info):
+        """ Returns a list of custom OSDetect classes which inherit from
+        coriolis.osmorphing.osdetect.base.BaseOSDetectTools.
+        These detect tools will be run before the standard ones already
+        present in the standard coriolis.osmorphing.osdetect module in case
+        there will be any provider-specific supported OS releases.
+        """
+        return []
 
 
 class BaseImportInstanceProvider(BaseInstanceProvider):
@@ -438,14 +453,14 @@ def get_os_morphing_tools_helper(conn, os_morphing_tools_clss,
 
     for cls in os_morphing_tools_clss.get(
             os_type, itertools.chain(*os_morphing_tools_clss.values())):
-        LOG.debug("Loading osmorphing instance: %s", cls)
+        LOG.debug("Checking using OSMorphing class: %s", cls)
         tools = cls(
             conn, os_root_dir, os_root_dev, hypervisor_type, event_manager)
         LOG.debug("Testing OS morphing tools: %s", cls.__name__)
         os_info = tools.check_os()
         if os_info:
             return (tools, os_info)
-    raise exception.OSMorphingToolsNotFound()
+    raise exception.OSMorphingToolsNotFound(os_type=os_type)
 
 
 class BaseEndpointStorageProvider(object, with_metaclass(abc.ABCMeta)):

@@ -7,13 +7,19 @@ import uuid
 
 from oslo_log import log as logging
 
-from coriolis.osmorphing import base
 from coriolis import utils
+from coriolis.osmorphing import base
+from coriolis.osmorphing.osdetect import centos as centos_detect
+from coriolis.osmorphing.osdetect import redhat as redhat_detect
+
+
+RED_HAT_DISTRO_IDENTIFIER = redhat_detect.RED_HAT_DISTRO_IDENTIFIER
 
 LOG = logging.getLogger(__name__)
 
-RELEASE_RHEL = "Red Hat Enterprise Linux Server"
-RELEASE_CENTOS = "CentOS Linux"
+# NOTE: some constants duplicated for backwards-compatibility:
+RELEASE_RHEL = RED_HAT_DISTRO_IDENTIFIER
+RELEASE_CENTOS = centos_detect.CENTOS_DISTRO_IDENTIFIER
 RELEASE_FEDORA = "Fedora"
 
 
@@ -32,34 +38,28 @@ ONBOOT=yes
 NM_CONTROLLED=no
 """
 
+
 class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
     _NETWORK_SCRIPTS_PATH = "etc/sysconfig/network-scripts"
 
+    @classmethod
+    def check_os_supported(cls, detected_os_info):
+        if detected_os_info['distribution_name'] != (
+                RED_HAT_DISTRO_IDENTIFIER):
+            return False
+        return cls._version_supported_util(
+            detected_os_info['release_version'], minimum=6)
+
     def __init__(self, conn, os_root_dir, os_root_dev,
-                 hypervisor, event_manager):
+                 hypervisor, event_manager, detected_os_info):
         super(BaseRedHatMorphingTools, self).__init__(
             conn, os_root_dir, os_root_dev,
-            hypervisor, event_manager)
+            hypervisor, event_manager, detected_os_info)
         self._enable_repos = []
 
-    def _check_os(self):
-        redhat_release_path = "etc/redhat-release"
-        if self._test_path(redhat_release_path):
-            release_info = self._read_file(
-                redhat_release_path).decode().splitlines()
-            if release_info:
-                m = re.match(r"^(.*) release ([0-9].*) \((.*)\).*$",
-                             release_info[0].strip())
-                if m:
-                    distro, version, _ = m.groups()
-                    return (distro, version)
-
     def disable_predictable_nic_names(self):
-        kernel_versions = self._list_dir("lib/modules")
-        for version in kernel_versions:
-            cmd = '/sbin/new-kernel-pkg --update --kernel-args="%s" %s'
-            self._exec_cmd_chroot(cmd % (
-                "net.ifnames=0 biosdevname=0", version))
+        cmd = 'grubby --update-kernel=ALL --args="%s"'
+        self._exec_cmd_chroot(cmd % "net.ifnames=0 biosdevname=0")
 
     def _get_net_ifaces_info(self, ifcfgs_ethernet, mac_addresses):
         net_ifaces_info = []
@@ -130,7 +130,7 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         return ifcfgs
 
     def _write_nic_configs(self, nics_info):
-        for idx,_ in enumerate(nics_info):
+        for idx, _ in enumerate(nics_info):
             dev_name = "eth%d" % idx
             cfg_path = "etc/sysconfig/network-scripts/ifcfg-%s" % dev_name
             if self._test_path(cfg_path):
@@ -175,6 +175,7 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         super(BaseRedHatMorphingTools, self).pre_packages_install(
             package_names)
         self._yum_clean_all()
+        self._yum_install(['grubby'])
 
     def install_packages(self, package_names):
         self._yum_install(package_names, self._enable_repos)
@@ -186,8 +187,16 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         self._run_dracut_base('kernel')
 
     def _run_dracut_base(self, rpm_base_name):
-        package_names = self._exec_cmd_chroot(
-            'rpm -q %s' % rpm_base_name).decode().splitlines()
+        package_names = []
+        try:
+            package_names = self._exec_cmd_chroot(
+                'rpm -q %s' % rpm_base_name).decode().splitlines()
+        except Exception as ex:
+            self._event_manager.progress_update(
+                "Failed to query kernel package name: '%s'. Unable to rebuild"
+                " initrd for the new platform")
+            LOG.exception(ex)
+
         for package_name in package_names:
             m = re.match('^%s-(.*)$' % rpm_base_name, package_name)
             if m:
@@ -217,4 +226,3 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         dir_content = self._list_dir(self._NETWORK_SCRIPTS_PATH)
         return [os.path.join(self._NETWORK_SCRIPTS_PATH, f) for f in
                 dir_content if re.match("^ifcfg-(.*)", f)]
-

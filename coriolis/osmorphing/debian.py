@@ -8,6 +8,10 @@ import yaml
 
 from coriolis import utils
 from coriolis.osmorphing import base
+from coriolis.osmorphing.osdetect import debian as debian_osdetect
+
+
+DEBIAN_DISTRO_IDENTIFIER = debian_osdetect.DEBIAN_DISTRO_IDENTIFIER
 
 LO_NIC_TPL = """
 auto lo
@@ -21,20 +25,14 @@ iface %(device_name)s inet dhcp
 
 
 class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
-    def _check_os(self):
-        lsb_release_path = "etc/lsb-release"
-        debian_version_path = "etc/debian_version"
-        if self._test_path(lsb_release_path):
-            config = self._read_config_file("etc/lsb-release")
-            dist_id = config.get('DISTRIB_ID')
-            if dist_id == 'Debian':
-                release = config.get('DISTRIB_RELEASE')
-                return (dist_id, release)
-        elif self._test_path(debian_version_path):
-            release = self._read_file(
-                debian_version_path).decode().splitlines()
-            if release:
-                return ('Debian', release[0])
+
+    @classmethod
+    def check_os_supported(cls, detected_os_info):
+        if detected_os_info['distribution_name'] != (
+                DEBIAN_DISTRO_IDENTIFIER):
+            return False
+        return cls._version_supported_util(
+            detected_os_info['release_version'], minimum=8)
 
     def disable_predictable_nic_names(self):
         grub_cfg = os.path.join(
