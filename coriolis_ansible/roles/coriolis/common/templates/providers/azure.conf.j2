@@ -12,7 +12,7 @@ export_location = westus
 # the number of disks. If not given, Coriolis will select the first worker
 # size available which can accomodate attaching all the disks for the
 # particular VM being migrated/replicated.
-export_worker_size = Standard_D1
+export_worker_size = Standard_D1_v2
 
 # Params of the Azure image to use for the temporary VM:
 export_worker_image = version: latest, publisher: Canonical, offer: UbuntuServer, sku: 18.04-LTS
@@ -66,7 +66,7 @@ windows_migr_image = version: latest, publisher: MicrosoftWindowsServer, offer: 
 # the number of disks. If not given, Coriolis will select the first worker
 # size available which can accomodate attaching all the disks for the
 # particular VM being migrated/replicated.
-default_worker_size = Standard_D1
+default_worker_size = Standard_D1_v2
 
 # Whether or not to set any IP addresses read from source VM NIC configurations
 # to destination NICs on Azure. This requires that the network/subnet mappings
