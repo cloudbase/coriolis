@@ -5,6 +5,8 @@ import itertools
 
 from oslo_config import cfg as conf
 
+from coriolis.api.v1.views import replica_tasks_execution_view as view
+
 
 REPLICA_API_OPTS = [
     conf.BoolOpt("include_task_info_in_replicas_api",
@@ -24,6 +26,11 @@ def _format_replica(req, replica, keys=None):
 
     replica_dict = dict(itertools.chain.from_iterable(
         transform(k, v) for k, v in replica.items()))
+
+    executions = replica_dict.get('executions', [])
+    replica_dict['executions'] = [
+        view.format_replica_tasks_execution(req, ex)
+        for ex in executions]
 
     if not CONF.include_task_info_in_replicas_api and (
             "info" in replica_dict):
