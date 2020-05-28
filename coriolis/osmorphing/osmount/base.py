@@ -4,6 +4,7 @@
 
 import abc
 import base64
+import itertools
 import os
 import re
 
@@ -79,6 +80,7 @@ class BaseSSHOSMountTools(BaseOSMountTools):
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(hostname=ip, port=port, username=username, pkey=pkey,
                     password=password)
+        ssh.set_log_channel("paramiko.morpher.%s.%s" % (ip, port))
         self._ssh = ssh
 
     def setup(self):
@@ -419,7 +421,9 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
             self._exec_cmd("sudo partx -v -a %s || true" % volume_dev)
             dev_paths += self._exec_cmd(
                 "sudo ls -1 %s*" % volume_dev).decode().splitlines()
+        LOG.debug("All simple devices to scan: %s", dev_paths)
 
+        lvm_dev_paths = []
         pvs = self._get_pvs()
         for vg_name in self._get_vgnames():
             found = False
@@ -430,17 +434,24 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
             if not found:
                 continue
             self._exec_cmd("sudo vgchange -ay %s" % vg_name)
-            lvm_dev_paths = self._exec_cmd(
+            dev_paths_for_group = self._exec_cmd(
                 "sudo ls -1 /dev/%s/*" % vg_name).decode().splitlines()
-            dev_paths += lvm_dev_paths
+            lvm_dev_paths.extend(dev_paths_for_group)
+        LOG.debug("All LVM vols to scan: %s", lvm_dev_paths)
 
         valid_filesystems = ['ext2', 'ext3', 'ext4', 'xfs', 'btrfs']
 
         dev_paths_to_mount = []
-        for dev_path in dev_paths:
-            if self._get_symlink_target(dev_path) in mounted_devs:
+        for dev_path in itertools.chain(dev_paths, lvm_dev_paths):
+            LOG.debug("Checking device: '%s'", dev_path)
+            dev_target = self._get_symlink_target(dev_path)
+            if dev_target in mounted_devs:
                 # this device is already mounted. Skip it, as it most likely
                 # means this device belongs to the worker VM.
+                LOG.debug(
+                    "Device '%s' (target '%s') is already mounted, assuming it"
+                    "belongs to the worker VM so it will be skipped",
+                    dev_path, dev_target)
                 continue
             fs_type = self._exec_cmd(
                 "sudo blkid -o value -s TYPE %s || true" %
