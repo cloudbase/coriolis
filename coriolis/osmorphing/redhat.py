@@ -194,7 +194,7 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         except Exception as ex:
             self._event_manager.progress_update(
                 "Failed to query kernel package name: '%s'. Unable to rebuild"
-                " initrd for the new platform")
+                " initrd for the new platform" % rpm_base_name)
             LOG.exception(ex)
 
         for package_name in package_names:
