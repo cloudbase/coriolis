@@ -17,13 +17,21 @@ export_worker_size = Standard_D1_v2
 # Params of the Azure image to use for the temporary VM:
 export_worker_image = version: latest, publisher: Canonical, offer: UbuntuServer, sku: 18.04-LTS
 
-# For use with AzureStack, the following ARM Provider API versions must be
-# configured to API versions supported by the AzureStack. If unset, they will
-# default to the latest API versions which are supported by the ARM client
-# libraries bundled with Coriolis.
+# Options for controlling the API versions used for each Azure API provider.
+# Only takes effect for source Azure[Stack] platforms. Separate options
+# for destination Azure[Stack] platforms can be found below.
+# All options except for the 'resource' and 'subscription' versions can be
+# ommited, as they can be automatically determined by Coriolis by finding
+# the latest version which is supported both by the Azure platform as well
+# as the version of the client library being leveraged by Coriolis.
+# AzureStack installations which may not allow for discovery of API versions
+# might need to have each version explicitly set.
+# Format must be of the form 'YYYY-MM-DD[-preview]'.
 # export_arm_resource_api_version = 2016-09-01
+# export_subscription_api_version = 2016-09-01
 # export_arm_compute_api_version = 2016-03-30
 # export_arm_network_api_version = 2015-06-15
+# export_arm_storage_api_version = 2016-05-01
 # export_blob_storage_api_version = 2015-04-05
 
 ### Import parameters:
@@ -74,15 +82,22 @@ default_worker_size = Standard_D1_v2
 # of the source networks. Default is True
 preserve_nic_ips = True
 
-# For use with AzureStack, the following ARM Provider API versions must be
-# configured to API versions supported by the AzureStack. If unset, they will
-# default to the latest API versions which are supported by the ARM client
-# libraries bundled with Coriolis.
+# Options for controlling the API versions used for each Azure API provider.
+# Only takes effect for destination Azure[Stack] platforms. Separate options
+# for source Azure[Stack] platforms can be found above.
+# All options except for the 'resource' and 'subscription' versions can be
+# ommited, as they can be automatically determined by Coriolis by finding
+# the latest version which is supported both by the Azure platform as well
+# as the version of the client library being leveraged by Coriolis.
+# AzureStack installations which may not allow for discovery of API versions
+# might need to have each version explicitly set.
+# Format must be of the form 'YYYY-MM-DD[-preview]'.
 # arm_resource_api_version = 2016-09-01
+# subscription_api_version = 2016-09-01
 # arm_compute_api_version = 2016-03-30
 # arm_network_api_version = 2015-06-15
+# arm_storage_api_version = 2016-05-01
 # blob_storage_api_version = 2015-04-05
-# arm_storage_api_version = 2018-07-01
 
 # Cloudbase-init Zip URLs for each supported Windows architecture:
 cloudbaseinit_x86_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x86.zip
