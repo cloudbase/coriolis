@@ -295,8 +295,17 @@ def list_ssh_dir(ssh, remote_path):
 
 @retry_on_error()
 def exec_ssh_cmd(ssh, cmd, environment=None, get_pty=False):
-    LOG.debug("Executing SSH command: %s", cmd)
-    LOG.debug("SSH command environment: %s", environment)
+    remote_str = "<undeterminable>"
+    try:
+        remote_str = "%s:%s" % ssh.get_transport().sock.getpeername()
+    except (ValueError, AttributeError, TypeError):
+        LOG.warn(
+            "Failed to determine connection string for SSH connection: %s",
+            get_exception_details())
+    LOG.debug(
+        "Executing the following SSH command on '%s' with "
+        "environment %s: '%s'", remote_str, environment, cmd)
+
     _, stdout, stderr = ssh.exec_command(
         cmd, environment=environment, get_pty=get_pty)
     exit_code = stdout.channel.recv_exit_status()
@@ -304,9 +313,9 @@ def exec_ssh_cmd(ssh, cmd, environment=None, get_pty=False):
     std_err = stderr.read()
     if exit_code:
         raise exception.CoriolisException(
-            "Command \"%s\" failed with exit code: %s\n"
+            "Command \"%s\" failed on host '%s' with exit code: %s\n"
             "stdout: %s\nstd_err: %s" %
-            (cmd, exit_code, std_out, std_err))
+            (cmd, remote_str, exit_code, std_out, std_err))
     # Most of the commands will use pseudo-terminal which unfortunately will
     # include a '\r' to every newline. This will affect all plugins too, so
     # best we can do now is replace them.
