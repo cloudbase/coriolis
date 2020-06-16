@@ -221,6 +221,10 @@ class InvalidReplicaState(Invalid):
     message = _("Invalid replica state: %(reason)s")
 
 
+class InvalidState(Invalid):
+    pass
+
+
 class ServiceUnavailable(Invalid):
     message = _("Service is unavailable at this time.")
 
