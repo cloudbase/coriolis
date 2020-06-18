@@ -107,10 +107,14 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
             if line == "":
                 continue
             line = line.strip().split(":")
-            if pvs.get(line[1]) is None:
-                pvs[line[1]] = [line[0], ]
+            if len(line) >= 2:
+                if pvs.get(line[1]) is None:
+                    pvs[line[1]] = [line[0], ]
+                else:
+                    pvs[line[1]].append(line[0])
             else:
-                pvs[line[1]].append(line[0])
+                LOG.warn(
+                    "Ignoring improper `pvdisplay` output entry: %s" % line)
         return pvs
 
     def _get_vgnames(self):
