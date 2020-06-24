@@ -62,7 +62,12 @@ class CreateInstanceDisksTask(
     pass
 
 
-class CleanupInstanceStorageTask(replica_tasks.DeleteReplicaDisksTask):
+class CleanupInstanceTargetStorageTask(replica_tasks.DeleteReplicaDisksTask):
+    pass
+
+
+class CleanupInstanceSourceStorageTask(
+        replica_tasks.DeleteReplicaSourceDiskSnapshotsTask):
     pass
 
 

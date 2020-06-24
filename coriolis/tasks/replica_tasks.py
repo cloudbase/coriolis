@@ -214,6 +214,43 @@ class DeployReplicaDisksTask(base.TaskRunner):
             'volumes_info': volumes_info}
 
 
+class DeleteReplicaSourceDiskSnapshotsTask(base.TaskRunner):
+
+    @property
+    def required_task_info_properties(self):
+        return [
+            "volumes_info", "source_environment"]
+
+    @property
+    def returned_task_info_properties(self):
+        return ["volumes_info"]
+
+
+    def _run(self, ctxt, instance, origin, destination, task_info,
+             event_handler):
+        event_manager = events.EventManager(event_handler)
+        if not task_info.get("volumes_info"):
+            LOG.debug(
+                "No volumes_info present. Skipping source snapshot deletion.")
+            event_manager.progress_update(
+                "No previous volumes information present, nothing to delete")
+            return {'volumes_info': []}
+
+
+        provider = providers_factory.get_provider(
+            origin['type'], constants.PROVIDER_TYPE_REPLICA_EXPORT,
+            event_handler)
+        connection_info = base.get_connection_info(ctxt, origin)
+        source_environment = task_info['source_environment']
+        volumes_info = _get_volumes_info(task_info)
+
+        volumes_info = provider.delete_replica_source_snapshots(
+            ctxt, connection_info, source_environment, volumes_info)
+
+        return {
+            'volumes_info': volumes_info}
+
+
 class DeleteReplicaDisksTask(base.TaskRunner):
 
     @property
@@ -227,9 +264,12 @@ class DeleteReplicaDisksTask(base.TaskRunner):
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
+        event_manager = events.EventManager(event_handler)
         if not task_info.get("volumes_info"):
             LOG.debug(
                 "No volumes_info present. Skipping disk deletion.")
+            event_manager.progress_update(
+                "No previous volumes information present, nothing to delete")
             return {'volumes_info': []}
 
         provider = providers_factory.get_provider(
@@ -270,7 +310,7 @@ class DeployReplicaSourceResourcesTask(base.TaskRunner):
             event_handler)
         connection_info = base.get_connection_info(ctxt, origin)
 
-        source_environment = task_info['source_environment'] or {}
+        source_environment = task_info.get('source_environment', {})
         export_info = task_info['export_info']
         replica_resources_info = provider.deploy_replica_source_resources(
             ctxt, connection_info, export_info, source_environment)
@@ -578,7 +618,7 @@ class CreateReplicaDiskSnapshotsTask(base.TaskRunner):
             "volumes_info": volumes_info}
 
 
-class DeleteReplicaDiskSnapshotsTask(base.TaskRunner):
+class DeleteReplicaTargetDiskSnapshotsTask(base.TaskRunner):
 
     @property
     def required_task_info_properties(self):
@@ -598,7 +638,7 @@ class DeleteReplicaDiskSnapshotsTask(base.TaskRunner):
 
         volumes_info = _get_volumes_info(task_info)
 
-        volumes_info = provider.delete_replica_disk_snapshots(
+        volumes_info = provider.delete_replica_target_disk_snapshots(
             ctxt, connection_info, volumes_info)
         schemas.validate_value(
             volumes_info, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)

@@ -432,6 +432,11 @@ class BaseReplicaExportProvider(BaseExportInstanceProvider):
         pass
 
     @abc.abstractmethod
+    def delete_replica_source_snapshots(
+            self, ctxt, connection_info, source_environment, volumes_info):
+        pass
+
+    @abc.abstractmethod
     def shutdown_instance(self, ctxt, connection_info, source_environment,
                           instance_name):
         pass

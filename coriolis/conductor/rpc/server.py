@@ -720,9 +720,13 @@ class ConductorServerEndpoint(object):
         for instance in replica.instances:
             if (instance in replica.info and
                     replica.info[instance].get('volumes_info')):
+                source_del_task = self._create_task(
+                    instance,
+                    constants.TASK_TYPE_DELETE_REPLICA_SOURCE_DISK_SNAPSHOTS,
+                    execution)
                 self._create_task(
                     instance, constants.TASK_TYPE_DELETE_REPLICA_DISKS,
-                    execution)
+                    execution, depends_on=[source_del_task.id])
                 has_tasks = True
 
         if not has_tasks:
@@ -970,7 +974,8 @@ class ConductorServerEndpoint(object):
                 depends_on=depends_on)
 
             self._create_task(
-                instance, constants.TASK_TYPE_DELETE_REPLICA_DISK_SNAPSHOTS,
+                instance,
+                constants.TASK_TYPE_DELETE_REPLICA_TARGET_DISK_SNAPSHOTS,
                 execution, depends_on=[
                     create_snapshot_task.id,
                     finalize_deployment_task.id],
@@ -1101,7 +1106,8 @@ class ConductorServerEndpoint(object):
             # if all the source disk snapshotting and worker setup steps are
             # performed by the source plugin in REPLICATE_DISKS.
             # This should no longer be a problem when worker pooling lands.
-            last_migration_task = None
+            last_sync_task = None
+            first_sync_task = None
             migration_resources_tasks = [
                 deploy_migration_source_resources_task.id,
                 deploy_migration_target_resources_task.id]
@@ -1110,26 +1116,35 @@ class ConductorServerEndpoint(object):
                 if i == (migration.replication_count - 1) and (
                         migration.shutdown_instances):
                     shutdown_deps = migration_resources_tasks
-                    if last_migration_task:
-                        shutdown_deps = [last_migration_task.id]
-                    last_migration_task = self._create_task(
+                    if last_sync_task:
+                        shutdown_deps = [last_sync_task.id]
+                    last_sync_task = self._create_task(
                         instance, constants.TASK_TYPE_SHUTDOWN_INSTANCE,
                         execution, depends_on=shutdown_deps)
 
                 replication_deps = migration_resources_tasks
-                if last_migration_task:
-                    replication_deps = [last_migration_task.id]
+                if last_sync_task:
+                    replication_deps = [last_sync_task.id]
 
-                last_migration_task = self._create_task(
+                last_sync_task = self._create_task(
                     instance, constants.TASK_TYPE_REPLICATE_DISKS,
                     execution, depends_on=replication_deps)
+                if not first_sync_task:
+                    first_sync_task = last_sync_task
 
             delete_source_resources_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_DELETE_MIGRATION_SOURCE_RESOURCES,
                 execution, depends_on=[
                     deploy_migration_source_resources_task.id,
-                    last_migration_task.id],
+                    last_sync_task.id],
+                on_error=True)
+
+            cleanup_source_storage_task = self._create_task(
+                instance, constants.TASK_TYPE_CLEANUP_INSTANCE_SOURCE_STORAGE,
+                execution, depends_on=[
+                    first_sync_task.id,
+                    delete_source_resources_task.id],
                 on_error=True)
 
             delete_destination_resources_task = self._create_task(
@@ -1137,13 +1152,13 @@ class ConductorServerEndpoint(object):
                 constants.TASK_TYPE_DELETE_MIGRATION_TARGET_RESOURCES,
                 execution, depends_on=[
                     deploy_migration_target_resources_task.id,
-                    last_migration_task.id],
+                    last_sync_task.id],
                 on_error=True)
 
             deploy_instance_task = self._create_task(
                 instance, constants.TASK_TYPE_DEPLOY_INSTANCE_RESOURCES,
                 execution, depends_on=[
-                    last_migration_task.id,
+                    last_sync_task.id,
                     delete_destination_resources_task.id])
 
             depends_on = [deploy_instance_task.id]
@@ -1191,12 +1206,13 @@ class ConductorServerEndpoint(object):
 
             cleanup_deps = [
                 create_instance_disks_task.id,
+                cleanup_source_storage_task.id,
                 delete_destination_resources_task.id,
                 cleanup_failed_deployment_task.id]
             if task_delete_os_morphing_resources:
                 cleanup_deps.append(task_delete_os_morphing_resources.id)
             self._create_task(
-                instance, constants.TASK_TYPE_CLEANUP_INSTANCE_STORAGE,
+                instance, constants.TASK_TYPE_CLEANUP_INSTANCE_TARGET_STORAGE,
                 execution, depends_on=cleanup_deps,
                 on_error_only=True)
 
@@ -1807,7 +1823,8 @@ class ConductorServerEndpoint(object):
                     ctxt, execution.action_id, task.instance,
                     {"volumes_info": volumes_info})
 
-        elif task_type == constants.TASK_TYPE_DELETE_REPLICA_DISK_SNAPSHOTS:
+        elif task_type == (
+                constants.TASK_TYPE_DELETE_REPLICA_TARGET_DISK_SNAPSHOTS):
 
             if not task_info.get("clone_disks"):
                 # The migration completed. If the replica is executed again,
