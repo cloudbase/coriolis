@@ -278,10 +278,10 @@ class DeleteReplicaDisksTask(base.TaskRunner):
         connection_info = base.get_connection_info(ctxt, destination)
 
         volumes_info = _get_volumes_info(task_info)
+        target_environment = task_info['target_environment']
 
-        # TODO (aznashwan): add target_env options to `delete_replica_disks`:
         volumes_info = provider.delete_replica_disks(
-            ctxt, connection_info, volumes_info)
+            ctxt, connection_info, target_environment, volumes_info)
         if volumes_info:
             LOG.warn(
                 "'volumes_info' should have been void after disk "
@@ -487,11 +487,11 @@ class DeleteReplicaTargetResourcesTask(base.TaskRunner):
         connection_info = base.get_connection_info(ctxt, destination)
 
         migr_resources = task_info.get("target_resources")
+        target_environment = task_info["target_environment"]
 
         if migr_resources:
-            # TODO (aznashwan): add 'target_env' param to call:
             provider.delete_replica_target_resources(
-                ctxt, connection_info, migr_resources)
+                ctxt, connection_info, target_environment, migr_resources)
 
         return {
             "target_resources": None,
@@ -535,7 +535,7 @@ class FinalizeReplicaInstanceDeploymentTask(base.TaskRunner):
 
     @property
     def required_task_info_properties(self):
-        return ["instance_deployment_info"]
+        return ["target_environment", "instance_deployment_info"]
 
     @property
     def returned_task_info_properties(self):
@@ -547,10 +547,12 @@ class FinalizeReplicaInstanceDeploymentTask(base.TaskRunner):
             destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
             event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
+        target_environment = task_info["target_environment"]
         instance_deployment_info = task_info["instance_deployment_info"]
 
         result = provider.finalize_replica_instance_deployment(
-            ctxt, connection_info, instance_deployment_info)
+            ctxt, connection_info, target_environment,
+            instance_deployment_info)
         if result is None:
             LOG.warn(
                 "'None' was returned as result for Finalize Replica Instance "
@@ -564,7 +566,7 @@ class CleanupFailedReplicaInstanceDeploymentTask(base.TaskRunner):
 
     @property
     def required_task_info_properties(self):
-        return ["instance_deployment_info"]
+        return ["target_environment", "instance_deployment_info"]
 
     @property
     def returned_task_info_properties(self):
@@ -576,11 +578,12 @@ class CleanupFailedReplicaInstanceDeploymentTask(base.TaskRunner):
             destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
             event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
-        instance_deployment_info = task_info.get(
-            "instance_deployment_info", {})
+        target_environment = task_info["target_environment"]
+        instance_deployment_info = task_info["instance_deployment_info"]
 
         provider.cleanup_failed_replica_instance_deployment(
-            ctxt, connection_info, instance_deployment_info)
+            ctxt, connection_info, target_environment,
+            instance_deployment_info)
 
         return {
             "instance_deployment_info": None}
@@ -590,7 +593,7 @@ class CreateReplicaDiskSnapshotsTask(base.TaskRunner):
 
     @property
     def required_task_info_properties(self):
-        return ["export_info", "volumes_info"]
+        return ["target_environment", "export_info", "volumes_info"]
 
     @property
     def returned_task_info_properties(self):
@@ -603,11 +606,12 @@ class CreateReplicaDiskSnapshotsTask(base.TaskRunner):
             event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
         export_info = task_info['export_info']
+        target_environment = task_info["target_environment"]
 
         volumes_info = _get_volumes_info(task_info)
 
         volumes_info = provider.create_replica_disk_snapshots(
-            ctxt, connection_info, volumes_info)
+            ctxt, connection_info, target_environment, volumes_info)
         schemas.validate_value(
             volumes_info, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)
 
@@ -622,7 +626,7 @@ class DeleteReplicaTargetDiskSnapshotsTask(base.TaskRunner):
 
     @property
     def required_task_info_properties(self):
-        return ["export_info", "volumes_info"]
+        return ["target_environment", "export_info", "volumes_info"]
 
     @property
     def returned_task_info_properties(self):
@@ -637,9 +641,10 @@ class DeleteReplicaTargetDiskSnapshotsTask(base.TaskRunner):
         connection_info = base.get_connection_info(ctxt, destination)
 
         volumes_info = _get_volumes_info(task_info)
+        target_environment = task_info["target_environment"]
 
         volumes_info = provider.delete_replica_target_disk_snapshots(
-            ctxt, connection_info, volumes_info)
+            ctxt, connection_info, target_environment, volumes_info)
         schemas.validate_value(
             volumes_info, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)
 
@@ -654,7 +659,7 @@ class RestoreReplicaDiskSnapshotsTask(base.TaskRunner):
 
     @property
     def required_task_info_properties(self):
-        return ["export_info", "volumes_info"]
+        return ["target_environment", "export_info", "volumes_info"]
 
     @property
     def returned_task_info_properties(self):
@@ -667,11 +672,12 @@ class RestoreReplicaDiskSnapshotsTask(base.TaskRunner):
             event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
         export_info = task_info['export_info']
+        target_environment = task_info["target_environment"]
 
         volumes_info = _get_volumes_info(task_info)
 
         volumes_info = provider.restore_replica_disk_snapshots(
-            ctxt, connection_info, volumes_info)
+            ctxt, connection_info, target_environment, volumes_info)
         schemas.validate_value(
             volumes_info, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)
 

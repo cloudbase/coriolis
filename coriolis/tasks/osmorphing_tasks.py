@@ -66,7 +66,7 @@ class DeployOSMorphingResourcesTask(base.TaskRunner):
 
     @property
     def required_task_info_properties(self):
-        return ["instance_deployment_info"]
+        return ["target_environment", "instance_deployment_info"]
 
     @property
     def returned_task_info_properties(self):
@@ -80,10 +80,11 @@ class DeployOSMorphingResourcesTask(base.TaskRunner):
             destination["type"], constants.PROVIDER_TYPE_OS_MORPHING,
             event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
+        target_environment = task_info["target_environment"]
         instance_deployment_info = task_info["instance_deployment_info"]
 
         import_info = provider.deploy_os_morphing_resources(
-            ctxt, connection_info, instance_deployment_info)
+            ctxt, connection_info, target_environment, instance_deployment_info)
 
         schemas.validate_value(
             import_info, schemas.CORIOLIS_OS_MORPHING_RESOURCES_SCHEMA,
@@ -125,7 +126,7 @@ class DeleteOSMorphingResourcesTask(base.TaskRunner):
 
     @property
     def required_task_info_properties(self):
-        return ["os_morphing_resources"]
+        return ["target_environment", "os_morphing_resources"]
 
     @property
     def returned_task_info_properties(self):
@@ -138,9 +139,10 @@ class DeleteOSMorphingResourcesTask(base.TaskRunner):
             event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
         os_morphing_resources = task_info.get("os_morphing_resources")
+        target_environment = task_info["target_environment"]
 
         provider.delete_os_morphing_resources(
-            ctxt, connection_info, os_morphing_resources)
+            ctxt, connection_info, target_environment, os_morphing_resources)
 
         return {
             "os_morphing_resources": None,
