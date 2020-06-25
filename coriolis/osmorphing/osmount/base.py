@@ -107,11 +107,26 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
             if line == "":
                 continue
             line = line.strip().split(":")
-            if pvs.get(line[1]) is None:
-                pvs[line[1]] = [line[0], ]
+            if len(line) >= 2:
+                if pvs.get(line[1]) is None:
+                    pvs[line[1]] = [line[0], ]
+                else:
+                    pvs[line[1]].append(line[0])
             else:
-                pvs[line[1]].append(line[0])
+                LOG.warn(
+                    "Ignoring improper `pvdisplay` output entry: %s" % line)
         return pvs
+
+    def _check_vgs(self):
+        try:
+            self._exec_cmd("sudo vgck")
+        except Exception as ex:
+            raise exception.CoriolisException(
+                "An LVM-related problem has been encountered which prevents "
+                "the OSMorphing from proceeding further. Please ensure that "
+                "the source VM's LVM configuration is correct and the VM is "
+                "able to use all LVM volumes on the source. Error occured "
+                "while checking the consistency of all LVM VGs: %s" % str(ex))
 
     def _get_vgnames(self):
         vg_names = []
@@ -424,6 +439,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         LOG.debug("All simple devices to scan: %s", dev_paths)
 
         lvm_dev_paths = []
+        self._check_vgs()
         pvs = self._get_pvs()
         for vg_name in self._get_vgnames():
             found = False
