@@ -60,8 +60,8 @@ _TASKS_MAP = {
         replica_tasks.DeployReplicaSourceResourcesTask,
     constants.TASK_TYPE_DELETE_REPLICA_SOURCE_RESOURCES:
         replica_tasks.DeleteReplicaSourceResourcesTask,
-    constants.TASK_TYPE_DEPLOY_REPLICA_INSTANCE:
-        replica_tasks.DeployReplicaInstanceTask,
+    constants.TASK_TYPE_DEPLOY_REPLICA_INSTANCE_RESOURCES:
+        replica_tasks.DeployReplicaInstanceResourcesTask,
     constants.TASK_TYPE_FINALIZE_REPLICA_INSTANCE_DEPLOYMENT:
         replica_tasks.FinalizeReplicaInstanceDeploymentTask,
     constants.TASK_TYPE_CLEANUP_FAILED_REPLICA_INSTANCE_DEPLOYMENT:

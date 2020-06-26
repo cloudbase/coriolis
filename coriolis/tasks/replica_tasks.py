@@ -498,7 +498,7 @@ class DeleteReplicaTargetResourcesTask(base.TaskRunner):
             "target_resources_connection_info": None}
 
 
-class DeployReplicaInstanceTask(base.TaskRunner):
+class DeployReplicaInstanceResourcesTask(base.TaskRunner):
 
     @property
     def required_task_info_properties(self):

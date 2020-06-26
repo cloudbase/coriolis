@@ -106,5 +106,6 @@ class DeleteMigrationTargetResourcesTask(
     pass
 
 
-class DeployInstanceResourcesTask(replica_tasks.DeployReplicaInstanceTask):
+class DeployInstanceResourcesTask(
+        replica_tasks.DeployReplicaInstanceResourcesTask):
     pass

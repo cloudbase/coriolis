@@ -935,8 +935,10 @@ class ConductorServerEndpoint(object):
                     validate_replica_deployment_inputs_task.id])
 
             deploy_replica_task = self._create_task(
-                instance, constants.TASK_TYPE_DEPLOY_REPLICA_INSTANCE,
-                execution, [create_snapshot_task.id])
+                instance,
+                constants.TASK_TYPE_DEPLOY_REPLICA_INSTANCE_RESOURCES,
+                execution,
+                depends_on=[create_snapshot_task.id])
 
             depends_on = [deploy_replica_task.id]
             if not skip_os_morphing:
