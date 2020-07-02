@@ -24,8 +24,10 @@ _TASKS_MAP = {
         migration_tasks.CreateInstanceDisksTask,
     constants.TASK_TYPE_CLEANUP_FAILED_INSTANCE_DEPLOYMENT:
         migration_tasks.CleanupFailedInstanceDeploymentTask,
-    constants.TASK_TYPE_CLEANUP_INSTANCE_STORAGE:
-        migration_tasks.CleanupInstanceStorageTask,
+    constants.TASK_TYPE_CLEANUP_INSTANCE_TARGET_STORAGE:
+        migration_tasks.CleanupInstanceTargetStorageTask,
+    constants.TASK_TYPE_CLEANUP_INSTANCE_SOURCE_STORAGE:
+        migration_tasks.CleanupInstanceSourceStorageTask,
     constants.TASK_TYPE_GET_OPTIMAL_FLAVOR:
         migration_tasks.GetOptimalFlavorTask,
     constants.TASK_TYPE_VALIDATE_MIGRATION_SOURCE_INPUTS:
@@ -46,6 +48,8 @@ _TASKS_MAP = {
         replica_tasks.ShutdownInstanceTask,
     constants.TASK_TYPE_DEPLOY_REPLICA_DISKS:
         replica_tasks.DeployReplicaDisksTask,
+    constants.TASK_TYPE_DELETE_REPLICA_SOURCE_DISK_SNAPSHOTS:
+        replica_tasks.DeleteReplicaSourceDiskSnapshotsTask,
     constants.TASK_TYPE_DELETE_REPLICA_DISKS:
         replica_tasks.DeleteReplicaDisksTask,
     constants.TASK_TYPE_DEPLOY_REPLICA_TARGET_RESOURCES:
@@ -56,16 +60,16 @@ _TASKS_MAP = {
         replica_tasks.DeployReplicaSourceResourcesTask,
     constants.TASK_TYPE_DELETE_REPLICA_SOURCE_RESOURCES:
         replica_tasks.DeleteReplicaSourceResourcesTask,
-    constants.TASK_TYPE_DEPLOY_REPLICA_INSTANCE:
-        replica_tasks.DeployReplicaInstanceTask,
+    constants.TASK_TYPE_DEPLOY_REPLICA_INSTANCE_RESOURCES:
+        replica_tasks.DeployReplicaInstanceResourcesTask,
     constants.TASK_TYPE_FINALIZE_REPLICA_INSTANCE_DEPLOYMENT:
         replica_tasks.FinalizeReplicaInstanceDeploymentTask,
     constants.TASK_TYPE_CLEANUP_FAILED_REPLICA_INSTANCE_DEPLOYMENT:
         replica_tasks.CleanupFailedReplicaInstanceDeploymentTask,
     constants.TASK_TYPE_CREATE_REPLICA_DISK_SNAPSHOTS:
         replica_tasks.CreateReplicaDiskSnapshotsTask,
-    constants.TASK_TYPE_DELETE_REPLICA_DISK_SNAPSHOTS:
-        replica_tasks.DeleteReplicaDiskSnapshotsTask,
+    constants.TASK_TYPE_DELETE_REPLICA_TARGET_DISK_SNAPSHOTS:
+        replica_tasks.DeleteReplicaTargetDiskSnapshotsTask,
     constants.TASK_TYPE_RESTORE_REPLICA_DISK_SNAPSHOTS:
         replica_tasks.RestoreReplicaDiskSnapshotsTask,
     constants.TASK_TYPE_VALIDATE_REPLICA_SOURCE_INPUTS:

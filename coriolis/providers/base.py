@@ -227,13 +227,15 @@ class BaseImportInstanceProvider(BaseInstanceProvider):
         return dest_instance_name
 
     @abc.abstractmethod
-    def deploy_os_morphing_resources(self, ctxt, connection_info,
-                                     instance_deployment_info):
+    def deploy_os_morphing_resources(
+            self, ctxt, connection_info, target_environment,
+            instance_deployment_info):
         pass
 
     @abc.abstractmethod
-    def delete_os_morphing_resources(self, ctxt, connection_info,
-                                     os_morphing_resources):
+    def delete_os_morphing_resources(
+            self, ctxt, connection_info, target_environment,
+            os_morphing_resources):
         pass
 
 
@@ -306,18 +308,20 @@ class BaseImportProvider(BaseImportInstanceProvider):
         pass
 
     @abc.abstractmethod
-    def deploy_disk_copy_resources(self, ctxt, connection_info,
-                                   target_environment, volumes_info):
+    def deploy_disk_copy_resources(
+            self, ctxt, connection_info, target_environment, volumes_info):
         pass
 
     @abc.abstractmethod
-    def delete_disk_copy_resources(self, ctxt, connection_info,
-                                   target_resources_dict):
+    def delete_disk_copy_resources(
+            self, ctxt, connection_info, target_environment,
+            target_resources_dict):
         pass
 
     @abc.abstractmethod
-    def finalize_import_instance(self, ctxt, connection_info,
-                                 instance_deployment_info):
+    def finalize_import_instance(
+            self, ctxt, connection_info, target_environment,
+            instance_deployment_info):
         """ Should return a dict with the info of the migrated VM on the
         destination platform in the same format as offered by
         'BaseExportProvider.export_instance()'.
@@ -325,22 +329,24 @@ class BaseImportProvider(BaseImportInstanceProvider):
         return {}
 
     @abc.abstractmethod
-    def cleanup_failed_import_instance(self, ctxt, connection_info,
-                                       instance_deployment_info):
+    def cleanup_failed_import_instance(
+            self, ctxt, connection_info, target_environment,
+            instance_deployment_info):
         pass
 
 
 class BaseReplicaImportProvider(BaseImportInstanceProvider):
 
     @abc.abstractmethod
-    def deploy_replica_instance(self, ctxt, connection_info,
-                                target_environment, instance_name, export_info,
-                                volumes_info, clone_disks):
+    def deploy_replica_instance(
+            self, ctxt, connection_info, target_environment,
+            instance_name, export_info, volumes_info, clone_disks):
         pass
 
     @abc.abstractmethod
-    def finalize_replica_instance_deployment(self, ctxt, connection_info,
-                                             instance_deployment_info):
+    def finalize_replica_instance_deployment(
+            self, ctxt, connection_info, target_environment,
+            instance_deployment_info):
         """ Should return a dict with the info of the migrated VM on the
         destination platform in the same format as offered by
         'BaseExportProvider.export_instance()'.
@@ -348,42 +354,46 @@ class BaseReplicaImportProvider(BaseImportInstanceProvider):
         return {}
 
     @abc.abstractmethod
-    def cleanup_failed_replica_instance_deployment(self, ctxt, connection_info,
-                                                   instance_deployment_info):
+    def cleanup_failed_replica_instance_deployment(
+            self, ctxt, connection_info, target_environment,
+            instance_deployment_info):
         pass
 
     @abc.abstractmethod
-    def deploy_replica_disks(self, ctxt, connection_info, target_environment,
-                             instance_name, export_info, volumes_info):
+    def deploy_replica_disks(
+            self, ctxt, connection_info, target_environment, instance_name,
+            export_info, volumes_info):
         pass
 
     @abc.abstractmethod
-    def deploy_replica_target_resources(self, ctxt, connection_info,
-                                        target_environment, volumes_info):
+    def deploy_replica_target_resources(
+            self, ctxt, connection_info, target_environment, volumes_info):
         pass
 
     @abc.abstractmethod
-    def delete_replica_target_resources(self, ctxt, connection_info,
-                                        migr_resources_dict):
+    def delete_replica_target_resources(
+            self, ctxt, connection_info, target_environment,
+            migr_resources_dict):
         pass
 
     @abc.abstractmethod
-    def delete_replica_disks(self, ctxt, connection_info, volumes_info):
+    def delete_replica_disks(
+            self, ctxt, connection_info, target_environment, volumes_info):
         pass
 
     @abc.abstractmethod
-    def create_replica_disk_snapshots(self, ctxt, connection_info,
-                                      volumes_info):
+    def create_replica_disk_snapshots(
+            self, ctxt, connection_info, target_environment, volumes_info):
         pass
 
     @abc.abstractmethod
-    def delete_replica_disk_snapshots(self, ctxt, connection_info,
-                                      volumes_info):
+    def delete_replica_target_disk_snapshots(
+            self, ctxt, connection_info, target_environment, volumes_info):
         pass
 
     @abc.abstractmethod
-    def restore_replica_disk_snapshots(self, ctxt, connection_info,
-                                       volumes_info):
+    def restore_replica_disk_snapshots(
+            self, ctxt, connection_info, target_environment, volumes_info):
         pass
 
 
@@ -429,6 +439,11 @@ class BaseReplicaExportProvider(BaseExportInstanceProvider):
     def replicate_disks(self, ctxt, connection_info, source_environment,
                         instance_name, source_resources, source_conn_info,
                         target_conn_info, volumes_info, incremental):
+        pass
+
+    @abc.abstractmethod
+    def delete_replica_source_snapshots(
+            self, ctxt, connection_info, source_environment, volumes_info):
         pass
 
     @abc.abstractmethod
