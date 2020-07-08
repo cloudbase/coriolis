@@ -5,6 +5,7 @@ import base64
 
 from oslo_log import log as logging
 from winrm import protocol
+from winrm import exceptions as winrm_exceptions
 
 from coriolis import exception
 from coriolis import utils
@@ -50,7 +51,8 @@ class WSManConnection(object):
     def disconnect(self):
         self._protocol = None
 
-    @utils.retry_on_error()
+    @utils.retry_on_error(
+        terminal_exceptions=[winrm_exceptions.InvalidCredentialsError])
     def _exec_command(self, cmd, args=[]):
         shell_id = self._protocol.open_shell(codepage=CODEPAGE_UTF8)
         try:
