@@ -42,7 +42,7 @@ to the API.
 Cloud resources that can be migrated:
 
 - Virtual machines
-- Virtual Mmchine templates
+- Virtual Machine templates
 - Storage
 - Network configurations
 
