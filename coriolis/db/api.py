@@ -14,6 +14,7 @@ from sqlalchemy.sql import null
 
 from coriolis.db.sqlalchemy import models
 from coriolis import exception
+from coriolis import utils
 
 CONF = cfg.CONF
 db_options.set_defaults(CONF)
@@ -62,6 +63,38 @@ def _model_query(context, *args):
     return session.query(*args)
 
 
+def _update_sqlalchemy_object_fields(obj, updateable_fields, values_to_update):
+    """ Updates the given 'values_to_update' on the provided sqlalchemy object
+    as long as they are included as 'updateable_fields'.
+    :param obj: object: sqlalchemy object
+    :param updateable_fields: list(str): list of fields which are updateable
+    :param values_to_update: dict: dict with the key/vals to update
+    """
+    if not isinstance(values_to_update, dict):
+        raise exception.InvalidInput(
+            "Properties to update for DB object of type '%s' must be a dict, "
+            "got the following (type %s): %s" % (
+                type(obj), type(values_to_update), values_to_update))
+
+    non_updateable_fields = set(
+        values_to_update.keys()).difference(
+            set(updateable_fields))
+    if non_updateable_fields:
+        raise exception.Conflict(
+            "Fields %s for '%s' database cannot be updated. "
+            "Only updateable fields are: %s" % (
+                non_updateable_fields, type(obj), updateable_fields))
+
+    for field_name, field_val in values_to_update.items():
+        if not hasattr(obj, field_name):
+            raise exception.InvalidInput(
+                "No region field named '%s' to update." % field_name)
+        setattr(obj, field_name, field_val)
+    LOG.debug(
+        "Successfully updated the following fields on DB object "
+        "of type '%s': %s" % (type(obj), values_to_update.keys()))
+
+
 def _get_replica_schedules_filter(context, replica_id=None,
                                   schedule_id=None, expired=True):
     now = timeutils.utcnow()
@@ -100,7 +133,8 @@ def _soft_delete_aware_query(context, *args, **kwargs):
 
 @enginefacade.reader
 def get_endpoints(context):
-    q = _soft_delete_aware_query(context, models.Endpoint)
+    q = _soft_delete_aware_query(context, models.Endpoint).options(
+        orm.joinedload('mapped_regions'))
     if is_user_context(context):
         q = q.filter(
             models.Endpoint.project_id == context.tenant)
@@ -109,7 +143,8 @@ def get_endpoints(context):
 
 @enginefacade.reader
 def get_endpoint(context, endpoint_id):
-    q = _soft_delete_aware_query(context, models.Endpoint)
+    q = _soft_delete_aware_query(context, models.Endpoint).options(
+        orm.joinedload('mapped_regions'))
     if is_user_context(context):
         q = q.filter(
             models.Endpoint.project_id == context.tenant)
@@ -128,10 +163,94 @@ def add_endpoint(context, endpoint):
 def update_endpoint(context, endpoint_id, updated_values):
     endpoint = get_endpoint(context, endpoint_id)
     if not endpoint:
-        raise exception.NotFound("Endpoint not found")
-    for n in ["name", "description", "connection_info"]:
-        if n in updated_values:
-            setattr(endpoint, n, updated_values[n])
+        raise exception.NotFound("Endpoint with ID '%s' found" % endpoint_id)
+
+
+    if not isinstance(updated_values, dict):
+        raise exception.InvalidInput(
+            "Update payload for endpoints must be a dict. Got the following "
+            "(type: %s): %s" % (type(updated_values), updated_values))
+
+    def _try_unmap_regions(region_ids):
+         for region_to_unmap in region_ids:
+            try:
+                LOG.debug(
+                    "Attempting to unmap region '%s' from endpoint '%s'",
+                    region_to_unmap, endpoint_id)
+                delete_endpoint_region_mapping(
+                    context, endpoint_id, region_to_unmap)
+            except Exception as ex:
+                LOG.warn(
+                    "Exception occurred while attempting to unmap region '%s' "
+                    "from endpoint '%s'. Ignoring. Error was: %s",
+                    region_to_unmap, endpoint_id,
+                    utils.get_exception_details())
+
+    newly_mapped_regions = []
+    regions_to_unmap = []
+    # NOTE: `.pop()` required for  `_update_sqlalchemy_object_fields` call:
+    desired_region_mappings = updated_values.pop('mapped_regions', None)
+    if desired_region_mappings is not None:
+        # ensure all requested regions exist:
+        for region_id in desired_region_mappings:
+            region = get_region(context, region_id)
+            if not region:
+                raise exception.NotFound(
+                    "Could not find region with ID '%s' for associating "
+                    "with endpoint '%s' during update process." % (
+                        region_id, endpoint_id))
+
+        # get all existing mappings:
+        existing_region_mappings = [
+            mapping.id
+            for mapping in get_region_mappings_for_endpoint(
+                context, endpoint_id)]
+
+        # check and add new mappings:
+        to_map = set(
+            desired_region_mappings).difference(set(existing_region_mappings))
+        regions_to_unmap = set(
+            existing_region_mappings).difference(set(desired_region_mappings))
+
+        LOG.debug(
+            "Remapping regions for endpoint '%s' from %s to %s",
+            endpoint_id, existing_region_mappings, desired_region_mappings)
+
+        region_id = None
+        try:
+            for region_id in to_map:
+                mapping = models.EndpointRegionMapping()
+                mapping.region_id = region_id
+                mapping.endpoint_id = endpoint_id
+                add_endpoint_region_mapping(context, mapping)
+                newly_mapped_regions.append(region_id)
+        except Exception as ex:
+            LOG.warn(
+                "Exception occurred while adding region mapping for '%s' to "
+                "endpoint '%s'. Cleaning up created mappings (%s). Error was: "
+                "%s", region_id, endpoint_id, newly_mapped_regions,
+                utils.get_exception_details())
+            _try_unmap_regions(newly_mapped_regions)
+            raise
+
+
+    updateable_fields = ["name", "description", "connection_info"]
+    try:
+        _update_sqlalchemy_object_fields(
+            endpoint, updateable_fields, updated_values)
+    except Exception as ex:
+        LOG.warn(
+            "Exception occurred while updating fields of endpoint '%s'. "
+            "Cleaning ""up created mappings (%s). Error was: %s",
+            endpoint_id, newly_mapped_regions, utils.get_exception_details())
+        _try_unmap_regions(newly_mapped_regions)
+        raise
+
+    # remove all of the old region mappings:
+    LOG.debug(
+        "Unmapping the following regions during update of endpoint '%s': %s",
+        endpoint_id, regions_to_unmap)
+    _try_unmap_regions(regions_to_unmap)
 
 
 @enginefacade.writer
@@ -142,7 +261,7 @@ def delete_endpoint(context, endpoint_id):
     count = _soft_delete_aware_query(context, models.Endpoint).filter_by(
         **args).soft_delete()
     if count == 0:
-        raise exception.NotFound("0 entries were soft deleted")
+        raise exception.NotFound("0 Endpoint entries were soft deleted")
 
 
 @enginefacade.reader
@@ -280,7 +399,8 @@ def _get_replica_with_tasks_executions_options(q):
 @enginefacade.reader
 def get_replicas(context,
                  include_tasks_executions=False,
-                 include_info=False):
+                 include_info=False,
+                 to_dict=True):
     q = _soft_delete_aware_query(context, models.Replica)
     if include_tasks_executions:
         q = _get_replica_with_tasks_executions_options(q)
@@ -291,7 +411,9 @@ def get_replicas(context,
         q = q.filter(
             models.Replica.project_id == context.tenant)
     db_result = q.all()
-    return [i.to_dict(include_info=include_info) for i in db_result]
+    if to_dict:
+        return [i.to_dict(include_info=include_info) for i in db_result]
+    return db_result
 
 
 @enginefacade.reader
@@ -358,7 +480,7 @@ def get_replica_migrations(context, replica_id):
 
 @enginefacade.reader
 def get_migrations(context, include_tasks=False,
-                   include_info=False):
+                   include_info=False, to_dict=True):
     q = _soft_delete_aware_query(context, models.Migration)
     if include_tasks:
         q = _get_migration_task_query_options(q)
@@ -371,8 +493,9 @@ def get_migrations(context, include_tasks=False,
     if is_user_context(context):
         args["project_id"] = context.tenant
     result = q.filter_by(**args).all()
-    to_dict = [i.to_dict(include_info=include_info) for i in result]
-    return to_dict
+    if to_dict:
+        return [i.to_dict(include_info=include_info) for i in result]
+    return result
 
 
 def _get_tasks_with_details_options(query):
@@ -617,3 +740,300 @@ def update_replica(context, replica_id, updated_values):
     # the oslo_db library uses this method for both the `created_at` and
     # `updated_at` fields
     setattr(replica, 'updated_at', timeutils.utcnow())
+
+
+@enginefacade.writer
+def add_region(context, region):
+    context.session.add(region)
+
+
+@enginefacade.reader
+def get_regions(context):
+    q = _soft_delete_aware_query(context, models.Region).options(
+        orm.joinedload('mapped_endpoints'))
+    return q.all()
+
+
+@enginefacade.reader
+def get_region(context, region_id):
+    q = _soft_delete_aware_query(context, models.Region).options(
+        orm.joinedload('mapped_endpoints'))
+    return q.filter(
+        models.Region.id == region_id).first()
+
+
+@enginefacade.writer
+def update_region(context, region_id, updated_values):
+    if not region_id:
+        raise exception.InvalidInput(
+            "No region ID specified for updating.")
+    region = get_region(context, region_id)
+    if not region:
+        raise exception.NotFound(
+            "Region with ID '%s' does not exist." % region_id)
+
+    updateable_fields = ["name", "description", "enabled"]
+    _update_sqlalchemy_object_fields(
+        region, updateable_fields, updated_values)
+
+
+@enginefacade.writer
+def delete_region(context, region_id):
+    count = _soft_delete_aware_query(context, models.Region).filter_by(
+        id=region_id).soft_delete()
+    if count == 0:
+        raise exception.NotFound("0 region entries were soft deleted")
+
+
+@enginefacade.writer
+def add_endpoint_region_mapping(context, endpoint_region_mapping):
+    region_id = endpoint_region_mapping.region_id
+    endpoint_id = endpoint_region_mapping.endpoint_id
+
+    if None in [region_id, endpoint_id]:
+        raise exception.InvalidInput(
+            "Provided endpoint region mapping params for the region ID "
+            "('%s') and the endpoint ID ('%s') must both be non-null." % (
+                region_id, endpoint_id))
+
+    context.session.add(endpoint_region_mapping)
+
+
+@enginefacade.reader
+def get_endpoint_region_mapping(context, endpoint_id, region_id):
+    q = _soft_delete_aware_query(context, models.EndpointRegionMapping)
+    q = q.filter(
+        models.EndpointRegionMapping.region == region_id)
+    q = q.filter(
+        models.EndpointRegionMapping.endpoint_id == endpoint_id)
+    return q.all()
+
+
+@enginefacade.writer
+def delete_endpoint_region_mapping(context, endpoint_id, region_id):
+    args = {"endpoint_id": endpoint_id, "region_id": region_id}
+    count = _soft_delete_aware_query(
+        context, models.EndpointRegionMapping).filter_by(
+            **args).soft_delete()
+    if count == 0:
+        raise exception.NotFound(
+            "There is no mapping between endpoint '%s' and region '%s'." % (
+                endpoint_id, region_id))
+    LOG.debug(
+        "Deleted mapping between endpoint '%s' and region '%s' from DB",
+        endpoint_id, region_id)
+
+
+@enginefacade.reader
+def get_region_mappings_for_endpoint(
+        context, endpoint_id, enabled_regions_only=False):
+    q = _soft_delete_aware_query(context, models.EndpointRegionMapping)
+    q = q.join(models.Region)
+    q = q.filter(
+        models.EndpointRegionMapping.endpoint_id == endpoint_id)
+    if enabled_regions_only:
+        q = q.filter(
+            models.Region.enabled == True)
+    return q.all()
+
+
+@enginefacade.reader
+def get_mapped_endpoints_for_region(context, region_id):
+    q = _soft_delete_aware_query(context, models.Endpoint)
+    q = q.join(models.EndpointRegionMapping)
+    q = q.filter(
+        models.EndpointRegionMapping.endpoint_id == region_id)
+    return q.all()
+
+
+@enginefacade.writer
+def add_service(context, service):
+    context.session.add(service)
+
+
+@enginefacade.reader
+def get_services(context):
+    q = _soft_delete_aware_query(context, models.Service).options(
+        orm.joinedload('mapped_regions'))
+    return q.all()
+
+
+@enginefacade.reader
+def get_service(context, service_id):
+    q = _soft_delete_aware_query(context, models.Service).options(
+        orm.joinedload('mapped_regions'))
+    return q.filter(
+        models.Service.id == service_id).first()
+
+
+@enginefacade.reader
+def find_service(context, host, binary, topic=None):
+    args = {"host": host, "binary": binary}
+    if topic:
+        args["topic"] = topic
+    q = _soft_delete_aware_query(context, models.Service).options(
+         orm.joinedload('mapped_regions')).filter_by(**args)
+    return q.first()
+
+
+@enginefacade.writer
+def update_service(context, service_id, updated_values):
+    if not service_id:
+        raise exception.InvalidInput(
+            "No service ID specified for updating.")
+    service = get_service(context, service_id)
+    if not service:
+        raise exception.NotFound(
+            "Service with ID '%s' does not exist." % service_id)
+
+    if not isinstance(updated_values, dict):
+        raise exception.InvalidInput(
+            "Update payload for services must be a dict. Got the following "
+            "(type: %s): %s" % (type(updated_values), updated_values))
+
+    def _try_unmap_regions(region_ids):
+         for region_to_unmap in region_ids:
+            try:
+                LOG.debug(
+                    "Attempting to unmap region '%s' from service '%s'",
+                    region_to_unmap, service_id)
+                delete_service_region_mapping(
+                    context, service_id, region_to_unmap)
+            except Exception as ex:
+                LOG.warn(
+                    "Exception occurred while attempting to unmap region '%s' "
+                    "from service '%s'. Ignoring. Error was: %s",
+                    region_to_unmap, service_id,
+                    utils.get_exception_details())
+
+    newly_mapped_regions = []
+    regions_to_unmap = []
+    # NOTE: `.pop()` required for  `_update_sqlalchemy_object_fields` call:
+    desired_region_mappings = updated_values.pop('mapped_regions', None)
+    if desired_region_mappings is not None:
+        # ensure all requested regions exist:
+        for region_id in desired_region_mappings:
+            region = get_region(context, region_id)
+            if not region:
+                raise exception.NotFound(
+                    "Could not find region with ID '%s' for associating "
+                    "with serce '%s' during update process." % (
+                        region_id, service_id))
+
+        # get all existing mappings:
+        existing_region_mappings = [
+            mapping.region_id
+            for mapping in get_region_mappings_for_service(
+                context, service_id)]
+
+        # check and add new mappings:
+        to_map = set(
+            desired_region_mappings).difference(set(existing_region_mappings))
+        regions_to_unmap = set(
+            existing_region_mappings).difference(set(desired_region_mappings))
+
+        LOG.debug(
+            "Remapping regions for service '%s' from %s to %s",
+            service_id, existing_region_mappings, desired_region_mappings)
+
+        region_id = None
+        try:
+            for region_id in to_map:
+                mapping = models.ServiceRegionMapping()
+                mapping.region_id = region_id
+                mapping.service_id = service_id
+                add_service_region_mapping(context, mapping)
+                newly_mapped_regions.append(region_id)
+        except Exception as ex:
+            LOG.warn(
+                "Exception occurred while adding region mapping for '%s' to "
+                "service '%s'. Cleaning up created mappings (%s). Error was: "
+                "%s", region_id, service_id, newly_mapped_regions,
+                utils.get_exception_details())
+            _try_unmap_regions(newly_mapped_regions)
+            raise
+
+
+    updateable_fields = ["enabled", "status", "providers", "specs"]
+    try:
+        _update_sqlalchemy_object_fields(
+            service, updateable_fields, updated_values)
+    except Exception as ex:
+        LOG.warn(
+            "Exception occurred while updating fields of service '%s'. "
+            "Cleaning ""up created mappings (%s). Error was: %s",
+            service_id, newly_mapped_regions, utils.get_exception_details())
+        _try_unmap_regions(newly_mapped_regions)
+        raise
+
+    # remove all of the old region mappings:
+    LOG.debug(
+        "Unmapping the following regions during update of service '%s': %s",
+        service_id, regions_to_unmap)
+    _try_unmap_regions(regions_to_unmap)
+
+
+@enginefacade.writer
+def delete_service(context, service_id):
+    count = _soft_delete_aware_query(context, models.Service).filter_by(
+        id=service_id).soft_delete()
+    if count == 0:
+        raise exception.NotFound("0 service entries were soft deleted")
+
+
+@enginefacade.writer
+def add_service_region_mapping(context, service_region_mapping):
+    region_id = service_region_mapping.region_id
+    service_id = service_region_mapping.service_id
+
+    if None in [region_id, service_id]:
+        raise exception.InvalidInput(
+            "Provided service region mapping params for the region ID "
+            "('%s') and the service ID ('%s') must both be non-null." % (
+                region_id, service_id))
+
+    context.session.add(service_region_mapping)
+
+
+@enginefacade.reader
+def get_service_region_mapping(context, service_id, region_id):
+    q = _soft_delete_aware_query(context, models.ServiceRegionMapping)
+    q = q.filter(
+        models.ServiceRegionMapping.region == region_id)
+    q = q.filter(
+        models.ServiceRegionMapping.service_id == service_id)
+    return q.all()
+
+
+@enginefacade.writer
+def delete_service_region_mapping(context, service_id, region_id):
+    args = {"service_id": service_id, "region_id": region_id}
+    count = _soft_delete_aware_query(
+        context, models.ServiceRegionMapping).filter_by(
+            **args).soft_delete()
+    if count == 0:
+        raise exception.NotFound(
+            "There is no mapping between service '%s' and region '%s'." % (
+                service_id, region_id))
+
+
+@enginefacade.reader
+def get_region_mappings_for_service(
+        context, service_id, enabled_regions_only=False):
+    q = _soft_delete_aware_query(context, models.ServiceRegionMapping)
+    q = q.join(models.Region)
+    q = q.filter(
+        models.ServiceRegionMapping.service_id == service_id)
+    if enabled_regions_only:
+        q = q.filter(
+            models.Region.enabled == True)
+    return q.all()
+
+
+@enginefacade.reader
+def get_mapped_services_for_region(context, region_id):
+    q = _soft_delete_aware_query(context, models.Service)
+    q = q.join(models.ServiceRegionMapping)
+    q = q.filter(
+        models.ServiceRegionMapping.service_id == region_id)
+    return q.all()

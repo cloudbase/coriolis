@@ -26,10 +26,11 @@ class ConductorClient(object):
         self._client = rpc.get_client(target, timeout=timeout)
 
     def create_endpoint(self, ctxt, name, endpoint_type, description,
-                        connection_info):
+                        connection_info, mapped_regions):
         return self._client.call(
             ctxt, 'create_endpoint', name=name, endpoint_type=endpoint_type,
-            description=description, connection_info=connection_info)
+            description=description, connection_info=connection_info,
+            mapped_regions=mapped_regions)
 
     def update_endpoint(self, ctxt, endpoint_id, updated_values):
         return self._client.call(
@@ -308,3 +309,52 @@ class ConductorClient(object):
 
     def get_all_diagnostics(self, ctxt):
         return self._client.call(ctxt, 'get_all_diagnostics')
+
+    def create_region(
+            self, ctxt, region_name, description="", enabled=True):
+        return self._client.call(
+            ctxt, 'create_region',
+            region_name=region_name,
+            description=description,
+            enabled=enabled)
+
+    def get_regions(self, ctxt):
+        return self._client.call(ctxt, 'get_regions')
+
+    def get_region(self, ctxt, region_id):
+        return self._client.call(
+            ctxt, 'get_region', region_id=region_id)
+
+    def update_region(self, ctxt, region_id, updated_values):
+        return self._client.call(
+            ctxt, 'update_region',
+            region_id=region_id,
+            updated_values=updated_values)
+
+    def delete_region(self, ctxt, region_id):
+        return self._client.call(
+            ctxt, 'delete_region', region_id=region_id)
+
+    def register_service(
+            self, ctxt, host, binary, topic, enabled, providers,
+            specs, mapped_regions):
+        return self._client.call(
+            ctxt, 'register_service', host=host, binary=binary,
+            topic=topic, enabled=enabled, providers=providers, specs=specs,
+            mapped_regions=mapped_regions)
+
+    def get_services(self, ctxt):
+        return self._client.call(ctxt, 'get_services')
+
+    def get_service(self, ctxt, service_id):
+        return self._client.call(
+            ctxt, 'get_service', service_id=service_id)
+
+    def update_service(self, ctxt, service_id, updated_values):
+        return self._client.call(
+            ctxt, 'update_service', service_id=service_id,
+            updated_values=updated_values)
+
+    def delete_service(self, ctxt, service_id):
+        return self._client.call(
+            ctxt, 'delete_service', service_id=service_id)

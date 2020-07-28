@@ -40,7 +40,10 @@ class EndpointController(api_wsgi.Controller):
             description = endpoint.get("description")
             endpoint_type = endpoint["type"]
             connection_info = endpoint["connection_info"]
-            return name, endpoint_type, description, connection_info
+            mapped_regions = endpoint.get("mapped_regions", [])
+            return (
+                name, endpoint_type, description, connection_info,
+                mapped_regions)
         except Exception as ex:
             LOG.exception(ex)
             if hasattr(ex, "message"):
@@ -53,15 +56,19 @@ class EndpointController(api_wsgi.Controller):
         context = req.environ["coriolis.context"]
         context.can(endpoint_policies.get_endpoints_policy_label("create"))
         (name, endpoint_type, description,
-         connection_info) = self._validate_create_body(body)
+         connection_info, mapped_regions) = self._validate_create_body(body)
         return endpoint_view.single(req, self._endpoint_api.create(
-            context, name, endpoint_type, description, connection_info))
+            context, name, endpoint_type, description, connection_info,
+            mapped_regions))
 
     def _validate_update_body(self, body):
         try:
             endpoint = body["endpoint"]
-            return {k: endpoint[k] for k in endpoint.keys() &
-                    {"name", "description", "connection_info"}}
+            return {
+                k: endpoint[k]
+                for k in endpoint.keys() & {
+                    "name", "description", "connection_info",
+                    "mapped_regions"}}
         except Exception as ex:
             LOG.exception(ex)
             if hasattr(ex, "message"):

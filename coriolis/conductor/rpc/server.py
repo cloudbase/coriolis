@@ -3,6 +3,7 @@
 
 import copy
 import functools
+import random
 import uuid
 
 from oslo_concurrency import lockutils
@@ -132,6 +133,30 @@ def tasks_execution_synchronized(func):
     return wrapper
 
 
+def region_synchronized(func):
+    @functools.wraps(func)
+    def wrapper(self, ctxt, region_id, *args, **kwargs):
+        @lockutils.synchronized(
+            constants.REGION_LOCK_NAME_FORMAT % region_id,
+            external=True)
+        def inner():
+            return func(self, ctxt, region_id, *args, **kwargs)
+        return inner()
+    return wrapper
+
+
+def service_synchronized(func):
+    @functools.wraps(func)
+    def wrapper(self, ctxt, service_id, *args, **kwargs):
+        @lockutils.synchronized(
+            constants.SERVICE_LOCK_NAME_FORMAT % service_id,
+            external=True)
+        def inner():
+            return func(self, ctxt, service_id, *args, **kwargs)
+        return inner()
+    return wrapper
+
+
 class ConductorServerEndpoint(object):
     def __init__(self):
         self._licensing_client = licensing_client.LicensingClient.from_env()
@@ -141,12 +166,33 @@ class ConductorServerEndpoint(object):
     def get_all_diagnostics(self, ctxt):
         conductor = self.get_diagnostics(ctxt)
         cron = self._replica_cron_client.get_diagnostics(ctxt)
-        worker = self._rpc_worker_client.get_diagnostics(ctxt)
+        # TODO(aznashwan): include diagnostics for every worker service:
+        worker_rpc = self._get_rpc_for_worker_service(
+            self._get_any_worker_service(ctxt))
+        worker = worker_rpc.get_diagnostics(ctxt)
         return [
             conductor,
             cron,
-            worker,
-        ]
+            worker]
+
+    def _get_rpc_for_worker_service(self, service):
+         return rpc_worker_client.WorkerClient(topic=service.topic)
+
+    def _get_any_worker_service(self, ctxt):
+        services = db_api.get_services(ctxt)
+        if not services:
+            raise exception.CoriolisException("No services.")
+        return random.choice(services)
+
+    def _run_operation_on_worker_service(
+            self, ctxt, service, operation_name, *args, **kwargs):
+        service_rpc_client = self._get_rpc_for_worker_service(service)
+        operation = getattr(service_rpc_client, operation_name, None)
+        if not operation:
+            raise exception.CoriolisException(
+                "Invalid operation name '%s' for RPC client '%s'" % (
+                    operation_name, service_rpc_client))
+        return operation(*args, **kwargs)
 
     def _check_delete_reservation_for_transfer(self, transfer_action):
         action_id = transfer_action.base_id
@@ -204,8 +250,9 @@ class ConductorServerEndpoint(object):
                 "all reservation licensing checks.", action_id)
 
     def create_endpoint(self, ctxt, name, endpoint_type, description,
-                        connection_info):
+                        connection_info, mapped_regions=None):
         endpoint = models.Endpoint()
+        endpoint.id = str(uuid.uuid4())
         endpoint.name = name
         endpoint.type = endpoint_type
         endpoint.description = description
@@ -213,12 +260,31 @@ class ConductorServerEndpoint(object):
 
         db_api.add_endpoint(ctxt, endpoint)
         LOG.info("Endpoint created: %s", endpoint.id)
+
+        # add region associations:
+        if mapped_regions:
+            try:
+                db_api.update_endpoint(
+                    ctxt, endpoint.id, {
+                        "mapped_regions": mapped_regions})
+            except Exception as ex:
+                LOG.warn(
+                    "Error adding region mappings during new endpoint creation "
+                    "(name: %s), cleaning up endpoint and all created "
+                    "mappings for regions: %s", endpoint.name, mapped_regions)
+                db_api.delete_endpoint(ctxt, endpoint.id)
+                raise
+
         return self.get_endpoint(ctxt, endpoint.id)
 
+    @endpoint_synchronized
     def update_endpoint(self, ctxt, endpoint_id, updated_values):
+        LOG.info(
+            "Attempting to update endpoint '%s' with payload: %s",
+            endpoint_id, updated_values)
         db_api.update_endpoint(ctxt, endpoint_id, updated_values)
         LOG.info("Endpoint updated: %s", endpoint_id)
-        return self.get_endpoint(ctxt, endpoint_id)
+        return db_api.get_endpoint(ctxt, endpoint_id)
 
     def get_endpoints(self, ctxt):
         return db_api.get_endpoints(ctxt)
@@ -244,7 +310,9 @@ class ConductorServerEndpoint(object):
                                marker, limit, instance_name_pattern):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
-        return self._rpc_worker_client.get_endpoint_instances(
+        worker_rpc = self._get_rpc_for_worker_service(
+            self._get_any_worker_service(ctxt))
+        return worker_rpc.get_endpoint_instances(
             ctxt, endpoint.type, endpoint.connection_info,
             source_environment, marker, limit, instance_name_pattern)
 
@@ -252,7 +320,9 @@ class ConductorServerEndpoint(object):
             self, ctxt, endpoint_id, source_environment, instance_name):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
-        return self._rpc_worker_client.get_endpoint_instance(
+        worker_rpc = self._get_rpc_for_worker_service(
+            self._get_any_worker_service(ctxt))
+        return worker_rpc.get_endpoint_instance(
             ctxt, endpoint.type, endpoint.connection_info,
             source_environment, instance_name)
 
@@ -260,50 +330,68 @@ class ConductorServerEndpoint(object):
             self, ctxt, endpoint_id, env, option_names):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
-        return self._rpc_worker_client.get_endpoint_source_options(
+        worker_rpc = self._get_rpc_for_worker_service(
+            self._get_any_worker_service(ctxt))
+        return worker_rpc.get_endpoint_source_options(
             ctxt, endpoint.type, endpoint.connection_info, env, option_names)
 
     def get_endpoint_destination_options(
             self, ctxt, endpoint_id, env, option_names):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
-        return self._rpc_worker_client.get_endpoint_destination_options(
+        worker_rpc = self._get_rpc_for_worker_service(
+            self._get_any_worker_service(ctxt))
+        return worker_rpc.get_endpoint_destination_options(
             ctxt, endpoint.type, endpoint.connection_info, env, option_names)
 
     def get_endpoint_networks(self, ctxt, endpoint_id, env):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
-        return self._rpc_worker_client.get_endpoint_networks(
+        worker_rpc = self._get_rpc_for_worker_service(
+            self._get_any_worker_service(ctxt))
+        return worker_rpc.get_endpoint_networks(
             ctxt, endpoint.type, endpoint.connection_info, env)
 
     def get_endpoint_storage(self, ctxt, endpoint_id, env):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
-        return self._rpc_worker_client.get_endpoint_storage(
+        worker_rpc = self._get_rpc_for_worker_service(
+            self._get_any_worker_service(ctxt))
+        return worker_rpc.get_endpoint_storage(
             ctxt, endpoint.type, endpoint.connection_info, env)
 
     def validate_endpoint_connection(self, ctxt, endpoint_id):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
-        return self._rpc_worker_client.validate_endpoint_connection(
+        worker_rpc = self._get_rpc_for_worker_service(
+            self._get_any_worker_service(ctxt))
+        return worker_rpc.validate_endpoint_connection(
             ctxt, endpoint.type, endpoint.connection_info)
 
     def validate_endpoint_target_environment(
             self, ctxt, endpoint_id, target_env):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
-        return self._rpc_worker_client.validate_endpoint_target_environment(
+        worker_rpc = self._get_rpc_for_worker_service(
+            self._get_any_worker_service(ctxt))
+        return worker_rpc.validate_endpoint_target_environment(
             ctxt, endpoint.type, target_env)
 
     def validate_endpoint_source_environment(
             self, ctxt, endpoint_id, source_env):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
-        return self._rpc_worker_client.validate_endpoint_source_environment(
+        worker_rpc = self._get_rpc_for_worker_service(
+            self._get_any_worker_service(ctxt))
+        return worker_rpc.validate_endpoint_source_environment(
             ctxt, endpoint.type, source_env)
 
     def get_available_providers(self, ctxt):
-        return self._rpc_worker_client.get_available_providers(ctxt)
+        worker_rpc = self._get_rpc_for_worker_service(
+            self._get_any_worker_service(ctxt))
+        return worker_rpc.get_available_providers(ctxt)
 
     def get_provider_schemas(self, ctxt, platform_name, provider_type):
-        return self._rpc_worker_client.get_provider_schemas(
+        worker_rpc = self._get_rpc_for_worker_service(
+            self._get_any_worker_service(ctxt))
+        return worker_rpc.get_provider_schemas(
             ctxt, platform_name, provider_type)
 
     @staticmethod
@@ -378,7 +466,9 @@ class ConductorServerEndpoint(object):
                     task.id, execution.id)
                 db_api.set_task_status(
                     ctxt, task.id, constants.TASK_STATUS_PENDING)
-                self._rpc_worker_client.begin_task(
+                worker_rpc = self._get_rpc_for_worker_service(
+                        self._get_any_worker_service(ctxt))
+                worker_rpc.begin_task(
                     ctxt, server=None,
                     task_id=task.id,
                     task_type=task.task_type,
@@ -1328,7 +1418,10 @@ class ConductorServerEndpoint(object):
                         task.status, task.id, execution.id)
                     db_api.set_task_status(
                         ctxt, task.id, constants.TASK_STATUS_CANCELLING)
-                    self._rpc_worker_client.cancel_task(
+                    worker_rpc = self._get_rpc_for_worker_service(
+                        self._get_any_worker_service(ctxt))
+                    # TODO(aznashwan): cancel on right worker:
+                    worker_rpc.cancel_task(
                         ctxt, task.host, task.id, task.process_id, force)
                 # let any on-error tasks run to completion but mark
                 # them as CANCELLING_AFTER_COMPLETION so they will
@@ -1594,7 +1687,9 @@ class ConductorServerEndpoint(object):
                 task_info = action.info[task.instance]
             db_api.set_task_status(
                 ctxt, task.id, constants.TASK_STATUS_PENDING)
-            self._rpc_worker_client.begin_task(
+            worker_rpc = self._get_rpc_for_worker_service(
+                self._get_any_worker_service(ctxt))
+            worker_rpc.begin_task(
                 ctxt, server=None,
                 task_id=task.id,
                 task_type=task.task_type,
@@ -2377,3 +2472,109 @@ class ConductorServerEndpoint(object):
 
     def get_diagnostics(self, ctxt):
         return utils.get_diagnostics_info()
+
+    def create_region(self, ctxt, region_name, description="", enabled=True):
+        region = models.Region()
+        region.id = str(uuid.uuid4())
+        region.name = region_name
+        region.description = description
+        region.enabled = enabled
+        db_api.add_region(ctxt, region)
+        return self.get_region(ctxt, region.id)
+
+    def get_regions(self, ctxt):
+        return db_api.get_regions(ctxt)
+
+    @region_synchronized
+    def get_region(self, ctxt, region_id):
+        region = db_api.get_region(ctxt, region_id)
+        if not region:
+            raise exception.NotFound(
+                "Region with ID '%s' not found." % region_id)
+        return region
+
+    @region_synchronized
+    def update_region(self, ctxt, region_id, updated_values):
+        LOG.info(
+            "Attempting to update region '%s' with payload: %s",
+            region_id, updated_values)
+        db_api.update_region(ctxt, region_id, updated_values)
+        LOG.info("Region '%s' successfully updated", region_id)
+        return db_api.get_region(ctxt, region_id)
+
+    @region_synchronized
+    def delete_region(self, ctxt, region_id):
+        # TODO(aznashwan): add checks for endpoints/services
+        # associated to the region before deletion:
+        db_api.delete_region(ctxt, region_id)
+
+    def register_service(
+            self, ctxt, host, binary, topic, enabled, mapped_regions=None):
+        exists = db_api.find_service(ctxt, host, binary, topic=topic)
+        if exists:
+            raise exception.Conflict(
+                "A Service with the specified parameters (host %s, binary %s, "
+                "topic %s) has already been registered under ID: %s" % (
+                    host, binary, topic, exists.id))
+
+        service = models.Service()
+        service.id = str(uuid.uuid4())
+        service.host = host
+        service.binary = binary
+        service.enabled = enabled
+        service.topic = topic
+        if not service.topic:
+            service.topic = constants.SERVICE_MESSAGING_TOPIC_FORMAT % {
+                "host": service.host, "binary": service.binary}
+
+        worker_rpc = self._get_rpc_for_worker_service(service)
+        status = worker_rpc.get_service_status(ctxt)
+
+        service.providers = status["providers"]
+        service.specs = status["specs"]
+
+        # create the service:
+        db_api.add_service(ctxt, service)
+        LOG.debug(
+            "Added new service to DB: %s", service.id)
+
+        # add region associations:
+        if mapped_regions:
+            try:
+                db_api.update_service(
+                    ctxt, service.id, {
+                        "mapped_regions": mapped_regions})
+            except Exception as ex:
+                LOG.warn(
+                    "Error adding region mappings during new service "
+                    "registration (host: %s), cleaning up endpoint and "
+                    "all created mappings for regions: %s",
+                    service.host, mapped_regions)
+                db_api.delete_service(ctxt, service.id)
+                raise
+
+        return self.get_service(ctxt, service.id)
+
+    def get_services(self, ctxt):
+        return db_api.get_services(ctxt)
+
+    @service_synchronized
+    def get_service(self, ctxt, service_id):
+        service = db_api.get_service(ctxt, service_id)
+        if not service:
+            raise exception.NotFound(
+                "Service with ID '%s' not found." % service_id)
+        return service
+
+    @service_synchronized
+    def update_service(self, ctxt, service_id, updated_values):
+        LOG.info(
+            "Attempting to update service '%s' with payload: %s",
+            service_id, updated_values)
+        db_api.update_service(ctxt, service_id, updated_values)
+        LOG.info("Successfully updated service '%s'", service_id)
+        return db_api.get_service(ctxt, service_id)
+
+    @service_synchronized
+    def delete_service(self, ctxt, service_id):
+        db_api.delete_service(ctxt, service_id)

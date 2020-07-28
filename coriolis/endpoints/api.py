@@ -10,9 +10,10 @@ class API(object):
         self._rpc_client = rpc_client.ConductorClient()
 
     def create(self, ctxt, name, endpoint_type, description,
-               connection_info):
+               connection_info, mapped_regions):
         return self._rpc_client.create_endpoint(
-            ctxt, name, endpoint_type, description, connection_info)
+            ctxt, name, endpoint_type, description, connection_info,
+            mapped_regions)
 
     def update(self, ctxt, endpoint_id, properties):
         return self._rpc_client.update_endpoint(

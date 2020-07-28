@@ -73,6 +73,22 @@ class WorkerServerEndpoint(object):
             # Ignore the exception
             LOG.exception(ex)
 
+    def get_service_status(self, ctxt):
+        diagnostics = self.get_diagnostics(ctxt)
+        status = {
+            "host": diagnostics["hostname"],
+            "binary": diagnostics["binary"],
+            "providers": self.get_available_providers(ctxt),
+            "specs": diagnostics
+        }
+        # TODO(aznashwan): have the topic be updated automatically in
+        # oslo_messaging.Service instead of relying on "hardcoding" it:
+        status["topic"] = constants.SERVICE_MESSAGING_TOPIC_FORMAT % {
+            "host": status["host"],
+            "binary": diagnostics["application"]}
+
+        return status
+
     def cancel_task(self, ctxt, task_id, process_id, force):
         if not force and os.name == "nt":
             LOG.warn("Windows does not support SIGINT, performing a "
