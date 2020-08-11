@@ -1,0 +1,10 @@
+---
+- name: "build coriolis-scheduler"
+  listen: "build coriolis core components"
+  include_tasks: "{{ playbook_dir }}/roles/common/docker/tasks/build_image.yml"
+  vars:
+    image_name: coriolis-scheduler
+
+- name: "restart coriolis-scheduler"
+  listen: "restart coriolis core components"
+  shell: "docker restart coriolis-scheduler"

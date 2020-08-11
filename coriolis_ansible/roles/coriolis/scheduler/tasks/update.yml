@@ -1,0 +1,7 @@
+---
+- name: Remove Docker container
+  docker_container:
+    state: absent
+    name: coriolis-scheduler
+
+- include_tasks: setup_scheduler_container.yml

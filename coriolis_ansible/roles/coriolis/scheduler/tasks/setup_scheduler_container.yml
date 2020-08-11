@@ -1,0 +1,14 @@
+---
+- name: Setup coriolis-scheduler container
+  docker_container:
+    name: coriolis-scheduler
+    image: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-scheduler:{{ docker_images_tag }}"
+    pull: "{{ docker_pull_images }}"
+    hostname: coriolis-scheduler
+    state: started
+    restart_policy: unless-stopped
+    network_mode: host
+    volumes:
+      - "{{ coriolis_config_dir }}:{{ coriolis_config_dir }}:ro"
+      - "{{ coriolis_log_dir }}:{{ coriolis_log_dir }}"
+      - "{{ coriolis_logger_volume_name }}:{{ coriolis_logger_socket_dir }}"

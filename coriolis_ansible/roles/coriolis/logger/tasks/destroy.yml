@@ -9,6 +9,7 @@
     - coriolis-replica-cron
     - coriolis-worker
     - coriolis-web
+    - coriolis-scheduler
     - coriolis-logger
     - influxdb
 
