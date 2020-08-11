@@ -11,10 +11,9 @@ class API(object):
 
     def create(
             self, ctxt, host, binary, topic, mapped_regions,
-            enabled, providers, specs):
+            enabled):
         return self._rpc_client.register_service(
-            ctxt, host, binary, topic, enabled,
-            providers, specs, mapped_regions)
+            ctxt, host, binary, topic, enabled, mapped_regions)
 
     def update(self, ctxt, service_id, updated_values):
         return self._rpc_client.update_service(

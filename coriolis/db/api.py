@@ -202,7 +202,7 @@ def update_endpoint(context, endpoint_id, updated_values):
 
         # get all existing mappings:
         existing_region_mappings = [
-            mapping.id
+            mapping.region_id
             for mapping in get_region_mappings_for_endpoint(
                 context, endpoint_id)]
 

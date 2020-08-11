@@ -77,15 +77,11 @@ class WorkerServerEndpoint(object):
         diagnostics = self.get_diagnostics(ctxt)
         status = {
             "host": diagnostics["hostname"],
-            "binary": diagnostics["binary"],
+            "binary": diagnostics["application"],
+            "topic": constants.WORKER_MAIN_MESSAGING_TOPIC,
             "providers": self.get_available_providers(ctxt),
             "specs": diagnostics
         }
-        # TODO(aznashwan): have the topic be updated automatically in
-        # oslo_messaging.Service instead of relying on "hardcoding" it:
-        status["topic"] = constants.SERVICE_MESSAGING_TOPIC_FORMAT % {
-            "host": status["host"],
-            "binary": diagnostics["application"]}
 
         return status
 

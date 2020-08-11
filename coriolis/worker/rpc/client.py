@@ -4,6 +4,7 @@
 from oslo_config import cfg
 import oslo_messaging as messaging
 
+from coriolis import constants
 from coriolis import rpc
 
 VERSION = "1.0"
@@ -19,7 +20,8 @@ CONF.register_opts(worker_opts, 'worker')
 
 
 class WorkerClient(object):
-    def __init__(self, timeout=None, topic='coriolis_worker'):
+    def __init__(
+            self, timeout=None, topic=constants.WORKER_MAIN_MESSAGING_TOPIC):
         target = messaging.Target(topic=topic, version=VERSION)
         if timeout is None:
             timeout = CONF.worker.worker_rpc_timeout

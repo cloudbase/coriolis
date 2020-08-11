@@ -16,15 +16,28 @@ LOG = logging.getLogger(__name__)
 
 class OSMorphingTask(base.TaskRunner):
 
-    @property
-    def required_task_info_properties(self):
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_DESTINATION
+
+    @classmethod
+    def get_required_task_info_properties(cls):
         return [
             "osmorphing_info", "osmorphing_connection_info",
             "user_scripts"]
 
-    @property
-    def returned_task_info_properties(self):
+    @classmethod
+    def get_returned_task_info_properties(cls):
         return []
+
+    @classmethod
+    def get_required_provider_types(cls):
+        return {
+            constants.PROVIDER_PLATFORM_SOURCE: [
+                constants.PROVIDER_TYPE_REPLICA_EXPORT],
+            constants.PROVIDER_PLATFORM_DESTINATION: [
+                constants.PROVIDER_TYPE_REPLICA_IMPORT],
+        }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
@@ -64,15 +77,26 @@ class OSMorphingTask(base.TaskRunner):
 
 class DeployOSMorphingResourcesTask(base.TaskRunner):
 
-    @property
-    def required_task_info_properties(self):
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_DESTINATION
+
+    @classmethod
+    def get_required_task_info_properties(cls):
         return ["target_environment", "instance_deployment_info"]
 
-    @property
-    def returned_task_info_properties(self):
+    @classmethod
+    def get_returned_task_info_properties(cls):
         return [
             "os_morphing_resources", "osmorphing_info",
             "osmorphing_connection_info"]
+
+    @classmethod
+    def get_required_provider_types(cls):
+        return {
+            constants.PROVIDER_PLATFORM_DESTINATION: [
+                constants.PROVIDER_TYPE_OS_MORPHING]
+        }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
@@ -124,13 +148,24 @@ class DeployOSMorphingResourcesTask(base.TaskRunner):
 
 class DeleteOSMorphingResourcesTask(base.TaskRunner):
 
-    @property
-    def required_task_info_properties(self):
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_DESTINATION
+
+    @classmethod
+    def get_required_task_info_properties(cls):
         return ["target_environment", "os_morphing_resources"]
 
-    @property
-    def returned_task_info_properties(self):
+    @classmethod
+    def get_returned_task_info_properties(cls):
         return ["os_morphing_resources", "osmorphing_connection_info"]
+
+    @classmethod
+    def get_required_provider_types(cls):
+        return {
+            constants.PROVIDER_PLATFORM_DESTINATION: [
+                constants.PROVIDER_TYPE_OS_MORPHING]
+        }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):

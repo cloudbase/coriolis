@@ -5,6 +5,7 @@ import sys
 
 from oslo_config import cfg
 
+from coriolis import constants
 from coriolis.conductor.rpc import server as rpc_server
 from coriolis import service
 from coriolis import utils
@@ -19,7 +20,8 @@ def main():
     service.check_locks_dir_empty()
 
     server = service.MessagingService(
-        'coriolis_conductor', [rpc_server.ConductorServerEndpoint()],
+        constants.CONDUCTOR_MAIN_MESSAGING_TOPIC,
+        [rpc_server.ConductorServerEndpoint()],
         rpc_server.VERSION)
     launcher = service.service.launch(
         CONF, server, workers=server.get_workers_count())

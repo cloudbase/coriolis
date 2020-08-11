@@ -38,7 +38,7 @@ class ServiceController(api_wsgi.Controller):
             service = body["service"]
             host = service["host"]
             binary = service["binary"]
-            topic = service.get("topic")
+            topic = service["topic"]
             mapped_regions = service.get('mapped_regions', [])
             enabled = service.get("enabled", True)
             return host, binary, topic, mapped_regions, enabled
@@ -57,9 +57,7 @@ class ServiceController(api_wsgi.Controller):
             self._validate_create_body(body))
         return service_view.single(req, self._service_api.create(
             context, host=host, binary=binary, topic=topic,
-            mapped_regions=mapped_regions, enabled=enabled,
-            # NOTE: providers and specs should be auto-discovered later:
-            providers={}, specs={}))
+            mapped_regions=mapped_regions, enabled=enabled))
 
     def _validate_update_body(self, body):
         try:

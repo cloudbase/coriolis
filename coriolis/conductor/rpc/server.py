@@ -18,6 +18,7 @@ from coriolis import exception
 from coriolis import keystone
 from coriolis.licensing import client as licensing_client
 from coriolis.replica_cron.rpc import client as rpc_cron_client
+from coriolis.scheduler.rpc import client as rpc_scheduler_client
 from coriolis import schemas
 from coriolis.tasks import factory as tasks_factory
 from coriolis import utils
@@ -43,6 +44,14 @@ CONF.register_opts(CONDUCTOR_OPTS, 'conductor')
 TASK_DEADLOCK_ERROR_MESSAGE = (
     "A fatal deadlock has occurred. Further debugging is required. "
     "Please review the Conductor logs and contact support for assistance.")
+
+RPC_TOPIC_TO_CLIENT_CLASS_MAP = {
+    constants.WORKER_MAIN_MESSAGING_TOPIC: rpc_worker_client.WorkerClient,
+    constants.SCHEDULER_MAIN_MESSAGING_TOPIC: (
+        rpc_scheduler_client.SchedulerClient),
+    constants.REPLICA_CRON_MAIN_MESSAGING_TOPIC: (
+        rpc_cron_client.ReplicaCronClient)
+}
 
 
 def endpoint_synchronized(func):
@@ -162,37 +171,67 @@ class ConductorServerEndpoint(object):
         self._licensing_client = licensing_client.LicensingClient.from_env()
         self._rpc_worker_client = rpc_worker_client.WorkerClient()
         self._replica_cron_client = rpc_cron_client.ReplicaCronClient()
+        self._scheduler_client = rpc_scheduler_client.SchedulerClient()
 
     def get_all_diagnostics(self, ctxt):
-        conductor = self.get_diagnostics(ctxt)
-        cron = self._replica_cron_client.get_diagnostics(ctxt)
-        # TODO(aznashwan): include diagnostics for every worker service:
-        worker_rpc = self._get_rpc_for_worker_service(
-            self._get_any_worker_service(ctxt))
-        worker = worker_rpc.get_diagnostics(ctxt)
-        return [
-            conductor,
-            cron,
-            worker]
+        diagnostics = [
+            self.get_diagnostics(ctxt),
+            self._replica_cron_client.get_diagnostics(ctxt)]
+        worker_diagnostics = []
+        for worker_service in self._scheduler_client.get_workers_for_specs(
+                ctxt):
+            worker_rpc = self._get_rpc_client_for_service(worker_service)
+            diagnostics.append(worker_rpc.get_diagnostics(ctxt))
 
-    def _get_rpc_for_worker_service(self, service):
-         return rpc_worker_client.WorkerClient(topic=service.topic)
+        return diagnostics
 
-    def _get_any_worker_service(self, ctxt):
-        services = db_api.get_services(ctxt)
+    def _get_rpc_client_for_service(self, service, *client_args, **client_kwargs):
+        rpc_client_class = RPC_TOPIC_TO_CLIENT_CLASS_MAP.get(service.topic)
+        if not rpc_client_class:
+            raise exception.NotFound(
+                "No RPC client class for service with topic '%s'." % (
+                    service.topic))
+
+        topic = service.topic
+        if service.topic == constants.WORKER_MAIN_MESSAGING_TOPIC:
+            # NOTE: coriolis.service.MessagingService-type services (such
+            # as the worker), always have a dedicated per-host queue
+            # which can be used to target the service:
+            topic = constants.SERVICE_MESSAGING_TOPIC_FORMAT % ({
+                "main_topic": constants.WORKER_MAIN_MESSAGING_TOPIC,
+                "host": service.host})
+
+        return rpc_client_class(*client_args, topic=topic, **client_kwargs)
+
+    def _get_any_worker_service(self, ctxt, random_choice=False, raw_dict=False):
+        services = self._scheduler_client.get_workers_for_specs(ctxt)
         if not services:
-            raise exception.CoriolisException("No services.")
-        return random.choice(services)
+            raise exception.NoWorkerServiceError()
+        service = services[0]
+        if random_choice:
+            service = random.choice(services)
+        if raw_dict:
+            return service
+        return db_api.get_service(ctxt, service['id'])
 
-    def _run_operation_on_worker_service(
-            self, ctxt, service, operation_name, *args, **kwargs):
-        service_rpc_client = self._get_rpc_for_worker_service(service)
-        operation = getattr(service_rpc_client, operation_name, None)
-        if not operation:
-            raise exception.CoriolisException(
-                "Invalid operation name '%s' for RPC client '%s'" % (
-                    operation_name, service_rpc_client))
-        return operation(*args, **kwargs)
+    def _get_worker_service_rpc_for_specs(
+            self, ctxt, provider_requirements=None, region_ids=None,
+            enabled=True, random_choice=False, raise_on_no_matches=True):
+        services = self._scheduler_client.get_workers_for_specs(
+            ctxt, provider_requirements=provider_requirements,
+            region_ids=region_ids, enabled=enabled)
+        services = self._scheduler_client.get_workers_for_specs(ctxt)
+        if not services:
+            if raise_on_no_matches:
+                raise exception.NoSuitableWorkerServiceError()
+            return None
+
+        selected_service = services[0]
+        if random_choice:
+            selected_service = random.choice(services)
+        service = db_api.get_service(ctxt, selected_service["id"])
+
+        return self._get_rpc_client_for_service(service)
 
     def _check_delete_reservation_for_transfer(self, transfer_action):
         action_id = transfer_action.base_id
@@ -310,8 +349,11 @@ class ConductorServerEndpoint(object):
                                marker, limit, instance_name_pattern):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
-        worker_rpc = self._get_rpc_for_worker_service(
-            self._get_any_worker_service(ctxt))
+        worker_rpc = self._get_worker_service_rpc_for_specs(
+            ctxt, enabled=True,
+            region_ids=[m['region_id'] for m in endpoint.mapped_regions],
+            provider_requirements={
+                endpoint.type: [constants.PROVIDER_TYPE_ENDPOINT_INSTANCES]})
         return worker_rpc.get_endpoint_instances(
             ctxt, endpoint.type, endpoint.connection_info,
             source_environment, marker, limit, instance_name_pattern)
@@ -320,8 +362,12 @@ class ConductorServerEndpoint(object):
             self, ctxt, endpoint_id, source_environment, instance_name):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
-        worker_rpc = self._get_rpc_for_worker_service(
-            self._get_any_worker_service(ctxt))
+        worker_rpc = self._get_worker_service_rpc_for_specs(
+            ctxt, enabled=True,
+            region_ids=[m['region_id'] for m in endpoint.mapped_regions],
+            provider_requirements={
+                endpoint.type: [constants.PROVIDER_TYPE_ENDPOINT_INSTANCES]})
+
         return worker_rpc.get_endpoint_instance(
             ctxt, endpoint.type, endpoint.connection_info,
             source_environment, instance_name)
@@ -330,8 +376,13 @@ class ConductorServerEndpoint(object):
             self, ctxt, endpoint_id, env, option_names):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
-        worker_rpc = self._get_rpc_for_worker_service(
-            self._get_any_worker_service(ctxt))
+        worker_rpc = self._get_worker_service_rpc_for_specs(
+            ctxt, enabled=True,
+            region_ids=[m['region_id'] for m in endpoint.mapped_regions],
+            provider_requirements={
+                endpoint.type: [
+                    constants.PROVIDER_TYPE_SOURCE_ENDPOINT_OPTIONS]})
+
         return worker_rpc.get_endpoint_source_options(
             ctxt, endpoint.type, endpoint.connection_info, env, option_names)
 
@@ -339,57 +390,86 @@ class ConductorServerEndpoint(object):
             self, ctxt, endpoint_id, env, option_names):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
-        worker_rpc = self._get_rpc_for_worker_service(
-            self._get_any_worker_service(ctxt))
+        worker_rpc = self._get_worker_service_rpc_for_specs(
+            ctxt, enabled=True,
+            region_ids=[m['region_id'] for m in endpoint.mapped_regions],
+            provider_requirements={
+                endpoint.type: [
+                    constants.PROVIDER_TYPE_DESTINATION_ENDPOINT_OPTIONS]})
         return worker_rpc.get_endpoint_destination_options(
             ctxt, endpoint.type, endpoint.connection_info, env, option_names)
 
     def get_endpoint_networks(self, ctxt, endpoint_id, env):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
-        worker_rpc = self._get_rpc_for_worker_service(
-            self._get_any_worker_service(ctxt))
+        worker_rpc = self._get_worker_service_rpc_for_specs(
+            ctxt, enabled=True,
+            region_ids=[m['region_id'] for m in endpoint.mapped_regions],
+            provider_requirements={
+                endpoint.type: [constants.PROVIDER_TYPE_ENDPOINT_NETWORKS]})
+
         return worker_rpc.get_endpoint_networks(
             ctxt, endpoint.type, endpoint.connection_info, env)
 
     def get_endpoint_storage(self, ctxt, endpoint_id, env):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
-        worker_rpc = self._get_rpc_for_worker_service(
-            self._get_any_worker_service(ctxt))
+        worker_rpc = self._get_worker_service_rpc_for_specs(
+            ctxt, enabled=True,
+            region_ids=[m['region_id'] for m in endpoint.mapped_regions],
+            provider_requirements={
+                endpoint.type: [constants.PROVIDER_TYPE_ENDPOINT_STORAGE]})
+
         return worker_rpc.get_endpoint_storage(
             ctxt, endpoint.type, endpoint.connection_info, env)
 
     def validate_endpoint_connection(self, ctxt, endpoint_id):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
-        worker_rpc = self._get_rpc_for_worker_service(
-            self._get_any_worker_service(ctxt))
+
+        worker_rpc = self._get_worker_service_rpc_for_specs(
+            ctxt, enabled=True,
+            region_ids=[m['region_id'] for m in endpoint.mapped_regions],
+            provider_requirements={
+                endpoint.type: [constants.PROVIDER_TYPE_ENDPOINT]})
+
         return worker_rpc.validate_endpoint_connection(
             ctxt, endpoint.type, endpoint.connection_info)
 
     def validate_endpoint_target_environment(
             self, ctxt, endpoint_id, target_env):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
-        worker_rpc = self._get_rpc_for_worker_service(
-            self._get_any_worker_service(ctxt))
+        worker_rpc = self._get_worker_service_rpc_for_specs(
+            ctxt, enabled=True,
+            region_ids=[m['region_id'] for m in endpoint.mapped_regions],
+            provider_requirements={
+                endpoint.type: [constants.PROVIDER_TYPE_ENDPOINT]})
+
         return worker_rpc.validate_endpoint_target_environment(
             ctxt, endpoint.type, target_env)
 
     def validate_endpoint_source_environment(
             self, ctxt, endpoint_id, source_env):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
-        worker_rpc = self._get_rpc_for_worker_service(
-            self._get_any_worker_service(ctxt))
+
+        worker_rpc = self._get_worker_service_rpc_for_specs(
+            ctxt, enabled=True,
+            region_ids=[m['region_id'] for m in endpoint.mapped_regions],
+            provider_requirements={
+                endpoint.type: [constants.PROVIDER_TYPE_ENDPOINT]})
+
         return worker_rpc.validate_endpoint_source_environment(
             ctxt, endpoint.type, source_env)
 
     def get_available_providers(self, ctxt):
-        worker_rpc = self._get_rpc_for_worker_service(
+        # TODO(aznashwan): merge list of all providers from all
+        # worker services:
+        worker_rpc = self._get_rpc_client_for_service(
             self._get_any_worker_service(ctxt))
         return worker_rpc.get_available_providers(ctxt)
 
     def get_provider_schemas(self, ctxt, platform_name, provider_type):
-        worker_rpc = self._get_rpc_for_worker_service(
+        # TODO(aznashwan): merge or version/namespace schemas for each worker?
+        worker_rpc = self._get_rpc_client_for_service(
             self._get_any_worker_service(ctxt))
         return worker_rpc.get_provider_schemas(
             ctxt, platform_name, provider_type)
@@ -448,6 +528,71 @@ class ConductorServerEndpoint(object):
             "target_environment": action.destination_environment
         }
 
+    def _get_worker_service_rpc_for_task(
+            self, ctxt, task, origin_endpoint, destination_endpoint):
+        LOG.debug(
+            "Requesting Worker Service for task with ID '%s' (type) '%s' "
+            "from endpoints '%s' to '%s'", task.id, task.task_type,
+            origin_endpoint.id, destination_endpoint.id)
+        task_cls = tasks_factory.get_task_runner_class(task.task_type)
+
+        # determine required Coriolis regions based on the endpoints:
+        required_regions = []
+        required_platform = task_cls.get_required_platform()
+        origin_endpoint_region_ids = [
+            m.region_id for m in origin_endpoint.mapped_regions]
+        destination_endpoint_region_ids = [
+            m.region_id for m in origin_endpoint.mapped_regions]
+
+        if required_platform == constants.TASK_PLATFORM_SOURCE:
+            required_regions = origin_endpoint_region_ids
+        if required_platform == constants.TASK_PLATFORM_DESTINATION:
+            required_regions = destination_endpoint_region_ids
+        if required_platform == constants.TASK_PLATFORM_BILATERAL:
+            # NOTE: backwards-compatibility for endpoints with
+            # no associated regions:
+            if not origin_endpoint_region_ids and (
+                    not destination_endpoint_region_ids):
+                required_regions = []
+            else:
+                required_regions = list(
+                    set(origin_endpoint_region_ids).intersection(
+                        set(destination_endpoint_region_ids)))
+
+        # determine provider requirements:
+        provider_requirements = {}
+        required_provider_types = task_cls.get_required_provider_types()
+        if constants.PROVIDER_PLATFORM_SOURCE in required_provider_types:
+            provider_requirements[origin_endpoint.type] = (
+                required_provider_types[
+                    constants.PROVIDER_PLATFORM_SOURCE])
+        if constants.PROVIDER_PLATFORM_DESTINATION in required_provider_types:
+            provider_requirements[destination_endpoint.type] = (
+                required_provider_types[
+                    constants.PROVIDER_PLATFORM_DESTINATION])
+
+        worker_rpc = None
+        try:
+            worker_rpc = self._get_worker_service_rpc_for_specs(
+                ctxt, provider_requirements=provider_requirements,
+                region_ids=required_regions, enabled=True)
+        except Exception as ex:
+            LOG.warn(
+                "Failed to schedule task with ID '%s'. Marking as such.")
+            message = (
+                "Failed to schedule task. This may indicate that there are no "
+                "Coriolis Worker services able to perform the task on the "
+                "platforms and in the Coriolis Regions required by the selected"
+                " source/destination Coriolis Endpoints. Please review the "
+                "scheduler logs for more exact details. "
+                "Error message was: %s" % str(ex))
+            db_api.set_task_status(
+                ctxt, task.id, constants.TASK_STATUS_FAILED_TO_SCHEDULE,
+                exception_details=message)
+            raise
+
+        return worker_rpc
+
     def _begin_tasks(self, ctxt, execution, task_info={}):
         """ Starts all non-error-only tasks which have no depencies. """
         if not ctxt.trust_id:
@@ -456,6 +601,10 @@ class ConductorServerEndpoint(object):
 
         origin = self._get_task_origin(ctxt, execution.action)
         destination = self._get_task_destination(ctxt, execution.action)
+        origin_endpoint = db_api.get_endpoint(
+            ctxt, execution.action.origin_endpoint_id)
+        destination_endpoint = db_api.get_endpoint(
+            ctxt, execution.action.destination_endpoint_id)
 
         newly_started_tasks = []
         for task in execution.tasks:
@@ -466,16 +615,26 @@ class ConductorServerEndpoint(object):
                     task.id, execution.id)
                 db_api.set_task_status(
                     ctxt, task.id, constants.TASK_STATUS_PENDING)
-                worker_rpc = self._get_rpc_for_worker_service(
-                        self._get_any_worker_service(ctxt))
-                worker_rpc.begin_task(
-                    ctxt, server=None,
-                    task_id=task.id,
-                    task_type=task.task_type,
-                    origin=origin,
-                    destination=destination,
-                    instance=task.instance,
-                    task_info=task_info.get(task.instance, {}))
+                try:
+                    worker_rpc = self._get_worker_service_rpc_for_task(
+                        ctxt, task, origin_endpoint, destination_endpoint)
+                    worker_rpc.begin_task(
+                        ctxt, server=None,
+                        task_id=task.id,
+                        task_type=task.task_type,
+                        origin=origin,
+                        destination=destination,
+                        instance=task.instance,
+                        task_info=task_info.get(task.instance, {}))
+                except Exception as ex:
+                    msg = (
+                        "Error occured while starting new task '%s'. "
+                        "Cancelling execution '%s'. Error was: %s" % (
+                            task.id, execution.id,
+                            utils.get_exception_details()))
+                    self._cancel_tasks_execution(
+                        ctxt, execution, requery=True)
+                    raise exception.CoriolisException(msg) from ex
                 newly_started_tasks.append(task.id)
 
         # NOTE: this should never happen if _check_execution_tasks_sanity
@@ -499,9 +658,9 @@ class ConductorServerEndpoint(object):
             for instance in all_instances_in_tasks}
 
         def _check_task_cls_param_requirements(task, instance_task_info_keys):
-            task_cls = tasks_factory.get_task_runner_class(task.task_type)()
+            task_cls = tasks_factory.get_task_runner_class(task.task_type)
             missing_params = [
-                p for p in task_cls.required_task_info_properties
+                p for p in task_cls.get_required_task_info_properties()
                 if p not in instance_task_info_keys]
             if missing_params:
                 raise exception.CoriolisException(
@@ -510,7 +669,7 @@ class ConductorServerEndpoint(object):
                     "type '%s': %s" % (
                         task.instance, task.id, task.task_type,
                         missing_params))
-            return task_cls.returned_task_info_properties
+            return task_cls.get_returned_task_info_properties()
 
         for instance, instance_tasks in instances_tasks_mapping.items():
             task_info_keys = set(initial_task_info.get(
@@ -1418,7 +1577,7 @@ class ConductorServerEndpoint(object):
                         task.status, task.id, execution.id)
                     db_api.set_task_status(
                         ctxt, task.id, constants.TASK_STATUS_CANCELLING)
-                    worker_rpc = self._get_rpc_for_worker_service(
+                    worker_rpc = self._get_rpc_client_for_service(
                         self._get_any_worker_service(ctxt))
                     # TODO(aznashwan): cancel on right worker:
                     worker_rpc.cancel_task(
@@ -1670,6 +1829,10 @@ class ConductorServerEndpoint(object):
         origin = self._get_task_origin(ctxt, execution.action)
         destination = self._get_task_destination(ctxt, execution.action)
         action = db_api.get_action(ctxt, execution.action_id)
+        origin_endpoint = db_api.get_endpoint(
+            ctxt, execution.action.origin_endpoint_id)
+        destination_endpoint = db_api.get_endpoint(
+            ctxt, execution.action.destination_endpoint_id)
 
         started_tasks = []
 
@@ -1687,16 +1850,27 @@ class ConductorServerEndpoint(object):
                 task_info = action.info[task.instance]
             db_api.set_task_status(
                 ctxt, task.id, constants.TASK_STATUS_PENDING)
-            worker_rpc = self._get_rpc_for_worker_service(
-                self._get_any_worker_service(ctxt))
-            worker_rpc.begin_task(
-                ctxt, server=None,
-                task_id=task.id,
-                task_type=task.task_type,
-                origin=origin,
-                destination=destination,
-                instance=task.instance,
-                task_info=task_info)
+            try:
+                worker_rpc = self._get_worker_service_rpc_for_task(
+                    ctxt, task, origin_endpoint, destination_endpoint)
+                worker_rpc.begin_task(
+                    ctxt, server=None,
+                    task_id=task.id,
+                    task_type=task.task_type,
+                    origin=origin,
+                    destination=destination,
+                    instance=task.instance,
+                    task_info=task_info)
+            except Exception as ex:
+                msg = (
+                    "Error occured while starting new task '%s'. "
+                    "Cancelling execution '%s'. Error was: %s" % (
+                        task.id, execution.id,
+                        utils.get_exception_details()))
+                self._cancel_tasks_execution(
+                    ctxt, execution, requery=True)
+                raise exception.CoriolisException(msg) from ex
+
             started_tasks.append(task.id)
 
         # aggregate all tasks and statuses:
@@ -2523,11 +2697,8 @@ class ConductorServerEndpoint(object):
         service.binary = binary
         service.enabled = enabled
         service.topic = topic
-        if not service.topic:
-            service.topic = constants.SERVICE_MESSAGING_TOPIC_FORMAT % {
-                "host": service.host, "binary": service.binary}
 
-        worker_rpc = self._get_rpc_for_worker_service(service)
+        worker_rpc = self._get_rpc_client_for_service(service)
         status = worker_rpc.get_service_status(ctxt)
 
         service.providers = status["providers"]

@@ -123,7 +123,7 @@ def get_diagnostics_info():
     # diagnostics.
     packages = list(freeze.freeze())
     return {
-        "binary": get_binary_name(),
+        "application": get_binary_name(),
         "packages": packages,
         "os_info": _get_host_os_info(),
         "hostname": get_hostname(),

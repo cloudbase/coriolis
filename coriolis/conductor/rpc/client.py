@@ -4,6 +4,7 @@
 from oslo_config import cfg
 import oslo_messaging as messaging
 
+from coriolis import constants
 from coriolis import rpc
 
 VERSION = "1.0"
@@ -19,8 +20,9 @@ CONF.register_opts(conductor_opts, 'conductor')
 
 
 class ConductorClient(object):
-    def __init__(self, timeout=None):
-        target = messaging.Target(topic='coriolis_conductor', version=VERSION)
+    def __init__(self, timeout=None,
+                 topic=constants.CONDUCTOR_MAIN_MESSAGING_TOPIC):
+        target = messaging.Target(topic=topic, version=VERSION)
         if timeout is None:
             timeout = CONF.conductor.conductor_rpc_timeout
         self._client = rpc.get_client(target, timeout=timeout)
@@ -336,12 +338,10 @@ class ConductorClient(object):
             ctxt, 'delete_region', region_id=region_id)
 
     def register_service(
-            self, ctxt, host, binary, topic, enabled, providers,
-            specs, mapped_regions):
+            self, ctxt, host, binary, topic, enabled, mapped_regions):
         return self._client.call(
             ctxt, 'register_service', host=host, binary=binary,
-            topic=topic, enabled=enabled, providers=providers, specs=specs,
-            mapped_regions=mapped_regions)
+            topic=topic, enabled=enabled, mapped_regions=mapped_regions)
 
     def get_services(self, ctxt):
         return self._client.call(ctxt, 'get_services')

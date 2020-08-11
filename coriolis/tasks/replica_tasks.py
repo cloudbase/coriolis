@@ -66,13 +66,24 @@ def _check_ensure_volumes_info_ordering(export_info, volumes_info):
 class GetInstanceInfoTask(base.TaskRunner):
     """ Task which gathers the export info for a VM.  """
 
-    @property
-    def required_task_info_properties(self):
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_SOURCE
+
+    @classmethod
+    def get_required_task_info_properties(cls):
         return ["source_environment"]
 
-    @property
-    def returned_task_info_properties(self):
+    @classmethod
+    def get_returned_task_info_properties(cls):
         return ["export_info"]
+
+    @classmethod
+    def get_required_provider_types(cls):
+        return {
+            constants.PROVIDER_PLATFORM_SOURCE: [
+                constants.PROVIDER_TYPE_REPLICA_EXPORT]
+        }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
@@ -96,13 +107,24 @@ class GetInstanceInfoTask(base.TaskRunner):
 class ShutdownInstanceTask(base.TaskRunner):
     """ Task which shuts down a VM. """
 
-    @property
-    def required_task_info_properties(self):
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_SOURCE
+
+    @classmethod
+    def get_required_task_info_properties(cls):
         return ["source_environment"]
 
-    @property
-    def returned_task_info_properties(self):
+    @classmethod
+    def get_returned_task_info_properties(cls):
         return []
+
+    @classmethod
+    def get_required_provider_types(cls):
+        return {
+            constants.PROVIDER_PLATFORM_SOURCE: [
+                constants.PROVIDER_TYPE_REPLICA_EXPORT]
+        }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
@@ -119,17 +141,31 @@ class ShutdownInstanceTask(base.TaskRunner):
 
 class ReplicateDisksTask(base.TaskRunner):
 
-    @property
-    def required_task_info_properties(self):
+    @classmethod
+    def get_required_platform(cls):
+        # NOTE: considering Replication reads from one end (be it PMR minion
+        # or otherwise) to the disk writer minion on the destination,
+        # replicate_disks would need access to both:
+        return constants.TASK_PLATFORM_BILATERAL
+
+    @classmethod
+    def get_required_task_info_properties(cls):
         return [
             "export_info", "volumes_info", "source_environment",
             "source_resources",
             "source_resources_connection_info",
             "target_resources_connection_info"]
 
-    @property
-    def returned_task_info_properties(self):
+    @classmethod
+    def get_returned_task_info_properties(cls):
         return ["volumes_info"]
+
+    @classmethod
+    def get_required_provider_types(cls):
+        return {
+            constants.PROVIDER_PLATFORM_SOURCE: [
+                constants.PROVIDER_TYPE_REPLICA_EXPORT]
+        }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
@@ -181,14 +217,25 @@ class ReplicateDisksTask(base.TaskRunner):
 
 class DeployReplicaDisksTask(base.TaskRunner):
 
-    @property
-    def required_task_info_properties(self):
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_DESTINATION
+
+    @classmethod
+    def get_required_task_info_properties(cls):
         return [
             "export_info", "volumes_info", "target_environment"]
 
-    @property
-    def returned_task_info_properties(self):
+    @classmethod
+    def get_returned_task_info_properties(cls):
         return ["volumes_info"]
+
+    @classmethod
+    def get_required_provider_types(cls):
+        return {
+            constants.PROVIDER_PLATFORM_DESTINATION: [
+                constants.PROVIDER_TYPE_REPLICA_IMPORT]
+        }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
@@ -216,15 +263,25 @@ class DeployReplicaDisksTask(base.TaskRunner):
 
 class DeleteReplicaSourceDiskSnapshotsTask(base.TaskRunner):
 
-    @property
-    def required_task_info_properties(self):
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_SOURCE
+
+    @classmethod
+    def get_required_task_info_properties(cls):
         return [
             "volumes_info", "source_environment"]
 
-    @property
-    def returned_task_info_properties(self):
+    @classmethod
+    def get_returned_task_info_properties(cls):
         return ["volumes_info"]
 
+    @classmethod
+    def get_required_provider_types(cls):
+        return {
+            constants.PROVIDER_PLATFORM_SOURCE: [
+                constants.PROVIDER_TYPE_REPLICA_EXPORT]
+        }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
@@ -253,14 +310,25 @@ class DeleteReplicaSourceDiskSnapshotsTask(base.TaskRunner):
 
 class DeleteReplicaDisksTask(base.TaskRunner):
 
-    @property
-    def required_task_info_properties(self):
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_DESTINATION
+
+    @classmethod
+    def get_required_task_info_properties(cls):
         return [
             "volumes_info", "target_environment"]
 
-    @property
-    def returned_task_info_properties(self):
+    @classmethod
+    def get_returned_task_info_properties(cls):
         return ["volumes_info"]
+
+    @classmethod
+    def get_required_provider_types(cls):
+        return {
+            constants.PROVIDER_PLATFORM_DESTINATION: [
+                constants.PROVIDER_TYPE_REPLICA_IMPORT]
+        }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
@@ -295,13 +363,24 @@ class DeleteReplicaDisksTask(base.TaskRunner):
 
 class DeployReplicaSourceResourcesTask(base.TaskRunner):
 
-    @property
-    def required_task_info_properties(self):
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_SOURCE
+
+    @classmethod
+    def get_required_task_info_properties(cls):
         return ["source_environment", "export_info"]
 
-    @property
-    def returned_task_info_properties(self):
+    @classmethod
+    def get_returned_task_info_properties(cls):
         return ["source_resources", "source_resources_connection_info"]
+
+    @classmethod
+    def get_required_provider_types(cls):
+        return {
+            constants.PROVIDER_PLATFORM_SOURCE: [
+                constants.PROVIDER_TYPE_REPLICA_EXPORT]
+        }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
@@ -355,13 +434,24 @@ class DeployReplicaSourceResourcesTask(base.TaskRunner):
 
 class DeleteReplicaSourceResourcesTask(base.TaskRunner):
 
-    @property
-    def required_task_info_properties(self):
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_SOURCE
+
+    @classmethod
+    def get_required_task_info_properties(cls):
         return ["source_environment", "source_resources"]
 
-    @property
-    def returned_task_info_properties(self):
+    @classmethod
+    def get_returned_task_info_properties(cls):
         return ["source_resources", "source_resources_connection_info"]
+
+    @classmethod
+    def get_required_provider_types(cls):
+        return {
+            constants.PROVIDER_PLATFORM_SOURCE: [
+                constants.PROVIDER_TYPE_REPLICA_EXPORT]
+        }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
@@ -384,15 +474,26 @@ class DeleteReplicaSourceResourcesTask(base.TaskRunner):
 
 class DeployReplicaTargetResourcesTask(base.TaskRunner):
 
-    @property
-    def required_task_info_properties(self):
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_DESTINATION
+
+    @classmethod
+    def get_required_task_info_properties(cls):
         return ["export_info", "volumes_info", "target_environment"]
 
-    @property
-    def returned_task_info_properties(self):
+    @classmethod
+    def get_returned_task_info_properties(cls):
         return [
             "volumes_info", "target_resources",
             "target_resources_connection_info"]
+
+    @classmethod
+    def get_required_provider_types(cls):
+        return {
+            constants.PROVIDER_PLATFORM_DESTINATION: [
+                constants.PROVIDER_TYPE_REPLICA_IMPORT]
+        }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
@@ -470,14 +571,25 @@ class DeployReplicaTargetResourcesTask(base.TaskRunner):
 
 class DeleteReplicaTargetResourcesTask(base.TaskRunner):
 
-    @property
-    def required_task_info_properties(self):
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_DESTINATION
+
+    @classmethod
+    def get_required_task_info_properties(cls):
         return ["target_resources", "target_environment"]
 
-    @property
-    def returned_task_info_properties(self):
+    @classmethod
+    def get_returned_task_info_properties(cls):
         return [
             "target_resources", "target_resources_connection_info"]
+
+    @classmethod
+    def get_required_provider_types(cls):
+        return {
+            constants.PROVIDER_PLATFORM_DESTINATION: [
+                constants.PROVIDER_TYPE_REPLICA_IMPORT]
+        }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
@@ -500,13 +612,24 @@ class DeleteReplicaTargetResourcesTask(base.TaskRunner):
 
 class DeployReplicaInstanceResourcesTask(base.TaskRunner):
 
-    @property
-    def required_task_info_properties(self):
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_DESTINATION
+
+    @classmethod
+    def get_required_task_info_properties(cls):
         return ["export_info", "target_environment", "clone_disks"]
 
-    @property
-    def returned_task_info_properties(self):
+    @classmethod
+    def get_returned_task_info_properties(cls):
         return ["instance_deployment_info"]
+
+    @classmethod
+    def get_required_provider_types(cls):
+        return {
+            constants.PROVIDER_PLATFORM_DESTINATION: [
+                constants.PROVIDER_TYPE_REPLICA_IMPORT]
+        }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
@@ -533,13 +656,24 @@ class DeployReplicaInstanceResourcesTask(base.TaskRunner):
 
 class FinalizeReplicaInstanceDeploymentTask(base.TaskRunner):
 
-    @property
-    def required_task_info_properties(self):
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_DESTINATION
+
+    @classmethod
+    def get_required_task_info_properties(cls):
         return ["target_environment", "instance_deployment_info"]
 
-    @property
-    def returned_task_info_properties(self):
+    @classmethod
+    def get_returned_task_info_properties(cls):
         return ["transfer_result"]
+
+    @classmethod
+    def get_required_provider_types(cls):
+        return {
+            constants.PROVIDER_PLATFORM_DESTINATION: [
+                constants.PROVIDER_TYPE_REPLICA_IMPORT]
+        }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
@@ -564,13 +698,24 @@ class FinalizeReplicaInstanceDeploymentTask(base.TaskRunner):
 
 class CleanupFailedReplicaInstanceDeploymentTask(base.TaskRunner):
 
-    @property
-    def required_task_info_properties(self):
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_DESTINATION
+
+    @classmethod
+    def get_required_task_info_properties(cls):
         return ["target_environment", "instance_deployment_info"]
 
-    @property
-    def returned_task_info_properties(self):
+    @classmethod
+    def get_returned_task_info_properties(cls):
         return ["instance_deployment_info"]
+
+    @classmethod
+    def get_required_provider_types(cls):
+        return {
+            constants.PROVIDER_PLATFORM_DESTINATION: [
+                constants.PROVIDER_TYPE_REPLICA_IMPORT]
+        }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
@@ -591,13 +736,24 @@ class CleanupFailedReplicaInstanceDeploymentTask(base.TaskRunner):
 
 class CreateReplicaDiskSnapshotsTask(base.TaskRunner):
 
-    @property
-    def required_task_info_properties(self):
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_DESTINATION
+
+    @classmethod
+    def get_required_task_info_properties(cls):
         return ["target_environment", "export_info", "volumes_info"]
 
-    @property
-    def returned_task_info_properties(self):
+    @classmethod
+    def get_returned_task_info_properties(cls):
         return ["volumes_info"]
+
+    @classmethod
+    def get_required_provider_types(cls):
+        return {
+            constants.PROVIDER_PLATFORM_DESTINATION: [
+                constants.PROVIDER_TYPE_REPLICA_IMPORT]
+        }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
@@ -624,13 +780,24 @@ class CreateReplicaDiskSnapshotsTask(base.TaskRunner):
 
 class DeleteReplicaTargetDiskSnapshotsTask(base.TaskRunner):
 
-    @property
-    def required_task_info_properties(self):
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_DESTINATION
+
+    @classmethod
+    def get_required_task_info_properties(cls):
         return ["target_environment", "export_info", "volumes_info"]
 
-    @property
-    def returned_task_info_properties(self):
+    @classmethod
+    def get_returned_task_info_properties(cls):
         return ["volumes_info"]
+
+    @classmethod
+    def get_required_provider_types(cls):
+        return {
+            constants.PROVIDER_PLATFORM_DESTINATION: [
+                constants.PROVIDER_TYPE_REPLICA_IMPORT]
+        }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
@@ -657,13 +824,24 @@ class DeleteReplicaTargetDiskSnapshotsTask(base.TaskRunner):
 
 class RestoreReplicaDiskSnapshotsTask(base.TaskRunner):
 
-    @property
-    def required_task_info_properties(self):
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_DESTINATION
+
+    @classmethod
+    def get_required_task_info_properties(cls):
         return ["target_environment", "export_info", "volumes_info"]
 
-    @property
-    def returned_task_info_properties(self):
+    @classmethod
+    def get_returned_task_info_properties(cls):
         return ["volumes_info"]
+
+    @classmethod
+    def get_required_provider_types(cls):
+        return {
+            constants.PROVIDER_PLATFORM_DESTINATION: [
+                constants.PROVIDER_TYPE_REPLICA_IMPORT]
+        }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
@@ -690,13 +868,24 @@ class RestoreReplicaDiskSnapshotsTask(base.TaskRunner):
 
 class ValidateReplicaExecutionSourceInputsTask(base.TaskRunner):
 
-    @property
-    def required_task_info_properties(self):
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_SOURCE
+
+    @classmethod
+    def get_required_task_info_properties(cls):
         return ["source_environment"]
 
-    @property
-    def returned_task_info_properties(self):
+    @classmethod
+    def get_returned_task_info_properties(cls):
         return []
+
+    @classmethod
+    def get_required_provider_types(cls):
+        return {
+            constants.PROVIDER_PLATFORM_SOURCE: [
+                constants.PROVIDER_TYPE_VALIDATE_REPLICA_EXPORT]
+        }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
@@ -720,13 +909,24 @@ class ValidateReplicaExecutionSourceInputsTask(base.TaskRunner):
 
 class ValidateReplicaExecutionDestinationInputsTask(base.TaskRunner):
 
-    @property
-    def required_task_info_properties(self):
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_DESTINATION
+
+    @classmethod
+    def get_required_task_info_properties(cls):
         return ["export_info", "target_environment"]
 
-    @property
-    def returned_task_info_properties(self):
+    @classmethod
+    def get_returned_task_info_properties(cls):
         return []
+
+    @classmethod
+    def get_required_provider_types(cls):
+        return {
+            constants.PROVIDER_PLATFORM_DESTINATION: [
+                constants.PROVIDER_TYPE_VALIDATE_REPLICA_IMPORT]
+        }
 
     def _validate_provider_replica_import_input(
             self, provider, ctxt, conn_info, target_environment, export_info):
@@ -769,13 +969,24 @@ class ValidateReplicaExecutionDestinationInputsTask(base.TaskRunner):
 
 class ValidateReplicaDeploymentParametersTask(base.TaskRunner):
 
-    @property
-    def required_task_info_properties(self):
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_DESTINATION
+
+    @classmethod
+    def get_required_task_info_properties(cls):
         return ["export_info", "target_environment"]
 
-    @property
-    def returned_task_info_properties(self):
+    @classmethod
+    def get_returned_task_info_properties(cls):
         return []
+
+    @classmethod
+    def get_required_provider_types(cls):
+        return {
+            constants.PROVIDER_PLATFORM_DESTINATION: [
+                constants.PROVIDER_TYPE_VALIDATE_REPLICA_IMPORT]
+        }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
@@ -811,13 +1022,24 @@ class ValidateReplicaDeploymentParametersTask(base.TaskRunner):
 
 class UpdateSourceReplicaTask(base.TaskRunner):
 
-    @property
-    def required_task_info_properties(self):
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_SOURCE
+
+    @classmethod
+    def get_required_task_info_properties(cls):
         return ["volumes_info", "source_environment"]
 
-    @property
-    def returned_task_info_properties(self):
+    @classmethod
+    def get_returned_task_info_properties(cls):
         return ["volumes_info", "source_environment"]
+
+    @classmethod
+    def get_required_provider_types(cls):
+        return {
+            constants.PROVIDER_PLATFORM_SOURCE: [
+                constants.PROVIDER_TYPE_SOURCE_REPLICA_UPDATE]
+        }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
@@ -868,13 +1090,24 @@ class UpdateSourceReplicaTask(base.TaskRunner):
 
 class UpdateDestinationReplicaTask(base.TaskRunner):
 
-    @property
-    def required_task_info_properties(self):
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_DESTINATION
+
+    @classmethod
+    def get_required_task_info_properties(cls):
         return ["export_info", "volumes_info", "target_environment"]
 
-    @property
-    def returned_task_info_properties(self):
+    @classmethod
+    def get_returned_task_info_properties(cls):
         return ["volumes_info", "target_environment"]
+
+    @classmethod
+    def get_required_provider_types(cls):
+        return {
+            constants.PROVIDER_PLATFORM_DESTINATION: [
+                constants.PROVIDER_TYPE_DESTINATION_REPLICA_UPDATE]
+        }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):

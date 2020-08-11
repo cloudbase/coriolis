@@ -388,3 +388,23 @@ class UnrecognizedWorkerInitSystem(CoriolisException):
         "Could not determine init system for temporary worker VM. The image "
         "used for the worker VM must use systemd as an init system for "
         "Coriolis to be able to use it for data Replication.")
+
+
+class NoServiceError(CoriolisException):
+    safe = True
+    code = 503
+    message = _(
+        "No service is avaialable to process this request at this time.")
+
+
+class NoWorkerServiceError(NoServiceError):
+    message = _(
+        "No Coriolis Worker Service(s) were found. Please ensure that "
+        "at least one or Coriolis Worker Service(s) are registered "
+        "within the Coriolis installation.")
+
+
+class NoSuitableWorkerServiceError(NoServiceError):
+    message = _(
+        "No suitable Coriolis Worker service was found which fits the "
+        "criteria for the required operation.")
