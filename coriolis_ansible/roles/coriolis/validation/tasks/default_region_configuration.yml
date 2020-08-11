@@ -1,0 +1,52 @@
+---
+- name: List Coriolis regions
+  shell: "coriolis region list"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+
+- debug:
+    msg: "{{ result.stdout_lines }}"
+
+- name: Create default Coriolis Region
+  shell: "coriolis region create --enabled --description 'Default Coriolis Region created by coriolis-docker.' {{ default_coriolis_region_name }}"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+  when: result.stdout | length < 2
+
+- debug:
+    msg: "{{ result.stdout_lines }}"
+
+- name: List Coriolis services
+  shell: "coriolis service list"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+
+- debug:
+    msg: "{{ result.stdout_lines }}"
+
+- name: Check if worker service was registered
+  shell: "echo {{ result.stdout_lines }} | grep {{ coriolis_worker_hostname }}"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+  failed_when: result.stdout == ""
+
+- debug:
+    msg: "{{ result.stdout_lines }}"
+
+- name: Register worker service
+  shell: "coriolis service create --host {{ coriolis_worker_hostname }} --binary coriolis-worker --enabled"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+
+- debug:
+    msg: "{{ result.stdout_lines }}"

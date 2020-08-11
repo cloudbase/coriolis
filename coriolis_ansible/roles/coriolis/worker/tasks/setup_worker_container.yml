@@ -4,7 +4,7 @@
     name: coriolis-worker
     image: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-worker:{{ docker_images_tag }}"
     pull: "{{ docker_pull_images }}"
-    hostname: coriolis-worker
+    hostname: "{{ coriolis_worker_hostname }}"
     state: started
     restart_policy: unless-stopped
     network_mode: host

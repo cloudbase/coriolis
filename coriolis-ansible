@@ -21,6 +21,11 @@ new_config_file $PASSWORDS_FILE
 
 $UTILS_DIR/gen_pwd.py --passwords-file $PASSWORDS_FILE
 
+# generate worker hostname, if not present:
+if [ ! `$GET_CONFIG_VALUE_SCRIPT -c $CONFIG_FILE -n coriolis_worker_hostname` ]; then
+    $SET_CONFIG_VALUE_SCRIPT -c $CONFIG_FILE -n coriolis_worker_hostname -v "coriolis-worker-$(openssl rand -base64 6)"
+fi
+
 PLAYBOOK="appliance.yml"
 ANSIBLE_CMD="ansible-playbook -v -i inventory/appliance -e @$CONFIG_FILE -e @$PASSWORDS_FILE"
 
