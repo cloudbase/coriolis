@@ -97,13 +97,42 @@ class SchedulerServerEndpoint(object):
         return sorted(
             scores, key=lambda s: s[1], reverse=True)
 
+    def _filter_regions(
+            self, ctxt, region_ids, enabled=True, check_all_exist=True,
+            regions_cache=None):
+        found_regions = []
+        filtered_regions = []
+        regions = regions_cache
+        if not regions:
+            regions = db_api.get_regions(ctxt)
+        for region in regions:
+            if region.id in region_ids:
+                found_regions.append(region.id)
+                if region.enabled != enabled:
+                    continue
+                filtered_regions.append(region)
+
+        if check_all_exist:
+            missing_regions = set(region_ids).difference(
+                set(found_regions))
+            if missing_regions:
+                raise exception.RegionNotFound(
+                    "Failed to schedule job on regions %s as one or more "
+                    "of the proposed regions (%s) do not exist." % (
+                        region_ids, missing_regions))
+
+        return filtered_regions
+
     def get_workers_for_specs(
             self, ctxt, provider_requirements=None,
-            region_ids=None, enabled=None):
+            region_sets=None, enabled=None, filter_disabled_regions=True):
         """ Returns a list of enabled Worker Services with the specified
         parameters.
         :param provider_requirements: dict of the form {
             "<platform_type>": [constants.PROVIDER_TYPE_*, ...]}
+        param region_sets: list of lists of region IDs to filter for.
+        Services will be filtered unless they are associated with
+        at least one region in each region set.
         """
         filters = []
         worker_services = self._get_all_worker_services(ctxt)
@@ -111,12 +140,21 @@ class SchedulerServerEndpoint(object):
         LOG.debug(
             "Searching for Worker Services with specs: %s" % {
                 "provider_requirements": provider_requirements,
-                "region_ids": region_ids, "enabled": enabled})
+                "region_sets": region_sets, "enabled": enabled})
 
         if enabled is not None:
             filters.append(trivial_filters.EnabledFilter(enabled=enabled))
-        if region_ids:
-            filters.append(trivial_filters.RegionsFilter(region_ids))
+        if region_sets:
+            for region_set in region_sets:
+                filtered_regions = self._filter_regions(
+                    ctxt, region_set, enabled=filter_disabled_regions,
+                    check_all_exist=True)
+                if not filtered_regions:
+                    raise exception.NoSuitableRegionError(
+                        "None of the selected Regions (%s) are enabled or "
+                        "otherwise usable." % region_set)
+                filters.append(
+                    trivial_filters.RegionsFilter(region_set, any_region=True))
         if provider_requirements:
             filters.append(
                 trivial_filters.ProviderTypesFilter(provider_requirements))
@@ -127,33 +165,6 @@ class SchedulerServerEndpoint(object):
             "Found Worker Services %s for specs: %s" % (
                 filtered_services, {
                     "provider_requirements": provider_requirements,
-                    "region_ids": region_ids, "enabled": enabled}))
+                    "region_sets": region_sets, "enabled": enabled}))
 
         return [s[0] for s in filtered_services]
-
-    '''
-    def get_workers_for_action(
-            self, ctxt, endpoint_type, provider_type, region_ids=None):
-        """ Returns a list of worker services which would be able to
-        perform the required provider-related action.
-
-        :param endpoint_type: the type of the platform of the endpoint
-        :param provider_type: the type of the required plugin as defined
-                              in constants.PROVIDER_TYPE_*
-        :param region_ids: list of region IDs to carry out the operation in.
-                           Will be carried out ar random if not provided.
-        """
-        # TODO
-        return self._get_all_worker_services(ctxt)
-
-    def get_workers_for_task(
-            self, ctxt, task_type, source_endpoint_type,
-            destination_endpoint_type,
-            source_region_ids=None,
-            destination_region_ids=None):
-        """ Returns a list of worker services which would be
-        able and willing to accomplish the given task.
-        """
-        # TODO
-        return self._get_all_worker_services(ctxt)
-    '''

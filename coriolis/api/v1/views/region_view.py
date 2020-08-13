@@ -15,7 +15,11 @@ def _format_region(req, region, keys=None):
 
     mapped_endpoints = region_dict.get('mapped_endpoints', [])
     region_dict['mapped_endpoints'] = [
-        endp['endpoint_id'] for endp in mapped_endpoints]
+        endp['id'] for endp in mapped_endpoints]
+
+    mapped_services = region_dict.get('mapped_services', [])
+    region_dict['mapped_services'] = [
+        svc['id'] for svc in mapped_services]
 
     return region_dict
 

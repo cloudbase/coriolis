@@ -30,26 +30,7 @@ class SchedulerClient(object):
 
     def get_workers_for_specs(
             self, ctxt, provider_requirements=None,
-            region_ids=None, enabled=None):
+            region_sets=None, enabled=None):
         return self._client.call(
-            ctxt, 'get_workers_for_specs', region_ids=region_ids,
+            ctxt, 'get_workers_for_specs', region_sets=region_sets,
             enabled=enabled, provider_requirements=provider_requirements)
-
-    '''
-    def get_workers_for_action(
-            self, ctxt, endpoint_type, provider_type, region_ids=None):
-        return self._client.call(
-            ctxt, 'get_workers_for_action', endpoint_type=endpoint_type,
-            provider_type=provider_type, region_ids=region_ids)
-
-    def get_workers_for_task(
-            self, ctxt, task_type, source_endpoint_type,
-            destination_endpoint_type, source_region_ids=None,
-            destination_region_ids=None):
-        return self._client.call(
-            ctxt, 'get_workers_for_task', task_type=task_type,
-            source_endpoint_type=source_endpoint_type,
-            destination_endpoint_type=destination_endpoint_type,
-            source_region_ids=source_region_ids,
-            destination_region_ids=destination_region_ids)
-    '''

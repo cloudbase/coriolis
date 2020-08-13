@@ -124,7 +124,9 @@ def _soft_delete_aware_query(context, *args, **kwargs):
     :param show_deleted: if True, overrides context's show_deleted field.
     """
     query = _model_query(context, *args)
-    show_deleted = kwargs.get('show_deleted') or context.show_deleted
+    show_deleted = kwargs.get('show_deleted')
+    if context and context.show_deleted:
+        show_deleted = True
 
     if not show_deleted:
         query = query.filter_by(deleted_at=None)
@@ -156,7 +158,7 @@ def get_endpoint(context, endpoint_id):
 def add_endpoint(context, endpoint):
     endpoint.user_id = context.user
     endpoint.project_id = context.tenant
-    context.session.add(endpoint)
+    _session(context).add(endpoint)
 
 
 @enginefacade.writer
@@ -300,7 +302,7 @@ def add_replica_tasks_execution(context, execution):
             action_id=execution.action.id).first()[0] or 0
     execution.number = max_number + 1
 
-    context.session.add(execution)
+    _session(context).add(execution)
 
 
 @enginefacade.writer
@@ -387,7 +389,7 @@ def add_replica_schedule(context, schedule, post_create_callable=None):
 
     if schedule.replica.project_id != context.tenant:
         raise exception.NotAuthorized()
-    context.session.add(schedule)
+    _session(context).add(schedule)
     if post_create_callable:
         post_create_callable(context, schedule)
 
@@ -444,7 +446,7 @@ def get_endpoint_replicas_count(context, endpoint_id):
 def add_replica(context, replica):
     replica.user_id = context.user
     replica.project_id = context.tenant
-    context.session.add(replica)
+    _session(context).add(replica)
 
 
 @enginefacade.writer
@@ -533,7 +535,7 @@ def get_migration(context, migration_id):
 def add_migration(context, migration):
     migration.user_id = context.user
     migration.project_id = context.tenant
-    context.session.add(migration)
+    _session(context).add(migration)
 
 
 @enginefacade.writer
@@ -682,7 +684,7 @@ def add_task_event(context, task_id, level, message):
     task_event.task_id = task_id
     task_event.level = level
     task_event.message = message
-    context.session.add(task_event)
+    _session(context).add(task_event)
 
 
 def _get_progress_update(context, task_id, current_step):
@@ -698,7 +700,7 @@ def add_task_progress_update(context, task_id, current_step, total_steps,
     task_progress_update = _get_progress_update(context, task_id, current_step)
     if not task_progress_update:
         task_progress_update = models.TaskProgressUpdate()
-        context.session.add(task_progress_update)
+        _session(context).add(task_progress_update)
 
     task_progress_update.task_id = task_id
     task_progress_update.current_step = current_step
@@ -744,20 +746,22 @@ def update_replica(context, replica_id, updated_values):
 
 @enginefacade.writer
 def add_region(context, region):
-    context.session.add(region)
+    _session(context).add(region)
 
 
 @enginefacade.reader
 def get_regions(context):
-    q = _soft_delete_aware_query(context, models.Region).options(
-        orm.joinedload('mapped_endpoints'))
+    q = _soft_delete_aware_query(context, models.Region)
+    q = q.options(orm.joinedload('mapped_endpoints'))
+    q = q.options(orm.joinedload('mapped_services'))
     return q.all()
 
 
 @enginefacade.reader
 def get_region(context, region_id):
-    q = _soft_delete_aware_query(context, models.Region).options(
-        orm.joinedload('mapped_endpoints'))
+    q = _soft_delete_aware_query(context, models.Region)
+    q = q.options(orm.joinedload('mapped_endpoints'))
+    q = q.options(orm.joinedload('mapped_services'))
     return q.filter(
         models.Region.id == region_id).first()
 
@@ -796,7 +800,7 @@ def add_endpoint_region_mapping(context, endpoint_region_mapping):
             "('%s') and the endpoint ID ('%s') must both be non-null." % (
                 region_id, endpoint_id))
 
-    context.session.add(endpoint_region_mapping)
+    _session(context).add(endpoint_region_mapping)
 
 
 @enginefacade.reader
@@ -848,7 +852,7 @@ def get_mapped_endpoints_for_region(context, region_id):
 
 @enginefacade.writer
 def add_service(context, service):
-    context.session.add(service)
+    _session(context).add(service)
 
 
 @enginefacade.reader
@@ -992,7 +996,7 @@ def add_service_region_mapping(context, service_region_mapping):
             "('%s') and the service ID ('%s') must both be non-null." % (
                 region_id, service_id))
 
-    context.session.add(service_region_mapping)
+    _session(context).add(service_region_mapping)
 
 
 @enginefacade.reader

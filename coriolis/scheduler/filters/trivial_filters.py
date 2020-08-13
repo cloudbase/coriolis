@@ -12,25 +12,40 @@ LOG = logging.getLogger(__name__)
 
 class RegionsFilter(base.BaseServiceFilter):
 
-    def __init__(self, regions):
+    def __init__(self, regions, any_region=False):
         self._regions = regions
+        self._any_region = any_region
 
     def __repr__(self):
-        return "<%s(regions=%s)>" % (
-            self.__class__.__name__, self._regions)
+        return "<%s(regions=%s, any_region=%s)>" % (
+            self.__class__.__name__, self._regions, self._any_region)
 
     def rate_service(self, service):
-        service_regions = [
-            mapping["region_id"] for mapping in service.mapped_regions]
-        missing_regions = [
-            region
-            for region in self._regions
-            if region not in service_regions]
+        if not self._regions:
+            LOG.debug(
+                "No regions specified for this filter (%s). "
+                "Presuming service is valid.")
+            return 100
 
-        if missing_regions:
+        service_regions = [
+            region.id for region in service.mapped_regions]
+        found = []
+        missing = []
+        for region in self._regions:
+            if region in service_regions:
+                found.append(region)
+            else:
+                missing.append(region)
+
+        if not found:
+            LOG.debug(
+                "None of the requested regions are available on service (%s): "
+                "%s", service.id, self._regions)
+            return 0
+        if not self._any_region and missing:
             LOG.debug(
                 "The following required regions are missing from service "
-                "with ID '%s': %s", service.id, missing_regions)
+                "with ID '%s': %s", service.id, missing)
             return 0
 
         return 100

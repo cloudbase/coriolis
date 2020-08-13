@@ -327,10 +327,8 @@ class Service(BASE, models.TimestampMixin, models.ModelBase,
     providers = sqlalchemy.Column(types.Json(), nullable=True)
     specs = sqlalchemy.Column(types.Json(), nullable=True)
     mapped_regions = orm.relationship(
-        ServiceRegionMapping, backref=orm.backref('service'),
-        cascade="all,delete",
-        primaryjoin="and_(ServiceRegionMapping.service_id==Service.id, "
-                    "ServiceRegionMapping.deleted=='0')")
+        'Region', back_populates='mapped_services',
+        secondary="service_region_mapping")
 
 
 class EndpointRegionMapping(
@@ -378,16 +376,12 @@ class Region(
         nullable=False)
 
     mapped_endpoints = orm.relationship(
-        EndpointRegionMapping, backref=orm.backref('region'),
-        cascade="all,delete",
-        primaryjoin="and_(EndpointRegionMapping.region_id==Region.id, "
-                    "EndpointRegionMapping.deleted=='0')")
+        'Endpoint', back_populates='mapped_regions',
+        secondary="endpoint_region_mapping")
 
     mapped_services = orm.relationship(
-        ServiceRegionMapping, backref=orm.backref('region'),
-        cascade="all,delete",
-        primaryjoin="and_(ServiceRegionMapping.region_id==Region.id, "
-                    "ServiceRegionMapping.deleted=='0')")
+        'Service', back_populates='mapped_regions',
+        secondary="service_region_mapping")
 
 
 class Endpoint(BASE, models.TimestampMixin, models.ModelBase,
@@ -412,10 +406,8 @@ class Endpoint(BASE, models.TimestampMixin, models.ModelBase,
         primaryjoin="and_(BaseTransferAction.destination_endpoint_id=="
                     "Endpoint.id, BaseTransferAction.deleted=='0')")
     mapped_regions = orm.relationship(
-        EndpointRegionMapping, backref=orm.backref('endpoint'),
-        cascade="all,delete",
-        primaryjoin="and_(EndpointRegionMapping.endpoint_id==Endpoint.id, "
-                    "EndpointRegionMapping.deleted=='0')")
+        'Region', back_populates='mapped_endpoints',
+        secondary="endpoint_region_mapping")
 
 
 class ReplicaSchedule(BASE, models.TimestampMixin, models.ModelBase,

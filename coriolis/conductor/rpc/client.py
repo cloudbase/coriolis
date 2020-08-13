@@ -338,10 +338,21 @@ class ConductorClient(object):
             ctxt, 'delete_region', region_id=region_id)
 
     def register_service(
-            self, ctxt, host, binary, topic, enabled, mapped_regions):
+            self, ctxt, host, binary, topic, enabled, mapped_regions,
+            providers=None, specs=None):
         return self._client.call(
             ctxt, 'register_service', host=host, binary=binary,
-            topic=topic, enabled=enabled, mapped_regions=mapped_regions)
+            topic=topic, enabled=enabled, mapped_regions=mapped_regions,
+            providers=providers, specs=specs)
+
+    def check_service_registered(self, ctxt, host, binary, topic):
+        return self._client.call(
+            ctxt, 'check_service_registered', host=host, binary=binary,
+            topic=topic)
+
+    def refresh_service_status(self, ctxt, service_id):
+        return self._client.call(
+            ctxt, 'refresh_service_status', service_id=service_id)
 
     def get_services(self, ctxt):
         return self._client.call(ctxt, 'get_services')

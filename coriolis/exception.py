@@ -148,6 +148,7 @@ class Invalid(CoriolisException):
     code = 400
     safe = True
 
+
 class InvalidCustomOSDetectTools(Invalid):
     message = _("The provided custom OS detect tools are invalid.")
 
@@ -243,6 +244,10 @@ class NotFound(CoriolisException):
     message = _("Resource could not be found.")
     code = 404
     safe = True
+
+
+class RegionNotFound(NotFound):
+    message = _("The specified Coriolis region(s) could not be found.")
 
 
 class OSMorphingToolsNotFound(NotFound):
@@ -388,6 +393,20 @@ class UnrecognizedWorkerInitSystem(CoriolisException):
         "Could not determine init system for temporary worker VM. The image "
         "used for the worker VM must use systemd as an init system for "
         "Coriolis to be able to use it for data Replication.")
+
+
+class NoRegionError(CoriolisException):
+    safe = True
+    code = 503
+    message = _(
+        "No Coriolis region is avaialable to process this request at this "
+        "time.")
+
+
+class NoSuitableRegionError(NoRegionError):
+    message = _(
+        "No Coriolis Region(s) fitting the criteria of the required operation "
+        "could be found.")
 
 
 class NoServiceError(CoriolisException):

@@ -15,7 +15,7 @@ def _format_service(req, service, keys=None):
 
     mapped_regions = service_dict.get('mapped_regions', [])
     service_dict['mapped_regions'] = [
-        mapping['region_id'] for mapping in mapped_regions]
+        mapping['id'] for mapping in mapped_regions]
 
     return service_dict
 

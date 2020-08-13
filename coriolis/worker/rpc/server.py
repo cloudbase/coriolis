@@ -16,7 +16,9 @@ import psutil
 from six.moves import queue
 
 from coriolis.conductor.rpc import client as rpc_conductor_client
+from coriolis.conductor.rpc import utils as conductor_rpc_utils
 from coriolis import constants
+from coriolis import context
 from coriolis import events
 from coriolis import exception
 from coriolis.providers import factory as providers_factory
@@ -63,7 +65,36 @@ class _ConductorProviderEventHandler(events.BaseEventHandler):
 class WorkerServerEndpoint(object):
     def __init__(self):
         self._server = utils.get_hostname()
-        self._rpc_conductor_client = rpc_conductor_client.ConductorClient()
+        self._service_registration = self._register_worker_service()
+
+    @property
+    def _rpc_conductor_client(self):
+        # NOTE(aznashwan): it is unsafe to fork processes with pre-instantiated
+        # oslo_messaging clients as the underlying eventlet thread queues will
+        # be invalidated. Considering this class both serves from a "main
+        # process" as well as forking child processes, it is safest to
+        # re-instantiate the client every time:
+        return rpc_conductor_client.ConductorClient()
+
+    def _register_worker_service(self):
+        host = utils.get_hostname()
+        binary = utils.get_binary_name()
+        dummy_context = context.RequestContext(
+            # TODO(aznashwan): we should ideally have a dedicated
+            # user/pass/tenant just for service registration.
+            # Either way, these values are not used and thus redundant.
+            "coriolis", "admin")
+        status = self.get_service_status(dummy_context)
+        service_registration = (
+            conductor_rpc_utils.check_create_registration_for_service(
+                self._rpc_conductor_client, dummy_context, host, binary,
+                constants.WORKER_MAIN_MESSAGING_TOPIC, enabled=True,
+                providers=status['providers'], specs=status['specs']))
+        LOG.info(
+            "Worker service is successfully registered with the following "
+            "parameters: %s", service_registration)
+        self._service_registration = service_registration
+        return service_registration
 
     def _check_remove_dir(self, path):
         try:
@@ -196,10 +227,15 @@ class WorkerServerEndpoint(object):
 
         self._start_process_with_custom_library_paths(p, extra_library_paths)
         LOG.info("Task process started: %s", task_id)
+        LOG.debug(
+            "Attempting to set task host on Conductor for task '%s'.", task_id)
         try:
             self._rpc_conductor_client.set_task_host(
                 ctxt, task_id, self._server, p.pid)
         except (Exception, KeyboardInterrupt) as ex:
+            LOG.debug(
+                "Exception occurred whilst setting host for task '%s'. Error "
+                "was: %s", task_id, utils.get_exception_details())
             # NOTE: because the task error classes are wrapped,
             # it's easiest to just check that the messages align:
             cancelling_msg = exception.TASK_ALREADY_CANCELLING_EXCEPTION_FMT % {
@@ -216,10 +252,17 @@ class WorkerServerEndpoint(object):
         p.join()
 
         if result is None:
+            LOG.debug(
+                "No result from process (%s) running task '%s'. "
+                "Presuming task was cancelled.",
+                p.pid, task_id)
             raise exception.TaskProcessCanceledException(
                 "Task was canceled.")
 
         if isinstance(result, str):
+            LOG.debug(
+                "Error message while running task '%s' on process "
+                "with PID '%s': %s", task_id, p.pid, result)
             raise exception.TaskProcessException(result)
         return result
 
@@ -238,10 +281,18 @@ class WorkerServerEndpoint(object):
             self._rpc_conductor_client.task_completed(
                 ctxt, task_id, task_result)
         except exception.TaskProcessCanceledException as ex:
+            LOG.debug(
+                "Task with ID '%s' appears to have been cancelled. "
+                "Confirming cancellation to Conductor now. Error was: %s",
+                task_id, utils.get_exception_details())
             LOG.exception(ex)
             self._rpc_conductor_client.confirm_task_cancellation(
                 ctxt, task_id, str(ex))
         except Exception as ex:
+            LOG.debug(
+                "Task with ID '%s' has error'd out. Reporting error to "
+                "Conductor now. Error was: %s",
+                task_id, utils.get_exception_details())
             LOG.exception(ex)
             self._rpc_conductor_client.set_task_error(ctxt, task_id, str(ex))
 
