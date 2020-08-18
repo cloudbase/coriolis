@@ -234,10 +234,13 @@ class ConductorClient(object):
         self._client.call(
             ctxt, 'cancel_migration', migration_id=migration_id, force=force)
 
-    def set_task_host(self, ctxt, task_id, host, process_id):
+    def set_task_host(self, ctxt, task_id, host):
         self._client.call(
-            ctxt, 'set_task_host', task_id=task_id, host=host,
-            process_id=process_id)
+            ctxt, 'set_task_host', task_id=task_id, host=host)
+
+    def set_task_process(self, ctxt, task_id, process_id):
+        self._client.call(
+            ctxt, 'set_task_process', task_id=task_id, process_id=process_id)
 
     def task_completed(self, ctxt, task_id, task_result):
         self._client.call(

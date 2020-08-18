@@ -666,10 +666,12 @@ def set_task_status(context, task_id, status, exception_details=None):
 
 
 @enginefacade.writer
-def set_task_host(context, task_id, host, process_id):
+def set_task_host_properties(context, task_id, host=None, process_id=None):
     task = _get_task(context, task_id)
-    task.host = host
-    task.process_id = process_id
+    if host:
+        task.host = host
+    if process_id:
+        task.process_id = process_id
 
 
 @enginefacade.reader

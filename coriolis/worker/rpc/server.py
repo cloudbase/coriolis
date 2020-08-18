@@ -117,6 +117,9 @@ class WorkerServerEndpoint(object):
         return status
 
     def cancel_task(self, ctxt, task_id, process_id, force):
+        LOG.debug(
+            "Received request to cancel task '%s' (process %s)",
+            task_id, process_id)
         if not force and os.name == "nt":
             LOG.warn("Windows does not support SIGINT, performing a "
                      "forced task termination")
@@ -138,8 +141,6 @@ class WorkerServerEndpoint(object):
                 "completed/error'd." % (
                     process_id, task_id))
             LOG.error(msg)
-            self._rpc_conductor_client.confirm_task_cancellation(
-                ctxt, task_id, msg)
 
     def _handle_mp_log_events(self, p, mp_log_q):
         while True:
@@ -225,13 +226,25 @@ class WorkerServerEndpoint(object):
         extra_library_paths = self._get_extra_library_paths_for_providers(
             ctxt, task_id, task_type, origin, destination)
 
-        self._start_process_with_custom_library_paths(p, extra_library_paths)
-        LOG.info("Task process started: %s", task_id)
-        LOG.debug(
-            "Attempting to set task host on Conductor for task '%s'.", task_id)
         try:
+            LOG.debug(
+                "Attempting to set task host on Conductor for task '%s'.",
+                task_id)
             self._rpc_conductor_client.set_task_host(
-                ctxt, task_id, self._server, p.pid)
+                ctxt, task_id, self._server)
+            LOG.debug(
+                "Attempting to start process for task with ID '%s'", task_id)
+            self._start_process_with_custom_library_paths(
+                p, extra_library_paths)
+            LOG.info("Task process started: %s", task_id)
+            LOG.debug(
+                "Attempting to set task process on Conductor for task '%s'.",
+                task_id)
+            self._rpc_conductor_client.set_task_process(
+                ctxt, task_id, p.pid)
+            LOG.debug(
+                "Successfully started and retported task process for task "
+                "with ID '%s'.", task_id)
         except (Exception, KeyboardInterrupt) as ex:
             LOG.debug(
                 "Exception occurred whilst setting host for task '%s'. Error "
@@ -288,6 +301,11 @@ class WorkerServerEndpoint(object):
             LOG.exception(ex)
             self._rpc_conductor_client.confirm_task_cancellation(
                 ctxt, task_id, str(ex))
+        except exception.NoSuitableWorkerServiceError as ex:
+            LOG.warn(
+                "A conductor-side scheduling error has occurred following the "
+                "completion of task '%s'. Ignoring. Error was: %s",
+                task_id, utils.get_exception_details())
         except Exception as ex:
             LOG.debug(
                 "Task with ID '%s' has error'd out. Reporting error to "
