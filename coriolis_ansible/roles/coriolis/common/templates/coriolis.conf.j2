@@ -2,6 +2,8 @@
 default_messaging_timeout = 60
 messaging_transport_url = rabbit://{{ rabbitmq_user }}:{{ rabbitmq_password }}@{{ rabbitmq_host }}:{{ rabbitmq_port }}/
 
+default_requests_timeout = 60
+
 debug = {{ coriolis_debug }}
 log_dir = {{  coriolis_log_dir }}
 logging_exception_prefix = %(asctime)s.%(msecs)03d TRACE %(name)s %(instance)s
@@ -84,6 +86,9 @@ debug_os_morphing_errors = False
 [worker]
 worker_rpc_timeout = 60
 export_base_path = {{ coriolis_export_dir }}
+
+[replicator]
+default_requests_timeout = 60
 
 [serialization]
 temp_keypair_password = {{ temp_keypair_password }}
