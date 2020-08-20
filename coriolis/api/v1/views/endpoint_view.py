@@ -10,8 +10,13 @@ def _format_endpoint(req, endpoint, keys=None):
             return
         yield (key, value)
 
-    return dict(itertools.chain.from_iterable(
+    endpoint_dict = dict(itertools.chain.from_iterable(
         transform(k, v) for k, v in endpoint.items()))
+    mapped_regions = endpoint_dict.get('mapped_regions', [])
+    endpoint_dict['mapped_regions'] = [
+        reg['id'] for reg in mapped_regions]
+
+    return endpoint_dict
 
 
 def single(req, endpoint):

@@ -5,6 +5,7 @@ import sys
 
 from oslo_config import cfg
 
+from coriolis import constants
 from coriolis import service
 from coriolis import utils
 from coriolis.worker.rpc import server as rpc_server
@@ -18,7 +19,8 @@ def main():
     utils.setup_logging()
 
     server = service.MessagingService(
-        'coriolis_worker', [rpc_server.WorkerServerEndpoint()],
+        constants.WORKER_MAIN_MESSAGING_TOPIC,
+        [rpc_server.WorkerServerEndpoint()],
         rpc_server.VERSION)
     launcher = service.service.launch(
         CONF, server, workers=server.get_workers_count())

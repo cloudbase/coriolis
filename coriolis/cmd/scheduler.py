@@ -1,4 +1,4 @@
-# Copyright 2017 Cloudbase Solutions Srl
+# Copyright 2020 Cloudbase Solutions Srl
 # All Rights Reserved.
 
 import sys
@@ -8,7 +8,7 @@ from oslo_config import cfg
 from coriolis import constants
 from coriolis import service
 from coriolis import utils
-from coriolis.replica_cron.rpc import server as rpc_server
+from coriolis.scheduler.rpc import server as rpc_server
 
 CONF = cfg.CONF
 
@@ -19,8 +19,8 @@ def main():
     utils.setup_logging()
 
     server = service.MessagingService(
-        constants.REPLICA_CRON_MAIN_MESSAGING_TOPIC,
-        [rpc_server.ReplicaCronServerEndpoint()],
+        constants.SCHEDULER_MAIN_MESSAGING_TOPIC,
+        [rpc_server.SchedulerServerEndpoint()],
         rpc_server.VERSION, worker_count=1)
     launcher = service.service.launch(
         CONF, server, workers=server.get_workers_count())

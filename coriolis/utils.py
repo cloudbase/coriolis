@@ -16,6 +16,7 @@ import re
 import socket
 import string
 import subprocess
+import sys
 import time
 import traceback
 import uuid
@@ -122,10 +123,10 @@ def get_diagnostics_info():
     # diagnostics.
     packages = list(freeze.freeze())
     return {
-        "application": os.path.basename(main.__file__),
+        "application": get_binary_name(),
         "packages": packages,
         "os_info": _get_host_os_info(),
-        "hostname": platform.node(),
+        "hostname": get_hostname(),
         "ip_addresses": _get_local_ips(),
     }
 
@@ -426,6 +427,10 @@ def convert_disk_format(disk_path, target_disk_path, target_format,
 
 def get_hostname():
     return socket.gethostname()
+
+
+def get_binary_name():
+    return os.path.basename(sys.argv[0])
 
 
 def get_exception_details():

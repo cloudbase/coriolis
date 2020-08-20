@@ -4,6 +4,7 @@
 from oslo_config import cfg
 import oslo_messaging as messaging
 
+from coriolis import constants
 from coriolis import rpc
 
 VERSION = "1.0"
@@ -19,17 +20,19 @@ CONF.register_opts(conductor_opts, 'conductor')
 
 
 class ConductorClient(object):
-    def __init__(self, timeout=None):
-        target = messaging.Target(topic='coriolis_conductor', version=VERSION)
+    def __init__(self, timeout=None,
+                 topic=constants.CONDUCTOR_MAIN_MESSAGING_TOPIC):
+        target = messaging.Target(topic=topic, version=VERSION)
         if timeout is None:
             timeout = CONF.conductor.conductor_rpc_timeout
         self._client = rpc.get_client(target, timeout=timeout)
 
     def create_endpoint(self, ctxt, name, endpoint_type, description,
-                        connection_info):
+                        connection_info, mapped_regions):
         return self._client.call(
             ctxt, 'create_endpoint', name=name, endpoint_type=endpoint_type,
-            description=description, connection_info=connection_info)
+            description=description, connection_info=connection_info,
+            mapped_regions=mapped_regions)
 
     def update_endpoint(self, ctxt, endpoint_id, updated_values):
         return self._client.call(
@@ -231,10 +234,13 @@ class ConductorClient(object):
         self._client.call(
             ctxt, 'cancel_migration', migration_id=migration_id, force=force)
 
-    def set_task_host(self, ctxt, task_id, host, process_id):
+    def set_task_host(self, ctxt, task_id, host):
         self._client.call(
-            ctxt, 'set_task_host', task_id=task_id, host=host,
-            process_id=process_id)
+            ctxt, 'set_task_host', task_id=task_id, host=host)
+
+    def set_task_process(self, ctxt, task_id, process_id):
+        self._client.call(
+            ctxt, 'set_task_process', task_id=task_id, process_id=process_id)
 
     def task_completed(self, ctxt, task_id, task_result):
         self._client.call(
@@ -308,3 +314,61 @@ class ConductorClient(object):
 
     def get_all_diagnostics(self, ctxt):
         return self._client.call(ctxt, 'get_all_diagnostics')
+
+    def create_region(
+            self, ctxt, region_name, description="", enabled=True):
+        return self._client.call(
+            ctxt, 'create_region',
+            region_name=region_name,
+            description=description,
+            enabled=enabled)
+
+    def get_regions(self, ctxt):
+        return self._client.call(ctxt, 'get_regions')
+
+    def get_region(self, ctxt, region_id):
+        return self._client.call(
+            ctxt, 'get_region', region_id=region_id)
+
+    def update_region(self, ctxt, region_id, updated_values):
+        return self._client.call(
+            ctxt, 'update_region',
+            region_id=region_id,
+            updated_values=updated_values)
+
+    def delete_region(self, ctxt, region_id):
+        return self._client.call(
+            ctxt, 'delete_region', region_id=region_id)
+
+    def register_service(
+            self, ctxt, host, binary, topic, enabled, mapped_regions,
+            providers=None, specs=None):
+        return self._client.call(
+            ctxt, 'register_service', host=host, binary=binary,
+            topic=topic, enabled=enabled, mapped_regions=mapped_regions,
+            providers=providers, specs=specs)
+
+    def check_service_registered(self, ctxt, host, binary, topic):
+        return self._client.call(
+            ctxt, 'check_service_registered', host=host, binary=binary,
+            topic=topic)
+
+    def refresh_service_status(self, ctxt, service_id):
+        return self._client.call(
+            ctxt, 'refresh_service_status', service_id=service_id)
+
+    def get_services(self, ctxt):
+        return self._client.call(ctxt, 'get_services')
+
+    def get_service(self, ctxt, service_id):
+        return self._client.call(
+            ctxt, 'get_service', service_id=service_id)
+
+    def update_service(self, ctxt, service_id, updated_values):
+        return self._client.call(
+            ctxt, 'update_service', service_id=service_id,
+            updated_values=updated_values)
+
+    def delete_service(self, ctxt, service_id):
+        return self._client.call(
+            ctxt, 'delete_service', service_id=service_id)

@@ -14,13 +14,24 @@ LOG = logging.getLogger(__name__)
 
 class GetOptimalFlavorTask(base.TaskRunner):
 
-    @property
-    def required_task_info_properties(self):
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_DESTINATION
+
+    @classmethod
+    def get_required_task_info_properties(cls):
         return ["export_info", "target_environment"]
 
-    @property
-    def returned_task_info_properties(self):
+    @classmethod
+    def get_returned_task_info_properties(cls):
         return ["instance_deployment_info"]
+
+    @classmethod
+    def get_required_provider_types(cls):
+        return {
+            constants.PROVIDER_PLATFORM_DESTINATION: [
+                constants.PROVIDER_TYPE_INSTANCE_FLAVOR]
+        }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):

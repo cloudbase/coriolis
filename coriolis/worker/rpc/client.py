@@ -4,6 +4,7 @@
 from oslo_config import cfg
 import oslo_messaging as messaging
 
+from coriolis import constants
 from coriolis import rpc
 
 VERSION = "1.0"
@@ -19,8 +20,9 @@ CONF.register_opts(worker_opts, 'worker')
 
 
 class WorkerClient(object):
-    def __init__(self, timeout=None):
-        target = messaging.Target(topic='coriolis_worker', version=VERSION)
+    def __init__(
+            self, timeout=None, topic=constants.WORKER_MAIN_MESSAGING_TOPIC):
+        target = messaging.Target(topic=topic, version=VERSION)
         if timeout is None:
             timeout = CONF.worker.worker_rpc_timeout
         self._client = rpc.get_client(target, timeout=timeout)
@@ -38,9 +40,6 @@ class WorkerClient(object):
         cctxt = self._client.prepare(server=server)
         cctxt.call(ctxt, 'cancel_task', task_id=task_id, process_id=process_id,
                    force=force)
-
-    def update_migration_status(self, ctxt, task_id, status):
-        self._client.call(ctxt, "update_migration_status", status=status)
 
     def get_endpoint_instances(self, ctxt, platform_name, connection_info,
                                source_environment, marker=None, limit=None,
@@ -128,3 +127,6 @@ class WorkerClient(object):
 
     def get_diagnostics(self, ctxt):
         return self._client.call(ctxt, 'get_diagnostics')
+
+    def get_service_status(self, ctxt):
+        return self._client.call(ctxt, 'get_service_status')

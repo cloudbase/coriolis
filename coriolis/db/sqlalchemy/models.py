@@ -7,7 +7,9 @@ from oslo_db.sqlalchemy import models
 import sqlalchemy
 from sqlalchemy.ext import declarative
 from sqlalchemy import orm
+from sqlalchemy import schema
 
+from coriolis import constants
 from coriolis.db.sqlalchemy import types
 
 BASE = declarative.declarative_base()
@@ -277,6 +279,110 @@ class Migration(BaseTransferAction):
         })
         return base
 
+class ServiceRegionMapping(
+        BASE, models.TimestampMixin, models.ModelBase, models.SoftDeleteMixin):
+    __tablename__ = "service_region_mapping"
+
+    id = sqlalchemy.Column(
+        sqlalchemy.String(36),
+        default=lambda: str(uuid.uuid4()),
+        nullable=False,
+        primary_key=True)
+
+    service_id = sqlalchemy.Column(
+        sqlalchemy.String(36),
+        sqlalchemy.ForeignKey('service.id'),
+        nullable=False)
+
+    region_id = sqlalchemy.Column(
+        sqlalchemy.String(36),
+        sqlalchemy.ForeignKey('region.id'),
+        nullable=False)
+
+
+class Service(BASE, models.TimestampMixin, models.ModelBase,
+              models.SoftDeleteMixin):
+    __tablename__ = "service"
+    __table_args__ = (
+        schema.UniqueConstraint("host", "topic", "deleted",
+                                name="uniq_services0host0topic0deleted"),
+        schema.UniqueConstraint("host", "binary", "deleted",
+                                name="uniq_services0host0binary0deleted"))
+
+    id = sqlalchemy.Column(
+        sqlalchemy.String(36), default=lambda: str(uuid.uuid4()),
+        primary_key=True)
+
+    host = sqlalchemy.Column(
+        sqlalchemy.String(255), nullable=False)
+    binary = sqlalchemy.Column(
+        sqlalchemy.String(255), nullable=False)
+    topic = sqlalchemy.Column(
+        sqlalchemy.String(255), nullable=True, default=None)
+    enabled = sqlalchemy.Column(
+        sqlalchemy.Boolean, nullable=False, default=lambda: False)
+    status = sqlalchemy.Column(
+        sqlalchemy.String(255), nullable=False,
+        default=lambda: constants.SERVICE_STATUS_UNKNOWN)
+    providers = sqlalchemy.Column(types.Json(), nullable=True)
+    specs = sqlalchemy.Column(types.Json(), nullable=True)
+    mapped_regions = orm.relationship(
+        'Region', back_populates='mapped_services',
+        secondary="service_region_mapping")
+
+
+class EndpointRegionMapping(
+        BASE, models.TimestampMixin, models.ModelBase, models.SoftDeleteMixin):
+    __tablename__ = "endpoint_region_mapping"
+
+    id = sqlalchemy.Column(
+        sqlalchemy.String(36),
+        default=lambda: str(uuid.uuid4()),
+        nullable=False,
+        primary_key=True)
+
+    endpoint_id = sqlalchemy.Column(
+        sqlalchemy.String(36),
+        sqlalchemy.ForeignKey('endpoint.id'),
+        nullable=False)
+
+    region_id = sqlalchemy.Column(
+        sqlalchemy.String(36),
+        sqlalchemy.ForeignKey('region.id'),
+        nullable=False)
+
+
+class Region(
+        BASE, models.TimestampMixin, models.ModelBase, models.SoftDeleteMixin):
+    __tablename__ = "region"
+
+    id = sqlalchemy.Column(
+        sqlalchemy.String(36),
+        default=lambda: str(uuid.uuid4()),
+        nullable=False,
+        primary_key=True)
+
+    name = sqlalchemy.Column(
+        sqlalchemy.String(255),
+        nullable=False)
+
+    description = sqlalchemy.Column(
+        sqlalchemy.String(1024),
+        nullable=True)
+
+    enabled = sqlalchemy.Column(
+        sqlalchemy.Boolean,
+        default=lambda: False,
+        nullable=False)
+
+    mapped_endpoints = orm.relationship(
+        'Endpoint', back_populates='mapped_regions',
+        secondary="endpoint_region_mapping")
+
+    mapped_services = orm.relationship(
+        'Service', back_populates='mapped_regions',
+        secondary="service_region_mapping")
+
 
 class Endpoint(BASE, models.TimestampMixin, models.ModelBase,
                models.SoftDeleteMixin):
@@ -294,11 +400,14 @@ class Endpoint(BASE, models.TimestampMixin, models.ModelBase,
     origin_actions = orm.relationship(
         BaseTransferAction, backref=orm.backref('origin_endpoint'),
         primaryjoin="and_(BaseTransferAction.origin_endpoint_id==Endpoint.id, "
-        "BaseTransferAction.deleted=='0')")
+                    "BaseTransferAction.deleted=='0')")
     destination_actions = orm.relationship(
         BaseTransferAction, backref=orm.backref('destination_endpoint'),
         primaryjoin="and_(BaseTransferAction.destination_endpoint_id=="
-        "Endpoint.id, BaseTransferAction.deleted=='0')")
+                    "Endpoint.id, BaseTransferAction.deleted=='0')")
+    mapped_regions = orm.relationship(
+        'Region', back_populates='mapped_endpoints',
+        secondary="endpoint_region_mapping")
 
 
 class ReplicaSchedule(BASE, models.TimestampMixin, models.ModelBase,
@@ -317,7 +426,7 @@ class ReplicaSchedule(BASE, models.TimestampMixin, models.ModelBase,
     expiration_date = sqlalchemy.Column(
         sqlalchemy.types.DateTime, nullable=True)
     enabled = sqlalchemy.Column(
-        sqlalchemy.Boolean, nullable=False, default=True)
+        sqlalchemy.Boolean, nullable=False, default=lambda: False)
     shutdown_instance = sqlalchemy.Column(
         sqlalchemy.Boolean, nullable=False, default=False)
     trust_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)

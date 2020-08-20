@@ -14,9 +14,11 @@ from coriolis.policies import diagnostics
 from coriolis.policies import endpoints
 from coriolis.policies import general
 from coriolis.policies import migrations
+from coriolis.policies import regions
 from coriolis.policies import replicas
 from coriolis.policies import replica_schedules
 from coriolis.policies import replica_tasks_executions
+from coriolis.policies import services
 
 
 LOG = logging.getLogger(__name__)
@@ -26,7 +28,7 @@ _ENFORCER = None
 
 DEFAULT_POLICIES_MODULES = [
     base, endpoints, general, migrations, replicas, replica_schedules,
-    replica_tasks_executions, diagnostics]
+    replica_tasks_executions, diagnostics, regions, services]
 
 
 def reset():
@@ -61,7 +63,7 @@ def check_policy_for_context(
     """ Checks the validity of the given action of the given target based on
     set policies.
     On success, returns a value where bool(val) == True.
-    On failure and if `do_raise` if False, returns False.
+    On failure and if `do_raise` is False, returns False.
     Raises `exception.PolicyNotAuthorized` or `exc` if the policy is
     not authorized.
     """

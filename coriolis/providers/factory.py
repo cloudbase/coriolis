@@ -61,7 +61,7 @@ def get_available_providers():
             provider_data = providers.get(cls.platform, {})
 
             provider_types = provider_data.get("types", [])
-            if (provider_class in cls.__bases__ and
+            if (provider_class in cls.__mro__ and
                     provider_type not in provider_types):
                 provider_types.append(provider_type)
 

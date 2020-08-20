@@ -16,11 +16,13 @@ from coriolis.api.v1 import migration_actions
 from coriolis.api.v1 import migrations
 from coriolis.api.v1 import provider_schemas
 from coriolis.api.v1 import providers
+from coriolis.api.v1 import regions
 from coriolis.api.v1 import replica_actions
 from coriolis.api.v1 import replica_schedules
 from coriolis.api.v1 import replica_tasks_execution_actions
 from coriolis.api.v1 import replica_tasks_executions
 from coriolis.api.v1 import replicas
+from coriolis.api.v1 import services
 
 LOG = logging.getLogger(__name__)
 
@@ -43,11 +45,21 @@ class APIRouter(api.APIRouter):
         mapper.resource('provider', 'providers',
                         controller=self.resources['providers'])
 
+        self.resources['regions'] = regions.create_resource()
+        mapper.resource('region', 'regions',
+                        controller=self.resources['regions'],
+                        collection={'detail': 'GET'})
+
         self.resources['endpoints'] = endpoints.create_resource()
         mapper.resource('endpoint', 'endpoints',
                         controller=self.resources['endpoints'],
                         collection={'detail': 'GET'},
                         member={'action': 'POST'})
+
+        self.resources['services'] = services.create_resource()
+        mapper.resource('service', 'services',
+                        controller=self.resources['services'],
+                        collection={'detail': 'GET'})
 
         endpoint_actions_resource = endpoint_actions.create_resource()
         self.resources['endpoint_actions'] = endpoint_actions_resource
