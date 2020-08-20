@@ -2,4 +2,7 @@
 # All Rights Reserved.
 
 import eventlet
+
+from coriolis import conf
+
 eventlet.monkey_patch()

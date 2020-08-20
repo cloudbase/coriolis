@@ -1,13 +1,11 @@
 # Copyright 2019 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-import errno
 import json
 import os
 import shutil
 import tempfile
 import time
-import uuid
 
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -38,6 +36,9 @@ replicator_opts = [
     cfg.IntOpt('port',
                default=DEFAULT_REPLICATOR_PORT,
                help='The replicator TCP port.'),
+    cfg.IntOpt('default_requests_timeout',
+               default=60,
+               help='Number of seconds for HTTP request timeouts.'),
 ]
 
 CONF = cfg.CONF
@@ -171,7 +172,9 @@ class Client(object):
         params = {
             "brief": brief,
         }
-        status = self._cli.get(uri, params=params)
+        status = self._cli.get(
+            uri, params=params,
+            timeout=CONF.replicator.default_requests_timeout)
         status.raise_for_status()
         return status.json()
 
@@ -181,21 +184,25 @@ class Client(object):
         params = {
             "skipZeros": skip_zeros,
         }
-        chunks = self._cli.get(uri, params=params)
+        chunks = self._cli.get(
+            uri, params=params,
+            timeout=CONF.replicator.default_requests_timeout)
         chunks.raise_for_status()
         return chunks.json()
 
     @utils.retry_on_error()
     def get_changes(self, device):
         uri = "%s/api/v1/dev/%s/chunks/changes/" % (self._base_uri, device)
-        chunks = self._cli.get(uri)
+        chunks = self._cli.get(
+            uri, timeout=CONF.replicator.default_requests_timeout)
         chunks.raise_for_status()
         return chunks.json()
 
     @utils.retry_on_error()
     def get_disk_size(self, disk):
         diskUri = self.raw_disk_uri(disk)
-        info = self._cli.head(diskUri)
+        info = self._cli.head(
+            diskUri, timeout=CONF.replicator.default_requests_timeout)
         info.raise_for_status()
         return int(info.headers["Content-Length"])
 
@@ -213,7 +220,8 @@ class Client(object):
             headers["Accept-encoding"] = "identity"
 
         data = self._cli.get(
-            diskUri, headers=headers)
+            diskUri, headers=headers,
+            timeout=CONF.replicator.default_requests_timeout)
         data.raise_for_status()
         return data.content
 
@@ -825,7 +833,8 @@ class Replicator(object):
             "{:.0f}%%" % disk)
 
         total = 0
-        with self._cli._cli.get(diskUri, stream=True) as dw:
+        with self._cli._cli.get(diskUri, stream=True,
+                                timeout=CONF.replicator.default_requests_timeout) as dw:
             with open(path, 'wb') as dsk:
                 for chunk in dw.iter_content(chunk_size=self._chunk_size):
                     if chunk:
