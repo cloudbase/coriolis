@@ -257,6 +257,7 @@ def update_endpoint(context, endpoint_id, updated_values):
 
 @enginefacade.writer
 def delete_endpoint(context, endpoint_id):
+    endpoint = get_endpoint(context, endpoint_id)
     args = {"id": endpoint_id}
     if is_user_context(context):
         args["project_id"] = context.tenant
@@ -264,6 +265,11 @@ def delete_endpoint(context, endpoint_id):
         **args).soft_delete()
     if count == 0:
         raise exception.NotFound("0 Endpoint entries were soft deleted")
+    # NOTE(aznashwan): many-to-many tables with soft deletion on either end of
+    # the association are not handled properly so we must manually delete each
+    # association ourselves:
+    for reg in endpoint.mapped_regions:
+        delete_endpoint_region_mapping(context, endpoint_id, reg.id)
 
 
 @enginefacade.reader
@@ -785,11 +791,18 @@ def update_region(context, region_id, updated_values):
 
 @enginefacade.writer
 def delete_region(context, region_id):
+    region = get_region(context, region_id)
     count = _soft_delete_aware_query(context, models.Region).filter_by(
         id=region_id).soft_delete()
     if count == 0:
         raise exception.NotFound("0 region entries were soft deleted")
-
+    # NOTE(aznashwan): many-to-many tables with soft deletion on either end of
+    # the association are not handled properly so we must manually delete each
+    # association ourselves:
+    for endp in region.mapped_endpoints:
+        delete_endpoint_region_mapping(context, endp.id, region_id)
+    for svc in region.mapped_services:
+        delete_service_region_mapping(context, svc.id, region_id)
 
 @enginefacade.writer
 def add_endpoint_region_mapping(context, endpoint_region_mapping):
@@ -818,9 +831,13 @@ def get_endpoint_region_mapping(context, endpoint_id, region_id):
 @enginefacade.writer
 def delete_endpoint_region_mapping(context, endpoint_id, region_id):
     args = {"endpoint_id": endpoint_id, "region_id": region_id}
+    # TODO(aznashwan): many-to-many realtionships have no sane way of
+    # supporting soft deletion from the sqlalchemy layer wihout
+    # writing join condictions, so we hard-`delete()` instead of
+    # `soft_delete()` util we find a better option:
     count = _soft_delete_aware_query(
         context, models.EndpointRegionMapping).filter_by(
-            **args).soft_delete()
+            **args).delete()
     if count == 0:
         raise exception.NotFound(
             "There is no mapping between endpoint '%s' and region '%s'." % (
@@ -981,10 +998,16 @@ def update_service(context, service_id, updated_values):
 
 @enginefacade.writer
 def delete_service(context, service_id):
+    service = get_service(context, service_id)
     count = _soft_delete_aware_query(context, models.Service).filter_by(
         id=service_id).soft_delete()
     if count == 0:
         raise exception.NotFound("0 service entries were soft deleted")
+    # NOTE(aznashwan): many-to-many tables with soft deletion on either end of
+    # the association are not handled properly so we must manually delete each
+    # association ourselves:
+    for reg in service.mapped_regions:
+        delete_service_region_mapping(context, service_id, reg.id)
 
 
 @enginefacade.writer
@@ -1014,9 +1037,13 @@ def get_service_region_mapping(context, service_id, region_id):
 @enginefacade.writer
 def delete_service_region_mapping(context, service_id, region_id):
     args = {"service_id": service_id, "region_id": region_id}
+    # TODO(aznashwan): many-to-many realtionships have no sane way of
+    # supporting soft deletion from the sqlalchemy layer wihout
+    # writing join condictions, so we hard-`delete()` instead of
+    # `soft_delete()` util we find a better option:
     count = _soft_delete_aware_query(
         context, models.ServiceRegionMapping).filter_by(
-            **args).soft_delete()
+            **args).delete()
     if count == 0:
         raise exception.NotFound(
             "There is no mapping between service '%s' and region '%s'." % (
