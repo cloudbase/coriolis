@@ -287,6 +287,20 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
         return self._conn.exec_ps_command(
             "Test-Path %s" % reg_service_path) == "True"
 
+    def _setup_existing_cbslinit_service(self, key_name, image_path,
+                                         service_account="LocalSystem"):
+        reg_service_path = (SERVICE_PATH_FORMAT %
+                            (key_name, CLOUDBASEINIT_SERVICE_NAME))
+        self._conn.exec_ps_command(
+            "Set-ItemProperty -Path '%s' -Name 'ImagePath' -Value '%s' "
+            "-Force" % (reg_service_path, image_path))
+        self._conn.exec_ps_command(
+            "Set-ItemProperty -Path '%s' -Name 'ObjectName' "
+            "-Value '%s' -Force" % (reg_service_path, service_account))
+
+        self._set_service_start_mode(key_name, CLOUDBASEINIT_SERVICE_NAME,
+                                     SERVICE_START_AUTO)
+
     def _get_cbslinit_scripts_dir(self, base_dir):
         return ("%s\\LocalScripts" % base_dir)
 
@@ -374,44 +388,40 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
             "HKLM\\%s" % key_name,
             "%sWindows\\System32\\config\\SYSTEM" % self._os_root_dir)
         try:
+            cloudbaseinit_zip_path = "c:\\cloudbaseinit.zip"
+
+            self._event_manager.progress_update("Downloading cloudbase-init")
+            utils.retry_on_error(sleep_seconds=5)(
+                self._conn.download_file)(
+                    download_url,
+                    cloudbaseinit_zip_path)
+
+            self._event_manager.progress_update("Installing cloudbase-init")
+            self._expand_archive(cloudbaseinit_zip_path,
+                                 cloudbaseinit_base_dir)
+
+            log_dir = "%s\\Log" % cloudbaseinit_base_dir
+            self._conn.exec_ps_command("mkdir '%s' -Force" % log_dir,
+                                       ignore_stdout=True)
+            local_base_dir = "C%s" % cloudbaseinit_base_dir[1:]
+
+            self._write_cloudbase_init_conf(
+                cloudbaseinit_base_dir, local_base_dir,
+                metadata_services=metadata_services,
+                plugins=enabled_plugins, com_port=com_port)
+
+            image_path = (
+                '"%(path)s\\Bin\\OpenStackService.exe" cloudbase-init '
+                '"%(path)s\\Python\\Python.exe" '
+                '"%(path)s\\Python\\Scripts\\cloudbase-init.exe" '
+                '--config-file "%(path)s\\conf\\cloudbase-init.conf"' % {
+                    'path': local_base_dir})
+
+            self._event_manager.progress_update("Enabling cloudbase-init")
+
             if self._check_cloudbase_init_exists(key_name):
-                self._event_manager.progress_update(
-                    "Enabling cloudbase-init")
-                self._set_service_start_mode(
-                    key_name, CLOUDBASEINIT_SERVICE_NAME,
-                    SERVICE_START_AUTO)
+                self._setup_existing_cbslinit_service(key_name, image_path)
             else:
-                cloudbaseinit_zip_path = "c:\\cloudbaseinit.zip"
-
-                self._event_manager.progress_update(
-                    "Downloading cloudbase-init")
-                utils.retry_on_error(sleep_seconds=5)(
-                    self._conn.download_file)(
-                        download_url,
-                        cloudbaseinit_zip_path)
-
-                self._event_manager.progress_update(
-                    "Installing cloudbase-init")
-                self._expand_archive(cloudbaseinit_zip_path,
-                                     cloudbaseinit_base_dir)
-
-                log_dir = "%s\\Log" % cloudbaseinit_base_dir
-                self._conn.exec_ps_command("mkdir '%s' -Force" % log_dir,
-                                           ignore_stdout=True)
-
-                local_base_dir = "C%s" % cloudbaseinit_base_dir[1:]
-                self._write_cloudbase_init_conf(
-                    cloudbaseinit_base_dir, local_base_dir,
-                    metadata_services=metadata_services,
-                    plugins=enabled_plugins, com_port=com_port)
-
-                image_path = (
-                    '"%(path)s\\Bin\\OpenStackService.exe" '
-                    'cloudbase-init "%(path)s\\Python\\Python.exe" -c '
-                    '"from cloudbaseinit import shell;shell.main()" '
-                    '--config-file "%(path)s\\conf\\cloudbase-init.conf"'
-                    % {'path': local_base_dir})
-
                 self._create_service(
                     key_name=key_name,
                     service_name=CLOUDBASEINIT_SERVICE_NAME,
