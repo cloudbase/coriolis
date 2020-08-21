@@ -10,6 +10,8 @@ kolla_openstack_release: train
 kolla_docker_images_tag: latest
 
 docker_pull_images: true
+coriolis_worker_hostname:
+default_coriolis_region_name: Public
 
 enable_coriolis_licensing_server: false
 

@@ -1,0 +1,71 @@
+---
+- name: Get default Coriolis region ID
+  shell: "coriolis region list | grep -E '^\\|\\s+\\S{36}\\s+\\| {{ default_coriolis_region_name }} ' | awk '{print $2}'"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+
+- debug:
+    msg: "{{ result.stdout_lines }}"
+
+- set_fact:
+    default_region_id: "{{ result.stdout }}"
+
+- block:
+    - name: Create default Coriolis Region
+      shell: "coriolis region create --enabled --description 'Default Coriolis Region created by coriolis-docker.' {{ default_coriolis_region_name }} | grep '\\sID\\s' | awk '{print $4}'"
+      register: new_region_result
+      retries: 10
+      delay: 5
+      until: new_region_result is succeeded
+
+    - debug:
+        msg: new_region_result.stdout_lines
+
+    - set_fact:
+        default_region_id: "{{ new_region_result.stdout }}"
+  when: default_region_id == ""
+
+- debug:
+    var: default_region_id
+
+- name: Get Worker service ID
+  shell: "coriolis service list | grep {{ coriolis_worker_hostname }} | awk '{print $2}' | cat"
+  register: worker_result
+  retries: 10
+  delay: 5
+  until: worker_result.stdout != ""
+
+- set_fact:
+    worker_service_id: "{{ worker_result.stdout }}"
+
+- debug:
+    msg: "{{ worker_result.stdout_lines }}"
+
+- name: Check worker service associated to default region
+  shell: "coriolis service show {{ worker_service_id }} | grep 'Mapped Region IDs' | grep {{ default_region_id }} | cat"
+  register: worker_has_region_result
+  retries: 10
+  delay: 5
+  until: worker_has_region_result is succeeded
+
+- debug:
+    msg: "{{ worker_has_region_result.stdout_lines }}"
+
+- name: Add worker service to default region
+  shell: "coriolis service update --enabled --coriolis-region {{ default_region_id }} {{ worker_service_id }}"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+  when: worker_has_region_result.stdout == ""
+
+- set_fact:
+    result:
+      stdout_lines:
+        - "The Worker Service {{ worker_service_id }} was already associated to the default Region {{ default_region_id }}."
+  when: result.stdout_lines is not defined
+
+- debug:
+    msg: "{{ result.stdout_lines }}"

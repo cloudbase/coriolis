@@ -1,0 +1,23 @@
+---
+- name: Create build directory
+  file:
+    path: "{{ build_dir }}"
+    state: directory
+
+- name: Render template
+  template:
+    src: Dockerfile.j2
+    dest: "{{ build_dir }}/coriolis-scheduler.Dockerfile"
+  notify:
+    - "build coriolis-scheduler"
+
+- name: "Get Docker image stat"
+  docker_image_info:
+    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-scheduler:{{ docker_images_tag }}"
+  register: docker_image_info
+
+- name: "Trigger Docker image build"
+  command: /bin/true
+  notify:
+    - "build coriolis-scheduler"
+  when: docker_image_info.images | length == 0

@@ -1,2 +1,3 @@
 ---
 - include_tasks: deployment_check.yml
+- include_tasks: default_region_configuration.yml

@@ -27,6 +27,9 @@
         name: coriolis/replica-cron
 
     - import_role:
+        name: coriolis/scheduler
+
+    - import_role:
         name: coriolis/worker
 
     - import_role:

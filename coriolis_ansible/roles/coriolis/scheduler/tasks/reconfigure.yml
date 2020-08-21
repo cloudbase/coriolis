@@ -1,0 +1,2 @@
+---
+- include_tasks: setup_scheduler_container.yml
