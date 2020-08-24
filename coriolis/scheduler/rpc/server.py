@@ -146,6 +146,8 @@ class SchedulerServerEndpoint(object):
             filters.append(trivial_filters.EnabledFilter(enabled=enabled))
         if region_sets:
             for region_set in region_sets:
+                if not region_set:
+                    continue
                 filtered_regions = self._filter_regions(
                     ctxt, region_set, enabled=filter_disabled_regions,
                     check_all_exist=True)
