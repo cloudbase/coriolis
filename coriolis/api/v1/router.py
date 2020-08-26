@@ -14,6 +14,7 @@ from coriolis.api.v1 import endpoint_storage
 from coriolis.api.v1 import endpoints
 from coriolis.api.v1 import migration_actions
 from coriolis.api.v1 import migrations
+from coriolis.api.v1 import minion_pools
 from coriolis.api.v1 import provider_schemas
 from coriolis.api.v1 import providers
 from coriolis.api.v1 import regions
@@ -59,6 +60,11 @@ class APIRouter(api.APIRouter):
         self.resources['services'] = services.create_resource()
         mapper.resource('service', 'services',
                         controller=self.resources['services'],
+                        collection={'detail': 'GET'})
+
+        self.resources['minion_pools'] = minion_pools.create_resource()
+        mapper.resource('minion_pool', 'minion_pools',
+                        controller=self.resources['minion_pools'],
                         collection={'detail': 'GET'})
 
         endpoint_actions_resource = endpoint_actions.create_resource()

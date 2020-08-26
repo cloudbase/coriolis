@@ -1087,3 +1087,132 @@ def get_mapped_services_for_region(context, region_id):
     q = q.filter(
         models.ServiceRegionMapping.service_id == region_id)
     return q.all()
+
+
+@enginefacade.writer
+def add_minion_pool(context, minion_pool):
+    minion_pool.user_id = context.user
+    minion_pool.project_id = context.tenant
+    _session(context).add(minion_pool)
+
+
+@enginefacade.reader
+def get_minion_pools(context):
+    q = _soft_delete_aware_query(context, models.MinionPool)
+    q = q.options(orm.joinedload('endpoint'))
+    return q.all()
+
+
+@enginefacade.reader
+def get_minion_pool(context, minion_pool_id):
+    q = _soft_delete_aware_query(context, models.MinionPool)
+    q = q.options(orm.joinedload('endpoint'))
+    return q.filter(
+        models.MinionPool.id == minion_pool_id).first()
+
+
+@enginefacade.writer
+def update_minion_pool(context, minion_pool_id, updated_values):
+    if not minion_pool_id:
+        raise exception.InvalidInput(
+            "No minion_pool ID specified for updating.")
+    minion_pool = get_minion_pool(context, minion_pool_id)
+    if not minion_pool:
+        raise exception.NotFound(
+            "MinionPool with ID '%s' does not exist." % minion_pool_id)
+
+    updateable_fields = [
+        "name", "environment_options", "minimum_minions", "maximum_minions",
+        "minion_max_idle_time", "minion_retention_strategy"]
+    _update_sqlalchemy_object_fields(
+        minion_pool, updateable_fields, updated_values)
+
+
+@enginefacade.writer
+def delete_minion_pool(context, minion_pool_id):
+    minion_pool = get_minion_pool(context, minion_pool_id)
+    count = _soft_delete_aware_query(context, models.MinionPool).filter_by(
+        id=minion_pool_id).soft_delete()
+    if count == 0:
+        raise exception.NotFound("0 minion_pool entries were soft deleted")
+
+
+@enginefacade.writer
+def add_minion_machine(context, minion_machine):
+    _session(context).add(minion_machine)
+
+
+@enginefacade.reader
+def get_minion_machines(context):
+    q = _soft_delete_aware_query(context, models.MinionMachine)
+    q = q.options(orm.joinedload('mapped_services'))
+    return q.all()
+
+
+@enginefacade.reader
+def get_minion_machine(context, minion_machine_id):
+    q = _soft_delete_aware_query(context, models.MinionMachine)
+    q = q.options(orm.joinedload('mapped_endpoints'))
+    q = q.options(orm.joinedload('mapped_services'))
+    return q.filter(
+        models.MinionMachine.id == minion_machine_id).first()
+
+
+@enginefacade.writer
+def update_minion_machine(context, minion_machine_id, updated_values):
+    if not minion_machine_id:
+        raise exception.InvalidInput(
+            "No minion_machine ID specified for updating.")
+    minion_machine = get_minion_machine(context, minion_machine_id)
+    if not minion_machine:
+        raise exception.NotFound(
+            "MinionMachine with ID '%s' does not exist." % minion_machine_id)
+
+    updateable_fields = ["connection_info"]
+    _update_sqlalchemy_object_fields(
+        minion_machine, updateable_fields, updated_values)
+
+
+@enginefacade.writer
+def delete_minion_machine(context, minion_machine_id):
+    minion_machine = get_minion_machine(context, minion_machine_id)
+    count = _soft_delete_aware_query(context, models.MinionMachine).filter_by(
+        id=minion_machine_id).soft_delete()
+    if count == 0:
+        raise exception.NotFound("0 MinionMachine entries were soft deleted")
+
+
+@enginefacade.writer
+def add_minion_pool_lifecycle(context, lifecycle):
+    lifecycle.user_id = context.user
+    lifecycle.project_id = context.tenant
+    _session(context).add(lifecycle)
+
+
+@enginefacade.writer
+def add_minion_pool_lifecycle_execution(context, execution):
+    if is_user_context(context):
+        if execution.action.project_id != context.tenant:
+            raise exception.NotAuthorized()
+
+    # include deleted records
+    max_number = _model_query(
+        context, func.max(models.TasksExecution.number)).filter_by(
+            action_id=execution.action.id).first()[0] or 0
+    execution.number = max_number + 1
+
+    _session(context).add(execution)
+
+
+@enginefacade.reader
+def get_lifecycle_executions_for_minion_pool(
+        context, minion_pool_id, include_tasks=True):
+    minion_pool = get_minion_pool(context, minion_pool_id)
+    q = _soft_delete_aware_query(context, models.TasksExecution)
+    q = q.join(models.MinionPoolLifecycle)
+    if include_tasks:
+        q = _get_tasks_with_details_options(q)
+    if is_user_context(context):
+        q = q.filter(models.MinionPoolLifecycle.project_id == context.tenant)
+    return q.filter(
+        models.MinionPoolLifecycle.id == minion_pool.lifecycle_action.id).all()

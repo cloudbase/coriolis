@@ -372,3 +372,30 @@ class ConductorClient(object):
     def delete_service(self, ctxt, service_id):
         return self._client.call(
             ctxt, 'delete_service', service_id=service_id)
+
+    def create_minion_pool(
+            self, ctxt, name, endpoint_id, environment_options,
+            minimum_minions, maximum_minions, minion_max_idle_time,
+            minion_retention_strategy):
+        return self._client.call(
+            ctxt, 'create_minion_pool', name=name, endpoint_id=endpoint_id,
+            environment_options=environment_options,
+            minimum_minions=minimum_minions, maximum_minions=maximum_minions,
+            minion_max_idle_time=minion_max_idle_time,
+            minion_retention_strategy=minion_retention_strategy)
+
+    def get_minion_pools(self, ctxt):
+        return self._client.call(ctxt, 'get_minion_pools')
+
+    def get_minion_pool(self, ctxt, minion_pool_id):
+        return self._client.call(
+            ctxt, 'get_minion_pool', minion_pool_id=minion_pool_id)
+
+    def update_minion_pool(self, ctxt, minion_pool_id, updated_values):
+        return self._client.call(
+            ctxt, 'update_minion_pool',
+            minion_pool_id=minion_pool_id, updated_values=updated_values)
+
+    def delete_minion_pool(self, ctxt, minion_pool_id):
+        return self._client.call(
+            ctxt, 'delete_minion_pool', minion_pool_id=minion_pool_id)
