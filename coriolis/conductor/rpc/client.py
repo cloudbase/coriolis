@@ -277,11 +277,18 @@ class ConductorClient(object):
         self._client.cast(ctxt, 'task_event', task_id=task_id, level=level,
                           message=message)
 
-    def task_progress_update(self, ctxt, task_id, current_step, total_steps,
-                             message):
-        self._client.cast(ctxt, 'task_progress_update', task_id=task_id,
-                          current_step=current_step, total_steps=total_steps,
-                          message=message)
+    def add_task_progress_update(self, ctxt, task_id, total_steps, message):
+        self._client.cast(ctxt, 'add_task_progress_update', task_id=task_id,
+                          total_steps=total_steps, message=message)
+
+    def update_task_progress_update(self, ctxt, task_id, step,
+                                    total_steps, message):
+        self._client.cast(ctxt, 'update_task_progress_update', task_id=task_id,
+                          step=step, total_steps=total_steps, message=message)
+
+    def get_task_progress_step(self, ctxt, task_id):
+        return self._client.call(ctxt, 'get_task_progress_step',
+                                 task_id=task_id)
 
     def create_replica_schedule(self, ctxt, replica_id,
                                 schedule, enabled, exp_date,

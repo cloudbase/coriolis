@@ -3715,9 +3715,8 @@ class ConductorServerEndpoint(object):
         db_api.add_task_event(ctxt, task_id, level, message)
 
     @task_synchronized
-    def task_progress_update(self, ctxt, task_id, current_step, total_steps,
-                             message):
-        LOG.info("Task progress update: %s", task_id)
+    def add_task_progress_update(self, ctxt, task_id, total_steps, message):
+        LOG.info("Adding task progress update: %s", task_id)
         task = db_api.get_task(ctxt, task_id)
         if task.status not in constants.ACTIVE_TASK_STATUSES:
             raise exception.InvalidTaskState(
@@ -3726,8 +3725,18 @@ class ConductorServerEndpoint(object):
                 "Refusing progress update. The progress update string "
                 "was: %s" % (
                     task.id, task.status, task.host, message))
-        db_api.add_task_progress_update(ctxt, task_id, current_step,
-                                        total_steps, message)
+        db_api.add_task_progress_update(ctxt, task_id, total_steps, message)
+
+    @task_synchronized
+    def update_task_progress_update(self, ctxt, task_id, step,
+                                    total_steps, message):
+        LOG.info("Updating task progress update: %s", task_id)
+        db_api.update_task_progress_update(
+            ctxt, task_id, step, total_steps, message)
+
+    @task_synchronized
+    def get_task_progress_step(self, ctxt, task_id):
+        return db_api.get_task_progress_step(ctxt, task_id)
 
     def _get_replica_schedule(self, ctxt, replica_id,
                               schedule_id, expired=True):
