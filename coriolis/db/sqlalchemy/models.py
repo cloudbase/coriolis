@@ -180,6 +180,9 @@ class BaseTransferAction(BASE, models.TimestampMixin, models.ModelBase,
                                   "base_id==TasksExecution.action_id, "
                                   "TasksExecution.deleted=='0')")
     instances = sqlalchemy.Column(types.List, nullable=False)
+    last_execution_status = sqlalchemy.Column(
+        sqlalchemy.String(255), nullable=False,
+        default=lambda: constants.EXECUTION_STATUS_UNEXECUTED)
     reservation_id = sqlalchemy.Column(sqlalchemy.String(36), nullable=True)
     info = sqlalchemy.Column(types.Bson, nullable=False)
     notes = sqlalchemy.Column(sqlalchemy.Text, nullable=True)
@@ -199,7 +202,7 @@ class BaseTransferAction(BASE, models.TimestampMixin, models.ModelBase,
         'polymorphic_on': type,
     }
 
-    def to_dict(self, include_info=True):
+    def to_dict(self, include_info=True, include_executions=True):
         result = {
             "base_id": self.base_id,
             "user_id": self.user_id,
@@ -216,13 +219,15 @@ class BaseTransferAction(BASE, models.TimestampMixin, models.ModelBase,
             "network_map": self.network_map,
             "storage_mappings": self.storage_mappings,
             "source_environment": self.source_environment,
+            "last_execution_status": self.last_execution_status,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "deleted_at": self.deleted_at,
             "deleted": self.deleted,
         }
-        for ex in self.executions:
-            result["executions"].append(ex.to_dict())
+        if include_executions:
+            for ex in self.executions:
+                result["executions"].append(ex.to_dict())
         if include_info:
             result["info"] = self.info
         return result
@@ -240,9 +245,10 @@ class Replica(BaseTransferAction):
         'polymorphic_identity': 'replica',
     }
 
-    def to_dict(self, include_info=True):
+    def to_dict(self, include_info=True, include_executions=True):
         base = super(Replica, self).to_dict(
-            include_info=include_info)
+            include_info=include_info,
+            include_executions=include_executions)
         base.update({"id": self.id})
         return base
 
@@ -268,9 +274,9 @@ class Migration(BaseTransferAction):
         'polymorphic_identity': 'migration',
     }
 
-    def to_dict(self, include_info=True):
+    def to_dict(self, include_info=True, include_tasks=True):
         base = super(Migration, self).to_dict(
-            include_info=include_info)
+            include_info=include_info, include_executions=include_tasks)
         base.update({
             "id": self.id,
             "replica_id": self.replica_id,
