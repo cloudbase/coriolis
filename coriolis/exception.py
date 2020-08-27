@@ -202,6 +202,11 @@ class InvalidTaskState(Invalid):
         'Task "%(task_id)s" in in an invalid state: %(task_state)s')
 
 
+class InvalidMinionPoolState(Invalid):
+    message = _(
+        'Minion pool "%(pool_id)s" in in an invalid state: %(pool_state)s')
+
+
 class TaskIsCancelling(InvalidTaskState):
     message = _(TASK_ALREADY_CANCELLING_EXCEPTION_FMT)
 

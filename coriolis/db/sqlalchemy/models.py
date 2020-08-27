@@ -200,10 +200,14 @@ class BaseTransferAction(BASE, models.TimestampMixin, models.ModelBase,
         sqlalchemy.String(36),
         sqlalchemy.ForeignKey('minion_pool_lifecycle.id'),
         nullable=True, default=lambda: None)
+    source_minion_pool = orm.relationship(
+        "minion_pool_lifecycle", foreign_keys=[source_minion_pool_id])
     destination_minion_pool_id = sqlalchemy.Column(
         sqlalchemy.String(36),
         sqlalchemy.ForeignKey('minion_pool_lifecycle.id'),
         nullable=True, default=lambda: None)
+    destination_minion_pool = orm.relationship(
+        "minion_pool_lifecycle", foreign_keys=[destination_minion_pool_id])
 
     __mapper_args__ = {
         'polymorphic_identity': 'base_transfer_action',
@@ -250,12 +254,16 @@ class MinionPoolLifecycle(BaseTransferAction):
     id = sqlalchemy.Column(
         sqlalchemy.String(36),
         sqlalchemy.ForeignKey(
-            'base_transfer_action.base_id'), primary_key=True)
+            'base_transfer_action.base_id'),
+        primary_key=True)
 
     name = sqlalchemy.Column(
         sqlalchemy.String(255),
         nullable=False)
 
+    pool_status = sqlalchemy.Column(
+        sqlalchemy.String(255), nullable=False,
+        default=lambda: constants.MINION_POOL_STATUS_UNKNOWN)
     minimum_minions = sqlalchemy.Column(
         sqlalchemy.Integer, nullable=False)
     maximum_minions = sqlalchemy.Column(
@@ -272,6 +280,17 @@ class MinionPoolLifecycle(BaseTransferAction):
         base = super(MinionPoolLifecycle, self).to_dict(
             include_info=include_info)
         base.update({"id": self.id})
+        # TODO(aznashwan): these nits should be avoided by splitting the
+        # BaseTransferAction class into a more specialized hireachy:
+        redundancies = {
+            "environment_options": [
+                "source_environment", "destination_environment"],
+            "endpoint_id": [
+                "origin_endpoint_id", "destination_endpoint_id"]}
+        for new_key, old_keys in redundancies.items():
+            for old_key in old_keys:
+                if old_key in base:
+                    base[new_key] = base.pop(old_key)
         return base
 
 
@@ -499,7 +518,8 @@ class MinionMachine(BASE, models.TimestampMixin, models.ModelBase,
         foreign_keys=[pool_id])
 
     status = sqlalchemy.Column(
-        sqlalchemy.String(255), nullable=False)
+        sqlalchemy.String(255), nullable=False,
+        default=lambda: constants.MINION_MACHINE_STATUS_UNKNOWN)
 
     connection_info = sqlalchemy.Column(types.Json)
 

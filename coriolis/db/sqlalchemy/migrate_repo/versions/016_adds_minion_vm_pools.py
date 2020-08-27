@@ -27,6 +27,9 @@ def upgrade(migrate_engine):
                 sqlalchemy.ForeignKey('base_transfer_action.base_id'),
                 primary_key=True),
             sqlalchemy.Column(
+                "pool_status", sqlalchemy.String(255), nullable=False,
+                default=lambda: "UNKNOWN"),
+            sqlalchemy.Column(
                 'minimum_minions', sqlalchemy.Integer, nullable=False),
             sqlalchemy.Column(
                 'maximum_minions', sqlalchemy.Integer, nullable=False),
@@ -51,7 +54,8 @@ def upgrade(migrate_engine):
                 'pool_id', sqlalchemy.String(36),
                 sqlalchemy.ForeignKey('minion_pool.id'), nullable=False),
             sqlalchemy.Column(
-                'status', sqlalchemy.String(255), nullable=False),
+                'status', sqlalchemy.String(255), nullable=False,
+                default=lambda: "UNKNOWN"),
             sqlalchemy.Column('connection_info', sqlalchemy.Text),
             sqlalchemy.Column('provider_properties', sqlalchemy.Text)))
 

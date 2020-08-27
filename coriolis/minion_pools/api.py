@@ -29,3 +29,9 @@ class API(object):
 
     def get_minion_pool(self, ctxt, minion_pool_id):
         return self._rpc_client.get_minion_pool(ctxt, minion_pool_id)
+
+    def allocate(self, ctxt, minion_pool_id):
+        return self._rpc_client.allocate_minion_pool(ctxt, minion_pool_id)
+
+    def deallocate(self, ctxt, minion_pool_id):
+        return self._rpc_client.deallocate_minion_pool(ctxt, minion_pool_id)

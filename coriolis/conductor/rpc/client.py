@@ -384,6 +384,14 @@ class ConductorClient(object):
             minion_max_idle_time=minion_max_idle_time,
             minion_retention_strategy=minion_retention_strategy)
 
+    def allocate_minion_pool(self, ctxt, minion_pool_id):
+        return self._client.call(
+            ctxt, "allocate_minion_pool", minion_pool_id=minion_pool_id)
+
+    def deallocate_minion_pool(self, ctxt, minion_pool_id):
+        return self._client.call(
+            ctxt, "deallocate_minion_pool", minion_pool_id=minion_pool_id)
+
     def get_minion_pools(self, ctxt):
         return self._client.call(ctxt, 'get_minion_pools')
 
@@ -399,3 +407,28 @@ class ConductorClient(object):
     def delete_minion_pool(self, ctxt, minion_pool_id):
         return self._client.call(
             ctxt, 'delete_minion_pool', minion_pool_id=minion_pool_id)
+
+    def get_minion_pool_lifecycle_executions(
+            self, ctxt, minion_pool_id, include_tasks=False):
+        return self._client.call(
+            ctxt, 'get_minion_pool_lifecycle_executions',
+            minion_pool_id=minion_pool_id, include_tasks=include_tasks)
+
+    def get_minion_pool_lifecycle_execution(
+            self, ctxt, minion_pool_id, execution_id):
+        return self._client.call(
+            ctxt, 'get_minion_pool_lifecycle_execution',
+            minion_pool_id=minion_pool_id, execution_id=execution_id)
+
+    def delete_minion_pool_lifecycle_execution(
+            self, ctxt, minion_pool_id, execution_id):
+        return self._client.call(
+            ctxt, 'delete_minion_pool_lifecycle_execution',
+            minion_pool_id=minion_pool_id, execution_id=execution_id)
+
+    def cancel_minion_pool_lifecycle_execution(
+            self, ctxt, minion_pool_id, execution_id, force):
+        return self._client.call(
+            ctxt, 'cancel_minion_pool_lifecycle_execution',
+            minion_pool_id=minion_pool_id, execution_id=execution_id,
+            force=force)

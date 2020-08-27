@@ -2916,81 +2916,224 @@ class ConductorServerEndpoint(object):
             minion_retention_strategy):
         endpoint = db_api.get_endpoint(ctxt, endpoint_id)
 
-        minion_pool = models.MinionPool()
+        minion_pool = models.MinionPoolLifecycle()
         minion_pool.id = str(uuid.uuid4())
         minion_pool.name = name
-        minion_pool.endpoint_id = endpoint_id
-        minion_pool.environment_options = environment_options
+        minion_pool.pool_status = constants.MINION_POOL_STATUS_UNINITIALIZED
         minion_pool.minimum_minions = minimum_minions
         minion_pool.maximum_minions = maximum_minions
         minion_pool.minion_max_idle_time = minion_max_idle_time
         minion_pool.minion_retention_strategy = minion_retention_strategy
 
-        db_api.add_minion_pool(ctxt, minion_pool)
+        # TODO(aznashwan): These field redundancies should be
+        # eliminated once the DB model hirearchy is overhauled:
+        minion_pool.origin_endpoint_id = endpoint_id
+        minion_pool.destination_endpoint_id = endpoint_id
+        minion_pool.source_environment = environment_options
+        minion_pool.destination_environment = minimum_minions
+        minion_pool.instances = []
+        minion_pool.info = {}
+
+        db_api.add_minion_pool_lifecycle(ctxt, minion_pool)
         return self.get_minion_pool(ctxt, minion_pool.id)
 
     def get_minion_pools(self, ctxt):
-        return db_api.get_minion_pools(ctxt)
+        return db_api.get_minion_pool_lifecycles(
+            ctxt, include_tasks_executions=False)
 
-    @minion_pool_synchronized
-    def get_minion_pool(self, ctxt, minion_pool_id):
-        minion_pool = db_api.get_minion_pool(ctxt, minion_pool_id)
+    def _get_minion_pool(self, ctxt, minion_pool_id):
+        minion_pool = db_api.get_minion_pool_lifecycle(ctxt, minion_pool_id)
         if not minion_pool:
             raise exception.NotFound(
                 "minion_pool with ID '%s' not found." % minion_pool_id)
         return minion_pool
 
     @minion_pool_synchronized
+    def allocate_minion_pool(self, ctxt, minion_pool_id):
+        LOG.info("Attempting to allocate Minion Pool '%s'.", minion_pool_id)
+        minion_pool = db_api.get_minion_pool_lifecycle(ctxt, minion_pool_id)
+        if minion_pool.status not in (
+                constants.MINION_POOL_STATUS_UNINITIALIZED,
+                constants.MINION_POOL_STATUS_DEALLOCATED):
+            raise exception.InvalidMinionPoolState(
+                "Minion Pool '%s' cannot be started as it is in '%s' state" % (
+                    minion_pool_id, minion_pool.status))
+
+        execution = models.TasksExecution()
+        execution.id = str(uuid.uuid4())
+        execution.action = minion_pool
+        execution.status = constants.EXECUTION_STATUS_UNEXECUTED
+        execution.type = constants.EXECUTION_TYPE_MINION_POOL_MAINTENANCE
+
+        minion_machine_ids = []
+        try:
+            for i in range(minion_pool.minimum_minions):
+                minion_machine = models.MinionMachine()
+                minion_machine.id = str(uuid.uuid4())
+                minion_machine.pool_id = minion_pool.id
+                minion_machine.status = (
+                    constants.MINION_MACHINE_STATUS_UNINITIALIZED)
+                minion_machine.connection_info = {}
+                minion_machine.provider_properties = {}
+                db_api.add_minion_machine(ctxt, minion_machine)
+
+                minion_machine_ids.append(minion_machine.id)
+        except Exception as ex:
+            LOG.warn(
+                "Failed to create minion machine DB entry for pool with "
+                "ID '%s'. Cleaning up already created machines: %s" % (
+                    minion_pool_id, minion_machine_ids))
+            for minion_machine_id in minion_machine_ids:
+                utils.ignore_exceptions(
+                    db_api.delete_minion_machine(ctxt, minion_machine_id))
+            raise
+
+        # TODO(aznashwan): add shared pool resources setup tasks:
+        for minion_machine_id in minion_machine_ids:
+            minion_pool.info[minion_machine_id] = {
+                "pool_environment_options": minion_pool.source_environment}
+
+            validate_minions_option_task = self._create_task(
+                minion_machine_id,
+                constants.TASK_TYPE_VALIDATE_MINION_POOL_OPTIONS,
+                execution)
+
+            create_minion_task = self._create_task(
+                minion_machine_id,
+                constants.TASK_TYPE_CREATE_MINION,
+                execution, depends_on=[validate_minions_option_task.id])
+
+            self._create_task(
+                minion_machine_id,
+                constants.TASK_TYPE_DELETE_MINION,
+                execution, on_error_only=True,
+                depends_on=[create_minion_task.id])
+
+        self._check_execution_tasks_sanity(execution, minion_pool.info)
+
+        # update the action info for all of the pool's minions:
+        for minion_machine_id in minion_machine_ids:
+            db_api.update_transfer_action_info_for_instance(
+                ctxt, minion_pool.id, minion_machine_id,
+                minion_pool.info[minion_machine_id])
+
+        # add new execution to DB:
+        db_api.add_minion_pool_lifecycle_execution(ctxt, execution)
+        LOG.info("Minion pool allocation execution created: %s", execution.id)
+
+        self._begin_tasks(ctxt, execution, task_info=minion_pool.info)
+        return self.get_minion_pool_lifecycle_execution(
+            ctxt, minion_pool_id, execution.id)
+
+    @minion_pool_synchronized
+    def deallocate_minion_pool(self, ctxt, minion_pool_id):
+        LOG.info("Attempting to deallocate Minion Pool '%s'.", minion_pool_id)
+        minion_pool = db_api.get_minion_pool_lifecycle(ctxt, minion_pool_id)
+        if minion_pool.status not in (
+                constants.MINION_POOL_STATUS_AVAILABLE):
+            raise exception.InvalidMinionPoolState(
+                "Minion Pool '%s' cannot be started as it is in '%s' state" % (
+                    minion_pool_id, minion_pool.status))
+
+        # TODO(aznashwan): check minion pool running
+        # executions/allocated machines
+
+        execution = models.TasksExecution()
+        execution.id = str(uuid.uuid4())
+        execution.action = minion_pool
+        execution.status = constants.EXECUTION_STATUS_UNEXECUTED
+        execution.type = constants.EXECUTION_TYPE_MINION_POOL_MAINTENANCE
+
+        # TODO(aznashwan): add shared pool resources setup tasks:
+        for minion_machine_id in minion_pool.instances:
+            minion_pool.info[minion_machine_id] = {
+                "pool_environment_options": minion_pool.source_environment}
+            self._create_task(
+                minion_machine_id, constants.TASK_TYPE_DELETE_MINION,
+                execution)
+
+        self._check_execution_tasks_sanity(execution, minion_pool.info)
+
+        # update the action info for all of the pool's minions:
+        for minion_machine_id in minion_pool.instances:
+            db_api.update_transfer_action_info_for_instance(
+                ctxt, minion_pool.id, minion_machine_id,
+                minion_pool.info[minion_machine_id])
+
+        # add new execution to DB:
+        db_api.add_minion_pool_lifecycle_execution(ctxt, execution)
+        LOG.info("Minion pool allocation execution created: %s", execution.id)
+
+        self._begin_tasks(ctxt, execution, task_info=minion_pool.info)
+        return self.get_minion_pool_lifecycle_execution(
+            ctxt, minion_pool_id, execution.id)
+
+    @minion_pool_synchronized
+    def get_minion_pool(self, ctxt, minion_pool_id):
+        return self._get_minion_pool(ctxt, minion_pool_id)
+
+    @minion_pool_synchronized
     def update_minion_pool(self, ctxt, minion_pool_id, updated_values):
         LOG.info(
             "Attempting to update minion_pool '%s' with payload: %s",
             minion_pool_id, updated_values)
-        db_api.update_minion_pool(ctxt, minion_pool_id, updated_values)
+        db_api.update_minion_pool_lifecycle(ctxt, minion_pool_id, updated_values)
         LOG.info("Minion Pool '%s' successfully updated", minion_pool_id)
-        return db_api.get_minion_pool(ctxt, minion_pool_id)
+        return db_api.get_minion_pool_lifecycle(ctxt, minion_pool_id)
 
     @minion_pool_synchronized
     def delete_minion_pool(self, ctxt, minion_pool_id):
         # TODO(aznashwan): add checks for endpoints/services
         # associated to the minion_pool before deletion:
-        db_api.delete_minion_pool(ctxt, minion_pool_id)
+        db_api.delete_minion_pool_lifecycle(ctxt, minion_pool_id)
 
-    @replica_synchronized
+    @minion_pool_synchronized
     def get_minion_pool_lifecycle_executions(
             self, ctxt, minion_pool_id, include_tasks=False):
-        return db_api.get_replica_tasks_executions(
-            ctxt, replica_id, include_tasks)
+        return db_api.get_minion_pool_lifecycle_executions(
+            ctxt, minion_pool_id, include_tasks)
+
+    def _get_minion_pool_lifecycle_execution(
+            self, ctxt, minion_pool_id, execution_id):
+        execution = db_api.get_minion_pool_lifecycle_execution(
+            ctxt, minion_pool_id, execution_id)
+        if not execution:
+            raise exception.NotFound(
+                "Execution with ID '%s' for Minion Pool '%s' not found." % (
+                    execution_id, minion_pool_id))
+        return execution
 
     @tasks_execution_synchronized
-    def get_replica_tasks_execution(self, ctxt, replica_id, execution_id):
-        return self._get_replica_tasks_execution(
-            ctxt, replica_id, execution_id)
+    def get_minion_pool_lifecycle_execution(
+            self, ctxt, minion_pool_id, execution_id):
+        return self._get_minion_pool_lifecycle_execution(
+            ctxt, minion_pool_id, execution_id)
 
     @tasks_execution_synchronized
-    def delete_replica_tasks_execution(self, ctxt, replica_id, execution_id):
-        execution = self._get_replica_tasks_execution(
-            ctxt, replica_id, execution_id)
+    def delete_minion_pool_lifecycle_execution(
+            self, ctxt, minion_pool_id, execution_id):
+        execution = self._get_minion_pool_lifecycle_execution(
+            ctxt, minion_pool_id, execution_id)
         if execution.status in constants.ACTIVE_EXECUTION_STATUSES:
             raise exception.InvalidMigrationState(
-                "Cannot delete execution '%s' for Replica '%s' as it is "
+                "Cannot delete execution '%s' for Minion pool '%s' as it is "
                 "currently in '%s' state." % (
-                    execution_id, replica_id, execution.status))
-        db_api.delete_replica_tasks_execution(ctxt, execution_id)
+                    execution_id, minion_pool_id, execution.status))
+        db_api.delete_minion_pool_lifecycle_execution(ctxt, execution_id)
 
     @tasks_execution_synchronized
-    def cancel_replica_tasks_execution(self, ctxt, replica_id, execution_id,
-                                       force):
-        execution = self._get_replica_tasks_execution(
-            ctxt, replica_id, execution_id)
+    def cancel_minion_pool_lifecycle_execution(
+            self, ctxt, minion_pool_id, execution_id, force):
+        execution = self._get_minion_pool_lifecycle_execution(
+            ctxt, minion_pool_id, execution_id)
         if execution.status not in constants.ACTIVE_EXECUTION_STATUSES:
-            raise exception.InvalidReplicaState(
-                "Replica '%s' has no running execution to cancel." % (
-                    replica_id))
+            raise exception.InvalidMinionPoolState(
+                "Minion pool '%s' has no running execution to cancel." % (
+                    minion_pool_id))
         if execution.status == constants.EXECUTION_STATUS_CANCELLING and (
                 not force):
-            raise exception.InvalidReplicaState(
-                "Replica '%s' is already being cancelled. Please use the "
-                "force option if you'd like to force-cancel it." % (
-                    replica_id))
+            raise exception.InvalidMinionPoolState(
+                "Execution for Minion Pool '%s' is already being cancelled. "
+                "Please use the force option if you'd like to force-cancel "
+                "it." % (minion_pool_id))
         self._cancel_tasks_execution(ctxt, execution, force=force)
-

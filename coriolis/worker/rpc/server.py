@@ -506,6 +506,10 @@ class WorkerServerEndpoint(object):
             schema = provider.get_source_environment_schema()
             schemas["source_environment_schema"] = schema
 
+        if provider_type == constants.PROVIDER_TYPE_MINION_POOL:
+            schema = provider.get_minion_pool_environment_schema()
+            schemas["minion_pool_environment_schema"] = schema
+
         return schemas
 
     def get_diagnostics(self, ctxt):

@@ -6,6 +6,7 @@ from webob import exc
 
 from coriolis import exception
 from coriolis.api.v1.views import minion_pool_view
+from coriolis.api.v1.views import minion_pool_tasks_execution_view
 from coriolis.api import wsgi as api_wsgi
 from coriolis.policies import minion_pools as pools_policies
 from coriolis.minion_pools import api
@@ -87,8 +88,9 @@ class MinionPoolController(api_wsgi.Controller):
         context = req.environ["coriolis.context"]
         context.can(pools_policies.get_minion_pools_policy_label("update"))
         updated_values = self._validate_update_body(body)
-        return minion_pool_view.single(req, self._minion_pool_api.update(
-            req.environ['coriolis.context'], id, updated_values))
+        return minion_pool_tasks_execution_view.single(
+            req, self._minion_pool_api.update(
+                req.environ['coriolis.context'], id, updated_values))
 
     def delete(self, req, id):
         context = req.environ["coriolis.context"]

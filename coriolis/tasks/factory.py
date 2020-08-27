@@ -4,6 +4,7 @@
 from coriolis import constants
 from coriolis import exception
 from coriolis.tasks import migration_tasks
+from coriolis.tasks import minion_pool_tasks
 from coriolis.tasks import osmorphing_tasks
 from coriolis.tasks import replica_tasks
 
@@ -81,7 +82,13 @@ _TASKS_MAP = {
     constants.TASK_TYPE_UPDATE_SOURCE_REPLICA:
         replica_tasks.UpdateSourceReplicaTask,
     constants.TASK_TYPE_UPDATE_DESTINATION_REPLICA:
-        replica_tasks.UpdateDestinationReplicaTask
+        replica_tasks.UpdateDestinationReplicaTask,
+    constants.TASK_TYPE_VALIDATE_MINION_POOL_OPTIONS:
+        minion_pool_tasks.ValidateMinionPoolOptionsTask,
+    constants.TASK_TYPE_CREATE_MINION:
+        minion_pool_tasks.CreateMinionTask,
+    constants.TASK_TYPE_DELETE_MINION:
+        minion_pool_tasks.DeleteMinionTask
 }
 
 

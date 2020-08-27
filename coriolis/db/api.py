@@ -1090,55 +1090,9 @@ def get_mapped_services_for_region(context, region_id):
 
 
 @enginefacade.writer
-def add_minion_pool(context, minion_pool):
-    minion_pool.user_id = context.user
-    minion_pool.project_id = context.tenant
-    _session(context).add(minion_pool)
-
-
-@enginefacade.reader
-def get_minion_pools(context):
-    q = _soft_delete_aware_query(context, models.MinionPool)
-    q = q.options(orm.joinedload('endpoint'))
-    return q.all()
-
-
-@enginefacade.reader
-def get_minion_pool(context, minion_pool_id):
-    q = _soft_delete_aware_query(context, models.MinionPool)
-    q = q.options(orm.joinedload('endpoint'))
-    return q.filter(
-        models.MinionPool.id == minion_pool_id).first()
-
-
-@enginefacade.writer
-def update_minion_pool(context, minion_pool_id, updated_values):
-    if not minion_pool_id:
-        raise exception.InvalidInput(
-            "No minion_pool ID specified for updating.")
-    minion_pool = get_minion_pool(context, minion_pool_id)
-    if not minion_pool:
-        raise exception.NotFound(
-            "MinionPool with ID '%s' does not exist." % minion_pool_id)
-
-    updateable_fields = [
-        "name", "environment_options", "minimum_minions", "maximum_minions",
-        "minion_max_idle_time", "minion_retention_strategy"]
-    _update_sqlalchemy_object_fields(
-        minion_pool, updateable_fields, updated_values)
-
-
-@enginefacade.writer
-def delete_minion_pool(context, minion_pool_id):
-    minion_pool = get_minion_pool(context, minion_pool_id)
-    count = _soft_delete_aware_query(context, models.MinionPool).filter_by(
-        id=minion_pool_id).soft_delete()
-    if count == 0:
-        raise exception.NotFound("0 minion_pool entries were soft deleted")
-
-
-@enginefacade.writer
 def add_minion_machine(context, minion_machine):
+    minion_machine.user_id = context.user
+    minion_machine.project_id = context.tenant
     _session(context).add(minion_machine)
 
 
@@ -1183,10 +1137,16 @@ def delete_minion_machine(context, minion_machine_id):
 
 
 @enginefacade.writer
-def add_minion_pool_lifecycle(context, lifecycle):
-    lifecycle.user_id = context.user
-    lifecycle.project_id = context.tenant
-    _session(context).add(lifecycle)
+def add_minion_pool_lifecycle(context, minion_pool_lifecycle):
+    minion_pool_lifecycle.user_id = context.user
+    minion_pool_lifecycle.project_id = context.tenant
+    _session(context).add(minion_pool_lifecycle)
+
+
+@enginefacade.writer
+def delete_minion_pool_lifecycle(context, minion_pool_id):
+    _delete_transfer_action(
+        context, models.MinionPoolLifecycle, minion_pool_id)
 
 
 @enginefacade.reader
@@ -1198,6 +1158,25 @@ def get_minion_pool_lifecycle(context, minion_pool_id):
             models.MinionPoolLifecycle.project_id == context.tenant)
     return q.filter(
         models.MinionPoolLifecycle.id == minion_pool_id).first()
+
+
+@enginefacade.reader
+def get_minion_pool_lifecycles(
+        context, include_tasks_executions=False, include_info=False,
+        to_dict=True):
+    q = _soft_delete_aware_query(context, models.MinionPoolLifecycle)
+    if include_tasks_executions:
+        q = q.options(orm.joinedload(models.MinionPoolLifecycle.executions))
+    if include_info is False:
+        q = q.options(orm.defer('info'))
+    q = q.filter()
+    if is_user_context(context):
+        q = q.filter(
+            models.Replica.project_id == context.tenant)
+    db_result = q.all()
+    if to_dict:
+        return [i.to_dict(include_info=include_info) for i in db_result]
+    return db_result
 
 
 @enginefacade.writer
@@ -1223,15 +1202,26 @@ def update_minion_pool_lifecycle(context, minion_pool_id, updated_values):
             "Minion pool '%s' not found" % minion_pool_id)
 
     updateable_fields = [
-        "source_environment", "destination_environment",
         "minimum_minions", "maximum_minions", "minion_max_idle_time",
-        "minion_retention_strategy"]
+        "minion_retention_strategy", "environment_options"]
+    # TODO(aznashwan): this should no longer be required when the
+    # transfer action class hirearchy is to be overhauled:
+    redundancies = {
+        "environment_options": [
+            "source_environment", "destination_environment"]}
     for field in updateable_fields:
         if field in updated_values:
-            LOG.debug(
-                "Updating the '%s' field of Minion Pool '%s' to: '%s'",
-                field, minion_pool_id, updated_values[field])
-            setattr(lifecycle, field, updated_values[field])
+            if field in redundancies:
+                for old_key in redundancies["field"]:
+                    LOG.debug(
+                        "Updating the '%s' field of Minion Pool '%s' to: '%s'",
+                        old_key, minion_pool_id, updated_values[field])
+                    setattr(lifecycle, old_key, updated_values[field])
+            else:
+                LOG.debug(
+                    "Updating the '%s' field of Minion Pool '%s' to: '%s'",
+                    field, minion_pool_id, updated_values[field])
+                setattr(lifecycle, field, updated_values[field])
 
     non_updateable_fields = set(
         updated_values.keys()).difference(updateable_fields)

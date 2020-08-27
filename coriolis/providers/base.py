@@ -532,3 +532,87 @@ class BaseUpdateDestinationReplicaProvider(
         having been executed or the replica disks having been deleted, this
         method should simply return the empty `volumes_info` it was given.
         """
+
+
+class BaseMinionPoolProvider(
+        object, with_metaclass(abc.ABCMeta)):
+    """ Class for providers which offer Minion Pool management functionality.
+    """
+
+    @abc.abstractmethod
+    def get_minion_pool_environment_schema(self):
+        """ Returns the schema for the minion pool options. """
+        pass
+
+    @abc.abstractmethod
+    def get_minion_pool_options(self, ctxt, environment_options):
+        """ Returns possible environment options for minion pools. """
+        pass
+
+    @abc.abstractmethod
+    def validate_minion_compatibility_for_transfer(
+            self, ctxt, environment_options,
+            transfer_options, storage_mappings):
+        """ Validates compatibility between the pool's options and the options
+        selected for a given transfer. Should raise if any options related to
+        the minions in the pool might be deemed incompatible with the desited
+        transfer options.
+        """
+        pass
+
+    @abc.abstractmethod
+    def validate_pool_options(
+            self, ctxt, connection_info, environment_options):
+        """ Validates the provided pool options. """
+        pass
+
+    @abc.abstractmethod
+    def setup_pool_supporting_resources(
+            self, ctxt, connection_info, environment_options):
+        """ Sets up supporting resources which can be re-used amongst the
+        machines which will be spawned within the pool (e.g. a shared network)
+        """
+        pass
+
+    @abc.abstractmethod
+    def teardown_pool_supporting_resources(
+            self, ctxt, connection_info, environment_options,
+            pool_resource_info):
+        """ Tears down all pool supporting resources. """
+        pass
+
+    @abc.abstractmethod
+    def create_minion(
+            self, ctxt, connection_info, environment_options,
+            new_minion_identifier):
+        pass
+
+    @abc.abstractmethod
+    def delete_minion(
+            self, ctxt, connection_info, environment_options,
+            minion_properties):
+        pass
+
+    @abc.abstractmethod
+    def shutdown_minion(
+            self, ctxt, connection_info, environment_options,
+            minion_properties):
+        pass
+
+    @abc.abstractmethod
+    def start_minion(
+            self, ctxt, connection_info, environment_options,
+            minion_properties):
+        pass
+
+    @abc.abstractmethod
+    def attach_volume_to_minion(
+            self, ctxt, connection_info, environment_options,
+            minion_properties, volume_info):
+        pass
+
+    @abc.abstractmethod
+    def detach_volume_from_minion(
+            self, ctxt, connection_info, environment_options,
+            minion_properties, volume_info):
+        pass
