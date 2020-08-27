@@ -17,28 +17,15 @@ def upgrade(migrate_engine):
 
     tables = []
 
-    # declare minion pool table:
+    # add table for pool lifecycles:
     tables.append(
         sqlalchemy.Table(
-            'minion_pool',
+            'minion_pool_lifecycle',
             meta,
-            sqlalchemy.Column('id', sqlalchemy.String(36), primary_key=True,
-                              default=lambda: str(uuid.uuid4())),
             sqlalchemy.Column(
-                "user_id", sqlalchemy.String(255), nullable=False),
-            sqlalchemy.Column(
-                "project_id", sqlalchemy.String(255), nullable=False),
-
-            sqlalchemy.Column('name', sqlalchemy.String(255), nullable=False),
-            sqlalchemy.Column('created_at', sqlalchemy.DateTime),
-            sqlalchemy.Column('updated_at', sqlalchemy.DateTime),
-            sqlalchemy.Column('deleted_at', sqlalchemy.DateTime),
-            sqlalchemy.Column('deleted', sqlalchemy.String(36)),
-            sqlalchemy.Column(
-                'endpoint_id', sqlalchemy.String(36),
-                sqlalchemy.ForeignKey('endpoint.id'), nullable=False),
-            sqlalchemy.Column(
-                'environment_options', sqlalchemy.Text, nullable=False),
+                "id", sqlalchemy.String(36),
+                sqlalchemy.ForeignKey('base_transfer_action.base_id'),
+                primary_key=True),
             sqlalchemy.Column(
                 'minimum_minions', sqlalchemy.Integer, nullable=False),
             sqlalchemy.Column(
@@ -68,19 +55,6 @@ def upgrade(migrate_engine):
             sqlalchemy.Column('connection_info', sqlalchemy.Text),
             sqlalchemy.Column('provider_properties', sqlalchemy.Text)))
 
-    # add table for pool lifecycles:
-    tables.append(
-        sqlalchemy.Table(
-            'minion_pool_lifecycle',
-            meta,
-            sqlalchemy.Column(
-                "id", sqlalchemy.String(36),
-                sqlalchemy.ForeignKey('base_transfer_action.base_id'),
-                primary_key=True),
-            sqlalchemy.Column(
-                "minion_pool_id", sqlalchemy.String(36),
-                sqlalchemy.ForeignKey('minion_pool.id'), nullable=False)))
-
     for index, table in enumerate(tables):
         try:
             table.create()
@@ -94,9 +68,9 @@ def upgrade(migrate_engine):
     columns = [
         sqlalchemy.Column(
             "source_minion_pool_id", sqlalchemy.String(36),
-            sqlalchemy.ForeignKey('minion_pool.id'), nullable=True),
+            sqlalchemy.ForeignKey('minion_pool_lifecycle.id'), nullable=True),
         sqlalchemy.Column(
             "destination_minion_pool_id", sqlalchemy.String(36),
-            sqlalchemy.ForeignKey('minion_pool.id'), nullable=True)]
+            sqlalchemy.ForeignKey('minion_pool_lifecycle.id'), nullable=True)]
     for col in columns:
         base_transfer_action.create_column(col)

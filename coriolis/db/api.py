@@ -1189,6 +1189,17 @@ def add_minion_pool_lifecycle(context, lifecycle):
     _session(context).add(lifecycle)
 
 
+@enginefacade.reader
+def get_minion_pool_lifecycle(context, minion_pool_id):
+    q = _soft_delete_aware_query(context, models.MinionPoolLifecycle)
+    q = q.options(orm.joinedload(models.MinionPoolLifecycle.executions))
+    if is_user_context(context):
+        q = q.filter(
+            models.MinionPoolLifecycle.project_id == context.tenant)
+    return q.filter(
+        models.MinionPoolLifecycle.id == minion_pool_id).first()
+
+
 @enginefacade.writer
 def add_minion_pool_lifecycle_execution(context, execution):
     if is_user_context(context):
@@ -1204,10 +1215,38 @@ def add_minion_pool_lifecycle_execution(context, execution):
     _session(context).add(execution)
 
 
+@enginefacade.writer
+def update_minion_pool_lifecycle(context, minion_pool_id, updated_values):
+    lifecycle = get_minion_pool_lifecycle(context, minion_pool_id)
+    if not lifecycle:
+        raise exception.NotFound(
+            "Minion pool '%s' not found" % minion_pool_id)
+
+    updateable_fields = [
+        "source_environment", "destination_environment",
+        "minimum_minions", "maximum_minions", "minion_max_idle_time",
+        "minion_retention_strategy"]
+    for field in updateable_fields:
+        if field in updated_values:
+            LOG.debug(
+                "Updating the '%s' field of Minion Pool '%s' to: '%s'",
+                field, minion_pool_id, updated_values[field])
+            setattr(lifecycle, field, updated_values[field])
+
+    non_updateable_fields = set(
+        updated_values.keys()).difference(updateable_fields)
+    if non_updateable_fields:
+        LOG.warn(
+            "The following Replica fields can NOT be updated: %s",
+            non_updateable_fields)
+
+    # the oslo_db library uses this method for both the `created_at` and
+    # `updated_at` fields
+    setattr(lifecycle, 'updated_at', timeutils.utcnow())
+
 @enginefacade.reader
-def get_lifecycle_executions_for_minion_pool(
-        context, minion_pool_id, include_tasks=True):
-    minion_pool = get_minion_pool(context, minion_pool_id)
+def get_minion_pool_lifecycle_executions(
+        context, lifecycle_id, include_tasks=True):
     q = _soft_delete_aware_query(context, models.TasksExecution)
     q = q.join(models.MinionPoolLifecycle)
     if include_tasks:
@@ -1215,4 +1254,28 @@ def get_lifecycle_executions_for_minion_pool(
     if is_user_context(context):
         q = q.filter(models.MinionPoolLifecycle.project_id == context.tenant)
     return q.filter(
-        models.MinionPoolLifecycle.id == minion_pool.lifecycle_action.id).all()
+        models.MinionPoolLifecycle.id == lifecycle_id).all()
+
+@enginefacade.reader
+def get_minion_pool_lifecycle_execution(context, lifecycle_id, execution_id):
+    q = _soft_delete_aware_query(context, models.TasksExecution).join(
+        models.Replica)
+    q = _get_tasks_with_details_options(q)
+    if is_user_context(context):
+        q = q.filter(models.MinionPoolLifecycle.project_id == context.tenant)
+    return q.filter(
+        models.MinionPoolLifecycle.id == lifecycle_id,
+        models.TasksExecution.id == execution_id).first()
+
+@enginefacade.writer
+def delete_minion_pool_lifecycle_execution(context, execution_id):
+    q = _soft_delete_aware_query(context, models.TasksExecution).filter(
+        models.TasksExecution.id == execution_id)
+    if is_user_context(context):
+        if not q.join(models.MinionPoolLifecycle).filter(
+                models.MinionPoolLifecycle.project_id == (
+                    context.tenant)).first():
+            raise exception.NotAuthorized()
+    count = q.soft_delete()
+    if count == 0:
+        raise exception.NotFound("0 entries were soft deleted")

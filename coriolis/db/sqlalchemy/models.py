@@ -197,10 +197,12 @@ class BaseTransferAction(BASE, models.TimestampMixin, models.ModelBase,
     storage_mappings = sqlalchemy.Column(types.Json, nullable=True)
     source_environment = sqlalchemy.Column(types.Json, nullable=True)
     source_minion_pool_id = sqlalchemy.Column(
-        sqlalchemy.String(36), sqlalchemy.ForeignKey('minion_pool.id'),
+        sqlalchemy.String(36),
+        sqlalchemy.ForeignKey('minion_pool_lifecycle.id'),
         nullable=True, default=lambda: None)
     destination_minion_pool_id = sqlalchemy.Column(
-        sqlalchemy.String(36), sqlalchemy.ForeignKey('minion_pool.id'),
+        sqlalchemy.String(36),
+        sqlalchemy.ForeignKey('minion_pool_lifecycle.id'),
         nullable=True, default=lambda: None)
 
     __mapper_args__ = {
@@ -250,13 +252,21 @@ class MinionPoolLifecycle(BaseTransferAction):
         sqlalchemy.ForeignKey(
             'base_transfer_action.base_id'), primary_key=True)
 
-    minion_pool_id = sqlalchemy.Column(
-        sqlalchemy.String(36),
-        sqlalchemy.ForeignKey('minion_pool.id'), nullable=False)
+    name = sqlalchemy.Column(
+        sqlalchemy.String(255),
+        nullable=False)
+
+    minimum_minions = sqlalchemy.Column(
+        sqlalchemy.Integer, nullable=False)
+    maximum_minions = sqlalchemy.Column(
+        sqlalchemy.Integer, nullable=False)
+    minion_max_idle_time = sqlalchemy.Column(
+        sqlalchemy.Integer, nullable=False)
+    minion_retention_strategy = sqlalchemy.Column(
+        sqlalchemy.String(255), nullable=False)
 
     __mapper_args__ = {
-        'polymorphic_identity': 'minion_pool_lifecycle',
-    }
+        'polymorphic_identity': 'minion_pool_lifecycle'}
 
     def to_dict(self, include_info=True):
         base = super(MinionPoolLifecycle, self).to_dict(
@@ -470,41 +480,6 @@ class ReplicaSchedule(BASE, models.TimestampMixin, models.ModelBase,
     trust_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
 
 
-class MinionPool(BASE, models.TimestampMixin, models.ModelBase,
-                 models.SoftDeleteMixin):
-    __tablename__ = "minion_pool"
-
-    id = sqlalchemy.Column(sqlalchemy.String(36),
-                           default=lambda: str(uuid.uuid4()),
-                           primary_key=True)
-    user_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
-    project_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
-
-    name = sqlalchemy.Column(
-        sqlalchemy.String(255),
-        nullable=False)
-
-    endpoint_id = sqlalchemy.Column(
-        sqlalchemy.String(36),
-        sqlalchemy.ForeignKey('endpoint.id'),
-        nullable=False)
-    endpoint = orm.relationship(
-        Endpoint, backref=orm.backref("minion_pools"),
-        foreign_keys=[endpoint_id])
-
-    environment_options = sqlalchemy.Column(
-        types.Json, nullable=False)
-
-    minimum_minions = sqlalchemy.Column(
-        sqlalchemy.Integer, nullable=False)
-    maximum_minions = sqlalchemy.Column(
-        sqlalchemy.Integer, nullable=False)
-    minion_max_idle_time = sqlalchemy.Column(
-        sqlalchemy.Integer, nullable=False)
-    minion_retention_strategy = sqlalchemy.Column(
-        sqlalchemy.String(255), nullable=False)
-
-
 class MinionMachine(BASE, models.TimestampMixin, models.ModelBase,
                     models.SoftDeleteMixin):
     __tablename__ = "minion_machine"
@@ -517,10 +492,10 @@ class MinionMachine(BASE, models.TimestampMixin, models.ModelBase,
 
     pool_id = sqlalchemy.Column(
         sqlalchemy.String(36),
-        sqlalchemy.ForeignKey('minion_pool.id'),
+        sqlalchemy.ForeignKey('minion_pool_lifecycle.id'),
         nullable=False)
     pool = orm.relationship(
-        MinionPool, backref=orm.backref("minion_machines"),
+        MinionPoolLifecycle, backref=orm.backref("minion_machines"),
         foreign_keys=[pool_id])
 
     status = sqlalchemy.Column(
