@@ -420,7 +420,11 @@ def get_replicas(context,
             models.Replica.project_id == context.tenant)
     db_result = q.all()
     if to_dict:
-        return [i.to_dict(include_info=include_info) for i in db_result]
+        return [
+            i.to_dict(
+                include_info=include_info,
+                include_executions=include_tasks_executions)
+            for i in db_result]
     return db_result
 
 
@@ -502,7 +506,9 @@ def get_migrations(context, include_tasks=False,
         args["project_id"] = context.tenant
     result = q.filter_by(**args).all()
     if to_dict:
-        return [i.to_dict(include_info=include_info) for i in result]
+        return [i.to_dict(
+            include_info=include_info,
+            include_tasks=include_tasks) for i in result]
     return result
 
 
@@ -550,7 +556,8 @@ def delete_migration(context, migration_id):
 
 
 @enginefacade.writer
-def set_execution_status(context, execution_id, status):
+def set_execution_status(
+        context, execution_id, status, update_action_status=True):
     execution = _soft_delete_aware_query(
         context, models.TasksExecution).join(
             models.TasksExecution.action)
@@ -564,6 +571,9 @@ def set_execution_status(context, execution_id, status):
             "Tasks execution not found: %s" % execution_id)
 
     execution.status = status
+    if update_action_status:
+        set_action_last_execution_status(
+            context, execution.action_id, status)
 
 
 @enginefacade.reader
@@ -579,6 +589,13 @@ def get_action(context, action_id):
         raise exception.NotFound(
             "Transfer action not found: %s" % action_id)
     return action
+
+
+@enginefacade.writer
+def set_action_last_execution_status(
+        context, action_id, last_execution_status):
+    action = get_action(context, action_id)
+    action.last_execution_status = last_execution_status
 
 
 @enginefacade.writer

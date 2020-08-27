@@ -687,9 +687,15 @@ class ConductorServerEndpoint(object):
                     raise
                 newly_started_tasks.append(task.id)
 
-        # NOTE: this should never happen if _check_execution_tasks_sanity
-        # was called before this method:
-        if not newly_started_tasks:
+        if newly_started_tasks:
+            LOG.info(
+                "Started the following tasks for Execution '%s': %s",
+                execution.id, newly_started_tasks)
+            self._set_tasks_execution_status(
+                ctxt, execution.id, constants.TASK_STATUS_RUNNING)
+        else:
+            # NOTE: this should never happen if _check_execution_tasks_sanity
+            # was called before this method:
             raise exception.InvalidActionTasksExecutionState(
                 "No tasks were started at the beginning of execution '%s'" % (
                     execution.id))
@@ -834,8 +840,8 @@ class ConductorServerEndpoint(object):
         self._check_replica_running_executions(ctxt, replica)
         execution = models.TasksExecution()
         execution.id = str(uuid.uuid4())
-        execution.status = constants.EXECUTION_STATUS_RUNNING
         execution.action = replica
+        execution.status = constants.EXECUTION_STATUS_UNEXECUTED
         execution.type = constants.EXECUTION_TYPE_REPLICA_EXECUTION
 
         # TODO(aznashwan): have these passed separately to the relevant
@@ -1011,7 +1017,7 @@ class ConductorServerEndpoint(object):
 
         execution = models.TasksExecution()
         execution.id = str(uuid.uuid4())
-        execution.status = constants.EXECUTION_STATUS_RUNNING
+        execution.status = constants.EXECUTION_STATUS_UNEXECUTED
         execution.action = replica
         execution.type = constants.EXECUTION_TYPE_REPLICA_DISKS_DELETE
 
@@ -1082,6 +1088,7 @@ class ConductorServerEndpoint(object):
         replica.destination_endpoint_id = destination_endpoint_id
         replica.destination_environment = destination_environment
         replica.source_environment = source_environment
+        replica.last_execution_status = constants.EXECUTION_STATUS_UNEXECUTED
         replica.instances = instances
         replica.executions = []
         replica.info = {instance: {
@@ -1202,7 +1209,7 @@ class ConductorServerEndpoint(object):
 
         execution = models.TasksExecution()
         migration.executions = [execution]
-        execution.status = constants.EXECUTION_STATUS_RUNNING
+        execution.status = constants.EXECUTION_STATUS_UNEXECUTED
         execution.number = 1
         execution.type = constants.EXECUTION_TYPE_REPLICA_DEPLOY
 
@@ -1347,8 +1354,9 @@ class ConductorServerEndpoint(object):
         migration.source_environment = source_environment
         migration.network_map = network_map
         migration.storage_mappings = storage_mappings
+        migration.last_execution_status = constants.EXECUTION_STATUS_UNEXECUTED
         execution = models.TasksExecution()
-        execution.status = constants.EXECUTION_STATUS_RUNNING
+        execution.status = constants.EXECUTION_STATUS_UNEXECUTED
         execution.number = 1
         execution.type = constants.EXECUTION_TYPE_MIGRATION
         migration.executions = [execution]
@@ -2679,7 +2687,7 @@ class ConductorServerEndpoint(object):
         self._check_valid_replica_tasks_execution(replica, force=True)
         execution = models.TasksExecution()
         execution.id = str(uuid.uuid4())
-        execution.status = constants.EXECUTION_STATUS_RUNNING
+        execution.status = constants.EXECUTION_STATUS_UNEXECUTED
         execution.action = replica
         execution.type = constants.EXECUTION_TYPE_REPLICA_UPDATE
 
