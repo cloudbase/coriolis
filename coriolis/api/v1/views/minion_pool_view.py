@@ -13,6 +13,19 @@ def _format_minion_pool(req, minion_pool, keys=None):
     minion_pool_dict = dict(itertools.chain.from_iterable(
         transform(k, v) for k, v in minion_pool.items()))
 
+    # TODO(aznashwan): remove these redundancies once the base
+    # DB action model hirearchy will be overhauled:
+    for key in ["origin_endpoint_id", "destination_endpoint_id"]:
+        if key in minion_pool_dict:
+            minion_pool_dict["endpoint_id"] = minion_pool_dict.pop(key)
+    for key in ["source_environment", "destination_environment"]:
+        if key in minion_pool_dict:
+            minion_pool_dict["environment_options"] = minion_pool_dict.pop(key)
+
+    pool_machines = minion_pool_dict.get('minion_machines', [])
+    minion_pool_dict['minion_machines'] = [
+        machine['id'] for machine in pool_machines]
+
     return minion_pool_dict
 
 

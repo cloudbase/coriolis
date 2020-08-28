@@ -73,6 +73,18 @@ MINION_POOLS_DEFAULT_RULES = [
         ]
     ),
     policy.DocumentedRuleDefault(
+        get_minion_pools_policy_label('initialize'),
+        MINION_POOLS_DEFAULT_RULE,
+        "Initialize Minion Pool",
+        [
+            {
+                "path": "/minion_pools/{minion_pool_id}/actions",
+                "method": "POST"
+            }
+        ]
+    ),
+
+    policy.DocumentedRuleDefault(
         get_minion_pools_policy_label('allocate'),
         MINION_POOLS_DEFAULT_RULE,
         "Allocate Minion Pool",

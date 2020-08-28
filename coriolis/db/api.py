@@ -615,26 +615,28 @@ def update_transfer_action_info_for_instance(
 
     # Copy is needed, otherwise sqlalchemy won't save the changes
     action_info = action.info.copy()
+    instance_info_old = {}
     if instance in action_info:
         instance_info_old = action_info[instance]
-        old_keys = set(instance_info_old.keys())
-        new_keys = set(new_instance_info.keys())
-        overwritten_keys = old_keys.intersection(new_keys)
-        if overwritten_keys:
-            LOG.debug(
-                "Overwriting the values of the following keys for info of "
-                "instance '%s' of action with ID '%s': %s",
-                instance, action_id, overwritten_keys)
-        newly_added_keys = new_keys.difference(old_keys)
-        if newly_added_keys:
-            LOG.debug(
-                "The following new keys will be added for info of instance "
-                "'%s' in action with ID '%s': %s",
-                instance, action_id, newly_added_keys)
 
-        instance_info_old_copy = instance_info_old.copy()
-        instance_info_old_copy.update(new_instance_info)
-        action_info[instance] = instance_info_old_copy
+    old_keys = set(instance_info_old.keys())
+    new_keys = set(new_instance_info.keys())
+    overwritten_keys = old_keys.intersection(new_keys)
+    if overwritten_keys:
+        LOG.debug(
+            "Overwriting the values of the following keys for info of "
+            "instance '%s' of action with ID '%s': %s",
+            instance, action_id, overwritten_keys)
+    newly_added_keys = new_keys.difference(old_keys)
+    if newly_added_keys:
+        LOG.debug(
+            "The following new keys will be added for info of instance "
+            "'%s' in action with ID '%s': %s",
+            instance, action_id, newly_added_keys)
+
+    instance_info_old_copy = instance_info_old.copy()
+    instance_info_old_copy.update(new_instance_info)
+    action_info[instance] = instance_info_old_copy
     action.info = action_info
 
     return action_info[instance]
@@ -1099,15 +1101,12 @@ def add_minion_machine(context, minion_machine):
 @enginefacade.reader
 def get_minion_machines(context):
     q = _soft_delete_aware_query(context, models.MinionMachine)
-    q = q.options(orm.joinedload('mapped_services'))
     return q.all()
 
 
 @enginefacade.reader
 def get_minion_machine(context, minion_machine_id):
     q = _soft_delete_aware_query(context, models.MinionMachine)
-    q = q.options(orm.joinedload('mapped_endpoints'))
-    q = q.options(orm.joinedload('mapped_services'))
     return q.filter(
         models.MinionMachine.id == minion_machine_id).first()
 
@@ -1122,7 +1121,7 @@ def update_minion_machine(context, minion_machine_id, updated_values):
         raise exception.NotFound(
             "MinionMachine with ID '%s' does not exist." % minion_machine_id)
 
-    updateable_fields = ["connection_info"]
+    updateable_fields = ["connection_info", "provider_properties", "status"]
     _update_sqlalchemy_object_fields(
         minion_machine, updateable_fields, updated_values)
 
@@ -1150,9 +1149,14 @@ def delete_minion_pool_lifecycle(context, minion_pool_id):
 
 
 @enginefacade.reader
-def get_minion_pool_lifecycle(context, minion_pool_id):
+def get_minion_pool_lifecycle(
+        context, minion_pool_id, include_tasks_executions=True,
+        include_machines=True):
     q = _soft_delete_aware_query(context, models.MinionPoolLifecycle)
-    q = q.options(orm.joinedload(models.MinionPoolLifecycle.executions))
+    if include_tasks_executions:
+        q = q.options(orm.joinedload(models.MinionPoolLifecycle.executions))
+    if include_machines:
+        q = q.options(orm.joinedload('minion_machines'))
     if is_user_context(context):
         q = q.filter(
             models.MinionPoolLifecycle.project_id == context.tenant)
@@ -1173,6 +1177,7 @@ def get_minion_pool_lifecycles(
     if is_user_context(context):
         q = q.filter(
             models.Replica.project_id == context.tenant)
+    q = q.options(orm.joinedload('minion_machines'))
     db_result = q.all()
     if to_dict:
         return [i.to_dict(include_info=include_info) for i in db_result]
@@ -1195,15 +1200,30 @@ def add_minion_pool_lifecycle_execution(context, execution):
 
 
 @enginefacade.writer
+def set_minion_pool_lifecycle_status(context, minion_pool_id, status):
+    pool = get_minion_pool_lifecycle(
+        context, minion_pool_id, include_tasks_executions=False,
+        include_machines=False)
+    LOG.debug(
+        "Transitioning minion pool '%s' from status '%s' to '%s'in DB",
+        minion_pool_id, pool.pool_status, status)
+    pool.pool_status = status
+    setattr(pool, 'updated_at', timeutils.utcnow())
+
+
+@enginefacade.writer
 def update_minion_pool_lifecycle(context, minion_pool_id, updated_values):
-    lifecycle = get_minion_pool_lifecycle(context, minion_pool_id)
+    lifecycle = get_minion_pool_lifecycle(
+        context, minion_pool_id, include_tasks_executions=False,
+        include_machines=False)
     if not lifecycle:
         raise exception.NotFound(
             "Minion pool '%s' not found" % minion_pool_id)
 
     updateable_fields = [
         "minimum_minions", "maximum_minions", "minion_max_idle_time",
-        "minion_retention_strategy", "environment_options"]
+        "minion_retention_strategy", "environment_options",
+        "pool_supporting_resources", "notes", "pool_name"]
     # TODO(aznashwan): this should no longer be required when the
     # transfer action class hirearchy is to be overhauled:
     redundancies = {
@@ -1249,7 +1269,7 @@ def get_minion_pool_lifecycle_executions(
 @enginefacade.reader
 def get_minion_pool_lifecycle_execution(context, lifecycle_id, execution_id):
     q = _soft_delete_aware_query(context, models.TasksExecution).join(
-        models.Replica)
+        models.MinionPoolLifecycle)
     q = _get_tasks_with_details_options(q)
     if is_user_context(context):
         q = q.filter(models.MinionPoolLifecycle.project_id == context.tenant)

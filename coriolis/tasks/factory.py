@@ -88,7 +88,11 @@ _TASKS_MAP = {
     constants.TASK_TYPE_CREATE_MINION:
         minion_pool_tasks.CreateMinionTask,
     constants.TASK_TYPE_DELETE_MINION:
-        minion_pool_tasks.DeleteMinionTask
+        minion_pool_tasks.DeleteMinionTask,
+    constants.TASK_TYPE_SET_UP_SHARED_POOL_RESOURCES:
+        minion_pool_tasks.SetupPoolSupportingResourcesTask,
+    constants.TASK_TYPE_TEAR_DOWN_SHARED_POOL_RESOURCES:
+        minion_pool_tasks.TeardownPoolSupportingResourcesTask
 }
 
 

@@ -12,10 +12,11 @@ class API(object):
     def create(
             self, ctxt, name, endpoint_id, environment_options,
             minimum_minions, maximum_minions, minion_max_idle_time,
-            minion_retention_strategy):
+            minion_retention_strategy, notes=None):
         return self._rpc_client.create_minion_pool(
             ctxt, name, endpoint_id, environment_options, minimum_minions,
-            maximum_minions, minion_max_idle_time, minion_retention_strategy)
+            maximum_minions, minion_max_idle_time, minion_retention_strategy,
+            notes=notes)
 
     def update(self, ctxt, minion_pool_id, updated_values):
         return self._rpc_client.update_minion_pool(
@@ -29,6 +30,9 @@ class API(object):
 
     def get_minion_pool(self, ctxt, minion_pool_id):
         return self._rpc_client.get_minion_pool(ctxt, minion_pool_id)
+
+    def initialize(self, ctxt, minion_pool_id):
+        return self._rpc_client.initialize_minion_pool(ctxt, minion_pool_id)
 
     def allocate(self, ctxt, minion_pool_id):
         return self._rpc_client.allocate_minion_pool(ctxt, minion_pool_id)

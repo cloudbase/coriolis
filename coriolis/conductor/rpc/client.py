@@ -376,13 +376,18 @@ class ConductorClient(object):
     def create_minion_pool(
             self, ctxt, name, endpoint_id, environment_options,
             minimum_minions, maximum_minions, minion_max_idle_time,
-            minion_retention_strategy):
+            minion_retention_strategy, notes=None):
         return self._client.call(
             ctxt, 'create_minion_pool', name=name, endpoint_id=endpoint_id,
             environment_options=environment_options,
             minimum_minions=minimum_minions, maximum_minions=maximum_minions,
             minion_max_idle_time=minion_max_idle_time,
-            minion_retention_strategy=minion_retention_strategy)
+            minion_retention_strategy=minion_retention_strategy,
+            notes=notes)
+
+    def initialize_minion_pool(self, ctxt, minion_pool_id):
+        return self._client.call(
+            ctxt, "initialize_minion_pool", minion_pool_id=minion_pool_id)
 
     def allocate_minion_pool(self, ctxt, minion_pool_id):
         return self._client.call(

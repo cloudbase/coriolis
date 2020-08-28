@@ -27,8 +27,12 @@ def upgrade(migrate_engine):
                 sqlalchemy.ForeignKey('base_transfer_action.base_id'),
                 primary_key=True),
             sqlalchemy.Column(
+                "pool_name", sqlalchemy.String(255), nullable=False),
+            sqlalchemy.Column(
                 "pool_status", sqlalchemy.String(255), nullable=False,
                 default=lambda: "UNKNOWN"),
+            sqlalchemy.Column(
+                "pool_supporting_resources", sqlalchemy.Text, nullable=True),
             sqlalchemy.Column(
                 'minimum_minions', sqlalchemy.Integer, nullable=False),
             sqlalchemy.Column(
@@ -46,13 +50,17 @@ def upgrade(migrate_engine):
             meta,
             sqlalchemy.Column('id', sqlalchemy.String(36), primary_key=True,
                               default=lambda: str(uuid.uuid4())),
+            sqlalchemy.Column(
+                "user_id", sqlalchemy.String(255), nullable=False),
+            sqlalchemy.Column(
+                "project_id", sqlalchemy.String(255), nullable=False),
             sqlalchemy.Column('created_at', sqlalchemy.DateTime),
             sqlalchemy.Column('updated_at', sqlalchemy.DateTime),
             sqlalchemy.Column('deleted_at', sqlalchemy.DateTime),
             sqlalchemy.Column('deleted', sqlalchemy.String(36)),
             sqlalchemy.Column(
                 'pool_id', sqlalchemy.String(36),
-                sqlalchemy.ForeignKey('minion_pool.id'), nullable=False),
+                sqlalchemy.ForeignKey('minion_pool_lifecycle.id'), nullable=False),
             sqlalchemy.Column(
                 'status', sqlalchemy.String(255), nullable=False,
                 default=lambda: "UNKNOWN"),
@@ -67,14 +75,3 @@ def upgrade(migrate_engine):
             # to the previously existing state.
             meta.drop_all(tables=tables[:index])
             raise
-
-    # update base_transfer_action:
-    columns = [
-        sqlalchemy.Column(
-            "source_minion_pool_id", sqlalchemy.String(36),
-            sqlalchemy.ForeignKey('minion_pool_lifecycle.id'), nullable=True),
-        sqlalchemy.Column(
-            "destination_minion_pool_id", sqlalchemy.String(36),
-            sqlalchemy.ForeignKey('minion_pool_lifecycle.id'), nullable=True)]
-    for col in columns:
-        base_transfer_action.create_column(col)

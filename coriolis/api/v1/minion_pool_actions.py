@@ -15,6 +15,19 @@ class MinionPoolActionsController(api_wsgi.Controller):
         self.minion_pool_api = api.API()
         super(MinionPoolActionsController, self).__init__()
 
+    @api_wsgi.action('initialize')
+    def _initialize_pool(self, req, id, body):
+        context = req.environ['coriolis.context']
+        context.can(
+            minion_pool_policies.get_minion_pools_policy_label("initialize"))
+        try:
+            return minion_pool_tasks_execution_view.single(
+                req, self.minion_pool_api.initialize(context, id))
+        except exception.NotFound as ex:
+            raise exc.HTTPNotFound(explanation=ex.msg)
+        except exception.InvalidParameterValue as ex:
+            raise exc.HTTPNotFound(explanation=ex.msg)
+
     @api_wsgi.action('allocate')
     def _allocate_pool(self, req, id, body):
         context = req.environ['coriolis.context']

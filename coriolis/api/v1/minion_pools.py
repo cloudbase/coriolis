@@ -37,7 +37,7 @@ class MinionPoolController(api_wsgi.Controller):
     def _validate_create_body(self, body):
         try:
             minion_pool = body["minion_pool"]
-            name = minion_pool["name"]
+            name = minion_pool["pool_name"]
             endpoint_id = minion_pool["endpoint_id"]
             # TODO(aznashwan): validate pool schema:
             environment_options = minion_pool["environment_options"]
@@ -47,10 +47,11 @@ class MinionPoolController(api_wsgi.Controller):
                 "minion_max_idle_time", 1)
             minion_retention_strategy = minion_pool.get(
                 "minion_retention_strategy")
+            notes = minion_pool.get("notes")
             return (
                 name, endpoint_id, environment_options, minimum_minions,
                 maximum_minions, minion_max_idle_time,
-                minion_retention_strategy)
+                minion_retention_strategy, notes)
         except Exception as ex:
             LOG.exception(ex)
             if hasattr(ex, "message"):
@@ -63,11 +64,13 @@ class MinionPoolController(api_wsgi.Controller):
         context = req.environ["coriolis.context"]
         context.can(pools_policies.get_minion_pools_policy_label("create"))
         (name, endpoint_id, environment_options, minimum_minions,
-         maximum_minions, minion_max_idle_time, minion_retention_strategy) = (
+         maximum_minions, minion_max_idle_time, minion_retention_strategy,
+         notes) = (
             self._validate_create_body(body))
         return minion_pool_view.single(req, self._minion_pool_api.create(
             context, name, endpoint_id, environment_options, minimum_minions,
-            maximum_minions, minion_max_idle_time, minion_retention_strategy))
+            maximum_minions, minion_max_idle_time, minion_retention_strategy,
+            notes=notes))
 
     def _validate_update_body(self, body):
         try:
@@ -75,7 +78,7 @@ class MinionPoolController(api_wsgi.Controller):
             return {k: minion_pool[k] for k in minion_pool.keys() &
                     {"name", "environment_options", "minimum_minions",
                      "maximum_minions", "minion_max_idle_time",
-                     "minion_retention_strategy"}}
+                     "minion_retention_strategy", "notes"}}
         except Exception as ex:
             LOG.exception(ex)
             if hasattr(ex, "message"):

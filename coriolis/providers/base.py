@@ -568,7 +568,7 @@ class BaseMinionPoolProvider(
 
     @abc.abstractmethod
     def setup_pool_supporting_resources(
-            self, ctxt, connection_info, environment_options):
+            self, ctxt, connection_info, environment_options, pool_identifier):
         """ Sets up supporting resources which can be re-used amongst the
         machines which will be spawned within the pool (e.g. a shared network)
         """
@@ -577,7 +577,7 @@ class BaseMinionPoolProvider(
     @abc.abstractmethod
     def teardown_pool_supporting_resources(
             self, ctxt, connection_info, environment_options,
-            pool_resource_info):
+            pool_supporting_resources):
         """ Tears down all pool supporting resources. """
         pass
 
