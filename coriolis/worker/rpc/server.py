@@ -372,6 +372,30 @@ class WorkerServerEndpoint(object):
 
         return options
 
+    def get_endpoint_minion_pool_options(
+            self, ctxt, platform_name, connection_info, env, option_names):
+        provider = providers_factory.get_provider(
+            platform_name,
+            constants.PROVIDER_TYPE_MINION_POOL,
+            None, raise_if_not_found=False)
+        if not provider:
+            raise exception.InvalidInput(
+                "Provider plugin for platform '%s' does not support listing "
+                "minion pool creation or management." % platform_name)
+
+        secret_connection_info = utils.get_secret_connection_info(
+            ctxt, connection_info)
+
+        options = provider.get_minion_pool_options(
+            ctxt, secret_connection_info, env=env,
+            option_names=option_names)
+
+        # NOTE: the structure of option values is the same for minion pools:
+        schemas.validate_value(
+            options, schemas.CORIOLIS_DESTINATION_ENVIRONMENT_OPTIONS_SCHEMA)
+
+        return options
+
     def get_endpoint_source_options(
             self, ctxt, platform_name, connection_info, env, option_names):
         provider = providers_factory.get_provider(
@@ -453,6 +477,22 @@ class WorkerServerEndpoint(object):
         message = None
         try:
             schemas.validate_value(source_env, source_env_schema)
+        except exception.SchemaValidationException as ex:
+            is_valid = False
+            message = str(ex)
+
+        return (is_valid, message)
+
+    def validate_endpoint_minion_pool_options(
+            self, ctxt, platform_name, pool_environment):
+        provider = providers_factory.get_provider(
+            platform_name, constants.PROVIDER_TYPE_MINION_POOL, None)
+        pool_options_schema = provider.get_minion_pool_environment_schema()
+
+        is_valid = True
+        message = None
+        try:
+            schemas.validate_value(pool_environment, pool_options_schema)
         except exception.SchemaValidationException as ex:
             is_valid = False
             message = str(ex)

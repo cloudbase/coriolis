@@ -8,6 +8,7 @@ from coriolis import exception
 from coriolis.api.v1.views import minion_pool_view
 from coriolis.api.v1.views import minion_pool_tasks_execution_view
 from coriolis.api import wsgi as api_wsgi
+from coriolis.endpoints import api as endpoints_api
 from coriolis.policies import minion_pools as pools_policies
 from coriolis.minion_pools import api
 
@@ -17,6 +18,7 @@ LOG = logging.getLogger(__name__)
 class MinionPoolController(api_wsgi.Controller):
     def __init__(self):
         self._minion_pool_api = api.API()
+        self._endpoints_api = endpoints_api.API()
         super(MinionPoolController, self).__init__()
 
     def show(self, req, id):
@@ -34,13 +36,15 @@ class MinionPoolController(api_wsgi.Controller):
         return minion_pool_view.collection(
             req, self._minion_pool_api.get_minion_pools(context))
 
-    def _validate_create_body(self, body):
+    def _validate_create_body(self, ctxt, body):
         try:
             minion_pool = body["minion_pool"]
             name = minion_pool["pool_name"]
             endpoint_id = minion_pool["endpoint_id"]
-            # TODO(aznashwan): validate pool schema:
             environment_options = minion_pool["environment_options"]
+            self._endpoints_api.validate_endpoint_minion_pool_options(
+                ctxt, endpoint_id, environment_options)
+
             minimum_minions = minion_pool.get("minimum_minions", 0)
             maximum_minions = minion_pool.get("maximum_minions", 1)
             minion_max_idle_time = minion_pool.get(
@@ -66,19 +70,26 @@ class MinionPoolController(api_wsgi.Controller):
         (name, endpoint_id, environment_options, minimum_minions,
          maximum_minions, minion_max_idle_time, minion_retention_strategy,
          notes) = (
-            self._validate_create_body(body))
+            self._validate_create_body(context, body))
         return minion_pool_view.single(req, self._minion_pool_api.create(
             context, name, endpoint_id, environment_options, minimum_minions,
             maximum_minions, minion_max_idle_time, minion_retention_strategy,
             notes=notes))
 
-    def _validate_update_body(self, body):
+    def _validate_update_body(self, id, context, body):
         try:
             minion_pool = body["minion_pool"]
-            return {k: minion_pool[k] for k in minion_pool.keys() &
+            vals = {k: minion_pool[k] for k in minion_pool.keys() &
                     {"name", "environment_options", "minimum_minions",
                      "maximum_minions", "minion_max_idle_time",
                      "minion_retention_strategy", "notes"}}
+            if 'environment_options' in vals:
+                minion_pool = self._minion_pool_api.get_minion_pool(
+                    context, id)
+                self._endpoints_api.validate_endpoint_minion_pool_options(
+                    context, minion_pool['endpoint_id'],
+                    vals['environment_options'])
+            return vals
         except Exception as ex:
             LOG.exception(ex)
             if hasattr(ex, "message"):
@@ -90,8 +101,8 @@ class MinionPoolController(api_wsgi.Controller):
     def update(self, req, id, body):
         context = req.environ["coriolis.context"]
         context.can(pools_policies.get_minion_pools_policy_label("update"))
-        updated_values = self._validate_update_body(body)
-        return minion_pool_tasks_execution_view.single(
+        updated_values = self._validate_update_body(id, context, body)
+        return minion_pool_view.single(
             req, self._minion_pool_api.update(
                 req.environ['coriolis.context'], id, updated_values))
 

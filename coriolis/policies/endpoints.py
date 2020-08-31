@@ -149,7 +149,19 @@ ENDPOINTS_POLICY_DEFAULT_RULES = [
                 "method": "GET"
             }
         ]
+    ),
+    policy.DocumentedRuleDefault(
+        get_endpoints_policy_label('list_minion_pool_options'),
+        ENDPOINTS_POLICY_DEFAULT_RULE,
+        "List available minion pool options for endpoint",
+        [
+            {
+                "path": "/endpoint/{endpoint_id}/minion-pool-option",
+                "method": "GET"
+            }
+        ]
     )
+
 ]
 
 

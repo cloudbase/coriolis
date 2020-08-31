@@ -545,13 +545,14 @@ class BaseMinionPoolProvider(
         pass
 
     @abc.abstractmethod
-    def get_minion_pool_options(self, ctxt, environment_options):
+    def get_minion_pool_options(
+            self, ctxt, connection_info, env=None, option_names=None):
         """ Returns possible environment options for minion pools. """
         pass
 
     @abc.abstractmethod
     def validate_minion_compatibility_for_transfer(
-            self, ctxt, environment_options,
+            self, ctxt, connection_info, environment_options,
             transfer_options, storage_mappings):
         """ Validates compatibility between the pool's options and the options
         selected for a given transfer. Should raise if any options related to

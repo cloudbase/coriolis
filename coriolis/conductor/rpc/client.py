@@ -437,3 +437,15 @@ class ConductorClient(object):
             ctxt, 'cancel_minion_pool_lifecycle_execution',
             minion_pool_id=minion_pool_id, execution_id=execution_id,
             force=force)
+
+    def get_endpoint_minion_pool_options(
+            self, ctxt, endpoint_id, env, option_names):
+        return self._client.call(
+            ctxt, 'get_endpoint_minion_pool_options', endpoint_id=endpoint_id,
+            env=env, option_names=option_names)
+
+    def validate_endpoint_minion_pool_options(
+            self, ctxt, endpoint_id, pool_environment):
+        return self._client.call(
+            ctxt, 'validate_endpoint_minion_pool_options',
+            endpoint_id=endpoint_id, pool_environment=pool_environment)

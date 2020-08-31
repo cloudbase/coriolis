@@ -459,6 +459,19 @@ class ConductorServerEndpoint(object):
         return worker_rpc.get_endpoint_destination_options(
             ctxt, endpoint.type, endpoint.connection_info, env, option_names)
 
+    def get_endpoint_minion_pool_options(
+            self, ctxt, endpoint_id, env, option_names):
+        endpoint = self.get_endpoint(ctxt, endpoint_id)
+
+        worker_rpc = self._get_worker_service_rpc_for_specs(
+            ctxt, enabled=True,
+            region_sets=[[reg.id for reg in endpoint.mapped_regions]],
+            provider_requirements={
+                endpoint.type: [
+                    constants.PROVIDER_TYPE_MINION_POOL]})
+        return worker_rpc.get_endpoint_minion_pool_options(
+            ctxt, endpoint.type, endpoint.connection_info, env, option_names)
+
     def get_endpoint_networks(self, ctxt, endpoint_id, env):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
@@ -519,6 +532,19 @@ class ConductorServerEndpoint(object):
 
         return worker_rpc.validate_endpoint_source_environment(
             ctxt, endpoint.type, source_env)
+
+    def validate_endpoint_minion_pool_options(
+            self, ctxt, endpoint_id, pool_environment):
+        endpoint = self.get_endpoint(ctxt, endpoint_id)
+
+        worker_rpc = self._get_worker_service_rpc_for_specs(
+            ctxt, enabled=True,
+            region_sets=[[reg.id for reg in endpoint.mapped_regions]],
+            provider_requirements={
+                endpoint.type: [constants.PROVIDER_TYPE_MINION_POOL]})
+
+        return worker_rpc.validate_endpoint_minion_pool_options(
+            ctxt, endpoint.type, pool_environment)
 
     def get_available_providers(self, ctxt):
         # TODO(aznashwan): merge list of all providers from all

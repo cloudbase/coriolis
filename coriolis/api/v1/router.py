@@ -8,6 +8,7 @@ from coriolis.api.v1 import diagnostics
 from coriolis.api.v1 import endpoint_actions
 from coriolis.api.v1 import endpoint_destination_options
 from coriolis.api.v1 import endpoint_instances
+from coriolis.api.v1 import endpoint_minion_pool_options
 from coriolis.api.v1 import endpoint_networks
 from coriolis.api.v1 import endpoint_source_options
 from coriolis.api.v1 import endpoint_storage
@@ -17,6 +18,7 @@ from coriolis.api.v1 import migrations
 from coriolis.api.v1 import minion_pools
 from coriolis.api.v1 import minion_pool_actions
 from coriolis.api.v1 import minion_pool_tasks_executions
+from coriolis.api.v1 import minion_pool_tasks_execution_actions
 from coriolis.api.v1 import provider_schemas
 from coriolis.api.v1 import providers
 from coriolis.api.v1 import regions
@@ -84,6 +86,26 @@ class APIRouter(api.APIRouter):
                         controller=self.resources['minion_pool_tasks_executions'],
                         collection={'detail': 'GET'},
                         member={'action': 'POST'})
+
+        minion_pool_tasks_execution_actions_resource = \
+            minion_pool_tasks_execution_actions.create_resource()
+        self.resources['minion_pool_tasks_execution_actions'] = \
+            minion_pool_tasks_execution_actions_resource
+        pool_execution_path = (
+            '/{project_id}/minion_pools/{minion_pool_id}/executions/{id}')
+        mapper.connect('minion_pool_tasks_execution_actions',
+                       pool_execution_path + '/actions',
+                       controller=self.resources[
+                           'minion_pool_tasks_execution_actions'],
+                       action='action',
+                       conditions={'method': 'POST'})
+
+        self.resources['endpoint_minion_pool_options'] = \
+            endpoint_minion_pool_options.create_resource()
+        mapper.resource('minion_pool_options',
+                        'endpoints/{endpoint_id}/minion-pool-options',
+                        controller=(
+                            self.resources['endpoint_minion_pool_options']))
 
         endpoint_actions_resource = endpoint_actions.create_resource()
         self.resources['endpoint_actions'] = endpoint_actions_resource
