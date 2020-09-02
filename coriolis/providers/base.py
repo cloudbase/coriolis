@@ -552,8 +552,8 @@ class BaseMinionPoolProvider(
 
     @abc.abstractmethod
     def validate_minion_compatibility_for_transfer(
-            self, ctxt, connection_info, environment_options,
-            transfer_options, storage_mappings):
+            self, ctxt, connection_info, export_info, environment_options,
+            minion_properties):
         """ Validates compatibility between the pool's options and the options
         selected for a given transfer. Should raise if any options related to
         the minions in the pool might be deemed incompatible with the desited
@@ -562,13 +562,13 @@ class BaseMinionPoolProvider(
         pass
 
     @abc.abstractmethod
-    def validate_pool_options(
+    def validate_minion_pool_options(
             self, ctxt, connection_info, environment_options):
         """ Validates the provided pool options. """
         pass
 
     @abc.abstractmethod
-    def setup_pool_supporting_resources(
+    def set_up_pool_shared_resources(
             self, ctxt, connection_info, environment_options, pool_identifier):
         """ Sets up supporting resources which can be re-used amongst the
         machines which will be spawned within the pool (e.g. a shared network)
@@ -576,44 +576,40 @@ class BaseMinionPoolProvider(
         pass
 
     @abc.abstractmethod
-    def teardown_pool_supporting_resources(
+    def tear_down_pool_shared_resources(
             self, ctxt, connection_info, environment_options,
-            pool_supporting_resources):
+            pool_shared_resources):
         """ Tears down all pool supporting resources. """
         pass
 
     @abc.abstractmethod
     def create_minion(
             self, ctxt, connection_info, environment_options,
+            pool_identifier, pool_shared_resources,
             new_minion_identifier):
         pass
 
     @abc.abstractmethod
     def delete_minion(
-            self, ctxt, connection_info, environment_options,
-            minion_properties):
+            self, ctxt, connection_info, minion_properties):
         pass
 
     @abc.abstractmethod
     def shutdown_minion(
-            self, ctxt, connection_info, environment_options,
-            minion_properties):
+            self, ctxt, connection_info, minion_properties):
         pass
 
     @abc.abstractmethod
     def start_minion(
-            self, ctxt, connection_info, environment_options,
-            minion_properties):
+            self, ctxt, connection_info, minion_properties):
         pass
 
     @abc.abstractmethod
-    def attach_volume_to_minion(
-            self, ctxt, connection_info, environment_options,
-            minion_properties, volume_info):
+    def attach_volumes_to_minion(
+            self, ctxt, connection_info, minion_properties, volumes_info):
         pass
 
     @abc.abstractmethod
-    def detach_volume_from_minion(
-            self, ctxt, connection_info, environment_options,
-            minion_properties, volume_info):
+    def detach_volumes_from_minion(
+            self, ctxt, connection_info, minion_properties, volumes_info):
         pass

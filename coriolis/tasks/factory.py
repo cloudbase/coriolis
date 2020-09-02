@@ -90,9 +90,21 @@ _TASKS_MAP = {
     constants.TASK_TYPE_DELETE_MINION:
         minion_pool_tasks.DeleteMinionTask,
     constants.TASK_TYPE_SET_UP_SHARED_POOL_RESOURCES:
-        minion_pool_tasks.SetupPoolSupportingResourcesTask,
+        minion_pool_tasks.SetUpPoolSupportingResourcesTask,
     constants.TASK_TYPE_TEAR_DOWN_SHARED_POOL_RESOURCES:
-        minion_pool_tasks.TeardownPoolSupportingResourcesTask
+        minion_pool_tasks.TearDownPoolSupportingResourcesTask,
+    constants.TASK_TYPE_ATTACH_VOLUMES_TO_SOURCE_MINION:
+        minion_pool_tasks.AttachVolumesToSourceMinionTask,
+    constants.TASK_TYPE_DETACH_VOLUMES_FROM_SOURCE_MINION:
+        minion_pool_tasks.DetachVolumesFromSourceMinionTask,
+    constants.TASK_TYPE_ATTACH_VOLUMES_TO_DESTINATION_MINION:
+        minion_pool_tasks.AttachVolumesToDestinationMinionTask,
+    constants.TASK_TYPE_DETACH_VOLUMES_FROM_DESTINATION_MINION:
+        minion_pool_tasks.DetachVolumesFromDestinationMinionTask,
+    constants.TASK_TYPE_VALIDATE_SOURCE_MINION_POOL_COMPATIBILITY:
+        minion_pool_tasks.ValidateSourceMinionCompatibilityTask,
+    constants.TASK_TYPE_VALIDATE_DESTINATION_MINION_POOL_COMPATIBILITY:
+        minion_pool_tasks.ValidateDestinationMinionCompatibilityTask
 }
 
 

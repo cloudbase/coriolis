@@ -15,6 +15,11 @@ def upgrade(migrate_engine):
     base_transfer_action = sqlalchemy.Table(
         'base_transfer_action', meta, autoload=True)
 
+    # extend tasks execution 'type' column:
+    tasks_execution = sqlalchemy.Table(
+        'tasks_execution', meta, autoload=True)
+    tasks_execution.c.type.alter(type=sqlalchemy.String(255))
+
     tables = []
 
     # add table for pool lifecycles:
@@ -29,10 +34,12 @@ def upgrade(migrate_engine):
             sqlalchemy.Column(
                 "pool_name", sqlalchemy.String(255), nullable=False),
             sqlalchemy.Column(
+                "pool_os_type", sqlalchemy.String(255), nullable=False),
+            sqlalchemy.Column(
                 "pool_status", sqlalchemy.String(255), nullable=False,
                 default=lambda: "UNKNOWN"),
             sqlalchemy.Column(
-                "pool_supporting_resources", sqlalchemy.Text, nullable=True),
+                "pool_shared_resources", sqlalchemy.Text, nullable=True),
             sqlalchemy.Column(
                 'minimum_minions', sqlalchemy.Integer, nullable=False),
             sqlalchemy.Column(

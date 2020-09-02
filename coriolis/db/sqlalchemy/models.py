@@ -461,6 +461,21 @@ class MinionMachine(BASE, models.TimestampMixin, models.ModelBase,
 
     provider_properties = sqlalchemy.Column(types.Json)
 
+    def to_dict(self):
+        result = {
+            "id": self.id,
+            "user_id": self.user_id,
+            "project_id": self.project_id,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "deleted_at": self.deleted_at,
+            "deleted": self.deleted,
+            "pool_id": self.pool_id,
+            "status": self.status,
+            "connection_info": self.connection_info,
+            "provider_properties": self.provider_properties
+        }
+        return result
 
 
 class MinionPoolLifecycle(BaseTransferAction):
@@ -478,10 +493,12 @@ class MinionPoolLifecycle(BaseTransferAction):
     pool_name = sqlalchemy.Column(
         sqlalchemy.String(255),
         nullable=False)
+    pool_os_type = sqlalchemy.Column(
+        sqlalchemy.String(255), nullable=False)
     pool_status = sqlalchemy.Column(
         sqlalchemy.String(255), nullable=False,
         default=lambda: constants.MINION_POOL_STATUS_UNKNOWN)
-    pool_supporting_resources = sqlalchemy.Column(
+    pool_shared_resources = sqlalchemy.Column(
         types.Json, nullable=True)
     minimum_minions = sqlalchemy.Column(
         sqlalchemy.Integer, nullable=False)
@@ -499,18 +516,25 @@ class MinionPoolLifecycle(BaseTransferAction):
     __mapper_args__ = {
         'polymorphic_identity': 'minion_pool_lifecycle'}
 
-    def to_dict(self, include_info=True):
+    def to_dict(
+            self, include_info=True, include_machines=True,
+            include_executions=True):
         base = super(MinionPoolLifecycle, self).to_dict(
-            include_info=include_info)
+            include_info=include_info, include_executions=include_executions)
         base.update({
             "id": self.id,
             "pool_name": self.pool_name,
-            "pool_supporting_resources": self.pool_supporting_resources,
+            "pool_os_type": self.pool_os_type,
+            "pool_shared_resources": self.pool_shared_resources,
             "pool_status": self.pool_status,
             "minimum_minions": self.minimum_minions,
             "maximum_minions": self.maximum_minions,
             "minion_max_idle_time": self.minion_max_idle_time,
             "minion_retention_strategy": self.minion_retention_strategy})
+        base["minion_machines"] = []
+        if include_machines:
+            base["minion_machines"] = [
+                machine.to_dict() for machine in self.minion_machines]
         # TODO(aznashwan): these nits should be avoided by splitting the
         # BaseTransferAction class into a more specialized hireachy:
         redundancies = {

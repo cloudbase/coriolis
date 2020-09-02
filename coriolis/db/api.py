@@ -1129,8 +1129,10 @@ def update_minion_machine(context, minion_machine_id, updated_values):
 @enginefacade.writer
 def delete_minion_machine(context, minion_machine_id):
     minion_machine = get_minion_machine(context, minion_machine_id)
+    # TODO(aznashwan): update models to be soft-delete-aware to
+    # avoid needing to hard-delete here:
     count = _soft_delete_aware_query(context, models.MinionMachine).filter_by(
-        id=minion_machine_id).soft_delete()
+        id=minion_machine_id).delete()
     if count == 0:
         raise exception.NotFound("0 MinionMachine entries were soft deleted")
 
@@ -1167,7 +1169,7 @@ def get_minion_pool_lifecycle(
 @enginefacade.reader
 def get_minion_pool_lifecycles(
         context, include_tasks_executions=False, include_info=False,
-        to_dict=True):
+        include_machines=False, to_dict=True):
     q = _soft_delete_aware_query(context, models.MinionPoolLifecycle)
     if include_tasks_executions:
         q = q.options(orm.joinedload(models.MinionPoolLifecycle.executions))
@@ -1177,7 +1179,8 @@ def get_minion_pool_lifecycles(
     if is_user_context(context):
         q = q.filter(
             models.Replica.project_id == context.tenant)
-    q = q.options(orm.joinedload('minion_machines'))
+    if include_machines:
+        q = q.options(orm.joinedload('minion_machines'))
     db_result = q.all()
     if to_dict:
         return [i.to_dict(include_info=include_info) for i in db_result]
@@ -1223,7 +1226,7 @@ def update_minion_pool_lifecycle(context, minion_pool_id, updated_values):
     updateable_fields = [
         "minimum_minions", "maximum_minions", "minion_max_idle_time",
         "minion_retention_strategy", "environment_options",
-        "pool_supporting_resources", "notes", "pool_name"]
+        "pool_shared_resources", "notes", "pool_name", "pool_os_type"]
     # TODO(aznashwan): this should no longer be required when the
     # transfer action class hirearchy is to be overhauled:
     redundancies = {

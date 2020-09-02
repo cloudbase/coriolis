@@ -22,10 +22,6 @@ def _format_minion_pool(req, minion_pool, keys=None):
         if key in minion_pool_dict:
             minion_pool_dict["environment_options"] = minion_pool_dict.pop(key)
 
-    pool_machines = minion_pool_dict.get('minion_machines', [])
-    minion_pool_dict['minion_machines'] = [
-        machine['id'] for machine in pool_machines]
-
     return minion_pool_dict
 
 

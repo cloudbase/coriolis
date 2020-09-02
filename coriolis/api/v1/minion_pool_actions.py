@@ -15,40 +15,61 @@ class MinionPoolActionsController(api_wsgi.Controller):
         self.minion_pool_api = api.API()
         super(MinionPoolActionsController, self).__init__()
 
-    @api_wsgi.action('initialize')
-    def _initialize_pool(self, req, id, body):
+    @api_wsgi.action('set-up-shared-resources')
+    def _set_up_shared_resources(self, req, id, body):
         context = req.environ['coriolis.context']
         context.can(
-            minion_pool_policies.get_minion_pools_policy_label("initialize"))
+            minion_pool_policies.get_minion_pools_policy_label(
+                "set_up_shared_resources"))
         try:
             return minion_pool_tasks_execution_view.single(
-                req, self.minion_pool_api.initialize(context, id))
+                req, self.minion_pool_api.set_up_shared_pool_resources(
+                    context, id))
         except exception.NotFound as ex:
             raise exc.HTTPNotFound(explanation=ex.msg)
         except exception.InvalidParameterValue as ex:
             raise exc.HTTPNotFound(explanation=ex.msg)
 
-    @api_wsgi.action('allocate')
-    def _allocate_pool(self, req, id, body):
+    @api_wsgi.action('tear-down-shared-resources')
+    def _tear_down_shared_resources(self, req, id, body):
         context = req.environ['coriolis.context']
         context.can(
-            minion_pool_policies.get_minion_pools_policy_label("allocate"))
+            minion_pool_policies.get_minion_pools_policy_label(
+                "tear_down_shared_resources"))
         try:
             return minion_pool_tasks_execution_view.single(
-                req, self.minion_pool_api.allocate(context, id))
+                req, self.minion_pool_api.tear_down_shared_pool_resources(
+                    context, id))
         except exception.NotFound as ex:
             raise exc.HTTPNotFound(explanation=ex.msg)
         except exception.InvalidParameterValue as ex:
             raise exc.HTTPNotFound(explanation=ex.msg)
 
-    @api_wsgi.action('deallocate')
-    def _deallocate_pool(self, req, id, body):
+    @api_wsgi.action('allocate-machines')
+    def _allocate_pool_machines(self, req, id, body):
         context = req.environ['coriolis.context']
         context.can(
-            minion_pool_policies.get_minion_pools_policy_label("deallocate"))
+            minion_pool_policies.get_minion_pools_policy_label(
+                "allocate_machines"))
         try:
             return minion_pool_tasks_execution_view.single(
-                req, self.minion_pool_api.deallocate(context, id))
+                req, self.minion_pool_api.allocate_machines(
+                    context, id))
+        except exception.NotFound as ex:
+            raise exc.HTTPNotFound(explanation=ex.msg)
+        except exception.InvalidParameterValue as ex:
+            raise exc.HTTPNotFound(explanation=ex.msg)
+
+    @api_wsgi.action('deallocate-machines')
+    def _deallocate_pool_machines(self, req, id, body):
+        context = req.environ['coriolis.context']
+        context.can(
+            minion_pool_policies.get_minion_pools_policy_label(
+                "deallocate_machines"))
+        try:
+            return minion_pool_tasks_execution_view.single(
+                req, self.minion_pool_api.deallocate_machines(
+                    context, id))
         except exception.NotFound as ex:
             raise exc.HTTPNotFound(explanation=ex.msg)
         except exception.InvalidParameterValue as ex:

@@ -4,6 +4,7 @@
 from oslo_log import log as logging
 from webob import exc
 
+from coriolis import constants
 from coriolis import exception
 from coriolis.api.v1.views import minion_pool_view
 from coriolis.api.v1.views import minion_pool_tasks_execution_view
@@ -41,6 +42,12 @@ class MinionPoolController(api_wsgi.Controller):
             minion_pool = body["minion_pool"]
             name = minion_pool["pool_name"]
             endpoint_id = minion_pool["endpoint_id"]
+            pool_os_type = minion_pool["pool_os_type"]
+            if pool_os_type not in constants.VALID_OS_TYPES:
+                raise Exception(
+                    "The provided pool OS type '%s' is invalid. Must be one "
+                    "of the following: %s" % (
+                        pool_os_type, constants.VALID_OS_TYPES))
             environment_options = minion_pool["environment_options"]
             self._endpoints_api.validate_endpoint_minion_pool_options(
                 ctxt, endpoint_id, environment_options)
@@ -53,8 +60,8 @@ class MinionPoolController(api_wsgi.Controller):
                 "minion_retention_strategy")
             notes = minion_pool.get("notes")
             return (
-                name, endpoint_id, environment_options, minimum_minions,
-                maximum_minions, minion_max_idle_time,
+                name, endpoint_id, pool_os_type, environment_options,
+                minimum_minions, maximum_minions, minion_max_idle_time,
                 minion_retention_strategy, notes)
         except Exception as ex:
             LOG.exception(ex)
@@ -67,14 +74,14 @@ class MinionPoolController(api_wsgi.Controller):
     def create(self, req, body):
         context = req.environ["coriolis.context"]
         context.can(pools_policies.get_minion_pools_policy_label("create"))
-        (name, endpoint_id, environment_options, minimum_minions,
+        (name, endpoint_id, pool_os_type, environment_options, minimum_minions,
          maximum_minions, minion_max_idle_time, minion_retention_strategy,
          notes) = (
             self._validate_create_body(context, body))
         return minion_pool_view.single(req, self._minion_pool_api.create(
-            context, name, endpoint_id, environment_options, minimum_minions,
-            maximum_minions, minion_max_idle_time, minion_retention_strategy,
-            notes=notes))
+            context, name, endpoint_id, pool_os_type, environment_options,
+            minimum_minions, maximum_minions, minion_max_idle_time,
+            minion_retention_strategy, notes=notes))
 
     def _validate_update_body(self, id, context, body):
         try:
@@ -82,7 +89,7 @@ class MinionPoolController(api_wsgi.Controller):
             vals = {k: minion_pool[k] for k in minion_pool.keys() &
                     {"name", "environment_options", "minimum_minions",
                      "maximum_minions", "minion_max_idle_time",
-                     "minion_retention_strategy", "notes"}}
+                     "minion_retention_strategy", "notes", "pool_os_type"}}
             if 'environment_options' in vals:
                 minion_pool = self._minion_pool_api.get_minion_pool(
                     context, id)
