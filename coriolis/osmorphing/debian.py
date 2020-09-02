@@ -6,6 +6,7 @@ from io import StringIO
 
 import yaml
 
+from coriolis import exception
 from coriolis import utils
 from coriolis.osmorphing import base
 from coriolis.osmorphing.osdetect import debian as debian_osdetect
@@ -121,17 +122,41 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
     def pre_packages_install(self, package_names):
         super(BaseDebianMorphingTools, self).pre_packages_install(
             package_names)
-
-        if package_names:
-            self._event_manager.progress_update("Updating packages list")
-            self._exec_cmd_chroot('apt-get clean')
-            self._exec_cmd_chroot('apt-get update -y')
+        try:
+            if package_names:
+                self._event_manager.progress_update("Updating packages list")
+                self._exec_cmd_chroot('apt-get clean')
+                self._exec_cmd_chroot('apt-get update -y')
+        except Exception as err:
+            raise exception.PackageManagerOperationException(
+                "Failed to refresh apt repositories. Please ensure that *all* "
+                "of the apt repositories configured within the source machine "
+                "exist, are properly configured, and are reachable from the "
+                "virtual network on the target platform which the OSMorphing "
+                "minion machine is running on. If there are repositories "
+                "configured within the source machine which are local, "
+                "private, or otherwise unreachable from the target platform, "
+                "please either try disabling the repositories within the "
+                "source machine, or try to set up a mirror of said "
+                "repositories which will be reachable from the temporary "
+                "OSMorphing minion machine on the target platform. Original "
+                "error was: %s" % str(err)) from err
 
     def install_packages(self, package_names):
-        apt_get_cmd = 'apt-get install %s -y' % " ".join(package_names)
-        self._exec_cmd_chroot(apt_get_cmd)
+        try:
+            apt_get_cmd = 'apt-get install %s -y' % " ".join(package_names)
+            self._exec_cmd_chroot(apt_get_cmd)
+        except Exception as err:
+            raise exception.FailedPackageInstallationException(
+                package_names=package_names, package_manager='apt',
+                error=str(err)) from err
 
     def uninstall_packages(self, package_names):
-        for package_name in package_names:
-            apt_get_cmd = 'apt-get remove %s -y || true' % package_name
-            self._exec_cmd_chroot(apt_get_cmd)
+        try:
+            for package_name in package_names:
+                apt_get_cmd = 'apt-get remove %s -y || true' % package_name
+                self._exec_cmd_chroot(apt_get_cmd)
+        except exception.CoriolisException as err:
+            raise exception.FailedPackageUninstallationException(
+                package_names=package_names, package_manager='apt',
+                error=str(err)) from err

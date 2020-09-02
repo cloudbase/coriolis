@@ -7,6 +7,7 @@ import uuid
 
 from oslo_log import log as logging
 
+from coriolis import exception
 from coriolis import utils
 from coriolis.osmorphing import base
 from coriolis.osmorphing.osdetect import centos as centos_detect
@@ -156,15 +157,25 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         self._add_net_udev_rules(net_ifaces_info)
 
     def _yum_install(self, package_names, enable_repos=[]):
-        yum_cmd = 'yum install %s -y%s' % (
-            " ".join(package_names),
-            "".join([" --enablerepo=%s" % r for r in enable_repos]))
-        self._exec_cmd_chroot(yum_cmd)
+        try:
+            yum_cmd = 'yum install %s -y%s' % (
+                " ".join(package_names),
+                "".join([" --enablerepo=%s" % r for r in enable_repos]))
+            self._exec_cmd_chroot(yum_cmd)
+        except exception.CoriolisException as err:
+            raise exception.FailedPackageInstallationException(
+                package_names=package_names, package_manager='yum',
+                error=str(err)) from err
 
     def _yum_uninstall(self, package_names):
-        for package_name in package_names:
-            yum_cmd = 'yum remove %s -y' % package_name
-            self._exec_cmd_chroot(yum_cmd)
+        try:
+            for package_name in package_names:
+                yum_cmd = 'yum remove %s -y' % package_name
+                self._exec_cmd_chroot(yum_cmd)
+        except exception.CoriolisException as err:
+            raise exception.FailedPackageUninstallationException(
+                package_names=package_names, package_manager='yum',
+                error=str(err)) from err
 
     def _yum_clean_all(self):
         self._exec_cmd_chroot("yum clean all")
