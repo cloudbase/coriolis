@@ -76,7 +76,9 @@ class CreateMinionTask(base.TaskRunner):
 
     @classmethod
     def get_returned_task_info_properties(cls):
-        return ["minion_provider_properties", "minion_connection_info"]
+        return [
+            "minion_provider_properties", "minion_connection_info",
+            "minion_backup_writer_connection_info"]
 
     @classmethod
     def get_required_provider_types(cls):
@@ -107,7 +109,8 @@ class CreateMinionTask(base.TaskRunner):
 
         missing = [
             key for key in [
-                "minion_connection_info", "minion_provider_properties"]
+                "connection_info", "minion_provider_properties",
+                "backup_writer_connection_info"]
             if key not in minion_properties]
         if missing:
             LOG.warn(
@@ -115,9 +118,23 @@ class CreateMinionTask(base.TaskRunner):
                 "property keys: %s. Allowing run to completion for later "
                 "cleanup.")
 
+        minion_connection_info = {}
+        if 'connection_info' in minion_properties:
+            minion_connection_info = base.marshal_migr_conn_info(
+                minion_properties['connection_info'])
+        minion_backup_writer_conn = {}
+        if 'backup_writer_connection_info' in minion_properties:
+            minion_backup_writer_conn = minion_properties[
+                'backup_writer_connection_info']
+            if 'connection_details' in minion_backup_writer_conn:
+                minion_backup_writer_conn['connection_details'] = (
+                    base.marshal_migr_conn_info(
+                        minion_backup_writer_conn['connection_details']))
+
         return {
-            "minion_connection_info": minion_properties.get(
-                "minion_connection_info"),
+            "minion_connection_info": minion_connection_info,
+            "minion_backup_writer_connection_info": (
+                minion_backup_writer_conn),
             "minion_provider_properties": minion_properties.get(
                 "minion_provider_properties")}
 
@@ -134,11 +151,11 @@ class DeleteMinionTask(base.TaskRunner):
 
     @classmethod
     def get_required_task_info_properties(cls):
-        return ["pool_environment_options", "minion_provider_properties"]
+        return ["minion_provider_properties"]
 
     @classmethod
     def get_returned_task_info_properties(cls):
-        return ["minion_provider_properties", "minion_connection_info"]
+        return []
 
     @classmethod
     def get_required_provider_types(cls):
@@ -160,15 +177,11 @@ class DeleteMinionTask(base.TaskRunner):
             destination["type"], constants.PROVIDER_TYPE_MINION_POOL,
             event_handler)
 
-        environment_options = task_info['pool_environment_options']
         minion_provider_properties = task_info['minion_provider_properties']
         provider.delete_minion(
-            ctxt, connection_info, environment_options,
-            minion_provider_properties)
+            ctxt, connection_info, minion_provider_properties)
 
-        return {
-            "minion_provider_properties": None,
-            "minion_connection_info": None}
+        return {}
 
 
 class SetUpPoolSupportingResourcesTask(base.TaskRunner):
@@ -471,3 +484,15 @@ class ValidateDestinationMinionCompatibilityTask(
     @classmethod
     def _get_minion_properties_task_info_field(cls):
         return "destination_minion_provider_properties"
+
+
+class ValidateOSMorphingMinionCompatibilityTask(
+        _BaseValidateMinionCompatibilityTask):
+
+    @classmethod
+    def get_required_platform(cls):
+        return constants.PROVIDER_PLATFORM_DESTINATION
+
+    @classmethod
+    def _get_minion_properties_task_info_field(cls):
+        return "osmorphing_minion_provider_properties"

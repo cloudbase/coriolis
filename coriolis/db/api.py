@@ -746,7 +746,8 @@ def update_replica(context, replica_id, updated_values):
 
     updateable_fields = [
         "source_environment", "destination_environment", "notes",
-        "network_map", "storage_mappings"]
+        "network_map", "storage_mappings",
+        "origin_minion_pool_id", "destination_minion_pool_id"]
     for field in updateable_fields:
         if mapped_info_fields.get(field, field) in updated_values:
             LOG.debug(
@@ -1121,7 +1122,9 @@ def update_minion_machine(context, minion_machine_id, updated_values):
         raise exception.NotFound(
             "MinionMachine with ID '%s' does not exist." % minion_machine_id)
 
-    updateable_fields = ["connection_info", "provider_properties", "status"]
+    updateable_fields = [
+        "connection_info", "provider_properties", "status",
+        "backup_writer_connection_info"]
     _update_sqlalchemy_object_fields(
         minion_machine, updateable_fields, updated_values)
 
@@ -1235,7 +1238,7 @@ def update_minion_pool_lifecycle(context, minion_pool_id, updated_values):
     for field in updateable_fields:
         if field in updated_values:
             if field in redundancies:
-                for old_key in redundancies["field"]:
+                for old_key in redundancies[field]:
                     LOG.debug(
                         "Updating the '%s' field of Minion Pool '%s' to: '%s'",
                         old_key, minion_pool_id, updated_values[field])

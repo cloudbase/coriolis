@@ -15,6 +15,19 @@ def upgrade(migrate_engine):
     base_transfer_action = sqlalchemy.Table(
         'base_transfer_action', meta, autoload=True)
 
+    # add the pool option properties for the transfer:
+    origin_minion_pool_id = sqlalchemy.Column(
+        "origin_minion_pool_id", sqlalchemy.String(36), nullable=True)
+    destination_minion_pool_id = sqlalchemy.Column(
+        "destination_minion_pool_id", sqlalchemy.String(36), nullable=True)
+    instance_osmorphing_minion_pool_mappings = sqlalchemy.Column(
+        "instance_osmorphing_minion_pool_mappings", sqlalchemy.Text,
+        nullable=False, default='{}')
+    for col in [
+            origin_minion_pool_id, destination_minion_pool_id,
+            instance_osmorphing_minion_pool_mappings]:
+        base_transfer_action.create_column(col)
+
     # extend tasks execution 'type' column:
     tasks_execution = sqlalchemy.Table(
         'tasks_execution', meta, autoload=True)
@@ -67,12 +80,18 @@ def upgrade(migrate_engine):
             sqlalchemy.Column('deleted', sqlalchemy.String(36)),
             sqlalchemy.Column(
                 'pool_id', sqlalchemy.String(36),
-                sqlalchemy.ForeignKey('minion_pool_lifecycle.id'), nullable=False),
+                sqlalchemy.ForeignKey('minion_pool_lifecycle.id'),
+                nullable=False),
             sqlalchemy.Column(
                 'status', sqlalchemy.String(255), nullable=False,
                 default=lambda: "UNKNOWN"),
             sqlalchemy.Column('connection_info', sqlalchemy.Text),
-            sqlalchemy.Column('provider_properties', sqlalchemy.Text)))
+            sqlalchemy.Column(
+                'backup_writer_connection_info', sqlalchemy.Text,
+                nullable=True),
+            sqlalchemy.Column(
+                'provider_properties', sqlalchemy.Text,
+                nullable=True)))
 
     for index, table in enumerate(tables):
         try:

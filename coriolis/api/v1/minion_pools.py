@@ -94,7 +94,9 @@ class MinionPoolController(api_wsgi.Controller):
                 minion_pool = self._minion_pool_api.get_minion_pool(
                     context, id)
                 self._endpoints_api.validate_endpoint_minion_pool_options(
-                    context, minion_pool['endpoint_id'],
+                    # TODO(aznashwan): remove endpoint ID fields reduncancy
+                    # once DB models are overhauled:
+                    context, minion_pool['origin_endpoint_id'],
                     vals['environment_options'])
             return vals
         except Exception as ex:

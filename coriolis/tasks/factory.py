@@ -104,7 +104,9 @@ _TASKS_MAP = {
     constants.TASK_TYPE_VALIDATE_SOURCE_MINION_POOL_COMPATIBILITY:
         minion_pool_tasks.ValidateSourceMinionCompatibilityTask,
     constants.TASK_TYPE_VALIDATE_DESTINATION_MINION_POOL_COMPATIBILITY:
-        minion_pool_tasks.ValidateDestinationMinionCompatibilityTask
+        minion_pool_tasks.ValidateDestinationMinionCompatibilityTask,
+    constants.TASK_TYPE_VALIDATE_OSMORPHING_MINION_POOL_COMPATIBILITY:
+        minion_pool_tasks.ValidateOSMorphingMinionCompatibilityTask
 }
 
 

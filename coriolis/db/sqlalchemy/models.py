@@ -196,6 +196,12 @@ class BaseTransferAction(BASE, models.TimestampMixin, models.ModelBase,
     network_map = sqlalchemy.Column(types.Json, nullable=True)
     storage_mappings = sqlalchemy.Column(types.Json, nullable=True)
     source_environment = sqlalchemy.Column(types.Json, nullable=True)
+    origin_minion_pool_id = sqlalchemy.Column(
+        sqlalchemy.String(36), nullable=True)
+    destination_minion_pool_id = sqlalchemy.Column(
+        sqlalchemy.String(36), nullable=True)
+    instance_osmorphing_minion_pool_mappings = sqlalchemy.Column(
+        types.Json, nullable=False, default=lambda: {})
 
     __mapper_args__ = {
         'polymorphic_identity': 'base_transfer_action',
@@ -224,6 +230,10 @@ class BaseTransferAction(BASE, models.TimestampMixin, models.ModelBase,
             "updated_at": self.updated_at,
             "deleted_at": self.deleted_at,
             "deleted": self.deleted,
+            "origin_minion_pool_id": self.origin_minion_pool_id,
+            "destination_minion_pool_id": self.destination_minion_pool_id,
+            "instance_osmorphing_minion_pool_mappings":
+                self.instance_osmorphing_minion_pool_mappings
         }
         if include_executions:
             for ex in self.executions:
@@ -457,9 +467,14 @@ class MinionMachine(BASE, models.TimestampMixin, models.ModelBase,
         sqlalchemy.String(255), nullable=False,
         default=lambda: constants.MINION_MACHINE_STATUS_UNKNOWN)
 
-    connection_info = sqlalchemy.Column(types.Json)
+    connection_info = sqlalchemy.Column(
+        types.Json, nullable=True)
 
-    provider_properties = sqlalchemy.Column(types.Json)
+    backup_writer_connection_info = sqlalchemy.Column(
+        types.Json, nullable=True)
+
+    provider_properties = sqlalchemy.Column(
+        types.Json, nullable=True)
 
     def to_dict(self):
         result = {
@@ -473,6 +488,8 @@ class MinionMachine(BASE, models.TimestampMixin, models.ModelBase,
             "pool_id": self.pool_id,
             "status": self.status,
             "connection_info": self.connection_info,
+            "backup_writer_connection_info": (
+                self.backup_writer_connection_info),
             "provider_properties": self.provider_properties
         }
         return result

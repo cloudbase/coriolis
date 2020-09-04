@@ -9,10 +9,12 @@ class API(object):
         self._rpc_client = rpc_client.ConductorClient()
 
     def create(self, ctxt, origin_endpoint_id, destination_endpoint_id,
+               origin_minion_pool_id, destination_minion_pool_id,
                source_environment, destination_environment, instances,
                network_map, storage_mappings, notes=None):
         return self._rpc_client.create_instances_replica(
             ctxt, origin_endpoint_id, destination_endpoint_id,
+            origin_minion_pool_id, destination_minion_pool_id,
             source_environment, destination_environment, instances,
             network_map, storage_mappings, notes)
 

@@ -596,6 +596,10 @@ class ConductorServerEndpoint(object):
                             t.status != constants.TASK_STATUS_ON_ERROR_ONLY]:
                         task.status = constants.TASK_STATUS_SCHEDULED
                         break
+            # on_error tasks with no deps are automatically scheduled:
+            else:
+                task.status = constants.TASK_STATUS_SCHEDULED
+
         return task
 
     def _get_task_origin(self, ctxt, action):
@@ -1125,7 +1129,10 @@ class ConductorServerEndpoint(object):
             raise exception.SameDestination()
 
     def create_instances_replica(self, ctxt, origin_endpoint_id,
-                                 destination_endpoint_id, source_environment,
+                                 destination_endpoint_id,
+                                 origin_minion_pool_id,
+                                 destination_minion_pool_id,
+                                 source_environment,
                                  destination_environment, instances,
                                  network_map, storage_mappings, notes=None):
         origin_endpoint = self.get_endpoint(ctxt, origin_endpoint_id)
@@ -1218,8 +1225,11 @@ class ConductorServerEndpoint(object):
         return provider_types["types"]
 
     @replica_synchronized
-    def deploy_replica_instances(self, ctxt, replica_id, clone_disks, force,
-                                 skip_os_morphing=False, user_scripts=None):
+    def deploy_replica_instances(self, ctxt, replica_id,
+                                 instance_osmorphing_minion_pool_mappings,
+                                 clone_disks, force,
+                                 skip_os_morphing=False,
+                                 user_scripts=None):
         replica = self._get_replica(ctxt, replica_id)
         self._check_reservation_for_transfer(replica)
         self._check_replica_running_executions(ctxt, replica)
@@ -1384,11 +1394,13 @@ class ConductorServerEndpoint(object):
         return ret
 
     def migrate_instances(self, ctxt, origin_endpoint_id,
-                          destination_endpoint_id, source_environment,
-                          destination_environment, instances, network_map,
-                          storage_mappings, replication_count,
-                          shutdown_instances=False, notes=None,
-                          skip_os_morphing=False, user_scripts=None):
+                          destination_endpoint_id, origin_minion_pool_id,
+                          destination_minion_pool_id,
+                          instance_osmorphing_minion_pool_mappings,
+                          source_environment, destination_environment,
+                          instances, network_map, storage_mappings,
+                          replication_count, shutdown_instances=False,
+                          notes=None, skip_os_morphing=False, user_scripts=None):
         origin_endpoint = self.get_endpoint(ctxt, origin_endpoint_id)
         destination_endpoint = self.get_endpoint(ctxt, destination_endpoint_id)
         self._check_endpoints(ctxt, origin_endpoint, destination_endpoint)
@@ -2385,6 +2397,8 @@ class ConductorServerEndpoint(object):
                 "minion_connection_info"]
             minion_machine.provider_properties = task_info[
                 "minion_provider_properties"]
+            minion_machine.backup_writer_connection_info = task_info[
+                "minion_backup_writer_connection_info"]
             db_api.add_minion_machine(ctxt, minion_machine)
 
             still_running = _check_other_tasks_running(execution, task)
@@ -3220,15 +3234,10 @@ class ConductorServerEndpoint(object):
                 # which were slower to deploy:
                 "minion_provider_properties": {}}
 
-            validate_minions_option_task = self._create_task(
-                minion_machine_id,
-                constants.TASK_TYPE_VALIDATE_MINION_POOL_OPTIONS,
-                execution)
-
             create_minion_task = self._create_task(
                 minion_machine_id,
                 constants.TASK_TYPE_CREATE_MINION,
-                execution, depends_on=[validate_minions_option_task.id])
+                execution)
 
             self._create_task(
                 minion_machine_id,

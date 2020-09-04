@@ -155,6 +155,8 @@ class ConductorClient(object):
 
     def create_instances_replica(self, ctxt, origin_endpoint_id,
                                  destination_endpoint_id,
+                                 origin_minion_pool_id,
+                                 destination_minion_pool_id,
                                  source_environment, destination_environment,
                                  instances, network_map, storage_mappings,
                                  notes=None):
@@ -162,6 +164,8 @@ class ConductorClient(object):
             ctxt, 'create_instances_replica',
             origin_endpoint_id=origin_endpoint_id,
             destination_endpoint_id=destination_endpoint_id,
+            origin_minion_pool_id=origin_minion_pool_id,
+            destination_minion_pool_id=destination_minion_pool_id,
             destination_environment=destination_environment,
             instances=instances,
             notes=notes,
@@ -197,15 +201,22 @@ class ConductorClient(object):
             ctxt, 'get_migration', migration_id=migration_id)
 
     def migrate_instances(self, ctxt, origin_endpoint_id,
-                          destination_endpoint_id, source_environment,
-                          destination_environment, instances, network_map,
-                          storage_mappings, replication_count,
-                          shutdown_instances=False, notes=None,
-                          skip_os_morphing=False, user_scripts=None):
+                          destination_endpoint_id, origin_minion_pool_id,
+                          destination_minion_pool_id,
+                          instance_osmorphing_minion_pool_mappings,
+                          source_environment, destination_environment,
+                          instances, network_map, storage_mappings,
+                          replication_count, shutdown_instances=False,
+                          notes=None, skip_os_morphing=False,
+                          user_scripts=None):
         return self._client.call(
             ctxt, 'migrate_instances',
             origin_endpoint_id=origin_endpoint_id,
             destination_endpoint_id=destination_endpoint_id,
+            origin_minion_pool_id=origin_minion_pool_id,
+            destination_minion_pool_id=destination_minion_pool_id,
+            instance_osmorphing_minion_pool_mappings=(
+                instance_osmorphing_minion_pool_mappings),
             destination_environment=destination_environment,
             instances=instances,
             notes=notes,
@@ -217,11 +228,15 @@ class ConductorClient(object):
             source_environment=source_environment,
             user_scripts=user_scripts)
 
-    def deploy_replica_instances(self, ctxt, replica_id, clone_disks=False,
+    def deploy_replica_instances(self, ctxt, replica_id,
+                                 instance_osmorphing_minion_pool_mappings,
+                                 clone_disks=False,
                                  force=False, skip_os_morphing=False,
                                  user_scripts=None):
         return self._client.call(
             ctxt, 'deploy_replica_instances', replica_id=replica_id,
+            instance_osmorphing_minion_pool_mappings=(
+                instance_osmorphing_minion_pool_mappings),
             clone_disks=clone_disks, force=force,
             skip_os_morphing=skip_os_morphing,
             user_scripts=user_scripts)
