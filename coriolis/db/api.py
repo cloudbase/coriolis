@@ -747,7 +747,8 @@ def update_replica(context, replica_id, updated_values):
     updateable_fields = [
         "source_environment", "destination_environment", "notes",
         "network_map", "storage_mappings",
-        "origin_minion_pool_id", "destination_minion_pool_id"]
+        "origin_minion_pool_id", "destination_minion_pool_id",
+        "instance_osmorphing_minion_pool_mappings"]
     for field in updateable_fields:
         if mapped_info_fields.get(field, field) in updated_values:
             LOG.debug(
@@ -1186,7 +1187,10 @@ def get_minion_pool_lifecycles(
         q = q.options(orm.joinedload('minion_machines'))
     db_result = q.all()
     if to_dict:
-        return [i.to_dict(include_info=include_info) for i in db_result]
+        return [i.to_dict(
+            include_info=include_info,
+            include_executions=include_tasks_executions,
+            include_machines=include_machines) for i in db_result]
     return db_result
 
 

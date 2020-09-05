@@ -149,6 +149,10 @@ class Invalid(CoriolisException):
     safe = True
 
 
+class InvalidMinionPoolSelection(Invalid):
+    message = _("The selected minion pool is incompatible.")
+
+
 class InvalidCustomOSDetectTools(Invalid):
     message = _("The provided custom OS detect tools are invalid.")
 

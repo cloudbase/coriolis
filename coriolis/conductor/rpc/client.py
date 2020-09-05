@@ -157,6 +157,7 @@ class ConductorClient(object):
                                  destination_endpoint_id,
                                  origin_minion_pool_id,
                                  destination_minion_pool_id,
+                                 instance_osmorphing_minion_pool_mappings,
                                  source_environment, destination_environment,
                                  instances, network_map, storage_mappings,
                                  notes=None):
@@ -166,6 +167,8 @@ class ConductorClient(object):
             destination_endpoint_id=destination_endpoint_id,
             origin_minion_pool_id=origin_minion_pool_id,
             destination_minion_pool_id=destination_minion_pool_id,
+            instance_osmorphing_minion_pool_mappings=(
+                instance_osmorphing_minion_pool_mappings),
             destination_environment=destination_environment,
             instances=instances,
             notes=notes,
@@ -229,7 +232,7 @@ class ConductorClient(object):
             user_scripts=user_scripts)
 
     def deploy_replica_instances(self, ctxt, replica_id,
-                                 instance_osmorphing_minion_pool_mappings,
+                                 instance_osmorphing_minion_pool_mappings=None,
                                  clone_disks=False,
                                  force=False, skip_os_morphing=False,
                                  user_scripts=None):

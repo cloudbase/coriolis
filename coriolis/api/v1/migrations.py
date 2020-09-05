@@ -61,7 +61,7 @@ class MigrationController(api_wsgi.Controller):
             destination_minion_pool_id = migration.get(
                 'destination_minion_pool_id')
             instance_osmorphing_minion_pool_mappings = migration.get(
-                'instance_osmorphing_minion_pool_mappings')
+                'instance_osmorphing_minion_pool_mappings', {})
             destination_environment = migration.get(
                 "destination_environment", {})
             instances = migration["instances"]
@@ -120,7 +120,7 @@ class MigrationController(api_wsgi.Controller):
             force = migration_body.get("force", False)
             skip_os_morphing = migration_body.get("skip_os_morphing", False)
             instance_osmorphing_minion_pool_mappings = migration_body.get(
-                'instance_osmorphing_minion_pool_mappings')
+                'instance_osmorphing_minion_pool_mappings', {})
 
             # NOTE: destination environment for replica should have been
             # validated upon its creation.

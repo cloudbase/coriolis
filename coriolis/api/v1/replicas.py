@@ -75,6 +75,8 @@ class ReplicaController(api_wsgi.Controller):
                 'origin_minion_pool_id')
             destination_minion_pool_id = replica.get(
                 'destination_minion_pool_id')
+            instance_osmorphing_minion_pool_mappings = replica.get(
+                'instance_osmorphing_minion_pool_mappings', {})
 
             # NOTE(aznashwan): we validate the destination environment for the
             # import provider before appending the 'storage_mappings' parameter
@@ -94,7 +96,8 @@ class ReplicaController(api_wsgi.Controller):
             return (origin_endpoint_id, destination_endpoint_id,
                     source_environment, destination_environment, instances,
                     network_map, storage_mappings, notes,
-                    origin_minion_pool_id, destination_minion_pool_id)
+                    origin_minion_pool_id, destination_minion_pool_id,
+                    instance_osmorphing_minion_pool_mappings)
         except Exception as ex:
             LOG.exception(ex)
             msg = getattr(ex, "message", str(ex))
@@ -107,14 +110,16 @@ class ReplicaController(api_wsgi.Controller):
         (origin_endpoint_id, destination_endpoint_id,
          source_environment, destination_environment, instances, network_map,
          storage_mappings, notes, origin_minion_pool_id,
-         destination_minion_pool_id) = self._validate_create_body(
-            context, body)
+         destination_minion_pool_id,
+         instance_osmorphing_minion_pool_mappings) = (
+            self._validate_create_body(context, body))
 
         return replica_view.single(req, self._replica_api.create(
             context, origin_endpoint_id, destination_endpoint_id,
             origin_minion_pool_id, destination_minion_pool_id,
-            source_environment, destination_environment, instances,
-            network_map, storage_mappings, notes))
+            instance_osmorphing_minion_pool_mappings, source_environment,
+            destination_environment, instances, network_map,
+            storage_mappings, notes))
 
     def delete(self, req, id):
         context = req.environ["coriolis.context"]

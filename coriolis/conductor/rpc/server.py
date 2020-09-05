@@ -892,6 +892,7 @@ class ConductorServerEndpoint(object):
         replica = self._get_replica(ctxt, replica_id)
         self._check_reservation_for_transfer(replica)
         self._check_replica_running_executions(ctxt, replica)
+        self._check_minion_pools_for_action(ctxt, replica)
         execution = models.TasksExecution()
         execution.id = str(uuid.uuid4())
         execution.action = replica
@@ -1128,10 +1129,59 @@ class ConductorServerEndpoint(object):
                 destination_endpoint.connection_info):
             raise exception.SameDestination()
 
+    def _check_minion_pools_for_action(self, ctxt, action):
+        minion_pools = {
+            pool.id
+            for pool in db_api.get_minion_pool_lifecycles(
+                ctxt, include_tasks_executions=False,
+                include_info=False, include_machines=False,
+                to_dict=False)}
+        def _get_pool(pool_id):
+            pool = minion_pools.get(pool_id)
+            if not pool:
+                raise exception.NotFound(
+                    "Could not find minion pool with ID '%s'." % minion_pools)
+            return pool
+
+        if action.origin_minion_pool_id:
+            origin_pool = _get_pool(action.origin_minion_pool_id)
+            if origin_pool.endpoint_id != action.origin_endpoint_id:
+                raise exception.InvalidMinionPoolSelection(
+                    "The selected origin minion pool ('%s') belongs to a "
+                    "different Coriolis endpoint ('%s') than the requested "
+                    "origin endpoint ('%s')" % (
+                        action.origin_minion_pool_id, origin_pool.endpoint_id,
+                        action.origin_endpoint_id))
+
+        if action.destination_minion_pool_id:
+            destination_pool = _get_pool(action.destination_minion_pool_id)
+            if destination_pool.endpoint_id != action.destination_endpoint_id:
+                raise exception.InvalidMinionPoolSelection(
+                    "The selected destination minion pool ('%s') belongs to a "
+                    "different Coriolis endpoint ('%s') than the requested "
+                    "destination endpoint ('%s')" % (
+                        action.destination_minion_pool_id,
+                        destination_pool.endpoint_id,
+                        action.destination_endpoint_id))
+
+        if action.instance_osmorphing_minion_pool_mappings:
+            for (instance, pool_id) in (
+                    action.instance_osmorphing_minion_pool_mappings):
+                osmorphing_pool = _get_pool(pool_id)
+                if osmorphing_pool.endpoint_id != action.destination_endpoint_id:
+                    raise exception.InvalidMinionPoolSelection(
+                        "The selected OSMorphing minion pool for instance '%s'"
+                        " ('%s') belongs to a different Coriolis endpoint "
+                        "('%s') than the destination endpoint ('%s')" % (
+                            instance, pool_id,
+                            osmorphing_pool.endpoint_id,
+                            action.destination_endpoint_id))
+
     def create_instances_replica(self, ctxt, origin_endpoint_id,
                                  destination_endpoint_id,
                                  origin_minion_pool_id,
                                  destination_minion_pool_id,
+                                 instance_osmorphing_minion_pool_mappings,
                                  source_environment,
                                  destination_environment, instances,
                                  network_map, storage_mappings, notes=None):
@@ -1142,7 +1192,9 @@ class ConductorServerEndpoint(object):
         replica = models.Replica()
         replica.id = str(uuid.uuid4())
         replica.origin_endpoint_id = origin_endpoint_id
+        replica.origin_minion_pool_id = origin_minion_pool_id
         replica.destination_endpoint_id = destination_endpoint_id
+        replica.destination_minion_pool_id = destination_minion_pool_id
         replica.destination_environment = destination_environment
         replica.source_environment = source_environment
         replica.last_execution_status = constants.EXECUTION_STATUS_UNEXECUTED
@@ -1153,6 +1205,8 @@ class ConductorServerEndpoint(object):
         replica.notes = notes
         replica.network_map = network_map
         replica.storage_mappings = storage_mappings
+
+        self._check_minion_pools_for_action(ctxt, replica)
 
         self._check_create_reservation_for_transfer(
             replica, licensing_client.RESERVATION_TYPE_REPLICA)
@@ -1226,8 +1280,8 @@ class ConductorServerEndpoint(object):
 
     @replica_synchronized
     def deploy_replica_instances(self, ctxt, replica_id,
-                                 instance_osmorphing_minion_pool_mappings,
                                  clone_disks, force,
+                                 instance_osmorphing_minion_pool_mappings=None,
                                  skip_os_morphing=False,
                                  user_scripts=None):
         replica = self._get_replica(ctxt, replica_id)
@@ -1427,9 +1481,15 @@ class ConductorServerEndpoint(object):
         migration.notes = notes
         migration.shutdown_instances = shutdown_instances
         migration.replication_count = replication_count
+        migration.origin_minion_pool_id = origin_minion_pool_id
+        migration.destination_minion_pool_id = destination_minion_pool_id
+        migration.instance_osmorphing_minion_pool_mappings = (
+            instance_osmorphing_minion_pool_mappings)
 
         self._check_create_reservation_for_transfer(
             migration, licensing_client.RESERVATION_TYPE_MIGRATION)
+
+        self._check_minion_pools_for_action(ctxt, migration)
 
         for instance in instances:
             migration.info[instance] = {
@@ -2817,6 +2877,26 @@ class ConductorServerEndpoint(object):
     def update_replica(
             self, ctxt, replica_id, updated_properties):
         replica = self._get_replica(ctxt, replica_id)
+
+        minion_pool_fields = [
+            "origin_minion_pool_id", "destination_minion_pool_id",
+            "instance_osmorphing_minion_pool_mappings"]
+        if any([mpf in updated_properties for mpf in minion_pool_fields]):
+            # NOTE: this is just a dummy Replica model to use for validation:
+            dummy = models.Replica()
+            dummy.id = replica.id
+            dummy.instances = replica.instances
+            dummy.origin_endpoint_id = replica.origin_endpoint_id
+            dummy.destination_endpoint_id = replica.destination_endpoint_id
+            dummy.origin_minion_pool_id = updated_properties.get(
+                'origin_minion_pool_id')
+            dummy.destination_minion_pool_id = updated_properties.get(
+                'destination_minion_pool_id')
+            dummy.instance_osmorphing_minion_pool_mappings = (
+                updated_properties.get(
+                    'instance_osmorphing_minion_pool_mappings'))
+            self._check_minion_pools_for_action(ctxt, dummy)
+
         self._check_replica_running_executions(ctxt, replica)
         self._check_valid_replica_tasks_execution(replica, force=True)
         execution = models.TasksExecution()
@@ -3131,6 +3211,9 @@ class ConductorServerEndpoint(object):
             execution.id)
 
         self._begin_tasks(ctxt, execution, task_info=minion_pool.info)
+        db_api.set_minion_pool_lifecycle_status(
+            ctxt, minion_pool.id, constants.MINION_POOL_STATUS_INITIALIZING)
+
         return self._get_minion_pool_lifecycle_execution(
             ctxt, minion_pool_id, execution.id).to_dict()
 
@@ -3175,6 +3258,9 @@ class ConductorServerEndpoint(object):
             execution.id)
 
         self._begin_tasks(ctxt, execution, task_info=minion_pool.info)
+        db_api.set_minion_pool_lifecycle_status(
+            ctxt, minion_pool.id, constants.MINION_POOL_STATUS_UNINITIALIZING)
+
         return self._get_minion_pool_lifecycle_execution(
             ctxt, minion_pool_id, execution.id).to_dict()
 
@@ -3199,29 +3285,6 @@ class ConductorServerEndpoint(object):
 
         new_minion_machine_ids = [
             str(uuid.uuid4()) for _ in range(minion_pool.minimum_minions)]
-
-        # minion_machine_ids = []
-        # try:
-        #     for i in range(minion_pool.minimum_minions):
-        #         minion_machine = models.MinionMachine()
-        #         minion_machine.id = str(uuid.uuid4())
-        #         minion_machine.pool_id = minion_pool.id
-        #         minion_machine.status = (
-        #             constants.MINION_MACHINE_STATUS_UNINITIALIZED)
-        #         minion_machine.connection_info = {}
-        #         minion_machine.provider_properties = {}
-        #         db_api.add_minion_machine(ctxt, minion_machine)
-
-        #         minion_machine_ids.append(minion_machine.id)
-        # except Exception as ex:
-        #     LOG.warn(
-        #         "Failed to create minion machine DB entry for pool with "
-        #         "ID '%s'. Cleaning up already created machines: %s" % (
-        #             minion_pool_id, minion_machine_ids))
-        #     for minion_machine_id in minion_machine_ids:
-        #         utils.ignore_exceptions(
-        #             db_api.delete_minion_machine(ctxt, minion_machine_id))
-        #     raise
 
         for minion_machine_id in new_minion_machine_ids:
             minion_pool.info[minion_machine_id] = {
@@ -3258,6 +3321,9 @@ class ConductorServerEndpoint(object):
         LOG.info("Minion pool allocation execution created: %s", execution.id)
 
         self._begin_tasks(ctxt, execution, task_info=minion_pool.info)
+        db_api.set_minion_pool_lifecycle_status(
+            ctxt, minion_pool.id, constants.MINION_POOL_STATUS_ALLOCATING)
+
         return self._get_minion_pool_lifecycle_execution(
             ctxt, minion_pool_id, execution.id).to_dict()
 
@@ -3311,6 +3377,9 @@ class ConductorServerEndpoint(object):
             "Minion pool deallocation execution created: %s", execution.id)
 
         self._begin_tasks(ctxt, execution, task_info=minion_pool.info)
+        db_api.set_minion_pool_lifecycle_status(
+            ctxt, minion_pool.id, constants.MINION_POOL_STATUS_DEALLOCATING)
+
         return self._get_minion_pool_lifecycle_execution(
             ctxt, minion_pool_id, execution.id).to_dict()
 

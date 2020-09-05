@@ -32,8 +32,11 @@ class API(object):
                                  clone_disks=False, force=False,
                                  skip_os_morphing=False, user_scripts=None):
         return self._rpc_client.deploy_replica_instances(
-            ctxt, replica_id, instance_osmorphing_minion_pool_mappings,
-            clone_disks, force, skip_os_morphing, user_scripts=user_scripts)
+            ctxt, replica_id, instance_osmorphing_minion_pool_mappings=(
+                instance_osmorphing_minion_pool_mappings),
+            clone_disks=clone_disks, force=force,
+            skip_os_morphing=skip_os_morphing,
+            user_scripts=user_scripts)
 
     def delete(self, ctxt, migration_id):
         self._rpc_client.delete_migration(ctxt, migration_id)
