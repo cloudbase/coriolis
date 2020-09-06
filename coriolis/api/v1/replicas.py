@@ -228,6 +228,14 @@ class ReplicaController(api_wsgi.Controller):
             final_values['destination_environment'][
                 'network_map'] = final_network_map
 
+        minion_pool_fields = [
+            "origin_minion_pool_id", "destination_minion_pool_id",
+            "instance_osmorphing_minion_pool_mappings"]
+        final_values.update({
+            mpf: updated_values[mpf]
+            for mpf in minion_pool_fields
+            if mpf in updated_values})
+
         return final_values
 
     def _validate_update_body(self, id, context, body):

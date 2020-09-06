@@ -467,6 +467,9 @@ class MinionMachine(BASE, models.TimestampMixin, models.ModelBase,
         sqlalchemy.String(255), nullable=False,
         default=lambda: constants.MINION_MACHINE_STATUS_UNKNOWN)
 
+    allocated_action = sqlalchemy.Column(
+        sqlalchemy.String(36), nullable=True)
+
     connection_info = sqlalchemy.Column(
         types.Json, nullable=True)
 
@@ -488,6 +491,7 @@ class MinionMachine(BASE, models.TimestampMixin, models.ModelBase,
             "pool_id": self.pool_id,
             "status": self.status,
             "connection_info": self.connection_info,
+            "allocated_action": self.allocated_action,
             "backup_writer_connection_info": (
                 self.backup_writer_connection_info),
             "provider_properties": self.provider_properties

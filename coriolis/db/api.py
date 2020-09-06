@@ -1102,8 +1102,11 @@ def add_minion_machine(context, minion_machine):
 
 
 @enginefacade.reader
-def get_minion_machines(context):
+def get_minion_machines(context, allocated_action_id=None):
     q = _soft_delete_aware_query(context, models.MinionMachine)
+    if allocated_action_id:
+        q = q.filter(
+            models.MinionMachine.allocated_action == allocated_action_id)
     return q.all()
 
 
@@ -1126,9 +1129,28 @@ def update_minion_machine(context, minion_machine_id, updated_values):
 
     updateable_fields = [
         "connection_info", "provider_properties", "status",
-        "backup_writer_connection_info"]
+        "backup_writer_connection_info", "allocated_action"]
     _update_sqlalchemy_object_fields(
         minion_machine, updateable_fields, updated_values)
+
+
+@enginefacade.writer
+def set_minion_machines_allocation_statuses(
+        context, minion_machine_ids, action_id, allocation_status):
+    machines = get_minion_machines(context)
+    existing_machine_ids = [
+        machine.id for machine in machines]
+    missing = [
+        mid for mid in minion_machine_ids
+        if mid not in existing_machine_ids]
+    if missing:
+        raise exception.NotFound(
+            "The following minion machines could not be found: %s" % (
+                missing))
+
+    for machine in machines:
+        machine.allocated_action = action_id
+        machine.status = allocation_status
 
 
 @enginefacade.writer

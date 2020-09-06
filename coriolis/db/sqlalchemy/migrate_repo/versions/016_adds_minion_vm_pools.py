@@ -83,6 +83,8 @@ def upgrade(migrate_engine):
                 sqlalchemy.ForeignKey('minion_pool_lifecycle.id'),
                 nullable=False),
             sqlalchemy.Column(
+                'allocated_action', sqlalchemy.String(36), nullable=True),
+            sqlalchemy.Column(
                 'status', sqlalchemy.String(255), nullable=False,
                 default=lambda: "UNKNOWN"),
             sqlalchemy.Column('connection_info', sqlalchemy.Text),

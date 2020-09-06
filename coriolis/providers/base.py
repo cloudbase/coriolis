@@ -562,6 +562,17 @@ class BaseMinionPoolProvider(
         pass
 
     @abc.abstractmethod
+    def validate_osmorphing_minion_compatibility_for_transfer(
+            self, ctxt, connection_info, export_info, environment_options,
+            minion_properties):
+        """ Validates compatibility between the OSMorphing pool's options and
+        the options selected for a given transfer. Should raise if any options
+        of the minions in the pool might be deemed incompatible with the
+        desired transfer options.
+        """
+        pass
+
+    @abc.abstractmethod
     def validate_minion_pool_options(
             self, ctxt, connection_info, environment_options):
         """ Validates the provided pool options. """
@@ -585,7 +596,7 @@ class BaseMinionPoolProvider(
     @abc.abstractmethod
     def create_minion(
             self, ctxt, connection_info, environment_options,
-            pool_identifier, pool_shared_resources,
+            pool_identifier, pool_os_type, pool_shared_resources,
             new_minion_identifier):
         pass
 

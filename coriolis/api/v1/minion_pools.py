@@ -52,12 +52,22 @@ class MinionPoolController(api_wsgi.Controller):
             self._endpoints_api.validate_endpoint_minion_pool_options(
                 ctxt, endpoint_id, environment_options)
 
-            minimum_minions = minion_pool.get("minimum_minions", 0)
-            maximum_minions = minion_pool.get("maximum_minions", 1)
+            minimum_minions = minion_pool.get("minimum_minions", 1)
+            maximum_minions = minion_pool.get(
+                "maximum_minions", minimum_minions)
             minion_max_idle_time = minion_pool.get(
                 "minion_max_idle_time", 1)
             minion_retention_strategy = minion_pool.get(
-                "minion_retention_strategy")
+                "minion_retention_strategy",
+                constants.MINION_POOL_MACHINE_RETENTION_STRATEGY_DELETE)
+            suppoted_retention_strategies = [
+                constants.MINION_POOL_MACHINE_RETENTION_STRATEGY_DELETE]
+            if minion_retention_strategy not in suppoted_retention_strategies:
+                raise Exception(
+                    "Unsupported minion retention strategy '%s'. Must be "
+                    "one of: %s" % (
+                        minion_retention_strategy,
+                        suppoted_retention_strategies))
             notes = minion_pool.get("notes")
             return (
                 name, endpoint_id, pool_os_type, environment_options,

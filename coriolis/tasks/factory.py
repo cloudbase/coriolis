@@ -101,12 +101,22 @@ _TASKS_MAP = {
         minion_pool_tasks.AttachVolumesToDestinationMinionTask,
     constants.TASK_TYPE_DETACH_VOLUMES_FROM_DESTINATION_MINION:
         minion_pool_tasks.DetachVolumesFromDestinationMinionTask,
+    constants.TASK_TYPE_ATTACH_VOLUMES_TO_OSMORPHING_MINION:
+        minion_pool_tasks.AttachVolumesToOSMorphingMinionTask,
+    constants.TASK_TYPE_DETACH_VOLUMES_FROM_OSMORPHING_MINION:
+        minion_pool_tasks.DetachVolumesFromOSMorphingMinionTask,
     constants.TASK_TYPE_VALIDATE_SOURCE_MINION_POOL_COMPATIBILITY:
         minion_pool_tasks.ValidateSourceMinionCompatibilityTask,
     constants.TASK_TYPE_VALIDATE_DESTINATION_MINION_POOL_COMPATIBILITY:
         minion_pool_tasks.ValidateDestinationMinionCompatibilityTask,
     constants.TASK_TYPE_VALIDATE_OSMORPHING_MINION_POOL_COMPATIBILITY:
-        minion_pool_tasks.ValidateOSMorphingMinionCompatibilityTask
+        minion_pool_tasks.ValidateOSMorphingMinionCompatibilityTask,
+    constants.TASK_TYPE_RELEASE_SOURCE_MINION:
+        minion_pool_tasks.ReleaseSourceMinionTask,
+    constants.TASK_TYPE_RELEASE_DESTINATION_MINION:
+        minion_pool_tasks.ReleaseDestinationMinionTask,
+    constants.TASK_TYPE_RELEASE_OSMORPHING_MINION:
+        minion_pool_tasks.ReleaseOSMorphingMinionTask
 }
 
 

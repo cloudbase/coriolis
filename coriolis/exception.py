@@ -153,6 +153,10 @@ class InvalidMinionPoolSelection(Invalid):
     message = _("The selected minion pool is incompatible.")
 
 
+class MinionMachineAllocationFailure(Invalid):
+    message = _("No minion machines were available for allocation")
+
+
 class InvalidCustomOSDetectTools(Invalid):
     message = _("The provided custom OS detect tools are invalid.")
 
