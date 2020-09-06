@@ -574,6 +574,7 @@ def set_execution_status(
     if update_action_status:
         set_action_last_execution_status(
             context, execution.action_id, status)
+    return execution
 
 
 @enginefacade.reader

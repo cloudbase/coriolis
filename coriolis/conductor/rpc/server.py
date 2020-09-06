@@ -1825,14 +1825,68 @@ class ConductorServerEndpoint(object):
                 "No new tasks were started for execution '%s' following "
                 "state advancement after cancellation.", execution.id)
 
-    @staticmethod
-    def _set_tasks_execution_status(ctxt, execution_id, execution_status):
+    def _set_tasks_execution_status(self, ctxt, execution_id, execution_status):
         LOG.info(
             "Tasks execution %(id)s status updated to: %(status)s",
             {"id": execution_id, "status": execution_status})
-        db_api.set_execution_status(ctxt, execution_id, execution_status)
+        execution = db_api.set_execution_status(
+            ctxt, execution_id, execution_status)
         if ctxt.delete_trust_id:
             keystone.delete_trust(ctxt)
+
+        if execution.type in constants.MINION_POOL_EXECUTION_TYPES:
+            self._update_minion_pool_status_for_finished_execution(
+                ctxt, execution, execution_status)
+
+    @staticmethod
+    def _update_minion_pool_status_for_finished_execution(
+            ctxt, execution, new_execution_status):
+        # status map if execution is active:
+        stat_map = {
+            constants.EXECUTION_TYPE_MINION_POOL_ALLOCATE_MINIONS:
+                constants.MINION_POOL_STATUS_ALLOCATING,
+            constants.EXECUTION_TYPE_MINION_POOL_DEALLOCATE_MINIONS:
+                constants.MINION_POOL_STATUS_DEALLOCATING,
+            constants.EXECUTION_TYPE_MINION_POOL_SET_UP_SHARED_RESOURCES:
+                constants.MINION_POOL_STATUS_INITIALIZING,
+            constants.EXECUTION_TYPE_MINION_POOL_TEAR_DOWN_SHARED_RESOURCES:
+                constants.MINION_POOL_STATUS_UNINITIALIZING}
+        if new_execution_status == constants.EXECUTION_STATUS_COMPLETED:
+            stat_map = {
+                constants.EXECUTION_TYPE_MINION_POOL_ALLOCATE_MINIONS:
+                    constants.MINION_POOL_STATUS_ALLOCATED,
+                constants.EXECUTION_TYPE_MINION_POOL_DEALLOCATE_MINIONS:
+                    constants.MINION_POOL_STATUS_DEALLOCATED,
+                constants.EXECUTION_TYPE_MINION_POOL_SET_UP_SHARED_RESOURCES:
+                    constants.MINION_POOL_STATUS_DEALLOCATED,
+                constants.EXECUTION_TYPE_MINION_POOL_TEAR_DOWN_SHARED_RESOURCES:
+                    constants.MINION_POOL_STATUS_UNINITIALIZED}
+        elif new_execution_status in constants.FINALIZED_TASK_STATUSES:
+            stat_map = {
+                constants.EXECUTION_TYPE_MINION_POOL_ALLOCATE_MINIONS:
+                    constants.MINION_POOL_STATUS_DEALLOCATED,
+                constants.EXECUTION_TYPE_MINION_POOL_DEALLOCATE_MINIONS:
+                    constants.MINION_POOL_STATUS_ALLOCATED,
+                constants.EXECUTION_TYPE_MINION_POOL_SET_UP_SHARED_RESOURCES:
+                    constants.MINION_POOL_STATUS_UNINITIALIZED,
+                constants.EXECUTION_TYPE_MINION_POOL_TEAR_DOWN_SHARED_RESOURCES:
+                    constants.MINION_POOL_STATUS_UNINITIALIZED}
+        final_pool_status = stat_map.get(execution.type)
+        if not final_pool_status:
+            LOG.error(
+                "Could not determine pool status following transition of "
+                "execution '%s' (type '%s') to status '%s'. Presuming error "
+                "has occured. Marking piil as error'd.",
+                execution.id, execution.type, new_execution_status)
+            final_pool_status = constants.MINION_POOL_STATUS_ERROR
+
+        LOG.info(
+            "Marking minion pool '%s' status as '%s' in the DB following the "
+            "transition of execution '%s' (type '%s') to status '%s'.",
+            execution.action_id, final_pool_status, execution.id,
+            execution.type, new_execution_status)
+        db_api.set_minion_pool_lifecycle_status(
+            ctxt, execution.action_id, final_pool_status)
 
     @parent_tasks_execution_synchronized
     def set_task_host(self, ctxt, task_id, host):
@@ -2425,9 +2479,6 @@ class ConductorServerEndpoint(object):
                     ctxt, execution.action_id, {
                         "pool_shared_resources": task_info.get(
                             "pool_shared_resources", {})})
-                db_api.set_minion_pool_lifecycle_status(
-                    ctxt, execution.action_id,
-                    constants.MINION_POOL_STATUS_DEALLOCATED)
 
         elif task_type == constants.TASK_TYPE_TEAR_DOWN_SHARED_POOL_RESOURCES:
             still_running = _check_other_tasks_running(execution, task)
@@ -2439,9 +2490,6 @@ class ConductorServerEndpoint(object):
                 db_api.update_minion_pool_lifecycle(
                     ctxt, execution.action_id, {
                         "pool_shared_resources": {}})
-                db_api.set_minion_pool_lifecycle_status(
-                    ctxt, execution.action_id,
-                    constants.MINION_POOL_STATUS_UNINITIALIZED)
 
         elif task_type == constants.TASK_TYPE_CREATE_MINION:
             LOG.info(
@@ -2461,24 +2509,12 @@ class ConductorServerEndpoint(object):
                 "minion_backup_writer_connection_info"]
             db_api.add_minion_machine(ctxt, minion_machine)
 
-            still_running = _check_other_tasks_running(execution, task)
-            if not still_running:
-                db_api.set_minion_pool_lifecycle_status(
-                    ctxt, execution.action_id,
-                    constants.MINION_POOL_STATUS_ALLOCATED)
-
         elif task_type == constants.TASK_TYPE_DELETE_MINION:
             LOG.info(
                 "%s task for Minon Machine '%s' has completed successfully. "
                 "Deleting minion machine from DB.",
                 constants.TASK_TYPE_DELETE_MINION, task.instance)
             db_api.delete_minion_machine(ctxt, task.instance)
-
-            still_running = _check_other_tasks_running(execution, task)
-            if not still_running:
-                db_api.set_minion_pool_lifecycle_status(
-                    ctxt, execution.action_id,
-                    constants.MINION_POOL_STATUS_DEALLOCATED)
 
         else:
             LOG.debug(
@@ -3414,14 +3450,17 @@ class ConductorServerEndpoint(object):
         minion_pool = self._get_minion_pool(
             ctxt, minion_pool_id, include_tasks_executions=False,
             include_machines=False)
-        if minion_pool.pool_status != constants.MINION_POOL_STATUS_UNINITIALIZED:
+        acceptable_deletion_statuses = [
+            constants.MINION_POOL_STATUS_UNINITIALIZED,
+            constants.MINION_POOL_STATUS_ERROR]
+        if minion_pool.pool_status not in acceptable_deletion_statuses:
             raise exception.InvalidMinionPoolState(
                 "Minion Pool '%s' cannot be deleted as it is in '%s' status "
-                "instead of the expected '%s'. Please ensure the pool machines"
-                "have been deallocated and the pool's supporting resources "
-                "have been torn down before deleting the pool." % (
+                "instead of one of the expected '%s'. Please ensure the pool "
+                "machines have been deallocated and the pool's supporting "
+                "resources have been torn down before deleting the pool." % (
                     minion_pool_id, minion_pool.pool_status,
-                    constants.MINION_POOL_STATUS_UNINITIALIZED))
+                    acceptable_deletion_statuses))
 
         LOG.info("Deleting minion pool with ID '%s'" % minion_pool_id)
         db_api.delete_minion_pool_lifecycle(ctxt, minion_pool_id)

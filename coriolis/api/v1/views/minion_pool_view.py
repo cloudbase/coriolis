@@ -38,8 +38,8 @@ def _format_minion_pool(req, minion_pool, keys=None):
                 if 'connection_details' in machine[
                         'backup_writer_connection_info']:
                     _hide_minion_creds(
-                        machine['connection_details'][
-                            'backup_writer_connection_info'])
+                        machine['backup_writer_connection_info'][
+                            'connection_details'])
 
     return minion_pool_dict
 
