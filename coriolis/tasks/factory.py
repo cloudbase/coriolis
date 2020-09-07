@@ -116,7 +116,9 @@ _TASKS_MAP = {
     constants.TASK_TYPE_RELEASE_DESTINATION_MINION:
         minion_pool_tasks.ReleaseDestinationMinionTask,
     constants.TASK_TYPE_RELEASE_OSMORPHING_MINION:
-        minion_pool_tasks.ReleaseOSMorphingMinionTask
+        minion_pool_tasks.ReleaseOSMorphingMinionTask,
+    constants.TASK_TYPE_COLLECT_OSMORPHING_INFO:
+        minion_pool_tasks.CollectOSMorphingInfoTask
 }
 
 

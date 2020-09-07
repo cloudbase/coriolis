@@ -96,6 +96,10 @@ class MinionPoolController(api_wsgi.Controller):
     def _validate_update_body(self, id, context, body):
         try:
             minion_pool = body["minion_pool"]
+            if 'endpoint_id' in minion_pool:
+                raise exception.InvalidInput(
+                    "The 'endpoint_id' of a minion pool cannot be "
+                    "updated.")
             vals = {k: minion_pool[k] for k in minion_pool.keys() &
                     {"name", "environment_options", "minimum_minions",
                      "maximum_minions", "minion_max_idle_time",

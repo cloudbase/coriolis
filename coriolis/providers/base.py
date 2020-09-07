@@ -624,3 +624,15 @@ class BaseMinionPoolProvider(
     def detach_volumes_from_minion(
             self, ctxt, connection_info, minion_properties, volumes_info):
         pass
+
+    @abc.abstractmethod
+    def get_additional_os_morphing_info(
+            self, ctxt, connection_info, target_environment,
+            instance_deployment_info):
+        """ This method should return any additional 'osmorphing_info'
+        as defined in coriolis.schemas.CORIOLIS_OS_MORPHING_RESOURCES_SCHEMA
+        Source-only providers can safely implement a stub method which returns
+        nothing, as this will only ever be called during OSMorphing for a
+        target plugin.
+        """
+        pass

@@ -701,3 +701,45 @@ class ReleaseOSMorphingMinionTask(_BaseReleaseMinionTask):
     @classmethod
     def _get_minion_task_info_field_mappings(cls):
         return OSMOPRHING_MINION_TASK_INFO_FIELD_MAPPINGS
+
+
+class CollectOSMorphingInfoTask(base.TaskRunner):
+
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_DESTINATION
+
+    @classmethod
+    def get_required_task_info_properties(cls):
+        return ["target_environment", "instance_deployment_info"]
+
+    @classmethod
+    def get_returned_task_info_properties(cls):
+        return ["osmorphing_info"]
+
+    @classmethod
+    def get_required_provider_types(cls):
+        return {
+            constants.PROVIDER_PLATFORM_DESTINATION: [
+                constants.PROVIDER_TYPE_MINION_POOL]}
+
+    def _run(self, ctxt, instance, origin, destination, task_info,
+             event_handler):
+        provider = providers_factory.get_provider(
+            destination["type"], constants.PROVIDER_TYPE_MINION_POOL,
+            event_handler)
+        connection_info = base.get_connection_info(ctxt, destination)
+        target_environment = task_info["target_environment"]
+        instance_deployment_info = task_info["instance_deployment_info"]
+
+        result = provider.get_additional_os_morphing_info(
+            ctxt, connection_info, target_environment,
+            instance_deployment_info)
+
+        if not isinstance(result, dict) or 'osmorphing_info' not in result:
+            raise exception.CoriolisException(
+                "'get_additional_os_morphing_info' method for provider of type"
+                " '%s' failed to return OSMorphing info.")
+
+        return {
+            "osmorphing_info": result["osmorphing_info"]}
