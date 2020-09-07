@@ -1261,10 +1261,18 @@ class ConductorServerEndpoint(object):
                         action.origin_minion_pool_id,
                         origin_pool.origin_endpoint_id,
                         action.origin_endpoint_id))
+            if origin_pool.pool_os_type != constants.OS_TYPE_LINUX:
+                raise exception.InvalidMinionPoolSelection(
+                    "The selected origin minion pool ('%s') is of OS type '%s'"
+                    " instead of the Linux OS type required for a source "
+                    "transfer minion pool." % (
+                        action.origin_minion_pool_id,
+                        origin_pool.pool_os_type))
 
         if action.destination_minion_pool_id:
             destination_pool = _get_pool(action.destination_minion_pool_id)
-            if destination_pool.origin_endpoint_id != action.destination_endpoint_id:
+            if destination_pool.origin_endpoint_id != (
+                    action.destination_endpoint_id):
                 raise exception.InvalidMinionPoolSelection(
                     "The selected destination minion pool ('%s') belongs to a "
                     "different Coriolis endpoint ('%s') than the requested "
@@ -1272,6 +1280,13 @@ class ConductorServerEndpoint(object):
                         action.destination_minion_pool_id,
                         destination_pool.origin_endpoint_id,
                         action.destination_endpoint_id))
+            if destination_pool.pool_os_type != constants.OS_TYPE_LINUX:
+                raise exception.InvalidMinionPoolSelection(
+                    "The selected destination minion pool ('%s') is of OS type"
+                    " '%s' instead of the Linux OS type required for a source "
+                    "transfer minion pool." % (
+                        action.destination_minion_pool_id,
+                        destination_pool.pool_os_type))
 
         if action.instance_osmorphing_minion_pool_mappings:
             for (instance, pool_id) in (
@@ -1316,6 +1331,8 @@ class ConductorServerEndpoint(object):
         replica.notes = notes
         replica.network_map = network_map
         replica.storage_mappings = storage_mappings
+        replica.instance_osmorphing_minion_pool_mappings = (
+            instance_osmorphing_minion_pool_mappings)
 
         self._check_minion_pools_for_action(ctxt, replica)
 
