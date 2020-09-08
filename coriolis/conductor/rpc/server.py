@@ -461,7 +461,7 @@ class ConductorServerEndpoint(object):
         return worker_rpc.get_endpoint_destination_options(
             ctxt, endpoint.type, endpoint.connection_info, env, option_names)
 
-    def get_endpoint_minion_pool_options(
+    def get_endpoint_source_minion_pool_options(
             self, ctxt, endpoint_id, env, option_names):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
@@ -470,8 +470,21 @@ class ConductorServerEndpoint(object):
             region_sets=[[reg.id for reg in endpoint.mapped_regions]],
             provider_requirements={
                 endpoint.type: [
-                    constants.PROVIDER_TYPE_MINION_POOL]})
-        return worker_rpc.get_endpoint_minion_pool_options(
+                    constants.PROVIDER_TYPE_SOURCE_MINION_POOL]})
+        return worker_rpc.get_endpoint_source_minion_pool_options(
+            ctxt, endpoint.type, endpoint.connection_info, env, option_names)
+
+    def get_endpoint_destination_minion_pool_options(
+            self, ctxt, endpoint_id, env, option_names):
+        endpoint = self.get_endpoint(ctxt, endpoint_id)
+
+        worker_rpc = self._get_worker_service_rpc_for_specs(
+            ctxt, enabled=True,
+            region_sets=[[reg.id for reg in endpoint.mapped_regions]],
+            provider_requirements={
+                endpoint.type: [
+                    constants.PROVIDER_TYPE_DESTINATION_MINION_POOL]})
+        return worker_rpc.get_endpoint_destination_minion_pool_options(
             ctxt, endpoint.type, endpoint.connection_info, env, option_names)
 
     def get_endpoint_networks(self, ctxt, endpoint_id, env):
@@ -535,7 +548,7 @@ class ConductorServerEndpoint(object):
         return worker_rpc.validate_endpoint_source_environment(
             ctxt, endpoint.type, source_env)
 
-    def validate_endpoint_minion_pool_options(
+    def validate_endpoint_source_minion_pool_options(
             self, ctxt, endpoint_id, pool_environment):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
@@ -543,9 +556,24 @@ class ConductorServerEndpoint(object):
             ctxt, enabled=True,
             region_sets=[[reg.id for reg in endpoint.mapped_regions]],
             provider_requirements={
-                endpoint.type: [constants.PROVIDER_TYPE_MINION_POOL]})
+                endpoint.type: [
+                    constants.PROVIDER_TYPE_SOURCE_MINION_POOL]})
 
-        return worker_rpc.validate_endpoint_minion_pool_options(
+        return worker_rpc.validate_endpoint_source_minion_pool_options(
+            ctxt, endpoint.type, pool_environment)
+
+    def validate_endpoint_destination_minion_pool_options(
+            self, ctxt, endpoint_id, pool_environment):
+        endpoint = self.get_endpoint(ctxt, endpoint_id)
+
+        worker_rpc = self._get_worker_service_rpc_for_specs(
+            ctxt, enabled=True,
+            region_sets=[[reg.id for reg in endpoint.mapped_regions]],
+            provider_requirements={
+                endpoint.type: [
+                    constants.PROVIDER_TYPE_DESTINATION_MINION_POOL]})
+
+        return worker_rpc.validate_endpoint_destination_minion_pool_options(
             ctxt, endpoint.type, pool_environment)
 
     def get_available_providers(self, ctxt):
@@ -1261,6 +1289,14 @@ class ConductorServerEndpoint(object):
                         action.origin_minion_pool_id,
                         origin_pool.origin_endpoint_id,
                         action.origin_endpoint_id))
+            if origin_pool.pool_platform != constants.PROVIDER_PLATFORM_SOURCE:
+                raise exception.InvalidMinionPoolSelection(
+                    "The selected origin minion pool ('%s') is configured as a"
+                    " '%s' pool. The pool must be of type %s to be used for "
+                    "data exports." % (
+                        action.origin_minion_pool_id,
+                        origin_pool.pool_platform,
+                        constants.PROVIDER_PLATFORM_SOURCE))
             if origin_pool.pool_os_type != constants.OS_TYPE_LINUX:
                 raise exception.InvalidMinionPoolSelection(
                     "The selected origin minion pool ('%s') is of OS type '%s'"
@@ -1280,6 +1316,15 @@ class ConductorServerEndpoint(object):
                         action.destination_minion_pool_id,
                         destination_pool.origin_endpoint_id,
                         action.destination_endpoint_id))
+            if destination_pool.pool_platform != (
+                    constants.PROVIDER_PLATFORM_DESTINATION):
+                raise exception.InvalidMinionPoolSelection(
+                    "The selected destination minion pool ('%s') is configured"
+                    " as a '%s'. The pool must be of type %s to be used for "
+                    "data imports." % (
+                        action.destination_minion_pool_id,
+                        destination_pool.pool_platform,
+                        constants.PROVIDER_PLATFORM_DESTINATION))
             if destination_pool.pool_os_type != constants.OS_TYPE_LINUX:
                 raise exception.InvalidMinionPoolSelection(
                     "The selected destination minion pool ('%s') is of OS type"
@@ -1301,6 +1346,15 @@ class ConductorServerEndpoint(object):
                             instance, pool_id,
                             osmorphing_pool.origin_endpoint_id,
                             action.destination_endpoint_id))
+                if osmorphing_pool.pool_platform != (
+                        constants.PROVIDER_PLATFORM_DESTINATION):
+                    raise exception.InvalidMinionPoolSelection(
+                        "The selected OSMorphing minion pool for instance '%s'"
+                        "  ('%s') is configured as a '%s' pool. The pool must "
+                        "be of type %s to be used for OSMorphing." % (
+                            instance, pool_id,
+                            osmorphing_pool.pool_platform,
+                            constants.PROVIDER_PLATFORM_DESTINATION))
 
     def create_instances_replica(self, ctxt, origin_endpoint_id,
                                  destination_endpoint_id,
@@ -1728,7 +1782,8 @@ class ConductorServerEndpoint(object):
                 ctxt, include_tasks_executions=False, include_info=False,
                 include_machines=True, to_dict=False)
             minion_pool_id_mappings = {
-                pool.id: pool for pool in minion_pools}
+                pool.id: pool for pool in minion_pools
+                if pool.id in minion_pool_ids}
 
             missing_pools = [
                 pool_id for pool_id in minion_pool_ids
@@ -1739,7 +1794,8 @@ class ConductorServerEndpoint(object):
                         missing_pools))
 
             unallocated_pools = {
-                pool.id: pool.pool_status for pool in minion_pools
+                pool_id: pool.pool_status
+                for (pool_id, pool) in minion_pool_id_mappings.items()
                 if pool.pool_status != constants.MINION_POOL_STATUS_ALLOCATED}
             if unallocated_pools:
                 raise exception.InvalidMinionPoolSelection(
@@ -1792,11 +1848,12 @@ class ConductorServerEndpoint(object):
                         osmorphing_pool_id = osmorphing_pool_map[instance]
                         # if the selected target and OSMorphing pools
                         # are the same, reuse the same worker:
+                        ima = instance_machine_allocations[instance]
                         if osmorphing_pool_id == (
-                                action.destination_minion_pool_id):
-                            allocated_target_machine = (
-                                instance_machine_allocations[
-                                    instance].get('target_minion'))
+                                action.destination_minion_pool_id) and (
+                                    'target_minion' in ima):
+                            allocated_target_machine = ima[
+                                'target_minion']
                             LOG.debug(
                                 "Reusing disk sync minion '%s' for the "
                                 "OSMorphing of instance '%s' as port of "
@@ -3104,7 +3161,9 @@ class ConductorServerEndpoint(object):
                     db_api.update_replica(
                         ctxt, execution.action_id, task_info)
 
-        elif task_type == constants.TASK_TYPE_SET_UP_SHARED_POOL_RESOURCES:
+        elif task_type in (
+                constants.TASK_TYPE_SET_UP_SOURCE_POOL_SHARED_RESOURCES,
+                constants.TASK_TYPE_SET_UP_DESTINATION_POOL_SHARED_RESOURCES):
             still_running = _check_other_tasks_running(execution, task)
             if not still_running:
                 LOG.info(
@@ -3116,7 +3175,9 @@ class ConductorServerEndpoint(object):
                         "pool_shared_resources": task_info.get(
                             "pool_shared_resources", {})})
 
-        elif task_type == constants.TASK_TYPE_TEAR_DOWN_SHARED_POOL_RESOURCES:
+        elif task_type in (
+                constants.TASK_TYPE_TEAR_DOWN_SOURCE_POOL_SHARED_RESOURCES,
+                constants.TASK_TYPE_TEAR_DOWN_DESTINATION_POOL_SHARED_RESOURCES):
             still_running = _check_other_tasks_running(execution, task)
             if not still_running:
                 LOG.info(
@@ -3127,7 +3188,9 @@ class ConductorServerEndpoint(object):
                     ctxt, execution.action_id, {
                         "pool_shared_resources": {}})
 
-        elif task_type == constants.TASK_TYPE_CREATE_MINION:
+        elif task_type in (
+                constants.TASK_TYPE_CREATE_SOURCE_MINION_MACHINE,
+                constants.TASK_TYPE_CREATE_DESTINATION_MINION_MACHINE):
             LOG.info(
                 "Adding DB entry for Minion Machine '%s' of pool %s "
                 "following completion of task '%s' (type %s).",
@@ -3145,11 +3208,13 @@ class ConductorServerEndpoint(object):
                 "minion_backup_writer_connection_info"]
             db_api.add_minion_machine(ctxt, minion_machine)
 
-        elif task_type == constants.TASK_TYPE_DELETE_MINION:
+        elif task_type in (
+                constants.TASK_TYPE_DELETE_SOURCE_MINION_MACHINE,
+                constants.TASK_TYPE_DELETE_DESTINATION_MINION_MACHINE):
             LOG.info(
                 "%s task for Minon Machine '%s' has completed successfully. "
                 "Deleting minion machine from DB.",
-                constants.TASK_TYPE_DELETE_MINION, task.instance)
+                task_type, task.instance)
             db_api.delete_minion_machine(ctxt, task.instance)
 
         elif task_type in (
@@ -3836,15 +3901,16 @@ class ConductorServerEndpoint(object):
         db_api.delete_service(ctxt, service_id)
 
     def create_minion_pool(
-            self, ctxt, name, endpoint_id, pool_os_type, environment_options,
-            minimum_minions, maximum_minions, minion_max_idle_time,
-            minion_retention_strategy, notes=None):
+            self, ctxt, name, endpoint_id, pool_platform, pool_os_type,
+            environment_options, minimum_minions, maximum_minions,
+            minion_max_idle_time, minion_retention_strategy, notes=None):
         endpoint = db_api.get_endpoint(ctxt, endpoint_id)
 
         minion_pool = models.MinionPoolLifecycle()
         minion_pool.id = str(uuid.uuid4())
         minion_pool.pool_name = name
         minion_pool.notes = notes
+        minion_pool.pool_platform = pool_platform
         minion_pool.pool_os_type = pool_os_type
         minion_pool.pool_status = constants.MINION_POOL_STATUS_UNINITIALIZED
         minion_pool.minimum_minions = minimum_minions
@@ -3909,14 +3975,22 @@ class ConductorServerEndpoint(object):
             # action DB models have been overhauled:
             "pool_environment_options": minion_pool.source_environment}
 
+        validate_task_type = (
+            constants.TASK_TYPE_VALIDATE_DESTINATION_MINION_POOL_OPTIONS)
+        set_up_task_type = (
+            constants.TASK_TYPE_SET_UP_DESTINATION_POOL_SHARED_RESOURCES)
+        if minion_pool.pool_platform == constants.PROVIDER_PLATFORM_SOURCE:
+            validate_task_type = (
+                constants.TASK_TYPE_VALIDATE_SOURCE_MINION_POOL_OPTIONS)
+            set_up_task_type = (
+                constants.TASK_TYPE_SET_UP_SOURCE_POOL_SHARED_RESOURCES)
+
         validate_pool_options_task = self._create_task(
-            minion_pool.id,
-            constants.TASK_TYPE_VALIDATE_MINION_POOL_OPTIONS,
-            execution)
+            minion_pool.id, validate_task_type, execution)
 
         setup_pool_resources_task = self._create_task(
             minion_pool.id,
-            constants.TASK_TYPE_SET_UP_SHARED_POOL_RESOURCES,
+            set_up_task_type,
             execution,
             depends_on=[validate_pool_options_task.id])
 
@@ -3962,10 +4036,14 @@ class ConductorServerEndpoint(object):
         execution.type = (
             constants.EXECUTION_TYPE_MINION_POOL_TEAR_DOWN_SHARED_RESOURCES)
 
+        tear_down_task_type = (
+            constants.TASK_TYPE_TEAR_DOWN_DESTINATION_POOL_SHARED_RESOURCES)
+        if minion_pool.pool_platform == constants.PROVIDER_PLATFORM_SOURCE:
+            tear_down_task_type = (
+                constants.TASK_TYPE_TEAR_DOWN_SOURCE_POOL_SHARED_RESOURCES)
+
         self._create_task(
-            minion_pool.id,
-            constants.TASK_TYPE_TEAR_DOWN_SHARED_POOL_RESOURCES,
-            execution)
+            minion_pool.id, tear_down_task_type, execution)
 
         self._check_execution_tasks_sanity(execution, minion_pool.info)
 
@@ -4009,6 +4087,16 @@ class ConductorServerEndpoint(object):
         new_minion_machine_ids = [
             str(uuid.uuid4()) for _ in range(minion_pool.minimum_minions)]
 
+        create_minion_task_type = (
+            constants.TASK_TYPE_CREATE_DESTINATION_MINION_MACHINE)
+        delete_minion_task_type = (
+            constants.TASK_TYPE_DELETE_DESTINATION_MINION_MACHINE)
+        if minion_pool.pool_platform == constants.PROVIDER_PLATFORM_SOURCE:
+            create_minion_task_type = (
+                constants.TASK_TYPE_CREATE_SOURCE_MINION_MACHINE)
+            delete_minion_task_type = (
+                constants.TASK_TYPE_DELETE_DESTINATION_MINION_MACHINE)
+
         for minion_machine_id in new_minion_machine_ids:
             minion_pool.info[minion_machine_id] = {
                 "pool_identifier": minion_pool_id,
@@ -4021,13 +4109,11 @@ class ConductorServerEndpoint(object):
                 "minion_provider_properties": {}}
 
             create_minion_task = self._create_task(
-                minion_machine_id,
-                constants.TASK_TYPE_CREATE_MINION,
-                execution)
+                minion_machine_id, create_minion_task_type, execution)
 
             self._create_task(
                 minion_machine_id,
-                constants.TASK_TYPE_DELETE_MINION,
+                delete_minion_task_type,
                 execution, on_error_only=True,
                 depends_on=[create_minion_task.id])
 
@@ -4050,6 +4136,25 @@ class ConductorServerEndpoint(object):
         return self._get_minion_pool_lifecycle_execution(
             ctxt, minion_pool_id, execution.id).to_dict()
 
+    def _check_all_pool_minion_machines_available(self, minion_pool):
+        if not minion_pool.minion_machines:
+            LOG.debug(
+                "Minion pool '%s' does not have any allocated machines.",
+                minion_pool.id)
+            return
+
+        allocated_machine_statuses = {
+            machine.id: machine.status
+            for machine in minion_pool.minion_machines
+            if machine.status != constants.MINION_MACHINE_STATUS_AVAILABLE}
+
+        if allocated_machine_statuses:
+            raise exception.InvalidMinionPoolState(
+                "Minion pool with ID '%s' has one or machines which are in-use "
+                "or otherwise unmodifiable: %s" % (
+                    minion_pool.id,
+                    allocated_machine_statuses))
+
     @minion_pool_synchronized
     def deallocate_minion_pool_machines(self, ctxt, minion_pool_id):
         LOG.info("Attempting to deallocate Minion Pool '%s'.", minion_pool_id)
@@ -4064,8 +4169,7 @@ class ConductorServerEndpoint(object):
                     minion_pool_id, minion_pool.pool_status,
                     constants.MINION_POOL_STATUS_ALLOCATED))
 
-        # TODO(aznashwan): check minion pool running
-        # executions/allocated machines
+        self._check_all_pool_minion_machines_available(minion_pool)
 
         execution = models.TasksExecution()
         execution.id = str(uuid.uuid4())
@@ -4074,6 +4178,12 @@ class ConductorServerEndpoint(object):
         execution.type = (
             constants.EXECUTION_TYPE_MINION_POOL_DEALLOCATE_MINIONS)
 
+        delete_minion_task_type = (
+            constants.TASK_TYPE_DELETE_DESTINATION_MINION_MACHINE)
+        if minion_pool.pool_platform == constants.PROVIDER_PLATFORM_SOURCE:
+            delete_minion_task_type = (
+                constants.TASK_TYPE_DELETE_DESTINATION_MINION_MACHINE)
+
         for minion_machine in minion_pool.minion_machines:
             minion_machine_id = minion_machine.id
             minion_pool.info[minion_machine_id] = {
@@ -4081,7 +4191,7 @@ class ConductorServerEndpoint(object):
                 "minion_provider_properties": (
                     minion_machine.provider_properties)}
             self._create_task(
-                minion_machine_id, constants.TASK_TYPE_DELETE_MINION,
+                minion_machine_id, delete_minion_task_type,
                 # NOTE: we set 'on_error=True' to allow for the completion of
                 # already running deletion tasks to prevent partial deletes:
                 execution, on_error=True)
@@ -4136,7 +4246,7 @@ class ConductorServerEndpoint(object):
     def delete_minion_pool(self, ctxt, minion_pool_id):
         minion_pool = self._get_minion_pool(
             ctxt, minion_pool_id, include_tasks_executions=False,
-            include_machines=False)
+            include_machines=True)
         acceptable_deletion_statuses = [
             constants.MINION_POOL_STATUS_UNINITIALIZED,
             constants.MINION_POOL_STATUS_ERROR]

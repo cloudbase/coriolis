@@ -4,6 +4,7 @@
 from oslo_log import log as logging
 
 from coriolis import constants
+from coriolis import events
 from coriolis import exception
 from coriolis.providers import factory as providers_factory
 from coriolis.tasks import base
@@ -29,15 +30,27 @@ OSMOPRHING_MINION_TASK_INFO_FIELD_MAPPINGS = {
     "osmorphing_minion_connection_info": "osmorphing_connection_info"}
 
 
-class ValidateMinionPoolOptionsTask(base.TaskRunner):
+def _get_required_minion_pool_provider_types_for_platform(
+        platform_type):
+    provider_type = None
+    if platform_type == constants.PROVIDER_PLATFORM_SOURCE:
+        provider_type = constants.PROVIDER_TYPE_SOURCE_MINION_POOL
+    elif platform_type == constants.PROVIDER_PLATFORM_DESTINATION:
+        provider_type = constants.PROVIDER_TYPE_DESTINATION_MINION_POOL
+    else:
+        raise NotImplementedError(
+            "Cannot determine required minion pool provider type for "
+            "platform of type '%s'" % platform_type)
+    return {
+        platform_type: [provider_type]}
+
+
+class _BaseValidateMinionPoolOptionsTask(base.TaskRunner):
 
     @classmethod
     def get_required_platform(cls):
-        # TODO(aznashwan): this is only used to determined the Worker Service
-        # region of which endpoint to aim the Scheduler towards during normal
-        # transfer actions. Once the DB model hirearchy for transfer actions
-        # gets overhauled and this will be redundant, it should be removed.
-        return constants.TASK_PLATFORM_DESTINATION
+        raise NotImplementedError(
+            "No Minion pool options validation platform specified.")
 
     @classmethod
     def get_required_task_info_properties(cls):
@@ -49,40 +62,47 @@ class ValidateMinionPoolOptionsTask(base.TaskRunner):
 
     @classmethod
     def get_required_provider_types(cls):
-        return {
-            # TODO(aznashwan): remove redundant doubling after
-            # transfer action DB model overhaul:
-            constants.PROVIDER_PLATFORM_SOURCE: [
-                constants.PROVIDER_TYPE_MINION_POOL],
-            constants.PROVIDER_PLATFORM_DESTINATION: [
-                constants.PROVIDER_TYPE_MINION_POOL],
-        }
+        return _get_required_minion_pool_provider_types_for_platform(
+            cls.get_required_platform())
 
     def _run(self, ctxt, minion_pool_machine_id, origin, destination,
              task_info, event_handler):
 
         # NOTE: both origin or target endpoints would work:
         connection_info = base.get_connection_info(ctxt, destination)
+        provider_type = self.get_required_provider_types()[
+            self.get_required_platform()][0]
         provider = providers_factory.get_provider(
-            destination["type"], constants.PROVIDER_TYPE_MINION_POOL,
-            event_handler)
+            destination["type"], provider_type, event_handler)
 
         environment_options = task_info['pool_environment_options']
-        provider.validate_minion_pool_options(
+        provider.validate_minion_pool_environment_options(
             ctxt, connection_info, environment_options)
 
         return {}
 
 
-class CreateMinionTask(base.TaskRunner):
+class ValidateSourceMinionPoolOptionsTask(_BaseValidateMinionPoolOptionsTask):
 
     @classmethod
     def get_required_platform(cls):
-        # TODO(aznashwan): this is only used to determined the Worker Service
-        # region of which endpoint to aim the Scheduler towards during normal
-        # transfer actions. Once the DB model hirearchy for transfer actions
-        # gets overhauled and this will be redundant, it should be removed.
-        return constants.TASK_PLATFORM_DESTINATION
+        return constants.PROVIDER_PLATFORM_SOURCE
+
+
+class ValidateDestinationMinionPoolOptionsTask(
+        _BaseValidateMinionPoolOptionsTask):
+
+    @classmethod
+    def get_required_platform(cls):
+        return constants.PROVIDER_PLATFORM_DESTINATION
+
+
+class _BaseCreateMinionMachineTask(base.TaskRunner):
+
+    @classmethod
+    def get_required_platform(cls):
+        raise NotImplementedError(
+            "No minion pool creation required platform specified.")
 
     @classmethod
     def get_required_task_info_properties(cls):
@@ -98,23 +118,18 @@ class CreateMinionTask(base.TaskRunner):
 
     @classmethod
     def get_required_provider_types(cls):
-        return {
-            # TODO(aznashwan): remove redundant doubling after
-            # transfer action DB model overhaul:
-            constants.PROVIDER_PLATFORM_SOURCE: [
-                constants.PROVIDER_TYPE_MINION_POOL],
-            constants.PROVIDER_PLATFORM_DESTINATION: [
-                constants.PROVIDER_TYPE_MINION_POOL],
-        }
+        return _get_required_minion_pool_provider_types_for_platform(
+            cls.get_required_platform())
 
     def _run(self, ctxt, minion_pool_machine_id, origin, destination,
              task_info, event_handler):
 
         # NOTE: both origin or target endpoints would work:
         connection_info = base.get_connection_info(ctxt, destination)
+        provider_type = self.get_required_provider_types()[
+            self.get_required_platform()][0]
         provider = providers_factory.get_provider(
-            destination["type"], constants.PROVIDER_TYPE_MINION_POOL,
-            event_handler)
+            destination["type"], provider_type, event_handler)
 
         pool_identifier = task_info['pool_identifier']
         environment_options = task_info['pool_environment_options']
@@ -156,15 +171,26 @@ class CreateMinionTask(base.TaskRunner):
                 "minion_provider_properties")}
 
 
-class DeleteMinionTask(base.TaskRunner):
+class CreateSourceMinionMachineTask(_BaseCreateMinionMachineTask):
 
     @classmethod
     def get_required_platform(cls):
-        # TODO(aznashwan): this is only used to determined the Worker Service
-        # region of which endpoint to aim the Scheduler towards during normal
-        # transfer actions. Once the DB model hirearchy for transfer actions
-        # gets overhauled and this will be redundant, it should be removed.
-        return constants.TASK_PLATFORM_DESTINATION
+        return constants.PROVIDER_PLATFORM_SOURCE
+
+
+class CreateDestinationMinionMachineTask(_BaseCreateMinionMachineTask):
+
+    @classmethod
+    def get_required_platform(cls):
+        return constants.PROVIDER_PLATFORM_DESTINATION
+
+
+class _BaseDeleteMinionMachineTask(base.TaskRunner):
+
+    @classmethod
+    def get_required_platform(cls):
+        raise NotImplementedError(
+            "No minion deletion required platform specified.")
 
     @classmethod
     def get_required_task_info_properties(cls):
@@ -176,23 +202,18 @@ class DeleteMinionTask(base.TaskRunner):
 
     @classmethod
     def get_required_provider_types(cls):
-        return {
-            # TODO(aznashwan): remove redundant doubling after
-            # transfer action DB model overhaul:
-            constants.PROVIDER_PLATFORM_SOURCE: [
-                constants.PROVIDER_TYPE_MINION_POOL],
-            constants.PROVIDER_PLATFORM_DESTINATION: [
-                constants.PROVIDER_TYPE_MINION_POOL],
-        }
+        return _get_required_minion_pool_provider_types_for_platform(
+            cls.get_required_platform())
 
     def _run(self, ctxt, minion_pool_machine_id, origin, destination,
              task_info, event_handler):
 
         # NOTE: both origin or target endpoints would work:
         connection_info = base.get_connection_info(ctxt, destination)
+        provider_type = self.get_required_provider_types()[
+            self.get_required_platform()][0]
         provider = providers_factory.get_provider(
-            destination["type"], constants.PROVIDER_TYPE_MINION_POOL,
-            event_handler)
+            destination["type"], provider_type, event_handler)
 
         minion_provider_properties = task_info['minion_provider_properties']
         provider.delete_minion(
@@ -201,15 +222,26 @@ class DeleteMinionTask(base.TaskRunner):
         return {}
 
 
-class SetUpPoolSupportingResourcesTask(base.TaskRunner):
+class DeleteSourceMinionMachineTask(_BaseDeleteMinionMachineTask):
 
     @classmethod
     def get_required_platform(cls):
-        # TODO(aznashwan): this is only used to determined the Worker Service
-        # region of which endpoint to aim the Scheduler towards during normal
-        # transfer actions. Once the DB model hirearchy for transfer actions
-        # gets overhauled and this will be redundant, it should be removed.
-        return constants.TASK_PLATFORM_DESTINATION
+        return constants.PROVIDER_PLATFORM_SOURCE
+
+
+class DeleteDestinationMinionMachineTask(_BaseDeleteMinionMachineTask):
+
+    @classmethod
+    def get_required_platform(cls):
+        return constants.PROVIDER_PLATFORM_DESTINATION
+
+
+class _BaseSetUpPoolSupportingResourcesTask(base.TaskRunner):
+
+    @classmethod
+    def get_required_platform(cls):
+        raise NotImplementedError(
+            "No pool shared resource setup required platform specified.")
 
     @classmethod
     def get_required_task_info_properties(cls):
@@ -221,23 +253,18 @@ class SetUpPoolSupportingResourcesTask(base.TaskRunner):
 
     @classmethod
     def get_required_provider_types(cls):
-        return {
-            # TODO(aznashwan): remove redundant doubling after
-            # transfer action DB model overhaul:
-            constants.PROVIDER_PLATFORM_SOURCE: [
-                constants.PROVIDER_TYPE_MINION_POOL],
-            constants.PROVIDER_PLATFORM_DESTINATION: [
-                constants.PROVIDER_TYPE_MINION_POOL],
-        }
+        return _get_required_minion_pool_provider_types_for_platform(
+            cls.get_required_platform())
 
     def _run(self, ctxt, minion_pool_machine_id, origin, destination,
              task_info, event_handler):
 
         # NOTE: both origin or target endpoints would work:
         connection_info = base.get_connection_info(ctxt, destination)
+        provider_type = self.get_required_provider_types()[
+            self.get_required_platform()][0]
         provider = providers_factory.get_provider(
-            destination["type"], constants.PROVIDER_TYPE_MINION_POOL,
-            event_handler)
+            destination["type"], provider_type, event_handler)
 
         pool_identifier = task_info['pool_identifier']
         environment_options = task_info['pool_environment_options']
@@ -247,15 +274,28 @@ class SetUpPoolSupportingResourcesTask(base.TaskRunner):
         return {"pool_shared_resources": pool_shared_resources}
 
 
-class TearDownPoolSupportingResourcesTask(base.TaskRunner):
+class SetUpSourcePoolSupportingResourcesTask(
+        _BaseSetUpPoolSupportingResourcesTask):
 
     @classmethod
     def get_required_platform(cls):
-        # TODO(aznashwan): this is only used to determined the Worker Service
-        # region of which endpoint to aim the Scheduler towards during normal
-        # transfer actions. Once the DB model hirearchy for transfer actions
-        # gets overhauled and this will be redundant, it should be removed.
-        return constants.TASK_PLATFORM_DESTINATION
+        return constants.PROVIDER_PLATFORM_SOURCE
+
+
+class SetUpDestinationPoolSupportingResources(
+        _BaseSetUpPoolSupportingResourcesTask):
+
+    @classmethod
+    def get_required_platform(cls):
+        return constants.PROVIDER_PLATFORM_DESTINATION
+
+
+class _BaseTearDownPoolSupportingResourcesTask(base.TaskRunner):
+
+    @classmethod
+    def get_required_platform(cls):
+        raise NotImplementedError(
+            "No pool tear down shared resoures required platform specified.")
 
     @classmethod
     def get_required_task_info_properties(cls):
@@ -267,23 +307,18 @@ class TearDownPoolSupportingResourcesTask(base.TaskRunner):
 
     @classmethod
     def get_required_provider_types(cls):
-        return {
-            # TODO(aznashwan): remove redundant doubling after
-            # transfer action DB model overhaul:
-            constants.PROVIDER_PLATFORM_SOURCE: [
-                constants.PROVIDER_TYPE_MINION_POOL],
-            constants.PROVIDER_PLATFORM_DESTINATION: [
-                constants.PROVIDER_TYPE_MINION_POOL],
-        }
+        return _get_required_minion_pool_provider_types_for_platform(
+            cls.get_required_platform())
 
     def _run(self, ctxt, minion_pool_machine_id, origin, destination,
              task_info, event_handler):
 
         # NOTE: both origin or target endpoints would work:
         connection_info = base.get_connection_info(ctxt, destination)
+        provider_type = self.get_required_provider_types()[
+            self.get_required_platform()][0]
         provider = providers_factory.get_provider(
-            destination["type"], constants.PROVIDER_TYPE_MINION_POOL,
-            event_handler)
+            destination["type"], provider_type, event_handler)
 
         environment_options = task_info['pool_environment_options']
         pool_shared_resources = task_info['pool_shared_resources']
@@ -292,6 +327,22 @@ class TearDownPoolSupportingResourcesTask(base.TaskRunner):
             pool_shared_resources)
 
         return {"pool_shared_resources": None}
+
+
+class TearDownSourcePoolSupportingResourcesTask(
+        _BaseTearDownPoolSupportingResourcesTask):
+
+    @classmethod
+    def get_required_platform(cls):
+        return constants.PROVIDER_PLATFORM_SOURCE
+
+
+class TearDownDestinationPoolSupportingResources(
+        _BaseTearDownPoolSupportingResourcesTask):
+
+    @classmethod
+    def get_required_platform(cls):
+        return constants.PROVIDER_PLATFORM_DESTINATION
 
 
 class _BaseVolumesMinionMachineAttachmentTask(base.TaskRunner):
@@ -320,8 +371,8 @@ class _BaseVolumesMinionMachineAttachmentTask(base.TaskRunner):
 
     @classmethod
     def get_required_provider_types(cls):
-        return {
-            cls.get_required_platform(): [constants.PROVIDER_TYPE_MINION_POOL]}
+        return _get_required_minion_pool_provider_types_for_platform(
+            cls.get_required_platform())
 
     @classmethod
     def _get_minion_properties_task_info_field(cls):
@@ -353,9 +404,10 @@ class _BaseVolumesMinionMachineAttachmentTask(base.TaskRunner):
                     required_platform))
 
         connection_info = base.get_connection_info(ctxt, platform_to_target)
+        provider_type = self.get_required_provider_types()[
+            self.get_required_platform()][0]
         provider = providers_factory.get_provider(
-            platform_to_target["type"], constants.PROVIDER_TYPE_MINION_POOL,
-            event_handler)
+            platform_to_target["type"], provider_type, event_handler)
 
         volumes_info = task_info["volumes_info"]
         minion_properties = task_info[
@@ -508,8 +560,8 @@ class _BaseValidateMinionCompatibilityTask(base.TaskRunner):
 
     @classmethod
     def get_required_provider_types(cls):
-        return {
-            cls.get_required_platform(): [constants.PROVIDER_TYPE_MINION_POOL]}
+        return _get_required_minion_pool_provider_types_for_platform(
+            cls.get_required_platform())
 
     @classmethod
     def _get_provider_pool_validation_operation(cls, provider):
@@ -552,9 +604,10 @@ class _BaseValidateMinionCompatibilityTask(base.TaskRunner):
                     required_platform))
 
         connection_info = base.get_connection_info(ctxt, platform_to_target)
+        provider_type = self.get_required_provider_types()[
+            self.get_required_platform()][0]
         provider = providers_factory.get_provider(
-            platform_to_target["type"], constants.PROVIDER_TYPE_MINION_POOL,
-            event_handler)
+            platform_to_target["type"], provider_type, event_handler)
 
         export_info = task_info["export_info"]
         minion_properties = task_info[
@@ -655,8 +708,8 @@ class _BaseReleaseMinionTask(base.TaskRunner):
 
     @classmethod
     def get_required_provider_types(cls):
-        return {
-            cls.get_required_platform(): [constants.PROVIDER_TYPE_MINION_POOL]}
+        return _get_required_minion_pool_provider_types_for_platform(
+            cls.get_required_platform())
 
     @classmethod
     def _get_minion_task_info_field_mappings(cls):
@@ -665,6 +718,8 @@ class _BaseReleaseMinionTask(base.TaskRunner):
 
     def _run(self, ctxt, instance, origin, destination,
              task_info, event_handler):
+        event_manager = events.EventManager(event_handler)
+        event_manager.progress_update("Releasing minion machine")
         return {
             field: None
             for field in self.get_returned_task_info_properties()}
@@ -710,6 +765,11 @@ class CollectOSMorphingInfoTask(base.TaskRunner):
         return constants.TASK_PLATFORM_DESTINATION
 
     @classmethod
+    def get_required_provider_types(cls):
+        return _get_required_minion_pool_provider_types_for_platform(
+            cls.get_required_platform())
+
+    @classmethod
     def get_required_task_info_properties(cls):
         return ["target_environment", "instance_deployment_info"]
 
@@ -717,17 +777,12 @@ class CollectOSMorphingInfoTask(base.TaskRunner):
     def get_returned_task_info_properties(cls):
         return ["osmorphing_info"]
 
-    @classmethod
-    def get_required_provider_types(cls):
-        return {
-            constants.PROVIDER_PLATFORM_DESTINATION: [
-                constants.PROVIDER_TYPE_MINION_POOL]}
-
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
+        provider_type = self.get_required_provider_types()[
+            self.get_required_platform()][0]
         provider = providers_factory.get_provider(
-            destination["type"], constants.PROVIDER_TYPE_MINION_POOL,
-            event_handler)
+            destination["type"], provider_type, event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
         target_environment = task_info["target_environment"]
         instance_deployment_info = task_info["instance_deployment_info"]

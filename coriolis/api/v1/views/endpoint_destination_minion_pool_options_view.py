@@ -14,7 +14,7 @@ def _format_dest_opt(req, destination_option, keys=None):
         transform(k, v) for k, v in destination_option.items()))
 
 
-def collection(req, destination_options):
+def collection(req, destination_pool_options):
     formatted_opts = [
-        _format_dest_opt(req, opt) for opt in destination_options]
-    return {'minion_pool_options': formatted_opts}
+        _format_dest_opt(req, opt) for opt in destination_pool_options]
+    return {'destination_minion_pool_options': formatted_opts}

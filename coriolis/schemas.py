@@ -22,8 +22,10 @@ PROVIDER_CONNECTION_INFO_SCHEMA_NAME = "connection_info_schema.json"
 
 PROVIDER_TARGET_ENVIRONMENT_SCHEMA_NAME = "target_environment_schema.json"
 PROVIDER_SOURCE_ENVIRONMENT_SCHEMA_NAME = "source_environment_schema.json"
-PROVIDER_MINION_POOL_ENVIRONMENT_SCHEMA_NAME = (
-    "minion_pool_environment_schema.json")
+PROVIDER_SOURCE_MINION_POOL_ENVIRONMENT_SCHEMA_NAME = (
+    "source_minion_pool_environment_schema.json")
+PROVIDER_DESTINATION_MINION_POOL_ENVIRONMENT_SCHEMA_NAME = (
+    "destination_minion_pool_environment_schema.json")
 
 _CORIOLIS_VM_EXPORT_INFO_SCHEMA_NAME = "vm_export_info_schema.json"
 _CORIOLIS_VM_INSTANCE_INFO_SCHEMA_NAME = "vm_instance_info_schema.json"

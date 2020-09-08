@@ -56,14 +56,18 @@ class TaskRunner(with_metaclass(abc.ABCMeta)):
     def get_required_task_info_properties(cls):
         """ Returns a list of the string fields which are required
         to be present during the tasks' run method. """
-        pass
+        raise NotImplementedError(
+            "No required task info properties specified for task class of "
+            "type '%s'." % cls)
 
     @abc.abstractclassmethod
     def get_returned_task_info_properties(cls):
         """ Returns a list of the string fields which are returned by the
         tasks' run method to be added to the task info.
         """
-        pass
+        raise NotImplementedError(
+            "No returned task info properties specified for task class of "
+            "type '%s'." % cls)
 
     @abc.abstractclassmethod
     def get_required_provider_types(cls):
@@ -71,14 +75,18 @@ class TaskRunner(with_metaclass(abc.ABCMeta)):
         of all the provider types (constants.PROVIDER_TYPE_*) required for the
         task.
         """
-        pass
+        raise NotImplementedError(
+            "No required provider types specified for task class of "
+            "type '%s'." % cls)
 
     @abc.abstractclassmethod
     def get_required_platform(cls):
         """ Returns whether the task operates on the source platform, the
         destination, or both. (constants.TASK_PLATFORM_*)
         """
-        pass
+        raise NotImplementedError(
+            "No required platform specified for task class of "
+            "type '%s'." % cls)
 
     @abc.abstractmethod
     def _run(self, ctxt, instance, origin, destination, task_info,
@@ -88,7 +96,9 @@ class TaskRunner(with_metaclass(abc.ABCMeta)):
         'self.get_returned_task_info_properties'.
         Must be implemented in all child classes.
         """
-        pass
+        raise NotImplementedError(
+            "No base run method implemented for task class of type '%s'." % (
+                self.__class__))
 
     def run(self, ctxt, instance, origin, destination, task_info,
             event_handler):

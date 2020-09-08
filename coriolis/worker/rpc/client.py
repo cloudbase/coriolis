@@ -131,15 +131,28 @@ class WorkerClient(object):
     def get_service_status(self, ctxt):
         return self._client.call(ctxt, 'get_service_status')
 
-    def get_endpoint_minion_pool_options(
+    def get_endpoint_source_minion_pool_options(
             self, ctxt, platform_name, connection_info, env, option_names):
         return self._client.call(
-            ctxt, 'get_endpoint_minion_pool_options',
+            ctxt, 'get_endpoint_source_minion_pool_options',
             platform_name=platform_name, connection_info=connection_info,
             env=env, option_names=option_names)
 
-    def validate_endpoint_minion_pool_options(
+    def get_endpoint_destination_minion_pool_options(
+            self, ctxt, platform_name, connection_info, env, option_names):
+        return self._client.call(
+            ctxt, 'get_endpoint_destination_minion_pool_options',
+            platform_name=platform_name, connection_info=connection_info,
+            env=env, option_names=option_names)
+
+    def validate_endpoint_source_minion_pool_options(
             self, ctxt, platform_name, pool_environment):
         return self._client.call(
-            ctxt, 'validate_endpoint_minion_pool_options',
+            ctxt, 'validate_endpoint_source_minion_pool_options',
+            platform_name=platform_name, pool_environment=pool_environment)
+
+    def validate_endpoint_destination_minion_pool_options(
+            self, ctxt, platform_name, pool_environment):
+        return self._client.call(
+            ctxt, 'validate_endpoint_destination_minion_pool_options',
             platform_name=platform_name, pool_environment=pool_environment)

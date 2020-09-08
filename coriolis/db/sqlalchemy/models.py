@@ -516,6 +516,8 @@ class MinionPoolLifecycle(BaseTransferAction):
         nullable=False)
     pool_os_type = sqlalchemy.Column(
         sqlalchemy.String(255), nullable=False)
+    pool_platform = sqlalchemy.Column(
+        sqlalchemy.String(255), nullable=False)
     pool_status = sqlalchemy.Column(
         sqlalchemy.String(255), nullable=False,
         default=lambda: constants.MINION_POOL_STATUS_UNKNOWN)
@@ -546,6 +548,7 @@ class MinionPoolLifecycle(BaseTransferAction):
             "id": self.id,
             "pool_name": self.pool_name,
             "pool_os_type": self.pool_os_type,
+            "pool_platform": self.pool_platform,
             "pool_shared_resources": self.pool_shared_resources,
             "pool_status": self.pool_status,
             "minimum_minions": self.minimum_minions,

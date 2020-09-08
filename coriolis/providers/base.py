@@ -534,7 +534,7 @@ class BaseUpdateDestinationReplicaProvider(
         """
 
 
-class BaseMinionPoolProvider(
+class _BaseMinionPoolProvider(
         object, with_metaclass(abc.ABCMeta)):
     """ Class for providers which offer Minion Pool management functionality.
     """
@@ -562,18 +562,7 @@ class BaseMinionPoolProvider(
         pass
 
     @abc.abstractmethod
-    def validate_osmorphing_minion_compatibility_for_transfer(
-            self, ctxt, connection_info, export_info, environment_options,
-            minion_properties):
-        """ Validates compatibility between the OSMorphing pool's options and
-        the options selected for a given transfer. Should raise if any options
-        of the minions in the pool might be deemed incompatible with the
-        desired transfer options.
-        """
-        pass
-
-    @abc.abstractmethod
-    def validate_minion_pool_options(
+    def validate_minion_pool_environment_options(
             self, ctxt, connection_info, environment_options):
         """ Validates the provided pool options. """
         pass
@@ -625,14 +614,30 @@ class BaseMinionPoolProvider(
             self, ctxt, connection_info, minion_properties, volumes_info):
         pass
 
+
+class BaseSourceMinionPoolProvider(_BaseMinionPoolProvider):
+
+    pass
+
+
+class BaseDestinationMinionPoolProvider(_BaseMinionPoolProvider):
+
+    @abc.abstractmethod
+    def validate_osmorphing_minion_compatibility_for_transfer(
+            self, ctxt, connection_info, export_info, environment_options,
+            minion_properties):
+        """ Validates compatibility between the OSMorphing pool's options and
+        the options selected for a given transfer. Should raise if any options
+        of the minions in the pool might be deemed incompatible with the
+        desired transfer options.
+        """
+        pass
+
     @abc.abstractmethod
     def get_additional_os_morphing_info(
             self, ctxt, connection_info, target_environment,
             instance_deployment_info):
         """ This method should return any additional 'osmorphing_info'
         as defined in coriolis.schemas.CORIOLIS_OS_MORPHING_RESOURCES_SCHEMA
-        Source-only providers can safely implement a stub method which returns
-        nothing, as this will only ever be called during OSMorphing for a
-        target plugin.
         """
         pass

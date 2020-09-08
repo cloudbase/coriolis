@@ -49,6 +49,8 @@ def upgrade(migrate_engine):
             sqlalchemy.Column(
                 "pool_os_type", sqlalchemy.String(255), nullable=False),
             sqlalchemy.Column(
+                "pool_platform", sqlalchemy.String(255), nullable=True),
+            sqlalchemy.Column(
                 "pool_status", sqlalchemy.String(255), nullable=False,
                 default=lambda: "UNKNOWN"),
             sqlalchemy.Column(

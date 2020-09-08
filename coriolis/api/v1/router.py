@@ -6,10 +6,11 @@ from oslo_log import log as logging
 from coriolis import api
 from coriolis.api.v1 import diagnostics
 from coriolis.api.v1 import endpoint_actions
+from coriolis.api.v1 import endpoint_destination_minion_pool_options
 from coriolis.api.v1 import endpoint_destination_options
 from coriolis.api.v1 import endpoint_instances
-from coriolis.api.v1 import endpoint_minion_pool_options
 from coriolis.api.v1 import endpoint_networks
+from coriolis.api.v1 import endpoint_source_minion_pool_options
 from coriolis.api.v1 import endpoint_source_options
 from coriolis.api.v1 import endpoint_storage
 from coriolis.api.v1 import endpoints
@@ -100,12 +101,21 @@ class APIRouter(api.APIRouter):
                        action='action',
                        conditions={'method': 'POST'})
 
-        self.resources['endpoint_minion_pool_options'] = \
-            endpoint_minion_pool_options.create_resource()
+        self.resources['endpoint_source_minion_pool_options'] = \
+            endpoint_source_minion_pool_options.create_resource()
         mapper.resource('minion_pool_options',
-                        'endpoints/{endpoint_id}/minion-pool-options',
+                        'endpoints/{endpoint_id}/source-minion-pool-options',
                         controller=(
-                            self.resources['endpoint_minion_pool_options']))
+                            self.resources[
+                                'endpoint_source_minion_pool_options']))
+
+        self.resources['endpoint_destination_minion_pool_options'] = \
+            endpoint_destination_minion_pool_options.create_resource()
+        mapper.resource('minion_pool_options',
+                        'endpoints/{endpoint_id}/destination-minion-pool-options',
+                        controller=(
+                            self.resources[
+                                'endpoint_destination_minion_pool_options']))
 
         endpoint_actions_resource = endpoint_actions.create_resource()
         self.resources['endpoint_actions'] = endpoint_actions_resource

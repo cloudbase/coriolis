@@ -83,16 +83,26 @@ _TASKS_MAP = {
         replica_tasks.UpdateSourceReplicaTask,
     constants.TASK_TYPE_UPDATE_DESTINATION_REPLICA:
         replica_tasks.UpdateDestinationReplicaTask,
-    constants.TASK_TYPE_VALIDATE_MINION_POOL_OPTIONS:
-        minion_pool_tasks.ValidateMinionPoolOptionsTask,
-    constants.TASK_TYPE_CREATE_MINION:
-        minion_pool_tasks.CreateMinionTask,
-    constants.TASK_TYPE_DELETE_MINION:
-        minion_pool_tasks.DeleteMinionTask,
-    constants.TASK_TYPE_SET_UP_SHARED_POOL_RESOURCES:
-        minion_pool_tasks.SetUpPoolSupportingResourcesTask,
-    constants.TASK_TYPE_TEAR_DOWN_SHARED_POOL_RESOURCES:
-        minion_pool_tasks.TearDownPoolSupportingResourcesTask,
+    constants.TASK_TYPE_VALIDATE_SOURCE_MINION_POOL_OPTIONS:
+        minion_pool_tasks.ValidateSourceMinionPoolOptionsTask,
+    constants.TASK_TYPE_VALIDATE_DESTINATION_MINION_POOL_OPTIONS:
+        minion_pool_tasks.ValidateDestinationMinionPoolOptionsTask,
+    constants.TASK_TYPE_CREATE_SOURCE_MINION_MACHINE:
+        minion_pool_tasks.CreateSourceMinionMachineTask,
+    constants.TASK_TYPE_CREATE_DESTINATION_MINION_MACHINE:
+        minion_pool_tasks.CreateDestinationMinionMachineTask,
+    constants.TASK_TYPE_DELETE_SOURCE_MINION_MACHINE:
+        minion_pool_tasks.DeleteSourceMinionMachineTask,
+    constants.TASK_TYPE_DELETE_DESTINATION_MINION_MACHINE:
+        minion_pool_tasks.DeleteDestinationMinionMachineTask,
+    constants.TASK_TYPE_SET_UP_SOURCE_POOL_SHARED_RESOURCES:
+        minion_pool_tasks.SetUpSourcePoolSupportingResourcesTask,
+    constants.TASK_TYPE_SET_UP_DESTINATION_POOL_SHARED_RESOURCES:
+        minion_pool_tasks.SetUpDestinationPoolSupportingResources,
+    constants.TASK_TYPE_TEAR_DOWN_SOURCE_POOL_SHARED_RESOURCES:
+        minion_pool_tasks.TearDownSourcePoolSupportingResourcesTask,
+    constants.TASK_TYPE_TEAR_DOWN_DESTINATION_POOL_SHARED_RESOURCES:
+        minion_pool_tasks.TearDownDestinationPoolSupportingResources,
     constants.TASK_TYPE_ATTACH_VOLUMES_TO_SOURCE_MINION:
         minion_pool_tasks.AttachVolumesToSourceMinionTask,
     constants.TASK_TYPE_DETACH_VOLUMES_FROM_SOURCE_MINION:

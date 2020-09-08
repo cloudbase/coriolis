@@ -392,13 +392,15 @@ class ConductorClient(object):
             ctxt, 'delete_service', service_id=service_id)
 
     def create_minion_pool(
-            self, ctxt, name, endpoint_id, pool_os_type, environment_options,
-            minimum_minions, maximum_minions, minion_max_idle_time,
-            minion_retention_strategy, notes=None):
+            self, ctxt, name, endpoint_id, pool_platform, pool_os_type,
+            environment_options, minimum_minions, maximum_minions,
+            minion_max_idle_time, minion_retention_strategy, notes=None):
         return self._client.call(
             ctxt, 'create_minion_pool', name=name, endpoint_id=endpoint_id,
-            pool_os_type=pool_os_type, environment_options=environment_options,
-            minimum_minions=minimum_minions, maximum_minions=maximum_minions,
+            pool_platform=pool_platform, pool_os_type=pool_os_type,
+            environment_options=environment_options,
+            minimum_minions=minimum_minions,
+            maximum_minions=maximum_minions,
             minion_max_idle_time=minion_max_idle_time,
             minion_retention_strategy=minion_retention_strategy,
             notes=notes)
@@ -464,14 +466,26 @@ class ConductorClient(object):
             minion_pool_id=minion_pool_id, execution_id=execution_id,
             force=force)
 
-    def get_endpoint_minion_pool_options(
+    def get_endpoint_source_minion_pool_options(
             self, ctxt, endpoint_id, env, option_names):
         return self._client.call(
-            ctxt, 'get_endpoint_minion_pool_options', endpoint_id=endpoint_id,
-            env=env, option_names=option_names)
+            ctxt, 'get_endpoint_source_minion_pool_options',
+            endpoint_id=endpoint_id, env=env, option_names=option_names)
 
-    def validate_endpoint_minion_pool_options(
+    def get_endpoint_destination_minion_pool_options(
+            self, ctxt, endpoint_id, env, option_names):
+        return self._client.call(
+            ctxt, 'get_endpoint_destination_minion_pool_options',
+            endpoint_id=endpoint_id, env=env, option_names=option_names)
+
+    def validate_endpoint_source_minion_pool_options(
             self, ctxt, endpoint_id, pool_environment):
         return self._client.call(
-            ctxt, 'validate_endpoint_minion_pool_options',
+            ctxt, 'validate_endpoint_source_minion_pool_options',
+            endpoint_id=endpoint_id, pool_environment=pool_environment)
+
+    def validate_endpoint_destination_minion_pool_options(
+            self, ctxt, endpoint_id, pool_environment):
+        return self._client.call(
+            ctxt, 'validate_endpoint_destination_minion_pool_options',
             endpoint_id=endpoint_id, pool_environment=pool_environment)

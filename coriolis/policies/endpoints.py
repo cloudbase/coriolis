@@ -151,17 +151,28 @@ ENDPOINTS_POLICY_DEFAULT_RULES = [
         ]
     ),
     policy.DocumentedRuleDefault(
-        get_endpoints_policy_label('list_minion_pool_options'),
+        get_endpoints_policy_label('list_source_minion_pool_options'),
         ENDPOINTS_POLICY_DEFAULT_RULE,
-        "List available minion pool options for endpoint",
+        "List available source minion pool options for endpoint",
         [
             {
-                "path": "/endpoint/{endpoint_id}/minion-pool-option",
+                "path": "/endpoint/{endpoint_id}/source-minion-pool-options",
                 "method": "GET"
             }
         ]
-    )
-
+    ),
+    policy.DocumentedRuleDefault(
+        get_endpoints_policy_label('list_destination_minion_pool_options'),
+        ENDPOINTS_POLICY_DEFAULT_RULE,
+        "List available destination pool options for endpoint",
+        [
+            {
+                "path": (
+                    "/endpoint/{endpoint_id}/destination-minion-pool-options"),
+                "method": "GET"
+            }
+        ]
+    ),
 ]
 
 

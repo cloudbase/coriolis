@@ -4,23 +4,24 @@
 from oslo_log import log as logging
 
 from coriolis import utils
-from coriolis.api.v1.views import endpoint_minion_pool_options_view
+from coriolis.api.v1.views import (
+    endpoint_destination_minion_pool_options_view)
 from coriolis.api import wsgi as api_wsgi
-from coriolis.endpoint_minion_options import api
+from coriolis.endpoint_minion_pool_options import api
 from coriolis.policies import endpoints as endpoint_policies
 
 
 LOG = logging.getLogger(__name__)
 
 
-class EndpointMinionPoolOptionsController(api_wsgi.Controller):
+class EndpointDestinationMinionPoolOptionsController(api_wsgi.Controller):
     def __init__(self):
         self._minion_pool_options_api = api.API()
-        super(EndpointMinionPoolOptionsController, self).__init__()
+        super(EndpointDestinationMinionPoolOptionsController, self).__init__()
 
     def index(self, req, endpoint_id):
         context = req.environ['coriolis.context']
-        context.can("%s:list_minion_pool_options" % (
+        context.can("%s:list_destination_minion_pool_options" % (
             endpoint_policies.ENDPOINTS_POLICY_PREFIX))
 
         env = req.GET.get("env")
@@ -35,11 +36,11 @@ class EndpointMinionPoolOptionsController(api_wsgi.Controller):
         else:
             options = {}
 
-        return endpoint_minion_pool_options_view.collection(
+        return endpoint_destination_minion_pool_options_view.collection(
             req,
-            self._minion_pool_options_api.get_endpoint_minion_pool_options(
+            self._minion_pool_options_api.get_endpoint_destination_minion_pool_options(
                 context, endpoint_id, env=env, option_names=options))
 
 
 def create_resource():
-    return api_wsgi.Resource(EndpointMinionPoolOptionsController())
+    return api_wsgi.Resource(EndpointDestinationMinionPoolOptionsController())
