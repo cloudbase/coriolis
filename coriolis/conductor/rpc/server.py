@@ -1931,7 +1931,7 @@ class ConductorServerEndpoint(object):
         LOG.debug(
             "Attempting to deallocate all minion pool machine selections "
             "for action '%s'. Afferent pools are: %s",
-            action.id, minion_pool_ids)
+            action.base_id, minion_pool_ids)
 
         with contextlib.ExitStack() as stack:
             _ = [
@@ -4029,19 +4029,24 @@ class ConductorServerEndpoint(object):
             ctxt, minion_pool_id, execution.id).to_dict()
 
     @minion_pool_synchronized
-    def tear_down_shared_minion_pool_resources(self, ctxt, minion_pool_id):
-        LOG.info(
-            "Attempting to tear down shared resources for Minion Pool '%s'.",
-            minion_pool_id)
+    def tear_down_shared_minion_pool_resources(
+            self, ctxt, minion_pool_id, force=False):
         minion_pool = db_api.get_minion_pool_lifecycle(
             ctxt, minion_pool_id, include_tasks_executions=False,
             include_machines=False)
-        if minion_pool.pool_status != constants.MINION_POOL_STATUS_DEALLOCATED:
+        if minion_pool.pool_status != (
+                constants.MINION_POOL_STATUS_DEALLOCATED) and not force:
             raise exception.InvalidMinionPoolState(
                 "Minion Pool '%s' cannot have shared resources torn down as it"
-                " is in '%s' state instead of the expected %s."% (
+                " is in '%s' state instead of the expected %s. "
+                "Please use the force flag if you are certain you want "
+                "to tear down the shared resources for this pool." % (
                     minion_pool_id, minion_pool.pool_status,
                     constants.MINION_POOL_STATUS_DEALLOCATED))
+
+        LOG.info(
+            "Attempting to tear down shared resources for Minion Pool '%s'.",
+            minion_pool_id)
 
         execution = models.TasksExecution()
         execution.id = str(uuid.uuid4())
@@ -4170,20 +4175,23 @@ class ConductorServerEndpoint(object):
                     allocated_machine_statuses))
 
     @minion_pool_synchronized
-    def deallocate_minion_pool_machines(self, ctxt, minion_pool_id):
+    def deallocate_minion_pool_machines(self, ctxt, minion_pool_id, force=False):
         LOG.info("Attempting to deallocate Minion Pool '%s'.", minion_pool_id)
         minion_pool = db_api.get_minion_pool_lifecycle(
             ctxt, minion_pool_id, include_tasks_executions=False,
             include_machines=True)
         if minion_pool.pool_status not in (
-                constants.MINION_POOL_STATUS_ALLOCATED):
+                constants.MINION_POOL_STATUS_ALLOCATED) and not force:
             raise exception.InvalidMinionPoolState(
                 "Minion Pool '%s' cannot be deallocated as it is in '%s' "
-                "state instead of the expected '%s'." % (
+                "state instead of the expected '%s'. Please use the "
+                "force flag if you are certain you want to deallocate "
+                "the minion pool's machines." % (
                     minion_pool_id, minion_pool.pool_status,
                     constants.MINION_POOL_STATUS_ALLOCATED))
 
-        self._check_all_pool_minion_machines_available(minion_pool)
+        if not force:
+            self._check_all_pool_minion_machines_available(minion_pool)
 
         execution = models.TasksExecution()
         execution.id = str(uuid.uuid4())

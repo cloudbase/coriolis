@@ -36,10 +36,12 @@ class MinionPoolActionsController(api_wsgi.Controller):
         context.can(
             minion_pool_policies.get_minion_pools_policy_label(
                 "tear_down_shared_resources"))
+        force = (body["tear-down-shared-resources"] or {}).get(
+            "force", False)
         try:
             return minion_pool_tasks_execution_view.single(
                 req, self.minion_pool_api.tear_down_shared_pool_resources(
-                    context, id))
+                    context, id, force=force))
         except exception.NotFound as ex:
             raise exc.HTTPNotFound(explanation=ex.msg)
         except exception.InvalidParameterValue as ex:
@@ -66,10 +68,11 @@ class MinionPoolActionsController(api_wsgi.Controller):
         context.can(
             minion_pool_policies.get_minion_pools_policy_label(
                 "deallocate_machines"))
+        force = (body["deallocate-machines"] or {}).get("force", False)
         try:
             return minion_pool_tasks_execution_view.single(
                 req, self.minion_pool_api.deallocate_machines(
-                    context, id))
+                    context, id, force=force))
         except exception.NotFound as ex:
             raise exc.HTTPNotFound(explanation=ex.msg)
         except exception.InvalidParameterValue as ex:

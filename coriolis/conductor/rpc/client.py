@@ -410,20 +410,23 @@ class ConductorClient(object):
             ctxt, "set_up_shared_minion_pool_resources",
             minion_pool_id=minion_pool_id)
 
-    def tear_down_shared_minion_pool_resources(self, ctxt, minion_pool_id):
+    def tear_down_shared_minion_pool_resources(
+            self, ctxt, minion_pool_id, force=False):
         return self._client.call(
             ctxt, "tear_down_shared_minion_pool_resources",
-            minion_pool_id=minion_pool_id)
+            minion_pool_id=minion_pool_id, force=force)
 
     def allocate_minion_pool_machines(self, ctxt, minion_pool_id):
         return self._client.call(
             ctxt, "allocate_minion_pool_machines",
             minion_pool_id=minion_pool_id)
 
-    def deallocate_minion_pool_machines(self, ctxt, minion_pool_id):
+    def deallocate_minion_pool_machines(
+            self, ctxt, minion_pool_id, force=False):
         return self._client.call(
             ctxt, "deallocate_minion_pool_machines",
-            minion_pool_id=minion_pool_id)
+            minion_pool_id=minion_pool_id,
+            force=force)
 
     def get_minion_pools(self, ctxt):
         return self._client.call(ctxt, 'get_minion_pools')
