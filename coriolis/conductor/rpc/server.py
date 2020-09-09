@@ -1727,6 +1727,9 @@ class ConductorServerEndpoint(object):
             }
         }
         """
+        instance_machine_allocations = {
+            instance: {} for instance in action.instances}
+
         minion_pool_ids = set()
         if action.origin_minion_pool_id:
             minion_pool_ids.add(action.origin_minion_pool_id)
@@ -1737,6 +1740,17 @@ class ConductorServerEndpoint(object):
                 action.instance_osmorphing_minion_pool_mappings.values()))
         if None in minion_pool_ids:
             minion_pool_ids.remove(None)
+
+        if not minion_pool_ids:
+            LOG.debug(
+                "No minion pool settings found for action '%s'. "
+                "Skipping minion machine allocations." % (
+                    action.id))
+            return instance_machine_allocations
+
+        LOG.debug(
+            "All minion pool selections for action '%s': %s",
+            action.id, minion_pool_ids)
 
         def _select_machine(minion_pool, exclude=None):
             if not minion_pool.minion_machines:
@@ -1766,8 +1780,6 @@ class ConductorServerEndpoint(object):
                     "allocated ones: %s)" % (minion_pool.id, exclude))
             return selected_machine
 
-        instance_machine_allocations = {
-            instance: {} for instance in action.instances}
         osmorphing_pool_map = (
             action.instance_osmorphing_minion_pool_mappings)
         with contextlib.ExitStack() as stack:
@@ -1839,11 +1851,13 @@ class ConductorServerEndpoint(object):
                     if instance not in osmorphing_pool_map:
                         LOG.debug(
                             "Instance '%s' is not listed in the OSMorphing "
-                            "minion pool mappings. Skipping." % instance)
+                            "minion pool mappings for action '%s'." % (
+                                instance, action.id))
                     elif osmorphing_pool_map[instance] is None:
                         LOG.debug(
                             "OSMorphing pool ID for instance '%s' is "
-                            "None. Ignoring." % instance)
+                            "None in action '%s'. Ignoring." % (
+                                instance, action.id))
                     else:
                         osmorphing_pool_id = osmorphing_pool_map[instance]
                         # if the selected target and OSMorphing pools
@@ -1912,35 +1926,35 @@ class ConductorServerEndpoint(object):
         if action.instance_osmorphing_minion_pool_mappings:
             minion_pool_ids = minion_pool_ids.union(set(
                 action.instance_osmorphing_minion_pool_mappings.values()))
+        if None in minion_pool_ids:
+            minion_pool_ids.remove(None)
+        LOG.debug(
+            "Attempting to deallocate all minion pool machine selections "
+            "for action '%s'. Afferent pools are: %s",
+            action.id, minion_pool_ids)
 
-        if not minion_pool_ids:
-            LOG.debug(
-                "No minion pools seem to have been used for action with "
-                "base_id '%s'. Skipping minion machine deallocation.",
-                action.base_id)
-        else:
-            with contextlib.ExitStack() as stack:
-                _ = [
-                    stack.enter_context(
-                        lockutils.lock(
-                            constants.MINION_POOL_LOCK_NAME_FORMAT % pool_id,
-                            external=True))
-                    for pool_id in minion_pool_ids]
+        with contextlib.ExitStack() as stack:
+            _ = [
+                stack.enter_context(
+                    lockutils.lock(
+                        constants.MINION_POOL_LOCK_NAME_FORMAT % pool_id,
+                        external=True))
+                for pool_id in minion_pool_ids]
 
-                minion_machines = db_api.get_minion_machines(
-                    ctxt, allocated_action_id=action.base_id)
-                machine_ids = [m.id for m in minion_machines]
-                if machine_ids:
-                    LOG.info(
-                        "Releasing the following minion machines for "
-                        "action '%s': %s", action.base_id, machine_ids)
-                    db_api.set_minion_machines_allocation_statuses(
-                        ctxt, machine_ids, None,
-                        constants.MINION_MACHINE_STATUS_AVAILABLE)
-                else:
-                    LOG.debug(
-                        "No minion machines were found to be associated "
-                        "with action with base_id '%s'.", action.base_id)
+            minion_machines = db_api.get_minion_machines(
+                ctxt, allocated_action_id=action.base_id)
+            machine_ids = [m.id for m in minion_machines]
+            if machine_ids:
+                LOG.info(
+                    "Releasing the following minion machines for "
+                    "action '%s': %s", action.base_id, machine_ids)
+                db_api.set_minion_machines_allocation_statuses(
+                    ctxt, machine_ids, None,
+                    constants.MINION_MACHINE_STATUS_AVAILABLE)
+            else:
+                LOG.debug(
+                    "No minion machines were found to be associated "
+                    "with action with base_id '%s'.", action.base_id)
 
     def migrate_instances(self, ctxt, origin_endpoint_id,
                           destination_endpoint_id, origin_minion_pool_id,

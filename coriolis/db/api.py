@@ -1149,6 +1149,11 @@ def set_minion_machines_allocation_statuses(
                 missing))
 
     for machine in machines:
+        LOG.debug(
+            "Changing minion machine allocation status from '%s' on action "
+            "'%s' to '%s' on action '%s'" % (
+                machine.status, machine.allocated_action,
+                allocation_status, action_id))
         machine.allocated_action = action_id
         machine.status = allocation_status
 
