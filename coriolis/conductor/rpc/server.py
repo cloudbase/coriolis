@@ -923,6 +923,7 @@ class ConductorServerEndpoint(object):
         self._check_reservation_for_transfer(replica)
         self._check_replica_running_executions(ctxt, replica)
         self._check_minion_pools_for_action(ctxt, replica)
+
         execution = models.TasksExecution()
         execution.id = str(uuid.uuid4())
         execution.action = replica
@@ -1304,6 +1305,10 @@ class ConductorServerEndpoint(object):
                     "transfer minion pool." % (
                         action.origin_minion_pool_id,
                         origin_pool.pool_os_type))
+            LOG.debug(
+                "Successfully validated compatibility of origin minion pool "
+                "'%s' for use with action '%s'." % (
+                    action.origin_minion_pool_id, action.id))
 
         if action.destination_minion_pool_id:
             destination_pool = _get_pool(action.destination_minion_pool_id)
@@ -1332,6 +1337,10 @@ class ConductorServerEndpoint(object):
                     "transfer minion pool." % (
                         action.destination_minion_pool_id,
                         destination_pool.pool_os_type))
+            LOG.debug(
+                "Successfully validated compatibility of destination minion "
+                "pool '%s' for use with action '%s'." % (
+                    action.origin_minion_pool_id, action.id))
 
         if action.instance_osmorphing_minion_pool_mappings:
             for (instance, pool_id) in (
@@ -1355,6 +1364,11 @@ class ConductorServerEndpoint(object):
                             instance, pool_id,
                             osmorphing_pool.pool_platform,
                             constants.PROVIDER_PLATFORM_DESTINATION))
+                LOG.debug(
+                    "Successfully validated compatibility of destination "
+                    "minion pool '%s' for use as OSMorphing minion for "
+                    "instance '%s' during action '%s'." % (
+                        action.origin_minion_pool_id, instance, action.id))
 
     def create_instances_replica(self, ctxt, origin_endpoint_id,
                                  destination_endpoint_id,
@@ -1628,15 +1642,15 @@ class ConductorServerEndpoint(object):
                             attach_osmorphing_minion_volumes_task.id,
                             task_osmorphing.id],
                         on_error=True)
-                    depends_on.append(detach_osmorphing_minion_volumes_task.id)
 
-                    self._create_task(
+                    release_osmorphing_minion_task = self._create_task(
                         instance,
                         constants.TASK_TYPE_RELEASE_OSMORPHING_MINION,
                         execution, depends_on=[
                             validate_osmorphing_minion_task.id,
                             detach_osmorphing_minion_volumes_task.id],
                         on_error=True)
+                    depends_on.append(release_osmorphing_minion_task.id)
                 else:
                     task_delete_os_morphing_resources = self._create_task(
                         instance, constants.TASK_TYPE_DELETE_OS_MORPHING_RESOURCES,
@@ -1776,8 +1790,13 @@ class ConductorServerEndpoint(object):
             if not selected_machine:
                 raise exception.InvalidMinionPoolSelection(
                     "There are no more available minion machines within minion"
-                    " pool with ID '%s' (excluding the following already "
-                    "allocated ones: %s)" % (minion_pool.id, exclude))
+                    " pool with ID '%s' (excluding the following ones already "
+                    "planned for this transfer: %s). Please ensure that the "
+                    "minion pool has enough minion machines allocated and "
+                    "available (i.e. not being used for other operations) "
+                    "to satisfy the number of VMs required by the Migration or"
+                    " Replica." % (
+                        minion_pool.id, exclude))
             return selected_machine
 
         osmorphing_pool_map = (
@@ -1928,33 +1947,40 @@ class ConductorServerEndpoint(object):
                 action.instance_osmorphing_minion_pool_mappings.values()))
         if None in minion_pool_ids:
             minion_pool_ids.remove(None)
-        LOG.debug(
-            "Attempting to deallocate all minion pool machine selections "
-            "for action '%s'. Afferent pools are: %s",
-            action.base_id, minion_pool_ids)
 
-        with contextlib.ExitStack() as stack:
-            _ = [
-                stack.enter_context(
-                    lockutils.lock(
-                        constants.MINION_POOL_LOCK_NAME_FORMAT % pool_id,
-                        external=True))
-                for pool_id in minion_pool_ids]
+        if not minion_pool_ids:
+            LOG.debug(
+                "No minion pools seem to have been used for action with "
+                "base_id '%s'. Skipping minion machine deallocation.",
+                action.base_id)
+        else:
+            LOG.debug(
+                "Attempting to deallocate all minion pool machine selections "
+                "for action '%s'. Afferent pools are: %s",
+                action.base_id, minion_pool_ids)
 
-            minion_machines = db_api.get_minion_machines(
-                ctxt, allocated_action_id=action.base_id)
-            machine_ids = [m.id for m in minion_machines]
-            if machine_ids:
-                LOG.info(
-                    "Releasing the following minion machines for "
-                    "action '%s': %s", action.base_id, machine_ids)
-                db_api.set_minion_machines_allocation_statuses(
-                    ctxt, machine_ids, None,
-                    constants.MINION_MACHINE_STATUS_AVAILABLE)
-            else:
-                LOG.debug(
-                    "No minion machines were found to be associated "
-                    "with action with base_id '%s'.", action.base_id)
+            with contextlib.ExitStack() as stack:
+                _ = [
+                    stack.enter_context(
+                        lockutils.lock(
+                            constants.MINION_POOL_LOCK_NAME_FORMAT % pool_id,
+                            external=True))
+                    for pool_id in minion_pool_ids]
+
+                minion_machines = db_api.get_minion_machines(
+                    ctxt, allocated_action_id=action.base_id)
+                machine_ids = [m.id for m in minion_machines]
+                if machine_ids:
+                    LOG.info(
+                        "Releasing the following minion machines for "
+                        "action '%s': %s", action.base_id, machine_ids)
+                    db_api.set_minion_machines_allocation_statuses(
+                        ctxt, machine_ids, None,
+                        constants.MINION_MACHINE_STATUS_AVAILABLE)
+                else:
+                    LOG.debug(
+                        "No minion machines were found to be associated "
+                        "with action with base_id '%s'.", action.base_id)
 
     def migrate_instances(self, ctxt, origin_endpoint_id,
                           destination_endpoint_id, origin_minion_pool_id,
@@ -2197,16 +2223,15 @@ class ConductorServerEndpoint(object):
                         attach_target_minion_disks_task.id,
                         last_sync_task.id],
                     on_error=True)
-                target_resources_cleanup_task = (
-                    detach_volumes_from_target_minion_task)
 
-                self._create_task(
+                release_target_minion_task = self._create_task(
                     instance,
                     constants.TASK_TYPE_RELEASE_DESTINATION_MINION,
                     execution, depends_on=[
                         validate_target_minion_task.id,
                         detach_volumes_from_target_minion_task.id],
                     on_error=True)
+                target_resources_cleanup_task = release_target_minion_task
             else:
                 delete_destination_resources_task = self._create_task(
                     instance,
@@ -2272,17 +2297,17 @@ class ConductorServerEndpoint(object):
                             attach_osmorphing_minion_volumes_task.id,
                             task_osmorphing.id],
                         on_error=True)
-                    depends_on.append(detach_osmorphing_minion_volumes_task.id)
-                    osmorphing_resources_cleanup_task = (
-                        detach_osmorphing_minion_volumes_task)
 
-                    self._create_task(
+                    release_osmorphing_minion_task = self._create_task(
                         instance,
                         constants.TASK_TYPE_RELEASE_OSMORPHING_MINION,
                         execution, depends_on=[
                             validate_osmorphing_minion_task.id,
                             detach_osmorphing_minion_volumes_task.id],
                         on_error=True)
+                    depends_on.append(release_osmorphing_minion_task.id)
+                    osmorphing_resources_cleanup_task = (
+                        release_osmorphing_minion_task)
                 else:
                     task_delete_os_morphing_resources = self._create_task(
                         instance, constants.TASK_TYPE_DELETE_OS_MORPHING_RESOURCES,
@@ -4169,8 +4194,8 @@ class ConductorServerEndpoint(object):
 
         if allocated_machine_statuses:
             raise exception.InvalidMinionPoolState(
-                "Minion pool with ID '%s' has one or machines which are in-use "
-                "or otherwise unmodifiable: %s" % (
+                "Minion pool with ID '%s' has one or more machines which are "
+                "in-use or otherwise unmodifiable: %s" % (
                     minion_pool.id,
                     allocated_machine_statuses))
 

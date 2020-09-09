@@ -1138,22 +1138,23 @@ def update_minion_machine(context, minion_machine_id, updated_values):
 def set_minion_machines_allocation_statuses(
         context, minion_machine_ids, action_id, allocation_status):
     machines = get_minion_machines(context)
-    existing_machine_ids = [
-        machine.id for machine in machines]
+    existing_machine_id_mappings = {
+        machine.id: machine for machine in machines}
     missing = [
         mid for mid in minion_machine_ids
-        if mid not in existing_machine_ids]
+        if mid not in existing_machine_id_mappings]
     if missing:
         raise exception.NotFound(
             "The following minion machines could not be found: %s" % (
                 missing))
 
-    for machine in machines:
+    for machine_id in minion_machine_ids:
+        machine = existing_machine_id_mappings[machine_id]
         LOG.debug(
-            "Changing minion machine allocation status from '%s' on action "
-            "'%s' to '%s' on action '%s'" % (
-                machine.status, machine.allocated_action,
-                allocation_status, action_id))
+            "Changing allocation status in DB for minion machine '%s' "
+            "from '%s' to '%s' and allocated action from '%s' to '%s'" % (
+                machine.id, machine.status, allocation_status,
+                machine.allocated_action, action_id))
         machine.allocated_action = action_id
         machine.status = allocation_status
 
