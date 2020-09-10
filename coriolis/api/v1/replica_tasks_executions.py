@@ -36,10 +36,13 @@ class ReplicaTasksExecutionController(api_wsgi.Controller):
                 context, replica_id, include_tasks=False))
 
     def detail(self, req, replica_id):
+        context = req.environ["coriolis.context"]
+        context.can(
+            executions_policies.get_replica_executions_policy_label("show"))
+
         return replica_tasks_execution_view.collection(
             req, self._replica_tasks_execution_api.get_executions(
-                req.environ['coriolis.context'], replica_id,
-                include_tasks=True))
+                context, replica_id, include_tasks=True))
 
     def create(self, req, replica_id, body):
         context = req.environ["coriolis.context"]

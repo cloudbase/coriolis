@@ -532,3 +532,112 @@ class BaseUpdateDestinationReplicaProvider(
         having been executed or the replica disks having been deleted, this
         method should simply return the empty `volumes_info` it was given.
         """
+
+
+class _BaseMinionPoolProvider(
+        object, with_metaclass(abc.ABCMeta)):
+    """ Class for providers which offer Minion Pool management functionality.
+    """
+
+    @abc.abstractmethod
+    def get_minion_pool_environment_schema(self):
+        """ Returns the schema for the minion pool options. """
+        pass
+
+    @abc.abstractmethod
+    def get_minion_pool_options(
+            self, ctxt, connection_info, env=None, option_names=None):
+        """ Returns possible environment options for minion pools. """
+        pass
+
+    @abc.abstractmethod
+    def validate_minion_compatibility_for_transfer(
+            self, ctxt, connection_info, export_info, environment_options,
+            minion_properties):
+        """ Validates compatibility between the pool's options and the options
+        selected for a given transfer. Should raise if any options related to
+        the minions in the pool might be deemed incompatible with the desited
+        transfer options.
+        """
+        pass
+
+    @abc.abstractmethod
+    def validate_minion_pool_environment_options(
+            self, ctxt, connection_info, environment_options):
+        """ Validates the provided pool options. """
+        pass
+
+    @abc.abstractmethod
+    def set_up_pool_shared_resources(
+            self, ctxt, connection_info, environment_options, pool_identifier):
+        """ Sets up supporting resources which can be re-used amongst the
+        machines which will be spawned within the pool (e.g. a shared network)
+        """
+        pass
+
+    @abc.abstractmethod
+    def tear_down_pool_shared_resources(
+            self, ctxt, connection_info, environment_options,
+            pool_shared_resources):
+        """ Tears down all pool supporting resources. """
+        pass
+
+    @abc.abstractmethod
+    def create_minion(
+            self, ctxt, connection_info, environment_options,
+            pool_identifier, pool_os_type, pool_shared_resources,
+            new_minion_identifier):
+        pass
+
+    @abc.abstractmethod
+    def delete_minion(
+            self, ctxt, connection_info, minion_properties):
+        pass
+
+    @abc.abstractmethod
+    def shutdown_minion(
+            self, ctxt, connection_info, minion_properties):
+        pass
+
+    @abc.abstractmethod
+    def start_minion(
+            self, ctxt, connection_info, minion_properties):
+        pass
+
+    @abc.abstractmethod
+    def attach_volumes_to_minion(
+            self, ctxt, connection_info, minion_properties, volumes_info):
+        pass
+
+    @abc.abstractmethod
+    def detach_volumes_from_minion(
+            self, ctxt, connection_info, minion_properties, volumes_info):
+        pass
+
+
+class BaseSourceMinionPoolProvider(_BaseMinionPoolProvider):
+
+    pass
+
+
+class BaseDestinationMinionPoolProvider(_BaseMinionPoolProvider):
+
+    @abc.abstractmethod
+    def validate_osmorphing_minion_compatibility_for_transfer(
+            self, ctxt, connection_info, export_info, environment_options,
+            minion_properties):
+        """ Validates compatibility between the OSMorphing pool's options and
+        the options selected for a given transfer. Should raise if any options
+        of the minions in the pool might be deemed incompatible with the
+        desired transfer options.
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_additional_os_morphing_info(
+            self, ctxt, connection_info, target_environment,
+            instance_deployment_info):
+        """ This method should return any additional 'osmorphing_info'
+        as defined in coriolis.schemas.CORIOLIS_OS_MORPHING_RESOURCES_SCHEMA
+        """
+        pass

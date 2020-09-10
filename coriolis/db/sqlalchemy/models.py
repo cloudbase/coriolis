@@ -143,7 +143,7 @@ class TasksExecution(BASE, models.TimestampMixin, models.ModelBase,
                              backref=orm.backref('execution'))
     status = sqlalchemy.Column(sqlalchemy.String(100), nullable=False)
     number = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)
-    type = sqlalchemy.Column(sqlalchemy.String(20))
+    type = sqlalchemy.Column(sqlalchemy.String(255))
 
     def to_dict(self):
         result = {
@@ -196,6 +196,12 @@ class BaseTransferAction(BASE, models.TimestampMixin, models.ModelBase,
     network_map = sqlalchemy.Column(types.Json, nullable=True)
     storage_mappings = sqlalchemy.Column(types.Json, nullable=True)
     source_environment = sqlalchemy.Column(types.Json, nullable=True)
+    origin_minion_pool_id = sqlalchemy.Column(
+        sqlalchemy.String(36), nullable=True)
+    destination_minion_pool_id = sqlalchemy.Column(
+        sqlalchemy.String(36), nullable=True)
+    instance_osmorphing_minion_pool_mappings = sqlalchemy.Column(
+        types.Json, nullable=False, default=lambda: {})
 
     __mapper_args__ = {
         'polymorphic_identity': 'base_transfer_action',
@@ -224,6 +230,10 @@ class BaseTransferAction(BASE, models.TimestampMixin, models.ModelBase,
             "updated_at": self.updated_at,
             "deleted_at": self.deleted_at,
             "deleted": self.deleted,
+            "origin_minion_pool_id": self.origin_minion_pool_id,
+            "destination_minion_pool_id": self.destination_minion_pool_id,
+            "instance_osmorphing_minion_pool_mappings":
+                self.instance_osmorphing_minion_pool_mappings
         }
         if include_executions:
             for ex in self.executions:
@@ -436,3 +446,128 @@ class ReplicaSchedule(BASE, models.TimestampMixin, models.ModelBase,
     shutdown_instance = sqlalchemy.Column(
         sqlalchemy.Boolean, nullable=False, default=False)
     trust_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
+
+
+class MinionMachine(BASE, models.TimestampMixin, models.ModelBase,
+                    models.SoftDeleteMixin):
+    __tablename__ = "minion_machine"
+
+    id = sqlalchemy.Column(sqlalchemy.String(36),
+                           default=lambda: str(uuid.uuid4()),
+                           primary_key=True)
+    user_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
+    project_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
+
+    pool_id = sqlalchemy.Column(
+        sqlalchemy.String(36),
+        sqlalchemy.ForeignKey('minion_pool_lifecycle.id'),
+        nullable=False)
+
+    status = sqlalchemy.Column(
+        sqlalchemy.String(255), nullable=False,
+        default=lambda: constants.MINION_MACHINE_STATUS_UNKNOWN)
+
+    allocated_action = sqlalchemy.Column(
+        sqlalchemy.String(36), nullable=True)
+
+    connection_info = sqlalchemy.Column(
+        types.Json, nullable=True)
+
+    backup_writer_connection_info = sqlalchemy.Column(
+        types.Json, nullable=True)
+
+    provider_properties = sqlalchemy.Column(
+        types.Json, nullable=True)
+
+    def to_dict(self):
+        result = {
+            "id": self.id,
+            "user_id": self.user_id,
+            "project_id": self.project_id,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "deleted_at": self.deleted_at,
+            "deleted": self.deleted,
+            "pool_id": self.pool_id,
+            "status": self.status,
+            "connection_info": self.connection_info,
+            "allocated_action": self.allocated_action,
+            "backup_writer_connection_info": (
+                self.backup_writer_connection_info),
+            "provider_properties": self.provider_properties
+        }
+        return result
+
+
+class MinionPoolLifecycle(BaseTransferAction):
+    # TODO(aznashwan): this class inherits numerous redundant fields from
+    # BaseTransferAction. Ideally, the upper hirearchy should be split into a
+    # BaseAction, and a separate inheriting BaseTransferAction.
+    __tablename__ = 'minion_pool_lifecycle'
+
+    id = sqlalchemy.Column(
+        sqlalchemy.String(36),
+        sqlalchemy.ForeignKey(
+            'base_transfer_action.base_id'),
+        primary_key=True)
+
+    pool_name = sqlalchemy.Column(
+        sqlalchemy.String(255),
+        nullable=False)
+    pool_os_type = sqlalchemy.Column(
+        sqlalchemy.String(255), nullable=False)
+    pool_platform = sqlalchemy.Column(
+        sqlalchemy.String(255), nullable=False)
+    pool_status = sqlalchemy.Column(
+        sqlalchemy.String(255), nullable=False,
+        default=lambda: constants.MINION_POOL_STATUS_UNKNOWN)
+    pool_shared_resources = sqlalchemy.Column(
+        types.Json, nullable=True)
+    minimum_minions = sqlalchemy.Column(
+        sqlalchemy.Integer, nullable=False)
+    maximum_minions = sqlalchemy.Column(
+        sqlalchemy.Integer, nullable=False)
+    minion_max_idle_time = sqlalchemy.Column(
+        sqlalchemy.Integer, nullable=False)
+    minion_retention_strategy = sqlalchemy.Column(
+        sqlalchemy.String(255), nullable=False)
+    minion_machines = orm.relationship(
+        MinionMachine, backref=orm.backref('minion_pool'),
+        primaryjoin="and_(MinionMachine.pool_id==MinionPoolLifecycle.id, "
+                    "MinionMachine.deleted=='0')")
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'minion_pool_lifecycle'}
+
+    def to_dict(
+            self, include_info=True, include_machines=True,
+            include_executions=True):
+        base = super(MinionPoolLifecycle, self).to_dict(
+            include_info=include_info, include_executions=include_executions)
+        base.update({
+            "id": self.id,
+            "pool_name": self.pool_name,
+            "pool_os_type": self.pool_os_type,
+            "pool_platform": self.pool_platform,
+            "pool_shared_resources": self.pool_shared_resources,
+            "pool_status": self.pool_status,
+            "minimum_minions": self.minimum_minions,
+            "maximum_minions": self.maximum_minions,
+            "minion_max_idle_time": self.minion_max_idle_time,
+            "minion_retention_strategy": self.minion_retention_strategy})
+        base["minion_machines"] = []
+        if include_machines:
+            base["minion_machines"] = [
+                machine.to_dict() for machine in self.minion_machines]
+        # TODO(aznashwan): these nits should be avoided by splitting the
+        # BaseTransferAction class into a more specialized hireachy:
+        redundancies = {
+            "environment_options": [
+                "source_environment", "destination_environment"],
+            "endpoint_id": [
+                "origin_endpoint_id", "destination_endpoint_id"]}
+        for new_key, old_keys in redundancies.items():
+            for old_key in old_keys:
+                if old_key in base:
+                    base[new_key] = base.pop(old_key)
+        return base

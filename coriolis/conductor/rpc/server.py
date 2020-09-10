@@ -1,8 +1,10 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+import contextlib
 import copy
 import functools
+import itertools
 import random
 import time
 import uuid
@@ -143,6 +145,18 @@ def tasks_execution_synchronized(func):
     return wrapper
 
 
+def minion_pool_tasks_execution_synchronized(func):
+    @functools.wraps(func)
+    def wrapper(self, ctxt, minion_pool_id, execution_id, *args, **kwargs):
+        @lockutils.synchronized(
+            constants.EXECUTION_LOCK_NAME_FORMAT % execution_id,
+            external=True)
+        def inner():
+            return func(self, ctxt, minion_pool_id, execution_id, *args, **kwargs)
+        return inner()
+    return wrapper
+
+
 def region_synchronized(func):
     @functools.wraps(func)
     def wrapper(self, ctxt, region_id, *args, **kwargs):
@@ -163,6 +177,18 @@ def service_synchronized(func):
             external=True)
         def inner():
             return func(self, ctxt, service_id, *args, **kwargs)
+        return inner()
+    return wrapper
+
+
+def minion_pool_synchronized(func):
+    @functools.wraps(func)
+    def wrapper(self, ctxt, minion_pool_id, *args, **kwargs):
+        @lockutils.synchronized(
+            constants.MINION_POOL_LOCK_NAME_FORMAT % minion_pool_id,
+            external=True)
+        def inner():
+            return func(self, ctxt, minion_pool_id, *args, **kwargs)
         return inner()
     return wrapper
 
@@ -236,7 +262,7 @@ class ConductorServerEndpoint(object):
         topic = constants.SERVICE_MESSAGING_TOPIC_FORMAT % ({
             "main_topic": constants.WORKER_MAIN_MESSAGING_TOPIC,
             "host": host})
-        return rpc_client_class(topic=topic, *client_args, **client_kwargs)
+        return rpc_client_class(*client_args, topic=topic, **client_kwargs)
 
     def _get_worker_service_rpc_for_specs(
             self, ctxt, provider_requirements=None, region_sets=None,
@@ -435,6 +461,32 @@ class ConductorServerEndpoint(object):
         return worker_rpc.get_endpoint_destination_options(
             ctxt, endpoint.type, endpoint.connection_info, env, option_names)
 
+    def get_endpoint_source_minion_pool_options(
+            self, ctxt, endpoint_id, env, option_names):
+        endpoint = self.get_endpoint(ctxt, endpoint_id)
+
+        worker_rpc = self._get_worker_service_rpc_for_specs(
+            ctxt, enabled=True,
+            region_sets=[[reg.id for reg in endpoint.mapped_regions]],
+            provider_requirements={
+                endpoint.type: [
+                    constants.PROVIDER_TYPE_SOURCE_MINION_POOL]})
+        return worker_rpc.get_endpoint_source_minion_pool_options(
+            ctxt, endpoint.type, endpoint.connection_info, env, option_names)
+
+    def get_endpoint_destination_minion_pool_options(
+            self, ctxt, endpoint_id, env, option_names):
+        endpoint = self.get_endpoint(ctxt, endpoint_id)
+
+        worker_rpc = self._get_worker_service_rpc_for_specs(
+            ctxt, enabled=True,
+            region_sets=[[reg.id for reg in endpoint.mapped_regions]],
+            provider_requirements={
+                endpoint.type: [
+                    constants.PROVIDER_TYPE_DESTINATION_MINION_POOL]})
+        return worker_rpc.get_endpoint_destination_minion_pool_options(
+            ctxt, endpoint.type, endpoint.connection_info, env, option_names)
+
     def get_endpoint_networks(self, ctxt, endpoint_id, env):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
@@ -496,6 +548,34 @@ class ConductorServerEndpoint(object):
         return worker_rpc.validate_endpoint_source_environment(
             ctxt, endpoint.type, source_env)
 
+    def validate_endpoint_source_minion_pool_options(
+            self, ctxt, endpoint_id, pool_environment):
+        endpoint = self.get_endpoint(ctxt, endpoint_id)
+
+        worker_rpc = self._get_worker_service_rpc_for_specs(
+            ctxt, enabled=True,
+            region_sets=[[reg.id for reg in endpoint.mapped_regions]],
+            provider_requirements={
+                endpoint.type: [
+                    constants.PROVIDER_TYPE_SOURCE_MINION_POOL]})
+
+        return worker_rpc.validate_endpoint_source_minion_pool_options(
+            ctxt, endpoint.type, pool_environment)
+
+    def validate_endpoint_destination_minion_pool_options(
+            self, ctxt, endpoint_id, pool_environment):
+        endpoint = self.get_endpoint(ctxt, endpoint_id)
+
+        worker_rpc = self._get_worker_service_rpc_for_specs(
+            ctxt, enabled=True,
+            region_sets=[[reg.id for reg in endpoint.mapped_regions]],
+            provider_requirements={
+                endpoint.type: [
+                    constants.PROVIDER_TYPE_DESTINATION_MINION_POOL]})
+
+        return worker_rpc.validate_endpoint_destination_minion_pool_options(
+            ctxt, endpoint.type, pool_environment)
+
     def get_available_providers(self, ctxt):
         # TODO(aznashwan): merge list of all providers from all
         # worker services:
@@ -546,6 +626,10 @@ class ConductorServerEndpoint(object):
                             t.status != constants.TASK_STATUS_ON_ERROR_ONLY]:
                         task.status = constants.TASK_STATUS_SCHEDULED
                         break
+            # on_error tasks with no deps are automatically scheduled:
+            else:
+                task.status = constants.TASK_STATUS_SCHEDULED
+
         return task
 
     def _get_task_origin(self, ctxt, action):
@@ -752,7 +836,7 @@ class ConductorServerEndpoint(object):
                             if missing_deps:
                                 raise exception.CoriolisException(
                                     "Task '%s' (type '%s') for instance '%s' "
-                                    "has non-exitent tasks referenced as "
+                                    "has non-existent tasks referenced as "
                                     "dependencies: %s" % (
                                         task.id, task.task_type,
                                         instance, missing_deps))
@@ -838,6 +922,8 @@ class ConductorServerEndpoint(object):
         replica = self._get_replica(ctxt, replica_id)
         self._check_reservation_for_transfer(replica)
         self._check_replica_running_executions(ctxt, replica)
+        self._check_minion_pools_for_action(ctxt, replica)
+
         execution = models.TasksExecution()
         execution.id = str(uuid.uuid4())
         execution.action = replica
@@ -852,7 +938,18 @@ class ConductorServerEndpoint(object):
         dest_env['network_map'] = replica.network_map
         dest_env['storage_mappings'] = replica.storage_mappings
 
+        minion_pool_allocations = self._allocate_minion_machines_for_action(
+            ctxt, replica, include_transfer_minions=True,
+            include_osmorphing_minions=False)
+
         for instance in execution.action.instances:
+            instance_minion_machines = minion_pool_allocations.get(
+                instance, {})
+            instance_source_minion = instance_minion_machines.get(
+                'source_minion')
+            instance_target_minion = instance_minion_machines.get(
+                'target_minion')
+
             # NOTE: we default/convert the volumes info to an empty list
             # to preserve backwards-compatibility with older versions
             # of Coriolis dating before the scheduling overhaul (PR##114)
@@ -887,26 +984,81 @@ class ConductorServerEndpoint(object):
                 execution,
                 depends_on=[get_instance_info_task.id])
 
+            disk_deployment_depends_on = []
+            validate_source_minion_task = None
+            if instance_source_minion:
+                replica.info[instance].update({
+                    "source_minion_machine_id": instance_source_minion.id,
+                    "source_minion_provider_properties": (
+                        instance_source_minion.provider_properties),
+                    "source_minion_connection_info": (
+                        instance_source_minion.connection_info)})
+                validate_source_minion_task = self._create_task(
+                    instance,
+                    constants.TASK_TYPE_VALIDATE_SOURCE_MINION_POOL_COMPATIBILITY,
+                    execution,
+                    depends_on=[
+                        get_instance_info_task.id,
+                        validate_replica_source_inputs_task.id])
+                disk_deployment_depends_on.append(
+                    validate_source_minion_task.id)
+            else:
+                disk_deployment_depends_on.append(
+                    validate_replica_source_inputs_task.id)
+
+            validate_target_minion_task = None
+            if instance_target_minion:
+                replica.info[instance].update({
+                    "target_minion_machine_id": instance_target_minion.id,
+                    "target_minion_provider_properties": (
+                        instance_target_minion.provider_properties),
+                    "target_minion_connection_info": (
+                        instance_target_minion.connection_info),
+                    "target_minion_backup_writer_connection_info": (
+                        instance_target_minion.backup_writer_connection_info)})
+                validate_target_minion_task = self._create_task(
+                    instance,
+                    constants.TASK_TYPE_VALIDATE_DESTINATION_MINION_POOL_COMPATIBILITY,
+                    execution,
+                    depends_on=[
+                        validate_replica_destination_inputs_task.id])
+                disk_deployment_depends_on.append(
+                    validate_target_minion_task.id)
+            else:
+                disk_deployment_depends_on.append(
+                    validate_replica_destination_inputs_task.id)
+
             deploy_replica_disks_task = self._create_task(
                 instance, constants.TASK_TYPE_DEPLOY_REPLICA_DISKS,
-                execution, depends_on=[
-                    validate_replica_source_inputs_task.id,
-                    validate_replica_destination_inputs_task.id])
+                execution, depends_on=disk_deployment_depends_on)
 
-            deploy_replica_source_resources_task = self._create_task(
-                instance,
-                constants.TASK_TYPE_DEPLOY_REPLICA_SOURCE_RESOURCES,
-                execution, depends_on=[deploy_replica_disks_task.id])
+            shutdown_deps = []
+            deploy_replica_source_resources_task = None
+            if not instance_source_minion:
+                deploy_replica_source_resources_task = self._create_task(
+                    instance,
+                    constants.TASK_TYPE_DEPLOY_REPLICA_SOURCE_RESOURCES,
+                    execution, depends_on=[
+                        deploy_replica_disks_task.id])
+                shutdown_deps.append(deploy_replica_source_resources_task)
 
-            deploy_replica_target_resources_task = self._create_task(
-                instance,
-                constants.TASK_TYPE_DEPLOY_REPLICA_TARGET_RESOURCES,
-                execution, depends_on=[
-                    deploy_replica_disks_task.id])
+            attach_target_minion_disks_task = None
+            deploy_replica_target_resources_task = None
+            if instance_target_minion:
+                ttyp = constants.TASK_TYPE_ATTACH_VOLUMES_TO_DESTINATION_MINION
+                attach_target_minion_disks_task = self._create_task(
+                    instance, ttyp, execution, depends_on=[
+                        deploy_replica_disks_task.id])
+                shutdown_deps.append(attach_target_minion_disks_task)
+            else:
+                deploy_replica_target_resources_task = self._create_task(
+                    instance,
+                    constants.TASK_TYPE_DEPLOY_REPLICA_TARGET_RESOURCES,
+                    execution, depends_on=[
+                        deploy_replica_disks_task.id])
+                shutdown_deps.append(deploy_replica_target_resources_task)
 
-            depends_on = [
-                deploy_replica_source_resources_task.id,
-                deploy_replica_target_resources_task.id]
+            depends_on = [t.id for t in shutdown_deps]
             if shutdown_instances:
                 shutdown_instance_task = self._create_task(
                     instance, constants.TASK_TYPE_SHUTDOWN_INSTANCE,
@@ -917,35 +1069,75 @@ class ConductorServerEndpoint(object):
                 instance, constants.TASK_TYPE_REPLICATE_DISKS,
                 execution, depends_on=depends_on)
 
-            self._create_task(
-                instance,
-                constants.TASK_TYPE_DELETE_REPLICA_SOURCE_RESOURCES,
-                execution,
-                depends_on=[
-                    deploy_replica_source_resources_task.id,
-                    replicate_disks_task.id],
-                on_error=True)
+            if instance_source_minion:
+                self._create_task(
+                    instance,
+                    constants.TASK_TYPE_RELEASE_SOURCE_MINION,
+                    execution,
+                    depends_on=[
+                        validate_source_minion_task.id,
+                        replicate_disks_task.id],
+                    on_error=True)
+            else:
+                self._create_task(
+                    instance,
+                    constants.TASK_TYPE_DELETE_REPLICA_SOURCE_RESOURCES,
+                    execution,
+                    depends_on=[
+                        deploy_replica_source_resources_task.id,
+                        replicate_disks_task.id],
+                    on_error=True)
 
-            self._create_task(
-                instance,
-                constants.TASK_TYPE_DELETE_REPLICA_TARGET_RESOURCES,
-                execution, depends_on=[
-                    deploy_replica_target_resources_task.id,
-                    replicate_disks_task.id],
-                on_error=True)
+            if instance_target_minion:
+                detach_volumes_from_minion_task = self._create_task(
+                    instance,
+                    constants.TASK_TYPE_DETACH_VOLUMES_FROM_DESTINATION_MINION,
+                    execution,
+                    depends_on=[
+                        attach_target_minion_disks_task.id,
+                        replicate_disks_task.id],
+                    on_error=True)
 
-        self._check_execution_tasks_sanity(execution, replica.info)
+                self._create_task(
+                    instance,
+                    constants.TASK_TYPE_RELEASE_DESTINATION_MINION,
+                    execution,
+                    depends_on=[
+                        validate_target_minion_task.id,
+                        detach_volumes_from_minion_task.id],
+                    on_error=True)
+            else:
+                self._create_task(
+                    instance,
+                    constants.TASK_TYPE_DELETE_REPLICA_TARGET_RESOURCES,
+                    execution, depends_on=[
+                        deploy_replica_target_resources_task.id,
+                        replicate_disks_task.id],
+                    on_error=True)
 
-        # update the action info for all of the Replicas:
-        for instance in execution.action.instances:
-            db_api.update_transfer_action_info_for_instance(
-                ctxt, replica.id, instance, replica.info[instance])
+        try:
+            self._check_execution_tasks_sanity(execution, replica.info)
 
-        # add new execution to DB:
-        db_api.add_replica_tasks_execution(ctxt, execution)
-        LOG.info("Replica tasks execution created: %s", execution.id)
+            # update the action info for all of the Replicas:
+            for instance in execution.action.instances:
+                db_api.update_transfer_action_info_for_instance(
+                    ctxt, replica.id, instance, replica.info[instance])
 
-        self._begin_tasks(ctxt, execution, task_info=replica.info)
+            # add new execution to DB:
+            db_api.add_replica_tasks_execution(ctxt, execution)
+            LOG.info("Replica tasks execution created: %s", execution.id)
+
+            self._begin_tasks(ctxt, execution, task_info=replica.info)
+        except Exception:
+            if minion_pool_allocations:
+                LOG.warn(
+                    "Exception occured while verifying/registering Replica "
+                    "tasks execution for Replica '%s'. Cleaning up all minion "
+                    "allocations from DB: %s" % (
+                        replica.id, minion_pool_allocations))
+                self._deallocate_minion_machines_for_action(ctxt, replica)
+            raise
+
         return self.get_replica_tasks_execution(ctxt, replica_id, execution.id)
 
     @replica_synchronized
@@ -1074,8 +1266,116 @@ class ConductorServerEndpoint(object):
                 destination_endpoint.connection_info):
             raise exception.SameDestination()
 
+    def _check_minion_pools_for_action(self, ctxt, action):
+        minion_pools = {
+            pool.id: pool
+            for pool in db_api.get_minion_pool_lifecycles(
+                ctxt, include_tasks_executions=False,
+                include_info=False, include_machines=False,
+                to_dict=False)}
+        def _get_pool(pool_id):
+            pool = minion_pools.get(pool_id)
+            if not pool:
+                raise exception.NotFound(
+                    "Could not find minion pool with ID '%s'." % pool_id)
+            return pool
+
+        if action.origin_minion_pool_id:
+            origin_pool = _get_pool(action.origin_minion_pool_id)
+            if origin_pool.origin_endpoint_id != action.origin_endpoint_id:
+                raise exception.InvalidMinionPoolSelection(
+                    "The selected origin minion pool ('%s') belongs to a "
+                    "different Coriolis endpoint ('%s') than the requested "
+                    "origin endpoint ('%s')" % (
+                        action.origin_minion_pool_id,
+                        origin_pool.origin_endpoint_id,
+                        action.origin_endpoint_id))
+            if origin_pool.pool_platform != constants.PROVIDER_PLATFORM_SOURCE:
+                raise exception.InvalidMinionPoolSelection(
+                    "The selected origin minion pool ('%s') is configured as a"
+                    " '%s' pool. The pool must be of type %s to be used for "
+                    "data exports." % (
+                        action.origin_minion_pool_id,
+                        origin_pool.pool_platform,
+                        constants.PROVIDER_PLATFORM_SOURCE))
+            if origin_pool.pool_os_type != constants.OS_TYPE_LINUX:
+                raise exception.InvalidMinionPoolSelection(
+                    "The selected origin minion pool ('%s') is of OS type '%s'"
+                    " instead of the Linux OS type required for a source "
+                    "transfer minion pool." % (
+                        action.origin_minion_pool_id,
+                        origin_pool.pool_os_type))
+            LOG.debug(
+                "Successfully validated compatibility of origin minion pool "
+                "'%s' for use with action '%s'." % (
+                    action.origin_minion_pool_id, action.id))
+
+        if action.destination_minion_pool_id:
+            destination_pool = _get_pool(action.destination_minion_pool_id)
+            if destination_pool.origin_endpoint_id != (
+                    action.destination_endpoint_id):
+                raise exception.InvalidMinionPoolSelection(
+                    "The selected destination minion pool ('%s') belongs to a "
+                    "different Coriolis endpoint ('%s') than the requested "
+                    "destination endpoint ('%s')" % (
+                        action.destination_minion_pool_id,
+                        destination_pool.origin_endpoint_id,
+                        action.destination_endpoint_id))
+            if destination_pool.pool_platform != (
+                    constants.PROVIDER_PLATFORM_DESTINATION):
+                raise exception.InvalidMinionPoolSelection(
+                    "The selected destination minion pool ('%s') is configured"
+                    " as a '%s'. The pool must be of type %s to be used for "
+                    "data imports." % (
+                        action.destination_minion_pool_id,
+                        destination_pool.pool_platform,
+                        constants.PROVIDER_PLATFORM_DESTINATION))
+            if destination_pool.pool_os_type != constants.OS_TYPE_LINUX:
+                raise exception.InvalidMinionPoolSelection(
+                    "The selected destination minion pool ('%s') is of OS type"
+                    " '%s' instead of the Linux OS type required for a source "
+                    "transfer minion pool." % (
+                        action.destination_minion_pool_id,
+                        destination_pool.pool_os_type))
+            LOG.debug(
+                "Successfully validated compatibility of destination minion "
+                "pool '%s' for use with action '%s'." % (
+                    action.origin_minion_pool_id, action.id))
+
+        if action.instance_osmorphing_minion_pool_mappings:
+            for (instance, pool_id) in (
+                    action.instance_osmorphing_minion_pool_mappings.items()):
+                osmorphing_pool = _get_pool(pool_id)
+                if osmorphing_pool.origin_endpoint_id != (
+                        action.destination_endpoint_id):
+                    raise exception.InvalidMinionPoolSelection(
+                        "The selected OSMorphing minion pool for instance '%s'"
+                        " ('%s') belongs to a different Coriolis endpoint "
+                        "('%s') than the destination endpoint ('%s')" % (
+                            instance, pool_id,
+                            osmorphing_pool.origin_endpoint_id,
+                            action.destination_endpoint_id))
+                if osmorphing_pool.pool_platform != (
+                        constants.PROVIDER_PLATFORM_DESTINATION):
+                    raise exception.InvalidMinionPoolSelection(
+                        "The selected OSMorphing minion pool for instance '%s'"
+                        "  ('%s') is configured as a '%s' pool. The pool must "
+                        "be of type %s to be used for OSMorphing." % (
+                            instance, pool_id,
+                            osmorphing_pool.pool_platform,
+                            constants.PROVIDER_PLATFORM_DESTINATION))
+                LOG.debug(
+                    "Successfully validated compatibility of destination "
+                    "minion pool '%s' for use as OSMorphing minion for "
+                    "instance '%s' during action '%s'." % (
+                        action.origin_minion_pool_id, instance, action.id))
+
     def create_instances_replica(self, ctxt, origin_endpoint_id,
-                                 destination_endpoint_id, source_environment,
+                                 destination_endpoint_id,
+                                 origin_minion_pool_id,
+                                 destination_minion_pool_id,
+                                 instance_osmorphing_minion_pool_mappings,
+                                 source_environment,
                                  destination_environment, instances,
                                  network_map, storage_mappings, notes=None):
         origin_endpoint = self.get_endpoint(ctxt, origin_endpoint_id)
@@ -1084,8 +1384,11 @@ class ConductorServerEndpoint(object):
 
         replica = models.Replica()
         replica.id = str(uuid.uuid4())
+        replica.base_id = replica.id
         replica.origin_endpoint_id = origin_endpoint_id
+        replica.origin_minion_pool_id = origin_minion_pool_id
         replica.destination_endpoint_id = destination_endpoint_id
+        replica.destination_minion_pool_id = destination_minion_pool_id
         replica.destination_environment = destination_environment
         replica.source_environment = source_environment
         replica.last_execution_status = constants.EXECUTION_STATUS_UNEXECUTED
@@ -1096,6 +1399,10 @@ class ConductorServerEndpoint(object):
         replica.notes = notes
         replica.network_map = network_map
         replica.storage_mappings = storage_mappings
+        replica.instance_osmorphing_minion_pool_mappings = (
+            instance_osmorphing_minion_pool_mappings)
+
+        self._check_minion_pools_for_action(ctxt, replica)
 
         self._check_create_reservation_for_transfer(
             replica, licensing_client.RESERVATION_TYPE_REPLICA)
@@ -1168,8 +1475,11 @@ class ConductorServerEndpoint(object):
         return provider_types["types"]
 
     @replica_synchronized
-    def deploy_replica_instances(self, ctxt, replica_id, clone_disks, force,
-                                 skip_os_morphing=False, user_scripts=None):
+    def deploy_replica_instances(self, ctxt, replica_id,
+                                 clone_disks, force,
+                                 instance_osmorphing_minion_pool_mappings=None,
+                                 skip_os_morphing=False,
+                                 user_scripts=None):
         replica = self._get_replica(ctxt, replica_id)
         self._check_reservation_for_transfer(replica)
         self._check_replica_running_executions(ctxt, replica)
@@ -1192,6 +1502,7 @@ class ConductorServerEndpoint(object):
 
         migration = models.Migration()
         migration.id = str(uuid.uuid4())
+        migration.base_id = migration.id
         migration.origin_endpoint_id = replica.origin_endpoint_id
         migration.destination_endpoint_id = replica.destination_endpoint_id
         # TODO(aznashwan): have these passed separately to the relevant
@@ -1206,6 +1517,18 @@ class ConductorServerEndpoint(object):
         migration.instances = instances
         migration.replica = replica
         migration.info = replica.info
+        migration.origin_minion_pool_id = replica.origin_minion_pool_id
+        migration.destination_minion_pool_id = (
+            replica.destination_minion_pool_id)
+        migration.instance_osmorphing_minion_pool_mappings = (
+            replica.instance_osmorphing_minion_pool_mappings)
+        if instance_osmorphing_minion_pool_mappings:
+            migration.instance_osmorphing_minion_pool_mappings.update(
+                instance_osmorphing_minion_pool_mappings)
+
+        minion_pool_allocations = self._allocate_minion_machines_for_action(
+            ctxt, migration, include_transfer_minions=False,
+            include_osmorphing_minions=not skip_os_morphing)
 
         execution = models.TasksExecution()
         migration.executions = [execution]
@@ -1236,15 +1559,36 @@ class ConductorServerEndpoint(object):
                 # "network_map": network_map,
                 # "storage_mappings": storage_mappings,
 
+            instance_minion_machines = minion_pool_allocations.get(
+                instance, {})
+            instance_osmorphing_minion = instance_minion_machines.get(
+                'osmorphing_minion')
+
             validate_replica_deployment_inputs_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_VALIDATE_REPLICA_DEPLOYMENT_INPUTS,
                 execution)
 
+            validate_osmorphing_minion_task = None
+            last_validation_task = validate_replica_deployment_inputs_task
+            if not skip_os_morphing and instance_osmorphing_minion:
+                migration.info[instance].update({
+                    "osmorphing_minion_machine_id": instance_osmorphing_minion.id,
+                    "osmorphing_minion_provider_properties": (
+                        instance_osmorphing_minion.provider_properties),
+                    "osmorphing_minion_connection_info": (
+                        instance_osmorphing_minion.connection_info)})
+                validate_osmorphing_minion_task = self._create_task(
+                    instance,
+                    constants.TASK_TYPE_VALIDATE_OSMORPHING_MINION_POOL_COMPATIBILITY,
+                    execution, depends_on=[
+                        validate_replica_deployment_inputs_task.id])
+                last_validation_task = validate_osmorphing_minion_task
+
             create_snapshot_task = self._create_task(
                 instance, constants.TASK_TYPE_CREATE_REPLICA_DISK_SNAPSHOTS,
                 execution, depends_on=[
-                    validate_replica_deployment_inputs_task.id])
+                    last_validation_task.id])
 
             deploy_replica_task = self._create_task(
                 instance,
@@ -1254,25 +1598,67 @@ class ConductorServerEndpoint(object):
 
             depends_on = [deploy_replica_task.id]
             if not skip_os_morphing:
-                task_deploy_os_morphing_resources = self._create_task(
-                    instance, constants.TASK_TYPE_DEPLOY_OS_MORPHING_RESOURCES,
-                    execution, depends_on=depends_on)
+                task_deploy_os_morphing_resources = None
+                attach_osmorphing_minion_volumes_task = None
+                last_osmorphing_resources_deployment_task = None
+                if instance_osmorphing_minion:
+                    osmorphing_vol_attachment_deps = [
+                        validate_osmorphing_minion_task.id]
+                    osmorphing_vol_attachment_deps.extend(depends_on)
+                    attach_osmorphing_minion_volumes_task = self._create_task(
+                        instance,
+                        constants.TASK_TYPE_ATTACH_VOLUMES_TO_OSMORPHING_MINION,
+                        execution, depends_on=osmorphing_vol_attachment_deps)
+                    last_osmorphing_resources_deployment_task = (
+                        attach_osmorphing_minion_volumes_task)
+
+                    collect_osmorphing_info_task = self._create_task(
+                        instance,
+                        constants.TASK_TYPE_COLLECT_OSMORPHING_INFO,
+                        execution,
+                        depends_on=[attach_osmorphing_minion_volumes_task.id])
+                    last_osmorphing_resources_deployment_task = (
+                        collect_osmorphing_info_task)
+                else:
+                    task_deploy_os_morphing_resources = self._create_task(
+                        instance,
+                        constants.TASK_TYPE_DEPLOY_OS_MORPHING_RESOURCES,
+                        execution, depends_on=depends_on)
+                    last_osmorphing_resources_deployment_task = (
+                        task_deploy_os_morphing_resources)
 
                 task_osmorphing = self._create_task(
                     instance, constants.TASK_TYPE_OS_MORPHING,
                     execution, depends_on=[
-                        task_deploy_os_morphing_resources.id])
+                        last_osmorphing_resources_deployment_task.id])
 
-                task_delete_os_morphing_resources = self._create_task(
-                    instance, constants.TASK_TYPE_DELETE_OS_MORPHING_RESOURCES,
-                    execution, depends_on=[
-                        task_deploy_os_morphing_resources.id,
-                        task_osmorphing.id],
-                    on_error=True)
+                depends_on = [task_osmorphing.id]
 
-                depends_on = [
-                    task_osmorphing.id,
-                    task_delete_os_morphing_resources.id]
+                if instance_osmorphing_minion:
+                    detach_osmorphing_minion_volumes_task = self._create_task(
+                        instance,
+                        constants.TASK_TYPE_DETACH_VOLUMES_FROM_OSMORPHING_MINION,
+                        execution, depends_on=[
+                            attach_osmorphing_minion_volumes_task.id,
+                            task_osmorphing.id],
+                        on_error=True)
+
+                    release_osmorphing_minion_task = self._create_task(
+                        instance,
+                        constants.TASK_TYPE_RELEASE_OSMORPHING_MINION,
+                        execution, depends_on=[
+                            validate_osmorphing_minion_task.id,
+                            detach_osmorphing_minion_volumes_task.id],
+                        on_error=True)
+                    depends_on.append(release_osmorphing_minion_task.id)
+                else:
+                    task_delete_os_morphing_resources = self._create_task(
+                        instance, constants.TASK_TYPE_DELETE_OS_MORPHING_RESOURCES,
+                        execution, depends_on=[
+                            task_deploy_os_morphing_resources.id,
+                            task_osmorphing.id],
+                        on_error=True)
+                    depends_on.append(task_delete_os_morphing_resources.id)
 
             if (constants.PROVIDER_TYPE_INSTANCE_FLAVOR in
                     destination_provider_types):
@@ -1312,11 +1698,21 @@ class ConductorServerEndpoint(object):
                     depends_on=[cleanup_deployment_task.id],
                     on_error=True)
 
-        self._check_execution_tasks_sanity(execution, migration.info)
-        db_api.add_migration(ctxt, migration)
-        LOG.info("Migration created: %s", migration.id)
+        try:
+            self._check_execution_tasks_sanity(execution, migration.info)
+            db_api.add_migration(ctxt, migration)
+            LOG.info("Migration created: %s", migration.id)
 
-        self._begin_tasks(ctxt, execution, task_info=migration.info)
+            self._begin_tasks(ctxt, execution, task_info=migration.info)
+        except Exception:
+            if minion_pool_allocations:
+                LOG.warn(
+                    "Exception occured while verifying/registering tasks "
+                    "execution for Migration '%s' from Replica '%s'. "
+                    "Cleaning up all minion allocations from DB: %s" % (
+                        migration.id, replica.id, minion_pool_allocations))
+                self._deallocate_minion_machines_for_action(ctxt, migration)
+            raise
 
         return self.get_migration(ctxt, migration.id)
 
@@ -1333,12 +1729,267 @@ class ConductorServerEndpoint(object):
                 ret["instances"][instance] = instance_script
         return ret
 
+    def _allocate_minion_machines_for_action(
+            self, ctxt, action, include_transfer_minions=True,
+            include_osmorphing_minions=True):
+        """ Returns a dict of the form:
+        {
+            "instance_id": {
+                "source_minion": <source minion properties>,
+                "target_minion": <target minion properties>,
+                "osmorphing_minion": <osmorphing minion properties>
+            }
+        }
+        """
+        instance_machine_allocations = {
+            instance: {} for instance in action.instances}
+
+        minion_pool_ids = set()
+        if action.origin_minion_pool_id:
+            minion_pool_ids.add(action.origin_minion_pool_id)
+        if action.destination_minion_pool_id:
+            minion_pool_ids.add(action.destination_minion_pool_id)
+        if action.instance_osmorphing_minion_pool_mappings:
+            minion_pool_ids = minion_pool_ids.union(set(
+                action.instance_osmorphing_minion_pool_mappings.values()))
+        if None in minion_pool_ids:
+            minion_pool_ids.remove(None)
+
+        if not minion_pool_ids:
+            LOG.debug(
+                "No minion pool settings found for action '%s'. "
+                "Skipping minion machine allocations." % (
+                    action.id))
+            return instance_machine_allocations
+
+        LOG.debug(
+            "All minion pool selections for action '%s': %s",
+            action.id, minion_pool_ids)
+
+        def _select_machine(minion_pool, exclude=None):
+            if not minion_pool.minion_machines:
+                raise exception.InvalidMinionPoolSelection(
+                    "Minion pool with ID '%s' has no machines defined." % (
+                        minion_pool.id))
+            selected_machine = None
+            for machine in minion_pool.minion_machines:
+                if exclude and machine.id in exclude:
+                    LOG.debug(
+                        "Excluding minion machine '%s' from search.",
+                        machine.id)
+                    continue
+                if machine.status != constants.MINION_MACHINE_STATUS_AVAILABLE:
+                    LOG.debug(
+                        "Minion machine with ID '%s' is in status '%s' "
+                        "instead of '%s'. Skipping.", machine.id,
+                        machine.status,
+                        constants.MINION_MACHINE_STATUS_AVAILABLE)
+                    continue
+                selected_machine = machine
+                break
+            if not selected_machine:
+                raise exception.InvalidMinionPoolSelection(
+                    "There are no more available minion machines within minion"
+                    " pool with ID '%s' (excluding the following ones already "
+                    "planned for this transfer: %s). Please ensure that the "
+                    "minion pool has enough minion machines allocated and "
+                    "available (i.e. not being used for other operations) "
+                    "to satisfy the number of VMs required by the Migration or"
+                    " Replica." % (
+                        minion_pool.id, exclude))
+            return selected_machine
+
+        osmorphing_pool_map = (
+            action.instance_osmorphing_minion_pool_mappings)
+        with contextlib.ExitStack() as stack:
+            _ = [
+                stack.enter_context(
+                    lockutils.lock(
+                        constants.MINION_POOL_LOCK_NAME_FORMAT % pool_id,
+                        external=True))
+                for pool_id in minion_pool_ids]
+
+            minion_pools = db_api.get_minion_pool_lifecycles(
+                ctxt, include_tasks_executions=False, include_info=False,
+                include_machines=True, to_dict=False)
+            minion_pool_id_mappings = {
+                pool.id: pool for pool in minion_pools
+                if pool.id in minion_pool_ids}
+
+            missing_pools = [
+                pool_id for pool_id in minion_pool_ids
+                if pool_id not in minion_pool_id_mappings]
+            if missing_pools:
+                raise exception.InvalidMinionPoolSelection(
+                    "The following minion pools could not be found: %s" % (
+                        missing_pools))
+
+            unallocated_pools = {
+                pool_id: pool.pool_status
+                for (pool_id, pool) in minion_pool_id_mappings.items()
+                if pool.pool_status != constants.MINION_POOL_STATUS_ALLOCATED}
+            if unallocated_pools:
+                raise exception.InvalidMinionPoolSelection(
+                    "The following minion pools have not had their machines "
+                    "allocated and thus cannot be used: %s" % (
+                        unallocated_pools))
+
+            allocated_source_machine_ids = set()
+            allocated_target_machine_ids = set()
+            allocated_osmorphing_machine_ids = set()
+            for instance in action.instances:
+
+                if include_transfer_minions:
+                    if action.origin_minion_pool_id:
+                        origin_pool = minion_pool_id_mappings[
+                            action.origin_minion_pool_id]
+                        machine = _select_machine(
+                            origin_pool, exclude=allocated_source_machine_ids)
+                        allocated_source_machine_ids.add(machine.id)
+                        instance_machine_allocations[
+                            instance]['source_minion'] = machine
+                        LOG.debug(
+                            "Selected minion machine '%s' for source-side "
+                            "syncing of instance '%s' as part of transfer "
+                            "action '%s'.", machine.id, instance, action.id)
+
+                    if action.destination_minion_pool_id:
+                        dest_pool = minion_pool_id_mappings[
+                            action.destination_minion_pool_id]
+                        machine = _select_machine(
+                            dest_pool, exclude=allocated_target_machine_ids)
+                        allocated_target_machine_ids.add(machine.id)
+                        instance_machine_allocations[
+                            instance]['target_minion'] = machine
+                        LOG.debug(
+                            "Selected minion machine '%s' for target-side "
+                            "syncing of instance '%s' as part of transfer "
+                            "action '%s'.", machine.id, instance, action.id)
+
+                if include_osmorphing_minions:
+                    if instance not in osmorphing_pool_map:
+                        LOG.debug(
+                            "Instance '%s' is not listed in the OSMorphing "
+                            "minion pool mappings for action '%s'." % (
+                                instance, action.id))
+                    elif osmorphing_pool_map[instance] is None:
+                        LOG.debug(
+                            "OSMorphing pool ID for instance '%s' is "
+                            "None in action '%s'. Ignoring." % (
+                                instance, action.id))
+                    else:
+                        osmorphing_pool_id = osmorphing_pool_map[instance]
+                        # if the selected target and OSMorphing pools
+                        # are the same, reuse the same worker:
+                        ima = instance_machine_allocations[instance]
+                        if osmorphing_pool_id == (
+                                action.destination_minion_pool_id) and (
+                                    'target_minion' in ima):
+                            allocated_target_machine = ima[
+                                'target_minion']
+                            LOG.debug(
+                                "Reusing disk sync minion '%s' for the "
+                                "OSMorphing of instance '%s' as port of "
+                                "transfer action '%s'",
+                                allocated_target_machine.id, instance,
+                                action.id)
+                            instance_machine_allocations[
+                                instance]['osmorphing_minion'] = (
+                                    allocated_target_machine)
+                        # else, allocate a new minion from the selected pool:
+                        else:
+                            osmorphing_pool = minion_pool_id_mappings[
+                                osmorphing_pool_id]
+                            machine = _select_machine(
+                                osmorphing_pool,
+                                exclude=allocated_osmorphing_machine_ids)
+                            allocated_osmorphing_machine_ids.add(machine.id)
+                            instance_machine_allocations[
+                                instance]['osmorphing_minion'] = machine
+                            LOG.debug(
+                                "Selected minion machine '%s' for OSMorphing "
+                                " of instance '%s' as part of transfer "
+                                "action '%s'.",
+                                machine.id, instance, action.id)
+
+            # mark the selected machines as allocated:
+            all_machine_ids = set(itertools.chain(
+                allocated_source_machine_ids,
+                allocated_target_machine_ids,
+                allocated_osmorphing_machine_ids))
+            db_api.set_minion_machines_allocation_statuses(
+                ctxt, all_machine_ids, action.id,
+                constants.MINION_MACHINE_STATUS_ALLOCATED)
+
+        # filter out redundancies:
+        instance_machine_allocations = {
+            instance: allocations
+            for (instance, allocations) in instance_machine_allocations.items()
+            if allocations}
+
+        LOG.debug(
+            "Allocated the following minion machines for action '%s': %s",
+            action.id, {
+                instance: {
+                    typ: machine.id
+                    for (typ, machine) in allocation.items()}
+                for (instance, allocation) in instance_machine_allocations.items()})
+        return instance_machine_allocations
+
+    def _deallocate_minion_machines_for_action(self, ctxt, action):
+        minion_pool_ids = set()
+        if action.origin_minion_pool_id:
+            minion_pool_ids.add(action.origin_minion_pool_id)
+        if action.destination_minion_pool_id:
+            minion_pool_ids.add(action.destination_minion_pool_id)
+        if action.instance_osmorphing_minion_pool_mappings:
+            minion_pool_ids = minion_pool_ids.union(set(
+                action.instance_osmorphing_minion_pool_mappings.values()))
+        if None in minion_pool_ids:
+            minion_pool_ids.remove(None)
+
+        if not minion_pool_ids:
+            LOG.debug(
+                "No minion pools seem to have been used for action with "
+                "base_id '%s'. Skipping minion machine deallocation.",
+                action.base_id)
+        else:
+            LOG.debug(
+                "Attempting to deallocate all minion pool machine selections "
+                "for action '%s'. Afferent pools are: %s",
+                action.base_id, minion_pool_ids)
+
+            with contextlib.ExitStack() as stack:
+                _ = [
+                    stack.enter_context(
+                        lockutils.lock(
+                            constants.MINION_POOL_LOCK_NAME_FORMAT % pool_id,
+                            external=True))
+                    for pool_id in minion_pool_ids]
+
+                minion_machines = db_api.get_minion_machines(
+                    ctxt, allocated_action_id=action.base_id)
+                machine_ids = [m.id for m in minion_machines]
+                if machine_ids:
+                    LOG.info(
+                        "Releasing the following minion machines for "
+                        "action '%s': %s", action.base_id, machine_ids)
+                    db_api.set_minion_machines_allocation_statuses(
+                        ctxt, machine_ids, None,
+                        constants.MINION_MACHINE_STATUS_AVAILABLE)
+                else:
+                    LOG.debug(
+                        "No minion machines were found to be associated "
+                        "with action with base_id '%s'.", action.base_id)
+
     def migrate_instances(self, ctxt, origin_endpoint_id,
-                          destination_endpoint_id, source_environment,
-                          destination_environment, instances, network_map,
-                          storage_mappings, replication_count,
-                          shutdown_instances=False, notes=None,
-                          skip_os_morphing=False, user_scripts=None):
+                          destination_endpoint_id, origin_minion_pool_id,
+                          destination_minion_pool_id,
+                          instance_osmorphing_minion_pool_mappings,
+                          source_environment, destination_environment,
+                          instances, network_map, storage_mappings,
+                          replication_count, shutdown_instances=False,
+                          notes=None, skip_os_morphing=False, user_scripts=None):
         origin_endpoint = self.get_endpoint(ctxt, origin_endpoint_id)
         destination_endpoint = self.get_endpoint(ctxt, destination_endpoint_id)
         self._check_endpoints(ctxt, origin_endpoint, destination_endpoint)
@@ -1348,6 +1999,7 @@ class ConductorServerEndpoint(object):
 
         migration = models.Migration()
         migration.id = str(uuid.uuid4())
+        migration.base_id = migration.id
         migration.origin_endpoint_id = origin_endpoint_id
         migration.destination_endpoint_id = destination_endpoint_id
         migration.destination_environment = destination_environment
@@ -1365,9 +2017,19 @@ class ConductorServerEndpoint(object):
         migration.notes = notes
         migration.shutdown_instances = shutdown_instances
         migration.replication_count = replication_count
+        migration.origin_minion_pool_id = origin_minion_pool_id
+        migration.destination_minion_pool_id = destination_minion_pool_id
+        migration.instance_osmorphing_minion_pool_mappings = (
+            instance_osmorphing_minion_pool_mappings)
 
         self._check_create_reservation_for_transfer(
             migration, licensing_client.RESERVATION_TYPE_MIGRATION)
+
+        self._check_minion_pools_for_action(ctxt, migration)
+
+        minion_pool_allocations = self._allocate_minion_machines_for_action(
+            ctxt, migration, include_transfer_minions=True,
+            include_osmorphing_minions=not skip_os_morphing)
 
         for instance in instances:
             migration.info[instance] = {
@@ -1385,9 +2047,23 @@ class ConductorServerEndpoint(object):
                 # "network_map": network_map,
                 # "storage_mappings": storage_mappings,
 
+            instance_minion_machines = minion_pool_allocations.get(
+                instance, {})
+            instance_source_minion = instance_minion_machines.get(
+                'source_minion')
+            instance_target_minion = instance_minion_machines.get(
+                'target_minion')
+            instance_osmorphing_minion = instance_minion_machines.get(
+                'osmorphing_minion')
+
             get_instance_info_task = self._create_task(
                 instance,
                 constants.TASK_TYPE_GET_INSTANCE_INFO,
+                execution)
+
+            validate_migration_source_inputs_task = self._create_task(
+                instance,
+                constants.TASK_TYPE_VALIDATE_MIGRATION_SOURCE_INPUTS,
                 execution)
 
             validate_migration_destination_inputs_task = self._create_task(
@@ -1396,15 +2072,33 @@ class ConductorServerEndpoint(object):
                 execution,
                 depends_on=[get_instance_info_task.id])
 
-            validate_migration_source_inputs_task = self._create_task(
-                instance,
-                constants.TASK_TYPE_VALIDATE_MIGRATION_SOURCE_INPUTS,
-                execution)
-
-            deploy_migration_source_resources_task = self._create_task(
-                instance,
-                constants.TASK_TYPE_DEPLOY_MIGRATION_SOURCE_RESOURCES,
-                execution, depends_on=[validate_migration_source_inputs_task.id])
+            migration_resources_task_ids = []
+            validate_source_minion_task = None
+            deploy_migration_source_resources_task = None
+            if instance_source_minion:
+                migration.info[instance].update({
+                    "source_minion_machine_id": instance_source_minion.id,
+                    "source_minion_provider_properties": (
+                        instance_source_minion.provider_properties),
+                    "source_minion_connection_info": (
+                        instance_source_minion.connection_info)})
+                validate_source_minion_task = self._create_task(
+                    instance,
+                    constants.TASK_TYPE_VALIDATE_SOURCE_MINION_POOL_COMPATIBILITY,
+                    execution,
+                    depends_on=[
+                        get_instance_info_task.id,
+                        validate_migration_source_inputs_task.id])
+                migration_resources_task_ids.append(
+                    validate_source_minion_task.id)
+            else:
+                deploy_migration_source_resources_task = self._create_task(
+                    instance,
+                    constants.TASK_TYPE_DEPLOY_MIGRATION_SOURCE_RESOURCES,
+                    execution, depends_on=[
+                        validate_migration_source_inputs_task.id])
+                migration_resources_task_ids.append(
+                    deploy_migration_source_resources_task.id)
 
             create_instance_disks_task = self._create_task(
                 instance, constants.TASK_TYPE_CREATE_INSTANCE_DISKS,
@@ -1412,10 +2106,55 @@ class ConductorServerEndpoint(object):
                     validate_migration_source_inputs_task.id,
                     validate_migration_destination_inputs_task.id])
 
-            deploy_migration_target_resources_task = self._create_task(
-                instance,
-                constants.TASK_TYPE_DEPLOY_MIGRATION_TARGET_RESOURCES,
-                execution, depends_on=[create_instance_disks_task.id])
+            validate_target_minion_task = None
+            attach_target_minion_disks_task = None
+            deploy_migration_target_resources_task = None
+            if instance_target_minion:
+                migration.info[instance].update({
+                    "target_minion_machine_id": instance_target_minion.id,
+                    "target_minion_provider_properties": (
+                        instance_target_minion.provider_properties),
+                    "target_minion_connection_info": (
+                        instance_target_minion.connection_info),
+                    "target_minion_backup_writer_connection_info": (
+                        instance_target_minion.backup_writer_connection_info)})
+                ttyp = (
+                    constants.TASK_TYPE_VALIDATE_DESTINATION_MINION_POOL_COMPATIBILITY)
+                validate_target_minion_task = self._create_task(
+                    instance, ttyp, execution, depends_on=[
+                        validate_migration_destination_inputs_task.id])
+
+                attach_target_minion_disks_task = self._create_task(
+                    instance,
+                    constants.TASK_TYPE_ATTACH_VOLUMES_TO_DESTINATION_MINION,
+                    execution, depends_on=[
+                        validate_target_minion_task.id,
+                        create_instance_disks_task.id])
+                migration_resources_task_ids.append(
+                    attach_target_minion_disks_task.id)
+            else:
+                deploy_migration_target_resources_task = self._create_task(
+                    instance,
+                    constants.TASK_TYPE_DEPLOY_MIGRATION_TARGET_RESOURCES,
+                    execution, depends_on=[create_instance_disks_task.id])
+                migration_resources_task_ids.append(
+                    deploy_migration_target_resources_task.id)
+
+            validate_osmorphing_minion_task = None
+            if not skip_os_morphing and instance_osmorphing_minion:
+                migration.info[instance].update({
+                    "osmorphing_minion_machine_id": instance_osmorphing_minion.id,
+                    "osmorphing_minion_provider_properties": (
+                        instance_osmorphing_minion.provider_properties),
+                    "osmorphing_minion_connection_info": (
+                        instance_osmorphing_minion.connection_info)})
+                validate_osmorphing_minion_task = self._create_task(
+                    instance,
+                    constants.TASK_TYPE_VALIDATE_OSMORPHING_MINION_POOL_COMPATIBILITY,
+                    execution, depends_on=[
+                        validate_migration_destination_inputs_task.id])
+                migration_resources_task_ids.append(
+                    validate_osmorphing_minion_task.id)
 
             # NOTE(aznashwan): re-executing the REPLICATE_DISKS task only works
             # if all the source disk snapshotting and worker setup steps are
@@ -1423,21 +2162,18 @@ class ConductorServerEndpoint(object):
             # This should no longer be a problem when worker pooling lands.
             last_sync_task = None
             first_sync_task = None
-            migration_resources_tasks = [
-                deploy_migration_source_resources_task.id,
-                deploy_migration_target_resources_task.id]
             for i in range(migration.replication_count):
                 # insert SHUTDOWN_INSTANCES task before the last sync:
                 if i == (migration.replication_count - 1) and (
                         migration.shutdown_instances):
-                    shutdown_deps = migration_resources_tasks
+                    shutdown_deps = migration_resources_task_ids
                     if last_sync_task:
                         shutdown_deps = [last_sync_task.id]
                     last_sync_task = self._create_task(
                         instance, constants.TASK_TYPE_SHUTDOWN_INSTANCE,
                         execution, depends_on=shutdown_deps)
 
-                replication_deps = migration_resources_tasks
+                replication_deps = migration_resources_task_ids
                 if last_sync_task:
                     replication_deps = [last_sync_task.id]
 
@@ -1447,57 +2183,141 @@ class ConductorServerEndpoint(object):
                 if not first_sync_task:
                     first_sync_task = last_sync_task
 
-            delete_source_resources_task = self._create_task(
-                instance,
-                constants.TASK_TYPE_DELETE_MIGRATION_SOURCE_RESOURCES,
-                execution, depends_on=[
-                    deploy_migration_source_resources_task.id,
-                    last_sync_task.id],
-                on_error=True)
+            release_source_minion_task = None
+            delete_source_resources_task = None
+            source_resource_cleanup_task = None
+            if instance_source_minion:
+                release_source_minion_task = self._create_task(
+                    instance,
+                    constants.TASK_TYPE_RELEASE_SOURCE_MINION,
+                    execution,
+                    depends_on=[
+                        validate_source_minion_task.id,
+                        last_sync_task.id],
+                    on_error=True)
+                source_resource_cleanup_task = release_source_minion_task
+            else:
+                delete_source_resources_task = self._create_task(
+                    instance,
+                    constants.TASK_TYPE_DELETE_MIGRATION_SOURCE_RESOURCES,
+                    execution, depends_on=[
+                        deploy_migration_source_resources_task.id,
+                        last_sync_task.id],
+                    on_error=True)
+                source_resource_cleanup_task = delete_source_resources_task
 
             cleanup_source_storage_task = self._create_task(
                 instance, constants.TASK_TYPE_CLEANUP_INSTANCE_SOURCE_STORAGE,
                 execution, depends_on=[
                     first_sync_task.id,
-                    delete_source_resources_task.id],
+                    source_resource_cleanup_task.id],
                 on_error=True)
 
-            delete_destination_resources_task = self._create_task(
-                instance,
-                constants.TASK_TYPE_DELETE_MIGRATION_TARGET_RESOURCES,
-                execution, depends_on=[
-                    deploy_migration_target_resources_task.id,
-                    last_sync_task.id],
-                on_error=True)
+            target_resources_cleanup_task = None
+            if instance_target_minion:
+                detach_volumes_from_target_minion_task = self._create_task(
+                    instance,
+                    constants.TASK_TYPE_DETACH_VOLUMES_FROM_DESTINATION_MINION,
+                    execution,
+                    depends_on=[
+                        attach_target_minion_disks_task.id,
+                        last_sync_task.id],
+                    on_error=True)
+
+                release_target_minion_task = self._create_task(
+                    instance,
+                    constants.TASK_TYPE_RELEASE_DESTINATION_MINION,
+                    execution, depends_on=[
+                        validate_target_minion_task.id,
+                        detach_volumes_from_target_minion_task.id],
+                    on_error=True)
+                target_resources_cleanup_task = release_target_minion_task
+            else:
+                delete_destination_resources_task = self._create_task(
+                    instance,
+                    constants.TASK_TYPE_DELETE_MIGRATION_TARGET_RESOURCES,
+                    execution, depends_on=[
+                        deploy_migration_target_resources_task.id,
+                        last_sync_task.id],
+                    on_error=True)
+                target_resources_cleanup_task = (
+                    delete_destination_resources_task)
 
             deploy_instance_task = self._create_task(
                 instance, constants.TASK_TYPE_DEPLOY_INSTANCE_RESOURCES,
                 execution, depends_on=[
                     last_sync_task.id,
-                    delete_destination_resources_task.id])
+                    target_resources_cleanup_task.id])
 
             depends_on = [deploy_instance_task.id]
-            task_delete_os_morphing_resources = None
+            osmorphing_resources_cleanup_task = None
             if not skip_os_morphing:
-                task_deploy_os_morphing_resources = self._create_task(
-                    instance, constants.TASK_TYPE_DEPLOY_OS_MORPHING_RESOURCES,
-                    execution, depends_on=depends_on)
+                task_deploy_os_morphing_resources = None
+                task_delete_os_morphing_resources = None
+                attach_osmorphing_minion_volumes_task = None
+                last_osmorphing_resources_deployment_task = None
+                if instance_osmorphing_minion:
+                    osmorphing_vol_attachment_deps = [
+                        validate_osmorphing_minion_task.id]
+                    osmorphing_vol_attachment_deps.extend(depends_on)
+                    attach_osmorphing_minion_volumes_task = self._create_task(
+                        instance,
+                        constants.TASK_TYPE_ATTACH_VOLUMES_TO_OSMORPHING_MINION,
+                        execution, depends_on=osmorphing_vol_attachment_deps)
+                    last_osmorphing_resources_deployment_task = (
+                        attach_osmorphing_minion_volumes_task)
+
+                    collect_osmorphing_info_task = self._create_task(
+                        instance,
+                        constants.TASK_TYPE_COLLECT_OSMORPHING_INFO,
+                        execution,
+                        depends_on=[attach_osmorphing_minion_volumes_task.id])
+                    last_osmorphing_resources_deployment_task = (
+                        collect_osmorphing_info_task)
+                else:
+                    task_deploy_os_morphing_resources = self._create_task(
+                        instance,
+                        constants.TASK_TYPE_DEPLOY_OS_MORPHING_RESOURCES,
+                        execution, depends_on=depends_on)
+                    last_osmorphing_resources_deployment_task = (
+                        task_deploy_os_morphing_resources)
 
                 task_osmorphing = self._create_task(
                     instance, constants.TASK_TYPE_OS_MORPHING,
                     execution, depends_on=[
-                        task_deploy_os_morphing_resources.id])
+                        last_osmorphing_resources_deployment_task.id])
 
-                task_delete_os_morphing_resources = self._create_task(
-                    instance, constants.TASK_TYPE_DELETE_OS_MORPHING_RESOURCES,
-                    execution, depends_on=[
-                        task_deploy_os_morphing_resources.id,
-                        task_osmorphing.id],
-                    on_error=True)
+                depends_on = [task_osmorphing.id]
 
-                depends_on = [
-                    task_osmorphing.id,
-                    task_delete_os_morphing_resources.id]
+                if instance_osmorphing_minion:
+                    detach_osmorphing_minion_volumes_task = self._create_task(
+                        instance,
+                        constants.TASK_TYPE_DETACH_VOLUMES_FROM_OSMORPHING_MINION,
+                        execution, depends_on=[
+                            attach_osmorphing_minion_volumes_task.id,
+                            task_osmorphing.id],
+                        on_error=True)
+
+                    release_osmorphing_minion_task = self._create_task(
+                        instance,
+                        constants.TASK_TYPE_RELEASE_OSMORPHING_MINION,
+                        execution, depends_on=[
+                            validate_osmorphing_minion_task.id,
+                            detach_osmorphing_minion_volumes_task.id],
+                        on_error=True)
+                    depends_on.append(release_osmorphing_minion_task.id)
+                    osmorphing_resources_cleanup_task = (
+                        release_osmorphing_minion_task)
+                else:
+                    task_delete_os_morphing_resources = self._create_task(
+                        instance, constants.TASK_TYPE_DELETE_OS_MORPHING_RESOURCES,
+                        execution, depends_on=[
+                            task_deploy_os_morphing_resources.id,
+                            task_osmorphing.id],
+                        on_error=True)
+                    depends_on.append(task_delete_os_morphing_resources.id)
+                    osmorphing_resources_cleanup_task = (
+                        task_delete_os_morphing_resources)
 
             if (constants.PROVIDER_TYPE_INSTANCE_FLAVOR in
                     destination_provider_types):
@@ -1522,20 +2342,30 @@ class ConductorServerEndpoint(object):
             cleanup_deps = [
                 create_instance_disks_task.id,
                 cleanup_source_storage_task.id,
-                delete_destination_resources_task.id,
+                target_resources_cleanup_task.id,
                 cleanup_failed_deployment_task.id]
-            if task_delete_os_morphing_resources:
-                cleanup_deps.append(task_delete_os_morphing_resources.id)
+            if osmorphing_resources_cleanup_task:
+                cleanup_deps.append(osmorphing_resources_cleanup_task.id)
             self._create_task(
                 instance, constants.TASK_TYPE_CLEANUP_INSTANCE_TARGET_STORAGE,
                 execution, depends_on=cleanup_deps,
                 on_error_only=True)
 
-        self._check_execution_tasks_sanity(execution, migration.info)
-        db_api.add_migration(ctxt, migration)
+        try:
+            self._check_execution_tasks_sanity(execution, migration.info)
+            db_api.add_migration(ctxt, migration)
 
-        LOG.info("Migration created: %s", migration.id)
-        self._begin_tasks(ctxt, execution, task_info=migration.info)
+            LOG.info("Migration created: %s", migration.id)
+            self._begin_tasks(ctxt, execution, task_info=migration.info)
+        except Exception:
+            if minion_pool_allocations:
+                LOG.warn(
+                    "Exception occured while verifying/registering tasks "
+                    "execution for Migration '%s'. Cleaning up all minion "
+                    "allocations from DB: %s" % (
+                        migration.id, minion_pool_allocations))
+                self._deallocate_minion_machines_for_action(ctxt, migration)
+            raise
 
         return self.get_migration(ctxt, migration.id)
 
@@ -1615,7 +2445,7 @@ class ConductorServerEndpoint(object):
 
         # iterate through and kill/cancel any non-error
         # tasks which are running/pending:
-        for task in execution.tasks:
+        for task in sorted(execution.tasks, key=lambda t: t.index):
 
             # if force is provided, force-cancel tasks directly:
             if force and task.status in constants.ACTIVE_TASK_STATUSES:
@@ -1652,14 +2482,35 @@ class ConductorServerEndpoint(object):
                 # cancel any currently running/pending non-error tasks:
                 if not task.on_error:
                     LOG.debug(
-                        "Killing %s non-error task '%s' as part of "
-                        "cancellation of execution '%s'",
+                        "Sending cancellation request for  %s non-error task  "
+                        "'%s' as part of cancellation of execution '%s'",
                         task.status, task.id, execution.id)
                     db_api.set_task_status(
                         ctxt, task.id, constants.TASK_STATUS_CANCELLING)
-                    worker_rpc = self._get_worker_rpc_for_host(task.host)
-                    worker_rpc.cancel_task(
-                        ctxt, task.host, task.id, task.process_id, force)
+                    try:
+                        worker_rpc = self._get_worker_rpc_for_host(
+                            # NOTE: we intetionally lowball the timeout for the
+                            # cancellation call to prevent the conductor from
+                            # hanging an excessive amount of time:
+                            task.host, timeout=10)
+                        worker_rpc.cancel_task(
+                            ctxt, task.host, task.id, task.process_id, force)
+                    except (Exception, KeyboardInterrupt):
+                        msg = (
+                            "Failed to send cancellation request for task '%s'"
+                            "to worker host '%s' as part of cancellation of "
+                            "execution '%s'. Marking task as '%s' for now and "
+                            "awaiting any eventual worker replies later." % (
+                                task.id, task.host, execution.id,
+                                constants.TASK_STATUS_FAILED_TO_CANCEL))
+                        LOG.error(
+                            "%s. Exception was: %s", msg,
+                            utils.get_exception_details())
+                        db_api.set_task_status(
+                            ctxt, task.id,
+                            constants.TASK_STATUS_FAILED_TO_CANCEL,
+                            exception_details=msg)
+
                 # let any on-error tasks run to completion but mark
                 # them as CANCELLING_AFTER_COMPLETION so they will
                 # be marked as cancelled once they are completed:
@@ -1703,14 +2554,92 @@ class ConductorServerEndpoint(object):
                 "No new tasks were started for execution '%s' following "
                 "state advancement after cancellation.", execution.id)
 
-    @staticmethod
-    def _set_tasks_execution_status(ctxt, execution_id, execution_status):
+    def _set_tasks_execution_status(self, ctxt, execution_id, execution_status):
+        execution = db_api.set_execution_status(
+            ctxt, execution_id, execution_status)
         LOG.info(
-            "Tasks execution %(id)s status updated to: %(status)s",
-            {"id": execution_id, "status": execution_status})
-        db_api.set_execution_status(ctxt, execution_id, execution_status)
+            "Tasks execution %(id)s (action %(action)s) status updated "
+            "to: %(status)s",
+            {"id": execution_id, "status": execution_status,
+             "action": execution.action_id})
         if ctxt.delete_trust_id:
+            LOG.debug(
+                "Deleting Keystone trust following status change "
+                "for Execution '%s' (action '%s') to '%s'",
+                execution_id, execution.action_id, execution_status)
             keystone.delete_trust(ctxt)
+
+        if execution.type in constants.MINION_POOL_EXECUTION_TYPES:
+            self._update_minion_pool_status_for_finished_execution(
+                ctxt, execution, execution_status)
+        else:
+            if execution_status in constants.FINALIZED_EXECUTION_STATUSES:
+                LOG.debug(
+                    "Attempting to deallocate minion machines for finalized "
+                    "Execution '%s' of type '%s' (action '%s') following "
+                    "its transition into finalized status '%s'",
+                    execution.id, execution.type, execution.action_id,
+                    execution_status)
+                action = db_api.get_action(ctxt, execution.action_id)
+                self._deallocate_minion_machines_for_action(
+                    ctxt, action)
+            else:
+                LOG.debug(
+                    "Not deallocating minion machines for Execution '%s' "
+                    "of type '%s' (action '%s') yet as it is still in an "
+                    "active Execution status (%s)",
+                    execution.id, execution.type, execution.action_id,
+                    execution_status)
+
+    @staticmethod
+    def _update_minion_pool_status_for_finished_execution(
+            ctxt, execution, new_execution_status):
+        # status map if execution is active:
+        stat_map = {
+            constants.EXECUTION_TYPE_MINION_POOL_ALLOCATE_MINIONS:
+                constants.MINION_POOL_STATUS_ALLOCATING,
+            constants.EXECUTION_TYPE_MINION_POOL_DEALLOCATE_MINIONS:
+                constants.MINION_POOL_STATUS_DEALLOCATING,
+            constants.EXECUTION_TYPE_MINION_POOL_SET_UP_SHARED_RESOURCES:
+                constants.MINION_POOL_STATUS_INITIALIZING,
+            constants.EXECUTION_TYPE_MINION_POOL_TEAR_DOWN_SHARED_RESOURCES:
+                constants.MINION_POOL_STATUS_UNINITIALIZING}
+        if new_execution_status == constants.EXECUTION_STATUS_COMPLETED:
+            stat_map = {
+                constants.EXECUTION_TYPE_MINION_POOL_ALLOCATE_MINIONS:
+                    constants.MINION_POOL_STATUS_ALLOCATED,
+                constants.EXECUTION_TYPE_MINION_POOL_DEALLOCATE_MINIONS:
+                    constants.MINION_POOL_STATUS_DEALLOCATED,
+                constants.EXECUTION_TYPE_MINION_POOL_SET_UP_SHARED_RESOURCES:
+                    constants.MINION_POOL_STATUS_DEALLOCATED,
+                constants.EXECUTION_TYPE_MINION_POOL_TEAR_DOWN_SHARED_RESOURCES:
+                    constants.MINION_POOL_STATUS_UNINITIALIZED}
+        elif new_execution_status in constants.FINALIZED_TASK_STATUSES:
+            stat_map = {
+                constants.EXECUTION_TYPE_MINION_POOL_ALLOCATE_MINIONS:
+                    constants.MINION_POOL_STATUS_DEALLOCATED,
+                constants.EXECUTION_TYPE_MINION_POOL_DEALLOCATE_MINIONS:
+                    constants.MINION_POOL_STATUS_ALLOCATED,
+                constants.EXECUTION_TYPE_MINION_POOL_SET_UP_SHARED_RESOURCES:
+                    constants.MINION_POOL_STATUS_UNINITIALIZED,
+                constants.EXECUTION_TYPE_MINION_POOL_TEAR_DOWN_SHARED_RESOURCES:
+                    constants.MINION_POOL_STATUS_UNINITIALIZED}
+        final_pool_status = stat_map.get(execution.type)
+        if not final_pool_status:
+            LOG.error(
+                "Could not determine pool status following transition of "
+                "execution '%s' (type '%s') to status '%s'. Presuming error "
+                "has occured. Marking piil as error'd.",
+                execution.id, execution.type, new_execution_status)
+            final_pool_status = constants.MINION_POOL_STATUS_ERROR
+
+        LOG.info(
+            "Marking minion pool '%s' status as '%s' in the DB following the "
+            "transition of execution '%s' (type '%s') to status '%s'.",
+            execution.action_id, final_pool_status, execution.id,
+            execution.type, new_execution_status)
+        db_api.set_minion_pool_lifecycle_status(
+            ctxt, execution.action_id, final_pool_status)
 
     @parent_tasks_execution_synchronized
     def set_task_host(self, ctxt, task_id, host):
@@ -2186,6 +3115,16 @@ class ConductorServerEndpoint(object):
     def _handle_post_task_actions(self, ctxt, task, execution, task_info):
         task_type = task.task_type
 
+        def _check_other_tasks_running(execution, current_task):
+            still_running = False
+            for other_task in execution.tasks:
+                if other_task.id == current_task.id:
+                    continue
+                if other_task.status in constants.ACTIVE_TASK_STATUSES:
+                    still_running = True
+                    break
+            return still_running
+
         if task_type == constants.TASK_TYPE_RESTORE_REPLICA_DISK_SNAPSHOTS:
 
             # When restoring a snapshot in some import providers (OpenStack),
@@ -2266,13 +3205,7 @@ class ConductorServerEndpoint(object):
 
             if task_type == constants.TASK_TYPE_UPDATE_DESTINATION_REPLICA:
                 # check if this was the last task in the update execution:
-                still_running = False
-                for other_task in execution.tasks:
-                    if other_task.id == task.id:
-                        continue
-                    if other_task.status in constants.ACTIVE_TASK_STATUSES:
-                        still_running = True
-                        break
+                still_running = _check_other_tasks_running(execution, task)
                 if not still_running:
                     # it means this was the last update task in the Execution
                     # and we may safely update the params of the Replica
@@ -2287,6 +3220,112 @@ class ConductorServerEndpoint(object):
                     # update task finishes last:
                     db_api.update_replica(
                         ctxt, execution.action_id, task_info)
+
+        elif task_type in (
+                constants.TASK_TYPE_SET_UP_SOURCE_POOL_SHARED_RESOURCES,
+                constants.TASK_TYPE_SET_UP_DESTINATION_POOL_SHARED_RESOURCES):
+            still_running = _check_other_tasks_running(execution, task)
+            if not still_running:
+                LOG.info(
+                    "Updating 'pool_shared_resources' for pool %s after "
+                    "completion of task '%s' (type '%s').",
+                    execution.action_id, task.id, task_type)
+                db_api.update_minion_pool_lifecycle(
+                    ctxt, execution.action_id, {
+                        "pool_shared_resources": task_info.get(
+                            "pool_shared_resources", {})})
+
+        elif task_type in (
+                constants.TASK_TYPE_TEAR_DOWN_SOURCE_POOL_SHARED_RESOURCES,
+                constants.TASK_TYPE_TEAR_DOWN_DESTINATION_POOL_SHARED_RESOURCES):
+            still_running = _check_other_tasks_running(execution, task)
+            if not still_running:
+                LOG.info(
+                    "Clearing 'pool_shared_resources' for pool %s following "
+                    "completion of task '%s' (type %s)",
+                    execution.action_id, task.id, task_type)
+                db_api.update_minion_pool_lifecycle(
+                    ctxt, execution.action_id, {
+                        "pool_shared_resources": {}})
+
+        elif task_type in (
+                constants.TASK_TYPE_CREATE_SOURCE_MINION_MACHINE,
+                constants.TASK_TYPE_CREATE_DESTINATION_MINION_MACHINE):
+            LOG.info(
+                "Adding DB entry for Minion Machine '%s' of pool %s "
+                "following completion of task '%s' (type %s).",
+                task.instance, execution.action_id, task.id, task_type)
+            minion_machine = models.MinionMachine()
+            minion_machine.id = task.instance
+            minion_machine.pool_id = execution.action_id
+            minion_machine.status = (
+                constants.MINION_MACHINE_STATUS_AVAILABLE)
+            minion_machine.connection_info = task_info[
+                "minion_connection_info"]
+            minion_machine.provider_properties = task_info[
+                "minion_provider_properties"]
+            minion_machine.backup_writer_connection_info = task_info[
+                "minion_backup_writer_connection_info"]
+            db_api.add_minion_machine(ctxt, minion_machine)
+
+        elif task_type in (
+                constants.TASK_TYPE_DELETE_SOURCE_MINION_MACHINE,
+                constants.TASK_TYPE_DELETE_DESTINATION_MINION_MACHINE):
+            LOG.info(
+                "%s task for Minon Machine '%s' has completed successfully. "
+                "Deleting minion machine from DB.",
+                task_type, task.instance)
+            db_api.delete_minion_machine(ctxt, task.instance)
+
+        elif task_type in (
+                constants.TASK_TYPE_ATTACH_VOLUMES_TO_SOURCE_MINION,
+                constants.TASK_TYPE_DETACH_VOLUMES_FROM_SOURCE_MINION):
+
+            updated_values = {
+                "provider_properties": task_info[
+                    "source_minion_provider_properties"]}
+
+            LOG.debug(
+                "Updating minion provider properties of minion machine '%s' "
+                "following the completion of task '%s' (type '%s') to %s",
+                task_info['source_minion_machine_id'],
+                task.id, task_type, updated_values)
+            db_api.update_minion_machine(
+                ctxt, task_info['source_minion_machine_id'], updated_values)
+
+        elif task_type in (
+                constants.TASK_TYPE_ATTACH_VOLUMES_TO_DESTINATION_MINION,
+                constants.TASK_TYPE_DETACH_VOLUMES_FROM_DESTINATION_MINION):
+
+            updated_values = {
+                "provider_properties": task_info[
+                    "target_minion_provider_properties"]}
+
+            LOG.debug(
+                "Updating minion provider properties of minion machine '%s' "
+                "following the completion of task '%s' (type '%s') to %s",
+                task_info['target_minion_machine_id'],
+                task.id, task_type, updated_values)
+            db_api.update_minion_machine(
+                ctxt, task_info['target_minion_machine_id'], updated_values)
+
+        elif task_type in (
+                constants.TASK_TYPE_ATTACH_VOLUMES_TO_OSMORPHING_MINION,
+                constants.TASK_TYPE_DETACH_VOLUMES_FROM_OSMORPHING_MINION):
+
+            updated_values = {
+                "provider_properties": task_info[
+                    "osmorphing_minion_provider_properties"]}
+
+            LOG.debug(
+                "Updating minion provider properties of minion machine '%s' "
+                "following the completion of task '%s' (type '%s') to %s",
+                task_info['osmorphing_minion_machine_id'],
+                task.id, task_type, updated_values)
+            db_api.update_minion_machine(
+                ctxt, task_info['osmorphing_minion_machine_id'],
+                updated_values)
+
         else:
             LOG.debug(
                 "No post-task actions required for task '%s' of type '%s'",
@@ -2335,6 +3374,22 @@ class ConductorServerEndpoint(object):
                     "completion. Please review the worker logs for "
                     "more relevant details." % (
                         task.host)))
+        elif task.status == constants.TASK_STATUS_FAILED_TO_CANCEL:
+            LOG.error(
+                "Received confirmation that presumably '%s' task '%s' has just "
+                "completed successfully. Marking as '%s' and processing its "
+                "result as if it had completed normally.",
+                task.status, task.id,
+                constants.TASK_STATUS_CANCELED_AFTER_COMPLETION)
+            db_api.set_task_status(
+                ctxt, task_id, constants.TASK_STATUS_CANCELED_AFTER_COMPLETION,
+                exception_details=(
+                    "The worker host for this task ('%s') had not either not "
+                    "accepted task cancellation request when it was asked to "
+                    "or had failed to receive the request, so this task was "
+                    "run to completion. Please review the worker logs for "
+                    "more relevant details." % (
+                        task.host)))
         elif task.status in constants.FINALIZED_TASK_STATUSES:
             LOG.error(
                 "Received confirmation that presumably finalized task '%s' "
@@ -2366,10 +3421,12 @@ class ConductorServerEndpoint(object):
             updated_task_info = None
             if task_result:
                 LOG.info(
-                    "Setting task %(task_id)s result for instance %(instance)s "
-                    "into action %(action_id)s info: %(task_result)s", {
+                    "Setting task %(task_id)s (type %(task_type)s)result for "
+                    "instance %(instance)s into action %(action_id)s info: "
+                    "%(task_result)s", {
                         "task_id": task_id,
                         "instance": task.instance,
+                        "task_type": task.task_type,
                         "action_id": action_id,
                         "task_result": utils.sanitize_task_info(
                             task_result)})
@@ -2453,13 +3510,27 @@ class ConductorServerEndpoint(object):
             # it means a force cancel has been issued before the
             # confirmation that the task was canceled came in:
             LOG.warn(
-                "Only just received error confirmation for force-cancelled "
-                "task '%s'. Leaving marked as force-cancelled.", task.id)
+                "Only just received cancellation confirmation for "
+                "force-canceled task '%s'. Leaving marked as "
+                "force-cancelled.", task.id)
             final_status = constants.TASK_STATUS_FORCE_CANCELED
             exception_details = (
                 "This task was force-cancelled. Confirmation of its "
                 "cancellation did eventually come in. Additional details on "
                 "the cancellation: %s" % cancellation_details)
+        elif task.status == constants.TASK_STATUS_FAILED_TO_CANCEL:
+            final_status = constants.TASK_STATUS_CANCELED
+            LOG.warn(
+                "Only just received cancellation confirmation for task '%s' "
+                "despite it being marked as '%s'. Marking as '%s' anyway. "
+                "Error reported by worker was: %s",
+                task.id, task.status, final_status, exception_details)
+            exception_details = (
+                "The worker service for this task (%s) had either failed to "
+                "cancel this task when it was initially asked to or did not "
+                "receive the cancellation request, but it did eventually "
+                "confirm the task's cancellation with the following "
+                "details: %s" % cancellation_details)
         elif task.status in constants.FINALIZED_TASK_STATUSES:
             LOG.warn(
                 "Received confirmation of cancellation for already finalized "
@@ -2528,6 +3599,18 @@ class ConductorServerEndpoint(object):
             exception_details = (
                 "This task was force-cancelled but ended up errorring anyway. "
                 "The error details were: '%s'" % exception_details)
+        elif task.status == constants.TASK_STATUS_FAILED_TO_CANCEL:
+            final_status = constants.TASK_STATUS_CANCELED
+            LOG.warn(
+                "Only just received error confirmation for task '%s' despite "
+                "it being marked as '%s'. Marking as '%s' anyway. Error "
+                "reported by worker was: %s",
+                task.id, task.status, final_status, exception_details)
+            exception_details = (
+                "The worker service for this task (%s) has failed to cancel "
+                "this task when it was asked to, and the task eventually "
+                "exited with an error. The error details were: %s" % (
+                    task.id, exception_details))
         elif task.status in constants.FINALIZED_TASK_STATUSES:
             LOG.error(
                 "Error confirmation on task '%s' arrived despite it being "
@@ -2595,6 +3678,7 @@ class ConductorServerEndpoint(object):
                     self._cancel_tasks_execution(ctxt, execution)
             else:
                 self._cancel_tasks_execution(ctxt, execution)
+
 
             # NOTE: if this was a migration, make sure to delete
             # its associated reservation.
@@ -2683,6 +3767,26 @@ class ConductorServerEndpoint(object):
     def update_replica(
             self, ctxt, replica_id, updated_properties):
         replica = self._get_replica(ctxt, replica_id)
+
+        minion_pool_fields = [
+            "origin_minion_pool_id", "destination_minion_pool_id",
+            "instance_osmorphing_minion_pool_mappings"]
+        if any([mpf in updated_properties for mpf in minion_pool_fields]):
+            # NOTE: this is just a dummy Replica model to use for validation:
+            dummy = models.Replica()
+            dummy.id = replica.id
+            dummy.instances = replica.instances
+            dummy.origin_endpoint_id = replica.origin_endpoint_id
+            dummy.destination_endpoint_id = replica.destination_endpoint_id
+            dummy.origin_minion_pool_id = updated_properties.get(
+                'origin_minion_pool_id')
+            dummy.destination_minion_pool_id = updated_properties.get(
+                'destination_minion_pool_id')
+            dummy.instance_osmorphing_minion_pool_mappings = (
+                updated_properties.get(
+                    'instance_osmorphing_minion_pool_mappings'))
+            self._check_minion_pools_for_action(ctxt, dummy)
+
         self._check_replica_running_executions(ctxt, replica)
         self._check_valid_replica_tasks_execution(replica, force=True)
         execution = models.TasksExecution()
@@ -2897,3 +4001,424 @@ class ConductorServerEndpoint(object):
     @service_synchronized
     def delete_service(self, ctxt, service_id):
         db_api.delete_service(ctxt, service_id)
+
+    def create_minion_pool(
+            self, ctxt, name, endpoint_id, pool_platform, pool_os_type,
+            environment_options, minimum_minions, maximum_minions,
+            minion_max_idle_time, minion_retention_strategy, notes=None):
+        endpoint = db_api.get_endpoint(ctxt, endpoint_id)
+
+        minion_pool = models.MinionPoolLifecycle()
+        minion_pool.id = str(uuid.uuid4())
+        minion_pool.pool_name = name
+        minion_pool.notes = notes
+        minion_pool.pool_platform = pool_platform
+        minion_pool.pool_os_type = pool_os_type
+        minion_pool.pool_status = constants.MINION_POOL_STATUS_UNINITIALIZED
+        minion_pool.minimum_minions = minimum_minions
+        minion_pool.maximum_minions = maximum_minions
+        minion_pool.minion_max_idle_time = minion_max_idle_time
+        minion_pool.minion_retention_strategy = minion_retention_strategy
+
+        # TODO(aznashwan): These field redundancies should be
+        # eliminated once the DB model hirearchy is overhauled:
+        minion_pool.origin_endpoint_id = endpoint_id
+        minion_pool.destination_endpoint_id = endpoint_id
+        minion_pool.source_environment = environment_options
+        minion_pool.destination_environment = environment_options
+        minion_pool.instances = []
+        minion_pool.info = {}
+
+        db_api.add_minion_pool_lifecycle(ctxt, minion_pool)
+        return self.get_minion_pool(ctxt, minion_pool.id)
+
+    def get_minion_pools(self, ctxt, include_tasks_executions=False):
+        return db_api.get_minion_pool_lifecycles(
+            ctxt, include_tasks_executions=include_tasks_executions,
+            include_machines=True)
+
+    def _get_minion_pool(
+            self, ctxt, minion_pool_id, include_tasks_executions=True,
+            include_machines=True):
+        minion_pool = db_api.get_minion_pool_lifecycle(
+            ctxt, minion_pool_id, include_machines=include_machines,
+            include_tasks_executions=include_tasks_executions)
+        if not minion_pool:
+            raise exception.NotFound(
+                "Minion pool with ID '%s' not found." % minion_pool_id)
+        return minion_pool
+
+    @minion_pool_synchronized
+    def set_up_shared_minion_pool_resources(self, ctxt, minion_pool_id):
+        LOG.info(
+            "Attempting to set up shared resources for Minion Pool '%s'.",
+            minion_pool_id)
+        minion_pool = db_api.get_minion_pool_lifecycle(
+            ctxt, minion_pool_id, include_tasks_executions=False,
+            include_machines=False)
+        if minion_pool.pool_status != constants.MINION_POOL_STATUS_UNINITIALIZED:
+            raise exception.InvalidMinionPoolState(
+                "Minion Pool '%s' cannot have shared resources set up as it "
+                "is in '%s' state instead of the expected %s."% (
+                    minion_pool_id, minion_pool.pool_status,
+                    constants.MINION_POOL_STATUS_UNINITIALIZED))
+
+        execution = models.TasksExecution()
+        execution.id = str(uuid.uuid4())
+        execution.action = minion_pool
+        execution.status = constants.EXECUTION_STATUS_UNEXECUTED
+        execution.type = (
+            constants.EXECUTION_TYPE_MINION_POOL_SET_UP_SHARED_RESOURCES)
+
+        minion_pool.info[minion_pool_id] = {
+            "pool_os_type": minion_pool.pool_os_type,
+            "pool_identifier": minion_pool.id,
+            # TODO(aznashwan): remove redundancy once transfer
+            # action DB models have been overhauled:
+            "pool_environment_options": minion_pool.source_environment}
+
+        validate_task_type = (
+            constants.TASK_TYPE_VALIDATE_DESTINATION_MINION_POOL_OPTIONS)
+        set_up_task_type = (
+            constants.TASK_TYPE_SET_UP_DESTINATION_POOL_SHARED_RESOURCES)
+        if minion_pool.pool_platform == constants.PROVIDER_PLATFORM_SOURCE:
+            validate_task_type = (
+                constants.TASK_TYPE_VALIDATE_SOURCE_MINION_POOL_OPTIONS)
+            set_up_task_type = (
+                constants.TASK_TYPE_SET_UP_SOURCE_POOL_SHARED_RESOURCES)
+
+        validate_pool_options_task = self._create_task(
+            minion_pool.id, validate_task_type, execution)
+
+        setup_pool_resources_task = self._create_task(
+            minion_pool.id,
+            set_up_task_type,
+            execution,
+            depends_on=[validate_pool_options_task.id])
+
+        self._check_execution_tasks_sanity(execution, minion_pool.info)
+
+        # update the action info for the pool's instance:
+        db_api.update_transfer_action_info_for_instance(
+            ctxt, minion_pool.id, minion_pool.id,
+            minion_pool.info[minion_pool.id])
+
+        # add new execution to DB:
+        db_api.add_minion_pool_lifecycle_execution(ctxt, execution)
+        LOG.info(
+            "Minion pool shared resource creation execution created: %s",
+            execution.id)
+
+        self._begin_tasks(ctxt, execution, task_info=minion_pool.info)
+        db_api.set_minion_pool_lifecycle_status(
+            ctxt, minion_pool.id, constants.MINION_POOL_STATUS_INITIALIZING)
+
+        return self._get_minion_pool_lifecycle_execution(
+            ctxt, minion_pool_id, execution.id).to_dict()
+
+    @minion_pool_synchronized
+    def tear_down_shared_minion_pool_resources(
+            self, ctxt, minion_pool_id, force=False):
+        minion_pool = db_api.get_minion_pool_lifecycle(
+            ctxt, minion_pool_id, include_tasks_executions=False,
+            include_machines=False)
+        if minion_pool.pool_status != (
+                constants.MINION_POOL_STATUS_DEALLOCATED) and not force:
+            raise exception.InvalidMinionPoolState(
+                "Minion Pool '%s' cannot have shared resources torn down as it"
+                " is in '%s' state instead of the expected %s. "
+                "Please use the force flag if you are certain you want "
+                "to tear down the shared resources for this pool." % (
+                    minion_pool_id, minion_pool.pool_status,
+                    constants.MINION_POOL_STATUS_DEALLOCATED))
+
+        LOG.info(
+            "Attempting to tear down shared resources for Minion Pool '%s'.",
+            minion_pool_id)
+
+        execution = models.TasksExecution()
+        execution.id = str(uuid.uuid4())
+        execution.action = minion_pool
+        execution.status = constants.EXECUTION_STATUS_UNEXECUTED
+        execution.type = (
+            constants.EXECUTION_TYPE_MINION_POOL_TEAR_DOWN_SHARED_RESOURCES)
+
+        tear_down_task_type = (
+            constants.TASK_TYPE_TEAR_DOWN_DESTINATION_POOL_SHARED_RESOURCES)
+        if minion_pool.pool_platform == constants.PROVIDER_PLATFORM_SOURCE:
+            tear_down_task_type = (
+                constants.TASK_TYPE_TEAR_DOWN_SOURCE_POOL_SHARED_RESOURCES)
+
+        self._create_task(
+            minion_pool.id, tear_down_task_type, execution)
+
+        self._check_execution_tasks_sanity(execution, minion_pool.info)
+
+        # update the action info for the pool's instance:
+        db_api.update_transfer_action_info_for_instance(
+            ctxt, minion_pool.id, minion_pool.id,
+            minion_pool.info[minion_pool.id])
+
+        # add new execution to DB:
+        db_api.add_minion_pool_lifecycle_execution(ctxt, execution)
+        LOG.info(
+            "Minion pool shared resource teardown execution created: %s",
+            execution.id)
+
+        self._begin_tasks(ctxt, execution, task_info=minion_pool.info)
+        db_api.set_minion_pool_lifecycle_status(
+            ctxt, minion_pool.id, constants.MINION_POOL_STATUS_UNINITIALIZING)
+
+        return self._get_minion_pool_lifecycle_execution(
+            ctxt, minion_pool_id, execution.id).to_dict()
+
+    @minion_pool_synchronized
+    def allocate_minion_pool_machines(self, ctxt, minion_pool_id):
+        LOG.info("Attempting to allocate Minion Pool '%s'.", minion_pool_id)
+        minion_pool = self._get_minion_pool(
+            ctxt, minion_pool_id, include_tasks_executions=False,
+            include_machines=True)
+        if minion_pool.pool_status != constants.MINION_POOL_STATUS_DEALLOCATED:
+            raise exception.InvalidMinionPoolState(
+                "Minion machines for pool '%s' cannot be allocated as the pool"
+                " is in '%s' state instead of the expected %s."% (
+                    minion_pool_id, minion_pool.pool_status,
+                    constants.MINION_POOL_STATUS_DEALLOCATED))
+
+        execution = models.TasksExecution()
+        execution.id = str(uuid.uuid4())
+        execution.action = minion_pool
+        execution.status = constants.EXECUTION_STATUS_UNEXECUTED
+        execution.type = constants.EXECUTION_TYPE_MINION_POOL_ALLOCATE_MINIONS
+
+        new_minion_machine_ids = [
+            str(uuid.uuid4()) for _ in range(minion_pool.minimum_minions)]
+
+        create_minion_task_type = (
+            constants.TASK_TYPE_CREATE_DESTINATION_MINION_MACHINE)
+        delete_minion_task_type = (
+            constants.TASK_TYPE_DELETE_DESTINATION_MINION_MACHINE)
+        if minion_pool.pool_platform == constants.PROVIDER_PLATFORM_SOURCE:
+            create_minion_task_type = (
+                constants.TASK_TYPE_CREATE_SOURCE_MINION_MACHINE)
+            delete_minion_task_type = (
+                constants.TASK_TYPE_DELETE_DESTINATION_MINION_MACHINE)
+
+        for minion_machine_id in new_minion_machine_ids:
+            minion_pool.info[minion_machine_id] = {
+                "pool_identifier": minion_pool_id,
+                "pool_os_type": minion_pool.pool_os_type,
+                "pool_shared_resources": minion_pool.pool_shared_resources,
+                "pool_environment_options": minion_pool.source_environment,
+                # NOTE: we default this to an empty dict here to avoid possible
+                # task info conflicts on the cleanup task below for minions
+                # which were slower to deploy:
+                "minion_provider_properties": {}}
+
+            create_minion_task = self._create_task(
+                minion_machine_id, create_minion_task_type, execution)
+
+            self._create_task(
+                minion_machine_id,
+                delete_minion_task_type,
+                execution, on_error_only=True,
+                depends_on=[create_minion_task.id])
+
+        self._check_execution_tasks_sanity(execution, minion_pool.info)
+
+        # update the action info for all of the pool's minions:
+        for minion_machine_id in new_minion_machine_ids:
+            db_api.update_transfer_action_info_for_instance(
+                ctxt, minion_pool.id, minion_machine_id,
+                minion_pool.info[minion_machine_id])
+
+        # add new execution to DB:
+        db_api.add_minion_pool_lifecycle_execution(ctxt, execution)
+        LOG.info("Minion pool allocation execution created: %s", execution.id)
+
+        self._begin_tasks(ctxt, execution, task_info=minion_pool.info)
+        db_api.set_minion_pool_lifecycle_status(
+            ctxt, minion_pool.id, constants.MINION_POOL_STATUS_ALLOCATING)
+
+        return self._get_minion_pool_lifecycle_execution(
+            ctxt, minion_pool_id, execution.id).to_dict()
+
+    def _check_all_pool_minion_machines_available(self, minion_pool):
+        if not minion_pool.minion_machines:
+            LOG.debug(
+                "Minion pool '%s' does not have any allocated machines.",
+                minion_pool.id)
+            return
+
+        allocated_machine_statuses = {
+            machine.id: machine.status
+            for machine in minion_pool.minion_machines
+            if machine.status != constants.MINION_MACHINE_STATUS_AVAILABLE}
+
+        if allocated_machine_statuses:
+            raise exception.InvalidMinionPoolState(
+                "Minion pool with ID '%s' has one or more machines which are "
+                "in-use or otherwise unmodifiable: %s" % (
+                    minion_pool.id,
+                    allocated_machine_statuses))
+
+    @minion_pool_synchronized
+    def deallocate_minion_pool_machines(self, ctxt, minion_pool_id, force=False):
+        LOG.info("Attempting to deallocate Minion Pool '%s'.", minion_pool_id)
+        minion_pool = db_api.get_minion_pool_lifecycle(
+            ctxt, minion_pool_id, include_tasks_executions=False,
+            include_machines=True)
+        if minion_pool.pool_status not in (
+                constants.MINION_POOL_STATUS_ALLOCATED) and not force:
+            raise exception.InvalidMinionPoolState(
+                "Minion Pool '%s' cannot be deallocated as it is in '%s' "
+                "state instead of the expected '%s'. Please use the "
+                "force flag if you are certain you want to deallocate "
+                "the minion pool's machines." % (
+                    minion_pool_id, minion_pool.pool_status,
+                    constants.MINION_POOL_STATUS_ALLOCATED))
+
+        if not force:
+            self._check_all_pool_minion_machines_available(minion_pool)
+
+        execution = models.TasksExecution()
+        execution.id = str(uuid.uuid4())
+        execution.action = minion_pool
+        execution.status = constants.EXECUTION_STATUS_UNEXECUTED
+        execution.type = (
+            constants.EXECUTION_TYPE_MINION_POOL_DEALLOCATE_MINIONS)
+
+        delete_minion_task_type = (
+            constants.TASK_TYPE_DELETE_DESTINATION_MINION_MACHINE)
+        if minion_pool.pool_platform == constants.PROVIDER_PLATFORM_SOURCE:
+            delete_minion_task_type = (
+                constants.TASK_TYPE_DELETE_DESTINATION_MINION_MACHINE)
+
+        for minion_machine in minion_pool.minion_machines:
+            minion_machine_id = minion_machine.id
+            minion_pool.info[minion_machine_id] = {
+                "pool_environment_options": minion_pool.source_environment,
+                "minion_provider_properties": (
+                    minion_machine.provider_properties)}
+            self._create_task(
+                minion_machine_id, delete_minion_task_type,
+                # NOTE: we set 'on_error=True' to allow for the completion of
+                # already running deletion tasks to prevent partial deletes:
+                execution, on_error=True)
+
+        self._check_execution_tasks_sanity(execution, minion_pool.info)
+
+        # update the action info for all of the pool's minions:
+        for minion_machine in minion_pool.minion_machines:
+            db_api.update_transfer_action_info_for_instance(
+                ctxt, minion_pool.id, minion_machine.id,
+                minion_pool.info[minion_machine.id])
+
+        # add new execution to DB:
+        db_api.add_minion_pool_lifecycle_execution(ctxt, execution)
+        LOG.info(
+            "Minion pool deallocation execution created: %s", execution.id)
+
+        self._begin_tasks(ctxt, execution, task_info=minion_pool.info)
+        db_api.set_minion_pool_lifecycle_status(
+            ctxt, minion_pool.id, constants.MINION_POOL_STATUS_DEALLOCATING)
+
+        return self._get_minion_pool_lifecycle_execution(
+            ctxt, minion_pool_id, execution.id).to_dict()
+
+    @minion_pool_synchronized
+    def get_minion_pool(self, ctxt, minion_pool_id):
+        return self._get_minion_pool(
+            ctxt, minion_pool_id, include_tasks_executions=True,
+            include_machines=True)
+
+    @minion_pool_synchronized
+    def update_minion_pool(self, ctxt, minion_pool_id, updated_values):
+        minion_pool = self._get_minion_pool(
+            ctxt, minion_pool_id, include_tasks_executions=False,
+            include_machines=False)
+        if minion_pool.pool_status != constants.MINION_POOL_STATUS_UNINITIALIZED:
+            raise exception.InvalidMinionPoolState(
+                "Minion Pool '%s' cannot be updated as it is in '%s' status "
+                "instead of the expected '%s'. Please ensure the pool machines"
+                "have been deallocated and the pool's supporting resources "
+                "have been torn down before updating the pool." % (
+                    minion_pool_id, minion_pool.pool_status,
+                    constants.MINION_POOL_STATUS_UNINITIALIZED))
+        LOG.info(
+            "Attempting to update minion_pool '%s' with payload: %s",
+            minion_pool_id, updated_values)
+        db_api.update_minion_pool_lifecycle(ctxt, minion_pool_id, updated_values)
+        LOG.info("Minion Pool '%s' successfully updated", minion_pool_id)
+        return db_api.get_minion_pool_lifecycle(ctxt, minion_pool_id)
+
+    @minion_pool_synchronized
+    def delete_minion_pool(self, ctxt, minion_pool_id):
+        minion_pool = self._get_minion_pool(
+            ctxt, minion_pool_id, include_tasks_executions=False,
+            include_machines=True)
+        acceptable_deletion_statuses = [
+            constants.MINION_POOL_STATUS_UNINITIALIZED,
+            constants.MINION_POOL_STATUS_ERROR]
+        if minion_pool.pool_status not in acceptable_deletion_statuses:
+            raise exception.InvalidMinionPoolState(
+                "Minion Pool '%s' cannot be deleted as it is in '%s' status "
+                "instead of one of the expected '%s'. Please ensure the pool "
+                "machines have been deallocated and the pool's supporting "
+                "resources have been torn down before deleting the pool." % (
+                    minion_pool_id, minion_pool.pool_status,
+                    acceptable_deletion_statuses))
+
+        LOG.info("Deleting minion pool with ID '%s'" % minion_pool_id)
+        db_api.delete_minion_pool_lifecycle(ctxt, minion_pool_id)
+
+    @minion_pool_synchronized
+    def get_minion_pool_lifecycle_executions(
+            self, ctxt, minion_pool_id, include_tasks=False):
+        return db_api.get_minion_pool_lifecycle_executions(
+            ctxt, minion_pool_id, include_tasks)
+
+    def _get_minion_pool_lifecycle_execution(
+            self, ctxt, minion_pool_id, execution_id):
+        execution = db_api.get_minion_pool_lifecycle_execution(
+            ctxt, minion_pool_id, execution_id)
+        if not execution:
+            raise exception.NotFound(
+                "Execution with ID '%s' for Minion Pool '%s' not found." % (
+                    execution_id, minion_pool_id))
+        return execution
+
+    @minion_pool_tasks_execution_synchronized
+    def get_minion_pool_lifecycle_execution(
+            self, ctxt, minion_pool_id, execution_id):
+        return self._get_minion_pool_lifecycle_execution(
+            ctxt, minion_pool_id, execution_id).to_dict()
+
+    @minion_pool_tasks_execution_synchronized
+    def delete_minion_pool_lifecycle_execution(
+            self, ctxt, minion_pool_id, execution_id):
+        execution = self._get_minion_pool_lifecycle_execution(
+            ctxt, minion_pool_id, execution_id)
+        if execution.status in constants.ACTIVE_EXECUTION_STATUSES:
+            raise exception.InvalidMigrationState(
+                "Cannot delete execution '%s' for Minion pool '%s' as it is "
+                "currently in '%s' state." % (
+                    execution_id, minion_pool_id, execution.status))
+        db_api.delete_minion_pool_lifecycle_execution(ctxt, execution_id)
+
+    @minion_pool_tasks_execution_synchronized
+    def cancel_minion_pool_lifecycle_execution(
+            self, ctxt, minion_pool_id, execution_id, force):
+        execution = self._get_minion_pool_lifecycle_execution(
+            ctxt, minion_pool_id, execution_id)
+        if execution.status not in constants.ACTIVE_EXECUTION_STATUSES:
+            raise exception.InvalidMinionPoolState(
+                "Minion pool '%s' has no running execution to cancel." % (
+                    minion_pool_id))
+        if execution.status == constants.EXECUTION_STATUS_CANCELLING and (
+                not force):
+            raise exception.InvalidMinionPoolState(
+                "Execution for Minion Pool '%s' is already being cancelled. "
+                "Please use the force option if you'd like to force-cancel "
+                "it." % (minion_pool_id))
+        self._cancel_tasks_execution(ctxt, execution, force=force)

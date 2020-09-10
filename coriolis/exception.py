@@ -149,6 +149,14 @@ class Invalid(CoriolisException):
     safe = True
 
 
+class InvalidMinionPoolSelection(Invalid):
+    message = _("The selected minion pool is incompatible.")
+
+
+class MinionMachineAllocationFailure(Invalid):
+    message = _("No minion machines were available for allocation")
+
+
 class InvalidCustomOSDetectTools(Invalid):
     message = _("The provided custom OS detect tools are invalid.")
 
@@ -200,6 +208,11 @@ class InvalidConfigurationValue(Invalid):
 class InvalidTaskState(Invalid):
     message = _(
         'Task "%(task_id)s" in in an invalid state: %(task_state)s')
+
+
+class InvalidMinionPoolState(Invalid):
+    message = _(
+        'Minion pool "%(pool_id)s" in in an invalid state: %(pool_state)s')
 
 
 class TaskIsCancelling(InvalidTaskState):

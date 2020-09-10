@@ -4,6 +4,7 @@
 from coriolis import constants
 from coriolis import exception
 from coriolis.tasks import migration_tasks
+from coriolis.tasks import minion_pool_tasks
 from coriolis.tasks import osmorphing_tasks
 from coriolis.tasks import replica_tasks
 
@@ -81,7 +82,53 @@ _TASKS_MAP = {
     constants.TASK_TYPE_UPDATE_SOURCE_REPLICA:
         replica_tasks.UpdateSourceReplicaTask,
     constants.TASK_TYPE_UPDATE_DESTINATION_REPLICA:
-        replica_tasks.UpdateDestinationReplicaTask
+        replica_tasks.UpdateDestinationReplicaTask,
+    constants.TASK_TYPE_VALIDATE_SOURCE_MINION_POOL_OPTIONS:
+        minion_pool_tasks.ValidateSourceMinionPoolOptionsTask,
+    constants.TASK_TYPE_VALIDATE_DESTINATION_MINION_POOL_OPTIONS:
+        minion_pool_tasks.ValidateDestinationMinionPoolOptionsTask,
+    constants.TASK_TYPE_CREATE_SOURCE_MINION_MACHINE:
+        minion_pool_tasks.CreateSourceMinionMachineTask,
+    constants.TASK_TYPE_CREATE_DESTINATION_MINION_MACHINE:
+        minion_pool_tasks.CreateDestinationMinionMachineTask,
+    constants.TASK_TYPE_DELETE_SOURCE_MINION_MACHINE:
+        minion_pool_tasks.DeleteSourceMinionMachineTask,
+    constants.TASK_TYPE_DELETE_DESTINATION_MINION_MACHINE:
+        minion_pool_tasks.DeleteDestinationMinionMachineTask,
+    constants.TASK_TYPE_SET_UP_SOURCE_POOL_SHARED_RESOURCES:
+        minion_pool_tasks.SetUpSourcePoolSupportingResourcesTask,
+    constants.TASK_TYPE_SET_UP_DESTINATION_POOL_SHARED_RESOURCES:
+        minion_pool_tasks.SetUpDestinationPoolSupportingResources,
+    constants.TASK_TYPE_TEAR_DOWN_SOURCE_POOL_SHARED_RESOURCES:
+        minion_pool_tasks.TearDownSourcePoolSupportingResourcesTask,
+    constants.TASK_TYPE_TEAR_DOWN_DESTINATION_POOL_SHARED_RESOURCES:
+        minion_pool_tasks.TearDownDestinationPoolSupportingResources,
+    constants.TASK_TYPE_ATTACH_VOLUMES_TO_SOURCE_MINION:
+        minion_pool_tasks.AttachVolumesToSourceMinionTask,
+    constants.TASK_TYPE_DETACH_VOLUMES_FROM_SOURCE_MINION:
+        minion_pool_tasks.DetachVolumesFromSourceMinionTask,
+    constants.TASK_TYPE_ATTACH_VOLUMES_TO_DESTINATION_MINION:
+        minion_pool_tasks.AttachVolumesToDestinationMinionTask,
+    constants.TASK_TYPE_DETACH_VOLUMES_FROM_DESTINATION_MINION:
+        minion_pool_tasks.DetachVolumesFromDestinationMinionTask,
+    constants.TASK_TYPE_ATTACH_VOLUMES_TO_OSMORPHING_MINION:
+        minion_pool_tasks.AttachVolumesToOSMorphingMinionTask,
+    constants.TASK_TYPE_DETACH_VOLUMES_FROM_OSMORPHING_MINION:
+        minion_pool_tasks.DetachVolumesFromOSMorphingMinionTask,
+    constants.TASK_TYPE_VALIDATE_SOURCE_MINION_POOL_COMPATIBILITY:
+        minion_pool_tasks.ValidateSourceMinionCompatibilityTask,
+    constants.TASK_TYPE_VALIDATE_DESTINATION_MINION_POOL_COMPATIBILITY:
+        minion_pool_tasks.ValidateDestinationMinionCompatibilityTask,
+    constants.TASK_TYPE_VALIDATE_OSMORPHING_MINION_POOL_COMPATIBILITY:
+        minion_pool_tasks.ValidateOSMorphingMinionCompatibilityTask,
+    constants.TASK_TYPE_RELEASE_SOURCE_MINION:
+        minion_pool_tasks.ReleaseSourceMinionTask,
+    constants.TASK_TYPE_RELEASE_DESTINATION_MINION:
+        minion_pool_tasks.ReleaseDestinationMinionTask,
+    constants.TASK_TYPE_RELEASE_OSMORPHING_MINION:
+        minion_pool_tasks.ReleaseOSMorphingMinionTask,
+    constants.TASK_TYPE_COLLECT_OSMORPHING_INFO:
+        minion_pool_tasks.CollectOSMorphingInfoTask
 }
 
 

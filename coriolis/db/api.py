@@ -574,6 +574,7 @@ def set_execution_status(
     if update_action_status:
         set_action_last_execution_status(
             context, execution.action_id, status)
+    return execution
 
 
 @enginefacade.reader
@@ -615,26 +616,28 @@ def update_transfer_action_info_for_instance(
 
     # Copy is needed, otherwise sqlalchemy won't save the changes
     action_info = action.info.copy()
+    instance_info_old = {}
     if instance in action_info:
         instance_info_old = action_info[instance]
-        old_keys = set(instance_info_old.keys())
-        new_keys = set(new_instance_info.keys())
-        overwritten_keys = old_keys.intersection(new_keys)
-        if overwritten_keys:
-            LOG.debug(
-                "Overwriting the values of the following keys for info of "
-                "instance '%s' of action with ID '%s': %s",
-                instance, action_id, overwritten_keys)
-        newly_added_keys = new_keys.difference(old_keys)
-        if newly_added_keys:
-            LOG.debug(
-                "The following new keys will be added for info of instance "
-                "'%s' in action with ID '%s': %s",
-                instance, action_id, newly_added_keys)
 
-        instance_info_old_copy = instance_info_old.copy()
-        instance_info_old_copy.update(new_instance_info)
-        action_info[instance] = instance_info_old_copy
+    old_keys = set(instance_info_old.keys())
+    new_keys = set(new_instance_info.keys())
+    overwritten_keys = old_keys.intersection(new_keys)
+    if overwritten_keys:
+        LOG.debug(
+            "Overwriting the values of the following keys for info of "
+            "instance '%s' of action with ID '%s': %s",
+            instance, action_id, overwritten_keys)
+    newly_added_keys = new_keys.difference(old_keys)
+    if newly_added_keys:
+        LOG.debug(
+            "The following new keys will be added for info of instance "
+            "'%s' in action with ID '%s': %s",
+            instance, action_id, newly_added_keys)
+
+    instance_info_old_copy = instance_info_old.copy()
+    instance_info_old_copy.update(new_instance_info)
+    action_info[instance] = instance_info_old_copy
     action.info = action_info
 
     return action_info[instance]
@@ -744,7 +747,9 @@ def update_replica(context, replica_id, updated_values):
 
     updateable_fields = [
         "source_environment", "destination_environment", "notes",
-        "network_map", "storage_mappings"]
+        "network_map", "storage_mappings",
+        "origin_minion_pool_id", "destination_minion_pool_id",
+        "instance_osmorphing_minion_pool_mappings"]
     for field in updateable_fields:
         if mapped_info_fields.get(field, field) in updated_values:
             LOG.debug(
@@ -1087,3 +1092,239 @@ def get_mapped_services_for_region(context, region_id):
     q = q.filter(
         models.ServiceRegionMapping.service_id == region_id)
     return q.all()
+
+
+@enginefacade.writer
+def add_minion_machine(context, minion_machine):
+    minion_machine.user_id = context.user
+    minion_machine.project_id = context.tenant
+    _session(context).add(minion_machine)
+
+
+@enginefacade.reader
+def get_minion_machines(context, allocated_action_id=None):
+    q = _soft_delete_aware_query(context, models.MinionMachine)
+    if allocated_action_id:
+        q = q.filter(
+            models.MinionMachine.allocated_action == allocated_action_id)
+    return q.all()
+
+
+@enginefacade.reader
+def get_minion_machine(context, minion_machine_id):
+    q = _soft_delete_aware_query(context, models.MinionMachine)
+    return q.filter(
+        models.MinionMachine.id == minion_machine_id).first()
+
+
+@enginefacade.writer
+def update_minion_machine(context, minion_machine_id, updated_values):
+    if not minion_machine_id:
+        raise exception.InvalidInput(
+            "No minion_machine ID specified for updating.")
+    minion_machine = get_minion_machine(context, minion_machine_id)
+    if not minion_machine:
+        raise exception.NotFound(
+            "MinionMachine with ID '%s' does not exist." % minion_machine_id)
+
+    updateable_fields = [
+        "connection_info", "provider_properties", "status",
+        "backup_writer_connection_info", "allocated_action"]
+    _update_sqlalchemy_object_fields(
+        minion_machine, updateable_fields, updated_values)
+
+
+@enginefacade.writer
+def set_minion_machines_allocation_statuses(
+        context, minion_machine_ids, action_id, allocation_status):
+    machines = get_minion_machines(context)
+    existing_machine_id_mappings = {
+        machine.id: machine for machine in machines}
+    missing = [
+        mid for mid in minion_machine_ids
+        if mid not in existing_machine_id_mappings]
+    if missing:
+        raise exception.NotFound(
+            "The following minion machines could not be found: %s" % (
+                missing))
+
+    for machine_id in minion_machine_ids:
+        machine = existing_machine_id_mappings[machine_id]
+        LOG.debug(
+            "Changing allocation status in DB for minion machine '%s' "
+            "from '%s' to '%s' and allocated action from '%s' to '%s'" % (
+                machine.id, machine.status, allocation_status,
+                machine.allocated_action, action_id))
+        machine.allocated_action = action_id
+        machine.status = allocation_status
+
+
+@enginefacade.writer
+def delete_minion_machine(context, minion_machine_id):
+    minion_machine = get_minion_machine(context, minion_machine_id)
+    # TODO(aznashwan): update models to be soft-delete-aware to
+    # avoid needing to hard-delete here:
+    count = _soft_delete_aware_query(context, models.MinionMachine).filter_by(
+        id=minion_machine_id).delete()
+    if count == 0:
+        raise exception.NotFound("0 MinionMachine entries were soft deleted")
+
+
+@enginefacade.writer
+def add_minion_pool_lifecycle(context, minion_pool_lifecycle):
+    minion_pool_lifecycle.user_id = context.user
+    minion_pool_lifecycle.project_id = context.tenant
+    _session(context).add(minion_pool_lifecycle)
+
+
+@enginefacade.writer
+def delete_minion_pool_lifecycle(context, minion_pool_id):
+    _delete_transfer_action(
+        context, models.MinionPoolLifecycle, minion_pool_id)
+
+
+@enginefacade.reader
+def get_minion_pool_lifecycle(
+        context, minion_pool_id, include_tasks_executions=True,
+        include_machines=True):
+    q = _soft_delete_aware_query(context, models.MinionPoolLifecycle)
+    if include_tasks_executions:
+        q = q.options(orm.joinedload(models.MinionPoolLifecycle.executions))
+    if include_machines:
+        q = q.options(orm.joinedload('minion_machines'))
+    if is_user_context(context):
+        q = q.filter(
+            models.MinionPoolLifecycle.project_id == context.tenant)
+    return q.filter(
+        models.MinionPoolLifecycle.id == minion_pool_id).first()
+
+
+@enginefacade.reader
+def get_minion_pool_lifecycles(
+        context, include_tasks_executions=False, include_info=False,
+        include_machines=False, to_dict=True):
+    q = _soft_delete_aware_query(context, models.MinionPoolLifecycle)
+    if include_tasks_executions:
+        q = q.options(orm.joinedload(models.MinionPoolLifecycle.executions))
+    if include_info is False:
+        q = q.options(orm.defer('info'))
+    q = q.filter()
+    if is_user_context(context):
+        q = q.filter(
+            models.Replica.project_id == context.tenant)
+    if include_machines:
+        q = q.options(orm.joinedload('minion_machines'))
+    db_result = q.all()
+    if to_dict:
+        return [i.to_dict(
+            include_info=include_info,
+            include_executions=include_tasks_executions,
+            include_machines=include_machines) for i in db_result]
+    return db_result
+
+
+@enginefacade.writer
+def add_minion_pool_lifecycle_execution(context, execution):
+    if is_user_context(context):
+        if execution.action.project_id != context.tenant:
+            raise exception.NotAuthorized()
+
+    # include deleted records
+    max_number = _model_query(
+        context, func.max(models.TasksExecution.number)).filter_by(
+            action_id=execution.action.id).first()[0] or 0
+    execution.number = max_number + 1
+
+    _session(context).add(execution)
+
+
+@enginefacade.writer
+def set_minion_pool_lifecycle_status(context, minion_pool_id, status):
+    pool = get_minion_pool_lifecycle(
+        context, minion_pool_id, include_tasks_executions=False,
+        include_machines=False)
+    LOG.debug(
+        "Transitioning minion pool '%s' from status '%s' to '%s'in DB",
+        minion_pool_id, pool.pool_status, status)
+    pool.pool_status = status
+    setattr(pool, 'updated_at', timeutils.utcnow())
+
+
+@enginefacade.writer
+def update_minion_pool_lifecycle(context, minion_pool_id, updated_values):
+    lifecycle = get_minion_pool_lifecycle(
+        context, minion_pool_id, include_tasks_executions=False,
+        include_machines=False)
+    if not lifecycle:
+        raise exception.NotFound(
+            "Minion pool '%s' not found" % minion_pool_id)
+
+    updateable_fields = [
+        "minimum_minions", "maximum_minions", "minion_max_idle_time",
+        "minion_retention_strategy", "environment_options",
+        "pool_shared_resources", "notes", "pool_name", "pool_os_type"]
+    # TODO(aznashwan): this should no longer be required when the
+    # transfer action class hirearchy is to be overhauled:
+    redundancies = {
+        "environment_options": [
+            "source_environment", "destination_environment"]}
+    for field in updateable_fields:
+        if field in updated_values:
+            if field in redundancies:
+                for old_key in redundancies[field]:
+                    LOG.debug(
+                        "Updating the '%s' field of Minion Pool '%s' to: '%s'",
+                        old_key, minion_pool_id, updated_values[field])
+                    setattr(lifecycle, old_key, updated_values[field])
+            else:
+                LOG.debug(
+                    "Updating the '%s' field of Minion Pool '%s' to: '%s'",
+                    field, minion_pool_id, updated_values[field])
+                setattr(lifecycle, field, updated_values[field])
+
+    non_updateable_fields = set(
+        updated_values.keys()).difference(updateable_fields)
+    if non_updateable_fields:
+        LOG.warn(
+            "The following Replica fields can NOT be updated: %s",
+            non_updateable_fields)
+
+    # the oslo_db library uses this method for both the `created_at` and
+    # `updated_at` fields
+    setattr(lifecycle, 'updated_at', timeutils.utcnow())
+
+@enginefacade.reader
+def get_minion_pool_lifecycle_executions(
+        context, lifecycle_id, include_tasks=True):
+    q = _soft_delete_aware_query(context, models.TasksExecution)
+    q = q.join(models.MinionPoolLifecycle)
+    if include_tasks:
+        q = _get_tasks_with_details_options(q)
+    if is_user_context(context):
+        q = q.filter(models.MinionPoolLifecycle.project_id == context.tenant)
+    return q.filter(
+        models.MinionPoolLifecycle.id == lifecycle_id).all()
+
+@enginefacade.reader
+def get_minion_pool_lifecycle_execution(context, lifecycle_id, execution_id):
+    q = _soft_delete_aware_query(context, models.TasksExecution).join(
+        models.MinionPoolLifecycle)
+    q = _get_tasks_with_details_options(q)
+    if is_user_context(context):
+        q = q.filter(models.MinionPoolLifecycle.project_id == context.tenant)
+    return q.filter(
+        models.MinionPoolLifecycle.id == lifecycle_id,
+        models.TasksExecution.id == execution_id).first()
+
+@enginefacade.writer
+def delete_minion_pool_lifecycle_execution(context, execution_id):
+    q = _soft_delete_aware_query(context, models.TasksExecution).filter(
+        models.TasksExecution.id == execution_id)
+    if is_user_context(context):
+        if not q.join(models.MinionPoolLifecycle).filter(
+                models.MinionPoolLifecycle.project_id == (
+                    context.tenant)).first():
+            raise exception.NotAuthorized()
+    count = q.soft_delete()
+    if count == 0:
+        raise exception.NotFound("0 entries were soft deleted")

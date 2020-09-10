@@ -1,5 +1,6 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
+
 import json
 
 from oslo_log import log as logging
@@ -56,6 +57,11 @@ class MigrationController(api_wsgi.Controller):
         try:
             origin_endpoint_id = migration["origin_endpoint_id"]
             destination_endpoint_id = migration["destination_endpoint_id"]
+            origin_minion_pool_id = migration.get('origin_minion_pool_id')
+            destination_minion_pool_id = migration.get(
+                'destination_minion_pool_id')
+            instance_osmorphing_minion_pool_mappings = migration.get(
+                'instance_osmorphing_minion_pool_mappings', {})
             destination_environment = migration.get(
                 "destination_environment", {})
             instances = migration["instances"]
@@ -92,8 +98,10 @@ class MigrationController(api_wsgi.Controller):
             destination_environment['storage_mappings'] = storage_mappings
 
             return (origin_endpoint_id, destination_endpoint_id,
-                    source_environment, destination_environment, instances,
-                    notes, skip_os_morphing, replication_count,
+                    origin_minion_pool_id, destination_minion_pool_id,
+                    instance_osmorphing_minion_pool_mappings, source_environment,
+                    destination_environment, instances, notes,
+                    skip_os_morphing, replication_count,
                     shutdown_instances, network_map, storage_mappings)
         except Exception as ex:
             LOG.exception(ex)
@@ -111,15 +119,20 @@ class MigrationController(api_wsgi.Controller):
             clone_disks = migration_body.get("clone_disks", True)
             force = migration_body.get("force", False)
             skip_os_morphing = migration_body.get("skip_os_morphing", False)
+            instance_osmorphing_minion_pool_mappings = migration_body.get(
+                'instance_osmorphing_minion_pool_mappings', {})
 
             # NOTE: destination environment for replica should have been
             # validated upon its creation.
             migration = self._migration_api.deploy_replica_instances(
-                context, replica_id, clone_disks, force, skip_os_morphing,
-                user_scripts=user_scripts)
+                context, replica_id, instance_osmorphing_minion_pool_mappings, clone_disks,
+                force, skip_os_morphing, user_scripts=user_scripts)
         else:
             (origin_endpoint_id,
              destination_endpoint_id,
+             origin_minion_pool_id,
+             destination_minion_pool_id,
+             instance_osmorphing_minion_pool_mappings,
              source_environment,
              destination_environment,
              instances,
@@ -132,6 +145,8 @@ class MigrationController(api_wsgi.Controller):
                  context, migration_body)
             migration = self._migration_api.migrate_instances(
                 context, origin_endpoint_id, destination_endpoint_id,
+                origin_minion_pool_id, destination_minion_pool_id,
+                instance_osmorphing_minion_pool_mappings,
                 source_environment, destination_environment, instances,
                 network_map, storage_mappings, replication_count,
                 shutdown_instances, notes=notes,

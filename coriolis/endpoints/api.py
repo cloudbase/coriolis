@@ -41,3 +41,16 @@ class API(object):
     def validate_source_environment(self, ctxt, endpoint_id, source_env):
         return self._rpc_client.validate_endpoint_source_environment(
             ctxt, endpoint_id, source_env)
+
+    @utils.bad_request_on_error("Invalid source minion pool environment: %s")
+    def validate_endpoint_source_minion_pool_options(
+            self, ctxt, endpoint_id, pool_environment):
+        return self._rpc_client.validate_endpoint_source_minion_pool_options(
+            ctxt, endpoint_id, pool_environment)
+
+    @utils.bad_request_on_error(
+        "Invalid destination minion pool environment: %s")
+    def validate_endpoint_destination_minion_pool_options(
+            self, ctxt, endpoint_id, pool_environment):
+        return self._rpc_client.validate_endpoint_destination_minion_pool_options(
+            ctxt, endpoint_id, pool_environment)

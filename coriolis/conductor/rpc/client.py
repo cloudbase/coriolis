@@ -155,6 +155,9 @@ class ConductorClient(object):
 
     def create_instances_replica(self, ctxt, origin_endpoint_id,
                                  destination_endpoint_id,
+                                 origin_minion_pool_id,
+                                 destination_minion_pool_id,
+                                 instance_osmorphing_minion_pool_mappings,
                                  source_environment, destination_environment,
                                  instances, network_map, storage_mappings,
                                  notes=None):
@@ -162,6 +165,10 @@ class ConductorClient(object):
             ctxt, 'create_instances_replica',
             origin_endpoint_id=origin_endpoint_id,
             destination_endpoint_id=destination_endpoint_id,
+            origin_minion_pool_id=origin_minion_pool_id,
+            destination_minion_pool_id=destination_minion_pool_id,
+            instance_osmorphing_minion_pool_mappings=(
+                instance_osmorphing_minion_pool_mappings),
             destination_environment=destination_environment,
             instances=instances,
             notes=notes,
@@ -197,15 +204,22 @@ class ConductorClient(object):
             ctxt, 'get_migration', migration_id=migration_id)
 
     def migrate_instances(self, ctxt, origin_endpoint_id,
-                          destination_endpoint_id, source_environment,
-                          destination_environment, instances, network_map,
-                          storage_mappings, replication_count,
-                          shutdown_instances=False, notes=None,
-                          skip_os_morphing=False, user_scripts=None):
+                          destination_endpoint_id, origin_minion_pool_id,
+                          destination_minion_pool_id,
+                          instance_osmorphing_minion_pool_mappings,
+                          source_environment, destination_environment,
+                          instances, network_map, storage_mappings,
+                          replication_count, shutdown_instances=False,
+                          notes=None, skip_os_morphing=False,
+                          user_scripts=None):
         return self._client.call(
             ctxt, 'migrate_instances',
             origin_endpoint_id=origin_endpoint_id,
             destination_endpoint_id=destination_endpoint_id,
+            origin_minion_pool_id=origin_minion_pool_id,
+            destination_minion_pool_id=destination_minion_pool_id,
+            instance_osmorphing_minion_pool_mappings=(
+                instance_osmorphing_minion_pool_mappings),
             destination_environment=destination_environment,
             instances=instances,
             notes=notes,
@@ -217,11 +231,15 @@ class ConductorClient(object):
             source_environment=source_environment,
             user_scripts=user_scripts)
 
-    def deploy_replica_instances(self, ctxt, replica_id, clone_disks=False,
+    def deploy_replica_instances(self, ctxt, replica_id,
+                                 instance_osmorphing_minion_pool_mappings=None,
+                                 clone_disks=False,
                                  force=False, skip_os_morphing=False,
                                  user_scripts=None):
         return self._client.call(
             ctxt, 'deploy_replica_instances', replica_id=replica_id,
+            instance_osmorphing_minion_pool_mappings=(
+                instance_osmorphing_minion_pool_mappings),
             clone_disks=clone_disks, force=force,
             skip_os_morphing=skip_os_morphing,
             user_scripts=user_scripts)
@@ -372,3 +390,105 @@ class ConductorClient(object):
     def delete_service(self, ctxt, service_id):
         return self._client.call(
             ctxt, 'delete_service', service_id=service_id)
+
+    def create_minion_pool(
+            self, ctxt, name, endpoint_id, pool_platform, pool_os_type,
+            environment_options, minimum_minions, maximum_minions,
+            minion_max_idle_time, minion_retention_strategy, notes=None):
+        return self._client.call(
+            ctxt, 'create_minion_pool', name=name, endpoint_id=endpoint_id,
+            pool_platform=pool_platform, pool_os_type=pool_os_type,
+            environment_options=environment_options,
+            minimum_minions=minimum_minions,
+            maximum_minions=maximum_minions,
+            minion_max_idle_time=minion_max_idle_time,
+            minion_retention_strategy=minion_retention_strategy,
+            notes=notes)
+
+    def set_up_shared_minion_pool_resources(self, ctxt, minion_pool_id):
+        return self._client.call(
+            ctxt, "set_up_shared_minion_pool_resources",
+            minion_pool_id=minion_pool_id)
+
+    def tear_down_shared_minion_pool_resources(
+            self, ctxt, minion_pool_id, force=False):
+        return self._client.call(
+            ctxt, "tear_down_shared_minion_pool_resources",
+            minion_pool_id=minion_pool_id, force=force)
+
+    def allocate_minion_pool_machines(self, ctxt, minion_pool_id):
+        return self._client.call(
+            ctxt, "allocate_minion_pool_machines",
+            minion_pool_id=minion_pool_id)
+
+    def deallocate_minion_pool_machines(
+            self, ctxt, minion_pool_id, force=False):
+        return self._client.call(
+            ctxt, "deallocate_minion_pool_machines",
+            minion_pool_id=minion_pool_id,
+            force=force)
+
+    def get_minion_pools(self, ctxt):
+        return self._client.call(ctxt, 'get_minion_pools')
+
+    def get_minion_pool(self, ctxt, minion_pool_id):
+        return self._client.call(
+            ctxt, 'get_minion_pool', minion_pool_id=minion_pool_id)
+
+    def update_minion_pool(self, ctxt, minion_pool_id, updated_values):
+        return self._client.call(
+            ctxt, 'update_minion_pool',
+            minion_pool_id=minion_pool_id, updated_values=updated_values)
+
+    def delete_minion_pool(self, ctxt, minion_pool_id):
+        return self._client.call(
+            ctxt, 'delete_minion_pool', minion_pool_id=minion_pool_id)
+
+    def get_minion_pool_lifecycle_executions(
+            self, ctxt, minion_pool_id, include_tasks=False):
+        return self._client.call(
+            ctxt, 'get_minion_pool_lifecycle_executions',
+            minion_pool_id=minion_pool_id, include_tasks=include_tasks)
+
+    def get_minion_pool_lifecycle_execution(
+            self, ctxt, minion_pool_id, execution_id):
+        return self._client.call(
+            ctxt, 'get_minion_pool_lifecycle_execution',
+            minion_pool_id=minion_pool_id, execution_id=execution_id)
+
+    def delete_minion_pool_lifecycle_execution(
+            self, ctxt, minion_pool_id, execution_id):
+        return self._client.call(
+            ctxt, 'delete_minion_pool_lifecycle_execution',
+            minion_pool_id=minion_pool_id, execution_id=execution_id)
+
+    def cancel_minion_pool_lifecycle_execution(
+            self, ctxt, minion_pool_id, execution_id, force):
+        return self._client.call(
+            ctxt, 'cancel_minion_pool_lifecycle_execution',
+            minion_pool_id=minion_pool_id, execution_id=execution_id,
+            force=force)
+
+    def get_endpoint_source_minion_pool_options(
+            self, ctxt, endpoint_id, env, option_names):
+        return self._client.call(
+            ctxt, 'get_endpoint_source_minion_pool_options',
+            endpoint_id=endpoint_id, env=env, option_names=option_names)
+
+    def get_endpoint_destination_minion_pool_options(
+            self, ctxt, endpoint_id, env, option_names):
+        return self._client.call(
+            ctxt, 'get_endpoint_destination_minion_pool_options',
+            endpoint_id=endpoint_id, env=env, option_names=option_names)
+
+    def validate_endpoint_source_minion_pool_options(
+            self, ctxt, endpoint_id, pool_environment):
+        return self._client.call(
+            ctxt, 'validate_endpoint_source_minion_pool_options',
+            endpoint_id=endpoint_id, pool_environment=pool_environment)
+
+    def validate_endpoint_destination_minion_pool_options(
+            self, ctxt, endpoint_id, pool_environment):
+        return self._client.call(
+            ctxt, 'validate_endpoint_destination_minion_pool_options',
+            endpoint_id=endpoint_id, pool_environment=pool_environment)

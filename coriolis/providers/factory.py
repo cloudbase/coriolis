@@ -49,7 +49,11 @@ PROVIDER_TYPE_MAP = {
     constants.PROVIDER_TYPE_DESTINATION_REPLICA_UPDATE: (
         base.BaseUpdateDestinationReplicaProvider),
     constants.PROVIDER_TYPE_SOURCE_ENDPOINT_OPTIONS: (
-        base.BaseEndpointSourceOptionsProvider)
+        base.BaseEndpointSourceOptionsProvider),
+    constants.PROVIDER_TYPE_SOURCE_MINION_POOL: (
+        base.BaseSourceMinionPoolProvider),
+    constants.PROVIDER_TYPE_DESTINATION_MINION_POOL: (
+        base.BaseDestinationMinionPoolProvider)
 }
 
 
