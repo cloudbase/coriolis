@@ -103,6 +103,7 @@ class WindowsOSDetectTools(base.BaseOSDetectTools):
             LOG.debug(
                 "Exception during Windows OS detection: %s",
                 utils.get_exception_details())
+            raise
 
         LOG.debug(
             "Successfully identified Windows release as: Version no.: %s; "
