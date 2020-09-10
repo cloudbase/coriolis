@@ -485,6 +485,11 @@ class WorkerServerEndpoint(object):
         except exception.ConnectionValidationException as ex:
             is_valid = False
             message = str(ex)
+        except Exception as ex:
+            is_valid = False
+            message = (
+                "An unexpected connection validation exception "
+                "ocurred: %s" % str(ex))
 
         return (is_valid, message)
 
