@@ -547,6 +547,7 @@ class AttachVolumesToOSMorphingMinionTask(
         fields = super(
             AttachVolumesToOSMorphingMinionTask,
             cls).get_returned_task_info_properties()
+        fields.append("instance_deployment_info")
         return fields
 
     @classmethod
@@ -568,6 +569,20 @@ class AttachVolumesToOSMorphingMinionTask(
     @classmethod
     def _clear_mapped_minion_task_info_field(cls):
         return False
+
+    def _run(self, ctxt, instance, origin, destination,
+             task_info, event_handler):
+        res = super(
+            AttachVolumesToOSMorphingMinionTask, self)._run(
+                ctxt, instance, origin, destination, task_info, event_handler)
+
+        instance_deployment_info = task_info['instance_deployment_info']
+        if 'volumes_info' in res:
+            instance_deployment_info['volumes_info'] = res['volumes_info']
+            del res['volumes_info']
+            res['instance_deployment_info'] = instance_deployment_info
+
+        return res
 
 
 class DetachVolumesFromOSMorphingMinionTask(
