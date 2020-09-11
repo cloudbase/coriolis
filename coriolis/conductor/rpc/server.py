@@ -2574,12 +2574,6 @@ class ConductorServerEndpoint(object):
             "to: %(status)s",
             {"id": execution_id, "status": execution_status,
              "action": execution.action_id})
-        if ctxt.delete_trust_id:
-            LOG.debug(
-                "Deleting Keystone trust following status change "
-                "for Execution '%s' (action '%s') to '%s'",
-                execution_id, execution.action_id, execution_status)
-            keystone.delete_trust(ctxt)
 
         if execution.type in constants.MINION_POOL_EXECUTION_TYPES:
             self._update_minion_pool_status_for_finished_execution(
@@ -2595,6 +2589,13 @@ class ConductorServerEndpoint(object):
                 action = db_api.get_action(ctxt, execution.action_id)
                 self._deallocate_minion_machines_for_action(
                     ctxt, action)
+
+                if ctxt.delete_trust_id:
+                    LOG.debug(
+                        "Deleting Keystone trust following status change "
+                        "for Execution '%s' (action '%s') to '%s'",
+                        execution_id, execution.action_id, execution_status)
+                    keystone.delete_trust(ctxt)
             else:
                 LOG.debug(
                     "Not deallocating minion machines for Execution '%s' "
