@@ -359,20 +359,23 @@ class _BaseVolumesMinionMachineAttachmentTask(base.TaskRunner):
     @classmethod
     def get_required_task_info_properties(cls):
         fields = list(cls._get_minion_task_info_field_mappings().keys())
-        fields.append("volumes_info")
         return fields
 
     @classmethod
     def get_returned_task_info_properties(cls):
         fields = list(cls._get_minion_task_info_field_mappings().values())
         fields.append(cls._get_minion_properties_task_info_field())
-        fields.append("volumes_info")
         return fields
 
     @classmethod
     def get_required_provider_types(cls):
         return _get_required_minion_pool_provider_types_for_platform(
             cls.get_required_platform())
+
+    @classmethod
+    def _get_volumes_info_from_task_info(cls, task_info):
+        raise NotImplementedError(
+            "No minion volumes info retrieval logic implemented.")
 
     @classmethod
     def _get_minion_properties_task_info_field(cls):
@@ -409,7 +412,7 @@ class _BaseVolumesMinionMachineAttachmentTask(base.TaskRunner):
         provider = providers_factory.get_provider(
             platform_to_target["type"], provider_type, event_handler)
 
-        volumes_info = task_info["volumes_info"]
+        volumes_info = self._get_volumes_info_from_task_info(task_info)
         minion_properties = task_info[
             self._get_minion_properties_task_info_field()]
         res = self._get_provider_disk_operation(provider)(
@@ -442,7 +445,31 @@ class _BaseVolumesMinionMachineAttachmentTask(base.TaskRunner):
         return result
 
 
-class AttachVolumesToSourceMinionTask(_BaseVolumesMinionMachineAttachmentTask):
+class _BaseAttachVolumesToTransferMinionTask(
+        _BaseVolumesMinionMachineAttachmentTask):
+
+    @classmethod
+    def _get_volumes_info_from_task_info(cls, task_info):
+        return task_info["volumes_info"]
+
+    @classmethod
+    def get_required_task_info_properties(cls):
+        fields = super(
+            _BaseAttachVolumesToTransferMinionTask,
+            cls).get_required_task_info_properties()
+        fields.append("volumes_info")
+        return fields
+
+    @classmethod
+    def get_returned_task_info_properties(cls):
+        fields = super(
+            _BaseAttachVolumesToTransferMinionTask,
+            cls).get_returned_task_info_properties()
+        fields.append("volumes_info")
+        return fields
+
+
+class AttachVolumesToSourceMinionTask(_BaseAttachVolumesToTransferMinionTask):
 
     @classmethod
     def get_required_platform(cls):
@@ -451,6 +478,10 @@ class AttachVolumesToSourceMinionTask(_BaseVolumesMinionMachineAttachmentTask):
     @classmethod
     def _get_minion_properties_task_info_field(cls):
         return "source_minion_provider_properties"
+
+    @classmethod
+    def get_volumes_info_from_task_info(cls, task_info):
+        return task_info["volumes_info"]
 
     @classmethod
     def _get_minion_task_info_field_mappings(cls):
@@ -468,7 +499,8 @@ class DetachVolumesFromSourceMinionTask(AttachVolumesToSourceMinionTask):
         return provider.detach_volumes_from_minion
 
 
-class AttachVolumesToDestinationMinionTask(_BaseVolumesMinionMachineAttachmentTask):
+class AttachVolumesToDestinationMinionTask(
+        _BaseAttachVolumesToTransferMinionTask):
 
     @classmethod
     def get_required_platform(cls):
@@ -496,6 +528,26 @@ class DetachVolumesFromDestinationMinionTask(AttachVolumesToDestinationMinionTas
 
 class AttachVolumesToOSMorphingMinionTask(
         _BaseVolumesMinionMachineAttachmentTask):
+
+    @classmethod
+    def _get_volumes_info_from_task_info(cls, task_info):
+        return task_info[
+            "instance_deployment_info"]["volumes_info"]
+
+    @classmethod
+    def get_required_task_info_properties(cls):
+        fields = super(
+            AttachVolumesToOSMorphingMinionTask,
+            cls).get_required_task_info_properties()
+        fields.append("instance_deployment_info")
+        return fields
+
+    @classmethod
+    def get_returned_task_info_properties(cls):
+        fields = super(
+            AttachVolumesToOSMorphingMinionTask,
+            cls).get_returned_task_info_properties()
+        return fields
 
     @classmethod
     def get_required_platform(cls):
