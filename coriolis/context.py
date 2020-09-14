@@ -65,6 +65,7 @@ class RequestContext(context.RequestContext):
         result['request_id'] = self.request_id
         result['show_deleted'] = self.show_deleted
         result['trust_id'] = self.trust_id
+        result['delete_trust_id'] = self.delete_trust_id
         return result
 
     @classmethod
