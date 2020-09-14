@@ -1348,7 +1348,7 @@ class ConductorServerEndpoint(object):
                 for (instance_id, pool_id) in (
                     action.instance_osmorphing_minion_pool_mappings.items())
                 if pool_id}
-            for (instance, pool_id) in osmorphing_pool_mappings:
+            for (instance, pool_id) in osmorphing_pool_mappings.items():
                 osmorphing_pool = _get_pool(pool_id)
                 if osmorphing_pool.origin_endpoint_id != (
                         action.destination_endpoint_id):
