@@ -6,6 +6,7 @@ from webob import exc
 
 from coriolis import exception
 from coriolis.api.v1.views import endpoint_view
+from coriolis.api.v1 import utils as api_utils
 from coriolis.api import wsgi as api_wsgi
 from coriolis.endpoints import api
 from coriolis.policies import endpoints as endpoint_policies
@@ -33,24 +34,17 @@ class EndpointController(api_wsgi.Controller):
         return endpoint_view.collection(
             req, self._endpoint_api.get_endpoints(context))
 
+    @api_utils.format_keyerror_message(resource='endpoint', method='create')
     def _validate_create_body(self, body):
-        try:
-            endpoint = body["endpoint"]
-            name = endpoint["name"]
-            description = endpoint.get("description")
-            endpoint_type = endpoint["type"]
-            connection_info = endpoint["connection_info"]
-            mapped_regions = endpoint.get("mapped_regions", [])
-            return (
-                name, endpoint_type, description, connection_info,
-                mapped_regions)
-        except Exception as ex:
-            LOG.exception(ex)
-            if hasattr(ex, "message"):
-                msg = ex.message
-            else:
-                msg = str(ex)
-            raise exception.InvalidInput(msg)
+        endpoint = body["endpoint"]
+        name = endpoint["name"]
+        description = endpoint.get("description")
+        endpoint_type = endpoint["type"]
+        connection_info = endpoint["connection_info"]
+        mapped_regions = endpoint.get("mapped_regions", [])
+        return (
+            name, endpoint_type, description, connection_info,
+            mapped_regions)
 
     def create(self, req, body):
         context = req.environ["coriolis.context"]
@@ -61,21 +55,14 @@ class EndpointController(api_wsgi.Controller):
             context, name, endpoint_type, description, connection_info,
             mapped_regions))
 
+    @api_utils.format_keyerror_message(resource='endpoint', method='update')
     def _validate_update_body(self, body):
-        try:
-            endpoint = body["endpoint"]
-            return {
-                k: endpoint[k]
-                for k in endpoint.keys() & {
-                    "name", "description", "connection_info",
-                    "mapped_regions"}}
-        except Exception as ex:
-            LOG.exception(ex)
-            if hasattr(ex, "message"):
-                msg = ex.message
-            else:
-                msg = str(ex)
-            raise exception.InvalidInput(msg)
+        endpoint = body["endpoint"]
+        return {
+            k: endpoint[k]
+            for k in endpoint.keys() & {
+                "name", "description", "connection_info",
+                "mapped_regions"}}
 
     def update(self, req, id, body):
         context = req.environ["coriolis.context"]

@@ -1,8 +1,6 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-import json
-
 from oslo_log import log as logging
 from webob import exc
 
@@ -53,61 +51,57 @@ class MigrationController(api_wsgi.Controller):
             req, self._migration_api.get_migrations(
                 context, include_tasks=True))
 
+    @api_utils.format_keyerror_message(resource='migration', method='create')
     def _validate_migration_input(self, context, body):
-        try:
-            migration = body["migration"]
-            origin_endpoint_id = migration["origin_endpoint_id"]
-            destination_endpoint_id = migration["destination_endpoint_id"]
-            origin_minion_pool_id = migration.get('origin_minion_pool_id')
-            destination_minion_pool_id = migration.get(
-                'destination_minion_pool_id')
-            instance_osmorphing_minion_pool_mappings = migration.get(
-                'instance_osmorphing_minion_pool_mappings', {})
-            destination_environment = migration.get(
-                "destination_environment", {})
-            instances = migration["instances"]
-            notes = migration.get("notes")
-            skip_os_morphing = migration.get("skip_os_morphing", False)
-            shutdown_instances = migration.get(
-                "shutdown_instances", False)
-            replication_count = int(migration.get("replication_count", 2))
-            if replication_count not in range(1, 11):
-                raise ValueError(
-                    "'replication_count' must be an integer between 1 and 10."
-                    " Got: %s" % replication_count)
+        migration = body["migration"]
+        origin_endpoint_id = migration["origin_endpoint_id"]
+        destination_endpoint_id = migration["destination_endpoint_id"]
+        origin_minion_pool_id = migration.get('origin_minion_pool_id')
+        destination_minion_pool_id = migration.get(
+            'destination_minion_pool_id')
+        instance_osmorphing_minion_pool_mappings = migration.get(
+            'instance_osmorphing_minion_pool_mappings', {})
+        destination_environment = migration.get(
+            "destination_environment", {})
+        instances = migration["instances"]
+        notes = migration.get("notes")
+        skip_os_morphing = migration.get("skip_os_morphing", False)
+        shutdown_instances = migration.get(
+            "shutdown_instances", False)
+        replication_count = int(migration.get("replication_count", 2))
+        if replication_count not in range(1, 11):
+            raise ValueError(
+                "'replication_count' must be an integer between 1 and 10."
+                " Got: %s" % replication_count)
 
-            source_environment = migration.get("source_environment", {})
-            self._endpoints_api.validate_source_environment(
-                context, origin_endpoint_id, source_environment)
+        source_environment = migration.get("source_environment", {})
+        self._endpoints_api.validate_source_environment(
+            context, origin_endpoint_id, source_environment)
 
-            network_map = migration.get("network_map", {})
-            api_utils.validate_network_map(network_map)
-            destination_environment['network_map'] = network_map
+        network_map = migration.get("network_map", {})
+        api_utils.validate_network_map(network_map)
+        destination_environment['network_map'] = network_map
 
-            # NOTE(aznashwan): we validate the destination environment for the
-            # import provider before appending the 'storage_mappings' parameter
-            # for plugins with strict property name checks which do not yet
-            # support storage mapping features:
-            self._endpoints_api.validate_target_environment(
-                context, destination_endpoint_id, destination_environment)
+        # NOTE(aznashwan): we validate the destination environment for the
+        # import provider before appending the 'storage_mappings' parameter
+        # for plugins with strict property name checks which do not yet
+        # support storage mapping features:
+        self._endpoints_api.validate_target_environment(
+            context, destination_endpoint_id, destination_environment)
 
-            # TODO(aznashwan): until the provider plugin interface is updated
-            # to have separate 'network_map' and 'storage_mappings' fields,
-            # we add them as part of the destination environment:
-            storage_mappings = migration.get("storage_mappings", {})
-            api_utils.validate_storage_mappings(storage_mappings)
-            destination_environment['storage_mappings'] = storage_mappings
+        # TODO(aznashwan): until the provider plugin interface is updated
+        # to have separate 'network_map' and 'storage_mappings' fields,
+        # we add them as part of the destination environment:
+        storage_mappings = migration.get("storage_mappings", {})
+        api_utils.validate_storage_mappings(storage_mappings)
+        destination_environment['storage_mappings'] = storage_mappings
 
-            return (origin_endpoint_id, destination_endpoint_id,
-                    origin_minion_pool_id, destination_minion_pool_id,
-                    instance_osmorphing_minion_pool_mappings, source_environment,
-                    destination_environment, instances, notes,
-                    skip_os_morphing, replication_count,
-                    shutdown_instances, network_map, storage_mappings)
-        except Exception as ex:
-            LOG.exception(ex)
-            msg = getattr(ex, "message", str(ex))
-            raise exception.InvalidInput(msg)
+        return (origin_endpoint_id, destination_endpoint_id,
+                origin_minion_pool_id, destination_minion_pool_id,
+                instance_osmorphing_minion_pool_mappings, source_environment,
+                destination_environment, instances, notes,
+                skip_os_morphing, replication_count,
+                shutdown_instances, network_map, storage_mappings)
 
     def create(self, req, body):
         # TODO(alexpilotti): validate body

@@ -6,6 +6,7 @@ from webob import exc
 
 from coriolis import exception
 from coriolis.api.v1.views import service_view
+from coriolis.api.v1 import utils as api_utils
 from coriolis.api import wsgi as api_wsgi
 from coriolis.policies import services as service_policies
 from coriolis.services import api
@@ -33,22 +34,15 @@ class ServiceController(api_wsgi.Controller):
         return service_view.collection(
             req, self._service_api.get_services(context))
 
+    @api_utils.format_keyerror_message(resource='service', method='create')
     def _validate_create_body(self, body):
-        try:
-            service = body["service"]
-            host = service["host"]
-            binary = service["binary"]
-            topic = service["topic"]
-            mapped_regions = service.get('mapped_regions', [])
-            enabled = service.get("enabled", True)
-            return host, binary, topic, mapped_regions, enabled
-        except Exception as ex:
-            LOG.exception(ex)
-            if hasattr(ex, "message"):
-                msg = ex.message
-            else:
-                msg = str(ex)
-            raise exception.InvalidInput(msg)
+        service = body["service"]
+        host = service["host"]
+        binary = service["binary"]
+        topic = service["topic"]
+        mapped_regions = service.get('mapped_regions', [])
+        enabled = service.get("enabled", True)
+        return host, binary, topic, mapped_regions, enabled
 
     def create(self, req, body):
         context = req.environ["coriolis.context"]
@@ -59,18 +53,11 @@ class ServiceController(api_wsgi.Controller):
             context, host=host, binary=binary, topic=topic,
             mapped_regions=mapped_regions, enabled=enabled))
 
+    @api_utils.format_keyerror_message(resource='service', method='update')
     def _validate_update_body(self, body):
-        try:
-            service = body["service"]
-            return {k: service[k] for k in service.keys() & {
-                "enabled", "mapped_regions"}}
-        except Exception as ex:
-            LOG.exception(ex)
-            if hasattr(ex, "message"):
-                msg = ex.message
-            else:
-                msg = str(ex)
-            raise exception.InvalidInput(msg)
+        service = body["service"]
+        return {k: service[k] for k in service.keys() & {
+            "enabled", "mapped_regions"}}
 
     def update(self, req, id, body):
         context = req.environ["coriolis.context"]
