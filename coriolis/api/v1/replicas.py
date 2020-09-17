@@ -242,19 +242,38 @@ class ReplicaController(api_wsgi.Controller):
 
         replica = self._replica_api.get_replica(context, id)
         try:
-            merged_body = self._get_merged_replica_values(
-                replica, body['replica'])
+            replica_body = body['replica']
+            origin_endpoint_id = replica_body.get('origin_endpoint_id', None)
+            destination_endpoint_id = replica_body.get(
+                'destination_endpoint_id', None)
+            instances = body['replica'].get('instances', None)
+            if origin_endpoint_id or destination_endpoint_id:
+                raise exc.HTTPBadRequest(
+                    explanation="The source or destination endpoints for a "
+                                "Coriolis Replica cannot be updated after its "
+                                "creation. If the credentials of any of the "
+                                "Replica's endpoints need updating, please "
+                                "update the endpoints themselves.")
+            if instances:
+                raise exc.HTTPBadRequest(
+                    explanation="The list of instances of a Replica cannot be "
+                                "updated")
 
-            origin_endpoint_id = replica["origin_endpoint_id"]
-            destination_endpoint_id = replica["destination_endpoint_id"]
+            merged_body = self._get_merged_replica_values(
+                replica, replica_body)
+
+            replica_origin_endpoint_id = replica["origin_endpoint_id"]
+            replica_destination_endpoint_id = replica[
+                "destination_endpoint_id"]
 
             self._endpoints_api.validate_source_environment(
-                context, origin_endpoint_id,
+                context, replica_origin_endpoint_id,
                 merged_body["source_environment"])
 
             destination_environment = merged_body["destination_environment"]
             self._endpoints_api.validate_target_environment(
-                context, destination_endpoint_id, destination_environment)
+                context, replica_destination_endpoint_id,
+                destination_environment)
 
             api_utils.validate_network_map(merged_body["network_map"])
 
@@ -271,21 +290,6 @@ class ReplicaController(api_wsgi.Controller):
     def update(self, req, id, body):
         context = req.environ["coriolis.context"]
         context.can(replica_policies.get_replicas_policy_label("update"))
-        origin_endpoint_id = body['replica'].get('origin_endpoint_id', None)
-        destination_endpoint_id = body['replica'].get(
-            'destination_endpoint_id', None)
-        instances = body['replica'].get('instances', None)
-        if origin_endpoint_id or destination_endpoint_id:
-            raise exc.HTTPBadRequest(
-                explanation="The source or destination endpoints for a "
-                            "Coriolis Replica cannot be updated after its "
-                            "creation. If the credentials of any of the "
-                            "Replica's endpoints need updating, please update "
-                            "the endpoints themselves.")
-        if instances:
-            raise exc.HTTPBadRequest(
-                explanation="The list of instances of a Replica cannot be "
-                            "updated")
 
         updated_values = self._validate_update_body(id, context, body)
         try:
