@@ -154,7 +154,7 @@ class MinionPoolController(api_wsgi.Controller):
                 raise Exception(
                     "The 'pool_platform' of a minion pool cannot be updated.")
             vals = {k: minion_pool[k] for k in minion_pool.keys() &
-                    {"name", "environment_options", "minimum_minions",
+                    {"pool_name", "environment_options", "minimum_minions",
                      "maximum_minions", "minion_max_idle_time",
                      "minion_retention_strategy", "notes", "pool_os_type"}}
             if 'minion_retention_strategy' in vals:
