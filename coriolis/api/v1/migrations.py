@@ -53,8 +53,9 @@ class MigrationController(api_wsgi.Controller):
             req, self._migration_api.get_migrations(
                 context, include_tasks=True))
 
-    def _validate_migration_input(self, context, migration):
+    def _validate_migration_input(self, context, body):
         try:
+            migration = body["migration"]
             origin_endpoint_id = migration["origin_endpoint_id"]
             destination_endpoint_id = migration["destination_endpoint_id"]
             origin_minion_pool_id = migration.get('origin_minion_pool_id')
@@ -142,7 +143,7 @@ class MigrationController(api_wsgi.Controller):
              shutdown_instances,
              network_map,
              storage_mappings) = self._validate_migration_input(
-                 context, migration_body)
+                 context, body)
             migration = self._migration_api.migrate_instances(
                 context, origin_endpoint_id, destination_endpoint_id,
                 origin_minion_pool_id, destination_minion_pool_id,
