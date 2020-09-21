@@ -11,7 +11,6 @@
     update: yes
     force: yes
     version: "{{ repo_branch }}"
-    key_file: "{{ bitbucket_ssh_key_file if bitbucket_ssh_key_file is defined else '' }}"
     accept_hostkey: yes
   vars:
     repo_owner: "{{ custom_repo_owner_names['compressor'] | default('cloudbase') }}"
