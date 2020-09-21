@@ -7,10 +7,12 @@ import requests
 
 from coriolis import exception
 from coriolis import utils
+from oslo_config import cfg
 from oslo_log import log as logging
 
 
 LOG = logging.getLogger(__name__)
+CONF = cfg.CONF
 
 RESERVATION_TYPE_REPLICA = "replica"
 RESERVATION_TYPE_MIGRATION = "migration"
@@ -63,7 +65,8 @@ class LicensingClient(object):
 
         url = self._get_url_for_resource(resource)
 
-        kwargs = {"verify": self._verify}
+        kwargs = {"verify": self._verify,
+                  "timeout": CONF.default_requests_timeout}
         if body:
             if not isinstance(body, (str, bytes)):
                 body = json.dumps(body)

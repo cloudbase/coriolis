@@ -71,7 +71,8 @@ def compression_proxy(content, fmt):
             headers = {
                 "X-Compression-Format": fmt,
             }
-            ret = sess.post(url, data=data, headers=headers)
+            ret = sess.post(url, data=data, headers=headers,
+                            timeout=CONF.default_requests_timeout)
             ret.raise_for_status()
             compressed_data = ret.content
         except Exception as err:

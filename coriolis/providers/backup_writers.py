@@ -563,7 +563,8 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
         self._ensure_session()
         uri = "%s/acquire" % self._uri
         headers = {"X-Client-Token": self._id}
-        resp = self._session.get(uri, headers=headers)
+        resp = self._session.get(
+            uri, headers=headers, timeout=CONF.default_requests_timeout)
         LOG.debug("Returned code: %d. Msg: %s" % (
             resp.status_code, resp.content))
         resp.raise_for_status()
@@ -573,7 +574,8 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
         self._ensure_session()
         uri = "%s/release" % self._uri
         headers = {"X-Client-Token": self._id}
-        resp = self._session.get(uri, headers=headers)
+        resp = self._session.get(
+            uri, headers=headers, timeout=CONF.default_requests_timeout)
         LOG.debug("Returned code: %d. Msg: %s" %
                   (resp.status_code, resp.content))
         resp.raise_for_status()
@@ -650,7 +652,8 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
             def send():
                 self._ensure_session()
                 resp = self._session.post(
-                    self._uri, headers=headers, data=payload["chunk"]
+                    self._uri, headers=headers, data=payload["chunk"],
+                    timeout=CONF.default_requests_timeout
                 )
                 LOG.debug(
                     "Response code: %r, content: %r" %
