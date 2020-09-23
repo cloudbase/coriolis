@@ -440,3 +440,29 @@ class NoSuitableWorkerServiceError(NoServiceError):
     message = _(
         "No suitable Coriolis Worker service was found which fits the "
         "criteria for the required operation.")
+
+
+class OSMorphingException(CoriolisException):
+    pass
+
+
+class PackageManagerOperationException(OSMorphingException):
+    pass
+
+
+class FailedPackageInstallationException(PackageManagerOperationException):
+    message = (
+        "Failed to install required packages %(package_names)s through "
+        "%(package_manager)s. Please ensure that the required packages are "
+        "available within the %(package_manager)s repositories configured "
+        "within the source machine. If not, please either add or enable "
+        "additional repositories within the source machine which contain the "
+        "packages Coriolis requires, or attempt to manually install the "
+        "packages on the source machine and then migrate the VM using Coriolis"
+        " with the OSMorphing process disabled. Error was: %(error)s")
+
+
+class FailedPackageUninstallationException(PackageManagerOperationException):
+    message = (
+        "Failed to remove unwanted packages (%(package_names)s) through "
+        "%(package_manager)s. Error was: %(error)s")

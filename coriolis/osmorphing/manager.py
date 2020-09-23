@@ -131,7 +131,14 @@ def morph_image(origin_provider, destination_provider, connection_info,
     os_mount_tools.set_proxy(proxy_settings)
 
     LOG.info("Preparing for OS partitions discovery")
-    os_mount_tools.setup()
+    try:
+        os_mount_tools.setup()
+    except Exception as err:
+        raise exception.CoriolisException(
+            "Failed to set up the minion machine for OSMorphing. This may be "
+            "due to an incompatibility between the OS image used for the "
+            "OSMorphing minion machine and the VM undergoing OSMorphing. "
+            "Error was: %s" % str(err)) from err
 
     event_manager.progress_update("Discovering and mounting OS partitions")
     os_root_dir, os_root_dev = os_mount_tools.mount_os()
@@ -230,17 +237,22 @@ def morph_image(origin_provider, destination_provider, connection_info,
     if packages_add:
         event_manager.progress_update(
             "Adding packages: %s" % str(packages_add))
-        try:
-            import_os_morphing_tools.install_packages(
-                packages_add)
-        except Exception as err:
-            raise exception.CoriolisException(
-                "Failed to install packages: %s. Please review logs"
-                " for more details." % ", ".join(
-                    packages_add)) from err
+
+        import_os_morphing_tools.install_packages(
+            packages_add)
 
     LOG.info("Post packages install")
     import_os_morphing_tools.post_packages_install(packages_add)
 
     event_manager.progress_update("Dismounting OS partitions")
-    os_mount_tools.dismount_os(os_root_dir)
+    try:
+        os_mount_tools.dismount_os(os_root_dir)
+    except Exception as err:
+        raise exception.CoriolisException(
+            "Failed to dismount the OS undergoing OSMorphing. This could have "
+            "been caused by minor FS corruption during the last disk sync. "
+            "Please ensure that any source-side FS integrity mechanisms (e.g. "
+            "filesystem quiescing, crash-consistent backups, etc.) are "
+            "enabled and available for the source machine. If none are "
+            "available, please try migrating/replicating the source machine "
+            "while it is powered off. Error was: %s" % str(err)) from err

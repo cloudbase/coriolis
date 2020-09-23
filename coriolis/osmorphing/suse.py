@@ -123,8 +123,10 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
                 "zypper --non-interactive --no-gpg-checks refresh")
         except Exception as err:
             raise exception.CoriolisException(
-                "Failed to activate SLES module: %s. Please review logs"
-                " for more details." % module) from err
+                "Failed to activate SLES module: %s. Please check whether the "
+                "SUSE system registration is still valid on the source VM "
+                "and retry. Review logs for more details. Error was: %s" % (
+                    module, str(err))) from err
 
     def _add_cloud_tools_repo(self):
         repo_suffix = ""
@@ -148,8 +150,14 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
                 " for more details." % repo) from err
 
     def install_packages(self, package_names):
-        self._exec_cmd_chroot(
-            'zypper --non-interactive install %s' % " ".join(package_names))
+        try:
+            self._exec_cmd_chroot(
+                'zypper --non-interactive install %s' % " ".join(package_names)
+            )
+        except exception.CoriolisException as err:
+            raise exception.FailedPackageInstallationException(
+                package_names=package_names, package_manager='zypper',
+                error=str(err)) from err
 
     def uninstall_packages(self, package_names):
         try:

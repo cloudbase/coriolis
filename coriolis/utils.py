@@ -334,8 +334,10 @@ def check_fs(ssh, fs_type, dev_path):
             ssh, "sudo fsck -p -t %s %s" % (fs_type, dev_path),
             get_pty=True).decode()
         LOG.debug("File system checked:\n%s", out)
-    except Exception as ex:
-        LOG.warn("Checking file system returned an error:\n%s", str(ex))
+    except Exception:
+        LOG.warn("Checking file system returned an error:\n%s" % (
+            get_exception_details()))
+        raise
 
 
 def run_xfs_repair(ssh, dev_path):

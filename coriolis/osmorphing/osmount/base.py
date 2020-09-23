@@ -391,15 +391,36 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
 
         if os_root_device is None:
             raise exception.OperatingSystemNotFound(
-                "root partition not found")
+                "Coriolis was unable to identify the root partition of the OS "
+                "being migrated for mounting during OSMorphing. Please ensure "
+                "that the source VM's root partition(s) are not encrypted, "
+                "and that they are using a filesystem type and version which "
+                "is supported by the OS images used for the OSMorphing minion "
+                "machine. Also ensure that the source VM's mountpoint "
+                "declarations in '/etc/fstab' are all correct, and are "
+                "declared using '/dev/disk/by-uuid/' or 'UUID=' notation. "
+                "If all else fails, please retry while using an OSMorphing "
+                "minion machine image which is the same OS release as the VM "
+                "being migrated.")
 
         try:
             tmp_dir = self._exec_cmd('mktemp -d').decode().splitlines()[0]
             self._exec_cmd('sudo mount %s %s' % (os_root_device, tmp_dir))
             os_root_dir = tmp_dir
-        except Exception:
+        except Exception as ex:
             self._event_manager.progress_update(
-                "Failed to mount root device '%s'" % os_root_device)
+                "Exception occurred while Coriolis was attempting to mount the"
+                " root device (%s) of the OS being migrated for OSMorphing. "
+                "Please ensure that the source VM's root partition(s) are "
+                "using a filesystem type and version which is supported by the"
+                " OS images used for the OSMorphing minion machine. Also "
+                "ensure that the source VM's mountpoint declarations in "
+                "'/etc/fstab' are all correct, and are declared using "
+                "'/dev/disk/by-uuid/' or 'UUID=' notation. If all else fails, "
+                "please retry while using an OSMorphing minion machine image "
+                "which is the same OS release as the VM being migrated. Error "
+                "was: %s" % (os_root_device, str(ex)))
+            LOG.error(ex)
             LOG.warn(
                 "Failed to mount root device '%s':\n%s",
                 os_root_device, utils.get_exception_details())
@@ -476,7 +497,21 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                 if fs_type == "xfs":
                     utils.run_xfs_repair(self._ssh, dev_path)
                 else:
-                    utils.check_fs(self._ssh, fs_type, dev_path)
+                    try:
+                        utils.check_fs(self._ssh, fs_type, dev_path)
+                    except Exception as err:
+                        self._event_manager.progress_update(
+                            "Coriolis failed to check one of the migrated VM's"
+                            " filesystems. This could have been caused by "
+                            "FS corruption during the last disk sync. If "
+                            "the migration fails, please ensure that any "
+                            "source-side FS integrity mechanisms (e.g. "
+                            "filesystem quiescing, crash-consistent backups, "
+                            "etc.) are enabled and available for the source "
+                            "machine. If none are available, please try "
+                            "migrating/replicating the source machine while it"
+                            " is powered off. Error was: %s" % str(err))
+                        LOG.error(err)
                 dev_paths_to_mount.append(dev_path)
 
         os_root_dir, os_root_device = self._find_and_mount_root(
