@@ -41,10 +41,19 @@ class _ConductorProviderEventHandler(events.BaseEventHandler):
         self._task_id = task_id
         self._rpc_conductor_client = rpc_conductor_client.ConductorClient()
 
-    def progress_update(self, current_step, total_steps, message):
+    def add_task_progress_update(self, total_steps, message):
         LOG.info("Progress update: %s", message)
-        self._rpc_conductor_client.task_progress_update(
-            self._ctxt, self._task_id, current_step, total_steps, message)
+        self._rpc_conductor_client.add_task_progress_update(
+            self._ctxt, self._task_id, total_steps, message)
+
+    def update_task_progress_update(self, step, total_steps, message):
+        LOG.info("Progress update: %s", message)
+        self._rpc_conductor_client.update_task_progress_update(
+            self._ctxt, self._task_id, step, total_steps, message)
+
+    def get_task_progress_step(self):
+        return self._rpc_conductor_client.get_task_progress_step(
+            self._ctxt, self._task_id)
 
     def info(self, message):
         LOG.info(message)

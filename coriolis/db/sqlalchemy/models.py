@@ -45,6 +45,8 @@ class TaskEvent(BASE, models.TimestampMixin, models.SoftDeleteMixin,
 class TaskProgressUpdate(BASE, models.TimestampMixin, models.SoftDeleteMixin,
                          models.ModelBase):
     __tablename__ = 'task_progress_update'
+    __table_args__ = (
+        schema.UniqueConstraint("task_id", "current_step", "deleted"),)
 
     id = sqlalchemy.Column(sqlalchemy.String(36),
                            default=lambda: str(uuid.uuid4()),
@@ -96,7 +98,9 @@ class Task(BASE, models.TimestampMixin, models.SoftDeleteMixin,
     # TODO(alexpilotti): Add soft delete filter
     progress_updates = orm.relationship(TaskProgressUpdate,
                                         cascade="all,delete",
-                                        backref=orm.backref('task'))
+                                        backref=orm.backref('task'),
+                                        order_by=(
+                                            TaskProgressUpdate.current_step))
 
     def to_dict(self):
         result = {
@@ -294,6 +298,7 @@ class Migration(BaseTransferAction):
             "replication_count": self.replication_count,
         })
         return base
+
 
 class ServiceRegionMapping(
         BASE, models.TimestampMixin, models.ModelBase, models.SoftDeleteMixin):

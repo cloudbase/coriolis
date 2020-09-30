@@ -722,16 +722,40 @@ def _get_progress_update(context, task_id, current_step):
         models.TaskProgressUpdate.current_step == current_step).first()
 
 
+@enginefacade.reader
+def get_task_progress_step(context, task_id):
+    curr_step = 0
+    q = _soft_delete_aware_query(context, models.TaskProgressUpdate)
+    last_step = q.filter(
+        models.TaskProgressUpdate.task_id == task_id).order_by(
+            models.TaskProgressUpdate.current_step.desc()).first()
+
+    if last_step:
+        curr_step = last_step.current_step
+
+    return curr_step
+
+
 @enginefacade.writer
-def add_task_progress_update(context, task_id, current_step, total_steps,
-                             message):
-    task_progress_update = _get_progress_update(context, task_id, current_step)
+def add_task_progress_update(context, task_id, total_steps, message):
+    current_step = get_task_progress_step(context, task_id) + 1
+    task_progress_update = models.TaskProgressUpdate(
+        task_id=task_id, current_step=current_step, total_steps=total_steps,
+        message=message)
+    _session(context).add(task_progress_update)
+
+
+@enginefacade.writer
+def update_task_progress_update(context, task_id, step, total_steps, message):
+    task_progress_update = _get_progress_update(context, task_id, step)
     if not task_progress_update:
-        task_progress_update = models.TaskProgressUpdate()
+        task_progress_update = models.TaskProgressUpdate(
+            task_id=task_id, current_step=step, total_steps=total_steps,
+            message=message)
         _session(context).add(task_progress_update)
 
     task_progress_update.task_id = task_id
-    task_progress_update.current_step = current_step
+    task_progress_update.current_step = step
     task_progress_update.total_steps = total_steps
     task_progress_update.message = message
 
