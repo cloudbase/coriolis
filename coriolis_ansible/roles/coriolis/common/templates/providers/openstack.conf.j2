@@ -68,7 +68,7 @@ cinder_ceph_timeout = 30
 # case of secondary volumes, the storage type already used by the individual
 # volumes will be used to avoid a cross-backend volume transfer while the clone
 # is occurring. If unset, the default Cinder volume type will be used.
-# export_interim_volume_type = 
+# export_interim_volume_type =
 
 # Whether or not to download the worker image to a Cinder volume and boot the
 # worker from that. The root disk size" on the configured 'export_flavor_name'
@@ -208,7 +208,7 @@ set_dhcp = True
 # If set to "reuse_ports", Coriolis will reuse any Neutron ports found with
 # the MAC addresses needed for the new VM. If set to "keep_mac", Coriolis
 # will delete any ports with the MAC addresses the VM needs and recreate them
-# with the same MAC address. If set to "create_new_ports", Coriolis will always
+# with the same MAC address. If set to "replace_mac", Coriolis will always
 # create new ports with new MAC addresses.
 port_reuse_policy = keep_mac
 
