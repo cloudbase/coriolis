@@ -2,12 +2,12 @@
 # All Rights Reserved.
 
 from coriolis import utils
-from coriolis.conductor.rpc import client as rpc_client
+from coriolis.minion_manager.rpc import client as rpc_client
 
 
 class API(object):
     def __init__(self):
-        self._rpc_client = rpc_client.ConductorClient()
+        self._rpc_client = rpc_client.MinionManagerClient()
 
     def create(
             self, ctxt, name, endpoint_id, pool_platform, pool_os_type,

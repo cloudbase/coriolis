@@ -201,9 +201,11 @@ class BaseTransferAction(BASE, models.TimestampMixin, models.ModelBase,
     storage_mappings = sqlalchemy.Column(types.Json, nullable=True)
     source_environment = sqlalchemy.Column(types.Json, nullable=True)
     origin_minion_pool_id = sqlalchemy.Column(
-        sqlalchemy.String(36), nullable=True)
+        sqlalchemy.String(36),
+        sqlalchemy.ForeignKey('minion_pool.id'), nullable=True)
     destination_minion_pool_id = sqlalchemy.Column(
-        sqlalchemy.String(36), nullable=True)
+        sqlalchemy.String(36),
+        sqlalchemy.ForeignKey('minion_pool.id'), nullable=True)
     instance_osmorphing_minion_pool_mappings = sqlalchemy.Column(
         types.Json, nullable=False, default=lambda: {})
     user_scripts = sqlalchemy.Column(types.Json, nullable=True)
@@ -407,54 +409,6 @@ class Region(
         secondary="service_region_mapping")
 
 
-class Endpoint(BASE, models.TimestampMixin, models.ModelBase,
-               models.SoftDeleteMixin):
-    __tablename__ = 'endpoint'
-
-    id = sqlalchemy.Column(sqlalchemy.String(36),
-                           default=lambda: str(uuid.uuid4()),
-                           primary_key=True)
-    user_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
-    project_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
-    connection_info = sqlalchemy.Column(types.Json, nullable=False)
-    type = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
-    name = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
-    description = sqlalchemy.Column(sqlalchemy.String(1024), nullable=True)
-    origin_actions = orm.relationship(
-        BaseTransferAction, backref=orm.backref('origin_endpoint'),
-        primaryjoin="and_(BaseTransferAction.origin_endpoint_id==Endpoint.id, "
-                    "BaseTransferAction.deleted=='0')")
-    destination_actions = orm.relationship(
-        BaseTransferAction, backref=orm.backref('destination_endpoint'),
-        primaryjoin="and_(BaseTransferAction.destination_endpoint_id=="
-                    "Endpoint.id, BaseTransferAction.deleted=='0')")
-    mapped_regions = orm.relationship(
-        'Region', back_populates='mapped_endpoints',
-        secondary="endpoint_region_mapping")
-
-
-class ReplicaSchedule(BASE, models.TimestampMixin, models.ModelBase,
-                      models.SoftDeleteMixin):
-    __tablename__ = "replica_schedules"
-
-    id = sqlalchemy.Column(sqlalchemy.String(36),
-                           default=lambda: str(uuid.uuid4()),
-                           primary_key=True)
-    replica_id = sqlalchemy.Column(
-        sqlalchemy.String(36),
-        sqlalchemy.ForeignKey('replica.id'), nullable=False)
-    replica = orm.relationship(
-        Replica, backref=orm.backref("schedules"), foreign_keys=[replica_id])
-    schedule = sqlalchemy.Column(types.Json, nullable=False)
-    expiration_date = sqlalchemy.Column(
-        sqlalchemy.types.DateTime, nullable=True)
-    enabled = sqlalchemy.Column(
-        sqlalchemy.Boolean, nullable=False, default=lambda: False)
-    shutdown_instance = sqlalchemy.Column(
-        sqlalchemy.Boolean, nullable=False, default=False)
-    trust_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
-
-
 class MinionMachine(BASE, models.TimestampMixin, models.ModelBase,
                     models.SoftDeleteMixin):
     __tablename__ = "minion_machine"
@@ -467,7 +421,7 @@ class MinionMachine(BASE, models.TimestampMixin, models.ModelBase,
 
     pool_id = sqlalchemy.Column(
         sqlalchemy.String(36),
-        sqlalchemy.ForeignKey('minion_pool_lifecycle.id'),
+        sqlalchemy.ForeignKey('minion_pool.id'),
         nullable=False)
 
     status = sqlalchemy.Column(
@@ -506,29 +460,30 @@ class MinionMachine(BASE, models.TimestampMixin, models.ModelBase,
         return result
 
 
-class MinionPoolLifecycle(BaseTransferAction):
-    # TODO(aznashwan): this class inherits numerous redundant fields from
-    # BaseTransferAction. Ideally, the upper hirearchy should be split into a
-    # BaseAction, and a separate inheriting BaseTransferAction.
-    __tablename__ = 'minion_pool_lifecycle'
+class MinionPool(
+            BASE, models.TimestampMixin, models.ModelBase,
+            models.SoftDeleteMixin):
+    __tablename__ = 'minion_pool'
 
     id = sqlalchemy.Column(
         sqlalchemy.String(36),
-        sqlalchemy.ForeignKey(
-            'base_transfer_action.base_id'),
         primary_key=True)
 
-    pool_name = sqlalchemy.Column(
+    name = sqlalchemy.Column(
         sqlalchemy.String(255),
         nullable=False)
-    pool_os_type = sqlalchemy.Column(
+    endpoint_id = sqlalchemy.Column(
+        sqlalchemy.String(36),
+        sqlalchemy.ForeignKey('endpoint.id'), nullable=False)
+    os_type = sqlalchemy.Column(
         sqlalchemy.String(255), nullable=False)
-    pool_platform = sqlalchemy.Column(
+    platform = sqlalchemy.Column(
         sqlalchemy.String(255), nullable=False)
-    pool_status = sqlalchemy.Column(
+    environment_options = sqlalchemy.Column(types.Json, nullable=True)
+    status = sqlalchemy.Column(
         sqlalchemy.String(255), nullable=False,
         default=lambda: constants.MINION_POOL_STATUS_UNKNOWN)
-    pool_shared_resources = sqlalchemy.Column(
+    shared_resources = sqlalchemy.Column(
         types.Json, nullable=True)
     minimum_minions = sqlalchemy.Column(
         sqlalchemy.Integer, nullable=False)
@@ -540,41 +495,77 @@ class MinionPoolLifecycle(BaseTransferAction):
         sqlalchemy.String(255), nullable=False)
     minion_machines = orm.relationship(
         MinionMachine, backref=orm.backref('minion_pool'),
-        primaryjoin="and_(MinionMachine.pool_id==MinionPoolLifecycle.id, "
+        primaryjoin="and_(MinionMachine.pool_id==MinionPool.id, "
                     "MinionMachine.deleted=='0')")
 
-    __mapper_args__ = {
-        'polymorphic_identity': 'minion_pool_lifecycle'}
-
-    def to_dict(
-            self, include_info=True, include_machines=True,
-            include_executions=True):
-        base = super(MinionPoolLifecycle, self).to_dict(
-            include_info=include_info, include_executions=include_executions)
-        base.update({
+    def to_dict(self, include_machines=True):
+        base = {
             "id": self.id,
-            "pool_name": self.pool_name,
-            "pool_os_type": self.pool_os_type,
-            "pool_platform": self.pool_platform,
-            "pool_shared_resources": self.pool_shared_resources,
-            "pool_status": self.pool_status,
+            "name": self.name,
+            "endpoint_id": self.endpoint_id,
+            "environment_options": self.environment_options,
+            "os_type": self.os_type,
+            "platform": self.platform,
+            "shared_resources": self.shared_resources,
+            "status": self.status,
             "minimum_minions": self.minimum_minions,
             "maximum_minions": self.maximum_minions,
             "minion_max_idle_time": self.minion_max_idle_time,
-            "minion_retention_strategy": self.minion_retention_strategy})
+            "minion_retention_strategy": self.minion_retention_strategy}
         base["minion_machines"] = []
         if include_machines:
             base["minion_machines"] = [
                 machine.to_dict() for machine in self.minion_machines]
-        # TODO(aznashwan): these nits should be avoided by splitting the
-        # BaseTransferAction class into a more specialized hireachy:
-        redundancies = {
-            "environment_options": [
-                "source_environment", "destination_environment"],
-            "endpoint_id": [
-                "origin_endpoint_id", "destination_endpoint_id"]}
-        for new_key, old_keys in redundancies.items():
-            for old_key in old_keys:
-                if old_key in base:
-                    base[new_key] = base.pop(old_key)
         return base
+
+
+class Endpoint(BASE, models.TimestampMixin, models.ModelBase,
+               models.SoftDeleteMixin):
+    __tablename__ = 'endpoint'
+
+    id = sqlalchemy.Column(sqlalchemy.String(36),
+                           default=lambda: str(uuid.uuid4()),
+                           primary_key=True)
+    user_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
+    project_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
+    connection_info = sqlalchemy.Column(types.Json, nullable=False)
+    type = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
+    name = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
+    description = sqlalchemy.Column(sqlalchemy.String(1024), nullable=True)
+    origin_actions = orm.relationship(
+        BaseTransferAction, backref=orm.backref('origin_endpoint'),
+        primaryjoin="and_(BaseTransferAction.origin_endpoint_id==Endpoint.id, "
+                    "BaseTransferAction.deleted=='0')")
+    destination_actions = orm.relationship(
+        BaseTransferAction, backref=orm.backref('destination_endpoint'),
+        primaryjoin="and_(BaseTransferAction.destination_endpoint_id=="
+                    "Endpoint.id, BaseTransferAction.deleted=='0')")
+    minion_pools = orm.relationship(
+        MinionPool, backref=orm.backref('endpoint'),
+        primaryjoin="and_(MinionPool.endpoint_id=="
+                    "Endpoint.id, MinionPool.deleted=='0')")
+    mapped_regions = orm.relationship(
+        'Region', back_populates='mapped_endpoints',
+        secondary="endpoint_region_mapping")
+
+
+class ReplicaSchedule(BASE, models.TimestampMixin, models.ModelBase,
+                      models.SoftDeleteMixin):
+    __tablename__ = "replica_schedules"
+
+    id = sqlalchemy.Column(sqlalchemy.String(36),
+                           default=lambda: str(uuid.uuid4()),
+                           primary_key=True)
+    replica_id = sqlalchemy.Column(
+        sqlalchemy.String(36),
+        sqlalchemy.ForeignKey('replica.id'), nullable=False)
+    replica = orm.relationship(
+        Replica, backref=orm.backref("schedules"), foreign_keys=[replica_id])
+    schedule = sqlalchemy.Column(types.Json, nullable=False)
+    expiration_date = sqlalchemy.Column(
+        sqlalchemy.types.DateTime, nullable=True)
+    enabled = sqlalchemy.Column(
+        sqlalchemy.Boolean, nullable=False, default=lambda: False)
+    shutdown_instance = sqlalchemy.Column(
+        sqlalchemy.Boolean, nullable=False, default=False)
+    trust_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)

@@ -15,19 +15,6 @@ def upgrade(migrate_engine):
     base_transfer_action = sqlalchemy.Table(
         'base_transfer_action', meta, autoload=True)
 
-    # add the pool option properties for the transfer:
-    origin_minion_pool_id = sqlalchemy.Column(
-        "origin_minion_pool_id", sqlalchemy.String(36), nullable=True)
-    destination_minion_pool_id = sqlalchemy.Column(
-        "destination_minion_pool_id", sqlalchemy.String(36), nullable=True)
-    instance_osmorphing_minion_pool_mappings = sqlalchemy.Column(
-        "instance_osmorphing_minion_pool_mappings", sqlalchemy.Text,
-        nullable=False, default='{}')
-    for col in [
-            origin_minion_pool_id, destination_minion_pool_id,
-            instance_osmorphing_minion_pool_mappings]:
-        base_transfer_action.create_column(col)
-
     # extend tasks execution 'type' column:
     tasks_execution = sqlalchemy.Table(
         'tasks_execution', meta, autoload=True)
@@ -38,23 +25,27 @@ def upgrade(migrate_engine):
     # add table for pool lifecycles:
     tables.append(
         sqlalchemy.Table(
-            'minion_pool_lifecycle',
+            'minion_pool',
             meta,
             sqlalchemy.Column(
                 "id", sqlalchemy.String(36),
-                sqlalchemy.ForeignKey('base_transfer_action.base_id'),
-                primary_key=True),
+                default=lambda: str(uuid.uuid4()), primary_key=True),
             sqlalchemy.Column(
-                "pool_name", sqlalchemy.String(255), nullable=False),
+                "name", sqlalchemy.String(255), nullable=False),
             sqlalchemy.Column(
-                "pool_os_type", sqlalchemy.String(255), nullable=False),
+                "endpoint_id", sqlalchemy.String(36),
+                sqlalchemy.ForeignKey('endpoint.id'), nullable=False),
             sqlalchemy.Column(
-                "pool_platform", sqlalchemy.String(255), nullable=True),
+                "environment_options", sqlalchemy.Text, nullable=False),
             sqlalchemy.Column(
-                "pool_status", sqlalchemy.String(255), nullable=False,
+                "os_type", sqlalchemy.String(255), nullable=False),
+            sqlalchemy.Column(
+                "platform", sqlalchemy.String(255), nullable=True),
+            sqlalchemy.Column(
+                "status", sqlalchemy.String(255), nullable=False,
                 default=lambda: "UNKNOWN"),
             sqlalchemy.Column(
-                "pool_shared_resources", sqlalchemy.Text, nullable=True),
+                "shared_resources", sqlalchemy.Text, nullable=True),
             sqlalchemy.Column(
                 'minimum_minions', sqlalchemy.Integer, nullable=False),
             sqlalchemy.Column(
@@ -82,7 +73,7 @@ def upgrade(migrate_engine):
             sqlalchemy.Column('deleted', sqlalchemy.String(36)),
             sqlalchemy.Column(
                 'pool_id', sqlalchemy.String(36),
-                sqlalchemy.ForeignKey('minion_pool_lifecycle.id'),
+                sqlalchemy.ForeignKey('minion_pool.id'),
                 nullable=False),
             sqlalchemy.Column(
                 'allocated_action', sqlalchemy.String(36), nullable=True),
@@ -97,11 +88,30 @@ def upgrade(migrate_engine):
                 'provider_properties', sqlalchemy.Text,
                 nullable=True)))
 
-    for index, table in enumerate(tables):
-        try:
+    # add the pool option properties for the transfer:
+    origin_minion_pool_id = sqlalchemy.Column(
+        "origin_minion_pool_id", sqlalchemy.String(36),
+        sqlalchemy.ForeignKey('minion_pool.id'), nullable=True)
+    destination_minion_pool_id = sqlalchemy.Column(
+        "destination_minion_pool_id", sqlalchemy.String(36),
+        sqlalchemy.ForeignKey('minion_pool.id'), nullable=True)
+    instance_osmorphing_minion_pool_mappings = sqlalchemy.Column(
+        "instance_osmorphing_minion_pool_mappings", sqlalchemy.Text,
+        nullable=False, default='{}')
+
+    created_columns = []
+    try:
+        for index, table in enumerate(tables):
             table.create()
-        except Exception:
-            # If an error occurs, drop all tables created so far to return
-            # to the previously existing state.
-            meta.drop_all(tables=tables[:index])
-            raise
+        for col in [
+                origin_minion_pool_id, destination_minion_pool_id,
+                instance_osmorphing_minion_pool_mappings]:
+            base_transfer_action.create_column(col)
+            created_columns.append(col)
+    except Exception:
+        # If an error occurs, drop all tables created so far to return
+        # to the previously existing state.
+        for col in created_columns:
+            base_transfer_action.drop_column(col)
+        meta.drop_all(tables=tables[:index])
+        raise
