@@ -144,6 +144,39 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
                     "device_name": dev_name,
                 })
 
+    def _comment_keys_from_ifcfg_files(
+            self, keys, interfaces=None, backup_file_suffix=".bak"):
+        """ Comments the provided list of keys from all 'ifcfg-*' files.
+        Optinally skips ifcfg files for interfaces not listed in 'interfaces'.
+        """
+        if not interfaces:
+            interfaces = []
+        scripts_dir = os.path.join(
+            self._os_root_dir, "etc/sysconfig/network-scripts")
+        all_ifcfg_files = utils.list_ssh_dir(self._ssh, scripts_dir)
+        regex = "^(ifcfg-[a-z0-9]+)$"
+
+        for ifcfgf in all_ifcfg_files:
+            if not re.match(regex, ifcfgf):
+                LOG.debug(
+                    "Skipping ifcfg file with unknown filename '%s'." % ifcfgf)
+                continue
+
+            if interfaces and not any([i in ifcfgf for i in interfaces]):
+                LOG.debug(
+                    "Skipping ifcfg file '%s' as it's not for one of the "
+                    "requested interfaces (%s)", ifcfgf, interfaces)
+                continue
+
+            fullpath = os.path.join(scripts_dir, ifcfgf)
+            for key in keys:
+                self._exec_cmd(
+                    "sudo sed -i%s -E -e 's/^(%s=.*)$/# \\1/g' %s" % (
+                        backup_file_suffix, key, fullpath))
+            LOG.debug(
+                "Commented all %s references from '%s'" % (
+                    keys, fullpath))
+
     def set_net_config(self, nics_info, dhcp):
         if dhcp:
             self.disable_predictable_nic_names()
