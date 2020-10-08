@@ -496,6 +496,7 @@ class WorkerServerEndpoint(object):
         try:
             schemas.validate_value(target_env, target_env_schema)
         except exception.SchemaValidationException as ex:
+            LOG.warn(utils.get_exception_details())
             is_valid = False
             message = str(ex)
 
@@ -512,6 +513,7 @@ class WorkerServerEndpoint(object):
         try:
             schemas.validate_value(source_env, source_env_schema)
         except exception.SchemaValidationException as ex:
+            LOG.warn(utils.get_exception_details())
             is_valid = False
             message = str(ex)
 
@@ -528,6 +530,7 @@ class WorkerServerEndpoint(object):
         try:
             schemas.validate_value(pool_environment, pool_options_schema)
         except exception.SchemaValidationException as ex:
+            LOG.warn(utils.get_exception_details())
             is_valid = False
             message = str(ex)
 
@@ -545,6 +548,7 @@ class WorkerServerEndpoint(object):
         try:
             schemas.validate_value(pool_environment, pool_options_schema)
         except exception.SchemaValidationException as ex:
+            LOG.warn(utils.get_exception_details())
             is_valid = False
             message = str(ex)
 
@@ -574,9 +578,11 @@ class WorkerServerEndpoint(object):
                 "formatted for the '%s' Coriolis plugin in use." % (
                     platform_name))
         except exception.ConnectionValidationException as ex:
+            LOG.warn(utils.get_exception_details())
             is_valid = False
             message = str(ex)
         except Exception as ex:
+            LOG.warn(utils.get_exception_details())
             is_valid = False
             message = (
                 "An unexpected connection validation exception "
