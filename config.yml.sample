@@ -27,7 +27,7 @@ coriolis_profiling_dir_host: /opt/coriolis/profiling
 # The dumping of profiling data must be explicitly tirggered using
 # 'coriolis-ansible dump-memory-profiling'
 # Possible component labels are:
-# ["api", "conductor", "worker", "scheduler", "replica-cron"]
+# ["api", "conductor", "worker", "scheduler", "minion-manager", "replica-cron"]
 enable_profiling_for: []
 
 coriolis_export_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "vmware", "aws"]

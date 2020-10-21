@@ -83,12 +83,34 @@ conductor_rpc_timeout = 60
 # allowing for manual inspection.
 debug_os_morphing_errors = False
 
+[scheduler]
+scheduler_rpc_timeout = 60
+
+[minion_manager]
+minion_mananger_rpc_timeout = 60
+
+# The period of time (in minutes) that minion pool refresh operations should
+# occur at. Minion pools which are in ALLOCATED status will be automatically
+# refreshed with the given period, which includes healthchecking each minion
+# machine, as well as deallocating expired machines.
+# The maximum value for this is 60 (thus guaranteeing at least one refresh/hour)
+# Set to 0 to disable automatic pool refreshing completely.
+# Internal default is 10.
+minion_pool_default_refresh_period_minutes = 0
+
 [worker]
 worker_rpc_timeout = 60
 export_base_path = {{ coriolis_export_dir }}
 
 [replicator]
 default_requests_timeout = 60
+
+[taskflow]
+# The maximum timeout (in seconds) for the taskflow classes which adapt
+# Coriolis worker service tasks to taskflow's task model. This does *not*
+# affect timeouts for Replica/Migration tasks which are run by the Conductor.
+# Default is 3600.
+worker_task_execution_timeout = 3600
 
 [serialization]
 temp_keypair_password = {{ temp_keypair_password }}
