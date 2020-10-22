@@ -18,6 +18,10 @@
       "type": "string",
       "description": "Unique identifier of the VM."
     },
+    "instance_name": {
+      "type": "string",
+      "description": "Human-readable identifier of the VM. Its usage is recommended for platforms that do not use ID as VM identifier."
+    },
     "os_type": {
       "type": "string",
       "description": "The generic type of the operating system installed on the VM.",
