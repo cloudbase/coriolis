@@ -39,7 +39,15 @@ class WorkerClient(rpc.BaseRPCClient):
         self._cast(
             ctxt, 'exec_task', task_id=task_id, task_type=task_type,
             origin=origin, destination=destination, instance=instance,
-            task_info=task_info)
+            task_info=task_info, asynchronous=True)
+
+    def run_task(self, ctxt, server, task_id, task_type, origin, destination,
+                 instance, task_info):
+        cctxt = self._client.prepare(server=server)
+        cctxt.cast(
+            ctxt, 'exec_task', task_id=task_id, task_type=task_type,
+            origin=origin, destination=destination, instance=instance,
+            task_info=task_info, asynchronous=False)
 
     def cancel_task(self, ctxt, task_id, process_id, force):
         return self._call(
