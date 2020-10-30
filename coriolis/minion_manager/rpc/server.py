@@ -16,6 +16,8 @@ from coriolis import utils
 from coriolis.conductor.rpc import client as rpc_conductor_client
 from coriolis.db import api as db_api
 from coriolis.db.sqlalchemy import models
+from coriolis.scheduler.rpc import client as rpc_scheduler_client
+from coriolis.worker.rpc import client as rpc_worker_client
 
 
 VERSION = "1.0"
@@ -42,8 +44,18 @@ def minion_pool_synchronized(func):
 
 
 class MinionManagerServerEndpoint(object):
-    def __init__(self):
-        self._rpc_conductor_client = rpc_conductor_client.ConductorClient()
+
+    @property
+    def _rpc_worker_client(self):
+        return rpc_worker_client.WorkerClient()
+
+    @property
+    def _scheduler_client(self):
+        return rpc_scheduler_client.SchedulerClient()
+
+    @property
+    def _conductor_client(self):
+        return rpc_conductor_client.ConductorClient()
 
     def get_diagnostics(self, ctxt):
         return utils.get_diagnostics_info()

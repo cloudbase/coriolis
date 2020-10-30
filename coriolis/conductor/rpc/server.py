@@ -54,8 +54,7 @@ RPC_TOPIC_TO_CLIENT_CLASS_MAP = {
     constants.SCHEDULER_MAIN_MESSAGING_TOPIC: (
         rpc_scheduler_client.SchedulerClient),
     constants.REPLICA_CRON_MAIN_MESSAGING_TOPIC: (
-        rpc_cron_client.ReplicaCronClient)
-}
+        rpc_cron_client.ReplicaCronClient)}
 
 
 def endpoint_synchronized(func):
@@ -220,49 +219,42 @@ class ConductorServerEndpoint(object):
 
         return diagnostics
 
-    def _get_any_worker_service(self, ctxt, random_choice=False, raw_dict=False):
-        services = self._scheduler_client.get_workers_for_specs(ctxt)
-        if not services:
-            raise exception.NoWorkerServiceError()
-        service = services[0]
-        if random_choice:
-            service = random.choice(services)
-        if raw_dict:
-            return service
-        return db_api.get_service(ctxt, service['id'])
+    def _get_rpc_client_for_service(self, service, *client_args, **client_kwargs):
+        rpc_client_class = RPC_TOPIC_TO_CLIENT_CLASS_MAP.get(service['topic'])
+        if not rpc_client_class:
+            raise exception.NotFound(
+                "No RPC client class for service with topic '%s'." % (
+                    service.topic))
 
-    def _get_worker_rpc_for_host(self, worker_host, **client_kwargs):
-        return rpc_worker_client.WorkerClient(host=worker_host, **client_kwargs)
+        topic = service['topic']
+        if service['topic'] == constants.WORKER_MAIN_MESSAGING_TOPIC:
+            # NOTE: coriolis.service.MessagingService-type services (such
+            # as the worker), always have a dedicated per-host queue
+            # which can be used to target the service:
+            topic = constants.SERVICE_MESSAGING_TOPIC_FORMAT % ({
+                "main_topic": constants.WORKER_MAIN_MESSAGING_TOPIC,
+                "host": service['host']})
+
+        return rpc_client_class(*client_args, topic=topic, **client_kwargs)
+
+    def _get_worker_rpc_for_host(self, host, *client_args, **client_kwargs):
+        rpc_client_class = RPC_TOPIC_TO_CLIENT_CLASS_MAP[
+            constants.WORKER_MAIN_MESSAGING_TOPIC]
+        topic = constants.SERVICE_MESSAGING_TOPIC_FORMAT % ({
+            "main_topic": constants.WORKER_MAIN_MESSAGING_TOPIC,
+            "host": host})
+        return rpc_client_class(*client_args, topic=topic, **client_kwargs)
 
     def _get_worker_service_rpc_for_specs(
             self, ctxt, provider_requirements=None, region_sets=None,
             enabled=True, random_choice=False, raise_on_no_matches=True):
-        requirements_str = (
-            "enabled=%s; region_sets=%s; provider_requirements=%s" % (
-                enabled, region_sets, provider_requirements))
-        LOG.info(
-            "Requesting Worker Service from scheduler with the following "
-            "specifications: %s", requirements_str)
-        services = self._scheduler_client.get_workers_for_specs(
+        selected_service = self._scheduler_client.get_worker_service_for_specs(
             ctxt, provider_requirements=provider_requirements,
-            region_sets=region_sets, enabled=enabled)
-        if not services:
-            if raise_on_no_matches:
-                raise exception.NoSuitableWorkerServiceError()
-            return None
-        LOG.debug(
-            "Was offered Worker Services with the following IDs for "
-            "requirements '%s': %s",
-            requirements_str, [s["id"] for s in services])
-
-        selected_service = services[0]
-        if random_choice:
-            selected_service = random.choice(services)
-
-        LOG.info(
-            "Was offered Worker Service with ID '%s' for requirements: %s",
-            selected_service['id'], requirements_str)
-        return self._get_worker_rpc_for_host(selected_service['host'])
+            region_sets=region_sets, enabled=enabled,
+            random_choice=random_choice,
+            raise_on_no_matches=raise_on_no_matches)
+        service = db_api.get_service(ctxt, selected_service["id"])
+        return self._get_rpc_client_for_service(service)
 
     def _check_delete_reservation_for_transfer(self, transfer_action):
         action_id = transfer_action.base_id
@@ -573,16 +565,14 @@ class ConductorServerEndpoint(object):
             ctxt, endpoint.type, pool_environment)
 
     def get_available_providers(self, ctxt):
-        # TODO(aznashwan): merge list of all providers from all
-        # worker services:
-        worker_rpc = self._get_worker_rpc_for_host(
-            self._get_any_worker_service(ctxt)['host'])
+        worker_rpc = self._get_rpc_client_for_service(
+            self._scheduler_client.get_any_worker_service(ctxt))
         return worker_rpc.get_available_providers(ctxt)
 
     def get_provider_schemas(self, ctxt, platform_name, provider_type):
         # TODO(aznashwan): merge or version/namespace schemas for each worker?
-        worker_rpc = self._get_worker_rpc_for_host(
-            self._get_any_worker_service(ctxt)['host'])
+        worker_rpc = self._get_rpc_client_for_service(
+            self._scheduler_client.get_any_worker_service(ctxt))
         return worker_rpc.get_provider_schemas(
             ctxt, platform_name, provider_type)
 
@@ -647,78 +637,20 @@ class ConductorServerEndpoint(object):
     def _get_worker_service_rpc_for_task(
             self, ctxt, task, origin_endpoint, destination_endpoint,
             retry_count=5, retry_period=2):
-        LOG.debug(
-            "Compiling required Worker Service specs for task with "
-            "ID '%s' (type '%s') from endpoints '%s' to '%s'",
-            task.id, task.task_type, origin_endpoint.id,
-            destination_endpoint.id)
-        task_cls = tasks_factory.get_task_runner_class(task.task_type)
+        try:
+            worker_service = self._scheduler_client.get_worker_service_for_task(
+                ctxt, {"id": task.id, "task_type": task.task_type},
+                origin_endpoint.to_dict(), destination_endpoint.to_dict(),
+                retry_count=retry_count, retry_period=retry_period)
+        except Exception as ex:
+            LOG.debug(
+                "Failed to get worker service for task '%s'. Updating status "
+                "to unscheduleable.")
+            db_api.set_task_status(
+                ctxt, task.id, constants.TASK_STATUS_FAILED_TO_SCHEDULE,
+                exception_details=str(ex))
 
-        # determine required Coriolis regions based on the endpoints:
-        required_region_sets = []
-        origin_endpoint_region_ids = [
-            r.id for r in origin_endpoint.mapped_regions]
-        destination_endpoint_region_ids = [
-            r.id for r in destination_endpoint.mapped_regions]
-
-        required_platform = task_cls.get_required_platform()
-        if required_platform in (
-                constants.TASK_PLATFORM_SOURCE,
-                constants.TASK_PLATFORM_BILATERAL):
-            required_region_sets.append(origin_endpoint_region_ids)
-        if required_platform in (
-                constants.TASK_PLATFORM_DESTINATION,
-                constants.TASK_PLATFORM_BILATERAL):
-            required_region_sets.append(destination_endpoint_region_ids)
-
-        # determine provider requirements:
-        provider_requirements = {}
-        required_provider_types = task_cls.get_required_provider_types()
-        if constants.PROVIDER_PLATFORM_SOURCE in required_provider_types:
-            provider_requirements[origin_endpoint.type] = (
-                required_provider_types[
-                    constants.PROVIDER_PLATFORM_SOURCE])
-        if constants.PROVIDER_PLATFORM_DESTINATION in required_provider_types:
-            provider_requirements[destination_endpoint.type] = (
-                required_provider_types[
-                    constants.PROVIDER_PLATFORM_DESTINATION])
-
-        worker_rpc = None
-        for i in range(retry_count):
-            try:
-                LOG.debug(
-                    "Requesting Worker Service for task with ID '%s' (type "
-                    "'%s') from endpoints '%s' to '%s'", task.id,
-                    task.task_type, origin_endpoint.id,
-                    destination_endpoint.id)
-                worker_rpc = self._get_worker_service_rpc_for_specs(
-                    ctxt, provider_requirements=provider_requirements,
-                    region_sets=required_region_sets, enabled=True)
-                LOG.debug(
-                    "Scheduler has granted Worker Service for task with ID "
-                    "'%s' (type '%s') from endpoints '%s' to '%s'",
-                    task.id, task.task_type, origin_endpoint.id,
-                    destination_endpoint.id)
-                return worker_rpc
-            except Exception as ex:
-                LOG.warn(
-                    "Failed to schedule task with ID '%s' (attempt %d/%d). "
-                    "Waiting %d seconds and then retrying. Error was: %s",
-                    task.id, i+1, retry_count, retry_period,
-                    utils.get_exception_details())
-                time.sleep(retry_period)
-
-        message = (
-            "Failed to schedule task %s after %d tries. This may indicate that"
-            " there are no Coriolis Worker services able to perform the task "
-            "on the platforms and in the Coriolis Regions required by the "
-            "selected source/destination Coriolis Endpoints. Please review"
-            " the Conductor and Scheduler logs for more exact details." % (
-                task.id, retry_count))
-        db_api.set_task_status(
-            ctxt, task.id, constants.TASK_STATUS_FAILED_TO_SCHEDULE,
-            exception_details=message)
-        raise exception.NoSuitableWorkerServiceError(message)
+        return self._get_rpc_client_for_service(worker_service)
 
     def _begin_tasks(
             self, ctxt, action, execution, task_info_override=None,
