@@ -34,6 +34,7 @@ mysqlclient
 schedule
 strict-rfc3339
 sqlalchemy
+taskflow
 webob
 sshtunnel
 requests-unixsocket

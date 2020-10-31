@@ -96,7 +96,7 @@ class SchedulerClient(rpc.BaseRPCClient):
 
     def get_worker_service_for_task(
             self, ctxt, task, origin_endpoint, destination_endpoint,
-            retry_count=5, retry_period=2):
+            retry_count=5, retry_period=2, random_choice=True):
         """ Gets a worker service for the task with the given properties
         and source/target endpoints.
 
@@ -153,9 +153,10 @@ class SchedulerClient(rpc.BaseRPCClient):
                     "'%s') from endpoints '%s' to '%s'", task['id'],
                     task['task_type'], origin_endpoint['id'],
                     destination_endpoint['id'])
-                worker_service = self.get_workers_for_specs(
+                worker_service = self.get_worker_service_for_specs(
                     ctxt, provider_requirements=provider_requirements,
-                    region_sets=required_region_sets, enabled=True)
+                    region_sets=required_region_sets, enabled=True,
+                    random_choice=random_choice)
                 LOG.debug(
                     "Scheduler has granted Worker Service '%s' for task with "
                     "ID '%s' (type '%s') from endpoints '%s' to '%s'",

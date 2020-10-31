@@ -715,6 +715,62 @@ def add_task_event(context, task_id, level, message):
     _session(context).add(task_event)
 
 
+@enginefacade.writer
+def add_minion_pool_event(context, pool_id, level, message):
+    pool_event = models.MinionPoolEvent()
+    pool_event.pool_id = pool_id
+    pool_event.level = level
+    pool_event.message = message
+    _session(context).add(pool_event)
+
+
+def _get_minion_pool_progress_update(context, pool_id, current_step):
+    q = _soft_delete_aware_query(context, models.MinionPoolProgressUpdate)
+    return q.filter(
+        models.MinionPoolProgressUpdate.pool_id == pool_id,
+        models.MinionPoolProgressUpdate.current_step == current_step).first()
+
+
+@enginefacade.reader
+def get_minion_pool_progress_step(context, pool_id):
+    curr_step = 0
+    q = _soft_delete_aware_query(context, models.MinionPoolProgressUpdate)
+    last_step = q.filter(
+        models.MinionPoolProgressUpdate.pool_id == pool_id).order_by(
+            models.MinionPoolProgressUpdate.current_step.desc()).first()
+
+    if last_step:
+        curr_step = last_step.current_step
+
+    return curr_step
+
+
+@enginefacade.writer
+def add_minion_pool_progress_update(context, pool_id, total_steps, message):
+    current_step = get_minion_pool_progress_step(context, pool_id) + 1
+    pool_progress_update = models.MinionPoolProgressUpdate(
+        pool_id=pool_id, current_step=current_step, total_steps=total_steps,
+        message=message)
+    _session(context).add(pool_progress_update)
+
+
+@enginefacade.writer
+def update_minion_pool_progress_update(
+        context, pool_id, step, total_steps, message):
+    pool_progress_update = _get_minion_pool_progress_update(
+        context, pool_id, step)
+    if not pool_progress_update:
+        pool_progress_update = models.MinionPoolProgressUpdate(
+            pool_id=pool_id, current_step=step, total_steps=total_steps,
+            message=message)
+        _session(context).add(pool_progress_update)
+
+    pool_progress_update.pool_id = pool_id
+    pool_progress_update.current_step = step
+    pool_progress_update.total_steps = total_steps
+    pool_progress_update.message = message
+
+
 def _get_progress_update(context, task_id, current_step):
     q = _soft_delete_aware_query(context, models.TaskProgressUpdate)
     return q.filter(
@@ -1203,16 +1259,26 @@ def add_minion_pool(context, minion_pool):
 
 @enginefacade.writer
 def delete_minion_pool(context, minion_pool_id):
-    _delete_transfer_action(
-        context, models.MinionPool, minion_pool_id)
+    args = {"id": minion_pool_id}
+    if is_user_context(context):
+        args["project_id"] = context.tenant
+    count = _soft_delete_aware_query(context, models.MinionPool).filter_by(
+        **args).soft_delete()
+    if count == 0:
+        raise exception.NotFound("0 entries were soft deleted")
 
 
 @enginefacade.reader
 def get_minion_pool(
-        context, minion_pool_id, include_machines=True):
+        context, minion_pool_id, include_machines=True, include_events=True,
+        include_progress_updates=True):
     q = _soft_delete_aware_query(context, models.MinionPool)
     if include_machines:
         q = q.options(orm.joinedload('minion_machines'))
+    if include_events:
+        q = q.options(orm.joinedload('events'))
+    if include_progress_updates:
+        q = q.options(orm.joinedload('progress_updates'))
     if is_user_context(context):
         q = q.filter(
             models.MinionPool.project_id == context.tenant)
@@ -1222,14 +1288,19 @@ def get_minion_pool(
 
 @enginefacade.reader
 def get_minion_pools(
-        context, include_machines=False, to_dict=True):
+        context, include_machines=False, include_events=False,
+        include_progress_updates=False, to_dict=True):
     q = _soft_delete_aware_query(context, models.MinionPool)
     q = q.filter()
     if is_user_context(context):
         q = q.filter(
-            models.Replica.project_id == context.tenant)
+            models.MinionPool.project_id == context.tenant)
     if include_machines:
         q = q.options(orm.joinedload('minion_machines'))
+    if include_events:
+        q = q.options(orm.joinedload('events'))
+    if include_progress_updates:
+        q = q.options(orm.joinedload('progress_updates'))
     db_result = q.all()
     if to_dict:
         return [i.to_dict(
@@ -1258,8 +1329,8 @@ def set_minion_pool_status(context, minion_pool_id, status):
         context, minion_pool_id, include_machines=False)
     LOG.debug(
         "Transitioning minion pool '%s' from status '%s' to '%s'in DB",
-        minion_pool_id, pool.pool_status, status)
-    pool.pool_status = status
+        minion_pool_id, pool.status, status)
+    pool.status = status
     setattr(pool, 'updated_at', timeutils.utcnow())
 
 
@@ -1274,69 +1345,21 @@ def update_minion_pool(context, minion_pool_id, updated_values):
     updateable_fields = [
         "minimum_minions", "maximum_minions", "minion_max_idle_time",
         "minion_retention_strategy", "environment_options",
-        "pool_shared_resources", "notes", "pool_name", "pool_os_type"]
-    # TODO(aznashwan): this should no longer be required when the
-    # transfer action class hirearchy is to be overhauled:
-    redundancies = {
-        "environment_options": [
-            "source_environment", "destination_environment"]}
+        "shared_resources", "notes", "name", "os_type"]
     for field in updateable_fields:
         if field in updated_values:
-            if field in redundancies:
-                for old_key in redundancies[field]:
-                    LOG.debug(
-                        "Updating the '%s' field of Minion Pool '%s' to: '%s'",
-                        old_key, minion_pool_id, updated_values[field])
-                    setattr(lifecycle, old_key, updated_values[field])
-            else:
-                LOG.debug(
-                    "Updating the '%s' field of Minion Pool '%s' to: '%s'",
-                    field, minion_pool_id, updated_values[field])
-                setattr(lifecycle, field, updated_values[field])
+            LOG.debug(
+                "Updating the '%s' field of Minion Pool '%s' to: '%s'",
+                field, minion_pool_id, updated_values[field])
+            setattr(lifecycle, field, updated_values[field])
 
     non_updateable_fields = set(
         updated_values.keys()).difference(updateable_fields)
     if non_updateable_fields:
         LOG.warn(
-            "The following Replica fields can NOT be updated: %s",
+            "The following Minion Pool fields can NOT be updated: %s",
             non_updateable_fields)
 
     # the oslo_db library uses this method for both the `created_at` and
     # `updated_at` fields
     setattr(lifecycle, 'updated_at', timeutils.utcnow())
-
-# @enginefacade.reader
-# def get_minion_pool_executions(
-#         context, lifecycle_id, include_tasks=True):
-#     q = _soft_delete_aware_query(context, models.TasksExecution)
-#     q = q.join(models.MinionPool)
-#     if include_tasks:
-#         q = _get_tasks_with_details_options(q)
-#     if is_user_context(context):
-#         q = q.filter(models.MinionPool.project_id == context.tenant)
-#     return q.filter(
-#         models.MinionPool.id == lifecycle_id).all()
-
-# @enginefacade.reader
-# def get_minion_pool_execution(context, lifecycle_id, execution_id):
-#     q = _soft_delete_aware_query(context, models.TasksExecution).join(
-#         models.MinionPool)
-#     q = _get_tasks_with_details_options(q)
-#     if is_user_context(context):
-#         q = q.filter(models.MinionPool.project_id == context.tenant)
-#     return q.filter(
-#         models.MinionPool.id == lifecycle_id,
-#         models.TasksExecution.id == execution_id).first()
-
-# @enginefacade.writer
-# def delete_minion_pool_execution(context, execution_id):
-#     q = _soft_delete_aware_query(context, models.TasksExecution).filter(
-#         models.TasksExecution.id == execution_id)
-#     if is_user_context(context):
-#         if not q.join(models.MinionPool).filter(
-#                 models.MinionPool.project_id == (
-#                     context.tenant)).first():
-#             raise exception.NotAuthorized()
-#     count = q.soft_delete()
-#     if count == 0:
-#         raise exception.NotFound("0 entries were soft deleted")

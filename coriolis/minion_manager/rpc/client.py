@@ -25,6 +25,30 @@ class MinionManagerClient(object):
             timeout = CONF.minion_manager.minion_mananger_rpc_timeout
         self._client = rpc.get_client(target, timeout=timeout)
 
+    def add_minion_pool_progress_update(
+            self, ctxt, minion_pool_id, total_steps, message):
+        return self._client.call(
+            ctxt, 'add_minion_pool_progress_update',
+            minion_pool_id=minion_pool_id,
+            total_steps=total_steps, message=message)
+
+    def update_minion_pool_progress_update(
+            self, ctxt, minion_pool_id, step, total_steps, message):
+        return self._client.call(
+            ctxt, 'update_minion_pool_progress_update',
+            minion_pool_id=minion_pool_id,
+            step=step, total_steps=total_steps, message=message)
+
+    def get_minion_pool_progress_step(self, ctxt, minion_pool_id):
+        return self._client.call(
+            ctxt, 'get_minion_pool_progress_step',
+            minion_pool_id=minion_pool_id)
+
+    def add_minion_pool_event(self, ctxt, minion_pool_id, level, message):
+        return self._client.call(
+            ctxt, 'add_minion_pool_event', minion_pool_id=minion_pool_id,
+            level=level, message=message)
+
     def get_diagnostics(self, ctxt):
         return self._client.call(ctxt, 'get_diagnostics')
 
@@ -70,15 +94,15 @@ class MinionManagerClient(object):
             ctxt, "tear_down_shared_minion_pool_resources",
             minion_pool_id=minion_pool_id, force=force)
 
-    def allocate_minion_pool_machines(self, ctxt, minion_pool_id):
+    def allocate_minion_pool(self, ctxt, minion_pool_id):
         return self._client.call(
-            ctxt, "allocate_minion_pool_machines",
+            ctxt, "allocate_minion_pool",
             minion_pool_id=minion_pool_id)
 
-    def deallocate_minion_pool_machines(
+    def deallocate_minion_pool(
             self, ctxt, minion_pool_id, force=False):
         return self._client.call(
-            ctxt, "deallocate_minion_pool_machines",
+            ctxt, "deallocate_minion_pool",
             minion_pool_id=minion_pool_id,
             force=force)
 

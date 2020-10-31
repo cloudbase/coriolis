@@ -42,6 +42,34 @@ class TaskEvent(BASE, models.TimestampMixin, models.SoftDeleteMixin,
         return result
 
 
+class MinionPoolEvent(BASE, models.TimestampMixin, models.SoftDeleteMixin,
+                models.ModelBase):
+    __tablename__ = 'minion_pool_event'
+
+    id = sqlalchemy.Column(sqlalchemy.String(36),
+                           default=lambda: str(uuid.uuid4()),
+                           primary_key=True)
+    pool_id = sqlalchemy.Column(sqlalchemy.String(36),
+                                sqlalchemy.ForeignKey('minion_pool.id'),
+                                nullable=False)
+    level = sqlalchemy.Column(sqlalchemy.String(20), nullable=False)
+    message = sqlalchemy.Column(sqlalchemy.String(1024), nullable=False)
+
+    def to_dict(self):
+        result = {
+            "id": self.id,
+            "pool_id": self.pool_id,
+            "level": self.level,
+            "message": self.message,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "deleted_at": self.deleted_at,
+            "deleted": self.deleted,
+        }
+        return result
+
+
+
 class TaskProgressUpdate(BASE, models.TimestampMixin, models.SoftDeleteMixin,
                          models.ModelBase):
     __tablename__ = 'task_progress_update'
@@ -62,6 +90,37 @@ class TaskProgressUpdate(BASE, models.TimestampMixin, models.SoftDeleteMixin,
         result = {
             "id": self.id,
             "task_id": self.task_id,
+            "current_step": self.current_step,
+            "total_steps": self.total_steps,
+            "message": self.message,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "deleted_at": self.deleted_at,
+            "deleted": self.deleted,
+        }
+        return result
+
+
+class MinionPoolProgressUpdate(
+        BASE, models.TimestampMixin, models.SoftDeleteMixin, models.ModelBase):
+    __tablename__ = 'minion_pool_progress_update'
+    __table_args__ = (
+        schema.UniqueConstraint("pool_id", "current_step", "deleted"),)
+
+    id = sqlalchemy.Column(sqlalchemy.String(36),
+                           default=lambda: str(uuid.uuid4()),
+                           primary_key=True)
+    pool_id = sqlalchemy.Column(sqlalchemy.String(36),
+                                sqlalchemy.ForeignKey('minion_pool.id'),
+                                nullable=False)
+    current_step = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)
+    total_steps = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
+    message = sqlalchemy.Column(sqlalchemy.String(1024), nullable=True)
+
+    def to_dict(self):
+        result = {
+            "id": self.id,
+            "pool_id": self.pool_id,
             "current_step": self.current_step,
             "total_steps": self.total_steps,
             "message": self.message,
@@ -468,10 +527,13 @@ class MinionPool(
     id = sqlalchemy.Column(
         sqlalchemy.String(36),
         primary_key=True)
+    user_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
+    project_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
 
     name = sqlalchemy.Column(
         sqlalchemy.String(255),
         nullable=False)
+    notes = sqlalchemy.Column(sqlalchemy.Text, nullable=True)
     endpoint_id = sqlalchemy.Column(
         sqlalchemy.String(36),
         sqlalchemy.ForeignKey('endpoint.id'), nullable=False)
@@ -493,19 +555,34 @@ class MinionPool(
         sqlalchemy.Integer, nullable=False)
     minion_retention_strategy = sqlalchemy.Column(
         sqlalchemy.String(255), nullable=False)
+
     minion_machines = orm.relationship(
         MinionMachine, backref=orm.backref('minion_pool'),
         primaryjoin="and_(MinionMachine.pool_id==MinionPool.id, "
                     "MinionMachine.deleted=='0')")
+    events = orm.relationship(MinionPoolEvent, cascade="all,delete",
+                              backref=orm.backref('minion_pool'))
+    progress_updates = orm.relationship(MinionPoolProgressUpdate,
+                                        cascade="all,delete",
+                                        backref=orm.backref('minion_pool'),
+                                        order_by=(
+                                            MinionPoolProgressUpdate.current_step))
 
-    def to_dict(self, include_machines=True):
+    def to_dict(
+            self, include_machines=True, include_events=True,
+            include_progress_updates=True):
         base = {
             "id": self.id,
             "name": self.name,
+            "notes": self.notes,
             "endpoint_id": self.endpoint_id,
             "environment_options": self.environment_options,
             "os_type": self.os_type,
             "platform": self.platform,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "deleted_at": self.deleted_at,
+            "deleted": self.deleted,
             "shared_resources": self.shared_resources,
             "status": self.status,
             "minimum_minions": self.minimum_minions,
@@ -516,6 +593,12 @@ class MinionPool(
         if include_machines:
             base["minion_machines"] = [
                 machine.to_dict() for machine in self.minion_machines]
+        if include_events:
+            base["events"] = [
+                ev.to_dict() for ev in self.events]
+        if include_progress_updates:
+            base["progress_updates"] = [
+                pu.to_dict() for pu in self.progress_updates]
         return base
 
 

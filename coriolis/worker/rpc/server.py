@@ -21,6 +21,7 @@ from coriolis import constants
 from coriolis import context
 from coriolis import events
 from coriolis import exception
+from coriolis.minion_manager.rpc import client as rpc_minion_manager_client
 from coriolis.providers import factory as providers_factory
 from coriolis import schemas
 from coriolis import service
@@ -70,6 +71,54 @@ class _ConductorProviderEventHandler(events.BaseEventHandler):
         LOG.error(message)
         self._rpc_conductor_client.task_event(
             self._ctxt, self._task_id, constants.TASK_EVENT_ERROR, message)
+
+
+class _MinionPoolManagerProviderEventHandler(events.BaseEventHandler):
+    def __init__(self, ctxt, pool_id):
+        self._ctxt = ctxt
+        self._pool_id = pool_id
+        self._rpc_minion_manager_client = (
+            rpc_minion_manager_client.MinionManagerClient())
+
+    def add_task_progress_update(self, total_steps, message):
+        LOG.info(
+            "Minion pool '%s' progress update: %s", self._pool_id, message)
+        self._rpc_minion_manager_client.add_minion_pool_progress_update(
+            self._ctxt, self._pool_id, total_steps, message)
+
+    def update_task_progress_update(self, step, total_steps, message):
+        LOG.info(
+            "Minion pool '%s' progress update: %s", self._pool_id, message)
+        self._rpc_minion_manager_client.update_minion_pool_progress_update(
+            self._ctxt, self._pool_id, step, total_steps, message)
+
+    def get_task_progress_step(self):
+        return self._rpc_minion_manager_client.get_minion_pool_progress_step(
+            self._ctxt, self._pool_id)
+
+    def info(self, message):
+        LOG.info(message)
+        self._rpc_minion_manager_client.add_minion_pool_event(
+            self._ctxt, self._pool_id, constants.MINION_POOL_EVENT_INFO, message)
+
+    def warn(self, message):
+        LOG.warn(message)
+        self._rpc_minion_manager_client.add_minion_pool_event(
+            self._ctxt, self._pool_id, constants.MINION_POOL_EVENT_WARNING, message)
+
+    def error(self, message):
+        LOG.error(message)
+        self._rpc_minion_manager_client.add_minion_pool_event(
+            self._ctxt, self._pool_id, constants.MINION_POOL_EVENT_ERROR, message)
+
+
+# TODO(aznashwan): parametrize the event handler provided during task execution
+# to decouple what gets notified from the task running logic itself:
+def _get_event_handler_for_task_type(task_type, ctxt, task_object_id):
+    if task_type in constants.MINION_POOL_OPERATIONS_TASKS:
+        return _MinionPoolManagerProviderEventHandler(
+            ctxt, task_object_id)
+    return _ConductorProviderEventHandler(ctxt, task_object_id)
 
 
 class WorkerServerEndpoint(object):
@@ -198,7 +247,8 @@ class WorkerServerEndpoint(object):
         """ Returns a list of strings with paths on the worker with shared
         libraries needed by the source/destination providers.
         """
-        event_handler = _ConductorProviderEventHandler(ctxt, task_id)
+        event_handler = _get_event_handler_for_task_type(
+            task_type, ctxt, task_id)
         task_runner = task_runners_factory.get_task_runner_class(
             task_type)()
 
@@ -292,23 +342,23 @@ class WorkerServerEndpoint(object):
         return result
 
     def exec_task(self, ctxt, task_id, task_type, origin, destination,
-                  instance, task_info, asynchronous=True):
+                  instance, task_info, report_to_conductor=True):
         try:
             task_result = self._exec_task_process(
                 ctxt, task_id, task_type, origin, destination,
-                instance, task_info, report_to_conductor=asynchronous)
+                instance, task_info, report_to_conductor=report_to_conductor)
 
             LOG.info(
                 "Output of completed %s task with ID %s: %s",
                 task_type, task_id,
                 utils.sanitize_task_info(task_result))
 
-            if not asynchronous:
+            if not report_to_conductor:
                 return task_result
             self._rpc_conductor_client.task_completed(
                 ctxt, task_id, task_result)
         except exception.TaskProcessCanceledException as ex:
-            if asynchronous:
+            if report_to_conductor:
                 LOG.debug(
                     "Task with ID '%s' appears to have been cancelled. "
                     "Confirming cancellation to Conductor now. Error was: %s",
@@ -319,7 +369,7 @@ class WorkerServerEndpoint(object):
             else:
                 raise
         except exception.NoSuitableWorkerServiceError as ex:
-            if asynchronous:
+            if report_to_conductor:
                 LOG.warn(
                     "A conductor-side scheduling error has occurred following "
                     "the completion of task '%s'. Ignoring. Error was: %s",
@@ -327,7 +377,7 @@ class WorkerServerEndpoint(object):
             else:
                 raise
         except Exception as ex:
-            if asynchronous:
+            if report_to_conductor:
                 LOG.debug(
                     "Task with ID '%s' has error'd out. Reporting error to "
                     "Conductor now. Error was: %s",
@@ -657,7 +707,8 @@ def _task_process(ctxt, task_id, task_type, origin, destination, instance,
 
         task_runner = task_runners_factory.get_task_runner_class(
             task_type)()
-        event_handler = _ConductorProviderEventHandler(ctxt, task_id)
+        event_handler = _get_event_handler_for_task_type(
+            task_type, ctxt, task_id)
 
         LOG.debug("Executing task: %(task_id)s, type: %(task_type)s, "
                   "origin: %(origin)s, destination: %(destination)s, "

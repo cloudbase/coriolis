@@ -449,32 +449,6 @@ class ConductorServerEndpoint(object):
         return worker_rpc.get_endpoint_destination_options(
             ctxt, endpoint.type, endpoint.connection_info, env, option_names)
 
-    def get_endpoint_source_minion_pool_options(
-            self, ctxt, endpoint_id, env, option_names):
-        endpoint = self.get_endpoint(ctxt, endpoint_id)
-
-        worker_rpc = self._get_worker_service_rpc_for_specs(
-            ctxt, enabled=True,
-            region_sets=[[reg.id for reg in endpoint.mapped_regions]],
-            provider_requirements={
-                endpoint.type: [
-                    constants.PROVIDER_TYPE_SOURCE_MINION_POOL]})
-        return worker_rpc.get_endpoint_source_minion_pool_options(
-            ctxt, endpoint.type, endpoint.connection_info, env, option_names)
-
-    def get_endpoint_destination_minion_pool_options(
-            self, ctxt, endpoint_id, env, option_names):
-        endpoint = self.get_endpoint(ctxt, endpoint_id)
-
-        worker_rpc = self._get_worker_service_rpc_for_specs(
-            ctxt, enabled=True,
-            region_sets=[[reg.id for reg in endpoint.mapped_regions]],
-            provider_requirements={
-                endpoint.type: [
-                    constants.PROVIDER_TYPE_DESTINATION_MINION_POOL]})
-        return worker_rpc.get_endpoint_destination_minion_pool_options(
-            ctxt, endpoint.type, endpoint.connection_info, env, option_names)
-
     def get_endpoint_networks(self, ctxt, endpoint_id, env):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
@@ -535,34 +509,6 @@ class ConductorServerEndpoint(object):
 
         return worker_rpc.validate_endpoint_source_environment(
             ctxt, endpoint.type, source_env)
-
-    def validate_endpoint_source_minion_pool_options(
-            self, ctxt, endpoint_id, pool_environment):
-        endpoint = self.get_endpoint(ctxt, endpoint_id)
-
-        worker_rpc = self._get_worker_service_rpc_for_specs(
-            ctxt, enabled=True,
-            region_sets=[[reg.id for reg in endpoint.mapped_regions]],
-            provider_requirements={
-                endpoint.type: [
-                    constants.PROVIDER_TYPE_SOURCE_MINION_POOL]})
-
-        return worker_rpc.validate_endpoint_source_minion_pool_options(
-            ctxt, endpoint.type, pool_environment)
-
-    def validate_endpoint_destination_minion_pool_options(
-            self, ctxt, endpoint_id, pool_environment):
-        endpoint = self.get_endpoint(ctxt, endpoint_id)
-
-        worker_rpc = self._get_worker_service_rpc_for_specs(
-            ctxt, enabled=True,
-            region_sets=[[reg.id for reg in endpoint.mapped_regions]],
-            provider_requirements={
-                endpoint.type: [
-                    constants.PROVIDER_TYPE_DESTINATION_MINION_POOL]})
-
-        return worker_rpc.validate_endpoint_destination_minion_pool_options(
-            ctxt, endpoint.type, pool_environment)
 
     def get_available_providers(self, ctxt):
         worker_rpc = self._get_rpc_client_for_service(
@@ -636,12 +582,13 @@ class ConductorServerEndpoint(object):
 
     def _get_worker_service_rpc_for_task(
             self, ctxt, task, origin_endpoint, destination_endpoint,
-            retry_count=5, retry_period=2):
+            retry_count=5, retry_period=2, random_choice=True):
         try:
             worker_service = self._scheduler_client.get_worker_service_for_task(
                 ctxt, {"id": task.id, "task_type": task.task_type},
                 origin_endpoint.to_dict(), destination_endpoint.to_dict(),
-                retry_count=retry_count, retry_period=retry_period)
+                retry_count=retry_count, retry_period=retry_period,
+                random_choice=random_choice)
         except Exception as ex:
             LOG.debug(
                 "Failed to get worker service for task '%s'. Updating status "

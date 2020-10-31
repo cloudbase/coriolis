@@ -85,6 +85,10 @@ class BaseEventHandler(object, with_metaclass(abc.ABCMeta)):
         pass
 
     @abc.abstractmethod
+    def get_task_progress_step(self):
+        pass
+
+    @abc.abstractmethod
     def info(self, message):
         pass
 

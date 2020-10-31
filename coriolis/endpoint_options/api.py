@@ -1,12 +1,12 @@
 # Copyright 2020 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-from coriolis.conductor.rpc import client as rpc_client
+from coriolis.minion_manager.rpc import client as rpc_client
 
 
 class API(object):
     def __init__(self):
-        self._rpc_client = rpc_client.ConductorClient()
+        self._rpc_client = rpc_client.MinionManagerClient()
 
     def get_endpoint_destination_options(
             self, ctxt, endpoint_id, env=None, option_names=None):
