@@ -530,7 +530,7 @@ def parse_int_value(value):
 
 def decode_base64_param(value, is_json=False):
     try:
-        decoded = base64.b64decode(value).decode()
+        decoded = base64.urlsafe_b64decode(value).decode()
         if is_json:
             decoded = json.loads(decoded)
         return decoded
