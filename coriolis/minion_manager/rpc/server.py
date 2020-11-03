@@ -528,16 +528,16 @@ class MinionManagerServerEndpoint(object):
         setup, and actual minion creation)
         """
         # create task flow:
-        deployment_flow = linear_flow.Flow(
-            minion_manager_tasks.MINION_POOL_DEPLOYMENT_FLOW_NAME_FORMAT % (
+        allocation_flow = linear_flow.Flow(
+            minion_manager_tasks.MINION_POOL_ALLOCATION_FLOW_NAME_FORMAT % (
                 minion_pool.id))
 
         # tansition pool to VALIDATING:
-        deployment_flow.add(minion_manager_tasks.UpdateMinionPoolStatusTask(
+        allocation_flow.add(minion_manager_tasks.UpdateMinionPoolStatusTask(
             minion_pool.id, constants.MINION_POOL_STATUS_VALIDATING_INPUTS))
 
         # add pool options validation task:
-        deployment_flow.add(minion_manager_tasks.ValidateMinionPoolOptionsTask(
+        allocation_flow.add(minion_manager_tasks.ValidateMinionPoolOptionsTask(
             # NOTE: we pass in the ID of the minion pool itself as both
             # the task ID and the instance ID for tasks which are strictly
             # pool-related.
@@ -546,47 +546,48 @@ class MinionManagerServerEndpoint(object):
             minion_pool.platform))
 
         # transition pool to 'DEPLOYING_SHARED_RESOURCES':
-        deployment_flow.add(minion_manager_tasks.UpdateMinionPoolStatusTask(
+        allocation_flow.add(minion_manager_tasks.UpdateMinionPoolStatusTask(
             minion_pool.id,
             constants.MINION_POOL_STATUS_ALLOCATING_SHARED_RESOURCES))
 
         # add pool shared resources deployment task:
-        deployment_flow.add(minion_manager_tasks.DeploySharedPoolResourcesTask(
-            minion_pool.id, minion_pool.id, minion_pool.platform,
-            # NOTE: the shared resource deployment task will always get run
-            # by itself so it is safe to have it override the task_info:
-            provides='task_info'))
+        allocation_flow.add(
+            minion_manager_tasks.AllocateSharedPoolResourcesTask(
+                minion_pool.id, minion_pool.id, minion_pool.platform,
+                # NOTE: the shared resource deployment task will always get
+                # run by itself so it is safe to have it override task_info:
+                provides='task_info'))
 
         # add subflow for deploying all of the minion machines:
         fmt = (
-            minion_manager_tasks.MINION_POOL_CREATE_MINIONS_SUBFLOW_NAME_FORMAT)
+            minion_manager_tasks.MINION_POOL_ALLOCATE_MINIONS_SUBFLOW_NAME_FORMAT)
         machines_flow = unordered_flow.Flow(fmt % minion_pool.id)
         pool_machine_ids = []
         for _ in range(minion_pool.minimum_minions):
             machine_id = str(uuid.uuid4())
             pool_machine_ids.append(machine_id)
             machines_flow.add(
-                minion_manager_tasks.DeployMinionMachineTask(
+                minion_manager_tasks.AllocateMinionMachineTask(
                     minion_pool.id, machine_id, minion_pool.platform))
         # NOTE: bool(flow) == False if the flow has no child flows/tasks:
         if machines_flow:
-            deployment_flow.add(minion_manager_tasks.UpdateMinionPoolStatusTask(
+            allocation_flow.add(minion_manager_tasks.UpdateMinionPoolStatusTask(
                 minion_pool.id,
-                constants.MINION_POOL_STATUS_DEALLOCATING_MACHINES))
+                constants.MINION_POOL_STATUS_ALLOCATING_MACHINES))
             LOG.debug(
                 "The following minion machine IDs will be created for "
                 "pool with ID '%s': %s" % (minion_pool.id, pool_machine_ids))
-            deployment_flow.add(machines_flow)
+            allocation_flow.add(machines_flow)
         else:
             LOG.debug(
                 "No upfront minion machine deployments required for minion "
                 "pool with ID '%s'", minion_pool.id)
 
         # transition pool to ALLOCATED:
-        deployment_flow.add(minion_manager_tasks.UpdateMinionPoolStatusTask(
+        allocation_flow.add(minion_manager_tasks.UpdateMinionPoolStatusTask(
             minion_pool.id, constants.MINION_POOL_STATUS_ALLOCATED))
 
-        return deployment_flow
+        return allocation_flow
 
 
     def create_minion_pool(
@@ -677,7 +678,8 @@ class MinionManagerServerEndpoint(object):
         if minion_pool.status not in acceptable_allocation_statuses:
             raise exception.InvalidMinionPoolState(
                 "Minion machines for pool '%s' cannot be allocated as the pool"
-                " is in '%s' state instead of the expected %s."% (
+                " is in '%s' state instead of the expected %s. Please "
+                "force-deallocate the pool and try again." % (
                     minion_pool_id, minion_pool.status,
                     acceptable_allocation_statuses))
 
@@ -690,26 +692,86 @@ class MinionManagerServerEndpoint(object):
         return self._get_minion_pool(ctxt, minion_pool.id)
 
     def _get_minion_pool_deallocation_flow(self, minion_pool):
-        # TODO
-        pass
+        """ Returns a taskflow.Flow object pertaining to all the tasks
+        required for deallocating a minion pool (machines and shared resources)
+        """
+        # create task flow:
+        deallocation_flow = linear_flow.Flow(
+            minion_manager_tasks.MINION_POOL_DEALLOCATION_FLOW_NAME_FORMAT % (
+                minion_pool.id))
+
+        # add subflow for deallocating all of the minion machines:
+        fmt = (
+            minion_manager_tasks.MINION_POOL_DEALLOCATE_MACHINES_SUBFLOW_NAME_FORMAT)
+        machines_flow = unordered_flow.Flow(fmt % minion_pool.id)
+        for machine in minion_pool.minion_machines:
+            machines_flow.add(
+                minion_manager_tasks.DeallocateMinionMachineTask(
+                    minion_pool.id, machine.id, minion_pool.platform))
+        # NOTE: bool(flow) == False if the flow has no child flows/tasks:
+        if machines_flow:
+            # tansition pool to DEALLOCATING_MACHINES:
+            deallocation_flow.add(minion_manager_tasks.UpdateMinionPoolStatusTask(
+                minion_pool.id,
+                constants.MINION_POOL_STATUS_DEALLOCATING_MACHINES))
+            deallocation_flow.add(machines_flow)
+        else:
+            LOG.debug(
+                "No machines for pool '%s' require deallocating.", minion_pool.id)
+
+        # transition pool to DEALLOCATING_SHARED_RESOURCES:
+        deallocation_flow.add(minion_manager_tasks.UpdateMinionPoolStatusTask(
+            minion_pool.id,
+            constants.MINION_POOL_STATUS_DEALLOCATING_SHARED_RESOURCES))
+
+        # add pool shared resources deletion task:
+        deallocation_flow.add(
+            minion_manager_tasks.DeallocateSharedPoolResourcesTask(
+                minion_pool.id, minion_pool.id, minion_pool.platform))
+
+        # transition pool to DEALLOCATED:
+        deallocation_flow.add(minion_manager_tasks.UpdateMinionPoolStatusTask(
+            minion_pool.id, constants.MINION_POOL_STATUS_DEALLOCATED))
+
+        return deallocation_flow
 
     def _get_pool_deallocation_initial_store(
             self, ctxt, minion_pool, endpoint_dict):
-        # TODO
-        pass
+        # NOTE: considering pools are associated to strictly one endpoint,
+        # we can duplicate the 'origin/destination':
+        origin_dest_info = {
+            "id": endpoint_dict['id'],
+            "connection_info": endpoint_dict['connection_info'],
+            "mapped_regions": endpoint_dict['mapped_regions'],
+            "type": endpoint_dict['type']}
+        initial_store = {
+            "context": ctxt,
+            "origin": origin_dest_info,
+            "destination": origin_dest_info,
+            "task_info": {
+                "pool_identifier": minion_pool.id,
+                "pool_os_type": minion_pool.os_type,
+                "pool_environment_options": minion_pool.environment_options,
+                "pool_shared_resources": minion_pool.shared_resources}}
+        return initial_store
 
     @minion_pool_synchronized
-    def deallocate_minion_pool(self, ctxt, minion_pool_id):
+    def deallocate_minion_pool(self, ctxt, minion_pool_id, force=False):
         LOG.info("Attempting to deallocate Minion Pool '%s'.", minion_pool_id)
         minion_pool = self._get_minion_pool(
             ctxt, minion_pool_id, include_events=False, include_machines=True,
             include_progress_updates=False)
         if minion_pool.status != constants.MINION_POOL_STATUS_ALLOCATED:
-            raise exception.InvalidMinionPoolState(
-                "Minion pool '%s' cannot be deallocated as the pool"
-                " is in '%s' state instead of the expected %s."% (
-                    minion_pool_id, minion_pool.status,
-                    constants.MINION_POOL_STATUS_DEALLOCATED))
+            if not force:
+                raise exception.InvalidMinionPoolState(
+                    "Minion pool '%s' cannot be deallocated as the pool"
+                    " is in '%s' state instead of the expected %s."% (
+                        minion_pool_id, minion_pool.status,
+                        constants.MINION_POOL_STATUS_ALLOCATED))
+            else:
+                LOG.warn(
+                    "Forcibly deallocating minion pool '%s' at user request.",
+                    minion_pool_id)
         self._check_pool_machines_in_use(
             ctxt, minion_pool, raise_if_in_use=True)
         endpoint_dict = self._conductor_client.get_endpoint(
@@ -734,7 +796,8 @@ class MinionManagerServerEndpoint(object):
             include_events=True, include_progress_updates=True):
         minion_pool = db_api.get_minion_pool(
             ctxt, minion_pool_id, include_machines=include_machines,
-            include_events=True, include_progress_updates=True)
+            include_events=include_events,
+            include_progress_updates=include_progress_updates)
         if not minion_pool:
             raise exception.NotFound(
                 "Minion pool with ID '%s' not found." % minion_pool_id)
@@ -1048,6 +1111,7 @@ class MinionManagerServerEndpoint(object):
         minion_pool = self._get_minion_pool(
             ctxt, minion_pool_id, include_machines=True)
         acceptable_deletion_statuses = [
+            constants.MINION_POOL_STATUS_DEALLOCATED,
             constants.MINION_POOL_STATUS_UNINITIALIZED,
             constants.MINION_POOL_STATUS_ERROR]
         if minion_pool.status not in acceptable_deletion_statuses:
@@ -1162,5 +1226,3 @@ class MinionManagerServerEndpoint(object):
     #         execution.type, new_execution_status)
     #     db_api.set_minion_pool_status(
     #         ctxt, execution.action_id, final_pool_status)
-
-

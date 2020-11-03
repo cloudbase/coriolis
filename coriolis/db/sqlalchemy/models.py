@@ -53,7 +53,7 @@ class MinionPoolEvent(BASE, models.TimestampMixin, models.SoftDeleteMixin,
                                 sqlalchemy.ForeignKey('minion_pool.id'),
                                 nullable=False)
     level = sqlalchemy.Column(sqlalchemy.String(20), nullable=False)
-    message = sqlalchemy.Column(sqlalchemy.String(1024), nullable=False)
+    message = sqlalchemy.Column(sqlalchemy.Text, nullable=False)
 
     def to_dict(self):
         result = {
@@ -84,7 +84,7 @@ class TaskProgressUpdate(BASE, models.TimestampMixin, models.SoftDeleteMixin,
                                 nullable=False)
     current_step = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)
     total_steps = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
-    message = sqlalchemy.Column(sqlalchemy.String(1024), nullable=True)
+    message = sqlalchemy.Column(sqlalchemy.Text, nullable=True)
 
     def to_dict(self):
         result = {

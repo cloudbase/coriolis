@@ -37,7 +37,10 @@ class BaseCoriolisTaskflowTask(taskflow_tasks.Task):
         if not flow_failures:
             return "No flow failures provided."
 
-        res = "No flow failures present."
+        if not flow_failures.items():
+            return "No flow failures present."
+
+        res = ""
         for (task_id, task_failure) in flow_failures.items():
             label = "Error message"
             failure_str = task_failure.exception_str
@@ -194,9 +197,9 @@ class BaseRunWorkerTask(BaseCoriolisTaskflowTask):
             return res
         except Exception as ex:
             LOG.debug(
-                "Exception occurred while executing task '%s' (type '%s') on "
-                "the worker service: %s", task_id, task_type,
-                utils.get_exception_details())
+                "[Task %s] Exception occurred while executing task '%s' "
+                "(type '%s') on the worker service: %s", self._task_name,
+                task_id, task_type, utils.get_exception_details())
             raise
 
     def execute(self, context, origin, destination, task_info):

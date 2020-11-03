@@ -109,7 +109,7 @@ def upgrade(migrate_engine):
                           sqlalchemy.ForeignKey('minion_pool.id'),
                           nullable=False),
         sqlalchemy.Column("level", sqlalchemy.String(50), nullable=False),
-        sqlalchemy.Column("message", sqlalchemy.String(1024), nullable=False),
+        sqlalchemy.Column("message", sqlalchemy.Text, nullable=False),
         mysql_engine='InnoDB',
         mysql_charset='utf8'))
 
@@ -126,7 +126,7 @@ def upgrade(migrate_engine):
                           nullable=False),
         sqlalchemy.Column("current_step", sqlalchemy.Integer, nullable=False),
         sqlalchemy.Column("total_steps", sqlalchemy.Integer, nullable=True),
-        sqlalchemy.Column("message", sqlalchemy.String(1024), nullable=True),
+        sqlalchemy.Column("message", sqlalchemy.Text, nullable=True),
         mysql_engine='InnoDB',
         mysql_charset='utf8'))
 

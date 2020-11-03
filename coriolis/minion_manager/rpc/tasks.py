@@ -7,6 +7,7 @@ import copy
 from oslo_log import log as logging
 
 from coriolis import constants
+from coriolis import exception
 from coriolis.db import api as db_api
 from coriolis.db.sqlalchemy import models
 from coriolis.taskflow import base as coriolis_taskflow_base
@@ -14,20 +15,22 @@ from coriolis.taskflow import base as coriolis_taskflow_base
 
 LOG = logging.getLogger(__name__)
 
-MINION_POOL_DEPLOYMENT_FLOW_NAME_FORMAT = "pool-%s-deployment"
+MINION_POOL_ALLOCATION_FLOW_NAME_FORMAT = "pool-%s-allocation"
+MINION_POOL_DEALLOCATION_FLOW_NAME_FORMAT = "pool-%s-deallocation"
 MINION_POOL_VALIDATION_TASK_NAME_FORMAT = "pool-%s-validation"
 MINION_POOL_UPDATE_STATUS_TASK_NAME_FORMAT = "pool-%s-update-status-%s"
-MINION_POOL_SET_UP_SHARED_RESOURCES_TASK_NAME_FORMAT = (
-    "pool-%s-set-up-shared-resources")
-MINION_POOL_TEAR_DOWN_SHARED_RESOURCES_TASK_NAME_FORMAT = (
-    "pool-%s-tear-down-shared-resources")
-MINION_POOL_CREATE_MINIONS_SUBFLOW_NAME_FORMAT = (
-    "pool-%s-machines-deployment")
-MINION_POOL_CREATE_MINION_TASK_NAME_FORMAT = (
-    "pool-%s-machine-%s-deployment")
-MINION_POOL_DELETE_MINION_TASK_NAME_FORMAT = (
-    "pool-%s-machine-%s-deletion")
-
+MINION_POOL_ALLOCATE_SHARED_RESOURCES_TASK_NAME_FORMAT = (
+    "pool-%s-allocate-shared-resources")
+MINION_POOL_DEALLOCATE_SHARED_RESOURCES_TASK_NAME_FORMAT = (
+    "pool-%s-deallocate-shared-resources")
+MINION_POOL_ALLOCATE_MINIONS_SUBFLOW_NAME_FORMAT = (
+    "pool-%s-machines-allocation")
+MINION_POOL_DEALLOCATE_MACHINES_SUBFLOW_NAME_FORMAT = (
+    "pool-%s-machines-deallocation")
+MINION_POOL_ALLOCATE_MACHINE_TASK_NAME_FORMAT = (
+    "pool-%s-machine-%s-allocation")
+MINION_POOL_DEALLOCATE_MACHINE_TASK_NAME_FORMAT = (
+    "pool-%s-machine-%s-deallocation")
 
 
 class UpdateMinionPoolStatusTask(coriolis_taskflow_base.BaseCoriolisTaskflowTask):
@@ -50,6 +53,7 @@ class UpdateMinionPoolStatusTask(coriolis_taskflow_base.BaseCoriolisTaskflowTask
 
     def _add_minion_pool_event(
             self, ctxt, message, level=constants.TASK_EVENT_INFO):
+        LOG.debug("Minion pool '%s' event: %s", self._minion_pool_id, message)
         db_api.add_minion_pool_event(
             ctxt, self._minion_pool_id, level, message)
 
@@ -148,8 +152,19 @@ class BaseMinionManangerTask(coriolis_taskflow_base.BaseRunWorkerTask):
     def _get_task_name(self, minion_pool_id, minion_machine_id):
         raise NotImplementedError("No task name providable")
 
+    def _get_minion_machine(
+            self, ctxt, minion_machine_id,
+            raise_if_not_found=False):
+        machine = db_api.get_minion_machine(ctxt, minion_machine_id)
+        if not machine and raise_if_not_found:
+            raise exception.NotFound(
+                "Could not find minion machine with ID '%s'" % (
+                    minion_machine_id))
+        return machine
+
     def _add_minion_pool_event(
             self, ctxt, message, level=constants.TASK_EVENT_INFO):
+        LOG.debug("Minion pool '%s' event: %s", self._minion_pool_id, message)
         db_api.add_minion_pool_event(
             ctxt, self._minion_pool_id, level, message)
 
@@ -203,7 +218,7 @@ class ValidateMinionPoolOptionsTask(BaseMinionManangerTask):
             context, "Successfully validated minion pool options")
 
 
-class DeploySharedPoolResourcesTask(BaseMinionManangerTask):
+class AllocateSharedPoolResourcesTask(BaseMinionManangerTask):
 
     def __init__(
             self, minion_pool_id, minion_machine_id, minion_pool_type,
@@ -218,29 +233,28 @@ class DeploySharedPoolResourcesTask(BaseMinionManangerTask):
                 constants.TASK_TYPE_SET_UP_DESTINATION_POOL_SHARED_RESOURCES)
             resource_cleanup_task_type = (
                 constants.TASK_TYPE_TEAR_DOWN_DESTINATION_POOL_SHARED_RESOURCES)
-        super(DeploySharedPoolResourcesTask, self).__init__(
+        super(AllocateSharedPoolResourcesTask, self).__init__(
             minion_pool_id, minion_machine_id, resource_deployment_task_type,
             cleanup_task_runner_type=resource_cleanup_task_type)
 
     def _get_task_name(self, minion_pool_id, minion_machine_id):
-        return MINION_POOL_SET_UP_SHARED_RESOURCES_TASK_NAME_FORMAT % (
+        return MINION_POOL_ALLOCATE_SHARED_RESOURCES_TASK_NAME_FORMAT % (
             minion_pool_id)
 
     def execute(self, context, origin, destination, task_info):
         self._add_minion_pool_event(
             context, "Deploying shared pool resources")
-        res = super(DeploySharedPoolResourcesTask, self).execute(
+        res = super(AllocateSharedPoolResourcesTask, self).execute(
             context, origin, destination, task_info)
         pool_shared_resources = res['pool_shared_resources']
         self._add_minion_pool_event(
-            context, "Successfully deployed shared pool resources: %s" % (
-                pool_shared_resources))
+            context, "Successfully deployed shared pool resources")
 
         updated_values = {
             "shared_resources": pool_shared_resources}
         db_api.add_minion_pool_event(
             context, self._minion_pool_id, constants.TASK_EVENT_INFO,
-            "Successfully deployed shared pool resources: %s" % (
+            "Successfully deployed shared pool resources" % (
                 pool_shared_resources))
         db_api.update_minion_pool(
             context, self._minion_pool_id, updated_values)
@@ -252,7 +266,7 @@ class DeploySharedPoolResourcesTask(BaseMinionManangerTask):
         if 'pool_shared_resources' not in task_info:
             task_info['pool_shared_resources'] = {}
 
-        res = super(DeploySharedPoolResourcesTask, self).revert(
+        res = super(AllocateSharedPoolResourcesTask, self).revert(
             context, origin, destination, task_info)
 
         if res and res.get('pool_shared_resources'):
@@ -269,7 +283,53 @@ class DeploySharedPoolResourcesTask(BaseMinionManangerTask):
         return task_info
 
 
-class DeployMinionMachineTask(BaseMinionManangerTask):
+
+class DeallocateSharedPoolResourcesTask(BaseMinionManangerTask):
+
+    def __init__(
+            self, minion_pool_id, minion_machine_id, minion_pool_type,
+            **kwargs):
+
+        resource_deallocation_task = (
+            constants.TASK_TYPE_TEAR_DOWN_SOURCE_POOL_SHARED_RESOURCES)
+        if minion_pool_type != constants.PROVIDER_PLATFORM_SOURCE:
+            resource_deallocation_task = (
+                constants.TASK_TYPE_TEAR_DOWN_DESTINATION_POOL_SHARED_RESOURCES)
+        super(DeallocateSharedPoolResourcesTask, self).__init__(
+            minion_pool_id, minion_machine_id, resource_deallocation_task)
+
+    def _get_task_name(self, minion_pool_id, minion_machine_id):
+        return MINION_POOL_DEALLOCATE_SHARED_RESOURCES_TASK_NAME_FORMAT % (
+            minion_pool_id)
+
+    def execute(self, context, origin, destination, task_info):
+        self._add_minion_pool_event(
+            context, "Deallocating shared pool resources")
+        if 'pool_shared_resources' not in task_info:
+            raise exception.InvalidInput(
+                "[Task '%s'] No 'pool_shared_resources' provided in the "
+                "task_info." % self._task_name)
+        execution_info = {
+            "pool_environment_options": task_info.get(
+                'pool_environment_options', {}),
+            "pool_shared_resources": task_info['pool_shared_resources']}
+        res = super(DeallocateSharedPoolResourcesTask, self).execute(
+            context, origin, destination, execution_info)
+        if res:
+            LOG.warn(
+                "[Task '%s'] Pool '%s' shared resource deallocation task "
+                "returned non-void values: %s" % (
+                    self._task_name, self._minion_pool_id, res))
+        updated_values = {
+            "shared_resources": None}
+        db_api.update_minion_pool(
+            context, self._minion_pool_id, updated_values)
+        self._add_minion_pool_event(
+            context, "Successfully deallocated shared pool resources")
+        return task_info
+
+
+class AllocateMinionMachineTask(BaseMinionManangerTask):
 
     def __init__(
             self, minion_pool_id, minion_machine_id, minion_pool_type,
@@ -283,12 +343,12 @@ class DeployMinionMachineTask(BaseMinionManangerTask):
                 constants.TASK_TYPE_DELETE_SOURCE_MINION_MACHINE)
             resource_cleanup_task_type = (
                 constants.TASK_TYPE_DELETE_DESTINATION_MINION_MACHINE)
-        super(DeployMinionMachineTask, self).__init__(
+        super(AllocateMinionMachineTask, self).__init__(
             minion_pool_id, minion_machine_id, resource_deployment_task_type,
             cleanup_task_runner_type=resource_cleanup_task_type)
 
     def _get_task_name(self, minion_pool_id, minion_machine_id):
-        return MINION_POOL_CREATE_MINION_TASK_NAME_FORMAT % (
+        return MINION_POOL_ALLOCATE_MACHINE_TASK_NAME_FORMAT % (
             minion_pool_id, minion_machine_id)
 
     def execute(self, context, origin, destination, task_info):
@@ -305,8 +365,18 @@ class DeployMinionMachineTask(BaseMinionManangerTask):
             "pool_shared_resources": task_info["pool_shared_resources"],
             "pool_os_type": task_info["pool_os_type"]}
 
-        res = super(DeployMinionMachineTask, self).execute(
+        self._add_minion_pool_event(
+            context,
+            "Allocating minion machine with internal pool ID '%s'" % (
+                self._minion_machine_id))
+
+        res = super(AllocateMinionMachineTask, self).execute(
             context, origin, destination, execution_info)
+
+        self._add_minion_pool_event(
+            context,
+            "Successfully allocated minion machine with internal pool "
+            "ID '%s'" % (self._minion_machine_id))
 
         updated_values = {
             "status": constants.MINION_MACHINE_STATUS_AVAILABLE,
@@ -336,7 +406,7 @@ class DeployMinionMachineTask(BaseMinionManangerTask):
         cleanup_info = copy.deepcopy(task_info)
         cleanup_info['minion_provider_properties'] = original_result[
             'minion_provider_properties']
-        _ = super(DeployMinionMachineTask, self).revert(
+        _ = super(AllocateMinionMachineTask, self).revert(
             context, origin, destination, cleanup_info)
 
         if db_api.get_minion_machine(context, self._minion_machine_id):
@@ -344,5 +414,54 @@ class DeployMinionMachineTask(BaseMinionManangerTask):
                 "Removing minion machine entry with ID '%s' for minion pool "
                 "'%s' from DB.", self._minion_machine_id, self._minion_pool_id)
             db_api.delete_minion_machine(context, self._minion_machine_id)
+
+        return task_info
+
+
+class DeallocateMinionMachineTask(BaseMinionManangerTask):
+
+    def __init__(
+            self, minion_pool_id, minion_machine_id, minion_pool_type,
+            **kwargs):
+        resource_deletion_task_type = (
+            constants.TASK_TYPE_DELETE_SOURCE_MINION_MACHINE)
+        if minion_pool_type != constants.PROVIDER_PLATFORM_SOURCE:
+            resource_deletion_task_type = (
+                constants.TASK_TYPE_DELETE_DESTINATION_MINION_MACHINE)
+        super(DeallocateMinionMachineTask, self).__init__(
+            minion_pool_id, minion_machine_id, resource_deletion_task_type)
+
+    def _get_task_name(self, minion_pool_id, minion_machine_id):
+        return MINION_POOL_DEALLOCATE_MACHINE_TASK_NAME_FORMAT % (
+            minion_pool_id, minion_machine_id)
+
+    def execute(self, context, origin, destination, task_info):
+        machine = self._get_minion_machine(context, self._minion_machine_id)
+        if not machine:
+            LOG.info(
+                "[Task '%s'] Could not find machine with ID '%s' in the DB. "
+                "Presuming it was already deleted and returning early.",
+                self._task_name, self._minion_machine_id)
+            return task_info
+
+        self._add_minion_pool_event(
+            context,
+            "Deallocating minion machine with internal pool ID '%s'" % (
+                self._minion_machine_id))
+
+        execution_info = {
+            "minion_provider_properties": machine.provider_properties}
+        res = super(DeallocateMinionMachineTask, self).execute(
+            context, origin, destination, execution_info)
+
+        LOG.debug(
+            "[Task '%s'] Deleting minion machine with ID '%s' from the DB",
+            self._task_name, self._minion_machine_id)
+        db_api.delete_minion_machine(context, self._minion_machine_id)
+
+        self._add_minion_pool_event(
+            context,
+            "Successfully deallocated minion machine with internal pool "
+            "ID '%s'" % (self._minion_machine_id))
 
         return task_info

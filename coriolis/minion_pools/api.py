@@ -31,19 +31,10 @@ class API(object):
     def get_minion_pool(self, ctxt, minion_pool_id):
         return self._rpc_client.get_minion_pool(ctxt, minion_pool_id)
 
-    def set_up_shared_pool_resources(self, ctxt, minion_pool_id):
-        return self._rpc_client.set_up_shared_minion_pool_resources(
+    def allocate_minion_pool(self, ctxt, minion_pool_id):
+        return self._rpc_client.allocate_minion_pool(
             ctxt, minion_pool_id)
 
-    def tear_down_shared_pool_resources(
-            self, ctxt, minion_pool_id, force=False):
-        return self._rpc_client.tear_down_shared_minion_pool_resources(
-            ctxt, minion_pool_id, force=force)
-
-    def allocate_machines(self, ctxt, minion_pool_id):
-        return self._rpc_client.allocate_minion_pool_machines(
-            ctxt, minion_pool_id)
-
-    def deallocate_machines(self, ctxt, minion_pool_id, force=False):
-        return self._rpc_client.deallocate_minion_pool_machines(
+    def deallocate_minion_pool(self, ctxt, minion_pool_id, force=False):
+        return self._rpc_client.deallocate_minion_pool(
             ctxt, minion_pool_id, force=force)

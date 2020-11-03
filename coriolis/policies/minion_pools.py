@@ -73,9 +73,9 @@ MINION_POOLS_DEFAULT_RULES = [
         ]
     ),
     policy.DocumentedRuleDefault(
-        get_minion_pools_policy_label('set_up_shared_resources'),
+        get_minion_pools_policy_label('allocate'),
         MINION_POOLS_DEFAULT_RULE,
-        "Set up shared minion pool resources",
+        "Allocate Minion Pool",
         [
             {
                 "path": "/minion_pools/{minion_pool_id}/actions",
@@ -84,31 +84,9 @@ MINION_POOLS_DEFAULT_RULES = [
         ]
     ),
     policy.DocumentedRuleDefault(
-        get_minion_pools_policy_label('tear_down_shared_resources'),
+        get_minion_pools_policy_label('deallocate'),
         MINION_POOLS_DEFAULT_RULE,
-        "Tear down shared minion pool resources",
-        [
-            {
-                "path": "/minion_pools/{minion_pool_id}/actions",
-                "method": "POST"
-            }
-        ]
-    ),
-    policy.DocumentedRuleDefault(
-        get_minion_pools_policy_label('allocate_machines'),
-        MINION_POOLS_DEFAULT_RULE,
-        "Allocate Minion Pool machines",
-        [
-            {
-                "path": "/minion_pools/{minion_pool_id}/actions",
-                "method": "POST"
-            }
-        ]
-    ),
-    policy.DocumentedRuleDefault(
-        get_minion_pools_policy_label('deallocate_machines'),
-        MINION_POOLS_DEFAULT_RULE,
-        "Deallocate Minion Pool machines",
+        "Deallocate Minion Pool",
         [
             {
                 "path": "/minion_pools/{minion_pool_id}/actions",
