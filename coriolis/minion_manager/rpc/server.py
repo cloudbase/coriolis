@@ -76,7 +76,7 @@ class MinionManagerServerEndpoint(object):
 
         worker_service = self._scheduler_client.get_worker_service_for_specs(
             ctxt, enabled=True,
-            region_sets=[[reg.id for reg in endpoint['mapped_regions']]],
+            region_sets=[[reg['id'] for reg in endpoint['mapped_regions']]],
             provider_requirements={
                 endpoint['type']: [
                     constants.PROVIDER_TYPE_SOURCE_MINION_POOL]})
@@ -93,7 +93,7 @@ class MinionManagerServerEndpoint(object):
 
         worker_service = self._scheduler_client.get_worker_service_for_specs(
             ctxt, enabled=True,
-            region_sets=[[reg.id for reg in endpoint['mapped_regions']]],
+            region_sets=[[reg['id'] for reg in endpoint['mapped_regions']]],
             provider_requirements={
                 endpoint['type']: [
                     constants.PROVIDER_TYPE_DESTINATION_MINION_POOL]})
@@ -110,7 +110,7 @@ class MinionManagerServerEndpoint(object):
 
         worker_service = self._scheduler_client.get_worker_service_for_specs(
             ctxt, enabled=True,
-            region_sets=[[reg.id for reg in endpoint['mapped_regions']]],
+            region_sets=[[reg['id'] for reg in endpoint['mapped_regions']]],
             provider_requirements={
                 endpoint['type']: [
                     constants.PROVIDER_TYPE_SOURCE_MINION_POOL]})
@@ -126,7 +126,7 @@ class MinionManagerServerEndpoint(object):
 
         worker_service = self._scheduler_client.get_worker_service_for_specs(
             ctxt, enabled=True,
-            region_sets=[[reg.id for reg in endpoint['mapped_regions']]],
+            region_sets=[[reg['id'] for reg in endpoint['mapped_regions']]],
             provider_requirements={
                 endpoint['type']: [
                     constants.PROVIDER_TYPE_DESTINATION_MINION_POOL]})
@@ -593,7 +593,8 @@ class MinionManagerServerEndpoint(object):
     def create_minion_pool(
             self, ctxt, name, endpoint_id, pool_platform, pool_os_type,
             environment_options, minimum_minions, maximum_minions,
-            minion_max_idle_time, minion_retention_strategy, notes=None):
+            minion_max_idle_time, minion_retention_strategy, notes=None,
+            skip_allocation=False):
 
         endpoint_dict = self._conductor_client.get_endpoint(
             ctxt, endpoint_id)
@@ -612,13 +613,15 @@ class MinionManagerServerEndpoint(object):
         minion_pool.minion_retention_strategy = minion_retention_strategy
 
         db_api.add_minion_pool(ctxt, minion_pool)
-        allocation_flow = self._get_minion_pool_allocation_flow(minion_pool)
 
-        # start the deployment flow:
-        initial_store = self._get_pool_allocation_initial_store(
-            ctxt, minion_pool, endpoint_dict)
-        self._taskflow_runner.run_flow_in_background(
-            allocation_flow, store=initial_store)
+        if not skip_allocation:
+            allocation_flow = self._get_minion_pool_allocation_flow(
+                minion_pool)
+            # start the deployment flow:
+            initial_store = self._get_pool_allocation_initial_store(
+                ctxt, minion_pool, endpoint_dict)
+            self._taskflow_runner.run_flow_in_background(
+                allocation_flow, store=initial_store)
 
         return self.get_minion_pool(ctxt, minion_pool.id)
 

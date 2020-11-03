@@ -119,9 +119,9 @@ class SchedulerClient(rpc.BaseRPCClient):
         # determine required Coriolis regions based on the endpoints:
         required_region_sets = []
         origin_endpoint_region_ids = [
-            r.id for r in origin_endpoint['mapped_regions']]
+            r['id'] for r in origin_endpoint['mapped_regions']]
         destination_endpoint_region_ids = [
-            r.id for r in destination_endpoint['mapped_regions']]
+            r['id'] for r in destination_endpoint['mapped_regions']]
 
         required_platform = task_cls.get_required_platform()
         if required_platform in (

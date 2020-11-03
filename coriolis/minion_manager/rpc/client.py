@@ -72,7 +72,8 @@ class MinionManagerClient(object):
     def create_minion_pool(
             self, ctxt, name, endpoint_id, pool_platform, pool_os_type,
             environment_options, minimum_minions, maximum_minions,
-            minion_max_idle_time, minion_retention_strategy, notes=None):
+            minion_max_idle_time, minion_retention_strategy, notes=None,
+            skip_allocation=False):
         return self._client.call(
             ctxt, 'create_minion_pool', name=name, endpoint_id=endpoint_id,
             pool_platform=pool_platform, pool_os_type=pool_os_type,
@@ -81,7 +82,7 @@ class MinionManagerClient(object):
             maximum_minions=maximum_minions,
             minion_max_idle_time=minion_max_idle_time,
             minion_retention_strategy=minion_retention_strategy,
-            notes=notes)
+            notes=notes, skip_allocation=skip_allocation)
 
     def set_up_shared_minion_pool_resources(self, ctxt, minion_pool_id):
         return self._client.call(

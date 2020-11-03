@@ -120,22 +120,26 @@ class MinionPoolController(api_wsgi.Controller):
         self._check_pool_retention_strategy(
             minion_retention_strategy)
         notes = minion_pool.get("notes")
+
+        skip_allocation = minion_pool.get('skip_allocation', False)
         return (
             name, endpoint_id, pool_platform, pool_os_type,
             environment_options, minimum_minions, maximum_minions,
-            minion_max_idle_time, minion_retention_strategy, notes)
+            minion_max_idle_time, minion_retention_strategy, notes,
+            skip_allocation)
 
     def create(self, req, body):
         context = req.environ["coriolis.context"]
         context.can(pools_policies.get_minion_pools_policy_label("create"))
         (name, endpoint_id, pool_platform, pool_os_type, environment_options,
          minimum_minions, maximum_minions, minion_max_idle_time,
-         minion_retention_strategy, notes) = (
+         minion_retention_strategy, notes, skip_allocation) = (
             self._validate_create_body(context, body))
         return minion_pool_view.single(req, self._minion_pool_api.create(
             context, name, endpoint_id, pool_platform, pool_os_type,
             environment_options, minimum_minions, maximum_minions,
-            minion_max_idle_time, minion_retention_strategy, notes=notes))
+            minion_max_idle_time, minion_retention_strategy, notes=notes,
+            skip_allocation=skip_allocation))
 
     @api_utils.format_keyerror_message(resource='minion_pool', method='update')
     def _validate_update_body(self, id, context, body):

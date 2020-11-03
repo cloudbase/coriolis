@@ -47,6 +47,19 @@ class BaseCoriolisTaskflowTask(taskflow_tasks.Task):
             if full_tracebacks:
                 label = "Traceback"
                 failure_str = task_failure.traceback_str
+            else:
+                failure_str = task_failure.exception_str
+                if isinstance(
+                        task_failure.exception,
+                        exception.TaskProcessException):
+                    # NOTE: TaskProcessException contains a full trace
+                    # from the worker service so we must split it:
+                    exception_lines = task_failure.exception_str.split('\n')
+                    if exception_lines:
+                        if len(exception_lines) > 2:
+                            failure_str = exception_lines[-2].strip()
+                        else:
+                            failure_str = exception_lines[-1].strip()
             res = (
                 "%s %s for task '%s': %s\n" % (
                     res, label, task_id, failure_str))
@@ -186,7 +199,7 @@ class BaseRunWorkerTask(BaseCoriolisTaskflowTask):
         try:
             LOG.debug(
                 "Starting to run task '%s' (type '%s') on worker service." % (
-                    task_id, task_type))
+                    self._task_name, task_type))
             res = worker_rpc.run_task(
                 ctxt, None, self._task_id, task_type, origin, destination,
                 self._task_instance, task_info)

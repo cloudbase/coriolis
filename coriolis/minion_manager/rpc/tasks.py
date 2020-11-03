@@ -38,6 +38,8 @@ class UpdateMinionPoolStatusTask(coriolis_taskflow_base.BaseCoriolisTaskflowTask
     Is capable of recording and reverting the state.
     """
 
+    default_provides = ["latest_status"]
+
     def __init__(
             self, minion_pool_id, target_status,
             status_to_revert_to=None, **kwargs):
@@ -84,6 +86,8 @@ class UpdateMinionPoolStatusTask(coriolis_taskflow_base.BaseCoriolisTaskflowTask
                 context,
                 "Pool status transitioned from '%s' to '%s'" % (
                     self._previous_status, self._target_status))
+
+        return self._target_status
 
     def revert(self, context, *args, **kwargs):
         super(UpdateMinionPoolStatusTask, self).revert(*args, **kwargs)
@@ -216,6 +220,11 @@ class ValidateMinionPoolOptionsTask(BaseMinionManangerTask):
             context, origin, destination, task_info)
         self._add_minion_pool_event(
             context, "Successfully validated minion pool options")
+
+    def revert(self, context, origin, destination, task_info, **kwargs):
+        LOG.debug("[%s] Nothing to revert for validation" % self._task_name)
+        res = super(ValidateMinionPoolOptionsTask, self).execute(
+            context, origin, destination, task_info)
 
 
 class AllocateSharedPoolResourcesTask(BaseMinionManangerTask):
