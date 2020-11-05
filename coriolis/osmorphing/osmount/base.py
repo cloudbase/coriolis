@@ -4,6 +4,7 @@
 
 import abc
 import base64
+import collections
 import itertools
 import os
 import re
@@ -210,6 +211,11 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                 "device": device,
                 "filesystem": match.group(4),
                 "options": match.group(5)}
+        # NOTE: we sort the mountpoints based on length to ensure
+        # they get mounted in the correct order:
+        mounts = collections.OrderedDict(
+            (mountpoint, mounts[mountpoint])
+            for mountpoint in sorted(mounts, key=len))
 
         # regexes for supported fstab device references:
         uuid_char_regex = "[0-9a-fA-F]"
