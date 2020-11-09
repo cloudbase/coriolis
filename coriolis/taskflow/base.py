@@ -186,7 +186,8 @@ class BaseRunWorkerTask(BaseCoriolisTaskflowTask):
             retry_period=retry_period, random_choice=True)
         LOG.debug(
             "Was offered the following worker service for executing TaskFlow "
-            "task '%s': %s", task_id, worker_service)
+            "task '%s' (taskflow ID %s): %s",
+            self._task_name, task_id, worker_service)
 
         return rpc_worker_client.WorkerClient.from_service_definition(
             worker_service, timeout=rpc_timeout)

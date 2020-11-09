@@ -161,6 +161,7 @@ class MinionManagerServerEndpoint(object):
     @minion_pool_synchronized
     def get_minion_pool_progress_step(self, ctxt, minion_pool_id):
         return db_api.get_minion_pool_progress_step(ctxt, minion_pool_id)
+
     def validate_minion_pool_selections_for_action(self, ctxt, action_id):
         action = db_api.get_action(ctxt, action_id)
         minion_pools = {

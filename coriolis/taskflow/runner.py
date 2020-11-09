@@ -49,7 +49,7 @@ class TaskFlowRunner(object):
     def _log_task_transition(self, state, details):
         LOG.debug(
             "[TaskFlowRunner(%s)] Task '%s' (internal UUID '%s') transitioned"
-            "from '%s' state to '%s'",
+            " from '%s' state to '%s'",
             self._service_name, details['task_name'], details['task_uuid'],
             details['old_state'], state)
 

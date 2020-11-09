@@ -59,8 +59,8 @@ class UpdateMinionPoolStatusTask(coriolis_taskflow_base.BaseCoriolisTaskflowTask
         db_api.add_minion_pool_event(
             ctxt, self._minion_pool_id, level, message)
 
-    def execute(self, context, *args, **kwargs):
-        super(UpdateMinionPoolStatusTask, self).execute(*args, **kwargs)
+    def execute(self, context, *args):
+        super(UpdateMinionPoolStatusTask, self).execute(*args)
 
         if not self._previous_status:
             minion_pool = db_api.get_minion_pool(
@@ -172,12 +172,12 @@ class BaseMinionManangerTask(coriolis_taskflow_base.BaseRunWorkerTask):
         db_api.add_minion_pool_event(
             ctxt, self._minion_pool_id, level, message)
 
-    def execute(self, context, origin, destination, task_info, **kwargs):
+    def execute(self, context, origin, destination, task_info):
         LOG.info(
             "Starting minion pool task '%s' (runner type '%s')",
             self._task_name, self._main_task_runner_type)
         res = super(BaseMinionManangerTask, self).execute(
-            context, origin, destination, task_info, **kwargs)
+            context, origin, destination, task_info)
         LOG.info(
             "Completed minion pool task '%s' (runner type '%s')",
             self._task_name, self._main_task_runner_type)
@@ -222,9 +222,9 @@ class ValidateMinionPoolOptionsTask(BaseMinionManangerTask):
             context, "Successfully validated minion pool options")
 
     def revert(self, context, origin, destination, task_info, **kwargs):
-        LOG.debug("[%s] Nothing to revert for validation" % self._task_name)
-        res = super(ValidateMinionPoolOptionsTask, self).execute(
-            context, origin, destination, task_info)
+        LOG.debug("[%s] Nothing to revert for validation", self._task_name)
+        res = super(ValidateMinionPoolOptionsTask, self).revert(
+            context, origin, destination, task_info, **kwargs)
 
 
 class AllocateSharedPoolResourcesTask(BaseMinionManangerTask):
@@ -244,7 +244,7 @@ class AllocateSharedPoolResourcesTask(BaseMinionManangerTask):
                 constants.TASK_TYPE_TEAR_DOWN_DESTINATION_POOL_SHARED_RESOURCES)
         super(AllocateSharedPoolResourcesTask, self).__init__(
             minion_pool_id, minion_machine_id, resource_deployment_task_type,
-            cleanup_task_runner_type=resource_cleanup_task_type)
+            cleanup_task_runner_type=resource_cleanup_task_type, **kwargs)
 
     def _get_task_name(self, minion_pool_id, minion_machine_id):
         return MINION_POOL_ALLOCATE_SHARED_RESOURCES_TASK_NAME_FORMAT % (
@@ -276,7 +276,7 @@ class AllocateSharedPoolResourcesTask(BaseMinionManangerTask):
             task_info['pool_shared_resources'] = {}
 
         res = super(AllocateSharedPoolResourcesTask, self).revert(
-            context, origin, destination, task_info)
+            context, origin, destination, task_info, **kwargs)
 
         if res and res.get('pool_shared_resources'):
             LOG.warn(
@@ -305,7 +305,8 @@ class DeallocateSharedPoolResourcesTask(BaseMinionManangerTask):
             resource_deallocation_task = (
                 constants.TASK_TYPE_TEAR_DOWN_DESTINATION_POOL_SHARED_RESOURCES)
         super(DeallocateSharedPoolResourcesTask, self).__init__(
-            minion_pool_id, minion_machine_id, resource_deallocation_task)
+            minion_pool_id, minion_machine_id, resource_deallocation_task,
+            **kwargs)
 
     def _get_task_name(self, minion_pool_id, minion_machine_id):
         return MINION_POOL_DEALLOCATE_SHARED_RESOURCES_TASK_NAME_FORMAT % (
@@ -354,7 +355,7 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
                 constants.TASK_TYPE_DELETE_DESTINATION_MINION_MACHINE)
         super(AllocateMinionMachineTask, self).__init__(
             minion_pool_id, minion_machine_id, resource_deployment_task_type,
-            cleanup_task_runner_type=resource_cleanup_task_type)
+            cleanup_task_runner_type=resource_cleanup_task_type, **kwargs)
 
     def _get_task_name(self, minion_pool_id, minion_machine_id):
         return MINION_POOL_ALLOCATE_MACHINE_TASK_NAME_FORMAT % (
@@ -416,7 +417,7 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
         cleanup_info['minion_provider_properties'] = original_result[
             'minion_provider_properties']
         _ = super(AllocateMinionMachineTask, self).revert(
-            context, origin, destination, cleanup_info)
+            context, origin, destination, cleanup_info, **kwargs)
 
         if db_api.get_minion_machine(context, self._minion_machine_id):
             LOG.debug(
@@ -438,7 +439,8 @@ class DeallocateMinionMachineTask(BaseMinionManangerTask):
             resource_deletion_task_type = (
                 constants.TASK_TYPE_DELETE_DESTINATION_MINION_MACHINE)
         super(DeallocateMinionMachineTask, self).__init__(
-            minion_pool_id, minion_machine_id, resource_deletion_task_type)
+            minion_pool_id, minion_machine_id, resource_deletion_task_type,
+            **kwargs)
 
     def _get_task_name(self, minion_pool_id, minion_machine_id):
         return MINION_POOL_DEALLOCATE_MACHINE_TASK_NAME_FORMAT % (
