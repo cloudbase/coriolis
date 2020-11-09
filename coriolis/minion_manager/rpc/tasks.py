@@ -10,6 +10,7 @@ from coriolis import constants
 from coriolis import exception
 from coriolis.db import api as db_api
 from coriolis.db.sqlalchemy import models
+from coriolis.minion_manager.rpc import utils as minion_manager_utils
 from coriolis.taskflow import base as coriolis_taskflow_base
 
 
@@ -33,7 +34,8 @@ MINION_POOL_DEALLOCATE_MACHINE_TASK_NAME_FORMAT = (
     "pool-%s-machine-%s-deallocation")
 
 
-class UpdateMinionPoolStatusTask(coriolis_taskflow_base.BaseCoriolisTaskflowTask):
+class UpdateMinionPoolStatusTask(
+        coriolis_taskflow_base.BaseCoriolisTaskflowTask):
     """Task which updates the status of the given pool.
     Is capable of recording and reverting the state.
     """
@@ -350,7 +352,7 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
             constants.TASK_TYPE_DELETE_SOURCE_MINION_MACHINE)
         if minion_pool_type != constants.PROVIDER_PLATFORM_SOURCE:
             resource_deployment_task_type = (
-                constants.TASK_TYPE_DELETE_SOURCE_MINION_MACHINE)
+                constants.TASK_TYPE_CREATE_DESTINATION_MINION_MACHINE)
             resource_cleanup_task_type = (
                 constants.TASK_TYPE_DELETE_DESTINATION_MINION_MACHINE)
         super(AllocateMinionMachineTask, self).__init__(
@@ -380,8 +382,14 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
             "Allocating minion machine with internal pool ID '%s'" % (
                 self._minion_machine_id))
 
-        res = super(AllocateMinionMachineTask, self).execute(
-            context, origin, destination, execution_info)
+        try:
+            res = super(AllocateMinionMachineTask, self).execute(
+                context, origin, destination, execution_info)
+        except:
+            db_api.update_minion_machine(
+                context, self._minion_machine_id, {
+                    "status": constants.MINION_MACHINE_STATUS_ERROR_DEPLOYING})
+            raise
 
         self._add_minion_pool_event(
             context,
@@ -401,17 +409,25 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
 
     def revert(self, context, origin, destination, task_info, **kwargs):
         original_result = kwargs.get('result', {})
-        if original_result and (
-                isinstance(original_result, dict) and (
-                    'minion_provider_properties' not in original_result)):
-            LOG.debug(
-                "Reversion for Minion Machine '%s' (pool '%s') did not "
-                "receive any result from the original run. Presuming "
-                "that the task had not initially run successfully. "
-                "Result was: %s",
-                self._minion_machine_id, self._minion_pool_id,
-                original_result)
-            return task_info
+        if original_result:
+            if not isinstance(original_result, dict):
+                LOG.debug(
+                    "Reversion for Minion Machine '%s' (pool '%s') did not "
+                    "receive any dict result from the original run. Presuming "
+                    "that the task had not initially run successfully. "
+                    "Result was: %s",
+                    self._minion_machine_id, self._minion_pool_id,
+                    original_result)
+                return task_info
+            elif 'minion_provider_properties' not in original_result:
+                LOG.debug(
+                    "Reversion for Minion Machine '%s' (pool '%s') did not "
+                    "receive any result from the original run. Presuming "
+                    "that the task had not initially run successfully. "
+                    "Result was: %s",
+                    self._minion_machine_id, self._minion_pool_id,
+                    original_result)
+                return task_info
 
         cleanup_info = copy.deepcopy(task_info)
         cleanup_info['minion_provider_properties'] = original_result[
@@ -422,7 +438,7 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
         if db_api.get_minion_machine(context, self._minion_machine_id):
             LOG.debug(
                 "Removing minion machine entry with ID '%s' for minion pool "
-                "'%s' from DB.", self._minion_machine_id, self._minion_pool_id)
+                "'%s' from the DB.", self._minion_machine_id, self._minion_pool_id)
             db_api.delete_minion_machine(context, self._minion_machine_id)
 
         return task_info
@@ -460,10 +476,18 @@ class DeallocateMinionMachineTask(BaseMinionManangerTask):
             "Deallocating minion machine with internal pool ID '%s'" % (
                 self._minion_machine_id))
 
-        execution_info = {
-            "minion_provider_properties": machine.provider_properties}
-        res = super(DeallocateMinionMachineTask, self).execute(
-            context, origin, destination, execution_info)
+        if machine.provider_properties:
+            execution_info = {
+                "minion_provider_properties": machine.provider_properties}
+            _ = super(DeallocateMinionMachineTask, self).execute(
+                context, origin, destination, execution_info)
+        else:
+            self._add_minion_pool_event(
+                context,
+                "Minion machine with ID '%s' had no provider properties set. "
+                "Presuming it failed to deploy in the first place and simply "
+                "removing the machine's entry from the DB" % (
+                    self._minion_machine_id))
 
         LOG.debug(
             "[Task '%s'] Deleting minion machine with ID '%s' from the DB",

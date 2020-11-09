@@ -583,19 +583,22 @@ class ConductorServerEndpoint(object):
     def _get_worker_service_rpc_for_task(
             self, ctxt, task, origin_endpoint, destination_endpoint,
             retry_count=5, retry_period=2, random_choice=True):
+        worker_service = None
         try:
             worker_service = self._scheduler_client.get_worker_service_for_task(
                 ctxt, {"id": task.id, "task_type": task.task_type},
-                origin_endpoint.to_dict(), destination_endpoint.to_dict(),
+                origin_endpoint, destination_endpoint,
                 retry_count=retry_count, retry_period=retry_period,
                 random_choice=random_choice)
         except Exception as ex:
             LOG.debug(
                 "Failed to get worker service for task '%s'. Updating status "
-                "to unscheduleable.")
+                "to unscheduleable. Error trace was: %s",
+                task.id, utils.get_exception_details())
             db_api.set_task_status(
                 ctxt, task.id, constants.TASK_STATUS_FAILED_TO_SCHEDULE,
                 exception_details=str(ex))
+            raise
 
         return self._get_rpc_client_for_service(worker_service)
 
@@ -868,11 +871,11 @@ class ConductorServerEndpoint(object):
             validate_source_minion_task = None
             if instance_source_minion:
                 replica.info[instance].update({
-                    "source_minion_machine_id": instance_source_minion.id,
+                    "source_minion_machine_id": instance_source_minion['id'],
                     "source_minion_provider_properties": (
-                        instance_source_minion.provider_properties),
+                        instance_source_minion['provider_properties']),
                     "source_minion_connection_info": (
-                        instance_source_minion.connection_info)})
+                        instance_source_minion['connection_info'])})
                 validate_source_minion_task = self._create_task(
                     instance,
                     constants.TASK_TYPE_VALIDATE_SOURCE_MINION_POOL_COMPATIBILITY,
@@ -889,13 +892,13 @@ class ConductorServerEndpoint(object):
             validate_target_minion_task = None
             if instance_target_minion:
                 replica.info[instance].update({
-                    "target_minion_machine_id": instance_target_minion.id,
+                    "target_minion_machine_id": instance_target_minion['id'],
                     "target_minion_provider_properties": (
-                        instance_target_minion.provider_properties),
+                        instance_target_minion['provider_properties']),
                     "target_minion_connection_info": (
-                        instance_target_minion.connection_info),
+                        instance_target_minion['connection_info']),
                     "target_minion_backup_writer_connection_info": (
-                        instance_target_minion.backup_writer_connection_info)})
+                        instance_target_minion['backup_writer_connection_info'])})
                 validate_target_minion_task = self._create_task(
                     instance,
                     constants.TASK_TYPE_VALIDATE_DESTINATION_MINION_POOL_COMPATIBILITY,
@@ -1354,11 +1357,11 @@ class ConductorServerEndpoint(object):
             last_validation_task = validate_replica_deployment_inputs_task
             if not skip_os_morphing and instance_osmorphing_minion:
                 migration.info[instance].update({
-                    "osmorphing_minion_machine_id": instance_osmorphing_minion.id,
+                    "osmorphing_minion_machine_id": instance_osmorphing_minion['id'],
                     "osmorphing_minion_provider_properties": (
-                        instance_osmorphing_minion.provider_properties),
+                        instance_osmorphing_minion['provider_properties']),
                     "osmorphing_minion_connection_info": (
-                        instance_osmorphing_minion.connection_info)})
+                        instance_osmorphing_minion['connection_info'])})
                 validate_osmorphing_minion_task = self._create_task(
                     instance,
                     constants.TASK_TYPE_VALIDATE_OSMORPHING_MINION_POOL_COMPATIBILITY,
@@ -1514,16 +1517,16 @@ class ConductorServerEndpoint(object):
             self, ctxt, action, include_transfer_minions=True,
             include_osmorphing_minions=True):
         return self._minion_manager_client.allocate_minion_machines_for_action(
-            ctxt, action.id, include_transfer_minions=include_transfer_minions,
+            ctxt, action, include_transfer_minions=include_transfer_minions,
             include_osmorphing_minions=include_osmorphing_minions)
 
     def _deallocate_minion_machines_for_action(self, ctxt, action):
         return self._minion_manager_client.deallocate_minion_machines_for_action(
-            ctxt, action.id)
+            ctxt, action)
 
     def _check_minion_pools_for_action(self, ctxt, action):
         return self._minion_manager_client.validate_minion_pool_selections_for_action(
-            ctxt, action.id)
+            ctxt, action)
 
     def migrate_instances(self, ctxt, origin_endpoint_id,
                           destination_endpoint_id, origin_minion_pool_id,
@@ -1624,11 +1627,11 @@ class ConductorServerEndpoint(object):
                 validate_migration_source_inputs_task.id]
             if instance_source_minion:
                 migration.info[instance].update({
-                    "source_minion_machine_id": instance_source_minion.id,
+                    "source_minion_machine_id": instance_source_minion['id'],
                     "source_minion_provider_properties": (
-                        instance_source_minion.provider_properties),
+                        instance_source_minion['provider_properties']),
                     "source_minion_connection_info": (
-                        instance_source_minion.connection_info)})
+                        instance_source_minion['connection_info'])})
                 validate_source_minion_task = self._create_task(
                     instance,
                     constants.TASK_TYPE_VALIDATE_SOURCE_MINION_POOL_COMPATIBILITY,
@@ -1655,13 +1658,13 @@ class ConductorServerEndpoint(object):
             deploy_migration_target_resources_task = None
             if instance_target_minion:
                 migration.info[instance].update({
-                    "target_minion_machine_id": instance_target_minion.id,
+                    "target_minion_machine_id": instance_target_minion['id'],
                     "target_minion_provider_properties": (
-                        instance_target_minion.provider_properties),
+                        instance_target_minion['provider_properties']),
                     "target_minion_connection_info": (
-                        instance_target_minion.connection_info),
+                        instance_target_minion['connection_info']),
                     "target_minion_backup_writer_connection_info": (
-                        instance_target_minion.backup_writer_connection_info)})
+                        instance_target_minion['backup_writer_connection_info'])})
                 ttyp = (
                     constants.TASK_TYPE_VALIDATE_DESTINATION_MINION_POOL_COMPATIBILITY)
                 validate_target_minion_task = self._create_task(
@@ -1687,11 +1690,11 @@ class ConductorServerEndpoint(object):
             validate_osmorphing_minion_task = None
             if not skip_os_morphing and instance_osmorphing_minion:
                 migration.info[instance].update({
-                    "osmorphing_minion_machine_id": instance_osmorphing_minion.id,
+                    "osmorphing_minion_machine_id": instance_osmorphing_minion['id'],
                     "osmorphing_minion_provider_properties": (
-                        instance_osmorphing_minion.provider_properties),
+                        instance_osmorphing_minion['provider_properties']),
                     "osmorphing_minion_connection_info": (
-                        instance_osmorphing_minion.connection_info)})
+                        instance_osmorphing_minion['connection_info'])})
                 validate_osmorphing_minion_task = self._create_task(
                     instance,
                     constants.TASK_TYPE_VALIDATE_OSMORPHING_MINION_POOL_COMPATIBILITY,

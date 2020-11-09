@@ -52,22 +52,22 @@ class MinionManagerClient(object):
     def get_diagnostics(self, ctxt):
         return self._client.call(ctxt, 'get_diagnostics')
 
-    def validate_minion_pool_selections_for_action(self, ctxt, action_id):
+    def validate_minion_pool_selections_for_action(self, ctxt, action):
         return self._client.call(
             ctxt, 'validate_minion_pool_selections_for_action',
-            action_id=action_id)
+            action=action)
 
     def allocate_minion_machines_for_action(
-            self, ctxt, action_id, include_transfer_minions=True,
+            self, ctxt, action, include_transfer_minions=True,
             include_osmorphing_minions=True):
         return self._client.call(
-            ctxt, 'allocate_minion_machines_for_action', action_id=action_id,
+            ctxt, 'allocate_minion_machines_for_action', action=action,
             include_transfer_minions=include_transfer_minions,
             include_osmorphing_minions=include_osmorphing_minions)
 
-    def deallocate_minion_machines_for_action(self, ctxt, action_id):
+    def deallocate_minion_machines_for_action(self, ctxt, action):
         return self._client.call(
-            ctxt, 'deallocate_minion_machines_for_action', action_id=action_id)
+            ctxt, 'deallocate_minion_machines_for_action', action=action)
 
     def create_minion_pool(
             self, ctxt, name, endpoint_id, pool_platform, pool_os_type,
