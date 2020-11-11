@@ -76,15 +76,15 @@ class MinionPoolController(api_wsgi.Controller):
     @api_utils.format_keyerror_message(resource='minion_pool', method='create')
     def _validate_create_body(self, ctxt, body):
         minion_pool = body["minion_pool"]
-        name = minion_pool["pool_name"]
+        name = minion_pool["name"]
         endpoint_id = minion_pool["endpoint_id"]
-        pool_os_type = minion_pool["pool_os_type"]
+        pool_os_type = minion_pool["os_type"]
         if pool_os_type not in constants.VALID_OS_TYPES:
             raise Exception(
                 "The provided pool OS type '%s' is invalid. Must be one "
                 "of the following: %s" % (
                     pool_os_type, constants.VALID_OS_TYPES))
-        pool_platform = minion_pool["pool_platform"]
+        pool_platform = minion_pool["platform"]
         supported_pool_platforms = [
             constants.PROVIDER_PLATFORM_SOURCE,
             constants.PROVIDER_PLATFORM_DESTINATION]
@@ -147,13 +147,13 @@ class MinionPoolController(api_wsgi.Controller):
         if 'endpoint_id' in minion_pool:
             raise Exception(
                 "The 'endpoint_id' of a minion pool cannot be updated.")
-        if 'pool_platform' in minion_pool:
+        if 'platform' in minion_pool:
             raise Exception(
-                "The 'pool_platform' of a minion pool cannot be updated.")
+                "The 'platform' of a minion pool cannot be updated.")
         vals = {k: minion_pool[k] for k in minion_pool.keys() &
-                {"pool_name", "environment_options", "minimum_minions",
+                {"name", "environment_options", "minimum_minions",
                  "maximum_minions", "minion_max_idle_time",
-                 "minion_retention_strategy", "notes", "pool_os_type"}}
+                 "minion_retention_strategy", "notes", "os_type"}}
         if 'minion_retention_strategy' in vals:
             self._check_pool_retention_strategy(
                 vals['minion_retention_strategy'])
@@ -171,14 +171,14 @@ class MinionPoolController(api_wsgi.Controller):
                 vals.get('minion_max_idle_time'))
 
             if 'environment_options' in vals:
-                if minion_pool['pool_platform'] == (
+                if minion_pool['platform'] == (
                         constants.PROVIDER_PLATFORM_SOURCE):
                     self._endpoints_api.validate_endpoint_source_minion_pool_options(
                         # TODO(aznashwan): remove endpoint ID fields redundancy
                         # once DB models are overhauled:
                         context, minion_pool['origin_endpoint_id'],
                         vals['environment_options'])
-                elif minion_pool['pool_platform'] == (
+                elif minion_pool['platform'] == (
                         constants.PROVIDER_PLATFORM_DESTINATION):
                     self._endpoints_api.validate_endpoint_destination_minion_pool_options(
                         # TODO(aznashwan): remove endpoint ID fields redundancy
@@ -188,7 +188,7 @@ class MinionPoolController(api_wsgi.Controller):
                 else:
                     raise Exception(
                         "Unknown pool platform: %s" % minion_pool[
-                            'pool_platform'])
+                            'platform'])
         return vals
 
     def update(self, req, id, body):
