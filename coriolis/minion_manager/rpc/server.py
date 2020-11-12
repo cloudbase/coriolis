@@ -8,6 +8,7 @@ import uuid
 from oslo_concurrency import lockutils
 from oslo_config import cfg
 from oslo_log import log as logging
+from taskflow.patterns import graph_flow
 from taskflow.patterns import linear_flow
 from taskflow.patterns import unordered_flow
 
@@ -559,6 +560,92 @@ class MinionManagerServerEndpoint(object):
                         "No minion machines were found to be associated "
                         "with action with base_id '%s'.", action['base_id'])
 
+    def _get_minion_pool_healthcheck_flow(
+            self, ctxt, minion_pool, requery=True):
+
+        if requery:
+            minion_pool = self._get_minion_pool(
+                ctxt, minion_pool.id, include_machines=True,
+                include_progress_updates=False, include_events=False)
+
+        pool_healthcheck_flow = unordered_flow.Flow(
+            minion_manager_tasks.MINION_POOL_HEALTHCHECK_FLOW_NAME_FORMAT % (
+                minion_pool.id))
+
+        for machine in minion_pool.minion_machines:
+            # define healthcheck subflow for each machine:
+            machine_healthcheck_subflow = graph_flow.Flow(
+                minion_manager_tasks.MINION_POOL_HEALTHCHECK_MACHINE_SUBFLOW_NAME_FORMAT % (
+                    minion_pool.id, machine.id))
+
+            # add healtcheck task to healthcheck subflow:
+            machine_healthcheck_task = (
+                minion_manager_tasks.HealthcheckMinionMachineTask(
+                    minion_pool.id, machine.id, minion_pool.platform))
+            machine_healthcheck_subflow.add(machine_healthcheck_task)
+
+            # define reallocation subflow:
+            machine_reallocation_subflow = linear_flow.Flow(
+                minion_manager_tasks.MINION_POOL_REALLOCATE_MACHINE_SUBFLOW_NAME_FORMAT % (
+                    minion_pool.id, machine.id))
+            machine_reallocation_subflow.add(
+                minion_manager_tasks.DeallocateMinionMachineTask(
+                    minion_pool.id, machine.id, minion_pool.platform))
+            machine_reallocation_subflow.add(
+                minion_manager_tasks.AllocateMinionMachineTask(
+                    minion_pool.id, machine.id, minion_pool.platform))
+            machine_healthcheck_subflow.add(machine_reallocation_subflow)
+
+            # link reallocation subflow to healthcheck task:
+            healthcheck_cls = minion_manager_tasks.HealthcheckMinionMachineTask
+            machine_healthcheck_subflow.link(
+                machine_healthcheck_task, machine_reallocation_subflow,
+                decider=healthcheck_cls.make_minion_machine_healtcheck_decider(
+                    minion_pool.id, machine.id,
+                    on_successful_healthcheck=False))
+
+            # add the healthcheck subflow to the main flow:
+            pool_healthcheck_flow.add(machine_healthcheck_subflow)
+
+        return pool_healthcheck_flow
+
+    @minion_manager_utils.minion_pool_synchronized_op
+    def healthcheck_minion_pool(self, ctxt, minion_pool_id):
+        LOG.info("Attempting to healthcheck Minion Pool '%s'.", minion_pool_id)
+        minion_pool = self._get_minion_pool(
+            ctxt, minion_pool_id, include_events=False, include_machines=True,
+            include_progress_updates=False)
+        endpoint_dict = self._conductor_client.get_endpoint(
+            ctxt, minion_pool.endpoint_id)
+        acceptable_allocation_statuses = [
+            constants.MINION_POOL_STATUS_ALLOCATED]
+        current_status = minion_pool.status
+        if current_status not in acceptable_allocation_statuses:
+            raise exception.InvalidMinionPoolState(
+                "Minion machines for pool '%s' cannot be healthchecked as the "
+                "pool is in '%s' state instead of the expected %s." % (
+                    minion_pool_id, current_status,
+                    acceptable_allocation_statuses))
+
+        healthcheck_flow = self._get_minion_pool_healthcheck_flow(
+            ctxt, minion_pool, requery=False)
+        initial_store = self._get_pool_initial_taskflow_store_base(
+            ctxt, minion_pool, endpoint_dict)
+
+        try:
+            db_api.set_minion_pool_status(
+                ctxt, minion_pool_id,
+                constants.MINION_POOL_STATUS_POOL_MAINTENANCE)
+            self._taskflow_runner.run_flow_in_background(
+                healthcheck_flow, store=initial_store)
+        except:
+            db_api.set_minion_pool_status(
+                ctxt, minion_pool_id, current_status)
+            raise
+
+        return self._get_minion_pool(ctxt, minion_pool.id)
+
+
     def _get_minion_pool_allocation_flow(self, minion_pool):
         """ Returns a taskflow.Flow object pertaining to all the tasks
         required for allocating a minion pool (validation, shared resource
@@ -656,14 +743,14 @@ class MinionManagerServerEndpoint(object):
             allocation_flow = self._get_minion_pool_allocation_flow(
                 minion_pool)
             # start the deployment flow:
-            initial_store = self._get_pool_allocation_initial_store(
+            initial_store = self._get_pool_initial_taskflow_store_base(
                 ctxt, minion_pool, endpoint_dict)
             self._taskflow_runner.run_flow_in_background(
                 allocation_flow, store=initial_store)
 
         return self.get_minion_pool(ctxt, minion_pool.id)
 
-    def _get_pool_allocation_initial_store(
+    def _get_pool_initial_taskflow_store_base(
             self, ctxt, minion_pool, endpoint_dict):
         # NOTE: considering pools are associated to strictly one endpoint,
         # we can duplicate the 'origin/destination':
@@ -726,7 +813,7 @@ class MinionManagerServerEndpoint(object):
                     acceptable_allocation_statuses))
 
         allocation_flow = self._get_minion_pool_allocation_flow(minion_pool)
-        initial_store = self._get_pool_allocation_initial_store(
+        initial_store = self._get_pool_initial_taskflow_store_base(
             ctxt, minion_pool, endpoint_dict)
 
         try:
@@ -790,23 +877,13 @@ class MinionManagerServerEndpoint(object):
 
     def _get_pool_deallocation_initial_store(
             self, ctxt, minion_pool, endpoint_dict):
-        # NOTE: considering pools are associated to strictly one endpoint,
-        # we can duplicate the 'origin/destination':
-        origin_dest_info = {
-            "id": endpoint_dict['id'],
-            "connection_info": endpoint_dict['connection_info'],
-            "mapped_regions": endpoint_dict['mapped_regions'],
-            "type": endpoint_dict['type']}
-        initial_store = {
-            "context": ctxt,
-            "origin": origin_dest_info,
-            "destination": origin_dest_info,
-            "task_info": {
-                "pool_identifier": minion_pool.id,
-                "pool_os_type": minion_pool.os_type,
-                "pool_environment_options": minion_pool.environment_options,
-                "pool_shared_resources": minion_pool.shared_resources}}
-        return initial_store
+        base = self._get_pool_initial_taskflow_store_base(
+            ctxt, minion_pool, endpoint_dict)
+        if 'task_info' not in base:
+            base['task_info'] = {}
+        base['task_info']['pool_shared_resources'] = (
+            minion_pool.shared_resources)
+        return base
 
     @minion_manager_utils.minion_pool_synchronized_op
     def deallocate_minion_pool(self, ctxt, minion_pool_id, force=False):

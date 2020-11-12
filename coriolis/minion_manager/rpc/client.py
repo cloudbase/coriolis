@@ -100,6 +100,11 @@ class MinionManagerClient(object):
             ctxt, "allocate_minion_pool",
             minion_pool_id=minion_pool_id)
 
+    def healthcheck_minion_pool(self, ctxt, minion_pool_id):
+        return self._client.call(
+            ctxt, "healthcheck_minion_pool",
+            minion_pool_id=minion_pool_id)
+
     def deallocate_minion_pool(
             self, ctxt, minion_pool_id, force=False):
         return self._client.call(

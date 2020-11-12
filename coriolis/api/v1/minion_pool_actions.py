@@ -30,6 +30,21 @@ class MinionPoolActionsController(api_wsgi.Controller):
         except exception.InvalidParameterValue as ex:
             raise exc.HTTPNotFound(explanation=ex.msg)
 
+    @api_wsgi.action('healthcheck')
+    def _healthcheck_pool(self, req, id, body):
+        context = req.environ['coriolis.context']
+        context.can(
+            minion_pool_policies.get_minion_pools_policy_label(
+                "healthcheck"))
+        try:
+            return minion_pool_view.single(
+                req, self.minion_pool_api.healthcheck_minion_pool(
+                    context, id))
+        except exception.NotFound as ex:
+            raise exc.HTTPNotFound(explanation=ex.msg)
+        except exception.InvalidParameterValue as ex:
+            raise exc.HTTPNotFound(explanation=ex.msg)
+
     @api_wsgi.action('deallocate')
     def _deallocate_pool(self, req, id, body):
         context = req.environ['coriolis.context']

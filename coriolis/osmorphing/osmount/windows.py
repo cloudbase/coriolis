@@ -20,26 +20,12 @@ class WindowsMountTools(base.BaseOSMountTools):
 
         host = connection_info["ip"]
         port = connection_info.get("port", 5986)
-        username = connection_info["username"]
-        password = connection_info.get("password")
-        cert_pem = connection_info.get("cert_pem")
-        cert_key_pem = connection_info.get("cert_key_pem")
-        url = "https://%s:%s/wsman" % (host, port)
-
-        LOG.info("Connection info: %s", str(connection_info))
-
-        LOG.info("Waiting for connectivity on host: %(host)s:%(port)s",
-                 {"host": host, "port": port})
-        utils.wait_for_port_connectivity(host, port)
-
         self._event_manager.progress_update(
             "Connecting to WinRM host: %(host)s:%(port)s" %
             {"host": host, "port": port})
 
-        conn = wsman.WSManConnection()
-        conn.connect(url=url, username=username, password=password,
-                     cert_pem=cert_pem, cert_key_pem=cert_key_pem)
-        self._conn = conn
+        self._conn = wsman.WSManConnection.from_connection_info(
+            connection_info)
 
     def get_connection(self):
         return self._conn

@@ -84,6 +84,17 @@ MINION_POOLS_DEFAULT_RULES = [
         ]
     ),
     policy.DocumentedRuleDefault(
+        get_minion_pools_policy_label('healthcheck'),
+        MINION_POOLS_DEFAULT_RULE,
+        "Healthcheck Minion Pool",
+        [
+            {
+                "path": "/minion_pools/{minion_pool_id}/actions",
+                "method": "POST"
+            }
+        ]
+    ),
+    policy.DocumentedRuleDefault(
         get_minion_pools_policy_label('deallocate'),
         MINION_POOLS_DEFAULT_RULE,
         "Deallocate Minion Pool",

@@ -5,9 +5,11 @@ import abc
 import copy
 
 from oslo_log import log as logging
+from oslo_utils import timeutils
 
 from coriolis import constants
 from coriolis import exception
+from coriolis import utils
 from coriolis.db import api as db_api
 from coriolis.db.sqlalchemy import models
 from coriolis.minion_manager.rpc import utils as minion_manager_utils
@@ -18,8 +20,11 @@ LOG = logging.getLogger(__name__)
 
 MINION_POOL_ALLOCATION_FLOW_NAME_FORMAT = "pool-%s-allocation"
 MINION_POOL_DEALLOCATION_FLOW_NAME_FORMAT = "pool-%s-deallocation"
+MINION_POOL_HEALTHCHECK_FLOW_NAME_FORMAT = "pool-%s-healthcheck"
 MINION_POOL_VALIDATION_TASK_NAME_FORMAT = "pool-%s-validation"
 MINION_POOL_UPDATE_STATUS_TASK_NAME_FORMAT = "pool-%s-update-status-%s"
+MINION_POOL_HEALTHCHECK_MACHINE_TASK_NAME_FORMAT = (
+    "pool-%s-machine-%s-healthcheck")
 MINION_POOL_ALLOCATE_SHARED_RESOURCES_TASK_NAME_FORMAT = (
     "pool-%s-allocate-shared-resources")
 MINION_POOL_DEALLOCATE_SHARED_RESOURCES_TASK_NAME_FORMAT = (
@@ -28,6 +33,10 @@ MINION_POOL_ALLOCATE_MINIONS_SUBFLOW_NAME_FORMAT = (
     "pool-%s-machines-allocation")
 MINION_POOL_DEALLOCATE_MACHINES_SUBFLOW_NAME_FORMAT = (
     "pool-%s-machines-deallocation")
+MINION_POOL_HEALTHCHECK_MACHINE_SUBFLOW_NAME_FORMAT = (
+    "pool-%s-machine-%s-healthcheck")
+MINION_POOL_REALLOCATE_MACHINE_SUBFLOW_NAME_FORMAT = (
+    "pool-%s-machine-%s-reallocation")
 MINION_POOL_ALLOCATE_MACHINE_TASK_NAME_FORMAT = (
     "pool-%s-machine-%s-allocation")
 MINION_POOL_DEALLOCATE_MACHINE_TASK_NAME_FORMAT = (
@@ -345,7 +354,7 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
 
     def __init__(
             self, minion_pool_id, minion_machine_id, minion_pool_type,
-            **kwargs):
+            allocate_to_action=None, **kwargs):
         resource_deployment_task_type = (
             constants.TASK_TYPE_CREATE_SOURCE_MINION_MACHINE)
         resource_cleanup_task_type = (
@@ -355,6 +364,7 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
                 constants.TASK_TYPE_CREATE_DESTINATION_MINION_MACHINE)
             resource_cleanup_task_type = (
                 constants.TASK_TYPE_DELETE_DESTINATION_MINION_MACHINE)
+        self._allocate_to_action = allocate_to_action
         super(AllocateMinionMachineTask, self).__init__(
             minion_pool_id, minion_machine_id, resource_deployment_task_type,
             cleanup_task_runner_type=resource_cleanup_task_type, **kwargs)
@@ -397,11 +407,16 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
             "ID '%s'" % (self._minion_machine_id))
 
         updated_values = {
+            "allocated_at": timeutils.utcnow(),
             "status": constants.MINION_MACHINE_STATUS_AVAILABLE,
             "connection_info": res['minion_connection_info'],
             "provider_properties": res['minion_provider_properties'],
             "backup_writer_connection_info": res[
                 "minion_backup_writer_connection_info"]}
+        if self._allocate_to_action:
+            updated_values["allocated_action"] = self._allocate_to_action
+            updated_values["status"] = (
+                constants.MINION_MACHINE_STATUS_RESERVED)
         db_api.update_minion_machine(
             context, self._minion_machine_id, updated_values)
 
@@ -500,3 +515,107 @@ class DeallocateMinionMachineTask(BaseMinionManangerTask):
             "ID '%s'" % (self._minion_machine_id))
 
         return task_info
+
+
+class HealthcheckMinionMachineTask(BaseMinionManangerTask):
+    """ Task which healthchecks the given minion machine. """
+
+    def __init__(
+            self, minion_pool_id, minion_machine_id, minion_pool_type,
+            **kwargs):
+        resource_healthcheck_task = (
+            constants.TASK_TYPE_HEALTHCHECK_SOURCE_MINION)
+        if minion_pool_type != constants.PROVIDER_PLATFORM_SOURCE:
+            resource_deletion_task_type = (
+                constants.TASK_TYPE_HEALTHCHECK_DESTINATION_MINION)
+        super(HealthcheckMinionMachineTask, self).__init__(
+            minion_pool_id, minion_machine_id, resource_deletion_task_type,
+            **kwargs)
+
+    def execute(self, context, origin, destination, task_info):
+        res = {
+            "healthy": True,
+            "error": None}
+
+        machine = self._get_minion_machine(context, self._minion_machine_id)
+        if not machine:
+            LOG.info(
+                "[Task '%s'] Could not find machine with ID '%s' in the DB. "
+                "Presuming it was already deleted so healthcheck failed.",
+                self._task_name, self._minion_machine_id)
+            return {
+                "healthy": False,
+                "error": "Machine not found."}
+
+        self._add_minion_pool_event(
+            context,
+            "Healthchecking  minion machine with internal pool ID '%s'" % (
+                self._minion_machine_id))
+
+        execution_info = {
+            "minion_provider_properties": machine.provider_properties,
+            "minion_connection_info": machine.connection_info}
+        try:
+            _ = super(HealthcheckMinionMachineTask, self).execute(
+                context, origin, destination, execution_info)
+            self._add_minion_pool_event(
+                context,
+                "Successfully healtchecked minion machine with internal "
+                "pool ID '%s'" % self._minion_machine_id)
+        except Exception as ex:
+            self._add_minion_pool_event(
+                context,
+                "Healtcheck for machine '%s' has failed." % (
+                    self._minion_machine_id),
+                level=constants.TASK_EVENT_WARNING)
+            LOG.debug(
+                "[Task '%s'] Healtcheck failed for machine '%s' of pool '%s'. "
+                "Full trace was:\n%s", self._task_name,
+                self._minion_machine_id, self._minion_pool_id,
+                utils.get_exception_details())
+            res = {
+                "healthy": False,
+                "error": str(ex)}
+
+        return res
+
+    def _get_task_name(self, minion_pool_id, minion_machine_id):
+        return self.get_healthcheck_task_name(
+            minion_pool_id, minion_machine_id)
+
+    @classmethod
+    def get_healthcheck_task_name(cls, minion_pool_id, minion_machine_id):
+        return MINION_POOL_HEALTHCHECK_MACHINE_TASK_NAME_FORMAT % (
+            minion_pool_id, minion_machine_id)
+
+    @classmethod
+    def make_minion_machine_healtcheck_decider(
+            cls, minion_pool_id, minion_machine_id,
+            on_successful_healthcheck=True):
+        def _healthcheck_decider(history):
+            healthcheck_task_name = (
+                cls.get_healthcheck_task_name(
+                    minion_pool_id, minion_machine_id))
+
+            if not history and healthcheck_task_name not in history:
+                LOG.warn(
+                    "Could not find healthceck result for minion machine '%s' "
+                    "of pool '%s' (task name '%s'). NOT grennlighting futher "
+                    "tasks.", minion_machine_id, minion_pool_id,
+                    healthcheck_task_name)
+
+            healtcheck_result = history[healthcheck_task_name]
+            if healtcheck_result['healthy']:
+                LOG.debug(
+                    "Healtcheck task '%s' confirmed worker health. Decider "
+                    "returning %s", healthcheck_task_name,
+                    on_successful_healthcheck)
+                return on_successful_healthcheck
+            else:
+                LOG.debug(
+                    "Healtcheck task '%s' denied worker health. Decider "
+                    "returning %s", healthcheck_task_name,
+                    not on_successful_healthcheck)
+                return not on_successful_healthcheck
+
+        return _healthcheck_decider

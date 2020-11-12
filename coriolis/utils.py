@@ -11,7 +11,6 @@ import io
 import json
 import os
 import pickle
-import platform
 import re
 import socket
 import string
@@ -20,8 +19,6 @@ import sys
 import time
 import traceback
 import uuid
-import __main__ as main
-
 from io import StringIO
 
 import OpenSSL
@@ -29,6 +26,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 
+import __main__ as main
 import netifaces
 import paramiko
 # NOTE(gsamfira): I am aware that this is not ideal, but pip

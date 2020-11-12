@@ -865,3 +865,68 @@ class CollectOSMorphingInfoTask(base.TaskRunner):
 
         return {
             "osmorphing_info": result["osmorphing_info"]}
+
+
+class _BaseHealthcheckMinionMachineTask(base.TaskRunner):
+    """ Calls into the provider to healthcheck the minion machine. """
+
+    @classmethod
+    def get_required_platform(cls):
+        raise NotImplementedError(
+            "No minion healthcheck platform specified")
+
+    @classmethod
+    def get_required_task_info_properties(cls):
+        return ["minion_provider_properties", "minion_connection_info"]
+
+    @classmethod
+    def get_returned_task_info_properties(cls):
+        return []
+
+    @classmethod
+    def get_required_provider_types(cls):
+        return _get_required_minion_pool_provider_types_for_platform(
+            cls.get_required_platform())
+
+    def _run(self, ctxt, instance, origin, destination,
+             task_info, event_handler):
+
+        platform_to_target = None
+        required_platform = self.get_required_platform()
+        if required_platform == constants.TASK_PLATFORM_SOURCE:
+            platform_to_target = origin
+        elif required_platform == constants.TASK_PLATFORM_DESTINATION:
+            platform_to_target = destination
+        else:
+            raise NotImplementedError(
+                "Unknown minion healthcheck platform '%s'" % (
+                    required_platform))
+
+        connection_info = base.get_connection_info(ctxt, platform_to_target)
+        provider_type = self.get_required_provider_types()[
+            self.get_required_platform()][0]
+        provider = providers_factory.get_provider(
+            platform_to_target["type"], provider_type, event_handler)
+
+        minion_properties = task_info['minion_provider_properties']
+        minion_connection_info = base.unmarshal_migr_conn_info(
+            task_info['minion_connection_info'])
+
+        provider.healthcheck_minion(
+            ctxt, connection_info, minion_properties, minion_connection_info)
+
+        return task_info
+
+
+class HealthcheckSourceMinionMachineTask(_BaseHealthcheckMinionMachineTask):
+
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_SOURCE
+
+
+class HealthcheckDestinationMinionTask(_BaseHealthcheckMinionMachineTask):
+
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_DESTINATION

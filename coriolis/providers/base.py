@@ -614,6 +614,12 @@ class _BaseMinionPoolProvider(
             self, ctxt, connection_info, minion_properties, volumes_info):
         pass
 
+    @abc.abstractmethod
+    def healthcheck_minion(
+            self, ctxt, environment_options, connection_info,
+            minion_properties, minion_connection_info):
+        pass
+
 
 class BaseSourceMinionPoolProvider(_BaseMinionPoolProvider):
 

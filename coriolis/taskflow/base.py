@@ -106,12 +106,14 @@ class BaseRunWorkerTask(BaseCoriolisTaskflowTask):
 
     def __init__(
             self, task_name, task_id, task_instance, main_task_runner_type,
-            cleanup_task_runner_type=None, depends_on=None, **kwargs):
+            cleanup_task_runner_type=None, depends_on=None,
+            raise_on_cleanup_failure=False, **kwargs):
         self._task_id = task_id
         self._task_name = task_name
         self._task_instance = task_instance
         self._main_task_runner_type = main_task_runner_type
         self._cleanup_task_runner_type = cleanup_task_runner_type
+        self._raise_on_cleanup_failure = raise_on_cleanup_failure
 
         super(BaseRunWorkerTask, self).__init__(name=task_name, **kwargs)
 
@@ -233,9 +235,20 @@ class BaseRunWorkerTask(BaseCoriolisTaskflowTask):
                 self._task_name, self._main_task_runner_type)
             return original_result
 
-        res = self._execute_task(
-            context, self._task_id, self._cleanup_task_runner_type, origin,
-            destination, task_info)
+        try:
+            res = self._execute_task(
+                context, self._task_id, self._cleanup_task_runner_type, origin,
+                destination, task_info)
+        except Exception as ex:
+            LOG.warn(
+                "Task cleanup for '%s' (main task type '%s', cleanup task type"
+                "'%s') has failed with the following trace: %s",
+                self._task_name, self._main_task_runner_type,
+                self._cleanup_task_runner_type, utils.get_exception_details())
+            if self._raise_on_cleanup_failure:
+                raise
+            return original_result
+
         LOG.debug(
             "Reversion of taskflow task '%s' (ID '%s') was successfully "
             "executed using task runner '%s' with the following result: %s" % (

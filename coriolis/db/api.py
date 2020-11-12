@@ -1209,7 +1209,8 @@ def update_minion_machine(context, minion_machine_id, updated_values):
 
     updateable_fields = [
         "connection_info", "provider_properties", "status",
-        "backup_writer_connection_info", "allocated_action"]
+        "backup_writer_connection_info", "allocated_action",
+        "allocated_at"]
     _update_sqlalchemy_object_fields(
         minion_machine, updateable_fields, updated_values)
 
@@ -1236,6 +1237,7 @@ def set_minion_machines_allocation_statuses(
                 machine.id, machine.status, allocation_status,
                 machine.allocated_action, action_id))
         machine.allocated_action = action_id
+        machine.allocated_at = timeutils.utcnow()
         machine.status = allocation_status
 
 
