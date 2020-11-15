@@ -57,17 +57,23 @@ class MinionManagerClient(object):
             ctxt, 'validate_minion_pool_selections_for_action',
             action=action)
 
-    def allocate_minion_machines_for_action(
-            self, ctxt, action, include_transfer_minions=True,
+    def allocate_minion_machines_for_replica(
+            self, ctxt, replica):
+        return self._client.cast(
+            ctxt, 'allocate_minion_machines_for_replica', replica=replica)
+
+    def allocate_minion_machines_for_migration(
+            self, ctxt, migration, include_transfer_minions=True,
             include_osmorphing_minions=True):
         return self._client.cast(
-            ctxt, 'allocate_minion_machines_for_action', action=action,
+            ctxt, 'allocate_minion_machines_for_migration',
+            migration=migration,
             include_transfer_minions=include_transfer_minions,
             include_osmorphing_minions=include_osmorphing_minions)
 
-    def deallocate_minion_machines_for_action(self, ctxt, action):
+    def deallocate_minion_machines_for_action(self, ctxt, action_id):
         return self._client.cast(
-            ctxt, 'deallocate_minion_machines_for_action', action=action)
+            ctxt, 'deallocate_minion_machines_for_action', action_id=action_id)
 
     def create_minion_pool(
             self, ctxt, name, endpoint_id, pool_platform, pool_os_type,

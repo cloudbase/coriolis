@@ -59,7 +59,8 @@ class UpdateMinionPoolStatusTask(
         self._minion_pool_id = minion_pool_id
         self._task_name = (MINION_POOL_UPDATE_STATUS_TASK_NAME_FORMAT % (
             self._minion_pool_id, self._target_status)).lower()
-        self._previous_status = status_to_revert_to
+        self._previous_status = None
+        self._status_to_revert_to = status_to_revert_to
 
         super(UpdateMinionPoolStatusTask, self).__init__(
             name=self._task_name, **kwargs)
@@ -112,12 +113,19 @@ class UpdateMinionPoolStatusTask(
                 "reversion." % (self._task_name, self._minion_pool_id))
             return
 
-        if minion_pool.status == self._previous_status:
+        previous_status = self._previous_status
+        if self._status_to_revert_to:
+            LOG.debug(
+                "Forcibly reverting pool to status '%s' despite previous "
+                "status being '%s'",
+                self._status_to_revert_to, self._previous_status)
+            previous_status = self._status_to_revert_to
+        if minion_pool.status == previous_status:
             LOG.debug(
                 "[Task '%s'] Minion pool '%s' is/was already reverted to "
                 "'%s'." % (
                     self._task_name, self._minion_pool_id,
-                    self._previous_status))
+                    previous_status))
         else:
             if minion_pool.status != self._target_status:
                 LOG.warn(
@@ -125,19 +133,18 @@ class UpdateMinionPoolStatusTask(
                     "neither the previous status ('%s'), nor the newly-set "
                     "status ('%s'). Reverting to '%s' anyway.",
                     self._task_name, self._minion_pool_id, minion_pool.status,
-                    self._previous_status, self._target_status,
-                    self._previous_status)
+                    previous_status, self._target_status, previous_status)
             LOG.debug(
                 "[Task '%s'] Reverting pool '%s' status from '%s' to "
                 "'%s'" % (
                     self._task_name, self._minion_pool_id, minion_pool.status,
-                    self._previous_status))
+                    previous_status))
             db_api.set_minion_pool_status(
-                context, self._minion_pool_id, self._previous_status)
+                context, self._minion_pool_id, previous_status)
             self._add_minion_pool_event(
                 context,
                 "Pool status reverted from '%s' to '%s'" % (
-                    minion_pool.status, self._previous_status))
+                    minion_pool.status, previous_status))
 
 
 class BaseMinionManangerTask(coriolis_taskflow_base.BaseRunWorkerTask):
@@ -200,7 +207,7 @@ class BaseMinionManangerTask(coriolis_taskflow_base.BaseRunWorkerTask):
             context,
             "Failure occurred for one or more operations on minion pool '%s'. "
             "Please check the logs for additional details. Error messages "
-            "were: %s" % (
+            "were:\n%s" % (
                 self._minion_pool_id,
                 self._get_error_str_for_flow_failures(
                     flow_failures, full_tracebacks=False)),

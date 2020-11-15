@@ -174,16 +174,12 @@ class MinionPoolController(api_wsgi.Controller):
                 if minion_pool['platform'] == (
                         constants.PROVIDER_PLATFORM_SOURCE):
                     self._endpoints_api.validate_endpoint_source_minion_pool_options(
-                        # TODO(aznashwan): remove endpoint ID fields redundancy
-                        # once DB models are overhauled:
-                        context, minion_pool['origin_endpoint_id'],
+                        context, minion_pool['endpoint_id'],
                         vals['environment_options'])
                 elif minion_pool['platform'] == (
                         constants.PROVIDER_PLATFORM_DESTINATION):
                     self._endpoints_api.validate_endpoint_destination_minion_pool_options(
-                        # TODO(aznashwan): remove endpoint ID fields redundancy
-                        # once DB models are overhauled:
-                        context, minion_pool['origin_endpoint_id'],
+                        context, minion_pool['endpoint_id'],
                         vals['environment_options'])
                 else:
                     raise Exception(

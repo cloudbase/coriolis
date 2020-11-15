@@ -1305,8 +1305,12 @@ def get_minion_pools(
         q = q.options(orm.joinedload('progress_updates'))
     db_result = q.all()
     if to_dict:
-        return [i.to_dict(
-            include_machines=include_machines) for i in db_result]
+        return [
+            i.to_dict(
+                include_machines=include_machines,
+                include_events=include_events,
+                include_progress_updates=include_progress_updates)
+            for i in db_result]
     return db_result
 
 

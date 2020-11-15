@@ -402,3 +402,29 @@ class ConductorClient(rpc.BaseRPCClient):
     def delete_service(self, ctxt, service_id):
         return self._call(
             ctxt, 'delete_service', service_id=service_id)
+
+    def confirm_replica_minions_allocation(
+            self, ctxt, replica_id, minion_machine_allocations):
+        self._client.call(
+            ctxt, 'confirm_replica_minions_allocation', replica_id=replica_id,
+            minion_machine_allocations=minion_machine_allocations)
+
+    def report_replica_minions_allocation_error(
+            self, ctxt, replica_id, minion_allocation_error_details):
+        self._client.call(
+            ctxt, 'report_replica_minions_allocation_error', replica_id=replica_id,
+            minion_allocation_error_details=minion_allocation_error_details)
+
+    def confirm_migration_minions_allocation(
+            self, ctxt, migration_id, minion_machine_allocations):
+        self._client.call(
+            ctxt, 'confirm_migration_minions_allocation',
+            migration_id=migration_id,
+            minion_machine_allocations=minion_machine_allocations)
+
+    def report_migration_minions_allocation_error(
+            self, ctxt, migration_id, minion_allocation_error_details):
+        self._client.call(
+            ctxt, 'report_migration_minions_allocation_error',
+            migration_id=migration_id,
+            minion_allocation_error_details=minion_allocation_error_details)
