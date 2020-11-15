@@ -2079,6 +2079,9 @@ class ConductorServerEndpoint(object):
             migration_resources_task_ids = []
             validate_source_minion_task = None
             deploy_migration_source_resources_task = None
+            migration_resources_task_deps = [
+                get_instance_info_task.id,
+                validate_migration_source_inputs_task.id]
             if instance_source_minion:
                 migration.info[instance].update({
                     "source_minion_machine_id": instance_source_minion.id,
@@ -2090,17 +2093,14 @@ class ConductorServerEndpoint(object):
                     instance,
                     constants.TASK_TYPE_VALIDATE_SOURCE_MINION_POOL_COMPATIBILITY,
                     execution,
-                    depends_on=[
-                        get_instance_info_task.id,
-                        validate_migration_source_inputs_task.id])
+                    depends_on=migration_resources_task_deps)
                 migration_resources_task_ids.append(
                     validate_source_minion_task.id)
             else:
                 deploy_migration_source_resources_task = self._create_task(
                     instance,
                     constants.TASK_TYPE_DEPLOY_MIGRATION_SOURCE_RESOURCES,
-                    execution, depends_on=[
-                        validate_migration_source_inputs_task.id])
+                    execution, depends_on=migration_resources_task_deps)
                 migration_resources_task_ids.append(
                     deploy_migration_source_resources_task.id)
 
