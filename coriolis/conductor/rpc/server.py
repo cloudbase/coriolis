@@ -1521,12 +1521,28 @@ class ConductorServerEndpoint(object):
             include_osmorphing_minions=include_osmorphing_minions)
 
     def _deallocate_minion_machines_for_action(self, ctxt, action):
+        # NOTE: we only send the required info for deallocation to avoid
+        # extraneous background loads from the DB of uneeded attributes
+        action_deallocation_info = {
+            "id": action.base_id,
+            "instances": action.instances,
+            "origin_minion_pool_id": action.origin_minion_pool_id,
+            "destination_minion_pool_id": action.destination_minion_pool_id,
+            "instance_osmorphing_minion_pool_mappings": (
+                action.instance_osmorphing_minion_pool_mappings)}
         return self._minion_manager_client.deallocate_minion_machines_for_action(
-            ctxt, action)
+            ctxt, action_deallocation_info)
 
     def _check_minion_pools_for_action(self, ctxt, action):
         return self._minion_manager_client.validate_minion_pool_selections_for_action(
             ctxt, action)
+
+    def accept_minion_allocations_for_execution(
+            self, ctxt, execution_id, action_id, pool_allocations):
+        # TODO: fetch execution
+        # update action_info
+        # call begin_tasks
+        pass
 
     def migrate_instances(self, ctxt, origin_endpoint_id,
                           destination_endpoint_id, origin_minion_pool_id,

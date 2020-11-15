@@ -60,13 +60,13 @@ class MinionManagerClient(object):
     def allocate_minion_machines_for_action(
             self, ctxt, action, include_transfer_minions=True,
             include_osmorphing_minions=True):
-        return self._client.call(
+        return self._client.cast(
             ctxt, 'allocate_minion_machines_for_action', action=action,
             include_transfer_minions=include_transfer_minions,
             include_osmorphing_minions=include_osmorphing_minions)
 
     def deallocate_minion_machines_for_action(self, ctxt, action):
-        return self._client.call(
+        return self._client.cast(
             ctxt, 'deallocate_minion_machines_for_action', action=action)
 
     def create_minion_pool(

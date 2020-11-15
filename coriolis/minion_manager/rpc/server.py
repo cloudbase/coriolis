@@ -731,7 +731,7 @@ class MinionManagerServerEndpoint(object):
         minion_pool.os_type = pool_os_type
         minion_pool.endpoint_id = endpoint_id
         minion_pool.environment_options = environment_options
-        minion_pool.status = constants.MINION_POOL_STATUS_UNINITIALIZED
+        minion_pool.status = constants.MINION_POOL_STATUS_DEALLOCATED
         minion_pool.minimum_minions = minimum_minions
         minion_pool.maximum_minions = maximum_minions
         minion_pool.minion_max_idle_time = minion_max_idle_time
@@ -780,6 +780,7 @@ class MinionManagerServerEndpoint(object):
                 include_events=False, include_progress_updates=False)
         unused_machine_states = [
             constants.MINION_MACHINE_STATUS_AVAILABLE,
+            constants.MINION_MACHINE_STATUS_ERROR_DEPLOYING,
             constants.MINION_MACHINE_STATUS_ERROR]
         used_machines = {
             mch for mch in minion_pool.minion_machines
@@ -801,7 +802,6 @@ class MinionManagerServerEndpoint(object):
         endpoint_dict = self._conductor_client.get_endpoint(
             ctxt, minion_pool.endpoint_id)
         acceptable_allocation_statuses = [
-            constants.MINION_POOL_STATUS_UNINITIALIZED,
             constants.MINION_POOL_STATUS_DEALLOCATED]
         current_status = minion_pool.status
         if current_status not in acceptable_allocation_statuses:
@@ -892,9 +892,13 @@ class MinionManagerServerEndpoint(object):
             ctxt, minion_pool_id, include_events=False, include_machines=True,
             include_progress_updates=False)
         current_status = minion_pool.status
+        if current_status == constants.MINION_POOL_STATUS_DEALLOCATED:
+            LOG.debug(
+                "Deallocation requested on already deallocated pool '%s'. "
+                "Nothing to do so returning early.", minion_pool_id)
+            return self._get_minion_pool(ctxt, minion_pool.id)
         acceptable_deallocation_statuses = [
             constants.MINION_POOL_STATUS_ALLOCATED,
-            constants.MINION_POOL_STATUS_UNINITIALIZED,
             constants.MINION_POOL_STATUS_ERROR]
         if current_status not in acceptable_deallocation_statuses:
             if not force:
@@ -1235,14 +1239,14 @@ class MinionManagerServerEndpoint(object):
     def update_minion_pool(self, ctxt, minion_pool_id, updated_values):
         minion_pool = self._get_minion_pool(
             ctxt, minion_pool_id, include_machines=False)
-        if minion_pool.status != constants.MINION_POOL_STATUS_UNINITIALIZED:
+        if minion_pool.status != constants.MINION_POOL_STATUS_DEALLOCATED:
             raise exception.InvalidMinionPoolState(
                 "Minion Pool '%s' cannot be updated as it is in '%s' status "
                 "instead of the expected '%s'. Please ensure the pool machines"
                 "have been deallocated and the pool's supporting resources "
                 "have been torn down before updating the pool." % (
                     minion_pool_id, minion_pool.status,
-                    constants.MINION_POOL_STATUS_UNINITIALIZED))
+                    constants.MINION_POOL_STATUS_DEALLOCATED))
         LOG.info(
             "Attempting to update minion_pool '%s' with payload: %s",
             minion_pool_id, updated_values)
@@ -1256,7 +1260,6 @@ class MinionManagerServerEndpoint(object):
             ctxt, minion_pool_id, include_machines=True)
         acceptable_deletion_statuses = [
             constants.MINION_POOL_STATUS_DEALLOCATED,
-            constants.MINION_POOL_STATUS_UNINITIALIZED,
             constants.MINION_POOL_STATUS_ERROR]
         if minion_pool.status not in acceptable_deletion_statuses:
             raise exception.InvalidMinionPoolState(
