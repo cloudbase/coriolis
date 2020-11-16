@@ -2161,13 +2161,29 @@ class ConductorServerEndpoint(object):
                             task.status, task.exception_details)))
                 continue
 
-            if task.status in (
+            if task.status == constants.TASK_STATUS_SCHEDULED and (
+                    not task.depends_on):
+                # any SCHEDULED tasks with no dependencies are automatically
+                # unscheduled. The chain-reaction of unscheduling all
+                # subsequent child tasks will be handled in
+                # _advance_execution_state:
+                LOG.debug(
+                    "Setting currently '%s' task '%s' to '%s' as part of "
+                    "cancellation of execution '%s'.",
+                    task.status, task.id, constants.TASK_STATUS_UNSCHEDULED,
+                    execution.id)
+                db_api.set_task_status(
+                    ctxt, task.id, constants.TASK_STATUS_UNSCHEDULED,
+                    exception_details=(
+                        "This task was unscheduled during the cancellation "
+                        "of the parent tasks execution."))
+            elif task.status in (
                     constants.TASK_STATUS_PENDING,
                     constants.TASK_STATUS_STARTING):
                 # any PENDING/STARTING tasks means that they did not have a
                 # host assigned to them yet, and presuming the host does not
                 # start executing the task until it marks itself as the runner,
-                # we can just mark the task as cancelled:
+                # we can just mark the task as unscheduled:
                 LOG.debug(
                     "Setting currently '%s' task '%s' to '%s' as part of the "
                     "cancellation of execution '%s'",
