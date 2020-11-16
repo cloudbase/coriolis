@@ -14,18 +14,13 @@ LOG = logging.getLogger(__name__)
 
 
 SOURCE_MINION_TASK_INFO_FIELD_MAPPINGS = {
-    # NOTE: these redundancies are in place so as to have the
-    # 'Release*' task classes clear these fields after they run:
-    "source_minion_machine_id": "source_minion_machine_id",
     "source_minion_provider_properties": "source_resources",
     "source_minion_connection_info": "source_resources_connection_info"}
 TARGET_MINION_TASK_INFO_FIELD_MAPPINGS = {
-    "target_minion_machine_id": "target_minion_machine_id",
     "target_minion_provider_properties": "target_resources",
     "target_minion_backup_writer_connection_info": (
         "target_resources_connection_info")}
 OSMOPRHING_MINION_TASK_INFO_FIELD_MAPPINGS = {
-    "osmorphing_minion_machine_id": "osmorphing_minion_machine_id",
     "osmorphing_minion_provider_properties": "os_morphing_resources",
     "osmorphing_minion_connection_info": "osmorphing_connection_info"}
 

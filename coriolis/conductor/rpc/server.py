@@ -2936,6 +2936,45 @@ class ConductorServerEndpoint(object):
                 ctxt, task_info['osmorphing_minion_machine_id'],
                 updated_values)
 
+        elif task_type == constants.TASK_TYPE_RELEASE_SOURCE_MINION:
+
+            LOG.debug(
+                "Releasing source minion '%s' following the completion of "
+                "task with ID '%s' (type '%s')",
+                task_info['source_minion_machine_id'],
+                task.id, task_type)
+            self._minion_manager_client.deallocate_minion_machine(
+                ctxt, task_info['source_minion_machine_id'])
+
+        elif task_type == constants.TASK_TYPE_RELEASE_DESTINATION_MINION:
+
+            if task_info['target_minion_machine_id'] != task_info.get(
+                    "osmorphing_minion_machine_id"):
+                LOG.debug(
+                    "Releasing destination minion '%s' following the "
+                    "completion of task with ID '%s' (type '%s')",
+                    task_info['target_minion_machine_id'],
+                    task.id, task_type)
+                self._minion_manager_client.deallocate_minion_machine(
+                    ctxt, task_info['target_minion_machine_id'])
+            else:
+                LOG.debug(
+                    "NOT releasing destination minion with ID '%s' following "
+                    "the completion of task with ID '%s' (type '%s') as it "
+                    "also to be used as the OSMorphing minion.",
+                    task_info['target_minion_machine_id'],
+                    task.id, task_type)
+
+        elif task_type == constants.TASK_TYPE_RELEASE_OSMORPHING_MINION:
+
+            LOG.debug(
+                "Releasing OSMorphing minion '%s' following the completion of "
+                "task with ID '%s' (type '%s')",
+                task_info['osmorphing_minion_machine_id'],
+                task.id, task_type)
+            self._minion_manager_client.deallocate_minion_machine(
+                ctxt, task_info['osmorphing_minion_machine_id'])
+
         else:
             LOG.debug(
                 "No post-task actions required for task '%s' of type '%s'",

@@ -1217,7 +1217,8 @@ def update_minion_machine(context, minion_machine_id, updated_values):
 
 @enginefacade.writer
 def set_minion_machines_allocation_statuses(
-        context, minion_machine_ids, action_id, allocation_status):
+        context, minion_machine_ids, action_id, allocation_status,
+        refresh_allocation_time=True):
     machines = get_minion_machines(context)
     existing_machine_id_mappings = {
         machine.id: machine for machine in machines}
@@ -1237,7 +1238,8 @@ def set_minion_machines_allocation_statuses(
                 machine.id, machine.status, allocation_status,
                 machine.allocated_action, action_id))
         machine.allocated_action = action_id
-        machine.allocated_at = timeutils.utcnow()
+        if refresh_allocation_time:
+            machine.allocated_at = timeutils.utcnow()
         machine.status = allocation_status
 
 

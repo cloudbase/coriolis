@@ -518,7 +518,8 @@ class MinionManagerServerEndpoint(object):
                 allocated_osmorphing_machine_ids))
             db_api.set_minion_machines_allocation_statuses(
                 ctxt, all_machine_ids, action['id'],
-                constants.MINION_MACHINE_STATUS_ALLOCATED)
+                constants.MINION_MACHINE_STATUS_ALLOCATED,
+                refresh_allocation_time=True)
 
         # filter out redundancies:
         instance_machine_allocations = {
@@ -534,6 +535,44 @@ class MinionManagerServerEndpoint(object):
                     for (typ, machine) in allocation.items()}
                 for (instance, allocation) in instance_machine_allocations.items()})
         return instance_machine_allocations
+
+    def deallocate_minion_machine(self, ctxt, minion_machine_id):
+
+        minion_machine = db_api.get_minion_machine(
+            ctxt, minion_machine_id)
+        if not minion_machine:
+            LOG.warn(
+                "Could not find minion machine with ID '%s' for deallocation. "
+                "Presuming it was deleted and returning early",
+                minion_machine_id)
+            return
+
+        machine_allocated_status = constants.MINION_MACHINE_STATUS_ALLOCATED
+        with lockutils.lock(
+                constants.MINION_POOL_LOCK_NAME_FORMAT % (
+                    minion_machine.pool_id),
+                external=True):
+
+            if minion_machine.status != machine_allocated_status or (
+                    not minion_machine.allocated_action):
+                LOG.warn(
+                    "Minion machine '%s' was either in an improper status (%s)"
+                    ", or did not have an associated action ('%s') for "
+                    "deallocation request. Marking as available anyway.",
+                    minion_machine.id, minion_machine.status,
+                    minion_machine.allocated_action)
+            LOG.debug(
+                "Attempting to deallocate all minion pool machine '%s' "
+                "(currently allocated to action '%s' with status '%s')",
+                minion_machine.id, minion_machine.allocated_action,
+                minion_machine.status)
+            db_api.update_minion_machine(
+                ctxt, minion_machine.id, {
+                    "status": constants.MINION_MACHINE_STATUS_AVAILABLE,
+                    "allocated_action": None})
+            LOG.debug(
+                "Successfully deallocated minion machine with '%s'.",
+                minion_machine.id)
 
     def deallocate_minion_machines_for_action(self, ctxt, action_id):
 
@@ -569,7 +608,8 @@ class MinionManagerServerEndpoint(object):
                 "action '%s': %s", action_id, machine_ids)
             db_api.set_minion_machines_allocation_statuses(
                 ctxt, machine_ids, None,
-                constants.MINION_MACHINE_STATUS_AVAILABLE)
+                constants.MINION_MACHINE_STATUS_AVAILABLE,
+                refresh_allocation_time=False)
             LOG.debug(
                 "Successfully released all minion machines associated "
                 "with action with base_id '%s'.", action_id)

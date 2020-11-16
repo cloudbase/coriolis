@@ -71,6 +71,11 @@ class MinionManagerClient(object):
             include_transfer_minions=include_transfer_minions,
             include_osmorphing_minions=include_osmorphing_minions)
 
+    def deallocate_minion_machine(self, ctxt, minion_machine_id):
+         return self._client.cast(
+            ctxt, 'deallocate_minion_machine',
+            minion_machine_id=minion_machine_id)
+
     def deallocate_minion_machines_for_action(self, ctxt, action_id):
         return self._client.cast(
             ctxt, 'deallocate_minion_machines_for_action', action_id=action_id)
