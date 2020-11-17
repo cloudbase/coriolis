@@ -159,7 +159,7 @@ class MinionManagerServerEndpoint(object):
         required_action_properties = [
             'id', 'origin_endpoint_id', 'destination_endpoint_id',
             'origin_minion_pool_id', 'destination_minion_pool_id',
-            'instance_osmorphing_minion_pool_mappings']
+            'instance_osmorphing_minion_pool_mappings', 'instances']
         missing = [
             prop for prop in required_action_properties
             if prop not in action]
@@ -171,15 +171,33 @@ class MinionManagerServerEndpoint(object):
 
         minion_pools = {
             pool.id: pool
+            # NOTE: we can just load all the pools in one go to
+            # avoid extraneous DB queries:
             for pool in db_api.get_minion_pools(
-                ctxt, include_machines=False, to_dict=False)}
+                ctxt, include_machines=False, include_events=False,
+                include_progress_updates=False, to_dict=False)}
         def _get_pool(pool_id):
             pool = minion_pools.get(pool_id)
             if not pool:
                 raise exception.NotFound(
                     "Could not find minion pool with ID '%s'." % pool_id)
             return pool
+        def _check_pool_minion_count(
+                minion_pool, instances, minion_pool_type=None):
+            desired_minion_count = len(instances)
+            if desired_minion_count > minion_pool.maximum_minions:
+                msg = (
+                    "Minion Pool with ID '%s' has a lower maximum minion "
+                    "count (%d) than the requested number of minions "
+                    "(%d) to handle all of the instances: %s" % (
+                        minion_pool.id, minion_pool.maximum_minions,
+                        desired_minion_count, instances))
+                if minion_pool_type:
+                    msg = "%s %s" % (minion_pool_type, msg)
+                raise exception.InvalidMinionPoolSelection(msg)
 
+        # check source pool:
+        instances = action['instances']
         if action['origin_minion_pool_id']:
             origin_pool = _get_pool(action['origin_minion_pool_id'])
             if origin_pool.endpoint_id != action['origin_endpoint_id']:
@@ -205,11 +223,14 @@ class MinionManagerServerEndpoint(object):
                     "transfer minion pool." % (
                         action['origin_minion_pool_id'],
                         origin_pool.os_type))
+            _check_pool_minion_count(
+                origin_pool, instances, minion_pool_type="Source")
             LOG.debug(
                 "Successfully validated compatibility of origin minion pool "
                 "'%s' for use with action '%s'." % (
                     action['origin_minion_pool_id'], action['id']))
 
+        # check target pool:
         if action['destination_minion_pool_id']:
             destination_pool = _get_pool(action['destination_minion_pool_id'])
             if destination_pool.endpoint_id != (
@@ -237,43 +258,61 @@ class MinionManagerServerEndpoint(object):
                     "transfer minion pool." % (
                         action['destination_minion_pool_id'],
                         destination_pool.os_type))
+            _check_pool_minion_count(
+                destination_pool, instances,
+                minion_pool_type="Destination")
             LOG.debug(
                 "Successfully validated compatibility of destination minion "
                 "pool '%s' for use with action '%s'." % (
                     action['origin_minion_pool_id'], action['id']))
 
-        if action.get('instance_osmorphing_minion_pool_mappings'):
-            osmorphing_pool_mappings = {
-                instance_id: pool_id
-                for (instance_id, pool_id) in (
-                    action.get(
-                        'instance_osmorphing_minion_pool_mappings').items())
-                if pool_id}
-            for (instance, pool_id) in osmorphing_pool_mappings.items():
+        # check OSMorphing pool(s):
+        instance_osmorphing_minion_pool_mappings = action.get(
+            'instance_osmorphing_minion_pool_mappings')
+        if instance_osmorphing_minion_pool_mappings:
+            osmorphing_pool_mappings = {}
+            for (instance_id, pool_id) in (
+                    instance_osmorphing_minion_pool_mappings).items():
+                if instance_id not in instances:
+                    LOG.warn(
+                        "Ignoring OSMorphing pool validation for instance with"
+                        " ID '%s' (mapped pool '%s') as it is not part of  "
+                        "action '%s's declared instances: %s",
+                        instance_id, pool_id, action['id'], instances)
+                    continue
+                if pool_id not in osmorphing_pool_mappings:
+                    osmorphing_pool_mappings[pool_id] = [instance_id]
+                else:
+                    osmorphing_pool_mappings[pool_id].append(instance_id)
+
+            for (pool_id, instances_to_osmorph) in osmorphing_pool_mappings.items():
                 osmorphing_pool = _get_pool(pool_id)
                 if osmorphing_pool.endpoint_id != (
                         action['destination_endpoint_id']):
                     raise exception.InvalidMinionPoolSelection(
-                        "The selected OSMorphing minion pool for instance '%s'"
+                        "The selected OSMorphing minion pool for instances %s"
                         " ('%s') belongs to a different Coriolis endpoint "
                         "('%s') than the destination endpoint ('%s')" % (
-                            instance, pool_id,
+                            instances_to_osmorph, pool_id,
                             osmorphing_pool.endpoint_id,
                             action['destination_endpoint_id']))
                 if osmorphing_pool.platform != (
                         constants.PROVIDER_PLATFORM_DESTINATION):
                     raise exception.InvalidMinionPoolSelection(
-                        "The selected OSMorphing minion pool for instance '%s'"
-                        "  ('%s') is configured as a '%s' pool. The pool must "
+                        "The selected OSMorphing minion pool for instances %s "
+                        "('%s') is configured as a '%s' pool. The pool must "
                         "be of type %s to be used for OSMorphing." % (
-                            instance, pool_id,
+                            instances_to_osmorph, pool_id,
                             osmorphing_pool.platform,
                             constants.PROVIDER_PLATFORM_DESTINATION))
+                _check_pool_minion_count(
+                    osmorphing_pool, instances_to_osmorph,
+                    minion_pool_type="OSMorphing")
                 LOG.debug(
                     "Successfully validated compatibility of destination "
                     "minion pool '%s' for use as OSMorphing minion for "
-                    "instance '%s' during action '%s'." % (
-                        pool_id, instance, action['id']))
+                    "instances %s during action '%s'." % (
+                        pool_id, instances_to_osmorph, action['id']))
 
     def allocate_minion_machines_for_replica(
             self, ctxt, replica):
