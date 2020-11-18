@@ -212,7 +212,7 @@ class BaseMinionManangerTask(coriolis_taskflow_base.BaseRunWorkerTask):
                 self._get_error_str_for_flow_failures(
                     flow_failures, full_tracebacks=False)),
             level=constants.TASK_EVENT_ERROR)
-        return super(BaseMinionManangerTask, self).revert(
+        super(BaseMinionManangerTask, self).revert(
             context, origin, destination, task_info, **kwargs)
 
 
@@ -241,7 +241,7 @@ class ValidateMinionPoolOptionsTask(BaseMinionManangerTask):
 
     def revert(self, context, origin, destination, task_info, **kwargs):
         LOG.debug("[%s] Nothing to revert for validation", self._task_name)
-        res = super(ValidateMinionPoolOptionsTask, self).revert(
+        super(ValidateMinionPoolOptionsTask, self).revert(
             context, origin, destination, task_info, **kwargs)
 
 
@@ -307,8 +307,6 @@ class AllocateSharedPoolResourcesTask(BaseMinionManangerTask):
             context, self._minion_pool_id, updated_values)
 
         task_info['pool_shared_resources'] = None
-        return task_info
-
 
 
 class DeallocateSharedPoolResourcesTask(BaseMinionManangerTask):
@@ -440,7 +438,6 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
                     "Result was: %s",
                     self._minion_machine_id, self._minion_pool_id,
                     original_result)
-                return task_info
             elif 'minion_provider_properties' not in original_result:
                 LOG.debug(
                     "Reversion for Minion Machine '%s' (pool '%s') did not "
@@ -449,7 +446,6 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
                     "Result was: %s",
                     self._minion_machine_id, self._minion_pool_id,
                     original_result)
-                return task_info
 
         cleanup_info = copy.deepcopy(task_info)
         cleanup_info['minion_provider_properties'] = original_result[
@@ -462,8 +458,6 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
                 "Removing minion machine entry with ID '%s' for minion pool "
                 "'%s' from the DB.", self._minion_machine_id, self._minion_pool_id)
             db_api.delete_minion_machine(context, self._minion_machine_id)
-
-        return task_info
 
 
 class DeallocateMinionMachineTask(BaseMinionManangerTask):
