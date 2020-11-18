@@ -857,17 +857,17 @@ class ConductorServerEndpoint(object):
                 depends_on=[get_instance_info_task.id])
 
             disk_deployment_depends_on = []
-            validate_source_minion_task = None
+            validate_origin_minion_task = None
             if replica.origin_minion_pool_id:
                 # NOTE: these values are required for the
                 # _check_execution_tasks_sanity call but
                 # will be populated later when the pool
                 # allocations actually happen:
                 replica.info[instance].update({
-                    "source_minion_machine_id": None,
-                    "source_minion_provider_properties": None,
-                    "source_minion_connection_info": None})
-                validate_source_minion_task = self._create_task(
+                    "origin_minion_machine_id": None,
+                    "origin_minion_provider_properties": None,
+                    "origin_minion_connection_info": None})
+                validate_origin_minion_task = self._create_task(
                     instance,
                     constants.TASK_TYPE_VALIDATE_SOURCE_MINION_POOL_COMPATIBILITY,
                     execution,
@@ -875,30 +875,30 @@ class ConductorServerEndpoint(object):
                         get_instance_info_task.id,
                         validate_replica_source_inputs_task.id])
                 disk_deployment_depends_on.append(
-                    validate_source_minion_task.id)
+                    validate_origin_minion_task.id)
             else:
                 disk_deployment_depends_on.append(
                     validate_replica_source_inputs_task.id)
 
-            validate_target_minion_task = None
+            validate_destination_minion_task = None
             if replica.destination_minion_pool_id:
                 # NOTE: these values are required for the
                 # _check_execution_tasks_sanity call but
                 # will be populated later when the pool
                 # allocations actually happen:
                 replica.info[instance].update({
-                    "target_minion_machine_id": None,
-                    "target_minion_provider_properties": None,
-                    "target_minion_connection_info": None,
-                    "target_minion_backup_writer_connection_info": None})
-                validate_target_minion_task = self._create_task(
+                    "destination_minion_machine_id": None,
+                    "destination_minion_provider_properties": None,
+                    "destination_minion_connection_info": None,
+                    "destination_minion_backup_writer_connection_info": None})
+                validate_destination_minion_task = self._create_task(
                     instance,
                     constants.TASK_TYPE_VALIDATE_DESTINATION_MINION_POOL_COMPATIBILITY,
                     execution,
                     depends_on=[
                         validate_replica_destination_inputs_task.id])
                 disk_deployment_depends_on.append(
-                    validate_target_minion_task.id)
+                    validate_destination_minion_task.id)
             else:
                 disk_deployment_depends_on.append(
                     validate_replica_destination_inputs_task.id)
@@ -917,14 +917,14 @@ class ConductorServerEndpoint(object):
                         deploy_replica_disks_task.id])
                 shutdown_deps.append(deploy_replica_source_resources_task)
 
-            attach_target_minion_disks_task = None
+            attach_destination_minion_disks_task = None
             deploy_replica_target_resources_task = None
             if replica.destination_minion_pool_id:
                 ttyp = constants.TASK_TYPE_ATTACH_VOLUMES_TO_DESTINATION_MINION
-                attach_target_minion_disks_task = self._create_task(
+                attach_destination_minion_disks_task = self._create_task(
                     instance, ttyp, execution, depends_on=[
                         deploy_replica_disks_task.id])
-                shutdown_deps.append(attach_target_minion_disks_task)
+                shutdown_deps.append(attach_destination_minion_disks_task)
             else:
                 deploy_replica_target_resources_task = self._create_task(
                     instance,
@@ -950,7 +950,7 @@ class ConductorServerEndpoint(object):
                     constants.TASK_TYPE_RELEASE_SOURCE_MINION,
                     execution,
                     depends_on=[
-                        validate_source_minion_task.id,
+                        validate_origin_minion_task.id,
                         replicate_disks_task.id],
                     on_error=True)
             else:
@@ -969,7 +969,7 @@ class ConductorServerEndpoint(object):
                     constants.TASK_TYPE_DETACH_VOLUMES_FROM_DESTINATION_MINION,
                     execution,
                     depends_on=[
-                        attach_target_minion_disks_task.id,
+                        attach_destination_minion_disks_task.id,
                         replicate_disks_task.id],
                     on_error=True)
 
@@ -978,7 +978,7 @@ class ConductorServerEndpoint(object):
                     constants.TASK_TYPE_RELEASE_DESTINATION_MINION,
                     execution,
                     depends_on=[
-                        validate_target_minion_task.id,
+                        validate_destination_minion_task.id,
                         detach_volumes_from_minion_task.id],
                     on_error=True)
             else:
@@ -1519,27 +1519,27 @@ class ConductorServerEndpoint(object):
         for instance in action.instances:
             instance_minion_machines = minion_machine_allocations.get(
                 instance, {})
-            instance_source_minion = instance_minion_machines.get(
-                'source_minion')
-            if instance_source_minion:
+            instance_origin_minion = instance_minion_machines.get(
+                'origin_minion')
+            if instance_origin_minion:
                 action.info[instance].update({
-                    "source_minion_machine_id": instance_source_minion['id'],
-                    "source_minion_provider_properties": (
-                        instance_source_minion['provider_properties']),
-                    "source_minion_connection_info": (
-                        instance_source_minion['connection_info'])})
+                    "origin_minion_machine_id": instance_origin_minion['id'],
+                    "origin_minion_provider_properties": (
+                        instance_origin_minion['provider_properties']),
+                    "origin_minion_connection_info": (
+                        instance_origin_minion['connection_info'])})
 
-            instance_target_minion = instance_minion_machines.get(
-                'target_minion')
-            if instance_target_minion:
+            instance_destination_minion = instance_minion_machines.get(
+                'destination_minion')
+            if instance_destination_minion:
                 action.info[instance].update({
-                    "target_minion_machine_id": instance_target_minion['id'],
-                    "target_minion_provider_properties": (
-                        instance_target_minion['provider_properties']),
-                    "target_minion_connection_info": (
-                        instance_target_minion['connection_info']),
-                    "target_minion_backup_writer_connection_info": (
-                        instance_target_minion['backup_writer_connection_info'])})
+                    "destination_minion_machine_id": instance_destination_minion['id'],
+                    "destination_minion_provider_properties": (
+                        instance_destination_minion['provider_properties']),
+                    "destination_minion_connection_info": (
+                        instance_destination_minion['connection_info']),
+                    "destination_minion_backup_writer_connection_info": (
+                        instance_destination_minion['backup_writer_connection_info'])})
 
             instance_osmorphing_minion = instance_minion_machines.get(
                 'osmorphing_minion')
@@ -1755,7 +1755,7 @@ class ConductorServerEndpoint(object):
                 depends_on=[get_instance_info_task.id])
 
             migration_resources_task_ids = []
-            validate_source_minion_task = None
+            validate_origin_minion_task = None
             deploy_migration_source_resources_task = None
             migration_resources_task_deps = [
                 get_instance_info_task.id,
@@ -1766,16 +1766,16 @@ class ConductorServerEndpoint(object):
                 # will be populated later when the pool
                 # allocations actually happen:
                 migration.info[instance].update({
-                    "source_minion_machine_id": None,
-                    "source_minion_provider_properties": None,
-                    "source_minion_connection_info": None})
-                validate_source_minion_task = self._create_task(
+                    "origin_minion_machine_id": None,
+                    "origin_minion_provider_properties": None,
+                    "origin_minion_connection_info": None})
+                validate_origin_minion_task = self._create_task(
                     instance,
                     constants.TASK_TYPE_VALIDATE_SOURCE_MINION_POOL_COMPATIBILITY,
                     execution,
                     depends_on=migration_resources_task_deps)
                 migration_resources_task_ids.append(
-                    validate_source_minion_task.id)
+                    validate_origin_minion_task.id)
             else:
                 deploy_migration_source_resources_task = self._create_task(
                     instance,
@@ -1790,8 +1790,8 @@ class ConductorServerEndpoint(object):
                     validate_migration_source_inputs_task.id,
                     validate_migration_destination_inputs_task.id])
 
-            validate_target_minion_task = None
-            attach_target_minion_disks_task = None
+            validate_destination_minion_task = None
+            attach_destination_minion_disks_task = None
             deploy_migration_target_resources_task = None
             if migration.destination_minion_pool_id:
                 # NOTE: these values are required for the
@@ -1799,24 +1799,24 @@ class ConductorServerEndpoint(object):
                 # will be populated later when the pool
                 # allocations actually happen:
                 migration.info[instance].update({
-                    "target_minion_machine_id": None,
-                    "target_minion_provider_properties": None,
-                    "target_minion_connection_info": None,
-                    "target_minion_backup_writer_connection_info": None})
+                    "destination_minion_machine_id": None,
+                    "destination_minion_provider_properties": None,
+                    "destination_minion_connection_info": None,
+                    "destination_minion_backup_writer_connection_info": None})
                 ttyp = (
                     constants.TASK_TYPE_VALIDATE_DESTINATION_MINION_POOL_COMPATIBILITY)
-                validate_target_minion_task = self._create_task(
+                validate_destination_minion_task = self._create_task(
                     instance, ttyp, execution, depends_on=[
                         validate_migration_destination_inputs_task.id])
 
-                attach_target_minion_disks_task = self._create_task(
+                attach_destination_minion_disks_task = self._create_task(
                     instance,
                     constants.TASK_TYPE_ATTACH_VOLUMES_TO_DESTINATION_MINION,
                     execution, depends_on=[
-                        validate_target_minion_task.id,
+                        validate_destination_minion_task.id,
                         create_instance_disks_task.id])
                 migration_resources_task_ids.append(
-                    attach_target_minion_disks_task.id)
+                    attach_destination_minion_disks_task.id)
             else:
                 deploy_migration_target_resources_task = self._create_task(
                     instance,
@@ -1867,19 +1867,19 @@ class ConductorServerEndpoint(object):
                 if not first_sync_task:
                     first_sync_task = last_sync_task
 
-            release_source_minion_task = None
+            release_origin_minion_task = None
             delete_source_resources_task = None
             source_resource_cleanup_task = None
             if migration.origin_minion_pool_id:
-                release_source_minion_task = self._create_task(
+                release_origin_minion_task = self._create_task(
                     instance,
                     constants.TASK_TYPE_RELEASE_SOURCE_MINION,
                     execution,
                     depends_on=[
-                        validate_source_minion_task.id,
+                        validate_origin_minion_task.id,
                         last_sync_task.id],
                     on_error=True)
-                source_resource_cleanup_task = release_source_minion_task
+                source_resource_cleanup_task = release_origin_minion_task
             else:
                 delete_source_resources_task = self._create_task(
                     instance,
@@ -1899,23 +1899,23 @@ class ConductorServerEndpoint(object):
 
             target_resources_cleanup_task = None
             if migration.destination_minion_pool_id:
-                detach_volumes_from_target_minion_task = self._create_task(
+                detach_volumes_from_destination_minion_task = self._create_task(
                     instance,
                     constants.TASK_TYPE_DETACH_VOLUMES_FROM_DESTINATION_MINION,
                     execution,
                     depends_on=[
-                        attach_target_minion_disks_task.id,
+                        attach_destination_minion_disks_task.id,
                         last_sync_task.id],
                     on_error=True)
 
-                release_target_minion_task = self._create_task(
+                release_destination_minion_task = self._create_task(
                     instance,
                     constants.TASK_TYPE_RELEASE_DESTINATION_MINION,
                     execution, depends_on=[
-                        validate_target_minion_task.id,
-                        detach_volumes_from_target_minion_task.id],
+                        validate_destination_minion_task.id,
+                        detach_volumes_from_destination_minion_task.id],
                     on_error=True)
-                target_resources_cleanup_task = release_target_minion_task
+                target_resources_cleanup_task = release_destination_minion_task
             else:
                 delete_destination_resources_task = self._create_task(
                     instance,
@@ -2893,15 +2893,15 @@ class ConductorServerEndpoint(object):
 
             updated_values = {
                 "provider_properties": task_info[
-                    "source_minion_provider_properties"]}
+                    "origin_minion_provider_properties"]}
 
             LOG.debug(
                 "Updating minion provider properties of minion machine '%s' "
                 "following the completion of task '%s' (type '%s') to %s",
-                task_info['source_minion_machine_id'],
+                task_info['origin_minion_machine_id'],
                 task.id, task_type, updated_values)
             db_api.update_minion_machine(
-                ctxt, task_info['source_minion_machine_id'], updated_values)
+                ctxt, task_info['origin_minion_machine_id'], updated_values)
 
         elif task_type in (
                 constants.TASK_TYPE_ATTACH_VOLUMES_TO_DESTINATION_MINION,
@@ -2909,15 +2909,15 @@ class ConductorServerEndpoint(object):
 
             updated_values = {
                 "provider_properties": task_info[
-                    "target_minion_provider_properties"]}
+                    "destination_minion_provider_properties"]}
 
             LOG.debug(
                 "Updating minion provider properties of minion machine '%s' "
                 "following the completion of task '%s' (type '%s') to %s",
-                task_info['target_minion_machine_id'],
+                task_info['destination_minion_machine_id'],
                 task.id, task_type, updated_values)
             db_api.update_minion_machine(
-                ctxt, task_info['target_minion_machine_id'], updated_values)
+                ctxt, task_info['destination_minion_machine_id'], updated_values)
 
         elif task_type in (
                 constants.TASK_TYPE_ATTACH_VOLUMES_TO_OSMORPHING_MINION,
@@ -2941,28 +2941,28 @@ class ConductorServerEndpoint(object):
             LOG.debug(
                 "Releasing source minion '%s' following the completion of "
                 "task with ID '%s' (type '%s')",
-                task_info['source_minion_machine_id'],
+                task_info['origin_minion_machine_id'],
                 task.id, task_type)
             self._minion_manager_client.deallocate_minion_machine(
-                ctxt, task_info['source_minion_machine_id'])
+                ctxt, task_info['origin_minion_machine_id'])
 
         elif task_type == constants.TASK_TYPE_RELEASE_DESTINATION_MINION:
 
-            if task_info['target_minion_machine_id'] != task_info.get(
+            if task_info['destination_minion_machine_id'] != task_info.get(
                     "osmorphing_minion_machine_id"):
                 LOG.debug(
                     "Releasing destination minion '%s' following the "
                     "completion of task with ID '%s' (type '%s')",
-                    task_info['target_minion_machine_id'],
+                    task_info['destination_minion_machine_id'],
                     task.id, task_type)
                 self._minion_manager_client.deallocate_minion_machine(
-                    ctxt, task_info['target_minion_machine_id'])
+                    ctxt, task_info['destination_minion_machine_id'])
             else:
                 LOG.debug(
                     "NOT releasing destination minion with ID '%s' following "
                     "the completion of task with ID '%s' (type '%s') as it "
                     "also to be used as the OSMorphing minion.",
-                    task_info['target_minion_machine_id'],
+                    task_info['destination_minion_machine_id'],
                     task.id, task_type)
 
         elif task_type == constants.TASK_TYPE_RELEASE_OSMORPHING_MINION:

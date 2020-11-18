@@ -14,11 +14,11 @@ LOG = logging.getLogger(__name__)
 
 
 SOURCE_MINION_TASK_INFO_FIELD_MAPPINGS = {
-    "source_minion_provider_properties": "source_resources",
-    "source_minion_connection_info": "source_resources_connection_info"}
+    "origin_minion_provider_properties": "source_resources",
+    "origin_minion_connection_info": "source_resources_connection_info"}
 TARGET_MINION_TASK_INFO_FIELD_MAPPINGS = {
-    "target_minion_provider_properties": "target_resources",
-    "target_minion_backup_writer_connection_info": (
+    "destination_minion_provider_properties": "target_resources",
+    "destination_minion_backup_writer_connection_info": (
         "target_resources_connection_info")}
 OSMOPRHING_MINION_TASK_INFO_FIELD_MAPPINGS = {
     "osmorphing_minion_provider_properties": "os_morphing_resources",
@@ -472,7 +472,7 @@ class AttachVolumesToSourceMinionTask(_BaseAttachVolumesToTransferMinionTask):
 
     @classmethod
     def _get_minion_properties_task_info_field(cls):
-        return "source_minion_provider_properties"
+        return "origin_minion_provider_properties"
 
     @classmethod
     def get_volumes_info_from_task_info(cls, task_info):
@@ -503,7 +503,7 @@ class AttachVolumesToDestinationMinionTask(
 
     @classmethod
     def _get_minion_properties_task_info_field(cls):
-        return "target_minion_provider_properties"
+        return "destination_minion_provider_properties"
 
     @classmethod
     def _get_provider_disk_operation(cls, provider):
@@ -696,7 +696,7 @@ class ValidateSourceMinionCompatibilityTask(
 
     @classmethod
     def _get_minion_properties_task_info_field(cls):
-        return "source_minion_provider_properties"
+        return "origin_minion_provider_properties"
 
     @classmethod
     def _get_provider_pool_validation_operation(cls, provider):
@@ -716,7 +716,7 @@ class ValidateDestinationMinionCompatibilityTask(
 
     @classmethod
     def _get_minion_properties_task_info_field(cls):
-        return "target_minion_provider_properties"
+        return "destination_minion_provider_properties"
 
     @classmethod
     def _get_provider_pool_validation_operation(cls, provider):
