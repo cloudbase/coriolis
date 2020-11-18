@@ -189,7 +189,7 @@ class BaseRunWorkerTask(BaseCoriolisTaskflowTask):
         LOG.debug(
             "Was offered the following worker service for executing TaskFlow "
             "task '%s' (taskflow ID %s): %s",
-            self._task_name, task_id, worker_service)
+            self._task_name, task_id, worker_service['id'])
 
         return rpc_worker_client.WorkerClient.from_service_definition(
             worker_service, timeout=rpc_timeout)
@@ -227,13 +227,12 @@ class BaseRunWorkerTask(BaseCoriolisTaskflowTask):
     def revert(self, context, origin, destination, task_info, **kwargs):
         super(BaseRunWorkerTask, self).revert(
             context, origin, destination, task_info, **kwargs)
-        original_result = kwargs.get('result')
         if not self._cleanup_task_runner_type:
             LOG.debug(
                 "Task '%s' (main type '%s') had no cleanup task runner "
                 "associated with it. Skipping any reversion logic",
                 self._task_name, self._main_task_runner_type)
-            return original_result
+            return
 
         try:
             res = self._execute_task(
@@ -247,11 +246,10 @@ class BaseRunWorkerTask(BaseCoriolisTaskflowTask):
                 self._cleanup_task_runner_type, utils.get_exception_details())
             if self._raise_on_cleanup_failure:
                 raise
-            return original_result
+            return
 
         LOG.debug(
             "Reversion of taskflow task '%s' (ID '%s') was successfully "
             "executed using task runner '%s' with the following result: %s" % (
                 self._task_name, self._task_id, self._cleanup_task_runner_type,
                 res))
-        return res

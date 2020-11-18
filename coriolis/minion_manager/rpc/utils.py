@@ -8,6 +8,12 @@ from oslo_concurrency import lockutils
 from coriolis import constants
 
 
+def get_minion_pool_lock(minion_pool_id, external=True):
+    return lockutils.lock(
+        constants.MINION_POOL_LOCK_NAME_FORMAT % minion_pool_id,
+        external=external)
+
+
 def minion_pool_synchronized(minion_pool_id, func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):

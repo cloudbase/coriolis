@@ -5,7 +5,6 @@ import contextlib
 import itertools
 import uuid
 
-from oslo_concurrency import lockutils
 from oslo_config import cfg
 from oslo_log import log as logging
 from taskflow.patterns import graph_flow
@@ -43,6 +42,11 @@ class MinionManagerServerEndpoint(object):
             constants.MINION_MANAGER_MAIN_MESSAGING_TOPIC,
             max_workers=25)
 
+    # NOTE(aznashwan): it is unsafe to fork processes with pre-instantiated
+    # oslo_messaging clients as the underlying eventlet thread queues will
+    # be invalidated. Considering this class both serves from a "main
+    # process" as well as forking child processes, it is safest to
+    # re-instantiate the clients every time:
     @property
     def _rpc_worker_client(self):
         return rpc_worker_client.WorkerClient()
@@ -150,24 +154,30 @@ class MinionManagerServerEndpoint(object):
     def get_minion_pool_progress_step(self, ctxt, minion_pool_id):
         return db_api.get_minion_pool_progress_step(ctxt, minion_pool_id)
 
-    def validate_minion_pool_selections_for_action(self, ctxt, action):
-        """ Validates the minion pool selections for a given action. """
+    def _check_keys_for_action_dict(
+            self, action, required_action_properties, operation=None):
         if not isinstance(action, dict):
             raise exception.InvalidInput(
                 "Action must be a dict, got '%s': %s" % (
                     type(action), action))
-        required_action_properties = [
-            'id', 'origin_endpoint_id', 'destination_endpoint_id',
-            'origin_minion_pool_id', 'destination_minion_pool_id',
-            'instance_osmorphing_minion_pool_mappings', 'instances']
         missing = [
             prop for prop in required_action_properties
             if prop not in action]
         if missing:
             raise exception.InvalidInput(
                 "Missing the following required action properties for "
-                "minion pool selection validation: %s. Got %s" % (
-                    missing, action))
+                "%s: %s. Got %s" % (
+                    operation, missing, action))
+
+    def validate_minion_pool_selections_for_action(self, ctxt, action):
+        """ Validates the minion pool selections for a given action. """
+        required_action_properties = [
+            'id', 'origin_endpoint_id', 'destination_endpoint_id',
+            'origin_minion_pool_id', 'destination_minion_pool_id',
+            'instance_osmorphing_minion_pool_mappings', 'instances']
+        self._check_keys_for_action_dict(
+            action, required_action_properties,
+            operation="minion pool selection validation")
 
         minion_pools = {
             pool.id: pool
@@ -183,15 +193,24 @@ class MinionManagerServerEndpoint(object):
                     "Could not find minion pool with ID '%s'." % pool_id)
             return pool
         def _check_pool_minion_count(
-                minion_pool, instances, minion_pool_type=None):
+                minion_pool, instances, minion_pool_type=""):
             desired_minion_count = len(instances)
+            if minion_pool.status != constants.MINION_POOL_STATUS_ALLOCATED:
+                raise exception.InvalidMinionPoolState(
+                    "Minion Pool '%s' is an invalid state ('%s') to be "
+                    "used as a %s pool for action '%s'. The pool must be "
+                    "in '%s' status."  % (
+                        minion_pool.id, minion_pool.status,
+                        minion_pool_type.lower(), action['id'],
+                        constants.MINION_POOL_STATUS_ALLOCATED))
             if desired_minion_count > minion_pool.maximum_minions:
                 msg = (
                     "Minion Pool with ID '%s' has a lower maximum minion "
                     "count (%d) than the requested number of minions "
-                    "(%d) to handle all of the instances: %s" % (
+                    "(%d) to handle all of the instances of action '%s': "
+                    "%s" % (
                         minion_pool.id, minion_pool.maximum_minions,
-                        desired_minion_count, instances))
+                        desired_minion_count, action['id'], instances))
                 if minion_pool_type:
                     msg = "%s %s" % (minion_pool_type, msg)
                 raise exception.InvalidMinionPoolSelection(msg)
@@ -230,7 +249,7 @@ class MinionManagerServerEndpoint(object):
                 "'%s' for use with action '%s'." % (
                     action['origin_minion_pool_id'], action['id']))
 
-        # check target pool:
+        # check destination pool:
         if action['destination_minion_pool_id']:
             destination_pool = _get_pool(action['destination_minion_pool_id'])
             if destination_pool.endpoint_id != (
@@ -313,103 +332,92 @@ class MinionManagerServerEndpoint(object):
                     "minion pool '%s' for use as OSMorphing minion for "
                     "instances %s during action '%s'." % (
                         pool_id, instances_to_osmorph, action['id']))
+        LOG.debug(
+            "Successfully validated minion pool selections for action '%s' "
+            "with properties: %s", action['id'], action)
 
     def allocate_minion_machines_for_replica(
             self, ctxt, replica):
-        minion_allocations = self._allocate_minion_machines_for_action(
-            ctxt, replica, include_transfer_minions=True,
-            include_osmorphing_minions=False)
         try:
-            self._conductor_client.confirm_replica_minions_allocation(
-                ctxt, replica['id'], minion_allocations)
+            minion_allocations = self._run_machine_allocation_subflow_for_action(
+                ctxt, replica, constants.TRANSFER_ACTION_TYPE_REPLICA,
+                include_transfer_minions=True,
+                include_osmorphing_minions=False)
         except Exception as ex:
             LOG.warn(
                 "Error occured while reporting minion pool allocations for "
                 "Replica with ID '%s'. Removing all allocations. "
                 "Error was: %s" % (
                     replica['id'], utils.get_exception_details()))
+            self._cleanup_machines_with_statuses_for_action(
+                ctxt, replica['id'],
+                [constants.MINION_MACHINE_STATUS_UNINITIALIZED])
             self.deallocate_minion_machines_for_action(
                 ctxt, replica['id'])
+            self._conductor_client.report_replica_minions_allocation_error(
+                ctxt, replica['id'], str(ex))
             raise
 
     def allocate_minion_machines_for_migration(
             self, ctxt, migration, include_transfer_minions=True,
             include_osmorphing_minions=True):
-        minion_allocations = self._allocate_minion_machines_for_action(
-            ctxt, migration, include_transfer_minions=include_transfer_minions,
-            include_osmorphing_minions=include_osmorphing_minions)
         try:
-            self._conductor_client.confirm_migration_minions_allocation(
-                ctxt, migration['id'], minion_allocations)
+            self._run_machine_allocation_subflow_for_action(
+                ctxt, migration,
+                constants.TRANSFER_ACTION_TYPE_MIGRATION,
+                include_transfer_minions=include_transfer_minions,
+                include_osmorphing_minions=include_osmorphing_minions)
         except Exception as ex:
             LOG.warn(
                 "Error occured while reporting minion pool allocations for "
                 "Migration with ID '%s'. Removing all allocations. "
                 "Error was: %s" % (
                     migration['id'], utils.get_exception_details()))
+            self._cleanup_machines_with_statuses_for_action(
+                ctxt, migration['id'],
+                [constants.MINION_MACHINE_STATUS_UNINITIALIZED])
             self.deallocate_minion_machines_for_action(
                 ctxt, migration['id'])
+            self._conductor_client.report_migration_minions_allocation_error(
+                ctxt, migration['id'], str(ex))
             raise
 
-    def _allocate_minion_machines_for_action(
-            self, ctxt, action, include_transfer_minions=True,
-            include_osmorphing_minions=True):
-        """ Returns a dict of the form:
-        {
-            "instance_id": {
-                "source_minion": <source minion properties>,
-                "target_minion": <target minion properties>,
-                "osmorphing_minion": <osmorphing minion properties>
-            }
-        }
+    def _make_minion_machine_allocation_subflow_for_action(
+            self, ctxt, minion_pool, action_id, action_instances,
+            subflow_name, inject_for_tasks=None):
+        """ Creates a subflow for allocating minion machines from the
+        provided minion pool to the given action (one for each instance)
+
+        Returns a mapping between the action's instaces' IDs and the minion
+        machine ID, as well as the subflow to execute for said machines.
+
+        Returns dict of the form: {
+            "flow": TheFlowClass(),
+            "action_instance_minion_allocation_mappings": {
+                "<action_instance_id>": "<allocated_minion_id>"}}
         """
-        if not isinstance(action, dict):
-            raise exception.InvalidInput(
-                "Action must be a dict, got '%s': %s" % (
-                    type(action), action))
-        required_action_properties = [
-            'id', 'instances', 'origin_minion_pool_id',
-            'destination_minion_pool_id',
-            'instance_osmorphing_minion_pool_mappings']
-        missing = [
-            prop for prop in required_action_properties
-            if prop not in action]
-        if missing:
-            raise exception.InvalidInput(
-                "Missing the following required action properties for "
-                "minion pool machine allocation: %s. Got %s" % (
-                    missing, action))
-
-        instance_machine_allocations = {
-            instance: {} for instance in action['instances']}
-
-        minion_pool_ids = set()
-        if action['origin_minion_pool_id']:
-            minion_pool_ids.add(action['origin_minion_pool_id'])
-        if action['destination_minion_pool_id']:
-            minion_pool_ids.add(action['destination_minion_pool_id'])
-        if action['instance_osmorphing_minion_pool_mappings']:
-            minion_pool_ids = minion_pool_ids.union(set(
-                action['instance_osmorphing_minion_pool_mappings'].values()))
-        if None in minion_pool_ids:
-            minion_pool_ids.remove(None)
-
-        if not minion_pool_ids:
-            LOG.debug(
-                "No minion pool settings found for action '%s'. "
-                "Skipping minion machine allocations." % (
-                    action['id']))
-            return instance_machine_allocations
-
-        LOG.debug(
-            "All minion pool selections for action '%s': %s",
-            action['id'], minion_pool_ids)
+        currently_available_machines = [
+            machine for machine in minion_pool.minion_machines
+            if machine.status == constants.MINION_MACHINE_STATUS_AVAILABLE]
+        extra_available_machine_slots = (
+            minion_pool.maximum_minions - len(minion_pool.minion_machines))
+        num_instances = len(action_instances)
+        num_currently_available_machines = len(currently_available_machines)
+        if num_instances > (len(currently_available_machines) + (
+                                extra_available_machine_slots)):
+            raise exception.InvalidMinionPoolState(
+                "Minion pool '%s' is unable to accommodate the requested "
+                "number of machines (%s) for transfer action '%s', as it only "
+                "has %d currently available machines, with room to upscale a "
+                "further %d until the maximum is reached. Please either "
+                "increase the number of maximum machines for the pool "
+                "or wait for other minions to become available before "
+                "retrying." % (
+                    minion_pool.id, num_instances, action_id,
+                    num_currently_available_machines,
+                    extra_available_machine_slots))
 
         def _select_machine(minion_pool, exclude=None):
-            if not minion_pool.minion_machines:
-                raise exception.InvalidMinionPoolSelection(
-                    "Minion pool with ID '%s' has no machines defined." % (
-                        minion_pool.id))
             selected_machine = None
             for machine in minion_pool.minion_machines:
                 if exclude and machine.id in exclude:
@@ -420,160 +428,390 @@ class MinionManagerServerEndpoint(object):
                 if machine.status != constants.MINION_MACHINE_STATUS_AVAILABLE:
                     LOG.debug(
                         "Minion machine with ID '%s' is in status '%s' "
-                        "instead of '%s'. Skipping.", machine.id,
-                        machine.status,
+                        "instead of '%s'. Skipping.",
+                        machine.id, machine.status,
                         constants.MINION_MACHINE_STATUS_AVAILABLE)
                     continue
                 selected_machine = machine
                 break
-            if not selected_machine:
-                raise exception.InvalidMinionPoolSelection(
-                    "There are no more available minion machines within minion"
-                    " pool with ID '%s' (excluding the following ones already "
-                    "planned for this transfer: %s). Please ensure that the "
-                    "minion pool has enough minion machines allocated and "
-                    "available (i.e. not being used for other operations) "
-                    "to satisfy the number of VMs required by the Migration or"
-                    " Replica." % (
-                        minion_pool.id, exclude))
             return selected_machine
 
-        osmorphing_pool_map = (
-            action['instance_osmorphing_minion_pool_mappings'])
-        with contextlib.ExitStack() as stack:
-            _ = [
-                stack.enter_context(
-                    lockutils.lock(
-                        constants.MINION_POOL_LOCK_NAME_FORMAT % pool_id,
-                        external=True))
-                for pool_id in minion_pool_ids]
+        allocation_subflow = unordered_flow.Flow(subflow_name)
+        instance_minion_allocations = {}
+        machine_db_entries_to_add = []
+        existing_machines_to_allocate = {}
+        for instance in action_instances:
 
-            minion_pools = db_api.get_minion_pools(
-                ctxt, include_machines=True, to_dict=False)
-            minion_pool_id_mappings = {
-                pool.id: pool for pool in minion_pools
-                if pool.id in minion_pool_ids}
+            if instance in instance_minion_allocations:
+                raise exception.InvalidInput(
+                    "Instance with identifier '%s' passed twice for "
+                    "minion machine allocation from pool '%s' for action "
+                    "'%s'. Full instances list was: %s" % (
+                        instance, minion_pool.id, action_id, action_instances))
+            minion_machine = _select_machine(
+                minion_pool, exclude=instance_minion_allocations.values())
+            if minion_machine:
+                # take note of the machine and setup a healthcheck:
+                instance_minion_allocations[instance] = minion_machine.id
+                existing_machines_to_allocate[minion_machine.id] = instance
+                allocation_subflow.add(
+                    minion_manager_tasks.HealthcheckMinionMachineTask(
+                        minion_pool.id, minion_machine.id,
+                        minion_pool.platform, fail_on_error=True,
+                        inject=inject_for_tasks))
+            else:
+                # add task which creates the new machine:
+                new_machine_id = str(uuid.uuid4())
+                LOG.debug(
+                    "New minion machine with ID '%s' will be created for "
+                    "minion pool '%s' for use with action '%s'.",
+                    new_machine_id, minion_pool.id, action_id)
 
-            missing_pools = [
-                pool_id for pool_id in minion_pool_ids
-                if pool_id not in minion_pool_id_mappings]
-            if missing_pools:
-                raise exception.InvalidMinionPoolSelection(
-                    "The following minion pools could not be found: %s" % (
-                        missing_pools))
+                new_minion_machine = models.MinionMachine()
+                new_minion_machine.id = new_machine_id
+                new_minion_machine.pool_id = minion_pool.id
+                new_minion_machine.status = (
+                    constants.MINION_MACHINE_STATUS_UNINITIALIZED)
+                new_minion_machine.allocated_action = action_id
+                machine_db_entries_to_add.append(new_minion_machine)
 
-            unallocated_pools = {
-                pool_id: pool.status
-                for (pool_id, pool) in minion_pool_id_mappings.items()
-                if pool.status != constants.MINION_POOL_STATUS_ALLOCATED}
-            if unallocated_pools:
-                raise exception.InvalidMinionPoolSelection(
-                    "The following minion pools have not had their machines "
-                    "allocated and thus cannot be used: %s" % (
-                        unallocated_pools))
+                instance_minion_allocations[instance] = new_machine_id
+                allocation_subflow.add(
+                    minion_manager_tasks.AllocateMinionMachineTask(
+                        minion_pool.id, new_machine_id, minion_pool.platform,
+                        allocate_to_action=action_id,
+                        raise_on_cleanup_failure=False,
+                        inject=inject_for_tasks))
 
-            allocated_source_machine_ids = set()
-            allocated_target_machine_ids = set()
-            allocated_osmorphing_machine_ids = set()
-            for instance in action['instances']:
-
-                if include_transfer_minions:
-                    if action['origin_minion_pool_id']:
-                        origin_pool = minion_pool_id_mappings[
-                            action['origin_minion_pool_id']]
-                        machine = _select_machine(
-                            origin_pool, exclude=allocated_source_machine_ids)
-                        allocated_source_machine_ids.add(machine.id)
-                        instance_machine_allocations[
-                            instance]['source_minion'] = machine
-                        LOG.debug(
-                            "Selected minion machine '%s' for source-side "
-                            "syncing of instance '%s' as part of transfer "
-                            "action '%s'.", machine.id, instance, action['id'])
-
-                    if action['destination_minion_pool_id']:
-                        dest_pool = minion_pool_id_mappings[
-                            action['destination_minion_pool_id']]
-                        machine = _select_machine(
-                            dest_pool, exclude=allocated_target_machine_ids)
-                        allocated_target_machine_ids.add(machine.id)
-                        instance_machine_allocations[
-                            instance]['target_minion'] = machine
-                        LOG.debug(
-                            "Selected minion machine '%s' for target-side "
-                            "syncing of instance '%s' as part of transfer "
-                            "action '%s'.", machine.id, instance, action['id'])
-
-                if include_osmorphing_minions:
-                    if instance not in osmorphing_pool_map:
-                        LOG.debug(
-                            "Instance '%s' is not listed in the OSMorphing "
-                            "minion pool mappings for action '%s'." % (
-                                instance, action['id']))
-                    elif osmorphing_pool_map[instance] is None:
-                        LOG.debug(
-                            "OSMorphing pool ID for instance '%s' is "
-                            "None in action '%s'. Ignoring." % (
-                                instance, action['id']))
-                    else:
-                        osmorphing_pool_id = osmorphing_pool_map[instance]
-                        # if the selected target and OSMorphing pools
-                        # are the same, reuse the same worker:
-                        ima = instance_machine_allocations[instance]
-                        if osmorphing_pool_id == (
-                                action['destination_minion_pool_id']) and (
-                                    'target_minion' in ima):
-                            allocated_target_machine = ima[
-                                'target_minion']
-                            LOG.debug(
-                                "Reusing disk sync minion '%s' for the "
-                                "OSMorphing of instance '%s' as part of "
-                                "transfer action '%s'",
-                                allocated_target_machine.id, instance,
-                                action['id'])
-                            instance_machine_allocations[
-                                instance]['osmorphing_minion'] = (
-                                    allocated_target_machine)
-                        # else, allocate a new minion from the selected pool:
-                        else:
-                            osmorphing_pool = minion_pool_id_mappings[
-                                osmorphing_pool_id]
-                            machine = _select_machine(
-                                osmorphing_pool,
-                                exclude=allocated_osmorphing_machine_ids)
-                            allocated_osmorphing_machine_ids.add(machine.id)
-                            instance_machine_allocations[
-                                instance]['osmorphing_minion'] = machine
-                            LOG.debug(
-                                "Selected minion machine '%s' for OSMorphing "
-                                " of instance '%s' as part of transfer "
-                                "action '%s'.",
-                                machine.id, instance, action['id'])
-
-            # mark the selected machines as allocated:
-            all_machine_ids = set(itertools.chain(
-                allocated_source_machine_ids,
-                allocated_target_machine_ids,
-                allocated_osmorphing_machine_ids))
+        new_machine_db_entries_added = []
+        try:
+            # mark any existing machines as allocated:
+            LOG.debug(
+                "Marking the following pre-existing minion machines "
+                "from pool '%s' of action '%s' for each instance as "
+                "allocated with the DB: %s",
+                minion_pool.id, action_id, existing_machines_to_allocate)
             db_api.set_minion_machines_allocation_statuses(
-                ctxt, all_machine_ids, action['id'],
-                constants.MINION_MACHINE_STATUS_ALLOCATED,
+                ctxt, list(existing_machines_to_allocate.keys()),
+                action_id, constants.MINION_MACHINE_STATUS_ALLOCATED,
                 refresh_allocation_time=True)
 
-        # filter out redundancies:
-        instance_machine_allocations = {
-            instance: allocations
-            for (instance, allocations) in instance_machine_allocations.items()
-            if allocations}
+            # add any new machine entries to the DB:
+            for new_machine in machine_db_entries_to_add:
+                LOG.info(
+                    "Adding new minion machine with ID '%s' to the DB for pool "
+                    "'%s' for use with action '%s'.",
+                    new_machine_id, minion_pool.id, action_id)
+                db_api.add_minion_machine(ctxt, new_machine)
+                new_machine_db_entries_added.append(new_machine.id)
+        except Exception as ex:
+            LOG.warn(
+                "Exception occured while adding new minion machine entries to "
+                "the DB for pool '%s' for use with action '%s'. Clearing "
+                "any DB entries added so far (%s). Error was: %s",
+                minion_pool.id, action_id,
+                [m.id for m in new_machine_db_entries_added],
+                utils.get_exception_details())
+            try:
+                LOG.debug(
+                    "Reverting the following pre-existing minion machines from"
+                    " pool '%s' to '%s' due to allocation error for action "
+                    "'%s': %s",
+                    minion_pool.id,
+                    constants.MINION_MACHINE_STATUS_AVAILABLE,
+                    action_id,
+                    list(existing_machines_to_allocate.keys()))
+                db_api.set_minion_machines_allocation_statuses(
+                    ctxt, list(existing_machines_to_allocate.keys()),
+                    None, constants.MINION_MACHINE_STATUS_AVAILABLE,
+                    refresh_allocation_time=False)
+            except Exception:
+                LOG.warn(
+                    "Failed to deallocate the following machines from pool "
+                    "'%s' following allocation error for action '%s': %s. "
+                    "Error trace was: %s",
+                    minion_pool.id, action_id, existing_machines_to_allocate,
+                    utils.get_exception_details())
+            for new_machine in new_machine_db_entries_added:
+                try:
+                    db_api.delete_minion_machine(ctxt, new_machine.id)
+                except Exception as ex:
+                    LOG.warn(
+                        "Error occured while removing minion machine entry "
+                        "'%s' from the DB. This may leave the pool in an "
+                        "inconsistent state. Error trace was: %s" % (
+                            new_machine.id, utils.get_exception_details()))
+                    continue
+            raise
 
-        LOG.debug(
-            "Allocated the following minion machines for action '%s': %s",
-            action['id'], {
-                instance: {
-                    typ: machine.id
-                    for (typ, machine) in allocation.items()}
-                for (instance, allocation) in instance_machine_allocations.items()})
-        return instance_machine_allocations
+        return {
+            "flow": allocation_subflow,
+            "action_instance_minion_allocation_mappings": (
+                instance_minion_allocations)}
+
+    def _run_machine_allocation_subflow_for_action(
+            self, ctxt, action, action_type, include_transfer_minions=True,
+            include_osmorphing_minions=True):
+        """ Defines and starts a taskflow subflow for allocating minion
+        machines for the given action.
+        If there are no more minion machines available, upscaling will occur.
+        Also adds to the DB/marks as allocated any minion machines on the
+        spot.
+        """
+        required_action_properties = [
+            'id', 'instances', 'origin_minion_pool_id',
+            'destination_minion_pool_id',
+            'instance_osmorphing_minion_pool_mappings']
+        self._check_keys_for_action_dict(
+            action, required_action_properties,
+            operation="minion machine selection")
+
+        allocation_flow_name_format = None
+        machines_allocation_subflow_name_format = None
+        machine_action_allocation_subflow_name_format = None
+        allocation_failure_reporting_task_class = None
+        allocation_confirmation_reporting_task_class = None
+        if action_type == constants.TRANSFER_ACTION_TYPE_MIGRATION:
+            allocation_flow_name_format = (
+                minion_manager_tasks.MINION_POOL_MIGRATION_ALLOCATION_FLOW_NAME_FORMAT)
+            allocation_failure_reporting_task_class = (
+                minion_manager_tasks.ReportMinionAllocationFailureForMigrationTask)
+            allocation_confirmation_reporting_task_class = (
+                minion_manager_tasks.ConfirmMinionAllocationForMigrationTask)
+            machines_allocation_subflow_name_format = (
+                minion_manager_tasks.MINION_POOL_MIGRATION_ALLOCATION_SUBFLOW_NAME_FORMAT)
+            machine_action_allocation_subflow_name_format = (
+                minion_manager_tasks.MINION_POOL_ALLOCATE_MACHINES_FOR_MIGRATION_SUBFLOW_NAME_FORMAT)
+        elif action_type == constants.TRANSFER_ACTION_TYPE_REPLICA:
+            allocation_flow_name_format = (
+                minion_manager_tasks.MINION_POOL_REPLICA_ALLOCATION_FLOW_NAME_FORMAT)
+            allocation_failure_reporting_task_class = (
+                minion_manager_tasks.ReportMinionAllocationFailureForReplicaTask)
+            allocation_confirmation_reporting_task_class = (
+                minion_manager_tasks.ConfirmMinionAllocationForReplicaTask)
+            machines_allocation_subflow_name_format = (
+                minion_manager_tasks.MINION_POOL_REPLICA_ALLOCATION_SUBFLOW_NAME_FORMAT)
+            machine_action_allocation_subflow_name_format = (
+                minion_manager_tasks.MINION_POOL_ALLOCATE_MACHINES_FOR_REPLICA_SUBFLOW_NAME_FORMAT)
+        else:
+            raise exception.InvalidInput(
+                "Unknown transfer action type '%s'" % action_type)
+
+        # define main flow:
+        main_allocation_flow_name = (
+            allocation_flow_name_format % action['id'])
+        main_allocation_flow = linear_flow.Flow(main_allocation_flow_name)
+        instance_machine_allocations = {
+            instance: {} for instance in action['instances']}
+
+        # add allocation failure reporting task:
+        main_allocation_flow.add(
+            allocation_failure_reporting_task_class(
+                action['id']))
+
+        # define subflow for all the pool minions allocations:
+        machines_subflow = unordered_flow.Flow(
+            machines_allocation_subflow_name_format % action['id'])
+        new_pools_machines_db_entries = {}
+
+        # add subflow for origin pool:
+        if include_transfer_minions and action['origin_minion_pool_id']:
+            with minion_manager_utils.get_minion_pool_lock(
+                    action['origin_minion_pool_id'], external=True):
+                # fetch pool, origin endpoint, and initial store:
+                minion_pool = self._get_minion_pool(
+                    ctxt, action['origin_minion_pool_id'],
+                    include_machines=True, include_events=False,
+                    include_progress_updates=False)
+                endpoint_dict = self._conductor_client.get_endpoint(
+                    ctxt, minion_pool.endpoint_id)
+                origin_pool_store = self._get_pool_initial_taskflow_store_base(
+                    ctxt, minion_pool, endpoint_dict)
+
+                # add subflow for machine allocations from origin pool:
+                subflow_name = machine_action_allocation_subflow_name_format % (
+                    minion_pool.id, action['id'])
+                # NOTE: required to avoid internal taskflow conflicts
+                subflow_name = "origin-%s" % subflow_name
+                allocations_subflow_result = (
+                    self._make_minion_machine_allocation_subflow_for_action(
+                        ctxt, minion_pool, action['id'], action['instances'],
+                        subflow_name, inject_for_tasks=origin_pool_store))
+                machines_subflow.add(allocations_subflow_result['flow'])
+
+                # register each instances' origin minion:
+                source_machine_allocations = allocations_subflow_result[
+                    'action_instance_minion_allocation_mappings']
+                for (action_instance_id, allocated_minion_id) in (
+                        source_machine_allocations.items()):
+                    instance_machine_allocations[
+                        action_instance_id]['origin_minion_id'] = (
+                            allocated_minion_id)
+
+        # add subflow for destination pool:
+        if include_transfer_minions and action['destination_minion_pool_id']:
+            with minion_manager_utils.get_minion_pool_lock(
+                    action['destination_minion_pool_id'], external=True):
+                # fetch pool, destination endpoint, and initial store:
+                minion_pool = self._get_minion_pool(
+                    ctxt, action['destination_minion_pool_id'],
+                    include_machines=True, include_events=False,
+                    include_progress_updates=False)
+                endpoint_dict = self._conductor_client.get_endpoint(
+                    ctxt, minion_pool.endpoint_id)
+                destination_pool_store = (
+                    self._get_pool_initial_taskflow_store_base(
+                        ctxt, minion_pool, endpoint_dict))
+
+                # add subflow for machine allocations from destination pool:
+                subflow_name = machine_action_allocation_subflow_name_format % (
+                    minion_pool.id, action['id'])
+                # NOTE: required to avoid internal taskflow conflicts
+                subflow_name = "destination-%s" % subflow_name
+                allocations_subflow_result = (
+                    self._make_minion_machine_allocation_subflow_for_action(
+                        ctxt, minion_pool, action['id'], action['instances'],
+                        subflow_name,
+                        inject_for_tasks=destination_pool_store))
+                machines_subflow.add(allocations_subflow_result['flow'])
+                destination_machine_allocations = allocations_subflow_result[
+                    'action_instance_minion_allocation_mappings']
+
+                # register each instances' destination minion:
+                for (action_instance_id, allocated_minion_id) in (
+                        destination_machine_allocations.items()):
+                    instance_machine_allocations[
+                        action_instance_id]['destination_minion_id'] = (
+                            allocated_minion_id)
+
+        # add subflow for OSMorphing minions:
+        osmorphing_pool_instance_mappings = {}
+        for (action_instance_id, mapped_pool_id) in action[
+                'instance_osmorphing_minion_pool_mappings'].items():
+            if mapped_pool_id not in osmorphing_pool_instance_mappings:
+                osmorphing_pool_instance_mappings[
+                    mapped_pool_id] = [action_instance_id]
+            else:
+                osmorphing_pool_instance_mappings[mapped_pool_id].append(
+                    action_instance_id)
+        if include_osmorphing_minions and osmorphing_pool_instance_mappings:
+            for (osmorphing_pool_id, action_instance_ids) in (
+                    osmorphing_pool_instance_mappings.items()):
+                # if the destination pool was selected as an OSMorphing pool
+                # for any instances, we simply re-use all of the destination
+                # minions for said instances:
+                if action['destination_minion_pool_id'] and (
+                        include_osmorphing_minions and (
+                            osmorphing_pool_id == (
+                                action['destination_minion_pool_id']))):
+                    LOG.debug(
+                        "Reusing destination minion pool with ID '%s' for the "
+                        "following instances which had it selected as an "
+                        "OSMorphing pool for action '%s': %s",
+                        osmorphing_pool_id, action['id'], action_instance_ids)
+                    for instance in action_instance_ids:
+                        instance_machine_allocations[
+                            instance]['osmorphing_minion_id'] = (
+                                instance_machine_allocations[
+                                    instance]['destination_minion_id'])
+                    continue
+
+                with minion_manager_utils.get_minion_pool_lock(
+                        osmorphing_pool_id, external=True):
+                    # fetch pool, destination endpoint, and initial store:
+                    minion_pool = self._get_minion_pool(
+                        ctxt, osmorphing_pool_id,
+                        include_machines=True, include_events=False,
+                        include_progress_updates=False)
+                    endpoint_dict = self._conductor_client.get_endpoint(
+                        ctxt, minion_pool.endpoint_id)
+                    osmorphing_pool_store = self._get_pool_initial_taskflow_store_base(
+                        ctxt, minion_pool, endpoint_dict)
+
+                    # add subflow for machine allocations from osmorphing pool:
+                    subflow_name = machine_action_allocation_subflow_name_format % (
+                        minion_pool.id, action['id'])
+                    # NOTE: required to avoid internal taskflow conflicts
+                    subflow_name = "osmorphing-%s" % subflow_name
+                    allocations_subflow_result = (
+                        self._make_minion_machine_allocation_subflow_for_action(
+                            ctxt, minion_pool, action['id'],
+                            action_instance_ids,
+                            subflow_name, inject_for_tasks=osmorphing_pool_store))
+                    machines_subflow.add(allocations_subflow_result['flow'])
+
+                    # register each instances' osmorphing minion:
+                    osmorphing_machine_allocations = allocations_subflow_result[
+                        'action_instance_minion_allocation_mappings']
+                    for (action_instance_id, allocated_minion_id) in (
+                            osmorphing_machine_allocations.items()):
+                        instance_machine_allocations[
+                            action_instance_id]['osmorphing_minion_id'] = (
+                                allocated_minion_id)
+
+        # add the machines subflow to the main flow:
+        main_allocation_flow.add(machines_subflow)
+
+        # add final task to report minion machine availablity
+        # to the conductor at the end of the flow:
+        main_allocation_flow.add(
+            allocation_confirmation_reporting_task_class(
+                action['id'], instance_machine_allocations))
+
+        LOG.info(
+            "Starting main minion allocation flow '%s' for with ID '%s'. "
+            "The minion allocations will be: %s" % (
+                main_allocation_flow_name, action['id'],
+                instance_machine_allocations))
+
+        self._taskflow_runner.run_flow_in_background(
+            main_allocation_flow, store={"context": ctxt})
+
+        return main_allocation_flow
+
+    def _cleanup_machines_with_statuses_for_action(
+            self, ctxt, action_id, targeted_statuses, exclude_pools=None):
+        """ Deletes all minion machines which are marked with the given
+        from the DB.
+        """
+        if exclude_pools is None:
+            exclude_pools = []
+        machines = db_api.get_minion_machines(ctxt, action_id)
+        if not machines:
+            LOG.debug(
+                "No minion machines allocated to action '%s'. Returning.",
+                action_id)
+            return
+
+        pool_machine_mappings = {}
+        for machine in machines:
+            if machine.status not in targeted_statuses:
+                LOG.debug(
+                    "Skipping deletion of machine '%s' from pool '%s' as "
+                    "its status (%s) is not one of the targeted statuses (%s)",
+                    machine.id, machine.pool_id, machine.status,
+                    targeted_statuses)
+                continue
+            if machine.pool_id in exclude_pools:
+                LOG.debug(
+                    "Skipping deletion of machine '%s' (status '%s') from "
+                    "whitelisted pool '%s'", machine.id, machine.status,
+                    machine.pool_id)
+                continue
+
+            if machine.pool_id not in pool_machine_mappings:
+                pool_machine_mappings[machine.pool_id] = [machine]
+            else:
+                pool_machine_mappings[machine.pool_id].append(machine)
+
+        for (pool_id, machines) in pool_machine_mappings.items():
+            with minion_manager_utils.get_minion_pool_lock(
+                   pool_id, external=True):
+                for machine in machines:
+                    LOG.debug(
+                        "Deleting machine with ID '%s' (pool '%s', status '%s') "
+                        "from the DB.", machine.id, pool_id, machine.status)
+                    db_api.delete_minion_machine(ctxt, machine.id)
 
     def deallocate_minion_machine(self, ctxt, minion_machine_id):
 
@@ -587,11 +825,8 @@ class MinionManagerServerEndpoint(object):
             return
 
         machine_allocated_status = constants.MINION_MACHINE_STATUS_ALLOCATED
-        with lockutils.lock(
-                constants.MINION_POOL_LOCK_NAME_FORMAT % (
-                    minion_machine.pool_id),
-                external=True):
-
+        with minion_manager_utils.get_minion_pool_lock(
+                minion_machine.pool_id, external=True):
             if minion_machine.status != machine_allocated_status or (
                     not minion_machine.allocated_action):
                 LOG.warn(
@@ -625,33 +860,55 @@ class MinionManagerServerEndpoint(object):
                 action_id)
             return
 
-        minion_pool_ids = {
-            machine.pool_id for machine in allocated_minion_machines}
+        # categorise machine objects by pool:
+        pool_machine_mappings = {}
+        for machine in allocated_minion_machines:
+            if machine.pool_id not in pool_machine_mappings:
+                pool_machine_mappings[machine.pool_id] = []
+            pool_machine_mappings[machine.pool_id].append(machine)
+
+        # iterate over each pool and its machines allocated to this action:
+        for (pool_id, pool_machines) in pool_machine_mappings.items():
+            with minion_manager_utils.get_minion_pool_lock(
+                    pool_id, external=True):
+                machine_ids_to_deallocate = []
+                # NOTE: this is a workaround in case some crash/restart happens
+                # in the minion-manager service while new machine DB entries
+                # are added to the DB without their point of deployment being
+                # reached for them to ever get out of 'UNINITIALIZED' status:
+                for machine in pool_machines:
+                    if machine.status == (
+                            constants.MINION_MACHINE_STATUS_UNINITIALIZED):
+                        LOG.warn(
+                            "Found minion machine '%s' in pool '%s' which "
+                            "is in '%s' status. Removing from the DB "
+                            "entirely." % (
+                                machine.id, pool_id, machine.status))
+                        db_api.delete_minion_machine(
+                            ctxt, machine.id)
+                        LOG.info(
+                            "Successfully deleted minion machine entry '%s' "
+                            "from pool '%s' from the DB.", machine.id, pool_id)
+                        continue
+                    LOG.debug(
+                        "Going to mark minion machine '%s' (current status "
+                        "'%s') of pool '%s' as available following machine "
+                        "deallocation request for action '%s'.",
+                        machine.id, machine.status, pool_id, action_id)
+                    machine_ids_to_deallocate.append(machine.id)
+
+                LOG.info(
+                    "Marking minion machines '%s' from pool '%s' for "
+                    "as available after having been allocated to action '%s'.",
+                    machine_ids_to_deallocate, pool_id, action_id)
+                db_api.set_minion_machines_allocation_statuses(
+                    ctxt, machine_ids_to_deallocate, None,
+                    constants.MINION_MACHINE_STATUS_AVAILABLE,
+                    refresh_allocation_time=False)
 
         LOG.debug(
-            "Attempting to deallocate all minion pool machine selections "
-            "for action '%s'. Afferent pools are: %s",
-            action_id, minion_pool_ids)
-
-        with contextlib.ExitStack() as stack:
-            _ = [
-                stack.enter_context(
-                    lockutils.lock(
-                        constants.MINION_POOL_LOCK_NAME_FORMAT % pool_id,
-                        external=True))
-                for pool_id in minion_pool_ids]
-
-            machine_ids = [m.id for m in allocated_minion_machines]
-            LOG.info(
-                "Releasing the following minion machines for "
-                "action '%s': %s", action_id, machine_ids)
-            db_api.set_minion_machines_allocation_statuses(
-                ctxt, machine_ids, None,
-                constants.MINION_MACHINE_STATUS_AVAILABLE,
-                refresh_allocation_time=False)
-            LOG.debug(
-                "Successfully released all minion machines associated "
-                "with action with base_id '%s'.", action_id)
+            "Successfully released all minion machines associated "
+            "with action with base_id '%s'.", action_id)
 
     def _get_minion_pool_healthcheck_flow(
             self, ctxt, minion_pool, requery=True):
@@ -847,19 +1104,23 @@ class MinionManagerServerEndpoint(object):
             self, ctxt, minion_pool, endpoint_dict):
         # NOTE: considering pools are associated to strictly one endpoint,
         # we can duplicate the 'origin/destination':
-        origin_dest_info = {
+        origin_info = {
             "id": endpoint_dict['id'],
             "connection_info": endpoint_dict['connection_info'],
             "mapped_regions": endpoint_dict['mapped_regions'],
             "type": endpoint_dict['type']}
         initial_store = {
             "context": ctxt,
-            "origin": origin_dest_info,
-            "destination": origin_dest_info,
+            "origin": origin_info,
+            "destination": origin_info,
             "task_info": {
                 "pool_identifier": minion_pool.id,
                 "pool_os_type": minion_pool.os_type,
                 "pool_environment_options": minion_pool.environment_options}}
+        shared_resources = minion_pool.shared_resources
+        if shared_resources is None:
+            shared_resources = {}
+        initial_store['task_info']['pool_shared_resources'] = shared_resources
         return initial_store
 
     def _check_pool_machines_in_use(
@@ -1529,3 +1790,217 @@ class MinionManagerServerEndpoint(object):
     #                 LOG.debug(
     #                     "No minion machines were found to be associated "
     #                     "with action with base_id '%s'.", action['base_id'])
+
+    # def _allocate_minion_machines_for_action(
+    #         self, ctxt, action, include_transfer_minions=True,
+    #         include_osmorphing_minions=True):
+    #     """ Returns a dict of the form:
+    #     {
+    #         "instance_id": {
+    #             "source_minion": <source minion properties>,
+    #             "destination_minion": <target minion properties>,
+    #             "osmorphing_minion": <osmorphing minion properties>
+    #         }
+    #     }
+    #     """
+    #     required_action_properties = [
+    #         'id', 'instances', 'origin_minion_pool_id',
+    #         'destination_minion_pool_id',
+    #         'instance_osmorphing_minion_pool_mappings']
+    #     self._check_keys_for_action_dict(
+    #         action, required_action_properties,
+    #         operation="minion machine selection")
+
+    #     instance_machine_allocations = {
+    #         instance: {} for instance in action['instances']}
+
+    #     minion_pool_ids = set()
+    #     if action['origin_minion_pool_id']:
+    #         minion_pool_ids.add(action['origin_minion_pool_id'])
+    #     if action['destination_minion_pool_id']:
+    #         minion_pool_ids.add(action['destination_minion_pool_id'])
+    #     if action['instance_osmorphing_minion_pool_mappings']:
+    #         minion_pool_ids = minion_pool_ids.union(set(
+    #             action['instance_osmorphing_minion_pool_mappings'].values()))
+    #     if None in minion_pool_ids:
+    #         minion_pool_ids.remove(None)
+
+    #     if not minion_pool_ids:
+    #         LOG.debug(
+    #             "No minion pool settings found for action '%s'. "
+    #             "Skipping minion machine allocations." % (
+    #                 action['id']))
+    #         return instance_machine_allocations
+
+    #     LOG.debug(
+    #         "All minion pool selections for action '%s': %s",
+    #         action['id'], minion_pool_ids)
+
+    #     def _select_machine(minion_pool, exclude=None):
+    #         if not minion_pool.minion_machines:
+    #             raise exception.InvalidMinionPoolSelection(
+    #                 "Minion pool with ID '%s' has no machines defined." % (
+    #                     minion_pool.id))
+    #         selected_machine = None
+    #         for machine in minion_pool.minion_machines:
+    #             if exclude and machine.id in exclude:
+    #                 LOG.debug(
+    #                     "Excluding minion machine '%s' from search.",
+    #                     machine.id)
+    #                 continue
+    #             if machine.status != constants.MINION_MACHINE_STATUS_AVAILABLE:
+    #                 LOG.debug(
+    #                     "Minion machine with ID '%s' is in status '%s' "
+    #                     "instead of '%s'. Skipping.", machine.id,
+    #                     machine.status,
+    #                     constants.MINION_MACHINE_STATUS_AVAILABLE)
+    #                 continue
+    #             selected_machine = machine
+    #             break
+    #         if not selected_machine:
+    #             raise exception.InvalidMinionPoolSelection(
+    #                 "There are no more available minion machines within minion"
+    #                 " pool with ID '%s' (excluding the following ones already "
+    #                 "planned for this transfer: %s). Please ensure that the "
+    #                 "minion pool has enough minion machines allocated and "
+    #                 "available (i.e. not being used for other operations) "
+    #                 "to satisfy the number of VMs required by the Migration or"
+    #                 " Replica." % (
+    #                     minion_pool.id, exclude))
+    #         return selected_machine
+
+    #     osmorphing_pool_map = (
+    #         action['instance_osmorphing_minion_pool_mappings'])
+    #     with contextlib.ExitStack() as stack:
+    #         _ = [
+    #             stack.enter_context(
+    #                 minion_manager_utils.get_minion_pool_lock(
+    #                     pool_id, external=True))
+    #             for pool_id in minion_pool_ids]
+
+    #         minion_pools = db_api.get_minion_pools(
+    #             ctxt, include_machines=True, to_dict=False)
+    #         minion_pool_id_mappings = {
+    #             pool.id: pool for pool in minion_pools
+    #             if pool.id in minion_pool_ids}
+
+    #         missing_pools = [
+    #             pool_id for pool_id in minion_pool_ids
+    #             if pool_id not in minion_pool_id_mappings]
+    #         if missing_pools:
+    #             raise exception.InvalidMinionPoolSelection(
+    #                 "The following minion pools could not be found: %s" % (
+    #                     missing_pools))
+
+    #         unallocated_pools = {
+    #             pool_id: pool.status
+    #             for (pool_id, pool) in minion_pool_id_mappings.items()
+    #             if pool.status != constants.MINION_POOL_STATUS_ALLOCATED}
+    #         if unallocated_pools:
+    #             raise exception.InvalidMinionPoolSelection(
+    #                 "The following minion pools have not had their machines "
+    #                 "allocated and thus cannot be used: %s" % (
+    #                     unallocated_pools))
+
+    #         allocated_source_machine_ids = set()
+    #         allocated_target_machine_ids = set()
+    #         allocated_osmorphing_machine_ids = set()
+    #         for instance in action['instances']:
+
+    #             if include_transfer_minions:
+    #                 if action['origin_minion_pool_id']:
+    #                     origin_pool = minion_pool_id_mappings[
+    #                         action['origin_minion_pool_id']]
+    #                     machine = _select_machine(
+    #                         origin_pool, exclude=allocated_source_machine_ids)
+    #                     allocated_source_machine_ids.add(machine.id)
+    #                     instance_machine_allocations[
+    #                         instance]['source_minion'] = machine
+    #                     LOG.debug(
+    #                         "Selected minion machine '%s' for source-side "
+    #                         "syncing of instance '%s' as part of transfer "
+    #                         "action '%s'.", machine.id, instance, action['id'])
+
+    #                 if action['destination_minion_pool_id']:
+    #                     dest_pool = minion_pool_id_mappings[
+    #                         action['destination_minion_pool_id']]
+    #                     machine = _select_machine(
+    #                         dest_pool, exclude=allocated_target_machine_ids)
+    #                     allocated_target_machine_ids.add(machine.id)
+    #                     instance_machine_allocations[
+    #                         instance]['destination_minion'] = machine
+    #                     LOG.debug(
+    #                         "Selected minion machine '%s' for target-side "
+    #                         "syncing of instance '%s' as part of transfer "
+    #                         "action '%s'.", machine.id, instance, action['id'])
+
+    #             if include_osmorphing_minions:
+    #                 if instance not in osmorphing_pool_map:
+    #                     LOG.debug(
+    #                         "Instance '%s' is not listed in the OSMorphing "
+    #                         "minion pool mappings for action '%s'." % (
+    #                             instance, action['id']))
+    #                 elif osmorphing_pool_map[instance] is None:
+    #                     LOG.debug(
+    #                         "OSMorphing pool ID for instance '%s' is "
+    #                         "None in action '%s'. Ignoring." % (
+    #                             instance, action['id']))
+    #                 else:
+    #                     osmorphing_pool_id = osmorphing_pool_map[instance]
+    #                     # if the selected target and OSMorphing pools
+    #                     # are the same, reuse the same worker:
+    #                     ima = instance_machine_allocations[instance]
+    #                     if osmorphing_pool_id == (
+    #                             action['destination_minion_pool_id']) and (
+    #                                 'destination_minion' in ima):
+    #                         allocated_target_machine = ima[
+    #                             'destination_minion']
+    #                         LOG.debug(
+    #                             "Reusing disk sync minion '%s' for the "
+    #                             "OSMorphing of instance '%s' as part of "
+    #                             "transfer action '%s'",
+    #                             allocated_target_machine.id, instance,
+    #                             action['id'])
+    #                         instance_machine_allocations[
+    #                             instance]['osmorphing_minion'] = (
+    #                                 allocated_target_machine)
+    #                     # else, allocate a new minion from the selected pool:
+    #                     else:
+    #                         osmorphing_pool = minion_pool_id_mappings[
+    #                             osmorphing_pool_id]
+    #                         machine = _select_machine(
+    #                             osmorphing_pool,
+    #                             exclude=allocated_osmorphing_machine_ids)
+    #                         allocated_osmorphing_machine_ids.add(machine.id)
+    #                         instance_machine_allocations[
+    #                             instance]['osmorphing_minion'] = machine
+    #                         LOG.debug(
+    #                             "Selected minion machine '%s' for OSMorphing "
+    #                             " of instance '%s' as part of transfer "
+    #                             "action '%s'.",
+    #                             machine.id, instance, action['id'])
+
+    #         # mark the selected machines as allocated:
+    #         all_machine_ids = set(itertools.chain(
+    #             allocated_source_machine_ids,
+    #             allocated_target_machine_ids,
+    #             allocated_osmorphing_machine_ids))
+    #         db_api.set_minion_machines_allocation_statuses(
+    #             ctxt, all_machine_ids, action['id'],
+    #             constants.MINION_MACHINE_STATUS_ALLOCATED,
+    #             refresh_allocation_time=True)
+
+    #     # filter out redundancies:
+    #     instance_machine_allocations = {
+    #         instance: allocations
+    #         for (instance, allocations) in instance_machine_allocations.items()
+    #         if allocations}
+
+    #     LOG.debug(
+    #         "Allocated the following minion machines for action '%s': %s",
+    #         action['id'], {
+    #             instance: {
+    #                 typ: machine.id
+    #                 for (typ, machine) in allocation.items()}
+    #             for (instance, allocation) in instance_machine_allocations.items()})
+    #     return instance_machine_allocations

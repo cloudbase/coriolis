@@ -74,7 +74,13 @@ class TaskFlowRunner(object):
         engine.prepare()
 
         LOG.debug("Running flow with name '%s'", flow.name)
-        engine.run()
+        try:
+            engine.run()
+        except Exception as ex:
+            LOG.warn(
+                "Fatal error occured while attempting to run flow '%s'. "
+                "Full trace was: %s", flow.name, utils.get_exception_details())
+            raise
         LOG.info(
             "Successfully ran flow with name '%s'. Statistics were: %s",
             flow.name, engine.statistics)

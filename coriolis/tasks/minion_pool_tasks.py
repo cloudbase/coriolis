@@ -910,7 +910,7 @@ class _BaseHealthcheckMinionMachineTask(base.TaskRunner):
         provider.healthcheck_minion(
             ctxt, connection_info, minion_properties, minion_connection_info)
 
-        return task_info
+        return {}
 
 
 class HealthcheckSourceMinionMachineTask(_BaseHealthcheckMinionMachineTask):

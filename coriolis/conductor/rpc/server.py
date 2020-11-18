@@ -1510,8 +1510,11 @@ class ConductorServerEndpoint(object):
             ctxt, action.base_id)
 
     def _check_minion_pools_for_action(self, ctxt, action):
-        return self._minion_manager_client.validate_minion_pool_selections_for_action(
+        self._minion_manager_client.validate_minion_pool_selections_for_action(
             ctxt, action)
+        LOG.debug(
+            "Successfully checked minion pool selection for action '%s'",
+            action.base_id)
 
     def _update_task_info_for_minion_allocations(
             self, ctxt, action, minion_machine_allocations):
@@ -1633,6 +1636,9 @@ class ConductorServerEndpoint(object):
             minion_allocation_error_details)
         self._cancel_tasks_execution(
             ctxt, last_replica_execution, requery=True)
+        self._set_tasks_execution_status(
+            ctxt, last_replica_execution.id,
+            constants.EXECUTION_STATUS_ERROR_ALLOCATING_MINIONS)
 
     @migration_synchronized
     def confirm_migration_minions_allocation(
@@ -1673,6 +1679,9 @@ class ConductorServerEndpoint(object):
             migration_id, execution.id, minion_allocation_error_details)
         self._cancel_tasks_execution(
             ctxt, execution, requery=True)
+        self._set_tasks_execution_status(
+            ctxt, execution.id,
+            constants.EXECUTION_STATUS_ERROR_ALLOCATING_MINIONS)
 
     def migrate_instances(self, ctxt, origin_endpoint_id,
                           destination_endpoint_id, origin_minion_pool_id,
