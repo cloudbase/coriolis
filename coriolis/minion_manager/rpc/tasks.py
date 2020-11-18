@@ -533,10 +533,10 @@ class HealthcheckMinionMachineTask(BaseMinionManangerTask):
         resource_healthcheck_task = (
             constants.TASK_TYPE_HEALTHCHECK_SOURCE_MINION)
         if minion_pool_type != constants.PROVIDER_PLATFORM_SOURCE:
-            resource_deletion_task_type = (
+            resource_healthcheck_task = (
                 constants.TASK_TYPE_HEALTHCHECK_DESTINATION_MINION)
         super(HealthcheckMinionMachineTask, self).__init__(
-            minion_pool_id, minion_machine_id, resource_deletion_task_type,
+            minion_pool_id, minion_machine_id, resource_healthcheck_task,
             **kwargs)
 
     def execute(self, context, origin, destination, task_info):

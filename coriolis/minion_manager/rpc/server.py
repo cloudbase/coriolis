@@ -527,7 +527,7 @@ class MinionManagerServerEndpoint(object):
                                 'target_minion']
                             LOG.debug(
                                 "Reusing disk sync minion '%s' for the "
-                                "OSMorphing of instance '%s' as port of "
+                                "OSMorphing of instance '%s' as part of "
                                 "transfer action '%s'",
                                 allocated_target_machine.id, instance,
                                 action['id'])
