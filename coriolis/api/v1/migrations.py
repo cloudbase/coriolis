@@ -61,7 +61,8 @@ class MigrationController(api_wsgi.Controller):
             'destination_minion_pool_id')
         instance_osmorphing_minion_pool_mappings = migration.get(
             'instance_osmorphing_minion_pool_mappings', {})
-        instances = migration["instances"]
+        instances = api_utils.validate_instances_list_for_transfer(
+            migration.get('instances'))
         extras = [
             instance
             for instance in instance_osmorphing_minion_pool_mappings

@@ -60,7 +60,9 @@ class ReplicaController(api_wsgi.Controller):
         destination_endpoint_id = replica["destination_endpoint_id"]
         destination_environment = replica.get(
             "destination_environment", {})
-        instances = replica["instances"]
+        instances = api_utils.validate_instances_list_for_transfer(
+            replica.get('instances'))
+
         notes = replica.get("notes")
 
         source_environment = replica.get("source_environment", {})
@@ -82,7 +84,6 @@ class ReplicaController(api_wsgi.Controller):
                 "One or more instance OSMorphing pool mappings were "
                 "provided for instances (%s) which are not part of the "
                 "Replicas's declared instances (%s)" % (extras, instances))
-
 
         # TODO(aznashwan): until the provider plugin interface is updated
         # to have separate 'network_map' and 'storage_mappings' fields,
