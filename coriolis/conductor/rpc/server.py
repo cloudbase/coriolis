@@ -1505,6 +1505,7 @@ class ConductorServerEndpoint(object):
             replica, licensing_client.RESERVATION_TYPE_REPLICA)
         self._check_replica_running_executions(ctxt, replica)
         self._check_valid_replica_tasks_execution(replica, force)
+        user_scripts = user_scripts or replica.user_scripts
 
         destination_endpoint = self.get_endpoint(
             ctxt, replica.destination_endpoint_id)
@@ -1538,6 +1539,7 @@ class ConductorServerEndpoint(object):
         migration.instances = instances
         migration.replica = replica
         migration.info = replica.info
+        migration.user_scripts = user_scripts
         migration.origin_minion_pool_id = replica.origin_minion_pool_id
         migration.destination_minion_pool_id = (
             replica.destination_minion_pool_id)
@@ -2035,6 +2037,7 @@ class ConductorServerEndpoint(object):
         migration.executions = [execution]
         migration.instances = instances
         migration.info = {}
+        migration.user_scripts = user_scripts
         migration.notes = notes
         migration.shutdown_instances = shutdown_instances
         migration.replication_count = replication_count
