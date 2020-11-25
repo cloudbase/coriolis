@@ -4,10 +4,9 @@
 from oslo_log import log as logging
 
 from coriolis import utils
-from coriolis.api.v1.views import (
-        endpoint_source_minion_pool_options_view)
+from coriolis.api.v1.views import endpoint_options_view
 from coriolis.api import wsgi as api_wsgi
-from coriolis.endpoint_minion_pool_options import api
+from coriolis.endpoint_options import api
 from coriolis.policies import endpoints as endpoint_policies
 
 
@@ -36,7 +35,7 @@ class EndpointSourceMinionPoolOptionsController(api_wsgi.Controller):
         else:
             options = {}
 
-        return endpoint_source_minion_pool_options_view.collection(
+        return endpoint_options_view.source_minion_pool_options_collection(
             req,
             self._minion_pool_options_api.get_endpoint_source_minion_pool_options(
                 context, endpoint_id, env=env, option_names=options))
