@@ -5,9 +5,9 @@ from oslo_log import log as logging
 
 from coriolis import utils
 from coriolis.api import common
-from coriolis.api.v1.views import endpoint_instance_view
+from coriolis.api.v1.views import endpoint_resources_view
 from coriolis.api import wsgi as api_wsgi
-from coriolis.endpoint_instances import api
+from coriolis.endpoint_resources import api
 from coriolis.policies import endpoints as endpoint_policies
 
 LOG = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ class EndpointInstanceController(api_wsgi.Controller):
         else:
             env = {}
 
-        return endpoint_instance_view.collection(
+        return endpoint_resources_view.instances_collection(
             req, self._instance_api.get_endpoint_instances(
                 context, endpoint_id, env, marker, limit,
                 instance_name_pattern))
@@ -51,7 +51,7 @@ class EndpointInstanceController(api_wsgi.Controller):
         else:
             env = {}
 
-        return endpoint_instance_view.single(
+        return endpoint_resources_view.instance_single(
             req, self._instance_api.get_endpoint_instance(
                 req.environ['coriolis.context'], endpoint_id, env, id))
 

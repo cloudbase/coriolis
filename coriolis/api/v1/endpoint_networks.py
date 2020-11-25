@@ -4,9 +4,9 @@
 from oslo_log import log as logging
 
 from coriolis import utils
-from coriolis.api.v1.views import endpoint_network_view
+from coriolis.api.v1.views import endpoint_resources_view
 from coriolis.api import wsgi as api_wsgi
-from coriolis.endpoint_networks import api
+from coriolis.endpoint_resources import api
 from coriolis.policies import endpoints as endpoint_policies
 
 LOG = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ class EndpointNetworkController(api_wsgi.Controller):
         else:
             env = {}
 
-        return endpoint_network_view.collection(
+        return endpoint_resources_view.networks_collection(
             req, self._network_api.get_endpoint_networks(
                 context, endpoint_id, env))
 

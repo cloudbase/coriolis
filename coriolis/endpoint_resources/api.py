@@ -1,4 +1,4 @@
-# Copyright 2016 Cloudbase Solutions Srl
+# Copyright 2020 Cloudbase Solutions Srl
 # All Rights Reserved.
 
 from coriolis.conductor.rpc import client as rpc_client
@@ -19,3 +19,11 @@ class API(object):
             self, ctxt, endpoint_id, source_environment, instance_name):
         return self._rpc_client.get_endpoint_instance(
             ctxt, endpoint_id, source_environment, instance_name)
+
+    def get_endpoint_networks(self, ctxt, endpoint_id, env):
+        return self._rpc_client.get_endpoint_networks(
+            ctxt, endpoint_id, env)
+
+    def get_endpoint_storage(self, ctxt, endpoint_id, env):
+        return self._rpc_client.get_endpoint_storage(
+            ctxt, endpoint_id, env)
