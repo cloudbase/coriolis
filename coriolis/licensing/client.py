@@ -3,6 +3,7 @@
 
 import json
 import os
+
 import requests
 
 from coriolis import exception
@@ -21,10 +22,11 @@ RESERVATION_TYPE_MIGRATION = "migration"
 class LicensingClient(object):
     """ Class for accessing the Coriolis licensing server API. """
 
-    def __init__(self, base_url, allow_untrusted=False):
+    def __init__(self, base_url, appliance_id=None, allow_untrusted=False):
         """ :param base_url: URL for the API service, including scheme """
         self._base_url = base_url.rstrip('/')
         self._verify = not allow_untrusted
+        self._appliance_id = appliance_id
 
     @classmethod
     def from_env(cls):
@@ -32,6 +34,7 @@ class LicensingClient(object):
         following env vars:
         LICENSING_SERVER_BASE_URL="https://10.7.2.3:37667/v1"
         LICENSING_SERVER_ALLOW_UNTRUSTED="<set to anything>"
+        LICENSING_SERVER_APP_ID_FILE="<path to licensing server ID file>"
         Returns None if 'LICENSING_SERVER_BASE_URL' is not defined.
         """
         base_url = os.environ.get("LICENSING_SERVER_BASE_URL")
@@ -42,9 +45,16 @@ class LicensingClient(object):
             return None
         allow_untrusted = os.environ.get(
             "LICENSING_SERVER_ALLOW_UNTRUSTED", False)
-
-        # try out client:
-        client = cls(base_url, allow_untrusted=allow_untrusted)
+        client = cls(
+            base_url, appliance_id=None, allow_untrusted=allow_untrusted)
+        appliance_ids = client.get_appliances()
+        if not appliance_ids:
+            client._appliance_id = client.create_appliance().get("id")
+        elif len(appliance_ids) == 1:
+            client._appliance_id = appliance_ids[0].get('id')
+        else:
+            raise exception.CoriolisException(
+                'More than one appliance IDs found.')
         client.get_licence_status()
 
         return client
@@ -55,15 +65,22 @@ class LicensingClient(object):
         """
         return "%s/%s" % (self._base_url, resource.strip('/'))
 
+    def _get_url_for_appliance_resource(self, resource):
+        return "%s/appliances/%s/%s" % (
+            self._base_url, self._appliance_id, resource.strip('/'))
+
     @utils.retry_on_error()
     def _do_req(
             self, method_name, resource, body=None,
-            response_key=None, raw_response=False):
+            response_key=None, raw_response=False,
+            appliance_scoped=True):
         method = getattr(requests, method_name.lower(), None)
         if not method:
             raise ValueError("No such HTTP method '%s'" % method_name)
 
         url = self._get_url_for_resource(resource)
+        if appliance_scoped:
+            url = self._get_url_for_appliance_resource(resource)
 
         kwargs = {"verify": self._verify,
                   "timeout": CONF.default_requests_timeout}
@@ -107,24 +124,49 @@ class LicensingClient(object):
 
         return resp_data
 
-    def _get(self, resource, response_key=None):
-        return self._do_req("GET", resource, response_key=response_key)
+    def _get(self, resource, response_key=None, appliance_scoped=True):
+        return self._do_req("GET", resource, response_key=response_key,
+                            appliance_scoped=appliance_scoped)
 
-    def _post(self, resource, body, response_key=None):
+    def _post(self, resource, body, response_key=None, appliance_scoped=True):
         return self._do_req(
-            "POST", resource, body=body, response_key=response_key)
+            "POST", resource, body=body,
+            response_key=response_key,
+            appliance_scoped=appliance_scoped)
 
-    def _put(self, resource, body, response_key=None):
+    def _put(self, resource, body, response_key=None, appliance_scoped=True):
         return self._do_req(
-            "PUT", resource, body=body, response_key=response_key)
+            "PUT", resource, body=body,
+            response_key=response_key,
+            appliance_scoped=appliance_scoped)
 
-    def _delete(self, resource, body, response_key=None):
+    def _delete(self, resource, body, response_key=None, appliance_scoped=True):
         return self._do_req(
-            "DELETE", resource, body=body, response_key=response_key)
+            "DELETE", resource, body=body,
+            response_key=response_key,
+            appliance_scoped=appliance_scoped)
+
+    def get_appliances(self):
+        """ Lists all appliances on the Licensing server. """
+        return self._get(
+            "/appliances",
+            response_key="appliances",
+            appliance_scoped=False)
+
+    def get_appliance(self):
+        """ Get the appliance corresponding to this client instance. """
+        return self._get(
+            "/appliances/%s" % self._appliance_id, response_key="appliance",
+            appliance_scoped=False)
+
+    def create_appliance(self):
+        return self._post(
+            "/appliances", body=None, response_key="appliance",
+            appliance_scoped=False)
 
     def get_licence_status(self):
         """ Gets licence status for appliance. """
-        return self._get("/licence-status", "licence_status")
+        return self._get("/status", "appliance_licence_status")
 
     def get_licences(self):
         """ Lists all installed licences. """
@@ -163,10 +205,10 @@ class LicensingClient(object):
         return self._get(
             "/reservations/%s" % reservation_id, response_key="reservation")
 
-    def check_reservation(self, reservation_id):
+    def check_refresh_reservation(self, reservation_id):
         """ Checks the reservation with the given ID.  """
         return self._post(
-            "/reservations/%s/check" % reservation_id, None,
+            "/reservations/%s/refresh" % reservation_id, None,
             response_key="reservation")
 
     def delete_reservation(self, reservation_id, raise_on_404=False):
