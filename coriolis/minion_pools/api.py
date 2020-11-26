@@ -37,8 +37,8 @@ class API(object):
         return self._rpc_client.allocate_minion_pool(
             ctxt, minion_pool_id)
 
-    def healthcheck_minion_pool(self, ctxt, minion_pool_id):
-        return self._rpc_client.healthcheck_minion_pool(
+    def refresh_minion_pool(self, ctxt, minion_pool_id):
+        return self._rpc_client.refresh_minion_pool(
             ctxt, minion_pool_id)
 
     def deallocate_minion_pool(self, ctxt, minion_pool_id, force=False):

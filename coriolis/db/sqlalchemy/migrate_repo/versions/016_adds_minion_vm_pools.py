@@ -87,7 +87,7 @@ def upgrade(migrate_engine):
             sqlalchemy.Column(
                 'allocated_action', sqlalchemy.String(36), nullable=True),
             sqlalchemy.Column(
-                'allocated_at', sqlalchemy.DateTime, nullable=True),
+                'last_used_at', sqlalchemy.DateTime, nullable=True),
             sqlalchemy.Column(
                 'status', sqlalchemy.String(255), nullable=False,
                 default=lambda: "UNKNOWN"),

@@ -1210,9 +1210,23 @@ def update_minion_machine(context, minion_machine_id, updated_values):
     updateable_fields = [
         "connection_info", "provider_properties", "status",
         "backup_writer_connection_info", "allocated_action",
-        "allocated_at"]
+        "last_used_at"]
     _update_sqlalchemy_object_fields(
         minion_machine, updateable_fields, updated_values)
+
+
+@enginefacade.writer
+def set_minion_machine_status(context, minion_machine_id, status):
+    machine = get_minion_machine(context, minion_machine_id)
+    if not machine:
+        raise exception.NotFound(
+            "Minion machine with ID '%s' not found" % minion_machine_id)
+    LOG.debug(
+        "Transitioning minion machine '%s' (pool '%s') from status '%s' to "
+        "'%s' in the DB",
+        minion_machine_id, machine.pool_id, machine.status, status)
+    machine.status = status
+    setattr(machine, 'updated_at', timeutils.utcnow())
 
 
 @enginefacade.writer
@@ -1239,7 +1253,7 @@ def set_minion_machines_allocation_statuses(
                 machine.allocated_action, action_id))
         machine.allocated_action = action_id
         if refresh_allocation_time:
-            machine.allocated_at = timeutils.utcnow()
+            machine.last_used_at = timeutils.utcnow()
         machine.status = allocation_status
 
 
@@ -1335,8 +1349,11 @@ def add_minion_pool_execution(context, execution):
 def set_minion_pool_status(context, minion_pool_id, status):
     pool = get_minion_pool(
         context, minion_pool_id, include_machines=False)
+    if not pool:
+        raise exception.NotFound(
+            "Minion pool '%s' not found" % minion_pool_id)
     LOG.debug(
-        "Transitioning minion pool '%s' from status '%s' to '%s'in DB",
+        "Transitioning minion pool '%s' from status '%s' to '%s' in DB",
         minion_pool_id, pool.status, status)
     pool.status = status
     setattr(pool, 'updated_at', timeutils.utcnow())
