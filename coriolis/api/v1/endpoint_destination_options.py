@@ -4,9 +4,9 @@
 from oslo_log import log as logging
 
 from coriolis import utils
-from coriolis.api.v1.views import endpoint_destination_options_view
+from coriolis.api.v1.views import endpoint_options_view
 from coriolis.api import wsgi as api_wsgi
-from coriolis.endpoint_destination_options import api
+from coriolis.endpoint_options import api
 from coriolis.policies import endpoints as endpoint_policies
 
 
@@ -35,7 +35,7 @@ class EndpointDestinationOptionsController(api_wsgi.Controller):
         else:
             options = {}
 
-        return endpoint_destination_options_view.collection(
+        return endpoint_options_view.destination_options_collection(
             req,
             self._destination_options_api.get_endpoint_destination_options(
                 context, endpoint_id, env=env, option_names=options))
