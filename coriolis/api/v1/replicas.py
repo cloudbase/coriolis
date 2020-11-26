@@ -52,56 +52,52 @@ class ReplicaController(api_wsgi.Controller):
             req, self._replica_api.get_replicas(
                 context, include_tasks_executions=True))
 
+    @api_utils.format_keyerror_message(resource='replica', method='create')
     def _validate_create_body(self, context, body):
-        try:
-            replica = body["replica"]
+        replica = body["replica"]
 
-            origin_endpoint_id = replica["origin_endpoint_id"]
-            destination_endpoint_id = replica["destination_endpoint_id"]
-            destination_environment = replica.get(
-                "destination_environment", {})
-            instances = replica["instances"]
-            notes = replica.get("notes")
+        origin_endpoint_id = replica["origin_endpoint_id"]
+        destination_endpoint_id = replica["destination_endpoint_id"]
+        destination_environment = replica.get(
+            "destination_environment", {})
+        instances = replica["instances"]
+        notes = replica.get("notes")
 
-            source_environment = replica.get("source_environment", {})
-            self._endpoints_api.validate_source_environment(
-                context, origin_endpoint_id, source_environment)
+        source_environment = replica.get("source_environment", {})
+        self._endpoints_api.validate_source_environment(
+            context, origin_endpoint_id, source_environment)
 
-            network_map = replica.get("network_map", {})
-            api_utils.validate_network_map(network_map)
-            destination_environment['network_map'] = network_map
+        network_map = replica.get("network_map", {})
+        api_utils.validate_network_map(network_map)
+        destination_environment['network_map'] = network_map
 
-            origin_minion_pool_id = replica.get(
-                'origin_minion_pool_id')
-            destination_minion_pool_id = replica.get(
-                'destination_minion_pool_id')
-            instance_osmorphing_minion_pool_mappings = replica.get(
-                'instance_osmorphing_minion_pool_mappings', {})
+        origin_minion_pool_id = replica.get(
+            'origin_minion_pool_id')
+        destination_minion_pool_id = replica.get(
+            'destination_minion_pool_id')
+        instance_osmorphing_minion_pool_mappings = replica.get(
+            'instance_osmorphing_minion_pool_mappings', {})
 
-            # NOTE(aznashwan): we validate the destination environment for the
-            # import provider before appending the 'storage_mappings' parameter
-            # for plugins with strict property name checks which do not yet
-            # support storage mapping features:
-            self._endpoints_api.validate_target_environment(
-                context, destination_endpoint_id, destination_environment)
+        # NOTE(aznashwan): we validate the destination environment for the
+        # import provider before appending the 'storage_mappings' parameter
+        # for plugins with strict property name checks which do not yet
+        # support storage mapping features:
+        self._endpoints_api.validate_target_environment(
+            context, destination_endpoint_id, destination_environment)
 
-            storage_mappings = replica.get("storage_mappings", {})
-            api_utils.validate_storage_mappings(storage_mappings)
+        storage_mappings = replica.get("storage_mappings", {})
+        api_utils.validate_storage_mappings(storage_mappings)
 
-            # TODO(aznashwan): until the provider plugin interface is updated
-            # to have separate 'network_map' and 'storage_mappings' fields,
-            # we add them as part of the destination environment:
-            destination_environment['storage_mappings'] = storage_mappings
+        # TODO(aznashwan): until the provider plugin interface is updated
+        # to have separate 'network_map' and 'storage_mappings' fields,
+        # we add them as part of the destination environment:
+        destination_environment['storage_mappings'] = storage_mappings
 
-            return (origin_endpoint_id, destination_endpoint_id,
-                    source_environment, destination_environment, instances,
-                    network_map, storage_mappings, notes,
-                    origin_minion_pool_id, destination_minion_pool_id,
-                    instance_osmorphing_minion_pool_mappings)
-        except Exception as ex:
-            LOG.exception(ex)
-            msg = getattr(ex, "message", str(ex))
-            raise exception.InvalidInput(msg)
+        return (origin_endpoint_id, destination_endpoint_id,
+                source_environment, destination_environment, instances,
+                network_map, storage_mappings, notes,
+                origin_minion_pool_id, destination_minion_pool_id,
+                instance_osmorphing_minion_pool_mappings)
 
     def create(self, req, body):
         context = req.environ["coriolis.context"]
@@ -238,41 +234,13 @@ class ReplicaController(api_wsgi.Controller):
 
         return final_values
 
+    @api_utils.format_keyerror_message(resource='replica', method='update')
     def _validate_update_body(self, id, context, body):
 
         replica = self._replica_api.get_replica(context, id)
-        try:
-            merged_body = self._get_merged_replica_values(
-                replica, body['replica'])
-
-            origin_endpoint_id = replica["origin_endpoint_id"]
-            destination_endpoint_id = replica["destination_endpoint_id"]
-
-            self._endpoints_api.validate_source_environment(
-                context, origin_endpoint_id,
-                merged_body["source_environment"])
-
-            destination_environment = merged_body["destination_environment"]
-            self._endpoints_api.validate_target_environment(
-                context, destination_endpoint_id, destination_environment)
-
-            api_utils.validate_network_map(merged_body["network_map"])
-
-            api_utils.validate_storage_mappings(
-                merged_body["storage_mappings"])
-
-            return merged_body
-
-        except Exception as ex:
-            LOG.exception(ex)
-            raise exception.InvalidInput(
-                getattr(ex, "message", str(ex)))
-
-    def update(self, req, id, body):
-        context = req.environ["coriolis.context"]
-        context.can(replica_policies.get_replicas_policy_label("update"))
-        origin_endpoint_id = body['replica'].get('origin_endpoint_id', None)
-        destination_endpoint_id = body['replica'].get(
+        replica_body = body['replica']
+        origin_endpoint_id = replica_body.get('origin_endpoint_id', None)
+        destination_endpoint_id = replica_body.get(
             'destination_endpoint_id', None)
         instances = body['replica'].get('instances', None)
         if origin_endpoint_id or destination_endpoint_id:
@@ -286,6 +254,33 @@ class ReplicaController(api_wsgi.Controller):
             raise exc.HTTPBadRequest(
                 explanation="The list of instances of a Replica cannot be "
                             "updated")
+
+        merged_body = self._get_merged_replica_values(
+            replica, replica_body)
+
+        replica_origin_endpoint_id = replica["origin_endpoint_id"]
+        replica_destination_endpoint_id = replica[
+            "destination_endpoint_id"]
+
+        self._endpoints_api.validate_source_environment(
+            context, replica_origin_endpoint_id,
+            merged_body["source_environment"])
+
+        destination_environment = merged_body["destination_environment"]
+        self._endpoints_api.validate_target_environment(
+            context, replica_destination_endpoint_id,
+            destination_environment)
+
+        api_utils.validate_network_map(merged_body["network_map"])
+
+        api_utils.validate_storage_mappings(
+            merged_body["storage_mappings"])
+
+        return merged_body
+
+    def update(self, req, id, body):
+        context = req.environ["coriolis.context"]
+        context.can(replica_policies.get_replicas_policy_label("update"))
 
         updated_values = self._validate_update_body(id, context, body)
         try:

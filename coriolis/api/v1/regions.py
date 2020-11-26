@@ -6,6 +6,7 @@ from webob import exc
 
 from coriolis import exception
 from coriolis.api.v1.views import region_view
+from coriolis.api.v1 import utils as api_utils
 from coriolis.api import wsgi as api_wsgi
 from coriolis.policies import regions as region_policies
 from coriolis.regions import api
@@ -33,20 +34,13 @@ class RegionController(api_wsgi.Controller):
         return region_view.collection(
             req, self._region_api.get_regions(context))
 
+    @api_utils.format_keyerror_message(resource='region', method='create')
     def _validate_create_body(self, body):
-        try:
-            region = body["region"]
-            name = region["name"]
-            description = region.get("description", "")
-            enabled = region.get("enabled", True)
-            return name, description, enabled
-        except Exception as ex:
-            LOG.exception(ex)
-            if hasattr(ex, "message"):
-                msg = ex.message
-            else:
-                msg = str(ex)
-            raise exception.InvalidInput(msg)
+        region = body["region"]
+        name = region["name"]
+        description = region.get("description", "")
+        enabled = region.get("enabled", True)
+        return name, description, enabled
 
     def create(self, req, body):
         context = req.environ["coriolis.context"]
@@ -56,18 +50,11 @@ class RegionController(api_wsgi.Controller):
             context, region_name=name, description=description,
             enabled=enabled))
 
+    @api_utils.format_keyerror_message(resource='region', method='update')
     def _validate_update_body(self, body):
-        try:
-            region = body["region"]
-            return {k: region[k] for k in region.keys() &
-                    {"name", "description", "enabled"}}
-        except Exception as ex:
-            LOG.exception(ex)
-            if hasattr(ex, "message"):
-                msg = ex.message
-            else:
-                msg = str(ex)
-            raise exception.InvalidInput(msg)
+        region = body["region"]
+        return {k: region[k] for k in region.keys() &
+                {"name", "description", "enabled"}}
 
     def update(self, req, id, body):
         context = req.environ["coriolis.context"]

@@ -1,6 +1,7 @@
 # Copyright 2018 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+import functools
 import json
 
 from oslo_log import log as logging
@@ -45,3 +46,42 @@ def validate_storage_mappings(storage_mappings):
     except exception.SchemaValidationException as ex:
         raise exc.HTTPBadRequest(
             explanation="Invalid storage_mappings: %s" % str(ex))
+
+
+def format_keyerror_message(resource='', method=''):
+    def _format_keyerror_message(func):
+        @functools.wraps(func)
+        def _wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except KeyError as err:
+                LOG.exception(err)
+                if err.args:
+                    key = err.args[0]
+                    exc_message = _build_keyerror_message(
+                        resource, method, key)
+                else:
+                    exc_message = str(err)
+                raise exception.InvalidInput(exc_message)
+            except Exception as err:
+                LOG.exception(err)
+                msg = getattr(err, "message", str(err))
+                raise exception.InvalidInput(msg)
+        return _wrapper
+    return _format_keyerror_message
+
+
+def _build_keyerror_message(resource, method, key):
+    msg = ''
+    method_mapping = {
+        "create": "creation",
+        "update": "update", }
+
+    if resource == key:
+        msg = 'The %s %s body needs to be encased inside the "%s" key' % (
+            resource, method_mapping[method], key)
+    else:
+        msg = 'The %s %s body lacks a required attribute: "%s"' % (
+            resource, method_mapping[method], key)
+
+    return msg
