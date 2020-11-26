@@ -42,4 +42,23 @@
   notify:
     - "restart coriolis-licensing-server"
 
+- name: Create Keystone server entry for Licensing server.
+  os_keystone_service:
+    state: present
+    name: coriolis-licensing
+    service_type: coriolis-licensing
+    description: "Coriolis licensing service"
+
+- name: Create Keystone endpoint for Licensing server.
+  os_keystone_endpoint:
+    state: present
+    service: coriolis-licensing
+    region: RegionOne
+    endpoint_interface: "{{ item.interface }}"
+    url: "{{ item.url }}"
+  with_items:
+    - { interface: admin,    url: "{{ coriolis_licensing_server_endpoint }}" }
+    - { interface: internal, url: "{{ coriolis_licensing_server_endpoint }}" }
+    - { interface: public,   url: "{{ coriolis_licensing_server_endpoint }}" }
+
 - include_tasks: setup_licensing_server_container.yml
