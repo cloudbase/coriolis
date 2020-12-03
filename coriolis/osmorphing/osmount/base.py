@@ -103,6 +103,7 @@ class BaseSSHOSMountTools(BaseOSMountTools):
 class BaseLinuxOSMountTools(BaseSSHOSMountTools):
     def _get_pvs(self):
         out = self._exec_cmd("sudo pvdisplay -c").decode().splitlines()
+        LOG.debug("Output of 'pvdisplay -c' command: %s", out)
         pvs = {}
         for line in out:
             if line == "":
@@ -116,6 +117,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
             else:
                 LOG.warn(
                     "Ignoring improper `pvdisplay` output entry: %s" % line)
+        LOG.debug("Physical Volume attributes: %s", pvs)
         return pvs
 
     def _check_vgs(self):
@@ -133,13 +135,14 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         vg_names = []
         vgscan_out_lines = self._exec_cmd(
             "sudo vgscan").decode().splitlines()
-        if len(vgscan_out_lines) > 1:
-            for vgscan_out_line in vgscan_out_lines[1:]:
-                m = re.match(
-                    r'\s*Found volume group "(.*)" using metadata type lvm2',
-                    vgscan_out_line)
-                if m:
-                    vg_names.append(m.groups()[0])
+        LOG.debug("Output of vgscan commnad: %s", vgscan_out_lines)
+        for vgscan_out_line in vgscan_out_lines:
+            m = re.match(
+                r'\s*Found volume group "(.*)" using metadata type lvm2',
+                vgscan_out_line)
+            if m:
+                vg_names.append(m.groups()[0])
+        LOG.debug("Volume group names: %s", vg_names)
         return vg_names
 
     def _get_lv_paths(self):
