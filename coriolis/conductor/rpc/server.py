@@ -1397,7 +1397,8 @@ class ConductorServerEndpoint(object):
                                  instance_osmorphing_minion_pool_mappings,
                                  source_environment,
                                  destination_environment, instances,
-                                 network_map, storage_mappings, notes=None):
+                                 network_map, storage_mappings, notes=None,
+                                 user_scripts=None):
         origin_endpoint = self.get_endpoint(ctxt, origin_endpoint_id)
         destination_endpoint = self.get_endpoint(ctxt, destination_endpoint_id)
         self._check_endpoints(ctxt, origin_endpoint, destination_endpoint)
@@ -1421,6 +1422,7 @@ class ConductorServerEndpoint(object):
         replica.storage_mappings = storage_mappings
         replica.instance_osmorphing_minion_pool_mappings = (
             instance_osmorphing_minion_pool_mappings)
+        replica.user_scripts = user_scripts
 
         self._check_minion_pools_for_action(ctxt, replica)
 
@@ -3848,6 +3850,8 @@ class ConductorServerEndpoint(object):
 
         self._check_replica_running_executions(ctxt, replica)
         self._check_valid_replica_tasks_execution(replica, force=True)
+        if updated_properties.get('user_scripts'):
+            replica.user_scripts = updated_properties['user_scripts']
         execution = models.TasksExecution()
         execution.id = str(uuid.uuid4())
         execution.status = constants.EXECUTION_STATUS_UNEXECUTED

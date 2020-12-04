@@ -77,6 +77,7 @@ class ReplicaController(api_wsgi.Controller):
             'destination_minion_pool_id')
         instance_osmorphing_minion_pool_mappings = replica.get(
             'instance_osmorphing_minion_pool_mappings', {})
+        user_scripts = replica.get("user_scripts", {})
 
         # NOTE(aznashwan): we validate the destination environment for the
         # import provider before appending the 'storage_mappings' parameter
@@ -97,7 +98,7 @@ class ReplicaController(api_wsgi.Controller):
                 source_environment, destination_environment, instances,
                 network_map, storage_mappings, notes,
                 origin_minion_pool_id, destination_minion_pool_id,
-                instance_osmorphing_minion_pool_mappings)
+                instance_osmorphing_minion_pool_mappings, user_scripts)
 
     def create(self, req, body):
         context = req.environ["coriolis.context"]
@@ -107,7 +108,7 @@ class ReplicaController(api_wsgi.Controller):
          source_environment, destination_environment, instances, network_map,
          storage_mappings, notes, origin_minion_pool_id,
          destination_minion_pool_id,
-         instance_osmorphing_minion_pool_mappings) = (
+         instance_osmorphing_minion_pool_mappings, user_scripts) = (
             self._validate_create_body(context, body))
 
         return replica_view.single(req, self._replica_api.create(
@@ -115,7 +116,7 @@ class ReplicaController(api_wsgi.Controller):
             origin_minion_pool_id, destination_minion_pool_id,
             instance_osmorphing_minion_pool_mappings, source_environment,
             destination_environment, instances, network_map,
-            storage_mappings, notes))
+            storage_mappings, notes, user_scripts))
 
     def delete(self, req, id):
         context = req.environ["coriolis.context"]
@@ -171,12 +172,31 @@ class ReplicaController(api_wsgi.Controller):
 
         return storage_mappings
 
+    @staticmethod
+    def _get_updated_user_scripts(original_user_scripts, new_user_scripts):
+        global_scripts = original_user_scripts.get('global', {})
+        new_global_scripts = new_user_scripts.get('global', {})
+        if new_global_scripts:
+            global_scripts.update(new_global_scripts)
+
+        instance_scripts = original_user_scripts.get('instances', {})
+        new_instance_scripts = new_user_scripts.get('instances', {})
+        if new_instance_scripts:
+            instance_scripts.update(new_instance_scripts)
+
+        user_scripts = {
+            "global": global_scripts,
+            "instances": instance_scripts,
+        }
+
+        return user_scripts
+
     def _get_merged_replica_values(self, replica, updated_values):
         """ Looks for the following keys in the original replica body and
         updated values (preferring the updated values where needed, but using
         `.update()` on dicts):
         "source_environment", "destination_environment", "network_map", "notes"
-        Does special merging for the "storage_mappings"
+        Does special merging for the "storage_mappings" and "user_scripts"
         Returns a dict with the merged values (or at least all if the keys
         having a default value of {})
         """
@@ -206,6 +226,10 @@ class ReplicaController(api_wsgi.Controller):
             new_storage_mappings = {}
         final_values['storage_mappings'] = self._update_storage_mappings(
             original_storage_mappings, new_storage_mappings)
+
+        final_values['user_scripts'] = self._get_updated_user_scripts(
+            replica.get('user_scripts', {}),
+            updated_values.get('user_scripts', {}))
 
         if 'notes' in updated_values:
             final_values['notes'] = updated_values.get('notes', '')
@@ -275,6 +299,8 @@ class ReplicaController(api_wsgi.Controller):
 
         api_utils.validate_storage_mappings(
             merged_body["storage_mappings"])
+
+        api_utils.validate_user_scripts(merged_body["user_scripts"])
 
         return merged_body
 

@@ -12,13 +12,13 @@ class API(object):
                origin_minion_pool_id, destination_minion_pool_id,
                instance_osmorphing_minion_pool_mappings,
                source_environment, destination_environment, instances,
-               network_map, storage_mappings, notes=None):
+               network_map, storage_mappings, notes=None, user_scripts=None):
         return self._rpc_client.create_instances_replica(
             ctxt, origin_endpoint_id, destination_endpoint_id,
             origin_minion_pool_id, destination_minion_pool_id,
             instance_osmorphing_minion_pool_mappings,
             source_environment, destination_environment, instances,
-            network_map, storage_mappings, notes)
+            network_map, storage_mappings, notes, user_scripts)
 
     def update(self, ctxt, replica_id, updated_properties):
         return self._rpc_client.update_replica(
