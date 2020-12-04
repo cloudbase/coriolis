@@ -77,7 +77,11 @@ class ReplicaController(api_wsgi.Controller):
             'destination_minion_pool_id')
         instance_osmorphing_minion_pool_mappings = replica.get(
             'instance_osmorphing_minion_pool_mappings', {})
-        user_scripts = replica.get("user_scripts", {})
+
+        user_scripts = replica.get('user_scripts', {})
+        api_utils.validate_user_scripts(user_scripts)
+        user_scripts = api_utils.normalize_user_scripts(
+            user_scripts, instances)
 
         # NOTE(aznashwan): we validate the destination environment for the
         # import provider before appending the 'storage_mappings' parameter
@@ -300,7 +304,10 @@ class ReplicaController(api_wsgi.Controller):
         api_utils.validate_storage_mappings(
             merged_body["storage_mappings"])
 
-        api_utils.validate_user_scripts(merged_body["user_scripts"])
+        user_scripts = merged_body['user_scripts']
+        api_utils.validate_user_scripts(user_scripts)
+        merged_body['user_scripts'] = api_utils.normalize_user_scripts(
+            user_scripts, replica.get('instances', []))
 
         return merged_body
 

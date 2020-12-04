@@ -7,6 +7,7 @@ import json
 from oslo_log import log as logging
 from webob import exc
 
+from coriolis import constants
 from coriolis import exception
 from coriolis import schemas
 
@@ -65,8 +66,8 @@ def format_keyerror_message(resource='', method=''):
                 raise exception.InvalidInput(exc_message)
             except Exception as err:
                 LOG.exception(err)
-                msg = getattr(err, "message", str(err))
-                raise exception.InvalidInput(msg)
+                msg = getattr(err, "msg", str(err))
+                raise exception.InvalidInput(reason=msg)
         return _wrapper
     return _format_keyerror_message
 
@@ -85,3 +86,42 @@ def _build_keyerror_message(resource, method, key):
             resource, method_mapping[method], key)
 
     return msg
+
+
+def validate_user_scripts(user_scripts):
+    if not isinstance(user_scripts, dict):
+        raise exception.InvalidInput(
+            reason='"user_scripts" must be of JSON object format')
+
+    global_scripts = user_scripts.get('global', {})
+    if not isinstance(global_scripts, dict):
+        raise exception.InvalidInput(
+            reason='"global" must be a mapping between the identifiers of the '
+                   'supported OS types and their respective scripts.')
+    for os_type in global_scripts.keys():
+        if os_type not in constants.VALID_OS_TYPES:
+            raise exception.InvalidInput(
+                reason='The provided global user script os_type "%s" is '
+                       'invalid. Must be one of the '
+                       'following: %s' % (os_type, constants.VALID_OS_TYPES))
+
+    instance_scripts = user_scripts.get('instances', {})
+    if not isinstance(instance_scripts, dict):
+        raise exception.InvalidInput(
+            reason='"instances" must be a mapping between the identifiers of '
+                   'the instances in the Replica/Migration and their '
+                   'respective scripts.')
+
+
+def normalize_user_scripts(user_scripts, instances):
+    """ Removes instance user_scripts if said instance is not one of the
+        selected instances for the replica/migration """
+    for instance in user_scripts.get('instances', {}).keys():
+        if instance not in instances:
+            LOG.warn("Removing provided instance '%s' from user_scripts body "
+                     "because it's not included in one of the selected "
+                     "instances for this replica/migration: %s",
+                     instance, instances)
+            user_scripts.pop(instance, None)
+
+    return user_scripts
