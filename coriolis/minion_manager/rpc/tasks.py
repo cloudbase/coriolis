@@ -936,6 +936,9 @@ class DeallocateMinionMachineTask(BaseMinionManangerTask):
                 self._minion_machine_id))
 
         if machine.provider_properties:
+            self._set_minion_machine_status(
+                context, self._minion_pool_id, self._minion_machine_id,
+                constants.MINION_MACHINE_STATUS_DEALLOCATING)
             execution_info = {
                 "minion_provider_properties": machine.provider_properties}
             _ = super(DeallocateMinionMachineTask, self).execute(

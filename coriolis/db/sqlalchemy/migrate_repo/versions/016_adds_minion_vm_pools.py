@@ -35,6 +35,9 @@ def upgrade(migrate_engine):
                 "user_id", sqlalchemy.String(255), nullable=False),
             sqlalchemy.Column(
                 "project_id", sqlalchemy.String(255), nullable=False),
+            sqlalchemy.Column(
+                "maintenance_trust_id",
+                sqlalchemy.String(255), nullable=False),
             sqlalchemy.Column('created_at', sqlalchemy.DateTime),
             sqlalchemy.Column('updated_at', sqlalchemy.DateTime),
             sqlalchemy.Column('deleted_at', sqlalchemy.DateTime),
@@ -107,6 +110,7 @@ def upgrade(migrate_engine):
         sqlalchemy.Column('updated_at', sqlalchemy.DateTime),
         sqlalchemy.Column('deleted_at', sqlalchemy.DateTime),
         sqlalchemy.Column('deleted', sqlalchemy.String(36)),
+        sqlalchemy.Column('index', sqlalchemy.Integer, default=0),
         sqlalchemy.Column("pool_id", sqlalchemy.String(36),
                           sqlalchemy.ForeignKey('minion_pool.id'),
                           nullable=False),

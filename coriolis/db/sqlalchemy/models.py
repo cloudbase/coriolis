@@ -53,6 +53,7 @@ class MinionPoolEvent(BASE, models.TimestampMixin, models.SoftDeleteMixin,
                                 sqlalchemy.ForeignKey('minion_pool.id'),
                                 nullable=False)
     level = sqlalchemy.Column(sqlalchemy.String(20), nullable=False)
+    index = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)
     message = sqlalchemy.Column(sqlalchemy.Text, nullable=False)
 
     def to_dict(self):
@@ -60,6 +61,7 @@ class MinionPoolEvent(BASE, models.TimestampMixin, models.SoftDeleteMixin,
             "id": self.id,
             "pool_id": self.pool_id,
             "level": self.level,
+            "index": self.index,
             "message": self.message,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
@@ -67,7 +69,6 @@ class MinionPoolEvent(BASE, models.TimestampMixin, models.SoftDeleteMixin,
             "deleted": self.deleted,
         }
         return result
-
 
 
 class TaskProgressUpdate(BASE, models.TimestampMixin, models.SoftDeleteMixin,
@@ -533,6 +534,8 @@ class MinionPool(
         primary_key=True)
     user_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
     project_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
+    maintenance_trust_id = sqlalchemy.Column(
+        sqlalchemy.String(255), nullable=False)
 
     name = sqlalchemy.Column(
         sqlalchemy.String(255),
@@ -582,6 +585,7 @@ class MinionPool(
             "endpoint_id": self.endpoint_id,
             "environment_options": self.environment_options,
             "os_type": self.os_type,
+            "maintenance_trust_id": self.maintenance_trust_id,
             "platform": self.platform,
             "created_at": self.created_at,
             "updated_at": self.updated_at,

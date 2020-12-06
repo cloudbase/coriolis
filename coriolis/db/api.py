@@ -715,12 +715,22 @@ def add_task_event(context, task_id, level, message):
     _session(context).add(task_event)
 
 
+@enginefacade.reader
+def get_last_minion_pool_event_index(context, pool_id):
+    last_index = _model_query(
+        context, func.max(models.MinionPoolEvent.index)).filter_by(
+            pool_id=pool_id).first()[0] or 0
+    return last_index
+
+
 @enginefacade.writer
 def add_minion_pool_event(context, pool_id, level, message):
     pool_event = models.MinionPoolEvent()
     pool_event.pool_id = pool_id
     pool_event.level = level
     pool_event.message = message
+    pool_event.index = (
+        get_last_minion_pool_event_index(context, pool_id) + 1)
     _session(context).add(pool_event)
 
 
