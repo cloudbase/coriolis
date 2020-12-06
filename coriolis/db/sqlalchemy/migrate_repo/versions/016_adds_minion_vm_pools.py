@@ -36,8 +36,7 @@ def upgrade(migrate_engine):
             sqlalchemy.Column(
                 "project_id", sqlalchemy.String(255), nullable=False),
             sqlalchemy.Column(
-                "maintenance_trust_id",
-                sqlalchemy.String(255), nullable=False),
+                "maintenance_trust_id", sqlalchemy.String(255), nullable=True),
             sqlalchemy.Column('created_at', sqlalchemy.DateTime),
             sqlalchemy.Column('updated_at', sqlalchemy.DateTime),
             sqlalchemy.Column('deleted_at', sqlalchemy.DateTime),

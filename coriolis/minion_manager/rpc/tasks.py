@@ -578,16 +578,12 @@ class AllocateSharedPoolResourcesTask(BaseMinionManangerTask):
         res = super(AllocateSharedPoolResourcesTask, self).execute(
             context, origin, destination, task_info)
         pool_shared_resources = res['pool_shared_resources']
-        self._add_minion_pool_event(
-            context, "Successfully deployed shared pool resources")
 
         updated_values = {
             "shared_resources": pool_shared_resources}
 
-        db_api.add_minion_pool_event(
-            context, self._minion_pool_id, constants.TASK_EVENT_INFO,
-            "Successfully deployed shared pool resources" % (
-                pool_shared_resources))
+        self._add_minion_pool_event(
+            context, "Successfully deployed shared pool resources")
         with minion_manager_utils.get_minion_pool_lock(
                 self._minion_pool_id, external=True):
             db_api.update_minion_pool(
@@ -888,7 +884,7 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
                     context, origin, destination, cleanup_info, **kwargs)
             except Exception as ex:
                 log_msg = (
-                    "[Task '%s'] Exception occured while attempting to revert "
+                    "[Task '%s'] Exception occurred while attempting to revert "
                     "deployment of minion machine with ID '%s' for pool '%s'." % (
                         self._task_name, self._minion_machine_id,
                         self._minion_pool_id))

@@ -535,7 +535,7 @@ class MinionPool(
     user_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
     project_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
     maintenance_trust_id = sqlalchemy.Column(
-        sqlalchemy.String(255), nullable=False)
+        sqlalchemy.String(255), nullable=True)
 
     name = sqlalchemy.Column(
         sqlalchemy.String(255),

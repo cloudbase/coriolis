@@ -78,7 +78,7 @@ class TaskFlowRunner(object):
             engine.run()
         except Exception as ex:
             LOG.warn(
-                "Fatal error occured while attempting to run flow '%s'. "
+                "Fatal error occurred while attempting to run flow '%s'. "
                 "Full trace was: %s", flow.name, utils.get_exception_details())
             raise
         LOG.info(

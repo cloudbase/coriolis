@@ -31,11 +31,11 @@ class MinionPoolActionsController(api_wsgi.Controller):
             raise exc.HTTPNotFound(explanation=ex.msg)
 
     @api_wsgi.action('refresh')
-    def _healthcheck_pool(self, req, id, body):
+    def _refresh_pool(self, req, id, body):
         context = req.environ['coriolis.context']
         context.can(
             minion_pool_policies.get_minion_pools_policy_label(
-                "healthcheck"))
+                "refresh"))
         try:
             return minion_pool_view.single(
                 req, self.minion_pool_api.refresh_minion_pool(

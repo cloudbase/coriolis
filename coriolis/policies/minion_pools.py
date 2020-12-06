@@ -84,9 +84,9 @@ MINION_POOLS_DEFAULT_RULES = [
         ]
     ),
     policy.DocumentedRuleDefault(
-        get_minion_pools_policy_label('healthcheck'),
+        get_minion_pools_policy_label('refresh'),
         MINION_POOLS_DEFAULT_RULE,
-        "Healthcheck Minion Pool",
+        "Refresh Minion Pool",
         [
             {
                 "path": "/minion_pools/{minion_pool_id}/actions",

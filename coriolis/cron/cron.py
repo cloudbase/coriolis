@@ -155,17 +155,31 @@ class Cron(object):
         if not isinstance(job, CronJob):
             raise ValueError("Invalid job class")
         name = job.name
+        LOG.debug("Registering cron job with name '%s'", name)
         with self._semaphore:
             self._jobs[name] = job
 
     def unregister(self, name):
         job = self._jobs.get(name)
         if job:
+            LOG.debug("Unregistering cron job with name '%s'", name)
             with self._semaphore:
                 del self._jobs[name]
 
+    def unregister_jobs_with_prefix(self, prefix):
+        jobs = [
+            job for job in self._jobs
+            if job.startswith(prefix)]
+        if jobs:
+            LOG.debug(
+                "Unregistering the following cron jobs based on "
+                "the requested prefix ('%s'): %s", prefix, jobs)
+            with self._semaphore:
+                for job in jobs:
+                    del self._jobs[job]
+
     def _check_jobs(self):
-        LOG.debug("Checking jobs")
+        LOG.debug("Checking cron jobs")
         jobs = self._jobs.copy()
         job_nr = len(jobs)
         spawned = 0
@@ -206,8 +220,8 @@ class Cron(object):
                     "job_err": error})
             if result:
                 LOG.info("Job %(desc)s returned: %(ret)r" % {
-                    "job_desc": desc,
-                    "job_ret": result})
+                    "desc": desc,
+                    "ret": result})
 
     def _janitor(self):
         # remove expired jobs from memory. The check for expired
