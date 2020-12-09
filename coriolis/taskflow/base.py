@@ -187,9 +187,9 @@ class BaseRunWorkerTask(BaseCoriolisTaskflowTask):
             ctxt, task_info, origin, destination, retry_count=retry_count,
             retry_period=retry_period, random_choice=True)
         LOG.debug(
-            "Was offered the following worker service for executing TaskFlow "
-            "task '%s' (taskflow ID %s): %s",
-            self._task_name, task_id, worker_service['id'])
+            "[Task '%s'] Was offered the following worker service for executing "
+            "Taskflow worker task '%s': %s",
+                self._task_name, task_id, worker_service['id'])
 
         return rpc_worker_client.WorkerClient.from_service_definition(
             worker_service, timeout=rpc_timeout)
@@ -201,15 +201,16 @@ class BaseRunWorkerTask(BaseCoriolisTaskflowTask):
 
         try:
             LOG.debug(
-                "Starting to run task '%s' (type '%s') on worker service." % (
-                    self._task_name, task_type))
+                "[Task '%s'] Starting to run task '%s' (type '%s') "
+                "on worker service." % (
+                    self._task_id, self._task_name, task_type))
             res = worker_rpc.run_task(
                 ctxt, None, self._task_id, task_type, origin, destination,
                 self._task_instance, task_info)
             LOG.debug(
-                "Taskflow task '%s' (type %s) has successfully run and returned "
-                "the following info: %s" % (
-                    task_id, task_type, res))
+                "[Task '%s'] Taskflow worker task '%s' (type %s) has "
+                "successfully run and returned the following info: %s" % (
+                    self._task_name, task_id, task_type, res))
             return res
         except Exception as ex:
             LOG.debug(

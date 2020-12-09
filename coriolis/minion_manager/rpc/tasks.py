@@ -64,6 +64,10 @@ MINION_POOL_REPORT_MIGRATION_ALLOCATION_FAILURE_TASK_NAME_FORMAT = (
     "migration-%s-minion-allocation-failure")
 MINION_POOL_REPORT_REPLICA_ALLOCATION_FAILURE_TASK_NAME_FORMAT = (
     "replica-%s-minion-allocation-failure")
+MINION_POOL_POWER_ON_MACHINE_TASK_NAME_FORMAT = (
+    "pool-%s-machine-%s-power-on")
+MINION_POOL_POWER_OFF_MACHINE_TASK_NAME_FORMAT = (
+    "pool-%s-machine-%s-power-off")
 
 
 class MinionManagerTaskEventMixin(object):
@@ -109,12 +113,18 @@ class MinionManagerTaskEventMixin(object):
             db_api.update_minion_machine(
                 ctxt, minion_machine_id, updated_values)
 
-    def _set_minion_machine_status(
+    def _set_minion_machine_allocation_status(
             self, ctxt, minion_pool_id, minion_machine_id, new_status):
         with minion_manager_utils.get_minion_pool_lock(
                 minion_pool_id, external=True):
-            db_api.set_minion_machine_status(
+            db_api.set_minion_machine_allocation_status(
                 ctxt, minion_machine_id, new_status)
+
+    def _set_minion_machine_power_status(
+            self, ctxt, minion_pool_id, minion_machine_id, new_status):
+        self._update_minion_machine(
+            ctxt, minion_pool_id, minion_machine_id,
+            {"power_status": new_status})
 
 
 class _BaseReportMinionAllocationFailureForActionTask(
@@ -228,23 +238,38 @@ class _BaseConfirmMinionAllocationForActionTask(
 
         def _check_minion_properties(
                 minion_machine, instance, minion_purpose="unknown"):
-            if minion_machine.status != (
+            if minion_machine.allocation_status != (
                     constants.MINION_MACHINE_STATUS_IN_USE):
                 raise exception.InvalidMinionMachineState(
-                    "Minion machine with ID '%s' is in '%s' status instead "
-                    "of the expected '%s' for it to be used as a '%s' "
-                    "minion for instance '%s' of transfer action '%s'." % (
-                        minion_machine.id, minion_machine.status,
+                    "Minion machine with ID '%s' of pool '%s' is in '%s' "
+                    "status instead of the expected '%s' for it to be used "
+                    "as a '%s' minion for instance '%s' of transfer "
+                    "action '%s'." % (
+                        minion_machine.id, minion_machine.pool_id,
+                        minion_machine.allocation_status,
                         constants.MINION_MACHINE_STATUS_IN_USE,
                         minion_purpose, instance, self._action_id))
 
             if minion_machine.allocated_action != self._action_id:
                 raise exception.InvalidMinionMachineState(
-                    "Minion machine with ID '%s' appears to be allocated to "
-                    "action with ID '%s' instead of the expected '%s' for it "
-                    "to be used as a '%s' minion for instance '%s'." % (
-                        minion_machine.id, minion_machine.allocated_action,
-                        self._action_id, minion_purpose, instance))
+                    "Minion machine with ID '%s' of pool '%s' appears to be "
+                    "allocated to action with ID '%s' instead of the expected"
+                    " '%s' for it to be used as a '%s' minion for instance '%s'." % (
+                        minion_machine.id, minion_machine.pool_id,
+                        minion_machine.allocated_action, self._action_id,
+                        minion_purpose, instance))
+
+            if minion_machine.power_status != (
+                    constants.MINION_MACHINE_POWER_STATUS_POWERED_ON):
+                raise exception.InvalidMinionMachineState(
+                    "Minion machine with ID '%s' of pool '%s' is in '%s' "
+                    "power status instead of the expected '%s' for it to be "
+                    "used as a '%s' minion for instance '%s' of transfer "
+                    "action '%s'." % (
+                        minion_machine.id, minion_machine.pool_id,
+                        minion_machine.power_status,
+                        constants.MINION_MACHINE_POWER_STATUS_POWERED_ON,
+                        minion_purpose, instance, self._action_id))
 
             # TODO(aznashwan): add extra checks for conn info schemas here?
             required_props = {
@@ -676,7 +701,8 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
         self._raise_on_cleanup_failure = raise_on_cleanup_failure
         super(AllocateMinionMachineTask, self).__init__(
             minion_pool_id, minion_machine_id, resource_deployment_task_type,
-            cleanup_task_runner_type=resource_cleanup_task_type, **kwargs)
+            cleanup_task_runner_type=resource_cleanup_task_type,
+            raise_on_cleanup_failure=raise_on_cleanup_failure, **kwargs)
 
     def _get_task_name(self, minion_pool_id, minion_machine_id):
         return MINION_POOL_ALLOCATE_MACHINE_TASK_NAME_FORMAT % (
@@ -686,13 +712,13 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
         minion_machine = self._get_minion_machine(
             context, self._minion_machine_id, raise_if_not_found=False)
         if minion_machine:
-            if minion_machine.status != (
+            if minion_machine.allocation_status != (
                     constants.MINION_MACHINE_STATUS_UNINITIALIZED):
                 raise exception.InvalidMinionMachineState(
                     "Minion machine entry with ID '%s' already exists within "
                     "the DB and it is in '%s' status instead of the expected "
                     "'%s' status. Existing machine's properties are: %s" % (
-                        self._minion_machine_id, minion_machine.status,
+                        self._minion_machine_id, minion_machine.allocation_status,
                         constants.MINION_MACHINE_STATUS_UNINITIALIZED,
                         minion_machine.to_dict()))
             if minion_machine.pool_id != self._minion_pool_id:
@@ -717,15 +743,17 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
                 "[Task '%s'] Found existing entry in DB for minion machine "
                 "'%s'. Reusing that for deployment task.",
                 self._task_name, self._minion_machine_id)
-            self._set_minion_machine_status(
+            self._set_minion_machine_allocation_status(
                 context, self._minion_pool_id, self._minion_machine_id,
                 constants.MINION_MACHINE_STATUS_ALLOCATING)
         else:
             minion_machine = models.MinionMachine()
             minion_machine.id = self._minion_machine_id
             minion_machine.pool_id = self._minion_pool_id
-            minion_machine.status = (
+            minion_machine.allocation_status = (
                 constants.MINION_MACHINE_STATUS_ALLOCATING)
+            minion_machine.power_status = (
+                constants.MINION_MACHINE_POWER_STATUS_UNINITIALIZED)
             log_msg = (
                 "[Task '%s'] Adding new minion machine with ID '%s' "
                 "to the DB" % (self._task_name, self._minion_machine_id))
@@ -756,7 +784,7 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
             res = super(AllocateMinionMachineTask, self).execute(
                 context, origin, destination, execution_info)
         except:
-            self._set_minion_machine_status(
+            self._set_minion_machine_allocation_status(
                 context, self._minion_pool_id, self._minion_machine_id,
                 constants.MINION_MACHINE_STATUS_ERROR_DEPLOYING)
             raise
@@ -768,14 +796,15 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
 
         updated_values = {
             "last_used_at": timeutils.utcnow(),
-            "status": constants.MINION_MACHINE_STATUS_AVAILABLE,
+            "allocation_status": constants.MINION_MACHINE_STATUS_AVAILABLE,
+            "power_status": constants.MINION_MACHINE_POWER_STATUS_POWERED_ON,
             "connection_info": res['minion_connection_info'],
             "provider_properties": res['minion_provider_properties'],
             "backup_writer_connection_info": res[
                 "minion_backup_writer_connection_info"]}
         if self._allocate_to_action:
             updated_values["allocated_action"] = self._allocate_to_action
-            updated_values["status"] = (
+            updated_values["allocation_status"] = (
                 constants.MINION_MACHINE_STATUS_IN_USE)
         self._update_minion_machine(
             context, self._minion_pool_id, self._minion_machine_id,
@@ -870,7 +899,7 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
 
         if not minion_provider_properties:
             LOG.debug(
-                "[Task '%s'] Reversion for Minion Machine '%s' (pool '%s')"
+                "[Task '%s'] Reversion for Minion Machine '%s' (pool '%s') "
                 "found no 'minion_provider_properties'. Presuming the machine "
                 "never got created on the cloud and skiping any deletion task",
                 self._task_name, self._minion_machine_id,
@@ -903,15 +932,16 @@ class DeallocateMinionMachineTask(BaseMinionManangerTask):
 
     def __init__(
             self, minion_pool_id, minion_machine_id, minion_pool_type,
-            **kwargs):
+            raise_on_cleanup_failure=True, **kwargs):
         resource_deletion_task_type = (
             constants.TASK_TYPE_DELETE_SOURCE_MINION_MACHINE)
+        self._raise_on_cleanup_failure = raise_on_cleanup_failure
         if minion_pool_type != constants.PROVIDER_PLATFORM_SOURCE:
             resource_deletion_task_type = (
                 constants.TASK_TYPE_DELETE_DESTINATION_MINION_MACHINE)
         super(DeallocateMinionMachineTask, self).__init__(
             minion_pool_id, minion_machine_id, resource_deletion_task_type,
-            **kwargs)
+            raise_on_cleanup_failure=raise_on_cleanup_failure, **kwargs)
 
     def _get_task_name(self, minion_pool_id, minion_machine_id):
         return MINION_POOL_DEALLOCATE_MACHINE_TASK_NAME_FORMAT % (
@@ -932,13 +962,29 @@ class DeallocateMinionMachineTask(BaseMinionManangerTask):
                 self._minion_machine_id))
 
         if machine.provider_properties:
-            self._set_minion_machine_status(
+            self._set_minion_machine_allocation_status(
                 context, self._minion_pool_id, self._minion_machine_id,
                 constants.MINION_MACHINE_STATUS_DEALLOCATING)
             execution_info = {
                 "minion_provider_properties": machine.provider_properties}
-            _ = super(DeallocateMinionMachineTask, self).execute(
-                context, origin, destination, execution_info)
+            try:
+                _ = super(DeallocateMinionMachineTask, self).execute(
+                    context, origin, destination, execution_info)
+            except Exception as ex:
+                base_msg = (
+                    "Exception occured while deallocating minion machine '%s' "
+                    "There might be leftover instance resources requiring "
+                    "manual cleanup" % self._minion_machine_id)
+                LOG.warn(
+                    "[Task '%s'] %s. Error was: %s",
+                    self._task_name, base_msg, utils.get_exception_details())
+                event_level = constants.TASK_EVENT_INFO
+                if self._raise_on_cleanup_failure:
+                    event_level = constants.TASK_EVENT_ERROR
+                self._add_minion_pool_event(
+                    context, base_msg, level=event_level)
+                if self._raise_on_cleanup_failure:
+                    raise
         else:
             self._add_minion_pool_event(
                 context,
@@ -986,15 +1032,43 @@ class HealthcheckMinionMachineTask(BaseMinionManangerTask):
             "healthy": True,
             "error": None}
 
-        machine = self._get_minion_machine(context, self._minion_machine_id)
+        machine = self._get_minion_machine(
+            context, self._minion_machine_id, raise_if_not_found=False)
         if not machine:
             LOG.info(
                 "[Task '%s'] Could not find machine with ID '%s' in the DB. "
                 "Presuming it was already deleted so healthcheck failed.",
                 self._task_name, self._minion_machine_id)
-            return {
-                "healthy": False,
-                "error": "Machine not found."}
+            base_msg = (
+                "Could not find minion machine DB entry with ID '%s' for "
+                "healtcheck." % self._minion_machine_id)
+            self._add_minion_pool_event(
+                context,
+                "%s Reporting healthcheck as failed" % base_msg,
+                level=constants.TASK_EVENT_WARNING)
+
+            if self._fail_on_error:
+                raise exception.InvalidMinionMachineState(base_msg)
+            return {"healthy": False, "error": base_msg}
+
+        machine_error_statuses = [
+            constants.MINION_MACHINE_STATUS_ERROR,
+            constants.MINION_MACHINE_STATUS_POWER_ERROR,
+            constants.MINION_MACHINE_STATUS_ERROR_DEPLOYING]
+        if machine.allocation_status in machine_error_statuses:
+            base_msg = (
+                "Minion Machine with ID '%s' is marked as '%s' in the DB." % (
+                    self._minion_machine_id, machine.allocation_status))
+            LOG.debug(
+                "[Task '%s'] %s" % (self._task_name, base_msg))
+            self._add_minion_pool_event(
+                context,
+                "%s Reporting healthcheck as failed" % base_msg,
+                level=constants.TASK_EVENT_WARNING)
+
+            if self._fail_on_error:
+                raise exception.InvalidMinionMachineState(base_msg)
+            return {"healthy": False, "error": base_msg}
 
         self._add_minion_pool_event(
             context,
@@ -1011,7 +1085,7 @@ class HealthcheckMinionMachineTask(BaseMinionManangerTask):
                 context,
                 "Successfully healtchecked minion machine with internal "
                 "pool ID '%s'" % self._minion_machine_id)
-            self._set_minion_machine_status(
+            self._set_minion_machine_allocation_status(
                 context, self._minion_pool_id, self._minion_machine_id,
                 self._machine_status_on_success)
         except Exception as ex:
@@ -1025,7 +1099,7 @@ class HealthcheckMinionMachineTask(BaseMinionManangerTask):
                 "Full trace was:\n%s", self._task_name,
                 self._minion_machine_id, self._minion_pool_id,
                 utils.get_exception_details())
-            self._set_minion_machine_status(
+            self._set_minion_machine_allocation_status(
                 context, self._minion_pool_id, self._minion_machine_id,
                 constants.MINION_MACHINE_STATUS_ERROR)
             if not self._fail_on_error:
@@ -1080,6 +1154,169 @@ class MinionMachineHealtchcheckDecider(object):
         else:
             LOG.debug(
                 "Healtcheck task '%s' denied worker health. Decider "
-                "returning %s", healthcheck_task_name,
-                not self._on_success)
+                "returning %s. Error mesage was: %s",
+                healthcheck_task_name, not self._on_success,
+                healtcheck_result.get('error'))
             return not self._on_success
+
+
+class PowerOnMinionMachineTask(BaseMinionManangerTask):
+
+    def __init__(
+            self, minion_pool_id, minion_machine_id, minion_pool_type,
+            fail_on_error=True, **kwargs):
+        self._fail_on_error = fail_on_error
+        power_on_task_type = (
+            constants.TASK_TYPE_POWER_ON_SOURCE_MINION)
+        if minion_pool_type != constants.PROVIDER_PLATFORM_SOURCE:
+            power_on_task_type = (
+                constants.TASK_TYPE_POWER_ON_DESTINATION_MINION)
+        super(PowerOnMinionMachineTask, self).__init__(
+            minion_pool_id, minion_machine_id, power_on_task_type,
+            **kwargs)
+
+    def _get_task_name(self, minion_pool_id, minion_machine_id):
+        return MINION_POOL_POWER_ON_MACHINE_TASK_NAME_FORMAT % (
+            minion_pool_id, minion_machine_id)
+
+    def execute(self, context, origin, destination, task_info):
+        machine = self._get_minion_machine(
+            context, self._minion_machine_id, raise_if_not_found=True)
+
+        if machine.power_status == constants.MINION_MACHINE_POWER_STATUS_POWERED_ON:
+            LOG.debug(
+                "[Task '%s'] Minion machine with ID '%s' from pool '%s' is "
+                "already marked as powered on. Returning early." % (
+                    self._task_name, self._minion_machine_id,
+                    self._minion_pool_id))
+            return task_info
+
+        if machine.power_status != constants.MINION_MACHINE_POWER_STATUS_POWERED_OFF:
+            raise exception.InvalidMinionMachineState(
+                "Minion machine with ID '%s' from pool '%s' is in '%s' state "
+                "instead of the expected '%s' required for it to be powered "
+                "on." % (
+                    self._minion_machine_id, self._minion_pool_id,
+                    machine.power_status,
+                    constants.MINION_MACHINE_POWER_STATUS_POWERED_OFF))
+
+        execution_info = {
+            "minion_provider_properties": machine.provider_properties}
+        try:
+            self._set_minion_machine_power_status(
+                context, self._minion_pool_id,
+                self._minion_machine_id,
+                constants.MINION_MACHINE_POWER_STATUS_POWERING_ON)
+            _ = super(PowerOnMinionMachineTask, self).execute(
+                context, origin, destination, execution_info)
+            self._set_minion_machine_power_status(
+                context, self._minion_pool_id,
+                self._minion_machine_id,
+                constants.MINION_MACHINE_POWER_STATUS_POWERED_ON)
+            self._add_minion_pool_event(
+                context,
+                "Successfully powered on minion machine with internal pool "
+                "ID '%s'" % self._minion_machine_id)
+        except Exception as ex:
+            base_msg = (
+                "[Task '%s'] Exception occurred while powering on minion "
+                "machine with ID '%s' of pool '%s'." % (
+                    self._task_name, self._minion_machine_id,
+                    self._minion_pool_id))
+            LOG.warn(
+                "%s Error details were: %s" % (
+                    base_msg, utils.get_exception_details()))
+            self._add_minion_pool_event(
+                context,
+                "Exception occurred while powering on minion machine with "
+                "internal pool ID '%s'. The minion machine will be marked "
+                "as ERROR'd and automatically redeployed later" % (
+                    self._minion_machine_id),
+                level=constants.TASK_EVENT_ERROR)
+            self._set_minion_machine_allocation_status(
+                context, self._minion_pool_id, self._minion_machine_id,
+                constants.MINION_MACHINE_STATUS_POWER_ERROR)
+            if self._fail_on_error:
+                raise exception.CoriolisException(base_msg)
+
+        return task_info
+
+
+class PowerOffMinionMachineTask(BaseMinionManangerTask):
+
+    def __init__(
+            self, minion_pool_id, minion_machine_id, minion_pool_type,
+            fail_on_error=True,
+            status_once_powered_off=constants.MINION_MACHINE_STATUS_AVAILABLE,
+            **kwargs):
+        self._fail_on_error = fail_on_error
+        self._status_once_powered_off = status_once_powered_off
+        power_on_task_type = (
+            constants.TASK_TYPE_POWER_OFF_SOURCE_MINION)
+        if minion_pool_type != constants.PROVIDER_PLATFORM_SOURCE:
+            power_on_task_type = (
+                constants.TASK_TYPE_POWER_OFF_DESTINATION_MINION)
+        super(PowerOffMinionMachineTask, self).__init__(
+            minion_pool_id, minion_machine_id, power_on_task_type,
+            **kwargs)
+
+    def _get_task_name(self, minion_pool_id, minion_machine_id):
+        return MINION_POOL_POWER_OFF_MACHINE_TASK_NAME_FORMAT % (
+            minion_pool_id, minion_machine_id)
+
+    def execute(self, context, origin, destination, task_info):
+        machine = self._get_minion_machine(
+            context, self._minion_machine_id, raise_if_not_found=True)
+
+        if machine.power_status == (
+                constants.MINION_MACHINE_POWER_STATUS_POWERED_OFF):
+            LOG.debug(
+                "[Task '%s'] Minion machine with ID '%s' from pool '%s' is "
+                "already marked as powered off. Returning early." % (
+                    self._task_name, self._minion_machine_id,
+                    self._minion_pool_id))
+            return task_info
+
+        execution_info = {
+            "minion_provider_properties": machine.provider_properties}
+        try:
+            self._set_minion_machine_power_status(
+                context, self._minion_pool_id,
+                self._minion_machine_id,
+                constants.MINION_MACHINE_POWER_STATUS_POWERING_OFF)
+            _ = super(PowerOffMinionMachineTask, self).execute(
+                context, origin, destination, execution_info)
+            self._set_minion_machine_power_status(
+                context, self._minion_pool_id,
+                self._minion_machine_id,
+                constants.MINION_MACHINE_POWER_STATUS_POWERED_OFF)
+            self._set_minion_machine_allocation_status(
+                context, self._minion_pool_id, self._minion_machine_id,
+                self._status_once_powered_off)
+            self._add_minion_pool_event(
+                context,
+                "Successfully powered off minion machine with internal pool "
+                "ID '%s'" % self._minion_machine_id)
+        except Exception as ex:
+            base_msg = (
+                "[Task '%s'] Exception occurred while powering off minion "
+                "machine with ID '%s' of pool '%s'." % (
+                    self._task_name, self._minion_machine_id,
+                    self._minion_pool_id))
+            self._add_minion_pool_event(
+                context,
+                "Exception occurred while powering off minion machine with "
+                "internal pool ID '%s'. The minion machine will be marked "
+                "as ERROR'd and automatically redeployed later." % (
+                    self._minion_machine_id),
+                level=constants.TASK_EVENT_ERROR)
+            self._set_minion_machine_allocation_status(
+                context, self._minion_pool_id, self._minion_machine_id,
+                constants.MINION_MACHINE_STATUS_POWER_ERROR)
+            LOG.warn(
+                "%s Error details were: %s" % (
+                    base_msg, utils.get_exception_details()))
+            if self._fail_on_error:
+                raise exception.CoriolisException(base_msg)
+
+        return task_info

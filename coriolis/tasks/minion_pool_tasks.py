@@ -925,3 +925,96 @@ class HealthcheckDestinationMinionTask(_BaseHealthcheckMinionMachineTask):
     @classmethod
     def get_required_platform(cls):
         return constants.TASK_PLATFORM_DESTINATION
+
+
+class _BasePowerCycleMinionTask(base.TaskRunner):
+
+    @classmethod
+    def get_required_platform(cls):
+        raise NotImplementedError(
+            "No minion power cycle platform specified")
+
+    @classmethod
+    def get_required_provider_types(cls):
+        return _get_required_minion_pool_provider_types_for_platform(
+            cls.get_required_platform())
+
+    @classmethod
+    def get_required_task_info_properties(cls):
+        return ["minion_provider_properties"]
+
+    @classmethod
+    def get_returned_task_info_properties(cls):
+        return []
+
+    @classmethod
+    def _get_minion_power_cycle_op(cls, provider):
+        raise NotImplementedError(
+            "No minion power cycle operation implemented.")
+
+    def _run(self, ctxt, instance, origin, destination,
+             task_info, event_handler):
+
+        platform_to_target = None
+        required_platform = self.get_required_platform()
+        if required_platform == constants.TASK_PLATFORM_SOURCE:
+            platform_to_target = origin
+        elif required_platform == constants.TASK_PLATFORM_DESTINATION:
+            platform_to_target = destination
+        else:
+            raise NotImplementedError(
+                "Unknown minion healthcheck platform '%s'" % (
+                    required_platform))
+
+        connection_info = base.get_connection_info(ctxt, platform_to_target)
+        provider_type = self.get_required_provider_types()[
+            self.get_required_platform()][0]
+        provider = providers_factory.get_provider(
+            platform_to_target["type"], provider_type, event_handler)
+        power_cycle_op = self._get_minion_power_cycle_op(provider)
+        minion_properties = task_info['minion_provider_properties']
+        power_cycle_op(ctxt, connection_info, minion_properties)
+
+        return {}
+
+
+class _BasePowerOnMinionTask(_BasePowerCycleMinionTask):
+
+    @classmethod
+    def _get_minion_power_cycle_op(cls, provider):
+        return provider.start_minion
+
+
+class PowerOnSourceMinionTask(_BasePowerOnMinionTask):
+
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_SOURCE
+
+
+class PowerOnDestinationMinionTask(_BasePowerOnMinionTask):
+
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_DESTINATION
+
+
+class _BasePowerOffMinionTask(_BasePowerCycleMinionTask):
+
+    @classmethod
+    def _get_minion_power_cycle_op(cls, provider):
+        return provider.shutdown_minion
+
+
+class PowerOffSourceMinionTask(_BasePowerOffMinionTask):
+
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_SOURCE
+
+
+class PowerOffDestinationMinionTask(_BasePowerOffMinionTask):
+
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_DESTINATION

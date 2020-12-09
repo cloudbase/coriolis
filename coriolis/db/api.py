@@ -1188,6 +1188,13 @@ def get_mapped_services_for_region(context, region_id):
 def add_minion_machine(context, minion_machine):
     minion_machine.user_id = context.user
     minion_machine.project_id = context.tenant
+    # inherit pool user/tenant if none are given:
+    if None in [minion_machine.user_id, minion_machine.project_id]:
+        pool = get_minion_pool(context, minion_machine.pool_id)
+        if not minion_machine.user_id:
+            minion_machine.user_id = pool.user_id
+        if not minion_machine.project_id:
+            minion_machine.project_id = pool.project_id
     _session(context).add(minion_machine)
 
 
@@ -1218,15 +1225,15 @@ def update_minion_machine(context, minion_machine_id, updated_values):
             "MinionMachine with ID '%s' does not exist." % minion_machine_id)
 
     updateable_fields = [
-        "connection_info", "provider_properties", "status",
+        "connection_info", "provider_properties", "allocation_status",
         "backup_writer_connection_info", "allocated_action",
-        "last_used_at"]
+        "last_used_at", "power_status"]
     _update_sqlalchemy_object_fields(
         minion_machine, updateable_fields, updated_values)
 
 
 @enginefacade.writer
-def set_minion_machine_status(context, minion_machine_id, status):
+def set_minion_machine_allocation_status(context, minion_machine_id, status):
     machine = get_minion_machine(context, minion_machine_id)
     if not machine:
         raise exception.NotFound(
@@ -1234,8 +1241,8 @@ def set_minion_machine_status(context, minion_machine_id, status):
     LOG.debug(
         "Transitioning minion machine '%s' (pool '%s') from status '%s' to "
         "'%s' in the DB",
-        minion_machine_id, machine.pool_id, machine.status, status)
-    machine.status = status
+        minion_machine_id, machine.pool_id, machine.allocation_status, status)
+    machine.allocation_status = status
     setattr(machine, 'updated_at', timeutils.utcnow())
 
 
@@ -1259,12 +1266,12 @@ def set_minion_machines_allocation_statuses(
         LOG.debug(
             "Changing allocation status in DB for minion machine '%s' "
             "from '%s' to '%s' and allocated action from '%s' to '%s'" % (
-                machine.id, machine.status, allocation_status,
+                machine.id, machine.allocation_status, allocation_status,
                 machine.allocated_action, action_id))
         machine.allocated_action = action_id
         if refresh_allocation_time:
             machine.last_used_at = timeutils.utcnow()
-        machine.status = allocation_status
+        machine.allocation_status = allocation_status
 
 
 @enginefacade.writer

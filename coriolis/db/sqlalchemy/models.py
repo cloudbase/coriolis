@@ -484,12 +484,15 @@ class MinionMachine(BASE, models.TimestampMixin, models.ModelBase,
         sqlalchemy.ForeignKey('minion_pool.id'),
         nullable=False)
 
-    status = sqlalchemy.Column(
+    allocation_status = sqlalchemy.Column(
         sqlalchemy.String(255), nullable=False,
         default=lambda: constants.MINION_MACHINE_STATUS_UNINITIALIZED)
 
     allocated_action = sqlalchemy.Column(
         sqlalchemy.String(36), nullable=True)
+
+    power_status = sqlalchemy.Column(
+        sqlalchemy.String(255), nullable=False)
 
     last_used_at = sqlalchemy.Column(
         sqlalchemy.types.DateTime, nullable=True)
@@ -513,7 +516,8 @@ class MinionMachine(BASE, models.TimestampMixin, models.ModelBase,
             "deleted_at": self.deleted_at,
             "deleted": self.deleted,
             "pool_id": self.pool_id,
-            "status": self.status,
+            "allocation_status": self.allocation_status,
+            "power_status": self.power_status,
             "connection_info": self.connection_info,
             "allocated_action": self.allocated_action,
             "last_used_at": self.last_used_at,

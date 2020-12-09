@@ -91,8 +91,11 @@ def upgrade(migrate_engine):
             sqlalchemy.Column(
                 'last_used_at', sqlalchemy.DateTime, nullable=True),
             sqlalchemy.Column(
-                'status', sqlalchemy.String(255), nullable=False,
-                default=lambda: "UNKNOWN"),
+                'allocation_status', sqlalchemy.String(255), nullable=False,
+                default=lambda: "UNINITIALIZED"),
+            sqlalchemy.Column(
+                'power_status', sqlalchemy.String(255), nullable=False,
+                default=lambda: "UNINITIALIZED"),
             sqlalchemy.Column('connection_info', sqlalchemy.Text),
             sqlalchemy.Column(
                 'backup_writer_connection_info', sqlalchemy.Text,

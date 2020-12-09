@@ -27,6 +27,7 @@ from coriolis.minion_manager.rpc import tasks as minion_manager_tasks
 from coriolis.minion_manager.rpc import utils as minion_manager_utils
 from coriolis.scheduler.rpc import client as rpc_scheduler_client
 from coriolis.taskflow import runner as taskflow_runner
+from coriolis.taskflow import utils as taskflow_utils
 from coriolis.worker.rpc import client as rpc_worker_client
 
 
@@ -533,7 +534,7 @@ class MinionManagerServerEndpoint(object):
         """
         currently_available_machines = [
             machine for machine in minion_pool.minion_machines
-            if machine.status == constants.MINION_MACHINE_STATUS_AVAILABLE]
+            if machine.allocation_status == constants.MINION_MACHINE_STATUS_AVAILABLE]
         extra_available_machine_slots = (
             minion_pool.maximum_minions - len(minion_pool.minion_machines))
         num_instances = len(action_instances)
@@ -557,19 +558,19 @@ class MinionManagerServerEndpoint(object):
             # NOTE(aznashwan): this will iterate through machines in a set
             # order every time, thus ensuring that some are preferred over
             # others and facilitating some to be left unused and thus torn
-            # during the periodic refreshes:
+            # down during the periodic refreshes:
             for machine in minion_pool.minion_machines:
                 if exclude and machine.id in exclude:
                     LOG.debug(
                         "Excluding minion machine '%s' from search for use "
                         "action '%s'", machine.id, action_id)
                     continue
-                if machine.status != constants.MINION_MACHINE_STATUS_AVAILABLE:
+                if machine.allocation_status != constants.MINION_MACHINE_STATUS_AVAILABLE:
                     LOG.debug(
                         "Minion machine with ID '%s' is in status '%s' "
                         "instead of the expected '%s'. Skipping for use "
                         "with action '%s'.",
-                        machine.id, machine.status,
+                        machine.id, machine.allocation_status,
                         constants.MINION_MACHINE_STATUS_AVAILABLE, action_id)
                     continue
                 selected_machine = machine
@@ -600,8 +601,9 @@ class MinionManagerServerEndpoint(object):
                     minion_machine.id, minion_pool.id, action_id)
                 allocation_subflow.add(
                     self._get_healtchcheck_flow_for_minion_machine(
-                        minion_pool, minion_machine.id,
+                        minion_pool, minion_machine,
                         allocate_to_action=action_id,
+                        power_on_machine=True,
                         inject_for_tasks=inject_for_tasks,
                         machine_status_on_success=(
                             constants.MINION_MACHINE_STATUS_IN_USE)))
@@ -616,8 +618,10 @@ class MinionManagerServerEndpoint(object):
                 new_minion_machine = models.MinionMachine()
                 new_minion_machine.id = new_machine_id
                 new_minion_machine.pool_id = minion_pool.id
-                new_minion_machine.status = (
+                new_minion_machine.allocation_status = (
                     constants.MINION_MACHINE_STATUS_UNINITIALIZED)
+                new_minion_machine.power_status = (
+                    constants.MINION_MACHINE_POWER_STATUS_UNINITIALIZED)
                 new_minion_machine.allocated_action = action_id
                 machine_db_entries_to_add.append(new_minion_machine)
 
@@ -639,8 +643,13 @@ class MinionManagerServerEndpoint(object):
                 minion_pool.id, action_id, existing_machines_to_allocate)
             db_api.set_minion_machines_allocation_statuses(
                 ctxt, list(existing_machines_to_allocate.keys()),
-                action_id, constants.MINION_MACHINE_STATUS_IN_USE,
+                action_id, constants.MINION_MACHINE_STATUS_RESERVED,
                 refresh_allocation_time=True)
+            self._add_minion_pool_event(
+                ctxt, minion_pool.id, constants.TASK_EVENT_INFO,
+                "The following pre-existing minion machines will be allocated "
+                "to transfer action '%s': %s" % (
+                    action_id, list(existing_machines_to_allocate.keys())))
 
             # add any new machine entries to the DB:
             for new_machine in machine_db_entries_to_add:
@@ -650,6 +659,11 @@ class MinionManagerServerEndpoint(object):
                     new_machine_id, minion_pool.id, action_id)
                 db_api.add_minion_machine(ctxt, new_machine)
                 new_machine_db_entries_added.append(new_machine.id)
+            self._add_minion_pool_event(
+                ctxt, minion_pool.id, constants.TASK_EVENT_INFO,
+                "The following new minion machines will be created for use"
+                " in transfer action '%s': %s" % (
+                    action_id, [m.id for m in machine_db_entries_to_add]))
         except Exception as ex:
             LOG.warn(
                 "Exception occurred while adding new minion machine entries to"
@@ -960,17 +974,17 @@ class MinionManagerServerEndpoint(object):
 
         pool_machine_mappings = {}
         for machine in machines:
-            if machine.status not in targeted_statuses:
+            if machine.allocation_status not in targeted_statuses:
                 LOG.debug(
                     "Skipping deletion of machine '%s' from pool '%s' as "
                     "its status (%s) is not one of the targeted statuses (%s)",
-                    machine.id, machine.pool_id, machine.status,
+                    machine.id, machine.pool_id, machine.allocation_status,
                     targeted_statuses)
                 continue
             if machine.pool_id in exclude_pools:
                 LOG.debug(
                     "Skipping deletion of machine '%s' (status '%s') from "
-                    "whitelisted pool '%s'", machine.id, machine.status,
+                    "whitelisted pool '%s'", machine.id, machine.allocation_status,
                     machine.pool_id)
                 continue
 
@@ -985,7 +999,7 @@ class MinionManagerServerEndpoint(object):
                 for machine in machines:
                     LOG.debug(
                         "Deleting machine with ID '%s' (pool '%s', status '%s') "
-                        "from the DB.", machine.id, pool_id, machine.status)
+                        "from the DB.", machine.id, pool_id, machine.allocation_status)
                     db_api.delete_minion_machine(ctxt, machine.id)
 
     def deallocate_minion_machine(self, ctxt, minion_machine_id):
@@ -1002,22 +1016,22 @@ class MinionManagerServerEndpoint(object):
         machine_allocated_status = constants.MINION_MACHINE_STATUS_IN_USE
         with minion_manager_utils.get_minion_pool_lock(
                 minion_machine.pool_id, external=True):
-            if minion_machine.status != machine_allocated_status or (
+            if minion_machine.allocation_status != machine_allocated_status or (
                     not minion_machine.allocated_action):
                 LOG.warn(
                     "Minion machine '%s' was either in an improper status (%s)"
                     ", or did not have an associated action ('%s') for "
                     "deallocation request. Marking as available anyway.",
-                    minion_machine.id, minion_machine.status,
+                    minion_machine.id, minion_machine.allocation_status,
                     minion_machine.allocated_action)
             LOG.debug(
                 "Attempting to deallocate all minion pool machine '%s' "
                 "(currently allocated to action '%s' with status '%s')",
                 minion_machine.id, minion_machine.allocated_action,
-                minion_machine.status)
+                minion_machine.allocation_status)
             db_api.update_minion_machine(
                 ctxt, minion_machine.id, {
-                    "status": constants.MINION_MACHINE_STATUS_AVAILABLE,
+                    "allocation_status": constants.MINION_MACHINE_STATUS_AVAILABLE,
                     "allocated_action": None})
             LOG.debug(
                 "Successfully deallocated minion machine with '%s'.",
@@ -1052,13 +1066,13 @@ class MinionManagerServerEndpoint(object):
                 # are added to the DB without their point of deployment being
                 # reached for them to ever get out of 'UNINITIALIZED' status:
                 for machine in pool_machines:
-                    if machine.status == (
+                    if machine.allocation_status == (
                             constants.MINION_MACHINE_STATUS_UNINITIALIZED):
                         LOG.warn(
                             "Found minion machine '%s' in pool '%s' which "
                             "is in '%s' status. Removing from the DB "
                             "entirely." % (
-                                machine.id, pool_id, machine.status))
+                                machine.id, pool_id, machine.allocation_status))
                         db_api.delete_minion_machine(
                             ctxt, machine.id)
                         LOG.info(
@@ -1069,7 +1083,7 @@ class MinionManagerServerEndpoint(object):
                         "Going to mark minion machine '%s' (current status "
                         "'%s') of pool '%s' as available following machine "
                         "deallocation request for action '%s'.",
-                        machine.id, machine.status, pool_id, action_id)
+                        machine.id, machine.allocation_status, pool_id, action_id)
                     machine_ids_to_deallocate.append(machine.id)
 
                 LOG.info(
@@ -1086,35 +1100,70 @@ class MinionManagerServerEndpoint(object):
             "with action with base_id '%s'.", action_id)
 
     def _get_healtchcheck_flow_for_minion_machine(
-            self, minion_pool, minion_machine_id, allocate_to_action=None,
+            self, minion_pool, minion_machine, allocate_to_action=None,
             machine_status_on_success=constants.MINION_MACHINE_STATUS_AVAILABLE,
-            inject_for_tasks=None):
+            power_on_machine=True, inject_for_tasks=None):
         """ Returns a taskflow graph flow with a healtcheck task
         and redeployment subflow on error. """
         # define healthcheck subflow for each machine:
         machine_healthcheck_subflow = graph_flow.Flow(
             minion_manager_tasks.MINION_POOL_HEALTHCHECK_MACHINE_SUBFLOW_NAME_FORMAT % (
-                minion_pool.id, minion_machine_id))
+                minion_pool.id, minion_machine.id))
 
         # add healtcheck task to healthcheck subflow:
         machine_healthcheck_task = (
             minion_manager_tasks.HealthcheckMinionMachineTask(
-                minion_pool.id, minion_machine_id, minion_pool.platform,
+                minion_pool.id, minion_machine.id, minion_pool.platform,
                 machine_status_on_success=machine_status_on_success,
-                fail_on_error=False, inject=inject_for_tasks))
+                inject=inject_for_tasks,
+                # we prevent a raise here as the healthcheck subflow
+                # will take care of redeploying the instance later:
+                fail_on_error=False))
         machine_healthcheck_subflow.add(machine_healthcheck_task)
+
+        # optionally add minion machine power on task:
+        if power_on_machine:
+            if minion_machine.power_status == (
+                    constants.MINION_MACHINE_POWER_STATUS_POWERED_OFF):
+                power_on_task = minion_manager_tasks.PowerOnMinionMachineTask(
+                    minion_pool.id, minion_machine.id, minion_pool.platform,
+                    inject=inject_for_tasks,
+                    # we prevent a raise here as the healthcheck subflow
+                    # will take care of redeploying the instance later:
+                    fail_on_error=False)
+                machine_healthcheck_subflow.add(
+                    power_on_task,
+                    # NOTE: this is required to not have taskflow attempt
+                    # (and fail) to automatically link the above Healthcheck
+                    # task to the power on task based on inputs/outputs alone:
+                    resolve_existing=False)
+                machine_healthcheck_subflow.link(
+                    power_on_task, machine_healthcheck_task,
+                    # NOTE: taskflow gets confused when a task in the graph
+                    # flow is linked to two others with no decider for each
+                    # so we have to add a dummy decider which will always
+                    # greenlight the rest of the execution here:
+                    decider=taskflow_utils.DummyDecider(allow=True),
+                    decider_depth=taskflow_deciders.Depth.FLOW)
+            else:
+                LOG.debug(
+                    "Minion Machine with ID '%s' of pool '%s' is in power "
+                    "state '%s' during healtchcheck subflow definition. "
+                    "Not adding any power on task for it.",
+                    minion_machine.id, minion_machine.pool_id,
+                    minion_machine.power_status)
 
         # define reallocation subflow:
         machine_reallocation_subflow = linear_flow.Flow(
             minion_manager_tasks.MINION_POOL_REALLOCATE_MACHINE_SUBFLOW_NAME_FORMAT % (
-                minion_pool.id, minion_machine_id))
+                minion_pool.id, minion_machine.id))
         machine_reallocation_subflow.add(
             minion_manager_tasks.DeallocateMinionMachineTask(
-                minion_pool.id, minion_machine_id, minion_pool.platform,
+                minion_pool.id, minion_machine.id, minion_pool.platform,
                 inject=inject_for_tasks))
         machine_reallocation_subflow.add(
             minion_manager_tasks.AllocateMinionMachineTask(
-                minion_pool.id, minion_machine_id, minion_pool.platform,
+                minion_pool.id, minion_machine.id, minion_pool.platform,
                 allocate_to_action=allocate_to_action,
                 inject=inject_for_tasks))
         machine_healthcheck_subflow.add(
@@ -1130,7 +1179,7 @@ class MinionManagerServerEndpoint(object):
             # NOTE: this is required to prevent any parent flows from skipping:
             decider_depth=taskflow_deciders.Depth.FLOW,
             decider=minion_manager_tasks.MinionMachineHealtchcheckDecider(
-                minion_pool.id, minion_machine_id,
+                minion_pool.id, minion_machine.id,
                 on_successful_healthcheck=False))
 
         return machine_healthcheck_subflow
@@ -1145,11 +1194,13 @@ class MinionManagerServerEndpoint(object):
 
         # determine how many machines could be feasibily downscaled:
         machine_statuses = {
-            machine.id: machine.status
+            machine.id: machine.allocation_status
             for machine in minion_pool.minion_machines}
         ignorable_machine_statuses = [
             constants.MINION_MACHINE_STATUS_DEALLOCATING,
+            constants.MINION_MACHINE_STATUS_POWERING_OFF,
             constants.MINION_MACHINE_STATUS_ERROR,
+            constants.MINION_MACHINE_STATUS_POWER_ERROR,
             constants.MINION_MACHINE_STATUS_ERROR_DEPLOYING]
         max_minions_to_deallocate = (
             len([
@@ -1158,8 +1209,9 @@ class MinionManagerServerEndpoint(object):
                     minion_pool.minimum_minions))
         LOG.debug(
             "Determined minion pool '%s' machine deallocation number to be %d "
-            "based on machines stauses: %s",
-            minion_pool.id, max_minions_to_deallocate, machine_statuses)
+            "(pool minimum is '%d') based on current machines stauses: %s",
+            minion_pool.id, max_minions_to_deallocate,
+            minion_pool.minimum_minions, machine_statuses)
 
         # define refresh flow and process all relevant machines:
         pool_refresh_flow = unordered_flow.Flow(
@@ -1176,11 +1228,14 @@ class MinionManagerServerEndpoint(object):
             # point may be back online. Event if it isn't, the
             # sublow redeploy it after the healthcheck fails:
             constants.MINION_MACHINE_STATUS_ERROR,
+            constants.MINION_MACHINE_STATUS_POWER_ERROR,
             constants.MINION_MACHINE_STATUS_ERROR_DEPLOYING]
 
         for machine in minion_pool.minion_machines:
-            if machine.status not in healthcheckable_machine_statuses:
-                skipped_machines[machine.id] = machine.status
+            if machine.allocation_status not in (
+                    healthcheckable_machine_statuses):
+                skipped_machines[machine.id] = (
+                    machine.allocation_status, machine.power_status)
                 continue
 
             minion_expired = True
@@ -1192,39 +1247,80 @@ class MinionManagerServerEndpoint(object):
 
             # deallocate the machine if it is expired:
             if max_minions_to_deallocate > 0 and minion_expired:
-                pool_refresh_flow.add(
-                    minion_manager_tasks.DeallocateMinionMachineTask(
-                        minion_pool.id, machine.id, minion_pool.platform))
+                if minion_pool.minion_retention_strategy == (
+                        constants.MINION_POOL_MACHINE_RETENTION_STRATEGY_POWEROFF):
+                    if machine.power_status == (
+                            constants.MINION_MACHINE_POWER_STATUS_POWERED_OFF):
+                        LOG.debug(
+                            "Skipping powering off minion machine '%s' of pool"
+                            " '%s' as it is already in powered off state.",
+                            machine.id, minion_pool.id)
+                        # NOTE: we count this machine out of the downscaling:
+                        max_minions_to_deallocate = max_minions_to_deallocate - 1
+                        continue
+                    pool_refresh_flow.add(
+                        minion_manager_tasks.PowerOffMinionMachineTask(
+                            minion_pool.id, machine.id, minion_pool.platform,
+                            fail_on_error=False,
+                            status_once_powered_off=(
+                                constants.MINION_MACHINE_STATUS_AVAILABLE)))
+                elif minion_pool.minion_retention_strategy == (
+                        constants.MINION_POOL_MACHINE_RETENTION_STRATEGY_DELETE):
+                    pool_refresh_flow.add(
+                        minion_manager_tasks.DeallocateMinionMachineTask(
+                                minion_pool.id, machine.id,
+                                minion_pool.platform))
+                else:
+                    raise exception.InvalidMinionPoolState(
+                        "Unknown minion pool retention strategy '%s' for pool "
+                        "'%s'" % (
+                            minion_pool.minion_retention_strategy,
+                            minion_pool.id))
                 max_minions_to_deallocate = max_minions_to_deallocate - 1
                 machines_to_deallocate.append(machine.id)
-            # else, perform a healthcheck on the machine:
-            else:
+            # else, perform a healthcheck on the machine if it is powered on:
+            elif machine.power_status == (
+                    constants.MINION_MACHINE_POWER_STATUS_POWERED_ON):
                 pool_refresh_flow.add(
                     self._get_healtchcheck_flow_for_minion_machine(
-                        minion_pool, machine.id, allocate_to_action=None,
+                        minion_pool, machine, allocate_to_action=None,
                         machine_status_on_success=(
                             constants.MINION_MACHINE_STATUS_AVAILABLE)))
                 machines_to_healthcheck.append(machine.id)
-
+            else:
+                skipped_machines[machine.id] = (
+                    machine.allocation_status, machine.power_status)
 
         # update DB entried for all machines and emit relevant events:
         if skipped_machines:
+            base_msg =  (
+                "The following minion machines were skipped during the "
+                "refreshing of the minion pool as they were in other "
+                "statuses than the serviceable ones:")
+            LOG.debug(
+                "[Pool '%s'] %s: %s", minion_pool.id, base_msg,
+                skipped_machines)
             self._add_minion_pool_event(
                 ctxt, minion_pool.id, constants.TASK_EVENT_INFO,
-                "The following minion machines were skipped during the "
-                "refreshing of ther minion pool as they were in other "
-                "statuses than the serviceable ones: %s" % skipped_machines)
+                base_msg % list(skipped_machines.keys()))
 
         if machines_to_deallocate:
+            deallocation_action = "deallocated"
+            status_for_deallocated_machines = (
+                constants.MINION_MACHINE_STATUS_DEALLOCATING)
+            if minion_pool.minion_retention_strategy == (
+                    constants.MINION_POOL_MACHINE_RETENTION_STRATEGY_POWEROFF):
+                deallocation_action = "powered off"
+                status_for_deallocated_machines = (
+                    constants.MINION_MACHINE_STATUS_POWERING_OFF)
             self._add_minion_pool_event(
                 ctxt, minion_pool.id, constants.TASK_EVENT_INFO,
-                "The following minion machines will be deallocated as part "
+                "The following minion machines will be %s as part "
                 "of the refreshing of the minion pool: %s" % (
-                    machines_to_deallocate))
+                    deallocation_action, machines_to_deallocate))
             for machine in machines_to_deallocate:
-                db_api.set_minion_machine_status(
-                    ctxt, machine,
-                    constants.MINION_MACHINE_STATUS_DEALLOCATING)
+                db_api.set_minion_machine_allocation_status(
+                    ctxt, machine, status_for_deallocated_machines)
         else:
             self._add_minion_pool_event(
                 ctxt, minion_pool.id, constants.TASK_EVENT_INFO,
@@ -1237,7 +1333,7 @@ class MinionManagerServerEndpoint(object):
                 "of the refreshing of the minion pool: %s" % (
                     machines_to_healthcheck))
             for machine in machines_to_healthcheck:
-                db_api.set_minion_machine_status(
+                db_api.set_minion_machine_allocation_status(
                     ctxt, machine,
                     constants.MINION_MACHINE_STATUS_HEALTHCHECKING)
         else:
@@ -1266,12 +1362,12 @@ class MinionManagerServerEndpoint(object):
                     minion_pool_id, current_status,
                     acceptable_allocation_statuses))
 
-        healthcheck_flow = self._get_minion_pool_refresh_flow(
+        refresh_flow = self._get_minion_pool_refresh_flow(
             ctxt, minion_pool, requery=False)
-        if not healthcheck_flow:
+        if not refresh_flow:
             msg = (
-                "There are no minion machine healthchecks to be performed at "
-                "this time.")
+                "There are no minion machine refresh operations to be performed "
+                "at this time")
             db_api.add_minion_pool_event(
                 ctxt, minion_pool.id, constants.TASK_EVENT_INFO, msg)
             return self._get_minion_pool(ctxt, minion_pool.id)
@@ -1279,7 +1375,7 @@ class MinionManagerServerEndpoint(object):
         initial_store = self._get_pool_initial_taskflow_store_base(
             ctxt, minion_pool, endpoint_dict)
         self._taskflow_runner.run_flow_in_background(
-            healthcheck_flow, store=initial_store)
+            refresh_flow, store=initial_store)
         self._add_minion_pool_event(
             ctxt, minion_pool.id, constants.TASK_EVENT_INFO,
             "Begun minion pool refreshing process")
@@ -1451,16 +1547,17 @@ class MinionManagerServerEndpoint(object):
         unused_machine_states = [
             constants.MINION_MACHINE_STATUS_AVAILABLE,
             constants.MINION_MACHINE_STATUS_ERROR_DEPLOYING,
+            constants.MINION_MACHINE_STATUS_POWER_ERROR,
             constants.MINION_MACHINE_STATUS_ERROR]
         used_machines = {
             mch for mch in minion_pool.minion_machines
-            if mch.status not in unused_machine_states}
+            if mch.allocation_status not in unused_machine_states}
         if used_machines and raise_if_in_use:
             raise exception.InvalidMinionPoolState(
                 "Minion pool '%s' has one or more machines which are in an"
                 " active state: %s" % (
                     minion_pool.id, {
-                        mch.id: mch.status for mch in used_machines}))
+                        mch.id: mch.allocation_status for mch in used_machines}))
         return used_machines
 
     @minion_manager_utils.minion_pool_synchronized_op
@@ -1511,7 +1608,8 @@ class MinionManagerServerEndpoint(object):
 
         return self._get_minion_pool(ctxt, minion_pool.id)
 
-    def _get_minion_pool_deallocation_flow(self, minion_pool):
+    def _get_minion_pool_deallocation_flow(
+            self, minion_pool, raise_on_error=True):
         """ Returns a taskflow.Flow object pertaining to all the tasks
         required for deallocating a minion pool (machines and shared resources)
         """
@@ -1527,7 +1625,8 @@ class MinionManagerServerEndpoint(object):
         for machine in minion_pool.minion_machines:
             machines_flow.add(
                 minion_manager_tasks.DeallocateMinionMachineTask(
-                    minion_pool.id, machine.id, minion_pool.platform))
+                    minion_pool.id, machine.id, minion_pool.platform,
+                    raise_on_cleanup_failure=raise_on_error))
         # NOTE: bool(flow) == False if the flow has no child flows/tasks:
         if machines_flow:
             # tansition pool to DEALLOCATING_MACHINES:
@@ -1599,7 +1698,7 @@ class MinionManagerServerEndpoint(object):
             ctxt, minion_pool.endpoint_id)
 
         deallocation_flow = self._get_minion_pool_deallocation_flow(
-            minion_pool)
+            minion_pool, raise_on_error=not force)
         initial_store = self._get_pool_deallocation_initial_store(
             ctxt, minion_pool, endpoint_dict)
 
