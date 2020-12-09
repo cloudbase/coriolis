@@ -207,10 +207,37 @@ class ConductorServerEndpoint(object):
         return minion_manager_client.MinionManagerClient()
 
     def get_all_diagnostics(self, ctxt):
-        diagnostics = [
-            self.get_diagnostics(ctxt),
-            self._replica_cron_client.get_diagnostics(ctxt),
-            self._scheduler_client.get_diagnostics(ctxt)]
+        client_objects = {
+            "conductor": self,
+            "replica_cron": self._replica_cron_client,
+            "minion_manager": self._minion_manager_client,
+            "scheduler": self._scheduler_client}
+
+        worker_services = []
+        try:
+            # this will return all registered worker services:
+            worker_services = self._scheduler_client.get_workers_for_specs(
+                ctxt)
+            client_objects.update({
+                "worker_%s" % wrk['host']: self._get_rpc_client_for_service(
+                    wrk)
+                for wrk in worker_services})
+        except Exception as ex:
+            LOG.warn(
+                "Exception occurred while listing worker services for "
+                "diagnostics fetching. Exception was: %s",
+                utils.get_exception_details())
+
+        diagnostics = []
+        for (service_name, service_client) in client_objects.items():
+            try:
+                diagnostics.append(service_client.get_diagnostics(ctxt))
+            except Exception as ex:
+                LOG.warn(
+                    "Exception occurred while fetching diagnostics for service"
+                    " '%s'. Exception was: %s",
+                    service_name, utils.get_exception_details())
+
         worker_diagnostics = []
         for worker_service in self._scheduler_client.get_workers_for_specs(
                 ctxt):
