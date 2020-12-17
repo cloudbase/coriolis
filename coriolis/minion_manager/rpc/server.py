@@ -39,7 +39,8 @@ MINION_MANAGER_OPTS = [
     cfg.IntOpt(
         "minion_pool_default_refresh_period_minutes",
         default=10,
-        help="Number of minutes in which to refresh minion pools.")]
+        help="Number of minutes in which to refresh minion pools."
+             "Set to 0 to completely disable automatic refreshing.")]
 
 CONF = cfg.CONF
 CONF.register_opts(MINION_MANAGER_OPTS, 'minion_manager')
@@ -112,13 +113,22 @@ class MinionManagerServerEndpoint(object):
 
     def _register_refresh_jobs_for_minion_pool(
             self, minion_pool, period_minutes=None):
-        if not period_minutes:
+        if period_minutes is None:
             period_minutes = CONF.minion_manager.minion_pool_default_refresh_period_minutes
-        if period_minutes <= 0:
+
+        if period_minutes < 0:
             LOG.warn(
-                "Got zero or negative pool refresh period %s. Defaulting to "
-                "1.", period_minutes)
-            period_minutes = 1
+                "Got negative pool refresh period %s. Defaulting to 0.",
+                period_minutes)
+            period_minutes = 0
+
+        if period_minutes == 0:
+            LOG.info(
+                "Minon pool refresh period is set to zero. Not setting up "
+                "any automatic refresh jobs for Minion Pool '%s'.",
+                minion_pool.id)
+            return
+
         if period_minutes > 60:
             LOG.warn(
                 "Selected pool refresh period_minutes is greater than 60, defaulting "
@@ -635,35 +645,37 @@ class MinionManagerServerEndpoint(object):
 
         new_machine_db_entries_added = []
         try:
-            # mark any existing machines as allocated:
-            LOG.debug(
-                "Marking the following pre-existing minion machines "
-                "from pool '%s' of action '%s' for each instance as "
-                "allocated with the DB: %s",
-                minion_pool.id, action_id, existing_machines_to_allocate)
-            db_api.set_minion_machines_allocation_statuses(
-                ctxt, list(existing_machines_to_allocate.keys()),
-                action_id, constants.MINION_MACHINE_STATUS_RESERVED,
-                refresh_allocation_time=True)
-            self._add_minion_pool_event(
-                ctxt, minion_pool.id, constants.TASK_EVENT_INFO,
-                "The following pre-existing minion machines will be allocated "
-                "to transfer action '%s': %s" % (
-                    action_id, list(existing_machines_to_allocate.keys())))
+            if existing_machines_to_allocate:
+                # mark any existing machines as allocated:
+                LOG.debug(
+                    "Marking the following pre-existing minion machines "
+                    "from pool '%s' of action '%s' for each instance as "
+                    "allocated with the DB: %s",
+                    minion_pool.id, action_id, existing_machines_to_allocate)
+                db_api.set_minion_machines_allocation_statuses(
+                    ctxt, list(existing_machines_to_allocate.keys()),
+                    action_id, constants.MINION_MACHINE_STATUS_RESERVED,
+                    refresh_allocation_time=True)
+                self._add_minion_pool_event(
+                    ctxt, minion_pool.id, constants.TASK_EVENT_INFO,
+                    "The following pre-existing minion machines will be "
+                    "allocated to transfer action '%s': %s" % (
+                        action_id, list(existing_machines_to_allocate.keys())))
 
             # add any new machine entries to the DB:
-            for new_machine in machine_db_entries_to_add:
-                LOG.info(
-                    "Adding new minion machine with ID '%s' to the DB for pool "
-                    "'%s' for use with action '%s'.",
-                    new_machine_id, minion_pool.id, action_id)
-                db_api.add_minion_machine(ctxt, new_machine)
-                new_machine_db_entries_added.append(new_machine.id)
-            self._add_minion_pool_event(
-                ctxt, minion_pool.id, constants.TASK_EVENT_INFO,
-                "The following new minion machines will be created for use"
-                " in transfer action '%s': %s" % (
-                    action_id, [m.id for m in machine_db_entries_to_add]))
+            if machine_db_entries_to_add:
+                for new_machine in machine_db_entries_to_add:
+                    LOG.info(
+                        "Adding new minion machine with ID '%s' to the DB for pool "
+                        "'%s' for use with action '%s'.",
+                        new_machine_id, minion_pool.id, action_id)
+                    db_api.add_minion_machine(ctxt, new_machine)
+                    new_machine_db_entries_added.append(new_machine.id)
+                self._add_minion_pool_event(
+                    ctxt, minion_pool.id, constants.TASK_EVENT_INFO,
+                    "The following new minion machines will be created for use"
+                    " in transfer action '%s': %s" % (
+                        action_id, [m.id for m in machine_db_entries_to_add]))
         except Exception as ex:
             LOG.warn(
                 "Exception occurred while adding new minion machine entries to"
@@ -1249,15 +1261,22 @@ class MinionManagerServerEndpoint(object):
             if max_minions_to_deallocate > 0 and minion_expired:
                 if minion_pool.minion_retention_strategy == (
                         constants.MINION_POOL_MACHINE_RETENTION_STRATEGY_POWEROFF):
-                    if machine.power_status == (
-                            constants.MINION_MACHINE_POWER_STATUS_POWERED_OFF):
+                    if machine.power_status in (
+                            constants.MINION_MACHINE_POWER_STATUS_POWERED_OFF,
+                            constants.MINION_MACHINE_POWER_STATUS_POWERING_OFF):
                         LOG.debug(
                             "Skipping powering off minion machine '%s' of pool"
                             " '%s' as it is already in powered off state.",
                             machine.id, minion_pool.id)
                         # NOTE: we count this machine out of the downscaling:
-                        max_minions_to_deallocate = max_minions_to_deallocate - 1
+                        max_minions_to_deallocate = (
+                            max_minions_to_deallocate - 1)
                         continue
+                    LOG.debug(
+                        "Minion machine '%s' of pool '%s' will be powered off "
+                        "as part of the pool refresh process (current "
+                        "deallocation count %d excluding the current machine)",
+                        machine.id, minion_pool.id, max_minions_to_deallocate)
                     pool_refresh_flow.add(
                         minion_manager_tasks.PowerOffMinionMachineTask(
                             minion_pool.id, machine.id, minion_pool.platform,
@@ -1296,10 +1315,10 @@ class MinionManagerServerEndpoint(object):
             base_msg =  (
                 "The following minion machines were skipped during the "
                 "refreshing of the minion pool as they were in other "
-                "statuses than the serviceable ones:")
+                "statuses than the serviceable ones: %s")
             LOG.debug(
-                "[Pool '%s'] %s: %s", minion_pool.id, base_msg,
-                skipped_machines)
+                "[Pool '%s'] %s: %s",
+                minion_pool.id, base_msg, skipped_machines)
             self._add_minion_pool_event(
                 ctxt, minion_pool.id, constants.TASK_EVENT_INFO,
                 base_msg % list(skipped_machines.keys()))
