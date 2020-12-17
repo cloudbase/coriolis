@@ -112,6 +112,14 @@ export_worker_boot_from_volume = false
 
 ### Import parameters:
 
+# Name of a pre-created availability zone where resources migrated by Coriolis
+# will be created in. Note that Coriolis will need to also create any
+# temporary resources (such as disk transfer and OSMorphing worker VMs)
+# within the same availability zone, so all of the other
+# temporary-resource-related options must be compatible with the selected AZ.
+# Default is None (Nova will choose the default one for Coriolis)
+# availability_zone =
+
 # If migrating/replicating a heterogeneous workload with both Linux and
 # Windows instances, separate image names or IDs will need to be provided
 # for the temporary OSMorphing workers for each OS type.
