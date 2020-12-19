@@ -196,23 +196,35 @@ def minion_pool_synchronized(func):
 class ConductorServerEndpoint(object):
     def __init__(self):
         self._licensing_client = licensing_client.LicensingClient.from_env()
+        self._scheduler_client_instance = None
+        self._worker_client_instance = None
+        self._replica_cron_client_instance = None
 
     # NOTE(aznashwan): it is unsafe to fork processes with pre-instantiated
     # oslo_messaging clients as the underlying eventlet thread queues will
     # be invalidated. Considering this class both serves from a "main
     # process" as well as forking child processes, it is safest to
-    # re-instantiate the clients every time:
+    # instantiate the clients only when needed:
     @property
-    def _rpc_worker_client(self):
-        return rpc_worker_client.WorkerClient()
+    def _worker_client(self):
+        if not getattr(self, '_worker_client_instance'):
+            self._worker_client_instance = (
+                rpc_worker_client.WorkerClient())
+        return self._worker_client_instance
 
     @property
     def _scheduler_client(self):
-        return rpc_scheduler_client.SchedulerClient()
+        if not getattr(self, '_scheduler_client_instance'):
+            self._scheduler_client_instance = (
+                rpc_scheduler_client.SchedulerClient())
+        return self._scheduler_client_instance
 
     @property
     def _replica_cron_client(self):
-        return rpc_cron_client.ReplicaCronClient()
+        if not getattr(self, '_replica_cron_client_instance'):
+            self._replica_cron_client_instance = (
+                rpc_cron_client.ReplicaCronClient())
+        return self._replica_cron_client_instance
 
     def get_all_diagnostics(self, ctxt):
         diagnostics = [
