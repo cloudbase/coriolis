@@ -114,12 +114,16 @@ class BaseRunWorkerTask(BaseCoriolisTaskflowTask):
         self._main_task_runner_type = main_task_runner_type
         self._cleanup_task_runner_type = cleanup_task_runner_type
         self._raise_on_cleanup_failure = raise_on_cleanup_failure
+        self._scheduler_client_instance = None
 
         super(BaseRunWorkerTask, self).__init__(name=task_name, **kwargs)
 
     @property
     def _scheduler_client(self):
-        return rpc_scheduler_client.SchedulerClient()
+        if not getattr(self, '_scheduler_client_instance', None):
+            self._scheduler_client_instance = (
+                rpc_scheduler_client.SchedulerClient())
+        return self._scheduler_client_instance
 
     def _set_provides_for_dependencies(self, kwargs):
         dep = TASK_RETURN_VALUE_FORMAT % self._task_name

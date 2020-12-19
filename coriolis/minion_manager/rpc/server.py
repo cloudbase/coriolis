@@ -65,6 +65,11 @@ class MinionManagerServerEndpoint(object):
 
     def __init__(self):
         self._admin_ctxt = context.get_admin_context()
+        self._scheduler_client_instance = None
+        self._worker_client_instance = None
+        self._conductor_client_instance = None
+        self._replica_cron_client_instance = None
+        self._minion_manager_client_instance = None
         try:
             self._cron = cron.Cron()
             self._init_pools_refresh_cron_jobs()
@@ -180,22 +185,34 @@ class MinionManagerServerEndpoint(object):
     # oslo_messaging clients as the underlying eventlet thread queues will
     # be invalidated. Considering this class both serves from a "main
     # process" as well as forking child processes, it is safest to
-    # re-instantiate the clients every time:
+    # instantiate the clients only when needed:
     @property
     def _rpc_worker_client(self):
-        return rpc_worker_client.WorkerClient()
+        if not getattr(self, '_worker_client_instance', None):
+            self._worker_client_instance = (
+                rpc_worker_client.WorkerClient())
+        return self._worker_client_instance
 
     @property
     def _rpc_scheduler_client(self):
-        return rpc_scheduler_client.SchedulerClient()
+        if not getattr(self, '_scheduler_client_instance', None):
+            self._scheduler_client_instance = (
+                rpc_scheduler_client.SchedulerClient())
+        return self._scheduler_client_instance
 
     @property
     def _rpc_conductor_client(self):
-        return rpc_conductor_client.ConductorClient()
+        if not getattr(self, '_conductor_client_instance', None):
+            self._conductor_client_instance = (
+                rpc_conductor_client.ConductorClient())
+        return self._conductor_client_instance
 
     @property
     def _rpc_minion_manager_client(self):
-        return rpc_minion_manager_client.MinionManagerClient()
+        if not getattr(self, '_minion_manager_client_instance', None):
+            self._minion_manager_client_instance = (
+                rpc_minion_manager_client.MinionManagerClient())
+        return self._minion_manager_client_instance
 
     def get_diagnostics(self, ctxt):
         return utils.get_diagnostics_info()

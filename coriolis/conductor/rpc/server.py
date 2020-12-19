@@ -20,7 +20,7 @@ from coriolis.db.sqlalchemy import models
 from coriolis import exception
 from coriolis import keystone
 from coriolis.licensing import client as licensing_client
-from coriolis.minion_manager.rpc import client as minion_manager_client
+from coriolis.minion_manager.rpc import client as rpc_minion_manager_client
 from coriolis.replica_cron.rpc import client as rpc_cron_client
 from coriolis.scheduler.rpc import client as rpc_scheduler_client
 from coriolis import schemas
@@ -175,6 +175,7 @@ class ConductorServerEndpoint(object):
         self._worker_client_instance = None
         self._scheduler_client_instance = None
         self._replica_cron_client_instance = None
+        self._minion_manager_client_instance = None
 
     # NOTE(aznashwan): it is unsafe to fork processes with pre-instantiated
     # oslo_messaging clients as the underlying eventlet thread queues will
@@ -204,7 +205,10 @@ class ConductorServerEndpoint(object):
 
     @property
     def _minion_manager_client(self):
-        return minion_manager_client.MinionManagerClient()
+        if not getattr(self, '_minion_manager_client_instance'):
+            self._minion_manager_client_instance = (
+                rpc_minion_manager_client.MinionManagerClient())
+        return self._minion_manager_client_instance
 
     def get_all_diagnostics(self, ctxt):
         client_objects = {

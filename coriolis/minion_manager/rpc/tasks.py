@@ -79,11 +79,17 @@ class MinionManagerTaskEventMixin(object):
     # re-instantiate the clients every time:
     @property
     def _conductor_client(self):
-        return rpc_conductor_client.ConductorClient()
+        if not getattr(self, '_conductor_client_instance', None):
+            self._conductor_client_instance = (
+                rpc_conductor_client.ConductorClient())
+        return self._conductor_client_instance
 
     @property
     def _minion_manager_client(self):
-        return rpc_minion_manager_client.MinionManagerClient()
+        if not getattr(self, '_minion_manager_client_instance', None):
+            self._minion_manager_client_instance = (
+                rpc_minion_manager_client.MinionManagerClient())
+        return self._minion_manager_client_instance
 
     def _add_minion_pool_event(
             self, context, message, level=constants.TASK_EVENT_INFO):
