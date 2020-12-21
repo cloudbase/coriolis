@@ -209,7 +209,7 @@ class BaseRunWorkerTask(BaseCoriolisTaskflowTask):
                 "on worker service." % (
                     self._task_id, self._task_name, task_type))
             res = worker_rpc.run_task(
-                ctxt, None, self._task_id, task_type, origin, destination,
+                ctxt, self._task_id, task_type, origin, destination,
                 self._task_instance, task_info)
             LOG.debug(
                 "[Task '%s'] Taskflow worker task '%s' (type %s) has "

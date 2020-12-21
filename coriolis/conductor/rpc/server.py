@@ -223,8 +223,9 @@ class ConductorServerEndpoint(object):
             worker_services = self._scheduler_client.get_workers_for_specs(
                 ctxt)
             client_objects.update({
-                "worker_%s" % wrk['host']: self._get_rpc_client_for_service(
-                    wrk)
+                "worker_%s" % wrk['host']: (
+                    rpc_worker_client.WorkerClient.from_service_definition(
+                        wrk, timeout=10))
                 for wrk in worker_services})
         except Exception as ex:
             LOG.warn(
@@ -250,24 +251,6 @@ class ConductorServerEndpoint(object):
 
         return diagnostics
 
-    def _get_rpc_client_for_service(self, service, *client_args, **client_kwargs):
-        rpc_client_class = RPC_TOPIC_TO_CLIENT_CLASS_MAP.get(service['topic'])
-        if not rpc_client_class:
-            raise exception.NotFound(
-                "No RPC client class for service with topic '%s'." % (
-                    service.topic))
-
-        topic = service['topic']
-        if service['topic'] == constants.WORKER_MAIN_MESSAGING_TOPIC:
-            # NOTE: coriolis.service.MessagingService-type services (such
-            # as the worker), always have a dedicated per-host queue
-            # which can be used to target the service:
-            topic = constants.SERVICE_MESSAGING_TOPIC_FORMAT % ({
-                "main_topic": constants.WORKER_MAIN_MESSAGING_TOPIC,
-                "host": service['host']})
-
-        return rpc_client_class(*client_args, topic=topic, **client_kwargs)
-
     def _get_worker_rpc_for_host(self, host, *client_args, **client_kwargs):
         rpc_client_class = RPC_TOPIC_TO_CLIENT_CLASS_MAP[
             constants.WORKER_MAIN_MESSAGING_TOPIC]
@@ -285,7 +268,8 @@ class ConductorServerEndpoint(object):
             random_choice=random_choice,
             raise_on_no_matches=raise_on_no_matches)
         service = db_api.get_service(ctxt, selected_service["id"])
-        return self._get_rpc_client_for_service(service)
+        return rpc_worker_client.WorkerClient.from_service_definition(
+            service)
 
     def _check_delete_reservation_for_transfer(self, transfer_action):
         action_id = transfer_action.base_id
@@ -542,13 +526,13 @@ class ConductorServerEndpoint(object):
             ctxt, endpoint.type, source_env)
 
     def get_available_providers(self, ctxt):
-        worker_rpc = self._get_rpc_client_for_service(
+        worker_rpc = rpc_worker_client.WorkerClient.from_service_definition(
             self._scheduler_client.get_any_worker_service(ctxt))
         return worker_rpc.get_available_providers(ctxt)
 
     def get_provider_schemas(self, ctxt, platform_name, provider_type):
         # TODO(aznashwan): merge or version/namespace schemas for each worker?
-        worker_rpc = self._get_rpc_client_for_service(
+        worker_rpc = rpc_worker_client.WorkerClient.from_service_definition(
             self._scheduler_client.get_any_worker_service(ctxt))
         return worker_rpc.get_provider_schemas(
             ctxt, platform_name, provider_type)
@@ -631,7 +615,8 @@ class ConductorServerEndpoint(object):
                 exception_details=str(ex))
             raise
 
-        return self._get_rpc_client_for_service(worker_service)
+        return rpc_worker_client.WorkerClient.from_service_definition(
+            worker_service)
 
     def _begin_tasks(
             self, ctxt, action, execution, task_info_override=None,
