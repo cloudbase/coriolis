@@ -1,11 +1,16 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-from oslo_config import cfg
-import oslo_messaging as messaging
+import contextlib
 
-from coriolis import context
+import oslo_messaging as messaging
+from oslo_config import cfg
+from oslo_log import log as logging
+
 import coriolis.exception
+from coriolis import context
+from coriolis import utils
+
 
 rpc_opts = [
     cfg.StrOpt('messaging_transport_url',
@@ -19,9 +24,10 @@ rpc_opts = [
 CONF = cfg.CONF
 CONF.register_opts(rpc_opts)
 
+LOG = logging.getLogger(__name__)
+
 ALLOWED_EXMODS = [
-    coriolis.exception.__name__,
-]
+    coriolis.exception.__name__]
 
 
 class RequestContextSerializer(messaging.Serializer):
@@ -47,16 +53,9 @@ class RequestContextSerializer(messaging.Serializer):
 
 
 def _get_transport():
-    return messaging.get_transport(cfg.CONF, CONF.messaging_transport_url,
-                                   allowed_remote_exmods=ALLOWED_EXMODS)
-
-
-def get_client(target, serializer=None, timeout=None):
-    serializer = RequestContextSerializer(serializer)
-    if timeout is None:
-        timeout = CONF.default_messaging_timeout
-    return messaging.RPCClient(
-        _get_transport(), target, serializer=serializer, timeout=timeout)
+    return messaging.get_transport(
+        cfg.CONF, CONF.messaging_transport_url,
+        allowed_remote_exmods=ALLOWED_EXMODS)
 
 
 def get_server(target, endpoints, serializer=None):
@@ -64,3 +63,56 @@ def get_server(target, endpoints, serializer=None):
     return messaging.get_rpc_server(_get_transport(), target, endpoints,
                                     executor='eventlet',
                                     serializer=serializer)
+
+
+class BaseRPCClient(object):
+    """ Wrapper for 'oslo_messaging.RPCClient' which automatically
+    instantiates and cleans up transports for each call.
+    """
+
+    def __init__(self, target, timeout=None, serializer=None):
+        self._target = target
+        self._timeout = timeout
+        if self._timeout is None:
+            self._timeout = CONF.default_messaging_timeout
+        self._serializer = RequestContextSerializer(serializer)
+
+    def __repr__(self):
+        return "<RPCClient(target=%s, timeout=%s)>" % (
+            self._target, self._timeout)
+
+    @contextlib.contextmanager
+    def _rpc_messaging_client(self):
+        transport = None
+        try:
+            transport = _get_transport()
+            yield messaging.RPCClient(
+                transport, self._target, serializer=self._serializer,
+                timeout=self._timeout)
+        finally:
+            if transport:
+                try:
+                    transport.cleanup()
+                except (Exception, KeyboardInterrupt):
+                    LOG.warn(
+                        "Exception occurred while cleaning up transport for "
+                        "RPC client instance '%s'. Error was: %s",
+                        repr(self), utils.get_exception_details())
+
+    def _call(self, ctxt, method, **kwargs):
+        with self._rpc_messaging_client() as client:
+            return client.call(ctxt, method, **kwargs)
+
+    def _call_on_host(self, host, ctxt, method, **kwargs):
+        with self._rpc_messaging_client() as client:
+            cctxt = client.prepare(server=host)
+            return cctxt.call(ctxt, method, **kwargs)
+
+    def _cast(self, ctxt, method, **kwargs):
+        with self._rpc_messaging_client() as client:
+            client.cast(ctxt, method, **kwargs)
+
+    def _cast_for_host(self, host, ctxt, method, **kwargs):
+        with self._rpc_messaging_client() as client:
+            cctxt = client.prepare(server=host)
+            cctxt.cast(ctxt, method, **kwargs)
