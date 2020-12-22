@@ -243,6 +243,15 @@ use_floating_ip = False
 # Name or ID of the Nove Server Group to use when recreating the final VMs on Openstack
 # server_group =
 
+# A dict of arbitrary key-value pairs to be added as volume image metadata to the boot
+# volume(s) of the final migrated instance. Coriolis automatically sets the 'os_type',
+# 'os_distro', 'hypervisor_type', and 'hw_firmware_type' keys as part of the migration
+# process, but they too can be overridden using this option as well.
+# All the values will be automatically cast to strings if they are not such.
+# Any 'custom_boot_volume_image_metadata' set in the target-environment options
+# will be merged and/or override the defaults provided here for that transfer.
+# default_custom_boot_volume_image_metadata = hw_qemu_guest_agent: yes, ...
+
 # What mechanism to use when sending disk data from the Coriolis installation
 # to the temporary VMs on the target OpenStack to be written to their
 # respective disk. The HTTPS-based transfer mechanism (TCP/4433) is faster but
