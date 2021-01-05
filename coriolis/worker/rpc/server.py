@@ -306,7 +306,7 @@ class WorkerServerEndpoint(object):
                     ctxt, task_id, p.pid)
             LOG.debug(
                 "Successfully started and reported task process for task "
-                "with ID '%s'.", task_id)
+                "with ID '%s' (PID %d)", task_id, p.pid)
         except (Exception, KeyboardInterrupt) as ex:
             LOG.debug(
                 "Exception occurred whilst setting host for task '%s'. Error "
