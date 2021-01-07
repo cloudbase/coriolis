@@ -2,12 +2,16 @@
 # All Rights Reserved.
 
 from oslo_config import cfg
+from oslo_log import log as logging
 import oslo_messaging as messaging
 
 from coriolis import constants
+from coriolis import events
 from coriolis import rpc
 
+
 VERSION = "1.0"
+LOG = logging.getLogger(__name__)
 
 conductor_opts = [
     cfg.IntOpt("conductor_rpc_timeout",
@@ -276,24 +280,29 @@ class ConductorClient(rpc.BaseRPCClient):
             ctxt, 'set_task_error', task_id=task_id,
             exception_details=exception_details)
 
-    def task_event(self, ctxt, task_id, level, message):
+    def add_task_event(self, ctxt, task_id, level, message):
         self._cast(
-            ctxt, 'task_event', task_id=task_id, level=level, message=message)
+            ctxt, 'add_task_event', task_id=task_id, level=level, message=message)
 
-    def add_task_progress_update(self, ctxt, task_id, total_steps, message):
-        self._cast(
+    def add_task_progress_update(
+            self, ctxt, task_id, message, initial_step=0, total_steps=0,
+            return_event=False):
+        operation = self._cast
+        if return_event:
+            operation = self._call
+        return operation(
             ctxt, 'add_task_progress_update', task_id=task_id,
-            total_steps=total_steps, message=message)
+            message=message, initial_step=initial_step,
+            total_steps=total_steps)
 
-    def update_task_progress_update(self, ctxt, task_id, step,
-                                    total_steps, message):
+    def update_task_progress_update(
+            self, ctxt, task_id, progress_update_index, new_current_step,
+            new_total_steps=None, new_message=None):
         self._cast(
             ctxt, 'update_task_progress_update', task_id=task_id,
-            step=step, total_steps=total_steps, message=message)
-
-    def get_task_progress_step(self, ctxt, task_id):
-        return self._call(
-            ctxt, 'get_task_progress_step', task_id=task_id)
+            progress_update_index=progress_update_index,
+            new_current_step=new_current_step, new_total_steps=new_total_steps,
+            new_message=new_message)
 
     def create_replica_schedule(self, ctxt, replica_id,
                                 schedule, enabled, exp_date,
@@ -428,3 +437,43 @@ class ConductorClient(rpc.BaseRPCClient):
             ctxt, 'report_migration_minions_allocation_error',
             migration_id=migration_id,
             minion_allocation_error_details=minion_allocation_error_details)
+
+
+class ConductorTaskRpcEventHandler(events.BaseEventHandler):
+    def __init__(self, ctxt, task_id):
+        self._ctxt = ctxt
+        self._task_id = task_id
+
+    @property
+    def _rpc_conductor_client(self):
+        # NOTE(aznashwan): it is unsafe to fork processes with pre-instantiated
+        # oslo_messaging clients as the underlying eventlet thread queues will
+        # be invalidated.
+        return ConductorClient()
+
+    @classmethod
+    def get_progress_update_identifier(self, progress_update):
+        return progress_update['index']
+
+    def add_progress_update(
+            self, message, initial_step=0, total_steps=0, return_event=False):
+        LOG.info(
+            "Sending progress update for task '%s' to conductor: %s",
+            self._task_id, message)
+        return self._rpc_conductor_client.add_task_progress_update(
+            self._ctxt, self._task_id, message, initial_step=initial_step,
+            total_steps=total_steps, return_event=return_event)
+
+    def update_progress_update(
+            self, update_identifier, new_current_step,
+            new_total_steps=None, new_message=None):
+        LOG.info(
+            "Updating progress update '%s' for task '%s' with new step %s",
+            update_identifier, self._task_id, new_current_step)
+        self._rpc_conductor_client.update_task_progress_update(
+            self._ctxt, self._task_id, update_identifier, new_current_step,
+            new_total_steps=new_total_steps, new_message=new_message)
+
+    def add_event(self, message, level=constants.TASK_EVENT_INFO):
+        self._rpc_conductor_client.add_task_event(
+            self._ctxt, self._task_id, level, message)

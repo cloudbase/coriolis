@@ -27,9 +27,7 @@ def _copy_volume(volume, disk_image_reader, backup_writer, event_manager):
             disk_size = reader.disk_size
 
             perc_step = event_manager.add_percentage_step(
-                disk_size,
-                message_format="Disk copy progress for %s: "
-                               "{:.0f}%%" % disk_id)
+                "Copying data of disk %s" % disk_id, disk_size)
 
             offset = 0
             max_block_size = 10 * units.Mi  # 10 MB

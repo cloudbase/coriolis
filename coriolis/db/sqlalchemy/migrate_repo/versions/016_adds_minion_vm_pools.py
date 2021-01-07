@@ -128,12 +128,14 @@ def upgrade(migrate_engine):
         sqlalchemy.Column('created_at', sqlalchemy.DateTime),
         sqlalchemy.Column('updated_at', sqlalchemy.DateTime),
         sqlalchemy.Column('deleted_at', sqlalchemy.DateTime),
+        sqlalchemy.Column('index', sqlalchemy.Integer, default=0),
         sqlalchemy.Column('deleted', sqlalchemy.String(36)),
         sqlalchemy.Column("pool_id", sqlalchemy.String(36),
                           sqlalchemy.ForeignKey('minion_pool.id'),
                           nullable=False),
-        sqlalchemy.Column("current_step", sqlalchemy.Integer, nullable=False),
-        sqlalchemy.Column("total_steps", sqlalchemy.Integer, nullable=True),
+        sqlalchemy.Column(
+            "current_step", sqlalchemy.BigInteger, nullable=False),
+        sqlalchemy.Column("total_steps", sqlalchemy.BigInteger, nullable=True),
         sqlalchemy.Column("message", sqlalchemy.Text, nullable=True),
         mysql_engine='InnoDB',
         mysql_charset='utf8'))

@@ -37,88 +37,14 @@ LOG = logging.getLogger(__name__)
 VERSION = "1.0"
 
 
-class _ConductorProviderEventHandler(events.BaseEventHandler):
-    def __init__(self, ctxt, task_id):
-        self._ctxt = ctxt
-        self._task_id = task_id
-        self._rpc_conductor_client = rpc_conductor_client.ConductorClient()
-
-    def add_task_progress_update(self, total_steps, message):
-        LOG.info("Progress update: %s", message)
-        self._rpc_conductor_client.add_task_progress_update(
-            self._ctxt, self._task_id, total_steps, message)
-
-    def update_task_progress_update(self, step, total_steps, message):
-        LOG.info("Progress update: %s", message)
-        self._rpc_conductor_client.update_task_progress_update(
-            self._ctxt, self._task_id, step, total_steps, message)
-
-    def get_task_progress_step(self):
-        return self._rpc_conductor_client.get_task_progress_step(
-            self._ctxt, self._task_id)
-
-    def info(self, message):
-        LOG.info(message)
-        self._rpc_conductor_client.task_event(
-            self._ctxt, self._task_id, constants.TASK_EVENT_INFO, message)
-
-    def warn(self, message):
-        LOG.warn(message)
-        self._rpc_conductor_client.task_event(
-            self._ctxt, self._task_id, constants.TASK_EVENT_WARNING, message)
-
-    def error(self, message):
-        LOG.error(message)
-        self._rpc_conductor_client.task_event(
-            self._ctxt, self._task_id, constants.TASK_EVENT_ERROR, message)
-
-
-class _MinionPoolManagerProviderEventHandler(events.BaseEventHandler):
-    def __init__(self, ctxt, pool_id):
-        self._ctxt = ctxt
-        self._pool_id = pool_id
-        self._rpc_minion_manager_client = (
-            rpc_minion_manager_client.MinionManagerClient())
-
-    def add_task_progress_update(self, total_steps, message):
-        LOG.info(
-            "Minion pool '%s' progress update: %s", self._pool_id, message)
-        self._rpc_minion_manager_client.add_minion_pool_progress_update(
-            self._ctxt, self._pool_id, total_steps, message)
-
-    def update_task_progress_update(self, step, total_steps, message):
-        LOG.info(
-            "Minion pool '%s' progress update: %s", self._pool_id, message)
-        self._rpc_minion_manager_client.update_minion_pool_progress_update(
-            self._ctxt, self._pool_id, step, total_steps, message)
-
-    def get_task_progress_step(self):
-        return self._rpc_minion_manager_client.get_minion_pool_progress_step(
-            self._ctxt, self._pool_id)
-
-    def info(self, message):
-        LOG.info(message)
-        self._rpc_minion_manager_client.add_minion_pool_event(
-            self._ctxt, self._pool_id, constants.MINION_POOL_EVENT_INFO, message)
-
-    def warn(self, message):
-        LOG.warn(message)
-        self._rpc_minion_manager_client.add_minion_pool_event(
-            self._ctxt, self._pool_id, constants.MINION_POOL_EVENT_WARNING, message)
-
-    def error(self, message):
-        LOG.error(message)
-        self._rpc_minion_manager_client.add_minion_pool_event(
-            self._ctxt, self._pool_id, constants.MINION_POOL_EVENT_ERROR, message)
-
-
 # TODO(aznashwan): parametrize the event handler provided during task execution
 # to decouple what gets notified from the task running logic itself:
 def _get_event_handler_for_task_type(task_type, ctxt, task_object_id):
     if task_type in constants.MINION_POOL_OPERATIONS_TASKS:
-        return _MinionPoolManagerProviderEventHandler(
+        return rpc_minion_manager_client.MinionManagerPoolRpcEventHandler(
             ctxt, task_object_id)
-    return _ConductorProviderEventHandler(ctxt, task_object_id)
+    return rpc_conductor_client.ConductorTaskRpcEventHandler(
+        ctxt, task_object_id)
 
 
 class WorkerServerEndpoint(object):

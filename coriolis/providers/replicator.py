@@ -434,10 +434,8 @@ class Replicator(object):
                 perc_step = perc_steps.get(devName)
                 if perc_step is None:
                     perc_step = self._event_manager.add_percentage_step(
-                        100,
-                        message_format=(
-                            "Chunking progress for disk %s (%.2f MB): "
-                            "{:.0f}%%") % (devName, dev_size))
+                        "Performing chunking for disk %s (total size %.2f MB)" % (
+                            devName, dev_size), 100)
                     perc_steps[devName] = perc_step
                 perc_done = vol["checksum-status"]["percentage"]
                 self._event_manager.set_percentage_step(
@@ -801,11 +799,11 @@ class Replicator(object):
             size = self._get_size_from_chunks(chunks)
 
             msg = (
-                "Disk replication progress for disk \"%s\" (device \"%s\" "
-                "written chunks: %.2f MB): {:.0f}%%") % (
+                "Replicating changed data for disk \"%s\" (device \"%s\", "
+                "written chunks: %.2f MB)") % (
                     volume["disk_id"], devName, size)
             perc_step = self._event_manager.add_percentage_step(
-                len(chunks), message_format=msg)
+                msg, len(chunks))
 
             total = 0
             with backup_writer.open("", volume['disk_id']) as destination:
@@ -829,8 +827,7 @@ class Replicator(object):
         size = self._cli.get_disk_size(disk)
 
         perc_step = self._event_manager.add_percentage_step(
-            size, message_format="Downloading disk /dev/%s : "
-            "{:.0f}%%" % disk)
+            "Downloading full disk /dev/%s" % disk, size)
 
         total = 0
         with self._cli._cli.get(diskUri, stream=True,
@@ -853,8 +850,8 @@ class Replicator(object):
             # create sparse file
             fp.truncate(size)
             perc_step = self._event_manager.add_percentage_step(
-                len(chunks), message_format="Disk download progress for "
-                "/dev/%s (%s MB): {:.0f}%%" % (disk, size_from_chunks))
+                "Downloading spart disk /dev/%s (%s MB)" % (
+                    disk, size_from_chunks), len(chunks))
             for chunk in chunks:
                 offset = int(chunk["offset"])
                 # seek to offset

@@ -2,20 +2,25 @@
 # All Rights Reserved.
 
 from oslo_config import cfg
+from oslo_log import log as logging
 import oslo_messaging as messaging
 
+from coriolis import constants
+from coriolis import events
 from coriolis import rpc
 
-VERSION = "1.0"
 
-scheduler_opts = [
+VERSION = "1.0"
+LOG = logging.getLogger(__name__)
+
+MINION_MANAGER_OPTS = [
     cfg.IntOpt("minion_mananger_rpc_timeout",
                help="Number of seconds until RPC calls to the "
                     "minion manager timeout.")
 ]
 
 CONF = cfg.CONF
-CONF.register_opts(scheduler_opts, 'minion_manager')
+CONF.register_opts(MINION_MANAGER_OPTS, 'minion_manager')
 
 
 class MinionManagerClient(rpc.BaseRPCClient):
@@ -28,23 +33,25 @@ class MinionManagerClient(rpc.BaseRPCClient):
             target, timeout=timeout)
 
     def add_minion_pool_progress_update(
-            self, ctxt, minion_pool_id, total_steps, message):
-        return self._cast(
+            self, ctxt, minion_pool_id, message, initial_step=0, total_steps=0,
+            return_event=False):
+        operation = self._cast
+        if return_event:
+            operation = self._call
+        return operation(
             ctxt, 'add_minion_pool_progress_update',
-            minion_pool_id=minion_pool_id,
-            total_steps=total_steps, message=message)
+            minion_pool_id=minion_pool_id, message=message,
+            initial_step=initial_step, total_steps=total_steps)
 
     def update_minion_pool_progress_update(
-            self, ctxt, minion_pool_id, step, total_steps, message):
-        return self._cast(
+            self, ctxt, minion_pool_id, progress_update_index, new_current_step,
+            new_total_steps=None, new_message=None):
+        self._cast(
             ctxt, 'update_minion_pool_progress_update',
             minion_pool_id=minion_pool_id,
-            step=step, total_steps=total_steps, message=message)
-
-    def get_minion_pool_progress_step(self, ctxt, minion_pool_id):
-        return self._cast(
-            ctxt, 'get_minion_pool_progress_step',
-            minion_pool_id=minion_pool_id)
+            progress_update_index=progress_update_index,
+            new_current_step=new_current_step, new_total_steps=new_total_steps,
+            new_message=new_message)
 
     def add_minion_pool_event(self, ctxt, minion_pool_id, level, message):
         return self._cast(
@@ -141,31 +148,6 @@ class MinionManagerClient(rpc.BaseRPCClient):
         return self._call(
             ctxt, 'delete_minion_pool', minion_pool_id=minion_pool_id)
 
-    def get_minion_pool_lifecycle_executions(
-            self, ctxt, minion_pool_id, include_tasks=False):
-        return self._call(
-            ctxt, 'get_minion_pool_lifecycle_executions',
-            minion_pool_id=minion_pool_id, include_tasks=include_tasks)
-
-    def get_minion_pool_lifecycle_execution(
-            self, ctxt, minion_pool_id, execution_id):
-        return self._call(
-            ctxt, 'get_minion_pool_lifecycle_execution',
-            minion_pool_id=minion_pool_id, execution_id=execution_id)
-
-    def delete_minion_pool_lifecycle_execution(
-            self, ctxt, minion_pool_id, execution_id):
-        return self._call(
-            ctxt, 'delete_minion_pool_lifecycle_execution',
-            minion_pool_id=minion_pool_id, execution_id=execution_id)
-
-    def cancel_minion_pool_lifecycle_execution(
-            self, ctxt, minion_pool_id, execution_id, force):
-        return self._call(
-            ctxt, 'cancel_minion_pool_lifecycle_execution',
-            minion_pool_id=minion_pool_id, execution_id=execution_id,
-            force=force)
-
     def get_endpoint_source_minion_pool_options(
             self, ctxt, endpoint_id, env, option_names):
         return self._call(
@@ -189,3 +171,43 @@ class MinionManagerClient(rpc.BaseRPCClient):
         return self._call(
             ctxt, 'validate_endpoint_destination_minion_pool_options',
             endpoint_id=endpoint_id, pool_environment=pool_environment)
+
+
+class MinionManagerPoolRpcEventHandler(events.BaseEventHandler):
+    def __init__(self, ctxt, pool_id):
+        self._ctxt = ctxt
+        self._pool_id = pool_id
+
+    @property
+    def _rpc_minion_manager_client(self):
+        # NOTE(aznashwan): it is unsafe to fork processes with pre-instantiated
+        # oslo_messaging clients as the underlying eventlet thread queues will
+        # be invalidated.
+        return MinionManagerClient()
+
+    @classmethod
+    def get_progress_update_identifier(self, progress_update):
+        return progress_update['index']
+
+    def add_progress_update(
+            self, message, initial_step=0, total_steps=0, return_event=False):
+        LOG.info(
+            "Sending progress update for pool '%s' to minion manager : %s",
+            self._pool_id, message)
+        return self._rpc_minion_manager_client.add_minion_pool_progress_update(
+            self._ctxt, self._pool_id, message, initial_step=initial_step,
+            total_steps=total_steps, return_event=return_event)
+
+    def update_progress_update(
+            self, update_identifier, new_current_step,
+            new_total_steps=None, new_message=None):
+        LOG.info(
+            "Updating progress update '%s' for pool '%s' with new step %s",
+            update_identifier, self._pool_id, new_current_step)
+        self._rpc_minion_manager_client.update_minion_pool_progress_update(
+            self._ctxt, self._pool_id, update_identifier, new_current_step,
+            new_total_steps=new_total_steps, new_message=new_message)
+
+    def add_event(self, message, level=constants.TASK_EVENT_INFO):
+        self._rpc_minion_manager_client.add_minion_pool_event(
+            self._ctxt, self._pool_id, level, message)

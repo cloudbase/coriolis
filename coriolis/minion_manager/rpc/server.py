@@ -294,28 +294,30 @@ class MinionManagerServerEndpoint(object):
         self._add_minion_pool_event(ctxt, minion_pool_id, level, message)
 
     def _add_minion_pool_progress_update(
-            self, ctxt, minion_pool_id, total_steps, message):
+            self, ctxt, minion_pool_id, message, initial_step=0, total_steps=0):
         LOG.info(
             "Adding pool progress update for %s: %s", minion_pool_id, message)
         db_api.add_minion_pool_progress_update(
-            ctxt, minion_pool_id, total_steps, message)
+            ctxt, minion_pool_id, message, initial_step=initial_step,
+            total_steps=total_steps)
 
     @minion_manager_utils.minion_pool_synchronized_op
     def add_minion_pool_progress_update(
-            self, ctxt, minion_pool_id, total_steps, message):
+            self, ctxt, minion_pool_id, message, initial_step=0, total_steps=0):
         self._add_minion_pool_progress_update(
-            ctxt, minion_pool_id, total_steps, message)
+            ctxt, minion_pool_id, message, initial_step=initial_step,
+            total_steps=total_steps)
 
     @minion_manager_utils.minion_pool_synchronized_op
     def update_minion_pool_progress_update(
-            self, ctxt, minion_pool_id, step, total_steps, message):
-        LOG.info("Updating minion pool progress update: %s", minion_pool_id)
+            self, ctxt, minion_pool_id, progress_update_index,
+            new_current_step, new_total_steps=None, new_message=None):
+        LOG.info(
+            "Updating minion pool '%s' progress update '%s': %s",
+            minion_pool_id, progress_update_index, new_current_step)
         db_api.update_minion_pool_progress_update(
-            ctxt, minion_pool_id, step, total_steps, message)
-
-    @minion_manager_utils.minion_pool_synchronized_op
-    def get_minion_pool_progress_step(self, ctxt, minion_pool_id):
-        return db_api.get_minion_pool_progress_step(ctxt, minion_pool_id)
+            ctxt, minion_pool_id, progress_update_index, new_current_step,
+            new_total_steps=new_total_steps, new_message=new_message)
 
     def _check_keys_for_action_dict(
             self, action, required_action_properties, operation=None):

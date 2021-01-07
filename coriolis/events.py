@@ -7,95 +7,93 @@ import collections
 from oslo_log import log as logging
 from six import with_metaclass
 
+from coriolis import constants
+
 
 LOG = logging.getLogger(__name__)
 
 _PercStepData = collections.namedtuple(
-    "_PercStepData", "last_value max_value perc_threshold message_format")
+    "_PercStepData", "progress_update_id last_value total_steps")
 
 
 class EventManager(object, with_metaclass(abc.ABCMeta)):
 
     def __init__(self, event_handler):
         self._event_handler = event_handler
-        self._total_steps = None
-        self._percentage_steps = {}
 
-    def set_total_progress_steps(self, total_steps):
-        self._total_steps = total_steps
+    def _call_event_handler(self, method_name, *args, **kwargs):
+        if self._event_handler:
+            method_obj = getattr(self._event_handler, str(method_name), None)
+            if not method_obj:
+                raise AttributeError(
+                    "No method named '%s' for event handler of type '%s'." % (
+                        method_name, type(self._event_handler)))
+            return method_obj(*args, **kwargs)
 
-    def add_percentage_step(self, max_value, perc_threshold=1,
-                            message_format="{:.0f}%"):
-        if max_value < 0:
+    def add_percentage_step(self, message, total_steps, initial_step=0):
+        if total_steps < 0:
             LOG.warn(
                 "Max percentage value was negative (%s). Reset to 0",
-                max_value)
-            max_value = 0
-        if max_value == 0:
+                total_steps)
+            total_steps = 0
+        if total_steps == 0:
             LOG.warn("Max percentage value set to 0 (zero)")
-        current_step = self._event_handler.get_task_progress_step() + 1
-        self._percentage_steps[current_step] = _PercStepData(
-            0, max_value, perc_threshold, message_format)
-        return current_step
 
-    def set_percentage_step(self, step, value):
-        step_data = self._percentage_steps[step]
+        if initial_step > total_steps:
+            raise ValueError(
+                "Provided percent step initial value '%s' is larger than the "
+                "maximum value '%s'" % (initial_step, total_steps))
+        progress_update = self._call_event_handler(
+            'add_progress_update', message, initial_step=initial_step,
+            total_steps=total_steps, return_event=True)
+        progress_update_id = (
+            self._call_event_handler(
+                'get_progress_update_identifier', progress_update))
 
-        old_perc = 100
-        perc = 100
-        if step_data.max_value != 0:
-            old_perc = (step_data.last_value * 100 / step_data.max_value //
-                        step_data.perc_threshold * step_data.perc_threshold)
-            perc = (value * 100 / step_data.max_value //
-                    step_data.perc_threshold * step_data.perc_threshold)
+        return _PercStepData(progress_update_id, initial_step, total_steps)
 
-        if perc > old_perc and self._event_handler:
-            self._event_handler.update_task_progress_update(
-                step, self._total_steps, step_data.message_format.format(perc))
-            self._percentage_steps[step] = _PercStepData(
-                value, step_data.max_value, step_data.perc_threshold,
-                step_data.message_format)
+    def set_percentage_step(self, step, new_current_step):
+        self._call_event_handler(
+            'update_progress_update', step.progress_update_id,
+            new_current_step)
 
     def progress_update(self, message):
-        if self._event_handler:
-            self._event_handler.add_task_progress_update(
-                self._total_steps, message)
+        self._call_event_handler(
+            'add_progress_update', message, return_event=False)
 
     def info(self, message):
-        if self._event_handler:
-            self._event_handler.info(message)
+        self._call_event_handler(
+            'add_event', message, level=constants.TASK_EVENT_INFO)
 
     def warn(self, message):
-        if self._event_handler:
-            self._event_handler.warn(message)
+        self._call_event_handler(
+            'add_event', message, level=constants.TASK_EVENT_WARNING)
 
     def error(self, message):
-        if self._event_handler:
-            self._event_handler.error(message)
+        self._call_event_handler(
+            'add_event', message, level=constants.TASK_EVENT_ERROR)
 
 
 class BaseEventHandler(object, with_metaclass(abc.ABCMeta)):
 
     @abc.abstractmethod
-    def add_task_progress_update(self, total_steps, message):
+    def add_progress_update(
+            self, message, initial_step=0, total_steps=0,
+            return_event=False):
         pass
 
     @abc.abstractmethod
-    def update_task_progress_update(self, step, total_steps, message):
+    def update_progress_update(
+            self, update_identifier, new_current_step,
+            new_total_steps=None, new_message=None):
+        pass
+
+    @classmethod
+    @abc.abstractmethod
+    def get_progress_update_identifier(cls, progress_update):
+        """ Returns the identifier for a given progress update. """
         pass
 
     @abc.abstractmethod
-    def get_task_progress_step(self):
-        pass
-
-    @abc.abstractmethod
-    def info(self, message):
-        pass
-
-    @abc.abstractmethod
-    def warn(self, message):
-        pass
-
-    @abc.abstractmethod
-    def error(self, message):
+    def add_event(self, message, level=constants.TASK_EVENT_INFO):
         pass

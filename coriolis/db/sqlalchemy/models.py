@@ -26,6 +26,7 @@ class TaskEvent(BASE, models.TimestampMixin, models.SoftDeleteMixin,
                                 sqlalchemy.ForeignKey('task.id'),
                                 nullable=False)
     level = sqlalchemy.Column(sqlalchemy.String(20), nullable=False)
+    index = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)
     message = sqlalchemy.Column(sqlalchemy.String(1024), nullable=False)
 
     def to_dict(self):
@@ -34,6 +35,7 @@ class TaskEvent(BASE, models.TimestampMixin, models.SoftDeleteMixin,
             "task_id": self.task_id,
             "level": self.level,
             "message": self.message,
+            "index": self.index,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "deleted_at": self.deleted_at,
@@ -75,7 +77,7 @@ class TaskProgressUpdate(BASE, models.TimestampMixin, models.SoftDeleteMixin,
                          models.ModelBase):
     __tablename__ = 'task_progress_update'
     __table_args__ = (
-        schema.UniqueConstraint("task_id", "current_step", "deleted"),)
+        schema.UniqueConstraint("task_id", "index", "deleted"),)
 
     id = sqlalchemy.Column(sqlalchemy.String(36),
                            default=lambda: str(uuid.uuid4()),
@@ -83,14 +85,17 @@ class TaskProgressUpdate(BASE, models.TimestampMixin, models.SoftDeleteMixin,
     task_id = sqlalchemy.Column(sqlalchemy.String(36),
                                 sqlalchemy.ForeignKey('task.id'),
                                 nullable=False)
-    current_step = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)
-    total_steps = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
+
+    index = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)
+    current_step = sqlalchemy.Column(sqlalchemy.BigInteger, nullable=False)
+    total_steps = sqlalchemy.Column(sqlalchemy.BigInteger, nullable=True)
     message = sqlalchemy.Column(sqlalchemy.Text, nullable=True)
 
     def to_dict(self):
         result = {
             "id": self.id,
             "task_id": self.task_id,
+            "index": self.index,
             "current_step": self.current_step,
             "total_steps": self.total_steps,
             "message": self.message,
@@ -106,7 +111,7 @@ class MinionPoolProgressUpdate(
         BASE, models.TimestampMixin, models.SoftDeleteMixin, models.ModelBase):
     __tablename__ = 'minion_pool_progress_update'
     __table_args__ = (
-        schema.UniqueConstraint("pool_id", "current_step", "deleted"),)
+        schema.UniqueConstraint("pool_id", "index", "deleted"),)
 
     id = sqlalchemy.Column(sqlalchemy.String(36),
                            default=lambda: str(uuid.uuid4()),
@@ -114,14 +119,16 @@ class MinionPoolProgressUpdate(
     pool_id = sqlalchemy.Column(sqlalchemy.String(36),
                                 sqlalchemy.ForeignKey('minion_pool.id'),
                                 nullable=False)
-    current_step = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)
-    total_steps = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
+    index = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)
+    current_step = sqlalchemy.Column(sqlalchemy.BigInteger, nullable=False)
+    total_steps = sqlalchemy.Column(sqlalchemy.BigInteger, nullable=True)
     message = sqlalchemy.Column(sqlalchemy.String(1024), nullable=True)
 
     def to_dict(self):
         result = {
             "id": self.id,
             "pool_id": self.pool_id,
+            "index": self.index,
             "current_step": self.current_step,
             "total_steps": self.total_steps,
             "message": self.message,
@@ -150,17 +157,18 @@ class Task(BASE, models.TimestampMixin, models.SoftDeleteMixin,
     task_type = sqlalchemy.Column(sqlalchemy.String(100), nullable=False)
     exception_details = sqlalchemy.Column(sqlalchemy.Text, nullable=True)
     depends_on = sqlalchemy.Column(types.List, nullable=True)
-    index = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
+    index = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)
     on_error = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False)
     # TODO(alexpilotti): Add soft delete filter
     events = orm.relationship(TaskEvent, cascade="all,delete",
-                              backref=orm.backref('task'))
+                              backref=orm.backref('task'),
+                              order_by=TaskEvent.index)
     # TODO(alexpilotti): Add soft delete filter
     progress_updates = orm.relationship(TaskProgressUpdate,
                                         cascade="all,delete",
                                         backref=orm.backref('task'),
                                         order_by=(
-                                            TaskProgressUpdate.current_step))
+                                            TaskProgressUpdate.index))
 
     def to_dict(self):
         result = {
@@ -572,12 +580,13 @@ class MinionPool(
         primaryjoin="and_(MinionMachine.pool_id==MinionPool.id, "
                     "MinionMachine.deleted=='0')")
     events = orm.relationship(MinionPoolEvent, cascade="all,delete",
-                              backref=orm.backref('minion_pool'))
+                              backref=orm.backref('minion_pool'),
+                              order_by=MinionPoolEvent.index)
     progress_updates = orm.relationship(MinionPoolProgressUpdate,
                                         cascade="all,delete",
                                         backref=orm.backref('minion_pool'),
                                         order_by=(
-                                            MinionPoolProgressUpdate.current_step))
+                                            MinionPoolProgressUpdate.index))
 
     def to_dict(
             self, include_machines=True, include_events=True,

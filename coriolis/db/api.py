@@ -1,6 +1,8 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+import uuid
+
 from oslo_config import cfg
 from oslo_db import api as db_api
 from oslo_db import options as db_options
@@ -709,121 +711,161 @@ def get_task(context, task_id):
 @enginefacade.writer
 def add_task_event(context, task_id, level, message):
     task_event = models.TaskEvent()
+    task_event.id = str(uuid.uuid4())
+    task_event.index = 0
+    last_event = _get_last_task_event(context, task_id)
+    if last_event:
+        task_event.index = last_event.index + 1
     task_event.task_id = task_id
     task_event.level = level
     task_event.message = message
     _session(context).add(task_event)
+    return task_event
 
 
 @enginefacade.reader
-def get_last_minion_pool_event_index(context, pool_id):
-    last_index = _model_query(
-        context, func.max(models.MinionPoolEvent.index)).filter_by(
-            pool_id=pool_id).first()[0] or 0
-    return last_index
+def _get_last_task_event(context, task_id):
+    q = _soft_delete_aware_query(
+        context, models.TaskEvent)
+    last_event = q.filter(
+        models.TaskEvent.task_id == task_id).order_by(
+            models.TaskEvent.index.desc()).first()
+    return last_event
+
+
+@enginefacade.reader
+def _get_last_task_progress_update(context, task_id):
+    q = _soft_delete_aware_query(
+        context, models.TaskProgressUpdate)
+    last_update = q.filter(
+        models.TaskProgressUpdate.task_id == task_id).order_by(
+            models.TaskProgressUpdate.index.desc()).first()
+    return last_update
+
+
+@enginefacade.reader
+def _get_last_minion_pool_event(context, pool_id):
+    q = _soft_delete_aware_query(
+        context, models.MinionPoolEvent)
+    last_event = q.filter(
+        models.MinionPoolEvent.pool_id == pool_id).order_by(
+            models.MinionPoolEvent.index.desc()).first()
+    return last_event
+
+
+@enginefacade.reader
+def _get_last_minion_pool_progress_update(context, pool_id):
+    q = _soft_delete_aware_query(
+        context, models.MinionPoolProgressUpdate)
+    last_event = q.filter(
+        models.MinionPoolProgressUpdate.pool_id == pool_id).order_by(
+            models.MinionPoolProgressUpdate.index.desc()).first()
+    return last_event
 
 
 @enginefacade.writer
 def add_minion_pool_event(context, pool_id, level, message):
     pool_event = models.MinionPoolEvent()
+    pool_event.id = str(uuid.uuid4())
     pool_event.pool_id = pool_id
     pool_event.level = level
     pool_event.message = message
-    pool_event.index = (
-        get_last_minion_pool_event_index(context, pool_id) + 1)
+
+    pool_event.index = 0
+    last_pool_event = _get_last_minion_pool_event(context, pool_id)
+    if last_pool_event:
+        pool_event.index = last_pool_event.index + 1
+
     _session(context).add(pool_event)
+    return pool_event
 
 
-def _get_minion_pool_progress_update(context, pool_id, current_step):
+def _get_minion_pool_progress_update(context, pool_id, index):
     q = _soft_delete_aware_query(context, models.MinionPoolProgressUpdate)
     return q.filter(
         models.MinionPoolProgressUpdate.pool_id == pool_id,
-        models.MinionPoolProgressUpdate.current_step == current_step).first()
-
-
-@enginefacade.reader
-def get_minion_pool_progress_step(context, pool_id):
-    curr_step = 0
-    q = _soft_delete_aware_query(context, models.MinionPoolProgressUpdate)
-    last_step = q.filter(
-        models.MinionPoolProgressUpdate.pool_id == pool_id).order_by(
-            models.MinionPoolProgressUpdate.current_step.desc()).first()
-
-    if last_step:
-        curr_step = last_step.current_step
-
-    return curr_step
+        models.MinionPoolProgressUpdate.index == index).first()
 
 
 @enginefacade.writer
-def add_minion_pool_progress_update(context, pool_id, total_steps, message):
-    current_step = get_minion_pool_progress_step(context, pool_id) + 1
-    pool_progress_update = models.MinionPoolProgressUpdate(
-        pool_id=pool_id, current_step=current_step, total_steps=total_steps,
-        message=message)
+def add_minion_pool_progress_update(
+        context, pool_id, message, initial_step=0, total_steps=0):
+    pool_progress_update = models.MinionPoolProgressUpdate()
+    pool_progress_update.id = str(uuid.uuid4())
+    pool_progress_update.pool_id = pool_id
+    pool_progress_update.current_step = initial_step
+    pool_progress_update.total_steps = total_steps
+    pool_progress_update.message = message
+    pool_progress_update.index = 0
+    last_progress_update = _get_last_minion_pool_progress_update(
+        context, pool_id)
+    if last_progress_update:
+        pool_progress_update.index = last_progress_update.index + 1
+
     _session(context).add(pool_progress_update)
+    return pool_progress_update
 
 
 @enginefacade.writer
 def update_minion_pool_progress_update(
-        context, pool_id, step, total_steps, message):
+        context, pool_id, update_index, new_current_step,
+        new_total_steps=None, new_message=None):
     pool_progress_update = _get_minion_pool_progress_update(
-        context, pool_id, step)
+        context, pool_id, update_index)
     if not pool_progress_update:
-        pool_progress_update = models.MinionPoolProgressUpdate(
-            pool_id=pool_id, current_step=step, total_steps=total_steps,
-            message=message)
-        _session(context).add(pool_progress_update)
+        raise exception.NotFound(
+            "Could not find progress update for minion pool with ID '%s' and "
+            "index %s in the DB for updating." % (pool_id, update_index))
 
-    pool_progress_update.pool_id = pool_id
-    pool_progress_update.current_step = step
-    pool_progress_update.total_steps = total_steps
-    pool_progress_update.message = message
+    pool_progress_update.current_step = new_current_step
+    if new_total_steps is not None:
+        pool_progress_update.total_steps = new_total_steps
+    if new_message is not None:
+        pool_progress_update.message = new_message
+    return pool_progress_update
 
 
-def _get_progress_update(context, task_id, current_step):
+def _get_progress_update(context, task_id, index):
     q = _soft_delete_aware_query(context, models.TaskProgressUpdate)
     return q.filter(
         models.TaskProgressUpdate.task_id == task_id,
-        models.TaskProgressUpdate.current_step == current_step).first()
-
-
-@enginefacade.reader
-def get_task_progress_step(context, task_id):
-    curr_step = 0
-    q = _soft_delete_aware_query(context, models.TaskProgressUpdate)
-    last_step = q.filter(
-        models.TaskProgressUpdate.task_id == task_id).order_by(
-            models.TaskProgressUpdate.current_step.desc()).first()
-
-    if last_step:
-        curr_step = last_step.current_step
-
-    return curr_step
+        models.TaskProgressUpdate.index == index).first()
 
 
 @enginefacade.writer
-def add_task_progress_update(context, task_id, total_steps, message):
-    current_step = get_task_progress_step(context, task_id) + 1
-    task_progress_update = models.TaskProgressUpdate(
-        task_id=task_id, current_step=current_step, total_steps=total_steps,
-        message=message)
-    _session(context).add(task_progress_update)
-
-
-@enginefacade.writer
-def update_task_progress_update(context, task_id, step, total_steps, message):
-    task_progress_update = _get_progress_update(context, task_id, step)
-    if not task_progress_update:
-        task_progress_update = models.TaskProgressUpdate(
-            task_id=task_id, current_step=step, total_steps=total_steps,
-            message=message)
-        _session(context).add(task_progress_update)
-
+def add_task_progress_update(
+        context, task_id, message, initial_step=0, total_steps=0):
+    task_progress_update = models.TaskProgressUpdate()
+    task_progress_update.id = str(uuid.uuid4())
     task_progress_update.task_id = task_id
-    task_progress_update.current_step = step
+    task_progress_update.current_step = initial_step
     task_progress_update.total_steps = total_steps
     task_progress_update.message = message
+
+    task_progress_update.index = 0
+    last_progress_update = _get_last_task_progress_update(context, task_id)
+    if last_progress_update:
+        task_progress_update.index = last_progress_update.index + 1
+
+    _session(context).add(task_progress_update)
+    return task_progress_update
+
+
+@enginefacade.writer
+def update_task_progress_update(
+        context, task_id, update_index, new_current_step,
+        new_total_steps=None, new_message=None):
+    task_progress_update = _get_progress_update(context, task_id, update_index)
+    if not task_progress_update:
+        raise exception.NotFound(
+            "Could not find progress update for task with ID '%s' and "
+            "index %s in the DB for updating." % (task_id, update_index))
+
+    task_progress_update.current_step = new_current_step
+    if new_total_steps is not None:
+        task_progress_update.total_steps = new_total_steps
+    if new_message is not None:
+        task_progress_update.message = new_message
 
 
 @enginefacade.writer
@@ -934,7 +976,7 @@ def add_endpoint_region_mapping(context, endpoint_region_mapping):
 def get_endpoint_region_mapping(context, endpoint_id, region_id):
     q = _soft_delete_aware_query(context, models.EndpointRegionMapping)
     q = q.filter(
-        models.EndpointRegionMapping.region == region_id)
+        models.EndpointRegionMapping.region_id == region_id)
     q = q.filter(
         models.EndpointRegionMapping.endpoint_id == endpoint_id)
     return q.all()
@@ -1140,7 +1182,7 @@ def add_service_region_mapping(context, service_region_mapping):
 def get_service_region_mapping(context, service_id, region_id):
     q = _soft_delete_aware_query(context, models.ServiceRegionMapping)
     q = q.filter(
-        models.ServiceRegionMapping.region == region_id)
+        models.ServiceRegionMapping.region_id == region_id)
     q = q.filter(
         models.ServiceRegionMapping.service_id == service_id)
     return q.all()
