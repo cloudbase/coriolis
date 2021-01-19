@@ -10,6 +10,10 @@ RUN apt-get update && apt-get install -y \
 RUN /bin/bash -c "pip3 install -U pip"
 RUN /bin/bash -c "pip3 install wheel"
 
+{% if enable_profiling_for %}
+RUN /bin/bash -c "pip3 install filprofiler"
+{% endif %}
+
 COPY coriolis-common-entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 

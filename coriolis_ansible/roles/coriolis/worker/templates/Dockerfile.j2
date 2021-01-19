@@ -29,4 +29,8 @@ RUN gunzip /usr/lib/libqemu.so.gz
 RUN ldconfig
 
 # Mapped volume: /etc/coriolis/coriolis.conf
+{% if "worker" in enable_profiling_for %}
+CMD ["/usr/local/bin/fil-profile", "-o", "{{ coriolis_profiling_dir_container}}", "run", "/usr/local/bin/coriolis-worker", "--config-file={{coriolis_config_dir }}/coriolis.conf", "--config-file={{ coriolis_config_dir}}/coriolis-worker-logging.conf", "--worker-process-count", "1"]
+{% else %}
 CMD ["/bin/bash", "-c", "coriolis-worker", "--config-file={{ coriolis_config_dir }}/coriolis.conf", "--config-file={{ coriolis_config_dir }}/coriolis-worker-logging.conf"]
+{% endif %}

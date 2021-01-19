@@ -6,8 +6,15 @@
   with_items:
     - "{{ coriolis_config_dir }}"
     - "{{ coriolis_log_dir }}"
+    - "{{ coriolis_profiling_dir_host }}"
     - "{{ coriolis_locks_dir_host }}"
     - "{{ coriolis_conductor_locks_dir_host }}"
+
+- name: Create profiling subdirs
+  file:
+    path: "{{ coriolis_profiling_dir_host }}/{{ item }}"
+    state: directory
+  with_items: "{{ enable_profiling_for }}"
 
 - name: Install Coriolis Python client
   pip:

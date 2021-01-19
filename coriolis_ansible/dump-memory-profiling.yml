@@ -1,0 +1,12 @@
+---
+- name: Dump memory profiling for supported components
+  any_errors_fatal: true
+  hosts:
+    - appliance
+  tasks:
+    - name: Run profiling
+      shell: "docker exec coriolis-{{item}} kill -s SIGUSR2 1"
+      with_items: "{{ enable_profiling_for }}"
+
+    - debug:
+        msg: "Triggered profiling dump for components {{ enable_profiling_for }}. The profiling data can be found in {{ coriolis_profiling_dir_host }}."

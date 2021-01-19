@@ -17,6 +17,19 @@ enable_coriolis_licensing_server: false
 
 enable_coriolis_compressor: true
 
+coriolis_profiling_dir_host: /opt/coriolis/profiling
+# Enabled memory profiling for components using 'fil'
+# Profiling data will be saved within subdirs with the same directory name
+# as the component within the 'coriolis_profiling_dir_host'
+# Note that profiling only happens for the root process of the container,
+# so explicitly setting 'messaging_workers = 1' in coriolis.conf is
+# recommended for the most accurate results possible.
+# The dumping of profiling data must be explicitly tirggered using
+# 'coriolis-ansible dump-memory-profiling'
+# Possible component labels are:
+# ["api", "conductor", "worker", "scheduler", "replica-cron"]
+enable_profiling_for: []
+
 coriolis_export_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "vmware", "aws"]
 coriolis_import_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "oci", "aws"]
 
