@@ -132,6 +132,8 @@ class WorkerServerEndpoint(object):
                 "completed/error'd." % (
                     process_id, task_id))
             LOG.error(msg)
+            self._rpc_conductor_client.confirm_task_cancellation(
+                ctxt, task_id, msg)
 
     def _handle_mp_log_events(self, p, mp_log_q):
         while True:
