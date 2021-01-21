@@ -23,6 +23,7 @@ from coriolis import events
 from coriolis import exception
 from coriolis.providers import factory as providers_factory
 from coriolis import schemas
+from coriolis import service
 from coriolis.tasks import factory as task_runners_factory
 from coriolis import utils
 
@@ -624,7 +625,8 @@ class WorkerServerEndpoint(object):
 
 def _setup_task_process(mp_log_q):
     # Setting up logging and cfg, needed since this is a new process
-    cfg.CONF(sys.argv[1:], project='coriolis', version="1.0.0")
+    _, args = service.get_worker_count_from_args(sys.argv)
+    cfg.CONF(args[1:], project='coriolis', version="1.0.0")
     utils.setup_logging()
 
     # Log events need to be handled in the parent process
