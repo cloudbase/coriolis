@@ -443,13 +443,16 @@ class ConductorTaskRpcEventHandler(events.BaseEventHandler):
     def __init__(self, ctxt, task_id):
         self._ctxt = ctxt
         self._task_id = task_id
+        self._rpc_conductor_client_instance = None
 
     @property
     def _rpc_conductor_client(self):
         # NOTE(aznashwan): it is unsafe to fork processes with pre-instantiated
         # oslo_messaging clients as the underlying eventlet thread queues will
         # be invalidated.
-        return ConductorClient()
+        if self._rpc_conductor_client_instance is None:
+            self._rpc_conductor_client_instance = ConductorClient()
+        return self._rpc_conductor_client_instance
 
     @classmethod
     def get_progress_update_identifier(self, progress_update):

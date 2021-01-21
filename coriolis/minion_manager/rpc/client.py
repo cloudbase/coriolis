@@ -177,13 +177,16 @@ class MinionManagerPoolRpcEventHandler(events.BaseEventHandler):
     def __init__(self, ctxt, pool_id):
         self._ctxt = ctxt
         self._pool_id = pool_id
+        self._rpc_minion_manager_client_instance = None
 
     @property
     def _rpc_minion_manager_client(self):
         # NOTE(aznashwan): it is unsafe to fork processes with pre-instantiated
         # oslo_messaging clients as the underlying eventlet thread queues will
         # be invalidated.
-        return MinionManagerClient()
+        if self._rpc_minion_manager_client_instance is None:
+            self._rpc_minion_manager_client_instance = MinionManagerClient()
+        return self._rpc_minion_manager_client_instance
 
     @classmethod
     def get_progress_update_identifier(self, progress_update):
