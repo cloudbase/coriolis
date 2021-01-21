@@ -259,24 +259,24 @@ class ConductorClient(rpc.BaseRPCClient):
             ctxt, 'cancel_migration', migration_id=migration_id, force=force)
 
     def set_task_host(self, ctxt, task_id, host):
-        self._call(
+        self._cast(
             ctxt, 'set_task_host', task_id=task_id, host=host)
 
     def set_task_process(self, ctxt, task_id, process_id):
-        self._call(
+        self._cast(
             ctxt, 'set_task_process', task_id=task_id, process_id=process_id)
 
     def task_completed(self, ctxt, task_id, task_result):
-        self._call(
+        self._cast(
             ctxt, 'task_completed', task_id=task_id, task_result=task_result)
 
     def confirm_task_cancellation(self, ctxt, task_id, cancellation_details):
-        self._call(
+        self._cast(
             ctxt, 'confirm_task_cancellation', task_id=task_id,
             cancellation_details=cancellation_details)
 
     def set_task_error(self, ctxt, task_id, exception_details):
-        self._call(
+        self._cast(
             ctxt, 'set_task_error', task_id=task_id,
             exception_details=exception_details)
 
