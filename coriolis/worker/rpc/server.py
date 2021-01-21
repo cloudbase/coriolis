@@ -51,6 +51,7 @@ class WorkerServerEndpoint(object):
     def __init__(self):
         self._server = utils.get_hostname()
         self._service_registration = self._register_worker_service()
+        self._rpc_conductor_client_instance = None
 
     @property
     def _rpc_conductor_client(self):
@@ -59,7 +60,10 @@ class WorkerServerEndpoint(object):
         # be invalidated. Considering this class both serves from a "main
         # process" as well as forking child processes, it is safest to
         # re-instantiate the client every time:
-        return rpc_conductor_client.ConductorClient()
+        if self._rpc_conductor_client_instance is None:
+            self._rpc_conductor_client_instance = (
+                rpc_conductor_client.ConductorClient())
+        return self._rpc_conductor_client_instance
 
     def _register_worker_service(self):
         host = utils.get_hostname()
@@ -72,8 +76,10 @@ class WorkerServerEndpoint(object):
         status = self.get_service_status(dummy_context)
         service_registration = (
             conductor_rpc_utils.check_create_registration_for_service(
-                self._rpc_conductor_client, dummy_context, host, binary,
-                constants.WORKER_MAIN_MESSAGING_TOPIC, enabled=True,
+                # NOTE: considering this only runs once on startup, we
+                # instantiate a fresh conductor client instance for it:
+                rpc_conductor_client.ConductorClient(), dummy_context, host,
+                binary, constants.WORKER_MAIN_MESSAGING_TOPIC, enabled=True,
                 providers=status['providers'], specs=status['specs']))
         LOG.info(
             "Worker service is successfully registered with the following "

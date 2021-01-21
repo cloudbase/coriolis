@@ -198,7 +198,7 @@ class ConductorServerEndpoint(object):
 
     @property
     def _minion_manager_client(self):
-        if not getattr(self, '_minion_manager_client_instance'):
+        if not self._minion_manager_client_instance:
             self._minion_manager_client_instance = (
                 rpc_minion_manager_client.MinionManagerClient())
         return self._minion_manager_client_instance
