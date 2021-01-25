@@ -14,15 +14,15 @@ CONF = cfg.CONF
 
 
 def main():
-    CONF(sys.argv[1:], project='coriolis',
-         version="1.0.0")
+    worker_count, args = service.get_worker_count_from_args(sys.argv)
+    CONF(args[1:], project='coriolis', version="1.0.0")
     utils.setup_logging()
     service.check_locks_dir_empty()
 
     server = service.MessagingService(
         constants.CONDUCTOR_MAIN_MESSAGING_TOPIC,
         [rpc_server.ConductorServerEndpoint()],
-        rpc_server.VERSION)
+        rpc_server.VERSION, worker_count=worker_count)
     launcher = service.service.launch(
         CONF, server, workers=server.get_workers_count())
     launcher.wait()

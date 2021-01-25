@@ -1,6 +1,7 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+import argparse
 import os
 import platform
 
@@ -33,6 +34,28 @@ service_opts = [
 CONF = cfg.CONF
 CONF.register_opts(service_opts)
 LOG = logging.getLogger(__name__)
+
+
+def get_worker_count_from_args(argv):
+    """ Parses the args for '--worker-process-count' and returns a tuple
+    containing the count (defaults to logical CPU count if
+    --worker-process-count is not present), as well as the unprocessed args.
+    """
+    parser = argparse.ArgumentParser()
+    def _check_positive_worker_count(worker_count):
+        count = int(worker_count)
+        if count <= 0:
+            raise argparse.ArgumentTypeError(
+                "Worker process count must be a strictly positive integer, "
+                "got: %s" % worker_count)
+        return count
+    parser.add_argument(
+        '--worker-process-count', metavar='N', type=_check_positive_worker_count,
+        default=processutils.get_worker_count(),
+        help="Number of worker processes for this service. Defaults to the "
+             "number of logical CPU cores on the system.")
+    args, unknown_args = parser.parse_known_args(args=argv)
+    return args.worker_process_count, unknown_args
 
 
 def check_locks_dir_empty():
@@ -76,12 +99,15 @@ def check_locks_dir_empty():
 
 
 class WSGIService(service.ServiceBase):
-    def __init__(self, name):
+    def __init__(self, name, worker_count=None):
         self._host = CONF.api_migration_listen
         self._port = CONF.api_migration_listen_port
 
+        # NOTE: oslo_service fork()'s, which won't work on Windows...
         if platform.system() == "Windows":
             self._workers = 1
+        elif worker_count is not None:
+            self._workers = int(worker_count)
         else:
             self._workers = (
                 CONF.api_migration_workers or processutils.get_worker_count())
@@ -118,8 +144,13 @@ class MessagingService(service.ServiceBase):
                                   version=version)
         self._server = rpc.get_server(target, endpoints)
 
-        self._workers = (worker_count or CONF.messaging_workers or
-                         processutils.get_worker_count())
+        # NOTE: oslo_service fork()'s, which won't work on Windows...
+        if platform.system() == "Windows":
+            self._workers = 1
+        elif worker_count is not None:
+            self._workers = int(worker_count)
+        else:
+            self._workers = processutils.get_worker_count()
 
     def get_workers_count(self):
         return self._workers

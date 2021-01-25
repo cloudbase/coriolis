@@ -12,11 +12,12 @@ CONF = cfg.CONF
 
 
 def main():
-    CONF(sys.argv[1:], project='coriolis',
-         version="1.0.0")
+    worker_count, args = service.get_worker_count_from_args(sys.argv)
+    CONF(args[1:], project='coriolis', version="1.0.0")
     utils.setup_logging()
 
-    server = service.WSGIService('coriolis-api')
+    server = service.WSGIService(
+        'coriolis-api', worker_count=worker_count)
     launcher = service.service.launch(
         CONF, server, workers=server.get_workers_count())
     launcher.wait()
