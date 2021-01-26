@@ -206,6 +206,7 @@ class BaseTransferAction(BASE, models.TimestampMixin, models.ModelBase,
         sqlalchemy.String(36), nullable=True)
     instance_osmorphing_minion_pool_mappings = sqlalchemy.Column(
         types.Json, nullable=False, default=lambda: {})
+    user_scripts = sqlalchemy.Column(types.Json, nullable=True)
 
     __mapper_args__ = {
         'polymorphic_identity': 'base_transfer_action',
@@ -237,7 +238,8 @@ class BaseTransferAction(BASE, models.TimestampMixin, models.ModelBase,
             "origin_minion_pool_id": self.origin_minion_pool_id,
             "destination_minion_pool_id": self.destination_minion_pool_id,
             "instance_osmorphing_minion_pool_mappings":
-                self.instance_osmorphing_minion_pool_mappings
+                self.instance_osmorphing_minion_pool_mappings,
+            "user_scripts": self.user_scripts,
         }
         if include_executions:
             for ex in self.executions:

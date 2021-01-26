@@ -104,11 +104,13 @@ class MigrationController(api_wsgi.Controller):
                 shutdown_instances, network_map, storage_mappings)
 
     def create(self, req, body):
-        # TODO(alexpilotti): validate body
         migration_body = body.get("migration", {})
         context = req.environ['coriolis.context']
         context.can(migration_policies.get_migrations_policy_label("create"))
-        user_scripts = migration_body.get("user_scripts", {})
+        user_scripts = migration_body.get('user_scripts', {})
+        api_utils.validate_user_scripts(user_scripts)
+        user_scripts = api_utils.normalize_user_scripts(
+            user_scripts, migration_body.get("instances", []))
         replica_id = migration_body.get("replica_id")
         if replica_id:
             clone_disks = migration_body.get("clone_disks", True)
