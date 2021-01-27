@@ -25,6 +25,7 @@ coriolis_log_dir: /var/log/coriolis
 coriolis_vmware_vix_disklib_dir: /opt/coriolis/vmware-vix-disklib
 coriolis_hyperv_share_local_dir: /opt/coriolis/hyperv-exports
 coriolis_export_dir: /opt/coriolis/export
+coriolis_profiling_dir_container: /opt/coriolis/profiling
 
 coriolis_export_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "vmware", "aws"]
 coriolis_import_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "oci", "aws"]

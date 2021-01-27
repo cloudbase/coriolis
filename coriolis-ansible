@@ -3,7 +3,7 @@ set -e
 
 usage() {
     echo "USAGE: $0 <coriolis_action>"
-    echo "Valid options for <coriolis_action> are: ['bootstrap', 'build', 'deploy', 'reconfigure', 'update', 'destroy', 'reset-licensing-db']"
+    echo "Valid options for <coriolis_action> are: ['bootstrap', 'build', 'deploy', 'reconfigure', 'update', 'destroy', 'reset-licensing-db', 'dump-memory-profiling']"
 }
 
 if [[ $# -ne 1 ]]; then
@@ -70,6 +70,11 @@ case "$1" in
 
     push-docker-images)
         PLAYBOOK="push-docker-images.yml"
+        $ANSIBLE_CMD $PLAYBOOK
+        ;;
+
+    dump-memory-profiling)
+        PLAYBOOK="dump-memory-profiling.yml"
         $ANSIBLE_CMD $PLAYBOOK
         ;;
 
