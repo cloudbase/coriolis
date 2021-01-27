@@ -45,6 +45,12 @@ Response
   - tasks : migration_tasks
   - network_map : network_map
   - storage_mappings : storage_map
+  - last_execution_status : migration_last_execution_status
+  - origin_minion_pool_id : origin_minion_pool_id
+  - destination_minion_pool_id : destination_minion_pool_id
+  - instance_osmorphing_minion_pool_mappings : instance_osmorphing_minion_pool_mappings
+  - shutdown_instances : migration_shutdown_instances
+  - replication_count : replication_count
 
 **Example of a Migration List**
 
@@ -101,6 +107,12 @@ Response
   - destination_endpoint_id : migration_destination_endpoint_id
   - network_map : network_map
   - storage_mappings : storage_map
+  - last_execution_status : migration_last_execution_status
+  - origin_minion_pool_id : origin_minion_pool_id
+  - destination_minion_pool_id : destination_minion_pool_id
+  - instance_osmorphing_minion_pool_mappings : instance_osmorphing_minion_pool_mappings
+  - shutdown_instances : migration_shutdown_instances
+  - replication_count : replication_count
 
 **Example of a Migration Show Response**
   .. literalinclude:: ../api_samples/migration/openstack-migration-get-resp.json
@@ -131,6 +143,12 @@ Request
   - destination_endpoint_id : migration_destination_endpoint_id
   - origin_endpoint_id : migration_origin_endpoint_id
   - instances : migration_instances
+  - origin_minion_pool_id : origin_minion_pool_id
+  - destination_minion_pool_id : destination_minion_pool_id
+  - instance_osmorphing_minion_pool_mappings : instance_osmorphing_minion_pool_mappings
+  - shutdown_instances : migration_shutdown_instances
+  - replication_count : replication_count
+  - user_scripts : user_scripts
 
 **Example Migration Create Request**
   .. literalinclude:: ../api_samples/migration/openstack-migration-create-req.json
@@ -163,6 +181,12 @@ Response
   - destination_endpoint_id : migration_destination_endpoint_id
   - network_map : network_map
   - storage_mappings : storage_map
+  - last_execution_status : migration_last_execution_status
+  - origin_minion_pool_id : origin_minion_pool_id
+  - destination_minion_pool_id : destination_minion_pool_id
+  - instance_osmorphing_minion_pool_mappings : instance_osmorphing_minion_pool_mappings
+  - shutdown_instances : migration_shutdown_instances
+  - replication_count : replication_count
 
 **Example Migration Create Response**
   .. literalinclude:: ../api_samples/migration/openstack-migration-create-resp.json
@@ -191,6 +215,7 @@ Request
     - force : migration_force
     - clone_disks : migration_clone_disks
     - skip_os_morphing : skip_os_morphing
+    - instance_osmorphing_minion_pool_mappings : instance_osmorphing_minion_pool_mappings
 
 **Example of Migration Create From Replica Request**
   .. literalinclude:: ../api_samples/migration/migration-from-replica-req.json
@@ -223,7 +248,11 @@ Response
   - destination_endpoint_id : migration_destination_endpoint_id
   - network_map : network_map
   - storage_mappings : storage_map
-
+  - last_execution_status : migration_last_execution_status
+  - origin_minion_pool_id : origin_minion_pool_id
+  - destination_minion_pool_id : destination_minion_pool_id
+  - instance_osmorphing_minion_pool_mappings : instance_osmorphing_minion_pool_mappings
+  - shutdown_instances : migration_shutdown_instances
 
 **Example of Migration Create From Replica Response**
   .. literalinclude:: ../api_samples/migration/openstack-migration-from-replica-resp.json
@@ -239,7 +268,7 @@ Deletes an non-running migration.
 
 The migration must exist and not be running.
 
-Normal response codes: 200
+Normal response codes: 204
 
 Error response codes:
 unauthorized(401), forbidden(403), itemNotFound(404)

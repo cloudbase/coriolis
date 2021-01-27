@@ -94,6 +94,18 @@ destination_environment_schema:
   in: body
   type: object
   required: false
+destination_minion_pool_id:
+  description: |
+    Pre-existing minion pool ID on the destination platform.
+  in: body
+  type: string
+  required: true
+destination_minion_pool_options:
+  description: |
+    Array that contains the parameter options possible for a minion pool with the endpoint as destination.
+  in: body
+  type: array
+  required: true
 destination_options:
   description: |
     An array that contains the parameter options possible for
@@ -130,6 +142,12 @@ endpoint_id:
     The id of a cloud endpoint.
   in: body
   type: uuid
+  required: true
+endpoint_mapped_regions:
+  description: |
+    List containing the Coriolis regions this endpoint is available to.
+  in: body
+  type: array
   required: true
 endpoint_name:
   description: |
@@ -179,6 +197,12 @@ instance_devices:
   in: body
   type: object
   required: true
+instance_firmware_type:
+  description: |
+    The type of firmware of the VM.
+  in: body
+  type: string
+  required: false
 instance_flavor:
   description: |
     Name or ID of the flavor used by the instance.
@@ -232,6 +256,12 @@ instance_os_type:
     The OS type of an instance.
   in: body
   type: string
+  required: true
+instance_osmorphing_minion_pool_mappings:
+  description: |
+    Mapping between migrated instance name and their respective morphing minion pool IDs.
+  in: body
+  type: object
   required: true
 migration_cancel:
   description: |
@@ -301,6 +331,12 @@ migration_instances:
   in: body
   type: array
   required: true
+migration_last_execution_status:
+  description: |
+    Last execution status of the current migration.
+  in: body
+  type: string
+  required: true
 migration_notes:
   description: |
     Notes about the migration.
@@ -324,6 +360,13 @@ migration_replica_id:
     id of the replica if the migration is created from one.
   in: body
   type: uuid
+  required: true
+migration_shutdown_instances:
+  description: |
+    A boolean which describes whether the execution to shutdown the source
+    instance for the migration process.
+  in: body
+  type: boolean
   required: true
 migration_status:
   description: |
@@ -383,21 +426,27 @@ networks_array:
   required: true
 option_config_default:
   description: |
-    The default option for the destination parameter.
+    The default option for the parameter.
   in: body
   type: string
   required: true
 option_name:
   description: |
-    The name of the destination parameter.
+    The name of the parameter.
   in: body
   type: string
   required: true
 option_values:
   description: |
-    An array of possible values for the respective destination parameter.
+    An array of possible values for the respective parameter.
   in: body
   type: array
+  required: true
+origin_minion_pool_id:
+  description: |
+    Pre-existing minion pool ID on the source platform.
+  in: body
+  type: string
   required: true
 project_id:
   description: |
@@ -545,6 +594,12 @@ replica_execution_tasks:
   in: body
   type: array
   required: true
+replica_execution_type:
+  description: |
+    The type of the replica execution. Can either be 'replica_execution', 'replica_update' or 'replica_disks_delete'
+  in: body
+  type: string
+  required: true
 replica_execution_updated_at:
   description: |
     Timestamp of last replica execution update.
@@ -562,6 +617,12 @@ replica_instances:
     Name array of the  instances to be replicated.
   in: body
   type: array
+  required: true
+replica_last_execution_status:
+  description: |
+    Last execution status of the current replica.
+  in: body
+  type: string
   required: true
 replica_network_map:
   description: |
@@ -720,6 +781,12 @@ replicas_array:
   in: body
   type: array
   required: true
+replication_count:
+  description: |
+    The number of disk syncs performed during a migration.
+  in: body
+  type: integer
+  required: true
 schemas:
   description: |
     Object containing the platform's requested schema.
@@ -744,6 +811,12 @@ source_environment_schema:
   in: body
   type: object
   required: false
+source_minion_pool_options:
+  description: |
+    Array that contains the paramter options possible for a minion pool with the endpoint as source.
+  in: body
+  type: array
+  required: true
 source_options:
   description: |
     An array that contains the parameter options possible for
@@ -781,6 +854,12 @@ user_id:
   in: body
   type: uuid
   required: true
+user_scripts:
+  description: |
+    Mapping between instances selected for migration and custom scripts to be run during OSMorphing stage.
+  in: body
+  type: object
+  required: false
 valid_connection:
   description: |
     A boolean value representing whether the endpoint connection is valid.

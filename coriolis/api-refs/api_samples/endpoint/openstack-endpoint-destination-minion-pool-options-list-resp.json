@@ -1,0 +1,63 @@
+{
+    "destination_minion_pool_options": [
+        {
+            "name": "migr_network",
+            "values": [
+                "ext-net",
+                "admin-net"
+            ],
+            "config_default": null
+        },
+        {
+            "name": "migr_fip_pool_name",
+            "values": [
+                {
+                    "name": "external-network-private/external-private",
+                    "id": "56471574-bbe8-4739-a103-1918198ca73d/8101d1a8-1e3e-423e-827d-6d7a5b6ba7be"
+                },
+                {
+                    "name": "ext-net/ext-subnet",
+                    "id": "b2f0b98e-03a1-4f13-92aa-ece55f34ebf8/038a72ea-1413-493b-82da-4c75a9077fbf"
+                }
+            ],
+            "config_default": null
+        },
+        {
+            "name": "migr_image",
+            "values": [
+                {
+                    "id": "c729f7b4-bac7-473f-a6e2-827dc01486f4",
+                    "name": "focal",
+                    "os_type": "unknown"
+                },
+                {
+                    "id": "d58f4bdf-bc45-4851-88e8-3cffc19a733a",
+                    "name": "CentOS8",
+                    "os_type": "linux"
+                },
+                {
+                    "id": "64df7925-fc27-4fce-80ed-63d85918064f",
+                    "name": "WS2016",
+                    "os_type": "windows"
+                }
+            ],
+            "config_default": null
+        },
+        {
+            "name": "migr_flavor_name",
+            "values": [
+                "m1.small",
+                "m1.medium"
+            ],
+            "config_default": "m1.small"
+        },
+        {
+            "name": "migr_worker_volume_type",
+            "values": [
+                "coriolis-tier",
+                "__DEFAULT__"
+            ],
+            "config_default": null
+        }
+    ]
+}

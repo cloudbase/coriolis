@@ -34,6 +34,12 @@
     "id": "480a4ba6-db63-43cb-a91b-4ef65665cd26",
     "replica_id": "78f89897-fca0-465c-bf0c-b23b36dfd619",
     "status": "RUNNING",
+    "last_execution_status": "UNEXECUTED",
+    "origin_minion_pool_id": null,
+    "destination_minion_pool_id": "a5e00fd3-42ac-4570-898b-5bbee0ff4acb",
+    "instance_osmorphing_minion_pool_mappings": {"instance1": "morphing_pool"},
+    "shutdown_instances": false,
+    "replication_count": 2,
     "tasks": [
       {
         "created_at": "2019-07-11T13:01:03.000000",

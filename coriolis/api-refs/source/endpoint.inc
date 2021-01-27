@@ -36,6 +36,7 @@ Response
   - type : endpoint_type
   - name : endpoint_name
   - description : endpoint_description
+  - mapped_regions : endpoint_mapped_regions
 
 **Example of Endpoint List Response**
 
@@ -82,6 +83,7 @@ Response
   - type : endpoint_id
   - name : endpoint_created_at
   - description : endpoint_description
+  - mapped_regions : endpoint_mapped_regions
 
 **Example of Endpoint Show Response**
   .. literalinclude:: ../api_samples/endpoint/openstack-endpoint-get-resp.json
@@ -93,6 +95,57 @@ Response
   .. literalinclude:: ../api_samples/endpoint/endpoint-get-resp-secret.json
      :language: javascript
 
+Create Endpoint
+===============
+
+.. rest_method:: POST /endpoints/
+
+Creates a cloud endpoint.
+
+Normal response codes: 200
+
+Error response codes: unauthorized(401), forbidden(403)
+
+Request
+-------
+
+.. rest_parameters:: parameters.yaml
+
+  - connection_info : connection_info
+  - type : provider_type
+  - name : endpoint_name
+  - description : endpoint_description
+  - mapped_regions : endpoint_mapped_regions
+
+**Example of Endpoint Create Request**
+
+  .. literalinclude:: ../api_samples/endpoint/openstack-endpoint-create-req.json
+     :language: javascript
+
+Response
+--------
+
+.. rest_parameters:: parameters.yaml
+
+  - endpoint : endpoint_object
+  - name : endpoint_created_at
+  - description : endpoint_description
+  - id : endpoint_id
+  - connection_info: connection_info
+  - deleted : endpoint_deleted
+  - deleted_at : endpoint_deleted_at
+  - created_at : endpoint_created_at
+  - updated_at : endpoint_updated_at
+  - type : endpoint_type
+  - user_id : user_id
+  - project_id : project_id
+  - mapped_regions : endpoint_mapped_regions
+
+
+**Example of Endpoint Create Response**
+
+  .. literalinclude:: ../api_samples/endpoint/openstack-endpoint-get-resp.json
+      :language: javascript
 
 Update Endpoint
 ===============
@@ -119,6 +172,7 @@ Request
    - name: endpoint_name
    - description : endpoint_description
    - connection_info : connection_info
+   - mapped_regions : endpoint_mapped_regions
 
 **Example of Endpoint Update Request**
 
@@ -158,7 +212,7 @@ Deletes an endpoint.
 
 The endpoint must exist.
 
-Normal response codes: 200
+Normal response codes: 204
 
 Error response codes: itemNotFound(404),unauthorized(401),
 forbidden(403)
@@ -210,10 +264,10 @@ Response
   - num_cores_per_socket : instance_cores_per_socket
   - nested_virtualization : instance_nested_virtualization
   - memory_mb : instance_memory_mb
-  - instance_name : instance_name
   - id : instance_id
   - os_type : instance_os_type
   - flavor_name : instance_flavor
+  - firmware_type : instance_firmware_type
 
 **Example Instance List on Openstack Endpoint**
   .. literalinclude:: ../api_samples/endpoint/endpoint-instance-list-resp.json
@@ -256,12 +310,12 @@ Response
   - id : instance_id
   - os_type : instance_os_type
   - memory_mb : instance_memory_mb
-  - instance_name : instance_name
   - num_cpu: instance_num_cpu
   - num_cores_per_socket : instance_cores_per_socket
   - nested_virtualization : instance_nested_virtualization
   - flavor_name : instance_flavor
   - devices : instance_devices
+  - firmware_type : instance_firmware_type
 
 **Example Instance Show On Openstack Endpoint**
 
@@ -421,55 +475,6 @@ Response
   .. literalinclude:: ../api_samples/endpoint/endpoint-storage-list-resp.json
       :language: javascript
 
-Create Endpoint
-===============
-
-.. rest_method:: POST /endpoints/
-
-Creates a cloud endpoint.
-
-Normal response codes: 200
-
-Error response codes: unauthorized(401), forbidden(403)
-
-Request
--------
-
-.. rest_parameters:: parameters.yaml
-
-  - connection_info : connection_info
-  - type : provider_type
-  - name : endpoint_name
-  - description : endpoint_description
-
-**Example of Endpoint Create Request**
-
-  .. literalinclude:: ../api_samples/endpoint/openstack-endpoint-create-req.json
-     :language: javascript
-
-Response
---------
-
-.. rest_parameters:: parameters.yaml
-
-  - endpoint : endpoint_object
-  - name : endpoint_created_at
-  - description : endpoint_description
-  - id : endpoint_id
-  - connection_info: connection_info
-  - deleted : endpoint_deleted
-  - deleted_at : endpoint_deleted_at
-  - created_at : endpoint_created_at
-  - updated_at : endpoint_updated_at
-  - type : endpoint_type
-  - user_id : user_id
-  - project_id : project_id
-
-**Example of Endpoint Create Response**
-
-  .. literalinclude:: ../api_samples/endpoint/openstack-endpoint-get-resp.json
-      :language: javascript
-
 
 Endpoint Actions
 ================
@@ -520,4 +525,85 @@ Response
 
 **Example of Failed Endpoint Validation Response**
   .. literalinclude:: ../api_samples/endpoint/endpoint-validate-connection-error-resp.json
+     :language: javascript
+
+
+Endpoint Minion Pool Options
+============================
+
+Get Endpoint Destination Minion Pool Options
+============================================
+
+.. rest_method:: GET /endpoints/{endpoint_id}/destination-minion-pool-options
+
+Shows possible options for destination minion pool parameters
+
+**Preconditions**
+
+The endpoint must exist and the platform must support listing minion pool options.
+
+Normal response codes: 200
+
+Error response codes: unauthorized(401), forbidden(403),
+itemNotFound(404)
+
+Request
+-------
+
+.. rest_parameters:: parameters.yaml
+
+   - endpoint_id : endpoint_id_path
+
+Response
+--------
+
+.. rest_parameters:: parameters.yaml
+
+  - destination_minion_pool_options : destination_minion_pool_options
+  - values : option_values
+  - config_default : option_config_default
+  - name : option_name
+
+**Example Endpoint Destination Minion Pool Options List On Openstack Endpoint**
+
+  .. literalinclude:: ../api_samples/endpoint/openstack-endpoint-destination-minion-pool-options-list-resp.json
+     :language: javascript
+
+
+Get Endpoint Source Minion Pool Options
+=======================================
+
+.. rest_method:: GET /endpoints/{endpoint_id}/source-minion-pool-options
+
+Shows possible options for source minion pool parameters
+
+**Preconditions**
+
+The endpoint must exist and the platform must support listing minion pool options.
+
+Normal response codes: 200
+
+Error response codes: unauthorized(401), forbidden(403),
+itemNotFound(404)
+
+Request
+-------
+
+.. rest_parameters:: parameters.yaml
+
+   - endpoint_id : endpoint_id_path
+
+Response
+--------
+
+.. rest_parameters:: parameters.yaml
+
+  - source_minion_pool_options : source_minion_pool_options
+  - values : option_values
+  - config_default : option_config_default
+  - name : option_name
+
+**Example Endpoint Source Minion Pool Options List On Openstack Endpoint**
+
+  .. literalinclude:: ../api_samples/endpoint/openstack-endpoint-source-minion-pool-options-list-resp.json
      :language: javascript
