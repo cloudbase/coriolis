@@ -1,0 +1,16 @@
+---
+- name: Remove Docker container
+  docker_container:
+    state: absent
+    name: coriolis-minion-manager
+
+- name: Remove Docker image
+  docker_image:
+    state: absent
+    force_absent: yes
+    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-minion-manager:{{ docker_images_tag }}"
+
+- name: Remove locks directory
+  file:
+    state: absent
+    path: "{{ coriolis_minion_manager_locks_dir_host }}"

@@ -1,0 +1,7 @@
+---
+- name: Remove Docker container
+  docker_container:
+    state: absent
+    name: coriolis-minion-manager
+
+- include_tasks: setup_minion_manager_container.yml

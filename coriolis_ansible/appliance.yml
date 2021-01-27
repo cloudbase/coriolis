@@ -30,6 +30,9 @@
         name: coriolis/scheduler
 
     - import_role:
+        name: coriolis/minion-manager
+
+    - import_role:
         name: coriolis/worker
 
     - import_role:

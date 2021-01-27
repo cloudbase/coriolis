@@ -10,6 +10,7 @@
     - coriolis-worker
     - coriolis-web
     - coriolis-scheduler
+    - coriolis-minion-manager
     - coriolis-logger
     - influxdb
 

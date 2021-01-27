@@ -49,3 +49,4 @@ coriolis_licensing_ui_endpoint: "http://{{ bind_address }}:{{ coriolis_licensing
 coriolis_locks_dir_containers: "/opt/coriolis/locks"
 coriolis_locks_dir_host: "/opt/coriolis/locks"
 coriolis_conductor_locks_dir_host: "{{ coriolis_locks_dir_host }}/conductor"
+coriolis_minion_manager_locks_dir_host: "{{ coriolis_locks_dir_host }}/minion-manager"
