@@ -13,21 +13,14 @@ def _format_minion_pool(req, minion_pool, keys=None):
     minion_pool_dict = dict(itertools.chain.from_iterable(
         transform(k, v) for k, v in minion_pool.items()))
 
-    # TODO(aznashwan): remove these redundancies once the base
-    # DB action model hirearchy will be overhauled:
-    for key in ["origin_endpoint_id", "destination_endpoint_id"]:
-        if key in minion_pool_dict:
-            minion_pool_dict["endpoint_id"] = minion_pool_dict.pop(key)
-    for key in ["source_environment", "destination_environment"]:
-        if key in minion_pool_dict:
-            minion_pool_dict["environment_options"] = minion_pool_dict.pop(key)
-
     def _hide_minion_creds(minion_conn):
-        if 'pkey' in minion_conn:
+        if not minion_conn:
+            return minion_conn
+        if minion_conn.get('pkey'):
             minion_conn['pkey'] = '***'
-        if 'password' in minion_conn:
+        if minion_conn.get('password'):
             minion_conn['password'] = '***'
-        if 'certificates' in minion_conn:
+        if minion_conn.get('certificates'):
             for key in minion_conn['certificates']:
                 minion_conn['certificates'][key] = '***'
     if 'minion_machines' in minion_pool_dict:
@@ -35,8 +28,9 @@ def _format_minion_pool(req, minion_pool, keys=None):
             if 'connection_info' in machine:
                 _hide_minion_creds(machine['connection_info'])
             if 'backup_writer_connection_info' in machine:
-                if 'connection_details' in machine[
-                        'backup_writer_connection_info']:
+                if machine.get('backup_writer_connection_info') and (
+                        'connection_details' in machine[
+                            'backup_writer_connection_info']):
                     _hide_minion_creds(
                         machine['backup_writer_connection_info'][
                             'connection_details'])

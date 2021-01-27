@@ -1,13 +1,16 @@
-import json
+# Copyright 2017 Cloudbase Solutions Srl
+# All Rights Reserved.
 
-from coriolis.conductor.rpc import client as rpc_client
-from coriolis import context
-from coriolis import exception
-from coriolis import utils
-from coriolis.replica_cron import cron
+import json
 
 from oslo_log import log as logging
 from oslo_utils import timeutils
+
+from coriolis import context
+from coriolis import exception
+from coriolis import utils
+from coriolis.conductor.rpc import client as rpc_client
+from coriolis.cron import cron
 
 LOG = logging.getLogger(__name__)
 

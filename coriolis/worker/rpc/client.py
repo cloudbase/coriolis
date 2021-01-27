@@ -34,12 +34,35 @@ class WorkerClient(rpc.BaseRPCClient):
         super(WorkerClient, self).__init__(
             target, timeout=timeout)
 
+    @classmethod
+    def from_service_definition(
+            cls, service, timeout=None, topic_override=None):
+        if service.get('topic') != constants.WORKER_MAIN_MESSAGING_TOPIC:
+            raise ValueError(
+                "Unknown topic '%s' for worker service client. Only "
+                "acceptable value is '%s': %s" % (
+                    service.get('topic'),
+                    constants.WORKER_MAIN_MESSAGING_TOPIC,
+                    service))
+        topic = constants.WORKER_MAIN_MESSAGING_TOPIC
+        if topic_override:
+            topic = topic_override
+        return cls(
+            timeout=timeout, base_worker_topic=topic, host=service.get('host'))
+
     def begin_task(self, ctxt, task_id, task_type, origin, destination,
                    instance, task_info):
         self._cast(
             ctxt, 'exec_task', task_id=task_id, task_type=task_type,
             origin=origin, destination=destination, instance=instance,
-            task_info=task_info)
+            task_info=task_info, report_to_conductor=True)
+
+    def run_task(self, ctxt, task_id, task_type, origin, destination,
+                 instance, task_info):
+        return self._call(
+            ctxt, 'exec_task', task_id=task_id, task_type=task_type,
+            origin=origin, destination=destination, instance=instance,
+            task_info=task_info, report_to_conductor=False)
 
     def cancel_task(self, ctxt, task_id, process_id, force):
         return self._call(

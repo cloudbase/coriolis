@@ -1,6 +1,8 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+import uuid
+
 from oslo_config import cfg
 from oslo_db import api as db_api
 from oslo_db import options as db_options
@@ -709,55 +711,161 @@ def get_task(context, task_id):
 @enginefacade.writer
 def add_task_event(context, task_id, level, message):
     task_event = models.TaskEvent()
+    task_event.id = str(uuid.uuid4())
+    task_event.index = 0
+    last_event = _get_last_task_event(context, task_id)
+    if last_event:
+        task_event.index = last_event.index + 1
     task_event.task_id = task_id
     task_event.level = level
     task_event.message = message
     _session(context).add(task_event)
-
-
-def _get_progress_update(context, task_id, current_step):
-    q = _soft_delete_aware_query(context, models.TaskProgressUpdate)
-    return q.filter(
-        models.TaskProgressUpdate.task_id == task_id,
-        models.TaskProgressUpdate.current_step == current_step).first()
+    return task_event
 
 
 @enginefacade.reader
-def get_task_progress_step(context, task_id):
-    curr_step = 0
-    q = _soft_delete_aware_query(context, models.TaskProgressUpdate)
-    last_step = q.filter(
+def _get_last_task_event(context, task_id):
+    q = _soft_delete_aware_query(
+        context, models.TaskEvent)
+    last_event = q.filter(
+        models.TaskEvent.task_id == task_id).order_by(
+            models.TaskEvent.index.desc()).first()
+    return last_event
+
+
+@enginefacade.reader
+def _get_last_task_progress_update(context, task_id):
+    q = _soft_delete_aware_query(
+        context, models.TaskProgressUpdate)
+    last_update = q.filter(
         models.TaskProgressUpdate.task_id == task_id).order_by(
-            models.TaskProgressUpdate.current_step.desc()).first()
+            models.TaskProgressUpdate.index.desc()).first()
+    return last_update
 
-    if last_step:
-        curr_step = last_step.current_step
 
-    return curr_step
+@enginefacade.reader
+def _get_last_minion_pool_event(context, pool_id):
+    q = _soft_delete_aware_query(
+        context, models.MinionPoolEvent)
+    last_event = q.filter(
+        models.MinionPoolEvent.pool_id == pool_id).order_by(
+            models.MinionPoolEvent.index.desc()).first()
+    return last_event
+
+
+@enginefacade.reader
+def _get_last_minion_pool_progress_update(context, pool_id):
+    q = _soft_delete_aware_query(
+        context, models.MinionPoolProgressUpdate)
+    last_event = q.filter(
+        models.MinionPoolProgressUpdate.pool_id == pool_id).order_by(
+            models.MinionPoolProgressUpdate.index.desc()).first()
+    return last_event
 
 
 @enginefacade.writer
-def add_task_progress_update(context, task_id, total_steps, message):
-    current_step = get_task_progress_step(context, task_id) + 1
-    task_progress_update = models.TaskProgressUpdate(
-        task_id=task_id, current_step=current_step, total_steps=total_steps,
-        message=message)
-    _session(context).add(task_progress_update)
+def add_minion_pool_event(context, pool_id, level, message):
+    pool_event = models.MinionPoolEvent()
+    pool_event.id = str(uuid.uuid4())
+    pool_event.pool_id = pool_id
+    pool_event.level = level
+    pool_event.message = message
+
+    pool_event.index = 0
+    last_pool_event = _get_last_minion_pool_event(context, pool_id)
+    if last_pool_event:
+        pool_event.index = last_pool_event.index + 1
+
+    _session(context).add(pool_event)
+    return pool_event
+
+
+def _get_minion_pool_progress_update(context, pool_id, index):
+    q = _soft_delete_aware_query(context, models.MinionPoolProgressUpdate)
+    return q.filter(
+        models.MinionPoolProgressUpdate.pool_id == pool_id,
+        models.MinionPoolProgressUpdate.index == index).first()
 
 
 @enginefacade.writer
-def update_task_progress_update(context, task_id, step, total_steps, message):
-    task_progress_update = _get_progress_update(context, task_id, step)
-    if not task_progress_update:
-        task_progress_update = models.TaskProgressUpdate(
-            task_id=task_id, current_step=step, total_steps=total_steps,
-            message=message)
-        _session(context).add(task_progress_update)
+def add_minion_pool_progress_update(
+        context, pool_id, message, initial_step=0, total_steps=0):
+    pool_progress_update = models.MinionPoolProgressUpdate()
+    pool_progress_update.id = str(uuid.uuid4())
+    pool_progress_update.pool_id = pool_id
+    pool_progress_update.current_step = initial_step
+    pool_progress_update.total_steps = total_steps
+    pool_progress_update.message = message
+    pool_progress_update.index = 0
+    last_progress_update = _get_last_minion_pool_progress_update(
+        context, pool_id)
+    if last_progress_update:
+        pool_progress_update.index = last_progress_update.index + 1
 
+    _session(context).add(pool_progress_update)
+    return pool_progress_update
+
+
+@enginefacade.writer
+def update_minion_pool_progress_update(
+        context, pool_id, update_index, new_current_step,
+        new_total_steps=None, new_message=None):
+    pool_progress_update = _get_minion_pool_progress_update(
+        context, pool_id, update_index)
+    if not pool_progress_update:
+        raise exception.NotFound(
+            "Could not find progress update for minion pool with ID '%s' and "
+            "index %s in the DB for updating." % (pool_id, update_index))
+
+    pool_progress_update.current_step = new_current_step
+    if new_total_steps is not None:
+        pool_progress_update.total_steps = new_total_steps
+    if new_message is not None:
+        pool_progress_update.message = new_message
+    return pool_progress_update
+
+
+def _get_progress_update(context, task_id, index):
+    q = _soft_delete_aware_query(context, models.TaskProgressUpdate)
+    return q.filter(
+        models.TaskProgressUpdate.task_id == task_id,
+        models.TaskProgressUpdate.index == index).first()
+
+
+@enginefacade.writer
+def add_task_progress_update(
+        context, task_id, message, initial_step=0, total_steps=0):
+    task_progress_update = models.TaskProgressUpdate()
+    task_progress_update.id = str(uuid.uuid4())
     task_progress_update.task_id = task_id
-    task_progress_update.current_step = step
+    task_progress_update.current_step = initial_step
     task_progress_update.total_steps = total_steps
     task_progress_update.message = message
+
+    task_progress_update.index = 0
+    last_progress_update = _get_last_task_progress_update(context, task_id)
+    if last_progress_update:
+        task_progress_update.index = last_progress_update.index + 1
+
+    _session(context).add(task_progress_update)
+    return task_progress_update
+
+
+@enginefacade.writer
+def update_task_progress_update(
+        context, task_id, update_index, new_current_step,
+        new_total_steps=None, new_message=None):
+    task_progress_update = _get_progress_update(context, task_id, update_index)
+    if not task_progress_update:
+        raise exception.NotFound(
+            "Could not find progress update for task with ID '%s' and "
+            "index %s in the DB for updating." % (task_id, update_index))
+
+    task_progress_update.current_step = new_current_step
+    if new_total_steps is not None:
+        task_progress_update.total_steps = new_total_steps
+    if new_message is not None:
+        task_progress_update.message = new_message
 
 
 @enginefacade.writer
@@ -868,7 +976,7 @@ def add_endpoint_region_mapping(context, endpoint_region_mapping):
 def get_endpoint_region_mapping(context, endpoint_id, region_id):
     q = _soft_delete_aware_query(context, models.EndpointRegionMapping)
     q = q.filter(
-        models.EndpointRegionMapping.region == region_id)
+        models.EndpointRegionMapping.region_id == region_id)
     q = q.filter(
         models.EndpointRegionMapping.endpoint_id == endpoint_id)
     return q.all()
@@ -1074,7 +1182,7 @@ def add_service_region_mapping(context, service_region_mapping):
 def get_service_region_mapping(context, service_id, region_id):
     q = _soft_delete_aware_query(context, models.ServiceRegionMapping)
     q = q.filter(
-        models.ServiceRegionMapping.region == region_id)
+        models.ServiceRegionMapping.region_id == region_id)
     q = q.filter(
         models.ServiceRegionMapping.service_id == service_id)
     return q.all()
@@ -1122,6 +1230,13 @@ def get_mapped_services_for_region(context, region_id):
 def add_minion_machine(context, minion_machine):
     minion_machine.user_id = context.user
     minion_machine.project_id = context.tenant
+    # inherit pool user/tenant if none are given:
+    if None in [minion_machine.user_id, minion_machine.project_id]:
+        pool = get_minion_pool(context, minion_machine.pool_id)
+        if not minion_machine.user_id:
+            minion_machine.user_id = pool.user_id
+        if not minion_machine.project_id:
+            minion_machine.project_id = pool.project_id
     _session(context).add(minion_machine)
 
 
@@ -1152,15 +1267,31 @@ def update_minion_machine(context, minion_machine_id, updated_values):
             "MinionMachine with ID '%s' does not exist." % minion_machine_id)
 
     updateable_fields = [
-        "connection_info", "provider_properties", "status",
-        "backup_writer_connection_info", "allocated_action"]
+        "connection_info", "provider_properties", "allocation_status",
+        "backup_writer_connection_info", "allocated_action",
+        "last_used_at", "power_status"]
     _update_sqlalchemy_object_fields(
         minion_machine, updateable_fields, updated_values)
 
 
 @enginefacade.writer
+def set_minion_machine_allocation_status(context, minion_machine_id, status):
+    machine = get_minion_machine(context, minion_machine_id)
+    if not machine:
+        raise exception.NotFound(
+            "Minion machine with ID '%s' not found" % minion_machine_id)
+    LOG.debug(
+        "Transitioning minion machine '%s' (pool '%s') from status '%s' to "
+        "'%s' in the DB",
+        minion_machine_id, machine.pool_id, machine.allocation_status, status)
+    machine.allocation_status = status
+    setattr(machine, 'updated_at', timeutils.utcnow())
+
+
+@enginefacade.writer
 def set_minion_machines_allocation_statuses(
-        context, minion_machine_ids, action_id, allocation_status):
+        context, minion_machine_ids, action_id, allocation_status,
+        refresh_allocation_time=True):
     machines = get_minion_machines(context)
     existing_machine_id_mappings = {
         machine.id: machine for machine in machines}
@@ -1177,10 +1308,12 @@ def set_minion_machines_allocation_statuses(
         LOG.debug(
             "Changing allocation status in DB for minion machine '%s' "
             "from '%s' to '%s' and allocated action from '%s' to '%s'" % (
-                machine.id, machine.status, allocation_status,
+                machine.id, machine.allocation_status, allocation_status,
                 machine.allocated_action, action_id))
         machine.allocated_action = action_id
-        machine.status = allocation_status
+        if refresh_allocation_time:
+            machine.last_used_at = timeutils.utcnow()
+        machine.allocation_status = allocation_status
 
 
 @enginefacade.writer
@@ -1195,60 +1328,69 @@ def delete_minion_machine(context, minion_machine_id):
 
 
 @enginefacade.writer
-def add_minion_pool_lifecycle(context, minion_pool_lifecycle):
-    minion_pool_lifecycle.user_id = context.user
-    minion_pool_lifecycle.project_id = context.tenant
-    _session(context).add(minion_pool_lifecycle)
+def add_minion_pool(context, minion_pool):
+    minion_pool.user_id = context.user
+    minion_pool.project_id = context.tenant
+    _session(context).add(minion_pool)
 
 
 @enginefacade.writer
-def delete_minion_pool_lifecycle(context, minion_pool_id):
-    _delete_transfer_action(
-        context, models.MinionPoolLifecycle, minion_pool_id)
+def delete_minion_pool(context, minion_pool_id):
+    args = {"id": minion_pool_id}
+    if is_user_context(context):
+        args["project_id"] = context.tenant
+    count = _soft_delete_aware_query(context, models.MinionPool).filter_by(
+        **args).soft_delete()
+    if count == 0:
+        raise exception.NotFound("0 entries were soft deleted")
 
 
 @enginefacade.reader
-def get_minion_pool_lifecycle(
-        context, minion_pool_id, include_tasks_executions=True,
-        include_machines=True):
-    q = _soft_delete_aware_query(context, models.MinionPoolLifecycle)
-    if include_tasks_executions:
-        q = q.options(orm.joinedload(models.MinionPoolLifecycle.executions))
+def get_minion_pool(
+        context, minion_pool_id, include_machines=True, include_events=True,
+        include_progress_updates=True):
+    q = _soft_delete_aware_query(context, models.MinionPool)
     if include_machines:
         q = q.options(orm.joinedload('minion_machines'))
+    if include_events:
+        q = q.options(orm.joinedload('events'))
+    if include_progress_updates:
+        q = q.options(orm.joinedload('progress_updates'))
     if is_user_context(context):
         q = q.filter(
-            models.MinionPoolLifecycle.project_id == context.tenant)
+            models.MinionPool.project_id == context.tenant)
     return q.filter(
-        models.MinionPoolLifecycle.id == minion_pool_id).first()
+        models.MinionPool.id == minion_pool_id).first()
 
 
 @enginefacade.reader
-def get_minion_pool_lifecycles(
-        context, include_tasks_executions=False, include_info=False,
-        include_machines=False, to_dict=True):
-    q = _soft_delete_aware_query(context, models.MinionPoolLifecycle)
-    if include_tasks_executions:
-        q = q.options(orm.joinedload(models.MinionPoolLifecycle.executions))
-    if include_info is False:
-        q = q.options(orm.defer('info'))
+def get_minion_pools(
+        context, include_machines=False, include_events=False,
+        include_progress_updates=False, to_dict=True):
+    q = _soft_delete_aware_query(context, models.MinionPool)
     q = q.filter()
     if is_user_context(context):
         q = q.filter(
-            models.Replica.project_id == context.tenant)
+            models.MinionPool.project_id == context.tenant)
     if include_machines:
         q = q.options(orm.joinedload('minion_machines'))
+    if include_events:
+        q = q.options(orm.joinedload('events'))
+    if include_progress_updates:
+        q = q.options(orm.joinedload('progress_updates'))
     db_result = q.all()
     if to_dict:
-        return [i.to_dict(
-            include_info=include_info,
-            include_executions=include_tasks_executions,
-            include_machines=include_machines) for i in db_result]
+        return [
+            i.to_dict(
+                include_machines=include_machines,
+                include_events=include_events,
+                include_progress_updates=include_progress_updates)
+            for i in db_result]
     return db_result
 
 
 @enginefacade.writer
-def add_minion_pool_lifecycle_execution(context, execution):
+def add_minion_pool_execution(context, execution):
     if is_user_context(context):
         if execution.action.project_id != context.tenant:
             raise exception.NotAuthorized()
@@ -1263,22 +1405,23 @@ def add_minion_pool_lifecycle_execution(context, execution):
 
 
 @enginefacade.writer
-def set_minion_pool_lifecycle_status(context, minion_pool_id, status):
-    pool = get_minion_pool_lifecycle(
-        context, minion_pool_id, include_tasks_executions=False,
-        include_machines=False)
+def set_minion_pool_status(context, minion_pool_id, status):
+    pool = get_minion_pool(
+        context, minion_pool_id, include_machines=False)
+    if not pool:
+        raise exception.NotFound(
+            "Minion pool '%s' not found" % minion_pool_id)
     LOG.debug(
-        "Transitioning minion pool '%s' from status '%s' to '%s'in DB",
-        minion_pool_id, pool.pool_status, status)
-    pool.pool_status = status
+        "Transitioning minion pool '%s' from status '%s' to '%s' in DB",
+        minion_pool_id, pool.status, status)
+    pool.status = status
     setattr(pool, 'updated_at', timeutils.utcnow())
 
 
 @enginefacade.writer
-def update_minion_pool_lifecycle(context, minion_pool_id, updated_values):
-    lifecycle = get_minion_pool_lifecycle(
-        context, minion_pool_id, include_tasks_executions=False,
-        include_machines=False)
+def update_minion_pool(context, minion_pool_id, updated_values):
+    lifecycle = get_minion_pool(
+        context, minion_pool_id, include_machines=False)
     if not lifecycle:
         raise exception.NotFound(
             "Minion pool '%s' not found" % minion_pool_id)
@@ -1286,69 +1429,21 @@ def update_minion_pool_lifecycle(context, minion_pool_id, updated_values):
     updateable_fields = [
         "minimum_minions", "maximum_minions", "minion_max_idle_time",
         "minion_retention_strategy", "environment_options",
-        "pool_shared_resources", "notes", "pool_name", "pool_os_type"]
-    # TODO(aznashwan): this should no longer be required when the
-    # transfer action class hirearchy is to be overhauled:
-    redundancies = {
-        "environment_options": [
-            "source_environment", "destination_environment"]}
+        "shared_resources", "notes", "name", "os_type"]
     for field in updateable_fields:
         if field in updated_values:
-            if field in redundancies:
-                for old_key in redundancies[field]:
-                    LOG.debug(
-                        "Updating the '%s' field of Minion Pool '%s' to: '%s'",
-                        old_key, minion_pool_id, updated_values[field])
-                    setattr(lifecycle, old_key, updated_values[field])
-            else:
-                LOG.debug(
-                    "Updating the '%s' field of Minion Pool '%s' to: '%s'",
-                    field, minion_pool_id, updated_values[field])
-                setattr(lifecycle, field, updated_values[field])
+            LOG.debug(
+                "Updating the '%s' field of Minion Pool '%s' to: '%s'",
+                field, minion_pool_id, updated_values[field])
+            setattr(lifecycle, field, updated_values[field])
 
     non_updateable_fields = set(
         updated_values.keys()).difference(updateable_fields)
     if non_updateable_fields:
         LOG.warn(
-            "The following Replica fields can NOT be updated: %s",
+            "The following Minion Pool fields can NOT be updated: %s",
             non_updateable_fields)
 
     # the oslo_db library uses this method for both the `created_at` and
     # `updated_at` fields
     setattr(lifecycle, 'updated_at', timeutils.utcnow())
-
-@enginefacade.reader
-def get_minion_pool_lifecycle_executions(
-        context, lifecycle_id, include_tasks=True):
-    q = _soft_delete_aware_query(context, models.TasksExecution)
-    q = q.join(models.MinionPoolLifecycle)
-    if include_tasks:
-        q = _get_tasks_with_details_options(q)
-    if is_user_context(context):
-        q = q.filter(models.MinionPoolLifecycle.project_id == context.tenant)
-    return q.filter(
-        models.MinionPoolLifecycle.id == lifecycle_id).all()
-
-@enginefacade.reader
-def get_minion_pool_lifecycle_execution(context, lifecycle_id, execution_id):
-    q = _soft_delete_aware_query(context, models.TasksExecution).join(
-        models.MinionPoolLifecycle)
-    q = _get_tasks_with_details_options(q)
-    if is_user_context(context):
-        q = q.filter(models.MinionPoolLifecycle.project_id == context.tenant)
-    return q.filter(
-        models.MinionPoolLifecycle.id == lifecycle_id,
-        models.TasksExecution.id == execution_id).first()
-
-@enginefacade.writer
-def delete_minion_pool_lifecycle_execution(context, execution_id):
-    q = _soft_delete_aware_query(context, models.TasksExecution).filter(
-        models.TasksExecution.id == execution_id)
-    if is_user_context(context):
-        if not q.join(models.MinionPoolLifecycle).filter(
-                models.MinionPoolLifecycle.project_id == (
-                    context.tenant)).first():
-            raise exception.NotAuthorized()
-    count = q.soft_delete()
-    if count == 0:
-        raise exception.NotFound("0 entries were soft deleted")

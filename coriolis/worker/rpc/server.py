@@ -21,6 +21,7 @@ from coriolis import constants
 from coriolis import context
 from coriolis import events
 from coriolis import exception
+from coriolis.minion_manager.rpc import client as rpc_minion_manager_client
 from coriolis.providers import factory as providers_factory
 from coriolis import schemas
 from coriolis import service
@@ -36,46 +37,21 @@ LOG = logging.getLogger(__name__)
 VERSION = "1.0"
 
 
-class _ConductorProviderEventHandler(events.BaseEventHandler):
-    def __init__(self, ctxt, task_id):
-        self._ctxt = ctxt
-        self._task_id = task_id
-        self._rpc_conductor_client = rpc_conductor_client.ConductorClient()
-
-    def add_task_progress_update(self, total_steps, message):
-        LOG.info("Progress update: %s", message)
-        self._rpc_conductor_client.add_task_progress_update(
-            self._ctxt, self._task_id, total_steps, message)
-
-    def update_task_progress_update(self, step, total_steps, message):
-        LOG.info("Progress update: %s", message)
-        self._rpc_conductor_client.update_task_progress_update(
-            self._ctxt, self._task_id, step, total_steps, message)
-
-    def get_task_progress_step(self):
-        return self._rpc_conductor_client.get_task_progress_step(
-            self._ctxt, self._task_id)
-
-    def info(self, message):
-        LOG.info(message)
-        self._rpc_conductor_client.task_event(
-            self._ctxt, self._task_id, constants.TASK_EVENT_INFO, message)
-
-    def warn(self, message):
-        LOG.warn(message)
-        self._rpc_conductor_client.task_event(
-            self._ctxt, self._task_id, constants.TASK_EVENT_WARNING, message)
-
-    def error(self, message):
-        LOG.error(message)
-        self._rpc_conductor_client.task_event(
-            self._ctxt, self._task_id, constants.TASK_EVENT_ERROR, message)
+# TODO(aznashwan): parametrize the event handler provided during task execution
+# to decouple what gets notified from the task running logic itself:
+def _get_event_handler_for_task_type(task_type, ctxt, task_object_id):
+    if task_type in constants.MINION_POOL_OPERATIONS_TASKS:
+        return rpc_minion_manager_client.MinionManagerPoolRpcEventHandler(
+            ctxt, task_object_id)
+    return rpc_conductor_client.ConductorTaskRpcEventHandler(
+        ctxt, task_object_id)
 
 
 class WorkerServerEndpoint(object):
     def __init__(self):
         self._server = utils.get_hostname()
         self._service_registration = self._register_worker_service()
+        self._rpc_conductor_client_instance = None
 
     @property
     def _rpc_conductor_client(self):
@@ -84,7 +60,10 @@ class WorkerServerEndpoint(object):
         # be invalidated. Considering this class both serves from a "main
         # process" as well as forking child processes, it is safest to
         # re-instantiate the client every time:
-        return rpc_conductor_client.ConductorClient()
+        if self._rpc_conductor_client_instance is None:
+            self._rpc_conductor_client_instance = (
+                rpc_conductor_client.ConductorClient())
+        return self._rpc_conductor_client_instance
 
     def _register_worker_service(self):
         host = utils.get_hostname()
@@ -97,8 +76,10 @@ class WorkerServerEndpoint(object):
         status = self.get_service_status(dummy_context)
         service_registration = (
             conductor_rpc_utils.check_create_registration_for_service(
-                self._rpc_conductor_client, dummy_context, host, binary,
-                constants.WORKER_MAIN_MESSAGING_TOPIC, enabled=True,
+                # NOTE: considering this only runs once on startup, we
+                # instantiate a fresh conductor client instance for it:
+                rpc_conductor_client.ConductorClient(), dummy_context, host,
+                binary, constants.WORKER_MAIN_MESSAGING_TOPIC, enabled=True,
                 providers=status['providers'], specs=status['specs']))
         LOG.info(
             "Worker service is successfully registered with the following "
@@ -151,6 +132,8 @@ class WorkerServerEndpoint(object):
                 "completed/error'd." % (
                     process_id, task_id))
             LOG.error(msg)
+            self._rpc_conductor_client.confirm_task_cancellation(
+                ctxt, task_id, msg)
 
     def _handle_mp_log_events(self, p, mp_log_q):
         while True:
@@ -198,7 +181,8 @@ class WorkerServerEndpoint(object):
         """ Returns a list of strings with paths on the worker with shared
         libraries needed by the source/destination providers.
         """
-        event_handler = _ConductorProviderEventHandler(ctxt, task_id)
+        event_handler = _get_event_handler_for_task_type(
+            task_type, ctxt, task_id)
         task_runner = task_runners_factory.get_task_runner_class(
             task_type)()
 
@@ -224,7 +208,7 @@ class WorkerServerEndpoint(object):
         return result
 
     def _exec_task_process(self, ctxt, task_id, task_type, origin, destination,
-                           instance, task_info):
+                           instance, task_info, report_to_conductor=True):
         mp_ctx = multiprocessing.get_context('spawn')
         mp_q = mp_ctx.Queue()
         mp_log_q = mp_ctx.Queue()
@@ -237,24 +221,26 @@ class WorkerServerEndpoint(object):
             ctxt, task_id, task_type, origin, destination)
 
         try:
-            LOG.debug(
-                "Attempting to set task host on Conductor for task '%s'.",
-                task_id)
-            self._rpc_conductor_client.set_task_host(
-                ctxt, task_id, self._server)
+            if report_to_conductor:
+                LOG.debug(
+                    "Attempting to set task host on Conductor for task '%s'.",
+                    task_id)
+                self._rpc_conductor_client.set_task_host(
+                    ctxt, task_id, self._server)
             LOG.debug(
                 "Attempting to start process for task with ID '%s'", task_id)
             self._start_process_with_custom_library_paths(
                 p, extra_library_paths)
             LOG.info("Task process started: %s", task_id)
+            if report_to_conductor:
+                LOG.debug(
+                    "Attempting to set task process on Conductor for task '%s'.",
+                    task_id)
+                self._rpc_conductor_client.set_task_process(
+                    ctxt, task_id, p.pid)
             LOG.debug(
-                "Attempting to set task process on Conductor for task '%s'.",
-                task_id)
-            self._rpc_conductor_client.set_task_process(
-                ctxt, task_id, p.pid)
-            LOG.debug(
-                "Successfully started and retported task process for task "
-                "with ID '%s'.", task_id)
+                "Successfully started and reported task process for task "
+                "with ID '%s' (PID %d)", task_id, p.pid)
         except (Exception, KeyboardInterrupt) as ex:
             LOG.debug(
                 "Exception occurred whilst setting host for task '%s'. Error "
@@ -290,39 +276,51 @@ class WorkerServerEndpoint(object):
         return result
 
     def exec_task(self, ctxt, task_id, task_type, origin, destination,
-                  instance, task_info):
+                  instance, task_info, report_to_conductor=True):
         try:
             task_result = self._exec_task_process(
                 ctxt, task_id, task_type, origin, destination,
-                instance, task_info)
+                instance, task_info, report_to_conductor=report_to_conductor)
 
             LOG.info(
                 "Output of completed %s task with ID %s: %s",
                 task_type, task_id,
                 utils.sanitize_task_info(task_result))
 
+            if not report_to_conductor:
+                return task_result
             self._rpc_conductor_client.task_completed(
                 ctxt, task_id, task_result)
         except exception.TaskProcessCanceledException as ex:
-            LOG.debug(
-                "Task with ID '%s' appears to have been cancelled. "
-                "Confirming cancellation to Conductor now. Error was: %s",
-                task_id, utils.get_exception_details())
-            LOG.exception(ex)
-            self._rpc_conductor_client.confirm_task_cancellation(
-                ctxt, task_id, str(ex))
+            if report_to_conductor:
+                LOG.debug(
+                    "Task with ID '%s' appears to have been cancelled. "
+                    "Confirming cancellation to Conductor now. Error was: %s",
+                    task_id, utils.get_exception_details())
+                LOG.exception(ex)
+                self._rpc_conductor_client.confirm_task_cancellation(
+                    ctxt, task_id, str(ex))
+            else:
+                raise
         except exception.NoSuitableWorkerServiceError as ex:
-            LOG.warn(
-                "A conductor-side scheduling error has occurred following the "
-                "completion of task '%s'. Ignoring. Error was: %s",
-                task_id, utils.get_exception_details())
+            if report_to_conductor:
+                LOG.warn(
+                    "A conductor-side scheduling error has occurred following "
+                    "the completion of task '%s'. Ignoring. Error was: %s",
+                    task_id, utils.get_exception_details())
+            else:
+                raise
         except Exception as ex:
-            LOG.debug(
-                "Task with ID '%s' has error'd out. Reporting error to "
-                "Conductor now. Error was: %s",
-                task_id, utils.get_exception_details())
-            LOG.exception(ex)
-            self._rpc_conductor_client.set_task_error(ctxt, task_id, str(ex))
+            if report_to_conductor:
+                LOG.debug(
+                    "Task with ID '%s' has error'd out. Reporting error to "
+                    "Conductor now. Error was: %s",
+                    task_id, utils.get_exception_details())
+                LOG.exception(ex)
+                self._rpc_conductor_client.set_task_error(
+                        ctxt, task_id, str(ex))
+            else:
+                raise
 
     def get_endpoint_instances(self, ctxt, platform_name, connection_info,
                                source_environment, marker, limit,
@@ -643,7 +641,8 @@ def _task_process(ctxt, task_id, task_type, origin, destination, instance,
 
         task_runner = task_runners_factory.get_task_runner_class(
             task_type)()
-        event_handler = _ConductorProviderEventHandler(ctxt, task_id)
+        event_handler = _get_event_handler_for_task_type(
+            task_type, ctxt, task_id)
 
         LOG.debug("Executing task: %(task_id)s, type: %(task_type)s, "
                   "origin: %(origin)s, destination: %(destination)s, "

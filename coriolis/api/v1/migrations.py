@@ -61,9 +61,18 @@ class MigrationController(api_wsgi.Controller):
             'destination_minion_pool_id')
         instance_osmorphing_minion_pool_mappings = migration.get(
             'instance_osmorphing_minion_pool_mappings', {})
-        destination_environment = migration.get(
-            "destination_environment", {})
-        instances = migration["instances"]
+        instances = api_utils.validate_instances_list_for_transfer(
+            migration.get('instances'))
+        extras = [
+            instance
+            for instance in instance_osmorphing_minion_pool_mappings
+            if instance not in instances]
+        if extras:
+            raise ValueError(
+                "One or more instance OSMorphing pool mappings were "
+                "provided for instances (%s) which are not part of the "
+                "migration's declared instances (%s)" % (extras, instances))
+
         notes = migration.get("notes")
         skip_os_morphing = migration.get("skip_os_morphing", False)
         shutdown_instances = migration.get(
@@ -80,20 +89,22 @@ class MigrationController(api_wsgi.Controller):
 
         network_map = migration.get("network_map", {})
         api_utils.validate_network_map(network_map)
-        destination_environment['network_map'] = network_map
-
-        # NOTE(aznashwan): we validate the destination environment for the
-        # import provider before appending the 'storage_mappings' parameter
-        # for plugins with strict property name checks which do not yet
-        # support storage mapping features:
-        self._endpoints_api.validate_target_environment(
-            context, destination_endpoint_id, destination_environment)
 
         # TODO(aznashwan): until the provider plugin interface is updated
         # to have separate 'network_map' and 'storage_mappings' fields,
         # we add them as part of the destination environment:
+        destination_environment = migration.get(
+            "destination_environment", {})
+        destination_environment['network_map'] = network_map
+        self._endpoints_api.validate_target_environment(
+            context, destination_endpoint_id, destination_environment)
+
         storage_mappings = migration.get("storage_mappings", {})
         api_utils.validate_storage_mappings(storage_mappings)
+        # NOTE(aznashwan): we validate the destination environment for the
+        # import provider before appending the 'storage_mappings' parameter
+        # for plugins with strict property name checks which do not yet
+        # support storage mapping features:
         destination_environment['storage_mappings'] = storage_mappings
 
         return (origin_endpoint_id, destination_endpoint_id,

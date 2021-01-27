@@ -48,6 +48,41 @@ class WSManConnection(object):
             cert_pem=cert_pem,
             cert_key_pem=cert_key_pem)
 
+    @classmethod
+    def from_connection_info(cls, connection_info):
+        """ Returns a wsman.WSManConnection object for the provided conn info. """
+        if not isinstance(connection_info, dict):
+            raise ValueError(
+                "WSMan connection must be a dict. Got type '%s', value: %s" % (
+                    type(connection_info), connection_info))
+
+        required_keys = ["ip", "username", "password"]
+        missing = [key for key in required_keys if key not in connection_info]
+        if missing:
+            raise ValueError(
+                "The following keys were missing from WSMan connection info %s. "
+                "Got: %s" % (missing, connection_info))
+
+        host = connection_info["ip"]
+        port = connection_info.get("port", 5986)
+        username = connection_info["username"]
+        password = connection_info.get("password")
+        cert_pem = connection_info.get("cert_pem")
+        cert_key_pem = connection_info.get("cert_key_pem")
+        url = "https://%s:%s/wsman" % (host, port)
+
+        LOG.info("Connection info: %s", str(connection_info))
+
+        LOG.info("Waiting for connectivity on host: %(host)s:%(port)s",
+                 {"host": host, "port": port})
+        utils.wait_for_port_connectivity(host, port)
+
+        conn = cls()
+        conn.connect(url=url, username=username, password=password,
+                     cert_pem=cert_pem, cert_key_pem=cert_key_pem)
+
+        return conn
+
     def disconnect(self):
         self._protocol = None
 

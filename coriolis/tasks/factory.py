@@ -128,7 +128,19 @@ _TASKS_MAP = {
     constants.TASK_TYPE_RELEASE_OSMORPHING_MINION:
         minion_pool_tasks.ReleaseOSMorphingMinionTask,
     constants.TASK_TYPE_COLLECT_OSMORPHING_INFO:
-        minion_pool_tasks.CollectOSMorphingInfoTask
+        minion_pool_tasks.CollectOSMorphingInfoTask,
+    constants.TASK_TYPE_HEALTHCHECK_SOURCE_MINION:
+        minion_pool_tasks.HealthcheckSourceMinionMachineTask,
+    constants.TASK_TYPE_HEALTHCHECK_DESTINATION_MINION:
+        minion_pool_tasks.HealthcheckDestinationMinionTask,
+    constants.TASK_TYPE_POWER_ON_SOURCE_MINION:
+        minion_pool_tasks.PowerOnSourceMinionTask,
+    constants.TASK_TYPE_POWER_OFF_SOURCE_MINION:
+        minion_pool_tasks.PowerOffSourceMinionTask,
+    constants.TASK_TYPE_POWER_ON_DESTINATION_MINION:
+        minion_pool_tasks.PowerOnDestinationMinionTask,
+    constants.TASK_TYPE_POWER_OFF_DESTINATION_MINION:
+        minion_pool_tasks.PowerOffDestinationMinionTask
 }
 
 

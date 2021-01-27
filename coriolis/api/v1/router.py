@@ -18,8 +18,6 @@ from coriolis.api.v1 import migration_actions
 from coriolis.api.v1 import migrations
 from coriolis.api.v1 import minion_pools
 from coriolis.api.v1 import minion_pool_actions
-from coriolis.api.v1 import minion_pool_tasks_executions
-from coriolis.api.v1 import minion_pool_tasks_execution_actions
 from coriolis.api.v1 import provider_schemas
 from coriolis.api.v1 import providers
 from coriolis.api.v1 import regions
@@ -78,26 +76,6 @@ class APIRouter(api.APIRouter):
         mapper.connect('minion_pool_actions',
                        minion_pool_path + '/actions',
                        controller=self.resources['minion_pool_actions'],
-                       action='action',
-                       conditions={'method': 'POST'})
-
-        self.resources['minion_pool_tasks_executions'] = \
-            minion_pool_tasks_executions.create_resource()
-        mapper.resource('minion_pools', 'minion_pools/{minion_pool_id}/executions',
-                        controller=self.resources['minion_pool_tasks_executions'],
-                        collection={'detail': 'GET'},
-                        member={'action': 'POST'})
-
-        minion_pool_tasks_execution_actions_resource = \
-            minion_pool_tasks_execution_actions.create_resource()
-        self.resources['minion_pool_tasks_execution_actions'] = \
-            minion_pool_tasks_execution_actions_resource
-        pool_execution_path = (
-            '/{project_id}/minion_pools/{minion_pool_id}/executions/{id}')
-        mapper.connect('minion_pool_tasks_execution_actions',
-                       pool_execution_path + '/actions',
-                       controller=self.resources[
-                           'minion_pool_tasks_execution_actions'],
                        action='action',
                        conditions={'method': 'POST'})
 

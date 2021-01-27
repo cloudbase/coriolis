@@ -14,18 +14,13 @@ LOG = logging.getLogger(__name__)
 
 
 SOURCE_MINION_TASK_INFO_FIELD_MAPPINGS = {
-    # NOTE: these redundancies are in place so as to have the
-    # 'Release*' task classes clear these fields after they run:
-    "source_minion_machine_id": "source_minion_machine_id",
-    "source_minion_provider_properties": "source_resources",
-    "source_minion_connection_info": "source_resources_connection_info"}
+    "origin_minion_provider_properties": "source_resources",
+    "origin_minion_connection_info": "source_resources_connection_info"}
 TARGET_MINION_TASK_INFO_FIELD_MAPPINGS = {
-    "target_minion_machine_id": "target_minion_machine_id",
-    "target_minion_provider_properties": "target_resources",
-    "target_minion_backup_writer_connection_info": (
+    "destination_minion_provider_properties": "target_resources",
+    "destination_minion_backup_writer_connection_info": (
         "target_resources_connection_info")}
 OSMOPRHING_MINION_TASK_INFO_FIELD_MAPPINGS = {
-    "osmorphing_minion_machine_id": "osmorphing_minion_machine_id",
     "osmorphing_minion_provider_properties": "os_morphing_resources",
     "osmorphing_minion_connection_info": "osmorphing_connection_info"}
 
@@ -477,7 +472,7 @@ class AttachVolumesToSourceMinionTask(_BaseAttachVolumesToTransferMinionTask):
 
     @classmethod
     def _get_minion_properties_task_info_field(cls):
-        return "source_minion_provider_properties"
+        return "origin_minion_provider_properties"
 
     @classmethod
     def get_volumes_info_from_task_info(cls, task_info):
@@ -508,7 +503,7 @@ class AttachVolumesToDestinationMinionTask(
 
     @classmethod
     def _get_minion_properties_task_info_field(cls):
-        return "target_minion_provider_properties"
+        return "destination_minion_provider_properties"
 
     @classmethod
     def _get_provider_disk_operation(cls, provider):
@@ -701,7 +696,7 @@ class ValidateSourceMinionCompatibilityTask(
 
     @classmethod
     def _get_minion_properties_task_info_field(cls):
-        return "source_minion_provider_properties"
+        return "origin_minion_provider_properties"
 
     @classmethod
     def _get_provider_pool_validation_operation(cls, provider):
@@ -721,7 +716,7 @@ class ValidateDestinationMinionCompatibilityTask(
 
     @classmethod
     def _get_minion_properties_task_info_field(cls):
-        return "target_minion_provider_properties"
+        return "destination_minion_provider_properties"
 
     @classmethod
     def _get_provider_pool_validation_operation(cls, provider):
@@ -865,3 +860,161 @@ class CollectOSMorphingInfoTask(base.TaskRunner):
 
         return {
             "osmorphing_info": result["osmorphing_info"]}
+
+
+class _BaseHealthcheckMinionMachineTask(base.TaskRunner):
+    """ Calls into the provider to healthcheck the minion machine. """
+
+    @classmethod
+    def get_required_platform(cls):
+        raise NotImplementedError(
+            "No minion healthcheck platform specified")
+
+    @classmethod
+    def get_required_task_info_properties(cls):
+        return ["minion_provider_properties", "minion_connection_info"]
+
+    @classmethod
+    def get_returned_task_info_properties(cls):
+        return []
+
+    @classmethod
+    def get_required_provider_types(cls):
+        return _get_required_minion_pool_provider_types_for_platform(
+            cls.get_required_platform())
+
+    def _run(self, ctxt, instance, origin, destination,
+             task_info, event_handler):
+
+        platform_to_target = None
+        required_platform = self.get_required_platform()
+        if required_platform == constants.TASK_PLATFORM_SOURCE:
+            platform_to_target = origin
+        elif required_platform == constants.TASK_PLATFORM_DESTINATION:
+            platform_to_target = destination
+        else:
+            raise NotImplementedError(
+                "Unknown minion healthcheck platform '%s'" % (
+                    required_platform))
+
+        connection_info = base.get_connection_info(ctxt, platform_to_target)
+        provider_type = self.get_required_provider_types()[
+            self.get_required_platform()][0]
+        provider = providers_factory.get_provider(
+            platform_to_target["type"], provider_type, event_handler)
+
+        minion_properties = task_info['minion_provider_properties']
+        minion_connection_info = base.unmarshal_migr_conn_info(
+            task_info['minion_connection_info'])
+
+        provider.healthcheck_minion(
+            ctxt, connection_info, minion_properties, minion_connection_info)
+
+        return {}
+
+
+class HealthcheckSourceMinionMachineTask(_BaseHealthcheckMinionMachineTask):
+
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_SOURCE
+
+
+class HealthcheckDestinationMinionTask(_BaseHealthcheckMinionMachineTask):
+
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_DESTINATION
+
+
+class _BasePowerCycleMinionTask(base.TaskRunner):
+
+    @classmethod
+    def get_required_platform(cls):
+        raise NotImplementedError(
+            "No minion power cycle platform specified")
+
+    @classmethod
+    def get_required_provider_types(cls):
+        return _get_required_minion_pool_provider_types_for_platform(
+            cls.get_required_platform())
+
+    @classmethod
+    def get_required_task_info_properties(cls):
+        return ["minion_provider_properties"]
+
+    @classmethod
+    def get_returned_task_info_properties(cls):
+        return []
+
+    @classmethod
+    def _get_minion_power_cycle_op(cls, provider):
+        raise NotImplementedError(
+            "No minion power cycle operation implemented.")
+
+    def _run(self, ctxt, instance, origin, destination,
+             task_info, event_handler):
+
+        platform_to_target = None
+        required_platform = self.get_required_platform()
+        if required_platform == constants.TASK_PLATFORM_SOURCE:
+            platform_to_target = origin
+        elif required_platform == constants.TASK_PLATFORM_DESTINATION:
+            platform_to_target = destination
+        else:
+            raise NotImplementedError(
+                "Unknown minion healthcheck platform '%s'" % (
+                    required_platform))
+
+        connection_info = base.get_connection_info(ctxt, platform_to_target)
+        provider_type = self.get_required_provider_types()[
+            self.get_required_platform()][0]
+        provider = providers_factory.get_provider(
+            platform_to_target["type"], provider_type, event_handler)
+        power_cycle_op = self._get_minion_power_cycle_op(provider)
+        minion_properties = task_info['minion_provider_properties']
+        power_cycle_op(ctxt, connection_info, minion_properties)
+
+        return {}
+
+
+class _BasePowerOnMinionTask(_BasePowerCycleMinionTask):
+
+    @classmethod
+    def _get_minion_power_cycle_op(cls, provider):
+        return provider.start_minion
+
+
+class PowerOnSourceMinionTask(_BasePowerOnMinionTask):
+
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_SOURCE
+
+
+class PowerOnDestinationMinionTask(_BasePowerOnMinionTask):
+
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_DESTINATION
+
+
+class _BasePowerOffMinionTask(_BasePowerCycleMinionTask):
+
+    @classmethod
+    def _get_minion_power_cycle_op(cls, provider):
+        return provider.shutdown_minion
+
+
+class PowerOffSourceMinionTask(_BasePowerOffMinionTask):
+
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_SOURCE
+
+
+class PowerOffDestinationMinionTask(_BasePowerOffMinionTask):
+
+    @classmethod
+    def get_required_platform(cls):
+        return constants.TASK_PLATFORM_DESTINATION

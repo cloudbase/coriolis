@@ -153,6 +153,10 @@ class InvalidMinionPoolSelection(Invalid):
     message = _("The selected minion pool is incompatible.")
 
 
+class InvalidMinionMachineState(Invalid):
+    message = _("The selected minion machine is in an invalid state.")
+
+
 class MinionMachineAllocationFailure(Invalid):
     message = _("No minion machines were available for allocation")
 

@@ -60,16 +60,14 @@ class ReplicaController(api_wsgi.Controller):
         destination_endpoint_id = replica["destination_endpoint_id"]
         destination_environment = replica.get(
             "destination_environment", {})
-        instances = replica["instances"]
+        instances = api_utils.validate_instances_list_for_transfer(
+            replica.get('instances'))
+
         notes = replica.get("notes")
 
         source_environment = replica.get("source_environment", {})
         self._endpoints_api.validate_source_environment(
             context, origin_endpoint_id, source_environment)
-
-        network_map = replica.get("network_map", {})
-        api_utils.validate_network_map(network_map)
-        destination_environment['network_map'] = network_map
 
         origin_minion_pool_id = replica.get(
             'origin_minion_pool_id')
@@ -77,6 +75,24 @@ class ReplicaController(api_wsgi.Controller):
             'destination_minion_pool_id')
         instance_osmorphing_minion_pool_mappings = replica.get(
             'instance_osmorphing_minion_pool_mappings', {})
+        extras = [
+            instance
+            for instance in instance_osmorphing_minion_pool_mappings
+            if instance not in instances]
+        if extras:
+            raise ValueError(
+                "One or more instance OSMorphing pool mappings were "
+                "provided for instances (%s) which are not part of the "
+                "Replicas's declared instances (%s)" % (extras, instances))
+
+        # TODO(aznashwan): until the provider plugin interface is updated
+        # to have separate 'network_map' and 'storage_mappings' fields,
+        # we add them as part of the destination environment:
+        network_map = replica.get("network_map", {})
+        api_utils.validate_network_map(network_map)
+        destination_environment['network_map'] = network_map
+        self._endpoints_api.validate_target_environment(
+            context, destination_endpoint_id, destination_environment)
 
         user_scripts = replica.get('user_scripts', {})
         api_utils.validate_user_scripts(user_scripts)
@@ -87,15 +103,9 @@ class ReplicaController(api_wsgi.Controller):
         # import provider before appending the 'storage_mappings' parameter
         # for plugins with strict property name checks which do not yet
         # support storage mapping features:
-        self._endpoints_api.validate_target_environment(
-            context, destination_endpoint_id, destination_environment)
-
         storage_mappings = replica.get("storage_mappings", {})
         api_utils.validate_storage_mappings(storage_mappings)
 
-        # TODO(aznashwan): until the provider plugin interface is updated
-        # to have separate 'network_map' and 'storage_mappings' fields,
-        # we add them as part of the destination environment:
         destination_environment['storage_mappings'] = storage_mappings
 
         return (origin_endpoint_id, destination_endpoint_id,

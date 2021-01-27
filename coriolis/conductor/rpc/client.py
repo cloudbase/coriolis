@@ -2,12 +2,16 @@
 # All Rights Reserved.
 
 from oslo_config import cfg
+from oslo_log import log as logging
 import oslo_messaging as messaging
 
 from coriolis import constants
+from coriolis import events
 from coriolis import rpc
 
+
 VERSION = "1.0"
+LOG = logging.getLogger(__name__)
 
 conductor_opts = [
     cfg.IntOpt("conductor_rpc_timeout",
@@ -255,45 +259,50 @@ class ConductorClient(rpc.BaseRPCClient):
             ctxt, 'cancel_migration', migration_id=migration_id, force=force)
 
     def set_task_host(self, ctxt, task_id, host):
-        self._call(
+        self._cast(
             ctxt, 'set_task_host', task_id=task_id, host=host)
 
     def set_task_process(self, ctxt, task_id, process_id):
-        self._call(
+        self._cast(
             ctxt, 'set_task_process', task_id=task_id, process_id=process_id)
 
     def task_completed(self, ctxt, task_id, task_result):
-        self._call(
+        self._cast(
             ctxt, 'task_completed', task_id=task_id, task_result=task_result)
 
     def confirm_task_cancellation(self, ctxt, task_id, cancellation_details):
-        self._call(
+        self._cast(
             ctxt, 'confirm_task_cancellation', task_id=task_id,
             cancellation_details=cancellation_details)
 
     def set_task_error(self, ctxt, task_id, exception_details):
-        self._call(
+        self._cast(
             ctxt, 'set_task_error', task_id=task_id,
             exception_details=exception_details)
 
-    def task_event(self, ctxt, task_id, level, message):
+    def add_task_event(self, ctxt, task_id, level, message):
         self._cast(
-            ctxt, 'task_event', task_id=task_id, level=level, message=message)
+            ctxt, 'add_task_event', task_id=task_id, level=level, message=message)
 
-    def add_task_progress_update(self, ctxt, task_id, total_steps, message):
-        self._cast(
+    def add_task_progress_update(
+            self, ctxt, task_id, message, initial_step=0, total_steps=0,
+            return_event=False):
+        operation = self._cast
+        if return_event:
+            operation = self._call
+        return operation(
             ctxt, 'add_task_progress_update', task_id=task_id,
-            total_steps=total_steps, message=message)
+            message=message, initial_step=initial_step,
+            total_steps=total_steps)
 
-    def update_task_progress_update(self, ctxt, task_id, step,
-                                    total_steps, message):
+    def update_task_progress_update(
+            self, ctxt, task_id, progress_update_index, new_current_step,
+            new_total_steps=None, new_message=None):
         self._cast(
             ctxt, 'update_task_progress_update', task_id=task_id,
-            step=step, total_steps=total_steps, message=message)
-
-    def get_task_progress_step(self, ctxt, task_id):
-        return self._call(
-            ctxt, 'get_task_progress_step', task_id=task_id)
+            progress_update_index=progress_update_index,
+            new_current_step=new_current_step, new_total_steps=new_total_steps,
+            new_message=new_message)
 
     def create_replica_schedule(self, ctxt, replica_id,
                                 schedule, enabled, exp_date,
@@ -403,104 +412,71 @@ class ConductorClient(rpc.BaseRPCClient):
         return self._call(
             ctxt, 'delete_service', service_id=service_id)
 
-    def create_minion_pool(
-            self, ctxt, name, endpoint_id, pool_platform, pool_os_type,
-            environment_options, minimum_minions, maximum_minions,
-            minion_max_idle_time, minion_retention_strategy, notes=None):
-        return self._call(
-            ctxt, 'create_minion_pool', name=name, endpoint_id=endpoint_id,
-            pool_platform=pool_platform, pool_os_type=pool_os_type,
-            environment_options=environment_options,
-            minimum_minions=minimum_minions,
-            maximum_minions=maximum_minions,
-            minion_max_idle_time=minion_max_idle_time,
-            minion_retention_strategy=minion_retention_strategy,
-            notes=notes)
+    def confirm_replica_minions_allocation(
+            self, ctxt, replica_id, minion_machine_allocations):
+        self._call(
+            ctxt, 'confirm_replica_minions_allocation', replica_id=replica_id,
+            minion_machine_allocations=minion_machine_allocations)
 
-    def set_up_shared_minion_pool_resources(self, ctxt, minion_pool_id):
-        return self._call(
-            ctxt, "set_up_shared_minion_pool_resources",
-            minion_pool_id=minion_pool_id)
+    def report_replica_minions_allocation_error(
+            self, ctxt, replica_id, minion_allocation_error_details):
+        self._call(
+            ctxt, 'report_replica_minions_allocation_error', replica_id=replica_id,
+            minion_allocation_error_details=minion_allocation_error_details)
 
-    def tear_down_shared_minion_pool_resources(
-            self, ctxt, minion_pool_id, force=False):
-        return self._call(
-            ctxt, "tear_down_shared_minion_pool_resources",
-            minion_pool_id=minion_pool_id, force=force)
+    def confirm_migration_minions_allocation(
+            self, ctxt, migration_id, minion_machine_allocations):
+        self._call(
+            ctxt, 'confirm_migration_minions_allocation',
+            migration_id=migration_id,
+            minion_machine_allocations=minion_machine_allocations)
 
-    def allocate_minion_pool_machines(self, ctxt, minion_pool_id):
-        return self._call(
-            ctxt, "allocate_minion_pool_machines",
-            minion_pool_id=minion_pool_id)
+    def report_migration_minions_allocation_error(
+            self, ctxt, migration_id, minion_allocation_error_details):
+        self._call(
+            ctxt, 'report_migration_minions_allocation_error',
+            migration_id=migration_id,
+            minion_allocation_error_details=minion_allocation_error_details)
 
-    def deallocate_minion_pool_machines(
-            self, ctxt, minion_pool_id, force=False):
-        return self._call(
-            ctxt, "deallocate_minion_pool_machines",
-            minion_pool_id=minion_pool_id,
-            force=force)
 
-    def get_minion_pools(self, ctxt):
-        return self._call(ctxt, 'get_minion_pools')
+class ConductorTaskRpcEventHandler(events.BaseEventHandler):
+    def __init__(self, ctxt, task_id):
+        self._ctxt = ctxt
+        self._task_id = task_id
+        self._rpc_conductor_client_instance = None
 
-    def get_minion_pool(self, ctxt, minion_pool_id):
-        return self._call(
-            ctxt, 'get_minion_pool', minion_pool_id=minion_pool_id)
+    @property
+    def _rpc_conductor_client(self):
+        # NOTE(aznashwan): it is unsafe to fork processes with pre-instantiated
+        # oslo_messaging clients as the underlying eventlet thread queues will
+        # be invalidated.
+        if self._rpc_conductor_client_instance is None:
+            self._rpc_conductor_client_instance = ConductorClient()
+        return self._rpc_conductor_client_instance
 
-    def update_minion_pool(self, ctxt, minion_pool_id, updated_values):
-        return self._call(
-            ctxt, 'update_minion_pool',
-            minion_pool_id=minion_pool_id, updated_values=updated_values)
+    @classmethod
+    def get_progress_update_identifier(self, progress_update):
+        return progress_update['index']
 
-    def delete_minion_pool(self, ctxt, minion_pool_id):
-        return self._call(
-            ctxt, 'delete_minion_pool', minion_pool_id=minion_pool_id)
+    def add_progress_update(
+            self, message, initial_step=0, total_steps=0, return_event=False):
+        LOG.info(
+            "Sending progress update for task '%s' to conductor: %s",
+            self._task_id, message)
+        return self._rpc_conductor_client.add_task_progress_update(
+            self._ctxt, self._task_id, message, initial_step=initial_step,
+            total_steps=total_steps, return_event=return_event)
 
-    def get_minion_pool_lifecycle_executions(
-            self, ctxt, minion_pool_id, include_tasks=False):
-        return self._call(
-            ctxt, 'get_minion_pool_lifecycle_executions',
-            minion_pool_id=minion_pool_id, include_tasks=include_tasks)
+    def update_progress_update(
+            self, update_identifier, new_current_step,
+            new_total_steps=None, new_message=None):
+        LOG.info(
+            "Updating progress update '%s' for task '%s' with new step %s",
+            update_identifier, self._task_id, new_current_step)
+        self._rpc_conductor_client.update_task_progress_update(
+            self._ctxt, self._task_id, update_identifier, new_current_step,
+            new_total_steps=new_total_steps, new_message=new_message)
 
-    def get_minion_pool_lifecycle_execution(
-            self, ctxt, minion_pool_id, execution_id):
-        return self._call(
-            ctxt, 'get_minion_pool_lifecycle_execution',
-            minion_pool_id=minion_pool_id, execution_id=execution_id)
-
-    def delete_minion_pool_lifecycle_execution(
-            self, ctxt, minion_pool_id, execution_id):
-        return self._call(
-            ctxt, 'delete_minion_pool_lifecycle_execution',
-            minion_pool_id=minion_pool_id, execution_id=execution_id)
-
-    def cancel_minion_pool_lifecycle_execution(
-            self, ctxt, minion_pool_id, execution_id, force):
-        return self._call(
-            ctxt, 'cancel_minion_pool_lifecycle_execution',
-            minion_pool_id=minion_pool_id, execution_id=execution_id,
-            force=force)
-
-    def get_endpoint_source_minion_pool_options(
-            self, ctxt, endpoint_id, env, option_names):
-        return self._call(
-            ctxt, 'get_endpoint_source_minion_pool_options',
-            endpoint_id=endpoint_id, env=env, option_names=option_names)
-
-    def get_endpoint_destination_minion_pool_options(
-            self, ctxt, endpoint_id, env, option_names):
-        return self._call(
-            ctxt, 'get_endpoint_destination_minion_pool_options',
-            endpoint_id=endpoint_id, env=env, option_names=option_names)
-
-    def validate_endpoint_source_minion_pool_options(
-            self, ctxt, endpoint_id, pool_environment):
-        return self._call(
-            ctxt, 'validate_endpoint_source_minion_pool_options',
-            endpoint_id=endpoint_id, pool_environment=pool_environment)
-
-    def validate_endpoint_destination_minion_pool_options(
-            self, ctxt, endpoint_id, pool_environment):
-        return self._call(
-            ctxt, 'validate_endpoint_destination_minion_pool_options',
-            endpoint_id=endpoint_id, pool_environment=pool_environment)
+    def add_event(self, message, level=constants.TASK_EVENT_INFO):
+        self._rpc_conductor_client.add_task_event(
+            self._ctxt, self._task_id, level, message)
