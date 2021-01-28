@@ -6,6 +6,7 @@ This is a reference for the Coriolis API.
 
 .. rest_expand_all::
 
+.. include:: diagnostics.inc
 .. include:: endpoint.inc
 .. include:: migration.inc
 .. include:: provider.inc

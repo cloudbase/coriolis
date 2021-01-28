@@ -1,0 +1,127 @@
+{
+    "diagnostics": [
+        {
+            "application": "coriolis-conductor",
+            "packages": [
+                "alembic==1.5.2",
+                "amqp==5.0.5",
+                "argparse==1.4.0",
+                // ...
+            ],
+            "os_info": [
+                "NAME=\"Ubuntu\"",
+                "VERSION=\"18.04.5 LTS (Bionic Beaver)\"",
+                "ID=ubuntu",
+                "ID_LIKE=debian",
+                "PRETTY_NAME=\"Ubuntu 18.04.5 LTS\"",
+                "VERSION_ID=\"18.04\"",
+                "HOME_URL=\"https://www.ubuntu.com/\"",
+                "SUPPORT_URL=\"https://help.ubuntu.com/\"",
+                "BUG_REPORT_URL=\"https://bugs.launchpad.net/ubuntu/\"",
+                "PRIVACY_POLICY_URL=\"https://www.ubuntu.com/legal/terms-and-policies/privacy-policy\"",
+                "VERSION_CODENAME=bionic",
+                "UBUNTU_CODENAME=bionic",
+                ""
+            ],
+            "hostname": "coriolis-conductor",
+            "ip_addresses": [
+                {
+                    "eth0": {
+                        "ipv4": [
+                            {
+                                "addr": "10.107.9.8",
+                                "netmask": "255.255.254.0",
+                                "broadcast": "10.107.9.255"
+                            }
+                        ],
+                        "ipv6": [
+                            {
+                                "addr": "fe80::250:56ff:feb9:73a%eth0",
+                                "netmask": "ffff:ffff:ffff:ffff::/64"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "docker0": {
+                        "ipv4": [
+                            {
+                                "addr": "172.17.0.1",
+                                "netmask": "255.255.0.0",
+                                "broadcast": "172.17.255.255"
+                            }
+                        ],
+                        "ipv6": [
+                            {
+                                "addr": "fe80::42:61ff:fe79:de6f%docker0",
+                                "netmask": "ffff:ffff:ffff:ffff::/64"
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "application": "coriolis-replica-cron",
+            "packages": [
+                "alembic==1.5.2",
+                "amqp==5.0.5",
+                "argparse==1.4.0",
+                // ...
+            ],
+            "os_info": [
+                "NAME=\"Ubuntu\"",
+                "VERSION=\"18.04.5 LTS (Bionic Beaver)\"",
+                "ID=ubuntu",
+                "ID_LIKE=debian",
+                "PRETTY_NAME=\"Ubuntu 18.04.5 LTS\"",
+                "VERSION_ID=\"18.04\"",
+                "HOME_URL=\"https://www.ubuntu.com/\"",
+                "SUPPORT_URL=\"https://help.ubuntu.com/\"",
+                "BUG_REPORT_URL=\"https://bugs.launchpad.net/ubuntu/\"",
+                "PRIVACY_POLICY_URL=\"https://www.ubuntu.com/legal/terms-and-policies/privacy-policy\"",
+                "VERSION_CODENAME=bionic",
+                "UBUNTU_CODENAME=bionic",
+                ""
+            ],
+            "hostname": "coriolis-replica-cron",
+            "ip_addresses": [
+                {
+                    "eth0": {
+                        "ipv4": [
+                            {
+                                "addr": "10.107.9.8",
+                                "netmask": "255.255.254.0",
+                                "broadcast": "10.107.9.255"
+                            }
+                        ],
+                        "ipv6": [
+                            {
+                                "addr": "fe80::250:56ff:feb9:73a%eth0",
+                                "netmask": "ffff:ffff:ffff:ffff::/64"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "docker0": {
+                        "ipv4": [
+                            {
+                                "addr": "172.17.0.1",
+                                "netmask": "255.255.0.0",
+                                "broadcast": "172.17.255.255"
+                            }
+                        ],
+                        "ipv6": [
+                            {
+                                "addr": "fe80::42:61ff:fe79:de6f%docker0",
+                                "netmask": "ffff:ffff:ffff:ffff::/64"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+        // ...
+    ]
+}

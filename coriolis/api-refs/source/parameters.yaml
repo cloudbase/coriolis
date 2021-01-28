@@ -113,6 +113,42 @@ destination_options:
   in: body
   type: object
   required: true
+diagnostic_application:
+  description: |
+    Name of the Coriolis service.
+  in: body
+  type: string
+  required: true
+diagnostic_hostname:
+  description: |
+    The hostname of the Coriolis service container.
+  in: body
+  type: string
+  required: true
+diagnostic_ip_addresses:
+  description: |
+    IP addresses of all the interfaces attached to the Coriolis appliance.
+  in: body
+  type: object
+  required: true
+diagnostic_os_info:
+  description: |
+    The Coriolis appliance's host OS information.
+  in: body
+  type: array
+  required: true
+diagnostic_packages:
+  description: |
+    The list of PIP packages installed on the Coriolis service container.
+  in: body
+  type: array
+  required: true
+diagnostics_array:
+  description: |
+    Array of diagnostics objects.
+  in: body
+  type: array
+  required: true
 endpoint_created_at:
   description: |
     ISO 8601 formatted date of endpoint creation.
