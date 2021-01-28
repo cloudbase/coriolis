@@ -13,4 +13,4 @@
       - "{{ coriolis_log_dir }}:{{ coriolis_log_dir }}"
       - "{{ coriolis_logger_volume_name }}:{{ coriolis_logger_socket_dir }}"
       - "{{ coriolis_minion_manager_locks_dir_host }}:{{ coriolis_locks_dir_containers }}"
-      - - "{{ coriolis_profiling_dir_host }}/minion-manager:{{ coriolis_profiling_dir_container }}"
+      - "{{ coriolis_profiling_dir_host }}/minion-manager:{{ coriolis_profiling_dir_container }}"
