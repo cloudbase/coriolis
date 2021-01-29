@@ -1,6 +1,18 @@
 [opc_migration_provider]
+# IDs of machine images already available on OPC which Coriolis should use for
+# the temporary worker VMs which will be deployed to perform some aspects of
+# the Migration/Replica operations such as transferring disks or OSMorphing.
+# The images must be pre-configured to setup of a user/authorized key/password
+# through metadata using cloud-init. (or Cloudbase-init on Windows)
+# The images must be available within the OPC region being migrated to/from,
+# as well as be usable by the OPC user credentials provided to Coriolis.
+# Windows images might require logging into the Oracle Marketplace to add them
+# to one's account before they can be used by Coriolis.
+# These images can also be set on a per-Migration/Replica basis within the
+# "Destination Environment" options in the UI/CLI if needed.
+# Valid keys are 'linux' and 'windows'.
 # Linux and Windows images for the temporary Worker VMs:
-# migr_image_name_map = linux: /oracle/public/OL_7.5_UEKR4_x86_64_MIGRATION, windows: /Compute-a488347/gsamfira@cloudbasesolutions.com/Windows_2012_R2
+# migr_image_name_map = linux: /oracle/public/OL_7.5_UEKR4_x86_64_MIGRATION, windows: /Compute-<tenancy>/<username>/Windows_2012_R2
 migr_image_map = linux: /oracle/public/OL_7.5_UEKR4_x86_64_MIGRATION
 
 # The shape to use for the migration Worker VMs:
@@ -16,8 +28,16 @@ default_volume_pool = /oracle/public/storage/default
 # during migrations.
 # migr_network_name = /Compute-a514847/default
 
-# URL of a zip file with the Windows PV drivers:
-windows_pv_drivers_url = https://cloudbase.it/downloads/app/ovm/ovm_win_pv_drivers_all_323_bare_root.zip
+# URL to a .zip file containing Windows paravirtual drivers to be injected
+# within Windows instances being Migrated to OPC.
+# The URL must be accessible from the temporary worker VMs which will be
+# deployed on OPC. (namely, attached to the network indicated by the
+# 'migr_network_name' option presented above)
+# The structure of the driver tree from within the .zip file is fixed. Please
+# refer to the documentation page of the Coriolis OPC plugin for more
+# information on how to prepare the .zip file containing the drivers:
+# https://cloudbase.it/oracle-cloud-infrastructure-classic-oci-c-opc-coriolis-plugin
+windows_pv_drivers_url = http://some.fileserver/opc_win_pv_drivers.zip
 
 # Image used for the export worker
 export_image_name = /oracle/public/OL_7.2_UEKR4_x86_64

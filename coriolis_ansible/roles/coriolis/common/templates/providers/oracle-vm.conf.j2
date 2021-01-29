@@ -39,7 +39,16 @@ virtual_disk_clone_type = THIN_CLONE
 cloudbaseinit_x86_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x86.zip
 cloudbaseinit_x64_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x64.zip
 
-windows_pv_drivers_url = https://cloudbase.it/downloads/app/ovm/ovm_win_pv_drivers_all_323_bare_root.zip
+# URL to a .zip file containing Windows paravirtual drivers to be injected
+# within Windows instances being Migrated to OVM.
+# The URL must be accessible from the temporary worker VMs which will be
+# deployed on OVM. (namely, attached to the network indicated by the
+# 'migr_network_name' option presented above)
+# The structure of the driver tree from within the .zip file is fixed. Please
+# refer to the documentation page of the Coriolis OV< plugin for more
+# information on how to prepare the .zip file containing the drivers:
+# https://cloudbase.it/oracle-vm-ovm-coriolis-plugin
+windows_pv_drivers_url = http://some.fileserver/opc_win_pv_drivers.zip
 
 # For export we may need to use a different template than the linux one
 # specified in the template map, though in most cases the same one should work.
