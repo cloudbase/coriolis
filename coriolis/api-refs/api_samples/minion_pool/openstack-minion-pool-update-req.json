@@ -1,0 +1,21 @@
+{
+    "minion_pool": {
+        "name": "dest_pool_linux",
+        "minimum_minions": 2,
+        "maximum_minions": 3,
+        "minion_max_idle_time": 600,
+        "minion_retention_strategy": "poweroff",
+        "os_type": "linux",
+        "notes": "Converted from Windows Minion Pool",
+        "environment_options": {
+            "list_all_destination_networks": false,
+            "migr_worker_use_config_drive": false,
+            "migr_image": "bionic",
+            "migr_network": "admin-net",
+            "migr_flavor_name": "m1.small",
+            "migr_worker_use_fip": true,
+            "migr_worker_boot_from_volume": false,
+            "migr_fip_pool_name": "b2f0b98e-03a1-4f13-92aa-ece55f34ebf8/038a72ea-1413-493b-82da-4c75a9077fbf"
+        }
+    }
+}

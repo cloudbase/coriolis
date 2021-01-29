@@ -1,0 +1,60 @@
+{
+    "minion_pool": {
+        "created_at": "2021-01-29T11:55:55.000000",
+        "updated_at": "2021-01-29T14:46:25.000000",
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "be74a17c-5476-4cf8-93f7-dd58c700de70",
+        "user_id": "bdb2d792fc0c48818ef4b1b1240fbb69",
+        "project_id": "f801306887294bf0b98ffc05601f22db",
+        "maintenance_trust_id": "71718e42267f44c5988beac7260159db",
+        "name": "dest_pool_linux",
+        "notes": "Converted from Windows Minion Pool",
+        "endpoint_id": "a471879c-8138-4440-ad0a-7c201d4ed7df",
+        "os_type": "linux",
+        "platform": "destination",
+        "environment_options": {
+            "list_all_destination_networks": false,
+            "migr_worker_use_config_drive": false,
+            "migr_image": "bionic",
+            "migr_network": "admin-net",
+            "migr_flavor_name": "m1.small",
+            "migr_worker_use_fip": true,
+            "migr_worker_boot_from_volume": false,
+            "migr_fip_pool_name": "b2f0b98e-03a1-4f13-92aa-ece55f34ebf8/038a72ea-1413-493b-82da-4c75a9077fbf",
+            "data_transfer_mechanism": "SSH"
+        },
+        "status": "DEALLOCATED",
+        "shared_resources": null,
+        "minimum_minions": 2,
+        "maximum_minions": 3,
+        "minion_max_idle_time": 600,
+        "minion_retention_strategy": "poweroff",
+        "minion_machines": [],
+        "events": [
+            {
+                "created_at": "2021-01-29T11:55:55.000000",
+                "updated_at": null,
+                "deleted_at": null,
+                "deleted": "0",
+                "id": "618beb44-91a3-458b-a0da-ee19638447df",
+                "pool_id": "be74a17c-5476-4cf8-93f7-dd58c700de70",
+                "level": "INFO",
+                "index": 0,
+                "message": "Successfully added minion pool to the DB"
+            },
+            {
+                "created_at": "2021-01-29T14:46:25.000000",
+                "updated_at": null,
+                "deleted_at": null,
+                "deleted": "0",
+                "id": "080cd191-dc2f-4cbc-81b4-5b9d073bf953",
+                "pool_id": "be74a17c-5476-4cf8-93f7-dd58c700de70",
+                "level": "INFO",
+                "index": 1,
+                "message": "Successfully updated minion pool properties"
+            }
+        ],
+        "progress_updates": []
+    }
+}
