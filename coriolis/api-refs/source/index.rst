@@ -13,3 +13,4 @@ This is a reference for the Coriolis API.
 .. include:: provider.inc
 .. include:: region.inc
 .. include:: replica.inc
+.. include:: service.inc

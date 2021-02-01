@@ -65,6 +65,12 @@ replica_tasks_execution_id_path:
   in: path
   type: uuid
   required: true
+service_id_path:
+  description: |
+    The ID of the service.
+  in: path
+  type: uuid
+  required: true
 # query variables
 instance_limit:
   description: |
@@ -1079,6 +1085,96 @@ schemas:
     Object containing the platform's requested schema.
   in: body
   type: object
+  required: true
+service_binary:
+  description: |
+    The name of the service binary.
+  in: body
+  type: string
+  required: true
+service_created_at:
+  description: |
+    Timestamp of service creation.
+  in: body
+  type: string
+  required: true
+service_deleted:
+  description: |
+    Value representing whether the service is deleted or not.
+  in: body
+  type: string
+  required: true
+service_deleted_at:
+  description: |
+    Timestamp of service deletion.
+  in: body
+  type: string
+  required: true
+service_enabled:
+  description: |
+    Boolean representing whether the service is enabled or not.
+  in: body
+  type: boolean
+  required: true
+service_host:
+  description: |
+    The hostname of the service.
+  in: body
+  type: string
+  required: true
+service_id:
+  description: |
+    The ID of the service.
+  in: body
+  type: uuid
+  required: true
+service_mapped_regions:
+  description: |
+    Array of regions mapped to this service.
+  in: body
+  type: array
+  required: false
+service_object:
+  description: |
+    Object containing information about the service.
+  in: body
+  type: object
+  required: true
+service_providers:
+  description: |
+    Object containing mappings of provider names and provider types available to this service.
+  in: body
+  type: object
+  required: true
+service_specs:
+  description: |
+    Object containing miscellaneous specifications about the service.
+  in: body
+  type: object
+  required: true
+service_status:
+  description: |
+    The status of the service. Possible values: "UP", "DOWN", "UNKNOWN".
+  in: body
+  type: string
+  required: true
+service_topic:
+  description: |
+    The name of the service's messaging topic.
+  in: body
+  type: string
+  required: true
+service_updated_at:
+  description: |
+    Timestamp of last service update.
+  in: body
+  type: string
+  required: true
+services_array:
+  description: |
+    Array of service objects.
+  in: body
+  type: array
   required: true
 skip_os_morphing:
   description: |
