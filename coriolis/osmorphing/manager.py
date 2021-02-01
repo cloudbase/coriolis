@@ -159,6 +159,7 @@ def morph_image(origin_provider, destination_provider, connection_info,
     # - automatically detect the target hypervisor type from the worker VM
     hypervisor_type = osmorphing_info.get(
         'hypervisor_type', None)
+    osmorphing_parameters = osmorphing_info.get('osmorphing_parameters', {})
 
     export_os_morphing_tools = None
     try:
@@ -171,7 +172,7 @@ def morph_image(origin_provider, destination_provider, connection_info,
                 type(origin_provider))
             export_os_morphing_tools = export_tools_cls(
                 conn, os_root_dir, os_root_dev, hypervisor_type,
-                event_manager, detected_os_info)
+                event_manager, detected_os_info, osmorphing_parameters)
             export_os_morphing_tools.set_environment(environment)
         else:
             LOG.debug(
@@ -194,7 +195,7 @@ def morph_image(origin_provider, destination_provider, connection_info,
 
     import_os_morphing_tools = import_os_morphing_tools_cls(
         conn, os_root_dir, os_root_dev, hypervisor_type,
-        event_manager, detected_os_info)
+        event_manager, detected_os_info, osmorphing_parameters)
     import_os_morphing_tools.set_environment(environment)
 
     if user_script:

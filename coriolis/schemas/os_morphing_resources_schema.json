@@ -50,6 +50,15 @@
           "items": {
             "type": "string"
           }
+        },
+        "osmorphing_parameters": {
+          "type": "object",
+          "properties": {
+            "retain_user_credentials": {
+              "type": "boolean",
+              "default": false
+            }
+          }
         }
       },
       "required": ["os_type"],
