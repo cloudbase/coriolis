@@ -11,4 +11,5 @@ This is a reference for the Coriolis API.
 .. include:: migration.inc
 .. include:: minion_pool.inc
 .. include:: provider.inc
+.. include:: region.inc
 .. include:: replica.inc

@@ -1,0 +1,7 @@
+{
+    "region": {
+        "name": "Region-1",
+        "description": "Region Update Example.",
+        "enabled": false
+    }
+}

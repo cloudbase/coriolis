@@ -1,0 +1,14 @@
+{
+    "region": {
+        "created_at": "2021-02-01T10:02:54.000000",
+        "updated_at": "2021-02-01T10:20:58.000000",
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "fc46cadb-5141-4d14-83e1-afe170be0e4c",
+        "name": "Region-1",
+        "description": "Region Update Example.",
+        "enabled": false,
+        "mapped_services": [],
+        "mapped_endpoints": []
+    }
+}

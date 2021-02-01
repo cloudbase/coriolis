@@ -41,6 +41,12 @@ provider_id:
   in: path
   type: integer
   required: true
+region_id_path:
+  description: |
+    The ID of the region.
+  in: path
+  type: uuid
+  required: true
 replica_id_path:
   description: |
     The id of the replica.
@@ -684,6 +690,78 @@ provider_types:
 providers:
   description: |
     Array that contains all the available types of cloud service providers
+  in: body
+  type: array
+  required: true
+region_created_at:
+  description: |
+    Timestamp of region creation.
+  in: body
+  type: string
+  required: true
+region_deleted:
+  description: |
+    Value representing whether the region is deleted or not.
+  in: body
+  type: integer
+  required: true
+region_deleted_at:
+  description: |
+    Timestamp of region deletion.
+  in: body
+  type: string
+  required: true
+region_description:
+  description: |
+    Details about the region.
+  in: body
+  type: string
+  required: false
+region_enabled:
+  description: |
+    Boolean value representing whether the region is enabled or not.
+  in: body
+  type: boolean
+  required: true
+region_id:
+  description: |
+    The ID of the region.
+  in: body
+  type: uuid
+  required: true
+region_mapped_endpoints:
+  description: |
+    Array of cloud endpoint IDs that are mapped to this region.
+  in: body
+  type: array
+  required: true
+region_mapped_services:
+  description: |
+    Array of service IDs that are mapped to this region.
+  in: body
+  type: array
+  required: true
+region_name:
+  description: |
+    The name of the region.
+  in: body
+  type: string
+  required: true
+region_object:
+  description: |
+    Object containing details about a region.
+  in: body
+  type: object
+  required: true
+region_updated_at:
+  description: |
+    Timestamp of last region update.
+  in: body
+  type: string
+  required: true
+regions_array:
+  description: |
+    Array of region objects.
   in: body
   type: array
   required: true
