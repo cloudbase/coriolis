@@ -1,8 +1,15 @@
 [oci_migration_provider]
-# You need to configure this to match your situation
-# there is no sensible default that can work globally. The images
-# are specific to the region you are in. The bellow ones are from
-# us-phoenix-1
+# Mapping specifying the IDs of machine images already available
+# on OCI which will be used for the temporary worker VMs deployed by
+# Coriolis to perform disk transfers and other operations.
+# The images must be pre-configured to setup of a user/authorized key/password
+# through metadata using cloud-init. (or Cloudbase-init on Windows)
+# The images must be available within the OCI region being migrated to, as
+# well as be usable by the OCI user credentials provided to Coriolis.
+# These images can also be set on a per-Migration/Replica basis within the
+# "Destination Environment" options in the UI/CLI if needed.
+# Valid keys are 'linux' and 'windows'.
+# Below are defaults for the "us-phoenix-1" OCI region:
 # migr_image_map = linux: ocid1.image.oc1.phx.aaaaaaaatel6prh7kwlb77zp6m4v523pegz3fh2j5ulq2lwtmhionpy37wkq, windows: ocid1.image.oc1.phx.aaaaaaaam3rbuegojxzdomvbp6qa2fb45ex24ng7c5ykawuqmomerfblveaq
 
 # Whether to use paravirtualized mode by default for
@@ -31,8 +38,13 @@ set_public_ip = True
 # 'iscsi', 'emulated', 'paravirtualized'
 default_attach_type = iscsi
 
-# Windows VMs that are migrated to OCI need virtio drivers.
-# The steps to downloading GA drivers can be found at:
-# https://blogs.oracle.com/linux/announcing-oracle-virtio-drivers-113-for-microsoft-windows
-# The downloaded ZIP has to be self-hosted. Pass the ZIP URL to the option below:
+# URL to a .zip file containing Windows paravirtual drivers to be injected
+# within Windows instances being Migrated to OCI.
+# The URL must be accessible from the temporary worker VMs which will be
+# deployed on OCI. (namely, attached to the network indicated by the
+# 'migr_subnet_id' option presented above)
+# The structure of the driver tree from within the .zip file is fixed. Please
+# refer to the documentation page of the Coriolis OCI plugin for more
+# information on how to obtain the .zip file containing the drivers:
+# https://cloudbase.it/oracle-cloud-infrastructure-oci-coriolis-plugin/
 # windows_virtio_zip_url = https://example.com/virtio-1.1.3.zip
