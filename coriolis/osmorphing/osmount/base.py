@@ -503,7 +503,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                 "sudo blkid -o value -s TYPE %s || true" %
                 dev_path).decode().splitlines()
             if fs_type and fs_type[0] in valid_filesystems:
-                if fs_type == "xfs":
+                if fs_type[0] == "xfs":
                     utils.run_xfs_repair(self._ssh, dev_path)
                 else:
                     try:
