@@ -39,7 +39,7 @@ coriolis_logger_endpoint: "http://{{ bind_address }}:{{ coriolis_logger_port }}/
 coriolis_logger_ws_url: "ws://{{ bind_address }}:{{ coriolis_logger_port }}/api/v1/ws"
 
 coriolis_licensing_server_port: 37667
-coriolis_licensing_server_endpoint: "http://{{ bind_address }}:{{ coriolis_licensing_server_port }}/v1"
+coriolis_licensing_server_endpoint: "http://{{ bind_address }}:{{ coriolis_licensing_server_port }}/v2"
 coriolis_licensing_ui_port: 3010
 coriolis_licensing_ui_endpoint: "http://{{ bind_address }}:{{ coriolis_licensing_ui_port }}/licensing-ui"
 
