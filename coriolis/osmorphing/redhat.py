@@ -52,10 +52,11 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
             detected_os_info['release_version'], minimum=6)
 
     def __init__(self, conn, os_root_dir, os_root_dev,
-                 hypervisor, event_manager, detected_os_info):
+                 hypervisor, event_manager, detected_os_info,
+                 osmorphing_parameters):
         super(BaseRedHatMorphingTools, self).__init__(
             conn, os_root_dir, os_root_dev,
-            hypervisor, event_manager, detected_os_info)
+            hypervisor, event_manager, detected_os_info, osmorphing_parameters)
         self._enable_repos = []
 
     def disable_predictable_nic_names(self):

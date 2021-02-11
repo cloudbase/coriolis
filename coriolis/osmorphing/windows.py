@@ -168,10 +168,10 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
 
     def __init__(
             self, conn, os_root_dir, os_root_device, hypervisor,
-            event_manager, detected_os_info):
+            event_manager, detected_os_info, osmorphing_parameters):
         super(BaseWindowsMorphingTools, self).__init__(
             conn, os_root_dir, os_root_device, hypervisor,
-            event_manager, detected_os_info)
+            event_manager, detected_os_info, osmorphing_parameters)
 
         self._version_number = detected_os_info['version_number']
         self._edition_id = detected_os_info['edition_id']
