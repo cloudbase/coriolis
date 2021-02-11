@@ -110,6 +110,12 @@ export_worker_boot_from_volume = false
 # export worker VMs in case Neutron metadata is not available. Default is false.
 # export_worker_use_config_drive = false
 
+# Whether or not Coriolis should reference security groups by name instead of ID.
+# This option may be required for older source OpenStacks whose Nova service is
+# incapable of identifying security groups by ID.
+# Default is false
+# export_identify_secgroups_by_name = true
+
 ### Import parameters:
 
 # Name of a pre-created availability zone where resources migrated by Coriolis
@@ -242,6 +248,12 @@ use_floating_ip = False
 
 # Name or ID of the Nove Server Group to use when recreating the final VMs on Openstack
 # server_group =
+
+# Whether or not Coriolis should reference security groups by name instead of ID.
+# This option may be required for older source OpenStacks whose Nova service is
+# incapable of identifying security groups by ID.
+# Default is false
+# import_identify_secgroups_by_name = true
 
 # A dict of arbitrary key-value pairs to be added as volume image metadata to the boot
 # volume(s) of the final migrated instance. Coriolis automatically sets the 'os_type',
