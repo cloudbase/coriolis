@@ -1,7 +1,10 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+import base64
 import copy
+import ipaddress
+import json
 import os
 import re
 import uuid
@@ -67,6 +70,85 @@ CLOUDBASE_INIT_DEFAULT_METADATA_SVCS = [
 
 REQUIRED_DETECTED_WINDOWS_OS_FIELDS = [
     "version_number", "edition_id", "installation_type", "product_name"]
+
+INTERFACES_PATH_FORMAT = (
+    "HKLM:\\%s\\ControlSet001\\Services\\Tcpip\\Parameters\\Interfaces")
+
+STATIC_IP_SCRIPT_TEMPLATE = """
+$ErrorActionPreference = "Stop"
+
+function Get-InterfaceByMacAddress {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [Object]$mac_address
+    )
+
+    $win_formatted_mac_address = $mac_address.replace(':', '-').toUpper()
+    return (Get-NetAdapter | Where MacAddress -eq $win_formatted_mac_address)
+}
+
+function Set-IPAddresses {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [Object]$interfaceObj,
+
+        [Parameter(Mandatory=$true)]
+        [Array]$ip_addresses,
+
+        [Parameter(Mandatory=$true)]
+        [Array]$ips_info
+    )
+
+    foreach ($ip in $ip_addresses) {
+        $ip_info = $ips_info | Where ip_address -eq $ip
+        if ($ip_info.default_gateway) {
+            # Remove existing gateway before setting default gateway on the interface
+            Get-NetRoute | Where NextHop -eq $ip_info.default_gateway | Remove-NetRoute -Confirm:$false
+            New-NetIPAddress -InterfaceIndex $interfaceObj.ifIndex -IPAddress $ip_info.ip_address -PrefixLength $ip_info.prefix_length -DefaultGateway $ip_info.default_gateway
+        } else {
+            New-NetIPAddress -InterfaceIndex $interfaceObj.ifIndex -IPAddress $ip_info.ip_address -PrefixLength $ip_info.prefix_length
+        }
+
+        if ($ip_info.dns_addresses) {
+            # Set DNS Addresses on the interface
+            Set-DnsClientServerAddress -InterfaceIndex $interfaceObj.ifIndex -ServerAddresses $ip_info.dns_addresses
+        }
+    }
+}
+
+function Invoke-Main {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [Array]$nics_info,
+
+        [Parameter(Mandatory=$true)]
+        [Array]$ips_info
+    )
+
+    foreach ($nic in $nics_info) {
+        $interface = Get-InterfaceByMacAddress $nic.mac_address
+        if (-Not $interface) {
+            Write-Host "No interface found for MAC address: $($nic.mac_address)"
+            continue
+        }
+
+        # Removes existing IP configuration for the interface
+        Remove-NetIPAddress -InterfaceIndex $interface.ifIndex -Confirm:$false
+
+        Set-IPAddresses $interface $nic.ip_addresses $ips_info
+    }
+}
+
+$nics_info_json = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String("%(nics_info)s"))
+$ips_info_json = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String("%(ips_info)s"))
+$NICS_INFO = ConvertFrom-Json $nics_info_json
+$IPS_INFO = ConvertFrom-Json $ips_info_json
+
+Invoke-Main $NICS_INFO $IPS_INFO
+""" # noqa
 
 
 class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
@@ -301,6 +383,9 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
         self._set_service_start_mode(key_name, CLOUDBASEINIT_SERVICE_NAME,
                                      SERVICE_START_AUTO)
 
+    def _get_cbslinit_base_dir(self):
+        return "%sCloudbase-Init" % self._os_root_dir
+
     def _get_cbslinit_scripts_dir(self, base_dir):
         return ("%s\\LocalScripts" % base_dir)
 
@@ -381,7 +466,7 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
                                 metadata_services=None, enabled_plugins=None,
                                 com_port="COM1"):
         self._event_manager.progress_update("Adding cloudbase-init")
-        cloudbaseinit_base_dir = "%sCloudbase-Init" % self._os_root_dir
+        cloudbaseinit_base_dir = self._get_cbslinit_base_dir()
 
         key_name = str(uuid.uuid4())
         self._load_registry_hive(
@@ -433,8 +518,93 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
 
         return cloudbaseinit_base_dir
 
+    def _compile_static_ip_conf_from_registry(self, key_name):
+        ips_info = []
+        interfaces_reg_path = INTERFACES_PATH_FORMAT % key_name
+        interfaces = self._conn.exec_ps_command(
+            "(((Get-ChildItem -Path '%s').Name | Select-String -Pattern "
+            "'[^\\\\]+$').Matches).Value" % interfaces_reg_path)
+        for interface in interfaces.splitlines():
+            reg_path = '%s\\%s' % (interfaces_reg_path, interface)
+            enable_dhcp = self._conn.exec_ps_command(
+                "(Get-ItemProperty -Path '%s').EnableDHCP" % reg_path)
+            if enable_dhcp == '0':
+                ip_address = self._conn.exec_ps_command(
+                    "(Get-ItemProperty -Path '%s').IPAddress" % reg_path)
+                subnet_mask = self._conn.exec_ps_command(
+                    "(Get-ItemProperty -Path '%s').SubnetMask" % reg_path)
+                if not (ip_address and subnet_mask):
+                    LOG.warning(
+                        "No IP Address or Subnet Mask found for interface: "
+                        "'%s'" % interface)
+                    continue
+                prefix_length = ipaddress.IPv4Network(
+                    (0, subnet_mask)).prefixlen
+                default_gateway = self._conn.exec_ps_command(
+                    "(Get-ItemProperty -Path '%s').DefaultGateway" % reg_path)
+                name_server = self._conn.exec_ps_command(
+                    "(Get-ItemProperty -Path '%s').NameServer" % reg_path)
+                ip_info = {
+                    "ip_address": ip_address,
+                    "prefix_length": prefix_length,
+                    "default_gateway": default_gateway,
+                    "dns_addresses": name_server}
+                LOG.debug(
+                    "Found static IP configuration for interface '%s': "
+                    "%s" % (interface, ip_info))
+                ips_info.append(ip_info)
+            else:
+                LOG.debug(
+                    "Could not find a static IP configuration for interface: "
+                    "'%s'" % interface)
+                continue
+
+        return ips_info
+
+    def _check_ips_info(self, nics_info, ips_info):
+        source_ip_addresses = set()
+        reg_ip_addresses = set()
+        for nic in nics_info:
+            source_ip_addresses.update(nic.get('ip_addresses', []))
+
+        for ip_info in ips_info:
+            if ip_info.get('ip_address'):
+                reg_ip_addresses.add(ip_info['ip_address'])
+
+        diff = source_ip_addresses - reg_ip_addresses
+        if diff:
+            raise exception.OSMorphingException(
+                "The following IP(s): %s found on the source VM's NICs were "
+                "not found in the registry. Please check whether the static "
+                "IP configurations on the source machine are properly set up "
+                "and retry the migration." % diff)
+
+    def _write_static_ip_script(self, base_dir, nics_info, ips_info):
+        scripts_dir = self._get_cbslinit_scripts_dir(base_dir)
+        script_path = "%s\\01-static-ip-config.ps1" % scripts_dir
+        nics_info_dump = json.dumps(nics_info)
+        ips_info_dump = json.dumps(ips_info)
+        contents = STATIC_IP_SCRIPT_TEMPLATE % {
+            'nics_info': base64.b64encode(nics_info_dump.encode()).decode(),
+            'ips_info': base64.b64encode(ips_info_dump.encode()).decode()}
+        utils.write_winrm_file(self._conn, script_path, contents.encode())
+
     def set_net_config(self, nics_info, dhcp):
-        pass
+        if dhcp:
+            return
+
+        key_name = str(uuid.uuid4())
+        self._load_registry_hive(
+            "HKLM\\%s" % key_name,
+            "%sWindows\\System32\\config\\SYSTEM" % self._os_root_dir)
+        try:
+            cbslinit_base_dir = self._get_cbslinit_base_dir()
+            ips_info = self._compile_static_ip_conf_from_registry(key_name)
+            self._check_ips_info(nics_info, ips_info)
+            self._write_static_ip_script(
+                cbslinit_base_dir, nics_info, ips_info)
+        finally:
+            self._unload_registry_hive("HKLM\\%s" % key_name)
 
     def get_packages(self):
         return [], []
