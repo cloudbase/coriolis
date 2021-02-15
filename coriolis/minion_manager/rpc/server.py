@@ -901,7 +901,8 @@ class MinionManagerServerEndpoint(object):
                 if action['destination_minion_pool_id'] and (
                         include_osmorphing_minions and (
                             osmorphing_pool_id == (
-                                action['destination_minion_pool_id']))):
+                                action['destination_minion_pool_id']) and (
+                                    include_transfer_minions))):
                     LOG.debug(
                         "Reusing destination minion pool with ID '%s' for the "
                         "following instances which had it selected as an "
