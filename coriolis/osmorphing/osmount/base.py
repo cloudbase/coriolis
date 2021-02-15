@@ -18,6 +18,8 @@ from coriolis import utils
 
 LOG = logging.getLogger(__name__)
 
+MAJOR_COLUMN_INDEX = 4
+
 
 class BaseOSMountTools(object, with_metaclass(abc.ABCMeta)):
 
@@ -305,10 +307,29 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         mounts = self._exec_cmd(
             "cat /proc/mounts").decode().splitlines()
         ret = []
+        mounted_device_numbers = []
+        dev_nmb_cmd = "mountpoint -x %s"
         for line in mounts:
             colls = line.split()
             if colls[0].startswith("/dev"):
-                ret.append(self._get_symlink_target(colls[0]))
+                dev_name = self._get_symlink_target(colls[0])
+                ret.append(dev_name)
+                mounted_device_numbers.append(
+                    self._exec_cmd(dev_nmb_cmd % dev_name).decode().rstrip())
+
+        block_devs = self._exec_cmd(
+            "ls -al /dev | grep ^b").decode().splitlines()
+        for dev_line in block_devs:
+            dev = dev_line.split()
+            major_minor = "%s:%s" % (
+                dev[MAJOR_COLUMN_INDEX].rstrip(','),
+                dev[MAJOR_COLUMN_INDEX + 1])
+
+            if major_minor in mounted_device_numbers:
+                dev_path = "/dev/%s" % dev[-1]
+                if dev_path not in ret:
+                    ret.append(dev_path)
+
         LOG.debug("Currently mounted devices: %s", ret)
         return ret
 
@@ -503,7 +524,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                 "sudo blkid -o value -s TYPE %s || true" %
                 dev_path).decode().splitlines()
             if fs_type and fs_type[0] in valid_filesystems:
-                if fs_type == "xfs":
+                if fs_type[0] == "xfs":
                     utils.run_xfs_repair(self._ssh, dev_path)
                 else:
                     try:
