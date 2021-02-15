@@ -1,0 +1,23 @@
+{
+    "minion_pool": {
+        "name": "source_pool",
+        "endpoint_id": "8e9b6b0b-ef3b-4127-ac32-a18a30e67749",
+        "os_type": "linux",
+        "platform": "source",
+        "minimum_minions": 1,
+        "maximum_minions": 1,
+        "minion_max_idle_time": 1,
+        "minion_retention_strategy": "delete",
+        "notes": "",
+        "skip_allocation": true,
+        "environment_options": {
+            "list_all_destination_networks": false,
+            "migr_worker_use_config_drive": false,
+            "migr_image": "bionic",
+            "migr_network": "admin-net",
+            "migr_flavor_name": "m1.small",
+            "migr_worker_use_fip": true,
+            "migr_worker_boot_from_volume": false
+        }
+    }
+}

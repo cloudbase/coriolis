@@ -1,25 +1,93 @@
 {
-  "source_options": [
-    {
-      "name": "intermediate_volume_format",
-      "values": [
-        "raw",
-        "vmdk",
-        "qcow",
-        "qcow2",
-        "vhd",
-        "vhdx"
-      ],
-      "config_default": "qcow2"
-    },
-    {
-      "name": "volume_backups_container",
-      "values": [
-        "coriolis",
-        "test",
-        "test2"
-      ],
-      "config_default": "coriolis"
-    }
-  ]
+    "source_options": [
+        {
+            "name": "export_image",
+            "values": [
+                {
+                    "name": "ws2008",
+                    "id": "5051a788-f133-4a84-af64-fd35e4c36f24"
+                },
+                {
+                    "name": "debian8",
+                    "id": "f298bc1b-a631-47cc-beef-ffd13e572226"
+                }
+            ],
+            "config_default": null
+        },
+        {
+            "name": "export_network",
+            "values": [
+                {
+                    "name": "ext-net",
+                    "id": "b2f0b98e-03a1-4f13-92aa-ece55f34ebf8"
+                },
+                {
+                    "name": "admin-net",
+                    "id": "ea7d22c7-99ab-423f-b291-47d10a3bdc2e"
+                }
+            ],
+            "config_default": null
+        },
+        {
+            "name": "export_flavor_name",
+            "values": [
+                {
+                    "name": "m1.small",
+                    "id": "c1910582-1911-4d00-86a7-b44e2d49ef8b"
+                },
+                {
+                    "name": "m1.medium",
+                    "id": "d7fcfc49-300c-40fb-9f8d-0cc814fd1125"
+                }
+            ],
+            "config_default": "m1.small"
+        },
+        {
+            "name": "export_fip_pool_name",
+            "values": [
+                {
+                    "name": "ext-net/ext-subnet",
+                    "id": "b2f0b98e-03a1-4f13-92aa-ece55f34ebf8/038a72ea-1413-493b-82da-4c75a9077fbf"
+                }
+            ],
+            "config_default": null
+        },
+        {
+            "name": "export_worker_volume_type",
+            "values": [
+                {
+                    "id": "0ee0c11d-de6a-4904-b55c-b2d9137775a2",
+                    "name": "coriolis-tier"
+                },
+                {
+                    "id": "24d7eaab-c930-434b-a519-292e787937d5",
+                    "name": "__DEFAULT__"
+                }
+            ],
+            "config_default": null
+        },
+        {
+            "name": "export_interim_volume_type",
+            "values": [
+                {
+                    "id": "0ee0c11d-de6a-4904-b55c-b2d9137775a2",
+                    "name": "coriolis-tier"
+                },
+                {
+                    "id": "24d7eaab-c930-434b-a519-292e787937d5",
+                    "name": "__DEFAULT__"
+                }
+            ],
+            "config_default": null
+        },
+        {
+            "name": "swift_volume_backups_container",
+            "values": [
+                "container",
+                "coriolis",
+                "volumebackups"
+            ],
+            "config_default": "coriolis"
+        }
+    ]
 }

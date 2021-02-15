@@ -35,6 +35,10 @@
     "storage_mappings": {},
     "source_environment": {},
     "id": "78f89897-fca0-465c-bf0c-b23b36dfd619",
+    "last_execution_status": "COMPLETED",
+    "origin_minion_pool_id": null,
+    "destination_minion_pool_id": null,
+    "instance_osmorphing_minion_pool_mappings": {},
     "executions": [
       {
         "created_at": "2019-07-11T10:06:47.000000",

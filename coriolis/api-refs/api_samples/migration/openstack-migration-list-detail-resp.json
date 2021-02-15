@@ -55,6 +55,12 @@
       "id": "65bd70e4-c4ab-4f60-9d78-779c0b58c2ab",
       "replica_id": null,
       "status": "ERROR",
+      "last_execution_status": "COMPLETED",
+      "origin_minion_pool_id": null,
+      "destination_minion_pool_id": "a5e00fd3-42ac-4570-898b-5bbee0ff4acb",
+      "instance_osmorphing_minion_pool_mappings": {},
+      "shutdown_instances": false,
+      "replication_count": 2,
       "tasks": [
         {
           "created_at": "2019-08-20T12:32:31.000000",
@@ -335,6 +341,11 @@
       "base_id": "9566af98-2c89-4969-ad73-a416e8a8a5ce",
       "user_id": "7cf9b4745d514517b3eae440438136bc",
       "project_id": "ffc16db2011e41f28152897c279b6bcc",
+      "last_execution_status": "COMPLETED",
+      "origin_minion_pool_id": null,
+      "destination_minion_pool_id": "a5e00fd3-42ac-4570-898b-5bbee0ff4acb",
+      "instance_osmorphing_minion_pool_mappings": {},
+      "shutdown_instances": false,
       "destination_environment": {
         "network_map": {
           "VM Network": "0e83bf34-9cc7-4580-9189-a9d9c3c7abb8"
@@ -426,6 +437,7 @@
       "id": "9566af98-2c89-4969-ad73-a416e8a8a5ce",
       "replica_id": "96d71f92-1cbd-48cb-98aa-06ce8cbf89cf",
       "status": "COMPLETED",
+      "replication_count": 2,
       "tasks": [
         {
           "created_at": "2019-08-22T08:29:33.000000",

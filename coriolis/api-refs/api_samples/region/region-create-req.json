@@ -1,0 +1,7 @@
+{
+    "region": {
+        "name": "region1",
+        "description": "First test region.",
+        "enabled": true
+    }
+}

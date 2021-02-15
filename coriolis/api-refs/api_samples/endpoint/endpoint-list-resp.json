@@ -22,7 +22,8 @@
       },
       "type": "openstack",
       "name": "Endpoint Name Example",
-      "description": "Example Endpoint Description"
+      "description": "Example Endpoint Description",
+      "mapped_regions": ["public"]
     },
     {
       "created_at": "2019-07-09T07:04:13.000000",
@@ -37,7 +38,8 @@
       },
       "type": "oci",
       "name": "oci",
-      "description": null
+      "description": null,
+      "mapped_regions": []
     },
     {
       "created_at": "2019-07-09T06:5826.000000",
@@ -52,7 +54,8 @@
       },
       "type": "openstack",
       "name": "devstack",
-      "description": null
+      "description": null,
+      "mapped_regions": []
     }
   ]
 }

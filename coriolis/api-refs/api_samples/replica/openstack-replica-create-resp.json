@@ -35,6 +35,10 @@
     "storage_mappings": {},
     "source_environment": {},
     "id": "78f89897-fca0-465c-bf0c-b23b36dfd619",
+    "origin_minion_pool_id": null,
+    "destination_minion_pool_id": "a9b5a0b5-18f6-422e-a014-1659f8a257a4",
+    "instance_osmorphing_minion_pool_mappings": {"ubuntu-xenial": "a9b5a0b5-18f6-422e-a014-1659f8a257a4"},
+    "user_scripts": {"instances": {"ubuntu-xenial": "echo 'anything you need'"}},
     "executions": []
   }
 }

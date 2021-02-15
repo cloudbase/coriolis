@@ -1,0 +1,97 @@
+{
+    "services": [
+        {
+            "created_at": "2021-02-01T11:19:44.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "id": "07c3343b-970d-437a-b670-e88e78dab3fc",
+            "host": "coriolis-worker-ONbgH1NV",
+            "binary": "coriolis-worker",
+            "topic": "coriolis_worker",
+            "enabled": false,
+            "status": "UP",
+            "providers": {
+                "openstack": {
+                    "types": [
+                        4,
+                        8,
+                        16,
+                        32,
+                        64,
+                        128,
+                        256,
+                        512,
+                        4096,
+                        16384,
+                        32768,
+                        65536,
+                        131072,
+                        262144,
+                        524288,
+                        1048576
+                    ]
+                },
+                // ...
+            },
+            "specs": {
+                "application": "coriolis-worker",
+                "packages": [
+                    "adal==1.2.6",
+                    "alembic==1.5.2",
+                    // ...
+                ],
+                "os_info": [
+                    "NAME=\"Ubuntu\"",
+                    "VERSION=\"18.04.5 LTS (Bionic Beaver)\"",
+                    "ID=ubuntu",
+                    "ID_LIKE=debian",
+                    "PRETTY_NAME=\"Ubuntu 18.04.5 LTS\"",
+                    "VERSION_ID=\"18.04\"",
+                    "HOME_URL=\"https://www.ubuntu.com/\"",
+                    "SUPPORT_URL=\"https://help.ubuntu.com/\"",
+                    "BUG_REPORT_URL=\"https://bugs.launchpad.net/ubuntu/\"",
+                    "PRIVACY_POLICY_URL=\"https://www.ubuntu.com/legal/terms-and-policies/privacy-policy\"",
+                    "VERSION_CODENAME=bionic",
+                    "UBUNTU_CODENAME=bionic",
+                    ""
+                ],
+                "hostname": "coriolis-worker-ONbgH1NV",
+                "ip_addresses": [
+                    {
+                        "eth0": {
+                            "ipv4": [
+                                {
+                                    "addr": "10.107.9.58",
+                                    "netmask": "255.255.254.0",
+                                    "broadcast": "10.107.9.255"
+                                }
+                            ],
+                            "ipv6": [
+                                {
+                                    "addr": "fe80::250:56ff:fe89:91f4%eth0",
+                                    "netmask": "ffff:ffff:ffff:ffff::/64"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "docker0": {
+                            "ipv4": [
+                                {
+                                    "addr": "172.17.0.1",
+                                    "netmask": "255.255.0.0",
+                                    "broadcast": "172.17.255.255"
+                                }
+                            ],
+                            "ipv6": null
+                        }
+                    }
+                ]
+            },
+            "mapped_regions": [
+                "5e31066c-3512-4e8d-9e68-0a5de3d35c5f"
+            ]
+        }
+    ]
+}

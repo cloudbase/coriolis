@@ -21,6 +21,10 @@
       "port_reuse_policy": "keep_mac",
       "set_dhcp": true
     },
-    "destination_endpoint_id": "6258fa20-5d1f-44fa-ae12-c94122263fa3"
+    "destination_endpoint_id": "6258fa20-5d1f-44fa-ae12-c94122263fa3",
+    "origin_minion_pool_id": null,
+    "destination_minion_pool_id": "a9b5a0b5-18f6-422e-a014-1659f8a257a4",
+    "instance_osmorphing_minion_pool_mappings": {"ubuntu-xenial": "a9b5a0b5-18f6-422e-a014-1659f8a257a4"},
+    "user_scripts": {"instances": {"ubuntu-xenial": "echo 'anything you need'"}}
   }
 }

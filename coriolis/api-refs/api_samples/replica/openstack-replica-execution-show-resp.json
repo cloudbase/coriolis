@@ -9,6 +9,7 @@
     "action_id": "7a7731ab-4802-449d-88d3-5960636affe9",
     "status": "RUNNING",
     "number": 1,
+    "type": "replica_execution",
     "tasks": [
       {
         "created_at": "2019-07-24T21:04:16.000000",

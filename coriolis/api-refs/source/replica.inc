@@ -43,6 +43,10 @@ Response
   - destination_endpoint_id : replica_destination_endpoint_id
   - network_map : network_map
   - storage_mappings : storage_map
+  - last_execution_status : replica_last_execution_status
+  - origin_minion_pool_id : origin_minion_pool_id
+  - destination_minion_pool_id : destination_minion_pool_id
+  - instance_osmorphing_minion_pool_mappings : instance_osmorphing_minion_pool_mappings
 
 **Example of Replica List Response**
 
@@ -96,6 +100,10 @@ Response
   - destination_endpoint_id : replica_destination_endpoint_id
   - network_map : network_map
   - storage_mappings : storage_map
+  - last_execution_status : replica_last_execution_status
+  - origin_minion_pool_id : origin_minion_pool_id
+  - destination_minion_pool_id : destination_minion_pool_id
+  - instance_osmorphing_minion_pool_mappings : instance_osmorphing_minion_pool_mappings
 
 **Example of Replica Show Response**
 
@@ -119,14 +127,18 @@ Request
 
 .. rest_parameters:: parameters.yaml
 
-   - replica : replica_object
-   - destination_environment : replica_destination_environment
-   - source_environment : replica_source_environment
-   - destination_endpoint_id : replica_destination_endpoint_id
-   - origin_endpoint_id : replica_origin_endpoint_id
-   - instances : replica_instances
-   - network_map : network_map
-   - storage_mappings : storage_map
+  - replica : replica_object
+  - destination_environment : replica_destination_environment
+  - source_environment : replica_source_environment
+  - destination_endpoint_id : replica_destination_endpoint_id
+  - origin_endpoint_id : replica_origin_endpoint_id
+  - instances : replica_instances
+  - network_map : network_map
+  - storage_mappings : storage_map
+  - origin_minion_pool_id : origin_minion_pool_id
+  - destination_minion_pool_id : destination_minion_pool_id
+  - instance_osmorphing_minion_pool_mappings : instance_osmorphing_minion_pool_mappings
+  - user_scripts : user_scripts
 
 **Example of Replica Create Request**
 
@@ -157,6 +169,10 @@ Response
   - destination_endpoint_id : replica_destination_endpoint_id
   - network_map : network_map
   - storage_mappings : storage_map
+  - origin_minion_pool_id : origin_minion_pool_id
+  - destination_minion_pool_id : destination_minion_pool_id
+  - instance_osmorphing_minion_pool_mappings : instance_osmorphing_minion_pool_mappings
+  - user_scripts : user_scripts
 
 **Example of Replica Create Response**
 
@@ -211,6 +227,10 @@ Response
       - tasks : replica_execution_tasks
       - action : replica_execution_action
       - id : replica_execution_id
+      - origin_minion_pool_id : origin_minion_pool_id
+      - destination_minion_pool_id : destination_minion_pool_id
+      - instance_osmorphing_minion_pool_mappings : instance_osmorphing_minion_pool_mappings
+      - user_scripts : user_scripts
 
 **Example of Replica Update Response**
 
@@ -229,7 +249,7 @@ Deletes a replica.
 
 The replica must exist and not have a running execution or migration.
 
-Normal response codes: 200
+Normal response codes: 204
 
 Error response codes: unauthorized(401), forbidden(403),
 itemNotFound(404)
@@ -289,6 +309,8 @@ Response
   - status : replica_execution_status
   - number : replica_execution_number
   - tasks : replica_execution_tasks
+  - action : replica_execution_action
+  - type : replica_execution_type
 
 **Example Replica Execution Response**
 
@@ -331,6 +353,7 @@ Response
   - number : replica_execution_number
   - status : replica_execution_status
   - id : replica_execution_id
+  - type : replica_execution_type
 
 **Example Replica Execute Response**
 
@@ -376,6 +399,7 @@ Response
   - tasks : replica_execution_tasks
   - action : replica_execution_action
   - id : replica_execution_id
+  - type : replica_execution_type
 
 
 **Example of Replica Executions Show Response**
@@ -474,7 +498,7 @@ Deletes an replica execution.
 
 The replica execution must not be running.
 
-Normal response codes: 200
+Normal response codes: 204
 
 Error response codes:
 unauthorized(401), forbidden(403), itemNotFound(404)
@@ -724,7 +748,7 @@ Deletes a replica schedule.
 **Preconditions**
 The replica schedule must exist.
 
-Normal response codes: 200
+Normal response codes: 204
 
 Error response codes: unauthorized(401),
 forbidden(403)

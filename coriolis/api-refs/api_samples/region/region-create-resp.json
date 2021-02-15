@@ -1,0 +1,14 @@
+{
+    "region": {
+        "created_at": "2021-02-01T10:02:54.000000",
+        "updated_at": null,
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "fc46cadb-5141-4d14-83e1-afe170be0e4c",
+        "name": "region1",
+        "description": "First test region.",
+        "enabled": true,
+        "mapped_services": [],
+        "mapped_endpoints": []
+    }
+}

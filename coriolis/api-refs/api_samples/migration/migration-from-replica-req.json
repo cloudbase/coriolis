@@ -3,6 +3,7 @@
     "clone_disks": true,
     "force": false,
     "replica_id": "0460aa4d-6b16-4c98-bd56-27ee186e4a22",
-    "skip_os_morphing": false
+    "skip_os_morphing": false,
+    "instance_osmorphing_minion_pool_mappings": {"instance1": "morphing_pool"}
   }
 }

@@ -22,9 +22,30 @@
       "user_domain_id": "default",
       "allow_untrusted": false,
       "identity_api_version": 3,
-      "neutron_interface_name": "publicURL"
+      "neutron_interface_name": "publicURL",
+      "ceph_options": {
+        "ceph_conf_file": [
+          "[global]",
+          "uth_supported = cephx",
+          "keyring = /etc/ceph/$cluster.$name.keyring",
+          "mon host = 10.107.3.219 10.107.3.222 10.107.3.239",
+          "log to syslog = false",
+          "err to syslog = false",
+          "clog to syslog = false",
+          "[client]"
+        ],
+        "ceph_username": "cinder-ceph",
+        "ceph_keyring_file": [
+          "[client.cinder-ceph]",
+          "key = AQCXsL9f7UCQBhAAqiKtO+BrngtjkqfjzyJyfg=="
+        ],
+        "ceph_pool_name": "cinder-ceph",
+        "ceph_cluster_name": "cinder-ceph",
+        "ceph_connection_timeout": 0
+      }
     },
     "name": "Updated Name",
-    "description": "Updated description"
+    "description": "Updated description",
+    "mapped_regions": ["public"]
   }
 }

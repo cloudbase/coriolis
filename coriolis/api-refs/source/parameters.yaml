@@ -23,6 +23,12 @@ migration_id_path:
   in: path
   required: true
   type: uuid
+minion_pool_id_path:
+  description: |
+    The ID of the minion pool.
+  in: path
+  type: uuid
+  required: true
 platform:
   description: |
     The type of cloud service platform.
@@ -34,6 +40,12 @@ provider_id:
     The ID of cloud service provider.
   in: path
   type: integer
+  required: true
+region_id_path:
+  description: |
+    The ID of the region.
+  in: path
+  type: uuid
   required: true
 replica_id_path:
   description: |
@@ -50,6 +62,12 @@ replica_schedule_id_path:
 replica_tasks_execution_id_path:
   description: |
      The id of the replica execution.
+  in: path
+  type: uuid
+  required: true
+service_id_path:
+  description: |
+    The ID of the service.
   in: path
   type: uuid
   required: true
@@ -94,12 +112,60 @@ destination_environment_schema:
   in: body
   type: object
   required: false
+destination_minion_pool_id:
+  description: |
+    Pre-existing minion pool ID on the destination platform.
+  in: body
+  type: string
+  required: true
+destination_minion_pool_options:
+  description: |
+    Array that contains the parameter options possible for a minion pool with the endpoint as destination.
+  in: body
+  type: array
+  required: true
 destination_options:
   description: |
     An array that contains the parameter options possible for
     a migration or replica with the endpoint as destination.
   in: body
   type: object
+  required: true
+diagnostic_application:
+  description: |
+    Name of the Coriolis service.
+  in: body
+  type: string
+  required: true
+diagnostic_hostname:
+  description: |
+    The hostname of the Coriolis service container.
+  in: body
+  type: string
+  required: true
+diagnostic_ip_addresses:
+  description: |
+    IP addresses of all the interfaces attached to the Coriolis appliance.
+  in: body
+  type: object
+  required: true
+diagnostic_os_info:
+  description: |
+    The Coriolis appliance's host OS information.
+  in: body
+  type: array
+  required: true
+diagnostic_packages:
+  description: |
+    The list of PIP packages installed on the Coriolis service container.
+  in: body
+  type: array
+  required: true
+diagnostics_array:
+  description: |
+    Array of diagnostics objects.
+  in: body
+  type: array
   required: true
 endpoint_created_at:
   description: |
@@ -130,6 +196,12 @@ endpoint_id:
     The id of a cloud endpoint.
   in: body
   type: uuid
+  required: true
+endpoint_mapped_regions:
+  description: |
+    List containing the Coriolis regions this endpoint is available to.
+  in: body
+  type: array
   required: true
 endpoint_name:
   description: |
@@ -179,6 +251,12 @@ instance_devices:
   in: body
   type: object
   required: true
+instance_firmware_type:
+  description: |
+    The type of firmware of the VM.
+  in: body
+  type: string
+  required: false
 instance_flavor:
   description: |
     Name or ID of the flavor used by the instance.
@@ -233,6 +311,18 @@ instance_os_type:
   in: body
   type: string
   required: true
+instance_osmorphing_minion_pool_mappings:
+  description: |
+    Mapping between migrated instance name and their respective morphing minion pool IDs.
+  in: body
+  type: object
+  required: true
+maximum_minions:
+  description: |
+    Maximum number of minion machines allowed to be allocated for the minion pool.
+  in: body
+  type: integer
+  required: false
 migration_cancel:
   description: |
     Object containing information about the type of migration cancellation.
@@ -301,6 +391,12 @@ migration_instances:
   in: body
   type: array
   required: true
+migration_last_execution_status:
+  description: |
+    Last execution status of the current migration.
+  in: body
+  type: string
+  required: true
 migration_notes:
   description: |
     Notes about the migration.
@@ -324,6 +420,13 @@ migration_replica_id:
     id of the replica if the migration is created from one.
   in: body
   type: uuid
+  required: true
+migration_shutdown_instances:
+  description: |
+    A boolean which describes whether the execution to shutdown the source
+    instance for the migration process.
+  in: body
+  type: boolean
   required: true
 migration_status:
   description: |
@@ -357,6 +460,167 @@ migrations_array:
   in: body
   type: array
   required: true
+minimum_minions:
+  description: |
+    Minimum number of minion machines to be allocated for the minion pool.
+  in: body
+  type: integer
+  required: false
+minion_max_idle_time:
+  description: |
+    Number of seconds for the minion machines of a minion_pool to be allowed in idle state before executing its retention strategy.
+  in: body
+  type: integer
+  required: false
+minion_pool_allocate:
+  description: |
+    An object that describes minion pool allocation action.
+  in: body
+  type: object
+  required: true
+minion_pool_created_at:
+  description: |
+    Timestamp of minion pool creation.
+  in: body
+  type: string
+  required: true
+minion_pool_deallocate:
+  description: |
+    An object that describes minion pool deallocation action.
+  in: body
+  type: object
+  required: true
+minion_pool_deleted:
+  description: |
+    Whether a minion pool is deleted or not.
+    1 for deleted
+    0 for not deleted
+  in: body
+  type: string
+  required: true
+minion_pool_deleted_at:
+  description: |
+    Timestamp of minion pool deletion.
+  in: body
+  type: string
+  required: true
+minion_pool_endpoint_id:
+  description: |
+    The ID of the minion pool endpoint.
+  in: body
+  type: uuid
+  required: true
+minion_pool_environment_options:
+  description: |
+    The configuration for the minion machines of the minion pool.
+  in: body
+  type: object
+  required: true
+minion_pool_events:
+  description: |
+    Array of events occuring on the minion pool.
+  in: body
+  type: array
+  required: true
+minion_pool_id:
+  description: |
+    The ID of the minion pool.
+  in: body
+  type: uuid
+  required: true
+minion_pool_machines:
+  description: |
+    Array of minion machine objects allocated in a minion_pool.
+  in: body
+  type: array
+  required: true
+minion_pool_maintenance_trust_id:
+  description: |
+    Maintenance trust_id of the minion pool.
+  in: body
+  type: uuid
+  required: true
+minion_pool_name:
+  description: |
+    The name of the minion pool.
+  in: body
+  type: string
+  required: true
+minion_pool_notes:
+  description: |
+    Notes about the minion pool.
+  in: body
+  type: string
+  required: false
+minion_pool_object:
+  description: |
+    Object containing information about a minion pool.
+  in: body
+  type: object
+  required: true
+minion_pool_os_type:
+  description: |
+    The OS type for the minion machines of this minion pool.
+  in: body
+  type: string
+  required: true
+minion_pool_platform:
+  description: |
+    The platform of the minion pool. Can either be 'source' or 'destination'.
+  in: body
+  type: string
+  required: true
+minion_pool_progress_updates:
+  description: |
+    Array of progress updates for minion machines of a minion pool.
+  in: body
+  type: array
+  required: true
+minion_pool_refresh:
+  description: |
+    An object describing minion pool refresh action.
+  in: body
+  type: object
+  required: true
+minion_pool_retention_strategy:
+  description: |
+    The retention strategy used for the minion machines of the minion pool. Can either be 'delete' or 'poweroff'.
+  in: body
+  type: string
+  required: false
+minion_pool_shared_resources:
+  description: |
+    Mapping of shared resources and their respective IDs for the minion machines of the minion pool.
+  in: body
+  type: object
+  required: true
+minion_pool_skip_allocation:
+  description: |
+    Boolean indicating whether or not to skip allocating machines upon minion pool creation.
+  in: body
+  type: boolean
+  required: false
+minion_pool_status:
+  description: |
+    The status of the minion pool. Accepted values: 'UNKNOWN', 'ERROR',
+    'DEALLOCATED', 'VALIATING_INPUTS', 'ALLOCATING_SHARED_RESOURCES',
+    'ALLOCATING_MACHINES', 'DEALLOCATING_MACHINES',
+    'DEALLOCATING_SHARED_RESOURCES', 'ALLOCATED', 'IN_MAINTENANCE'.
+  in: body
+  type: string
+  required: true
+minion_pool_updated_at:
+  description: |
+    Timestamp of minion pool update.
+  in: body
+  type: string
+  required: true
+minion_pools_array:
+  description: |
+    The array of minion pools.
+  in: body
+  type: array
+  required: true
 network_id:
   description: |
     The unique identifier of a network.
@@ -383,21 +647,27 @@ networks_array:
   required: true
 option_config_default:
   description: |
-    The default option for the destination parameter.
+    The default option for the parameter.
   in: body
   type: string
   required: true
 option_name:
   description: |
-    The name of the destination parameter.
+    The name of the parameter.
   in: body
   type: string
   required: true
 option_values:
   description: |
-    An array of possible values for the respective destination parameter.
+    An array of possible values for the respective parameter.
   in: body
   type: array
+  required: true
+origin_minion_pool_id:
+  description: |
+    Pre-existing minion pool ID on the source platform.
+  in: body
+  type: string
   required: true
 project_id:
   description: |
@@ -426,6 +696,78 @@ provider_types:
 providers:
   description: |
     Array that contains all the available types of cloud service providers
+  in: body
+  type: array
+  required: true
+region_created_at:
+  description: |
+    Timestamp of region creation.
+  in: body
+  type: string
+  required: true
+region_deleted:
+  description: |
+    Value representing whether the region is deleted or not.
+  in: body
+  type: integer
+  required: true
+region_deleted_at:
+  description: |
+    Timestamp of region deletion.
+  in: body
+  type: string
+  required: true
+region_description:
+  description: |
+    Details about the region.
+  in: body
+  type: string
+  required: false
+region_enabled:
+  description: |
+    Boolean value representing whether the region is enabled or not.
+  in: body
+  type: boolean
+  required: true
+region_id:
+  description: |
+    The ID of the region.
+  in: body
+  type: uuid
+  required: true
+region_mapped_endpoints:
+  description: |
+    Array of cloud endpoint IDs that are mapped to this region.
+  in: body
+  type: array
+  required: true
+region_mapped_services:
+  description: |
+    Array of service IDs that are mapped to this region.
+  in: body
+  type: array
+  required: true
+region_name:
+  description: |
+    The name of the region.
+  in: body
+  type: string
+  required: true
+region_object:
+  description: |
+    Object containing details about a region.
+  in: body
+  type: object
+  required: true
+region_updated_at:
+  description: |
+    Timestamp of last region update.
+  in: body
+  type: string
+  required: true
+regions_array:
+  description: |
+    Array of region objects.
   in: body
   type: array
   required: true
@@ -545,6 +887,12 @@ replica_execution_tasks:
   in: body
   type: array
   required: true
+replica_execution_type:
+  description: |
+    The type of the replica execution. Can either be 'replica_execution', 'replica_update' or 'replica_disks_delete'
+  in: body
+  type: string
+  required: true
 replica_execution_updated_at:
   description: |
     Timestamp of last replica execution update.
@@ -562,6 +910,12 @@ replica_instances:
     Name array of the  instances to be replicated.
   in: body
   type: array
+  required: true
+replica_last_execution_status:
+  description: |
+    Last execution status of the current replica.
+  in: body
+  type: string
   required: true
 replica_network_map:
   description: |
@@ -720,11 +1074,107 @@ replicas_array:
   in: body
   type: array
   required: true
+replication_count:
+  description: |
+    The number of disk syncs performed during a migration.
+  in: body
+  type: integer
+  required: true
 schemas:
   description: |
     Object containing the platform's requested schema.
   in: body
   type: object
+  required: true
+service_binary:
+  description: |
+    The name of the service binary.
+  in: body
+  type: string
+  required: true
+service_created_at:
+  description: |
+    Timestamp of service creation.
+  in: body
+  type: string
+  required: true
+service_deleted:
+  description: |
+    Value representing whether the service is deleted or not.
+  in: body
+  type: string
+  required: true
+service_deleted_at:
+  description: |
+    Timestamp of service deletion.
+  in: body
+  type: string
+  required: true
+service_enabled:
+  description: |
+    Boolean representing whether the service is enabled or not.
+  in: body
+  type: boolean
+  required: true
+service_host:
+  description: |
+    The hostname of the service.
+  in: body
+  type: string
+  required: true
+service_id:
+  description: |
+    The ID of the service.
+  in: body
+  type: uuid
+  required: true
+service_mapped_regions:
+  description: |
+    Array of regions mapped to this service.
+  in: body
+  type: array
+  required: false
+service_object:
+  description: |
+    Object containing information about the service.
+  in: body
+  type: object
+  required: true
+service_providers:
+  description: |
+    Object containing mappings of provider names and provider types available to this service.
+  in: body
+  type: object
+  required: true
+service_specs:
+  description: |
+    Object containing miscellaneous specifications about the service.
+  in: body
+  type: object
+  required: true
+service_status:
+  description: |
+    The status of the service. Possible values: "UP", "DOWN", "UNKNOWN".
+  in: body
+  type: string
+  required: true
+service_topic:
+  description: |
+    The name of the service's messaging topic.
+  in: body
+  type: string
+  required: true
+service_updated_at:
+  description: |
+    Timestamp of last service update.
+  in: body
+  type: string
+  required: true
+services_array:
+  description: |
+    Array of service objects.
+  in: body
+  type: array
   required: true
 skip_os_morphing:
   description: |
@@ -744,6 +1194,12 @@ source_environment_schema:
   in: body
   type: object
   required: false
+source_minion_pool_options:
+  description: |
+    Array that contains the paramter options possible for a minion pool with the endpoint as source.
+  in: body
+  type: array
+  required: true
 source_options:
   description: |
     An array that contains the parameter options possible for
@@ -781,6 +1237,12 @@ user_id:
   in: body
   type: uuid
   required: true
+user_scripts:
+  description: |
+    Mapping between instances selected for migration and custom scripts to be run during OSMorphing stage.
+  in: body
+  type: object
+  required: false
 valid_connection:
   description: |
     A boolean value representing whether the endpoint connection is valid.

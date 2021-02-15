@@ -36,6 +36,6 @@
       "controllers": []
     },
     "os_type": "linux",
-    "instance_name": "ubuntu-xenial"
+    "firmware_type": "BIOS"
   }
 }

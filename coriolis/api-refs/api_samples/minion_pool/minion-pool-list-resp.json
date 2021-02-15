@@ -1,0 +1,108 @@
+{
+    "minion_pools": [
+        {
+            "id": "540a29df-94e4-4a65-bf3b-40ea18929c40",
+            "name": "source_pool",
+            "notes": "",
+            "endpoint_id": "8e9b6b0b-ef3b-4127-ac32-a18a30e67749",
+            "environment_options": {
+                "list_all_destination_networks": false,
+                "migr_worker_use_config_drive": false,
+                "migr_image": "bionic",
+                "migr_network": "admin-net",
+                "migr_flavor_name": "m1.small",
+                "migr_worker_use_fip": true,
+                "migr_worker_boot_from_volume": false,
+                "migr_fip_pool_name": "b2f0b98e-03a1-4f13-92aa-ece55f34ebf8/038a72ea-1413-493b-82da-4c75a9077fbf"
+            },
+            "os_type": "linux",
+            "maintenance_trust_id": "525a0b79388c43f38d23770a57038780",
+            "platform": "source",
+            "created_at": "2021-01-29T11:18:24.000000",
+            "updated_at": "2021-01-29T11:51:05.000000",
+            "deleted_at": null,
+            "deleted": "0",
+            "shared_resources": {},
+            "status": "ALLOCATED",
+            "minimum_minions": 1,
+            "maximum_minions": 3,
+            "minion_max_idle_time": 600,
+            "minion_retention_strategy": "poweroff",
+            "minion_machines": [
+                {
+                    "id": "ecb4d684-9339-4ad1-9116-96ddb11d5bb6",
+                    "user_id": "bdb2d792fc0c48818ef4b1b1240fbb69",
+                    "project_id": "f801306887294bf0b98ffc05601f22db",
+                    "created_at": "2021-01-29T11:49:38.000000",
+                    "updated_at": "2021-01-29T11:51:05.000000",
+                    "deleted_at": null,
+                    "deleted": "0",
+                    "pool_id": "540a29df-94e4-4a65-bf3b-40ea18929c40",
+                    "allocation_status": "AVAILABLE",
+                    "power_status": "POWERED_ON",
+                    "connection_info": {
+                        "ip": "10.107.5.65",
+                        "port": 22,
+                        "username": "cloudbase",
+                        "password": null,
+                        "pkey": "***"
+                    },
+                    "allocated_action": null,
+                    "last_used_at": "2021-01-29T11:51:05.000000",
+                    "backup_writer_connection_info": {
+                        "backend": "ssh_backup_writer",
+                        "connection_details": {
+                            "ip": "10.107.5.65",
+                            "port": 22,
+                            "username": "cloudbase",
+                            "password": null,
+                            "pkey": "***"
+                        }
+                    },
+                    "provider_properties": {
+                        "instance_id": "13971ab6-f523-4290-958f-6f5d8edf180f",
+                        "keypair_name": "coriolispool540a29dfmachineecb4d68493394ad1911696ddb112fe9eb68keypair",
+                        "port_id": "14c2c8b8-a0c2-481a-8687-b0fbbd62e436",
+                        "data_transfer_mechanism": "SSH",
+                        "secgroup_id": "5750cecb-2354-413e-87ae-14dc50eb2459",
+                        "floating_ip_id": "9f3a3ab2-42d6-4d8a-8f26-71f8bd380ae6",
+                        "pool_identifier": "540a29df-94e4-4a65-bf3b-40ea18929c40",
+                        "minion_identifier": "ecb4d684-9339-4ad1-9116-96ddb11d5bb6",
+                        "pool_shared_resources": {},
+                        "pool_os_type": "linux"
+                    }
+                }
+            ]
+        },
+        {
+            "id": "be74a17c-5476-4cf8-93f7-dd58c700de70",
+            "name": "destination_pool",
+            "notes": null,
+            "endpoint_id": "a471879c-8138-4440-ad0a-7c201d4ed7df",
+            "environment_options": {
+                "data_transfer_mechanism": "HTTPS",
+                "migr_flavor_name": "m1.medium",
+                "migr_image": "64df7925-fc27-4fce-80ed-63d85918064f",
+                "migr_network": "admin-net",
+                "migr_worker_boot_from_volume": false,
+                "migr_worker_use_config_drive": false,
+                "migr_worker_use_fip": false,
+                "list_all_destination_networks": true
+            },
+            "os_type": "windows",
+            "maintenance_trust_id": "71718e42267f44c5988beac7260159db",
+            "platform": "destination",
+            "created_at": "2021-01-29T11:55:55.000000",
+            "updated_at": null,
+            "deleted_at": null,
+            "deleted": "0",
+            "shared_resources": null,
+            "status": "DEALLOCATED",
+            "minimum_minions": 1,
+            "maximum_minions": 1,
+            "minion_max_idle_time": 3600,
+            "minion_retention_strategy": "delete",
+            "minion_machines": []
+        }
+    ]
+}

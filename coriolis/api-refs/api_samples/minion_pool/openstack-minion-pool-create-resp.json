@@ -1,0 +1,47 @@
+{
+    "minion_pool": {
+        "created_at": "2021-01-29T11:18:24.000000",
+        "updated_at": null,
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "540a29df-94e4-4a65-bf3b-40ea18929c40",
+        "user_id": "bdb2d792fc0c48818ef4b1b1240fbb69",
+        "project_id": "f801306887294bf0b98ffc05601f22db",
+        "maintenance_trust_id": "525a0b79388c43f38d23770a57038780",
+        "name": "source_pool",
+        "notes": "",
+        "endpoint_id": "8e9b6b0b-ef3b-4127-ac32-a18a30e67749",
+        "os_type": "linux",
+        "platform": "source",
+        "environment_options": {
+            "list_all_destination_networks": false,
+            "migr_worker_use_config_drive": false,
+            "migr_image": "bionic",
+            "migr_network": "admin-net",
+            "migr_flavor_name": "m1.small",
+            "migr_worker_use_fip": true,
+            "migr_worker_boot_from_volume": false
+        },
+        "status": "DEALLOCATED",
+        "shared_resources": null,
+        "minimum_minions": 1,
+        "maximum_minions": 1,
+        "minion_max_idle_time": 1,
+        "minion_retention_strategy": "delete",
+        "minion_machines": [],
+        "events": [
+            {
+                "created_at": "2021-01-29T11:18:24.000000",
+                "updated_at": null,
+                "deleted_at": null,
+                "deleted": "0",
+                "id": "9999e14b-53e1-4528-a59d-0194748c4a87",
+                "pool_id": "540a29df-94e4-4a65-bf3b-40ea18929c40",
+                "level": "INFO",
+                "index": 0,
+                "message": "Successfully added minion pool to the DB"
+            }
+        ],
+        "progress_updates": []
+    }
+}

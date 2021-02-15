@@ -1,0 +1,16 @@
+{
+    "region": {
+        "created_at": "2021-01-28T16:22:34.000000",
+        "updated_at": null,
+        "deleted_at": null,
+        "deleted": "0",
+        "id": "5e31066c-3512-4e8d-9e68-0a5de3d35c5f",
+        "name": "Public",
+        "description": "Default Coriolis Region created by coriolis-docker.",
+        "enabled": true,
+        "mapped_services": [
+            "15194e7e-8d91-406a-a02c-8032ff1fe623"
+        ],
+        "mapped_endpoints": []
+    }
+}

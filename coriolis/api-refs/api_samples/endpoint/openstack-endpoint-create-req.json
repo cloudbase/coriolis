@@ -22,10 +22,31 @@
       "neutron_interface_name": "publicURL",
       "glance_interface_name": "publicURL",
       "cinder_interface_name": "publicURL",
-      "swift_interface_name": "publicURL"
+      "swift_interface_name": "publicURL",
+      "ceph_options": {
+        "ceph_conf_file": [
+          "[global]",
+          "uth_supported = cephx",
+          "keyring = /etc/ceph/$cluster.$name.keyring",
+          "mon host = 10.107.3.219 10.107.3.222 10.107.3.239",
+          "log to syslog = false",
+          "err to syslog = false",
+          "clog to syslog = false",
+          "[client]"
+        ],
+        "ceph_username": "cinder-ceph",
+        "ceph_keyring_file": [
+          "[client.cinder-ceph]",
+          "key = AQCXsL9f7UCQBhAAqiKtO+BrngtjkqfjzyJyfg=="
+        ],
+        "ceph_pool_name": "cinder-ceph",
+        "ceph_cluster_name": "cinder-ceph",
+        "ceph_connection_timeout": 0
+      }
     },
     "type": "openstack",
     "name": "Endpoint Name Example",
-    "description": "Example Endpoint Description"
+    "description": "Example Endpoint Description",
+    "mapped_regions": ["public"]
   }
 }

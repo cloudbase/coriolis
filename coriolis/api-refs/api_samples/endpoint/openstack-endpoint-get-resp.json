@@ -29,10 +29,19 @@
       "neutron_interface_name": "publicURL",
       "glance_interface_name": "publicURL",
       "cinder_interface_name": "publicURL",
-      "swift_interface_name": "publicURL"
+      "swift_interface_name": "publicURL",
+      "ceph_options": {
+        "ceph_conf_file": "/etc/ceph/ceph.conf",
+        "ceph_username": "root",
+        "ceph_keyring_file": "/home/ubuntu/keyring_file",
+        "ceph_pool_name": "pool_name",
+        "ceph_cluster_name": "cluster_name",
+        "ceph_connection_timeout": "1200"
+      }
     },
     "type": "openstack",
     "name": "Endpoint Name Example",
-    "description": "Example Endpoint Description"
+    "description": "Example Endpoint Description",
+    "mapped_regions": ["public"]
   }
 }
