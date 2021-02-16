@@ -1301,9 +1301,10 @@ class ConductorServerEndpoint(object):
         migration.replica = replica
         migration.info = replica.info
         migration.user_scripts = user_scripts
-        migration.origin_minion_pool_id = replica.origin_minion_pool_id
-        migration.destination_minion_pool_id = (
-            replica.destination_minion_pool_id)
+        # NOTE: Migrations-from-Replica have no use for the source/target
+        # pools of the parent Replica so these can be omitted:
+        migration.origin_minion_pool_id = None
+        migration.destination_minion_pool_id = None
         migration.instance_osmorphing_minion_pool_mappings = (
             replica.instance_osmorphing_minion_pool_mappings)
         if instance_osmorphing_minion_pool_mappings:
