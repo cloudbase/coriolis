@@ -6,13 +6,16 @@
       "type": "array",
       "items": {
         "type": "object",
-        "additionalProperties": true,
+        "additionalProperties": false,
         "properties": {
           "id": {
             "type": "string"
           },
           "name": {
             "type": "string"
+          },
+          "additional_provider_properties": {
+            "type": "object"
           }
         },
       "required": [
