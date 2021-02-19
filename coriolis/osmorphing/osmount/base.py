@@ -377,6 +377,21 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                 # NOTE: it's possible that the device was mounted successfully
                 # but an I/O error occurs later along the line:
                 dirs = utils.list_ssh_dir(self._ssh, tmp_dir)
+                LOG.debug("Contents of device %s:\n%s", dev_path, dirs)
+
+                if all_files and dirs:
+                    common = [i if i in dirs else None for i in all_files]
+                    if not all(common):
+                        continue
+
+                    dev_name = dev_path
+                    break
+                elif one_of_files and dirs:
+                    common = [i for i in one_of_files if i in dirs]
+                    if len(common) > 0:
+                        dev_name = dev_path
+                        break
+
             except Exception:
                 self._event_manager.progress_update(
                     "Failed to mount and scan device '%s'" % dev_path)
@@ -389,27 +404,11 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                 utils.ignore_exceptions(self._exec_cmd)(
                     "sudo rmdir %s" % tmp_dir
                 )
+                tmp_dir = None
                 continue
-
-            LOG.debug("Contents of device %s:\n%s", dev_path, dirs)
-
-            if all_files and dirs:
-                common = [i if i in dirs else None for i in all_files]
-                if not all(common):
+            finally:
+                if tmp_dir:
                     self._exec_cmd('sudo umount %s' % tmp_dir)
-                    continue
-
-                dev_name = dev_path
-                self._exec_cmd('sudo umount %s' % tmp_dir)
-            elif one_of_files and dirs:
-                common = [i for i in one_of_files if i in dirs]
-                if len(common) > 0:
-                    dev_name = dev_path
-                    self._exec_cmd('sudo umount %s' % tmp_dir)
-                    break
-            else:
-                self._exec_cmd('sudo umount %s' % tmp_dir)
-                continue
 
         return dev_name
 
