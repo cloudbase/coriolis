@@ -1300,6 +1300,7 @@ class ConductorServerEndpoint(object):
         migration.instances = instances
         migration.replica = replica
         migration.info = replica.info
+        migration.notes = replica.notes
         migration.user_scripts = user_scripts
         # NOTE: Migrations-from-Replica have no use for the source/target
         # pools of the parent Replica so these can be omitted:
