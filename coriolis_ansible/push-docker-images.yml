@@ -20,6 +20,8 @@
         - "coriolis-conductor"
         - "coriolis-replica-cron"
         - "coriolis-worker"
+        - "coriolis-scheduler"
+        - "coriolis-minion-manager"
         - "coriolis-logger"
         - "coriolis-web"
         - "coriolis-web-proxy"
