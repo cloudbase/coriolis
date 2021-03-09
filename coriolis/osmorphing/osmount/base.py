@@ -23,11 +23,13 @@ MAJOR_COLUMN_INDEX = 4
 
 class BaseOSMountTools(object, with_metaclass(abc.ABCMeta)):
 
-    def __init__(self, connection_info, event_manager, ignore_devices):
+    def __init__(self, connection_info, event_manager, ignore_devices,
+                 operation_timeout):
         self._event_manager = event_manager
         self._ignore_devices = ignore_devices
         self._environment = {}
         self._connection_info = connection_info
+        self._osmount_operation_timeout = operation_timeout
         self._connect()
 
     @abc.abstractmethod
@@ -94,9 +96,15 @@ class BaseSSHOSMountTools(BaseOSMountTools):
     def _allow_ssh_env_vars(self):
         pass
 
-    def _exec_cmd(self, cmd):
-        return utils.exec_ssh_cmd(self._ssh, cmd, self._environment,
-                                  get_pty=True)
+    def _exec_cmd(self, cmd, timeout=None):
+        if not timeout:
+            timeout = self._osmount_operation_timeout
+        try:
+            return utils.exec_ssh_cmd(self._ssh, cmd, self._environment,
+                                      get_pty=True, timeout=timeout)
+        except exception.MinionMachineCommandTimeout as ex:
+            raise exception.OSMorphingSSHOperationTimeout(
+                cmd=cmd, timeout=timeout) from ex
 
     def get_connection(self):
         return self._ssh

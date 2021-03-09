@@ -25,7 +25,7 @@ class WindowsMountTools(base.BaseOSMountTools):
             {"host": host, "port": port})
 
         self._conn = wsman.WSManConnection.from_connection_info(
-            connection_info)
+            connection_info, self._osmount_operation_timeout)
 
     def get_connection(self):
         return self._conn

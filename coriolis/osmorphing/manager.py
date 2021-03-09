@@ -13,6 +13,13 @@ from coriolis.osmorphing import base as base_osmorphing
 from coriolis.osmorphing.osmount import factory as osmount_factory
 from coriolis.osmorphing.osdetect import manager as osdetect_manager
 
+
+opts = [
+    cfg.IntOpt('default_osmorphing_operation_timeout',
+               help='Number of seconds to wait for a pending SSH or WinRM '
+                    'command before the socket times out.')
+]
+
 proxy_opts = [
     cfg.StrOpt('url',
                default=None,
@@ -29,6 +36,7 @@ proxy_opts = [
 ]
 
 CONF = cfg.CONF
+CONF.register_opts(opts)
 CONF.register_opts(proxy_opts, 'proxy')
 
 LOG = logging.getLogger(__name__)
@@ -55,6 +63,7 @@ def run_os_detect(
 
     detected_info = osdetect_manager.detect_os(
         worker_connection, os_type, os_root_dir,
+        CONF.default_osmorphing_operation_timeout,
         tools_environment=tools_environment,
         custom_os_detect_tools=list(
             itertools.chain(
@@ -125,7 +134,8 @@ def morph_image(origin_provider, destination_provider, connection_info,
 
     # instantiate and run OSMount tools:
     os_mount_tools = osmount_factory.get_os_mount_tools(
-        os_type, connection_info, event_manager, ignore_devices)
+        os_type, connection_info, event_manager, ignore_devices,
+        CONF.default_osmorphing_operation_timeout)
 
     proxy_settings = _get_proxy_settings()
     os_mount_tools.set_proxy(proxy_settings)
@@ -172,7 +182,8 @@ def morph_image(origin_provider, destination_provider, connection_info,
                 type(origin_provider))
             export_os_morphing_tools = export_tools_cls(
                 conn, os_root_dir, os_root_dev, hypervisor_type,
-                event_manager, detected_os_info, osmorphing_parameters)
+                event_manager, detected_os_info, osmorphing_parameters,
+                CONF.default_osmorphing_operation_timeout)
             export_os_morphing_tools.set_environment(environment)
         else:
             LOG.debug(
@@ -195,7 +206,8 @@ def morph_image(origin_provider, destination_provider, connection_info,
 
     import_os_morphing_tools = import_os_morphing_tools_cls(
         conn, os_root_dir, os_root_dev, hypervisor_type,
-        event_manager, detected_os_info, osmorphing_parameters)
+        event_manager, detected_os_info, osmorphing_parameters,
+        CONF.default_osmorphing_operation_timeout)
     import_os_morphing_tools.set_environment(environment)
 
     if user_script:

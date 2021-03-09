@@ -53,10 +53,11 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
 
     def __init__(self, conn, os_root_dir, os_root_dev,
                  hypervisor, event_manager, detected_os_info,
-                 osmorphing_parameters):
+                 osmorphing_parameters, operation_timeout=None):
         super(BaseRedHatMorphingTools, self).__init__(
             conn, os_root_dir, os_root_dev,
-            hypervisor, event_manager, detected_os_info, osmorphing_parameters)
+            hypervisor, event_manager, detected_os_info, osmorphing_parameters,
+            operation_timeout)
         self._enable_repos = []
 
     def disable_predictable_nic_names(self):
