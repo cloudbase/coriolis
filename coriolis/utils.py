@@ -307,9 +307,9 @@ def exec_ssh_cmd(ssh, cmd, environment=None, get_pty=False):
 
     _, stdout, stderr = ssh.exec_command(
         cmd, environment=environment, get_pty=get_pty)
-    exit_code = stdout.channel.recv_exit_status()
     std_out = stdout.read()
     std_err = stderr.read()
+    exit_code = stdout.channel.recv_exit_status()
     if exit_code:
         raise exception.CoriolisException(
             "Command \"%s\" failed on host '%s' with exit code: %s\n"
