@@ -51,7 +51,7 @@ automatically_enable_cbt = False
 # Internal default is false.
 # power_on_migrated_machines = true
 
-# Whether or not Coriolis attempt to enable CBT on migrated VMs.
+# Whether or not Coriolis should attempt to enable CBT on migrated VMs.
 # Note that the selected datastores for the VM must support CBT (NFS or VMFS2)
 # Internal default is false.
 # import_enable_cbt = true
@@ -69,7 +69,7 @@ automatically_enable_cbt = False
 # Internal default is false.
 # preserve_mac_addresses = true
 
-# The network interface ddevice model to use for migrated virtual machines.
+# The network interface device model to use for migrated virtual machines.
 # If using a paravirtual device model like 'VMXNET3', enabling the OSMorphing
 # process before final VM creation is recommended.
 # Must be one of "E1000", "E1000e", or "VMXNET3".
@@ -81,7 +81,7 @@ automatically_enable_cbt = False
 # If unset, the latest available one will be automatically chosen.
 # imported_vm_hardware_version = vmx-14
 
-# Whether or not Coriolis should reconfigured the Migrated VMs to use DHCP
+# Whether or not Coriolis should reconfigure the Migrated VMs to use DHCP
 # on all network interfaces during the OSMorphing process.
 # Internal default is false.
 # set_dhcp = true
