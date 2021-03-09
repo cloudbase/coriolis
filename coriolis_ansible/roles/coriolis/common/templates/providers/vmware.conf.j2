@@ -1,4 +1,7 @@
 [vmware_vsphere_migration_provider]
+
+### Export parameters:
+
 # Required in order to set the compatibility of the vixDiskLib release
 # Coriolis will use during replication/CBT-based migration from VMWare.
 # This value should ideally match the ESXi/vCenter hosts versions.
@@ -14,3 +17,118 @@ vixdisklib_library_directory = /lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:{
 # the VM before Replication.
 # This requires that the VM have no pre-existing snapshots.
 automatically_enable_cbt = False
+
+
+### Import parameters:
+# The name of the datacenter to import to.
+# import_datacenter = datacenter1
+
+# The inventory path of the VMware datastore from the selected
+# 'import_datacenter' in which to create Migrated VMs. Note that only the
+# VMX and other such VM files will be stored in the datastore, as the VM's
+# disks will be stored within the datastores selected for each, respectively.
+# import_datastore = datastore0
+
+# The inventory path of the compute cluster from the selected
+# 'import_datacenter' VMs should be migrated on.
+# (e.g. 'Cluster Folder 1/Cluster X')
+# import_cluster = CI
+
+# The name of the resource pool to deploy the migrated VMs in. Must reside
+# within the seleted 'import_cluster'. If none is provided, the default
+# resource pool for the cluster will be used.
+# import_resource_pool = Resources
+
+# Inventory path of a pre-existing VM folder on the selected
+# 'Import Datacenter' in which to put the migrated VM(s).
+# Must be a slash-separated absolute path starting from the top-level
+# of the VMware installation, excluding the datacenter. (e.g: 'Folder 1/Folder 2').
+# If none is provided, VMs will be migrated into the top
+# level of the selected 'Import Datacenter'.
+# import_vm_folder = Migrated Coriolis VMs
+
+# Whether or not Coriolis should power on machines after migrating them.
+# Internal default is false.
+# power_on_migrated_machines = true
+
+# Whether or not Coriolis attempt to enable CBT on migrated VMs.
+# Note that the selected datastores for the VM must support CBT (NFS or VMFS2)
+# Internal default is false.
+# import_enable_cbt = true
+
+# The VMware guest ID (e.g. 'ubuntu64Guest') for the VMs to be migrated to VMware.
+# Must be supported by the host(s) within the selected 'import_cluster'.
+# Internal default is 'genericLinuxGuest'.
+# imported_vm_guest_id = ubuntu64Guest
+
+# Whether or not Coriolis should preserve the MAC addresses of the network
+# interfaces of the migrated VMs. In order to avoid MAC address conclicts,
+# please ensure that the addresses will not conflict with existing VMware VMs
+# on the same network(s), or that the source and target platforms don't share
+# the same L2 VM network.
+# Internal default is false.
+# preserve_mac_addresses = true
+
+# The network interface ddevice model to use for migrated virtual machines.
+# If using a paravirtual device model like 'VMXNET3', enabling the OSMorphing
+# process before final VM creation is recommended.
+# Must be one of "E1000", "E1000e", or "VMXNET3".
+# Internal default is "E1000e"
+# nics_device_model = VMXNET3
+
+# The VMware hardware version (e.g. 'vmx-12') for the migrated VMs.
+# Must be supported by the selected 'import_cluster'.
+# If unset, the latest available one will be automatically chosen.
+# imported_vm_hardware_version = vmx-14
+
+# Whether or not Coriolis should reconfigured the Migrated VMs to use DHCP
+# on all network interfaces during the OSMorphing process.
+# Internal default is false.
+# set_dhcp = true
+
+# Inventory path of the VM folder on the selected 'import_datacenter' in which
+# to house temporary minion VMs, excluding the top-level datacenter.
+# (e.g. 'VM Folder 1/VM Folder 2')
+# migr_minion_folder = Coriolis Minions
+
+# Mapping between operating system types ('linux' or 'windows') and the
+# inventory paths of pre-existing VM templates available on VMware.
+# These templates will be used by Coriolis during the disk transfer and
+# OSMorphing processes, and must be configured to run in a network with DHCP
+# enabled for them to be automatically allocated an IP address.
+# Their IP address must be reachable from the Coriolis Worker service(s)
+# installed as part of Coriolis. The templates must have VMware tools
+# installed and configured to report the IP address(es) to VMware.
+# migr_template_map = linux: Coriolis Minions/coriolis-minion-template-20.04
+
+# Inventory path of an empty VM template to be used as a proxy for disk operations.
+# The template's only requirement is having a SCSI bus. The template has no other
+# requirements related to sizing/OS type/etc, and can have no root disk or NICs
+# whatsoever.
+# If none is provided, a template from the 'migr_template_map' will be used.
+# migr_disk_shell_template = Coriolis Minions/coriolis-disks-operations-shell-template
+
+# Mapping between operating system types ('linux' or 'windows') and the names of
+# pre-existing usernames on the template(s) specified in the 'migr_template_map'
+# option. The users must have admin privileges within the templates.
+# migr_template_username_map = linux: coriolis
+
+# Mapping between operating system types ('linux' or 'windows') and the passwords
+# of pre-existing usernames on the template(s) specified in the 'migr_template_map'
+# option. The users must have admin privileges within the templates.
+# migr_template_password_map = linux: coriolis123
+
+# The inventory path of the VMware datastore from the selected 'import_datacenter'
+# in which to store temporary minion VMs. If none is provided,
+# the one preset within the template will be used.
+# migr_minion_datastore = datastore0
+
+# The inventory path of the compute cluster from the selected 'import_datacenter'
+# which temporary minion VMs should be created on. (e.g. 'Cluster Folder 1/Cluster X').
+# If none is provided, the selected 'import_cluster' will be used.
+# migr_minion_cluster = CI
+
+# The name of the resource pool in which temporary minion VMs should be created on.
+# Must reside within the seleted 'import_datacenter'. If none is provided, the
+# default resource pool for the selected 'migr_minion_cluster' will be used.
+# migr_minion_resource_pool = Resources
