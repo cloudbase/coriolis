@@ -22,11 +22,13 @@ class BaseOracleMorphingTools(redhat.BaseRedHatMorphingTools):
         self._run_dracut_base('kernel')
         self._run_dracut_base('kernel-uek')
 
-    def _enable_oracle_repos(self):
-
+    def _get_oracle_repos(self):
+        repos = []
         major_version = int(self._version.split(".")[0])
         if major_version < 8:
-            self._yum_install(['yum-utils'])
+            self._yum_install(
+                ['yum-utils'],
+                self._find_yum_repos(['ol%s_latest' % major_version]))
             # TODO(apilotti): for ULN users, use the corresponding repos
             # e.g.: ol7_x86_64_addons
             self._exec_cmd_chroot(
@@ -34,10 +36,18 @@ class BaseOracleMorphingTools(redhat.BaseRedHatMorphingTools):
                 "http://public-yum.oracle.com/public-yum-ol%s.repo" %
                 major_version)
 
-            self._enable_repos = ["ol%s_software_collections" % major_version,
-                                  "ol%s_addons" % major_version]
+            repos_to_enable = ["ol%s_software_collections" % major_version,
+                               "ol%s_addons" % major_version,
+                               "ol%s_UEKR" % major_version,
+                               "ol%s_latest" % major_version]
+            repos = self._find_yum_repos(repos_to_enable)
         else:
-            self._yum_install(['oraclelinux-release-el%s' % major_version])
-            self._exec_cmd_chroot(
-                "yum config-manager --enable ol%(release)s_appstream "
-                "ol%(release)s_UEKR6" % {"release": major_version})
+            self._yum_install(
+                ['oraclelinux-release-el%s' % major_version],
+                self._find_yum_repos(['ol%s_baseos_latest' % major_version]))
+            repos_to_enable = ["ol%s_baseos_latest" % major_version,
+                               "ol%s_appstream" % major_version,
+                               "ol%s_UEKR6" % major_version]
+            repos = self._find_yum_repos(repos_to_enable)
+
+        return repos
