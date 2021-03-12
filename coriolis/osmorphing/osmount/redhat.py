@@ -20,7 +20,7 @@ class RedHatOSMountTools(base.BaseLinuxOSMountTools):
 
     def setup(self):
         super(RedHatOSMountTools, self).setup()
-        self._exec_cmd("sudo -E yum install -y lvm2")
+        self._exec_cmd("sudo -E yum install -y lvm2 psmisc")
         self._exec_cmd("sudo modprobe dm-mod")
 
     def _allow_ssh_env_vars(self):
