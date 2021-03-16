@@ -306,8 +306,11 @@ def add_replica_tasks_execution(context, execution):
 
     # include deleted records
     max_number = _model_query(
-        context, func.max(models.TasksExecution.number)).filter_by(
-            action_id=execution.action.id).first()[0] or 0
+        context,
+        func.max(
+            models.TasksExecution.number)).filter(
+                models.TasksExecution.action_id==(
+                    execution.action.id)).first()[0] or 0
     execution.number = max_number + 1
 
     _session(context).add(execution)
@@ -1387,21 +1390,6 @@ def get_minion_pools(
                 include_progress_updates=include_progress_updates)
             for i in db_result]
     return db_result
-
-
-@enginefacade.writer
-def add_minion_pool_execution(context, execution):
-    if is_user_context(context):
-        if execution.action.project_id != context.tenant:
-            raise exception.NotAuthorized()
-
-    # include deleted records
-    max_number = _model_query(
-        context, func.max(models.TasksExecution.number)).filter_by(
-            action_id=execution.action.id).first()[0] or 0
-    execution.number = max_number + 1
-
-    _session(context).add(execution)
 
 
 @enginefacade.writer

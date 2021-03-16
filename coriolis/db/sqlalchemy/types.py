@@ -32,7 +32,7 @@ class LongText(types.TypeDecorator):
 
 
 class Blob(types.TypeDecorator):
-    impl = types.Binary
+    impl = types.LargeBinary
 
     def load_dialect_impl(self, dialect):
         if dialect.name == 'mysql':
