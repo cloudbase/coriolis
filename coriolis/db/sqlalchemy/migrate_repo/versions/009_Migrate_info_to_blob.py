@@ -9,5 +9,4 @@ def upgrade(migrate_engine):
     base_transfer_action = sqlalchemy.Table(
         'base_transfer_action', meta, autoload=True)
 
-    base_transfer_action.c.info.alter(type=types.Binary(4294967295))
-
+    base_transfer_action.c.info.alter(type=types.LargeBinary(4294967295))
