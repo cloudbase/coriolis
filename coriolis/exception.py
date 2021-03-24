@@ -26,11 +26,9 @@ from webob.util import status_reasons
 
 from coriolis.i18n import _, _LE  # noqa
 
-
 LOG = logging.getLogger(__name__)
 
 CONF = cfg.CONF
-
 
 TASK_ALREADY_CANCELLING_EXCEPTION_FMT = (
     "Task %(task_id)s is in CANCELLING status.")
@@ -470,3 +468,31 @@ class FailedPackageUninstallationException(PackageManagerOperationException):
     message = (
         "Failed to remove unwanted packages (%(package_names)s) through "
         "%(package_manager)s. Error was: %(error)s")
+
+
+class MinionMachineCommandTimeout(CoriolisException):
+    pass
+
+
+class OSMorphingOperationTimeout(MinionMachineCommandTimeout):
+    pass
+
+
+class OSMorphingSSHOperationTimeout(OSMorphingOperationTimeout):
+    message = (
+        "Pending SSH command %(cmd)s timed out after %(timeout)s seconds. "
+        "Coriolis may have encountered connection issues to the minion machine"
+        " or the command execution time exceeds the timeout set. Try extending"
+        " the timeout by editing the 'default_osmorphing_operation_timeout' "
+        "in Coriolis' static configuration file."
+    )
+
+
+class OSMorphingWinRMOperationTimeout(OSMorphingOperationTimeout):
+    message = (
+        "Pending WinRM command %(cmd)s timed out after %(timeout)s seconds. "
+        "Coriolis may have encountered connection issues to the minion machine"
+        " or the command execution time exceeds the timeout set. Try extending"
+        " the timeout by editing the 'default_osmorphing_operation_timeout' "
+        "in Coriolis' static configuration file."
+    )

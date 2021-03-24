@@ -28,7 +28,8 @@ class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
 
     def __init__(
             self, conn, os_root_dir, os_root_device, hypervisor,
-            event_manager, detected_os_info, osmorphing_parameters):
+            event_manager, detected_os_info, osmorphing_parameters,
+            operation_timeout):
 
         self.check_detected_os_info_parameters(detected_os_info)
 
@@ -42,6 +43,7 @@ class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
         self._detected_os_info = detected_os_info
         self._environment = {}
         self._osmorphing_parameters = osmorphing_parameters
+        self._osmorphing_operation_timeout = operation_timeout
 
     @abc.abstractclassmethod
     def get_required_detected_os_info_fields(cls):
@@ -120,10 +122,11 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
     _packages = {}
 
     def __init__(self, conn, os_root_dir, os_root_dev, hypervisor,
-                 event_manager, detected_os_info, osmorphing_parameters):
+                 event_manager, detected_os_info, osmorphing_parameters,
+                 operation_timeout=None):
         super(BaseLinuxOSMorphingTools, self).__init__(
             conn, os_root_dir, os_root_dev, hypervisor, event_manager,
-            detected_os_info, osmorphing_parameters)
+            detected_os_info, osmorphing_parameters, operation_timeout)
         self._ssh = conn
 
     @classmethod
@@ -256,14 +259,27 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         path = os.path.join(self._os_root_dir, chroot_path)
         return utils.list_ssh_dir(self._ssh, path)
 
-    def _exec_cmd(self, cmd):
-        return utils.exec_ssh_cmd(
-            self._ssh, cmd, environment=self._environment, get_pty=True)
+    def _exec_cmd(self, cmd, timeout=None):
+        if not timeout:
+            timeout = self._osmorphing_operation_timeout
+        try:
+            return utils.exec_ssh_cmd(
+                self._ssh, cmd, environment=self._environment, get_pty=True,
+                timeout=timeout)
+        except exception.MinionMachineCommandTimeout as ex:
+            raise exception.OSMorphingSSHOperationTimeout(
+                cmd=cmd, timeout=timeout) from ex
 
-    def _exec_cmd_chroot(self, cmd):
-        return utils.exec_ssh_cmd_chroot(
-            self._ssh, self._os_root_dir, cmd,
-            environment=self._environment, get_pty=True)
+    def _exec_cmd_chroot(self, cmd, timeout=None):
+        if not timeout:
+            timeout = self._osmorphing_operation_timeout
+        try:
+            return utils.exec_ssh_cmd_chroot(
+                self._ssh, self._os_root_dir, cmd,
+                environment=self._environment, get_pty=True, timeout=timeout)
+        except exception.MinionMachineCommandTimeout as ex:
+            raise exception.OSMorphingSSHOperationTimeout(
+                cmd=cmd, timeout=timeout) from ex
 
     def _check_user_exists(self, username):
         try:

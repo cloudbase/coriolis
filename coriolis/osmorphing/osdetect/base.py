@@ -7,8 +7,8 @@ import os
 
 from six import with_metaclass
 
+from coriolis import exception
 from coriolis import utils
-
 
 # Required OS release fields to be returned as declared in the
 # 'schemas.CORIOLIS_DETECTED_OS_MORPHING_INFO_SCHEMA' schema:
@@ -18,10 +18,11 @@ REQUIRED_DETECTED_OS_FIELDS = [
 
 class BaseOSDetectTools(object, with_metaclass(abc.ABCMeta)):
 
-    def __init__(self, conn, os_root_dir):
+    def __init__(self, conn, os_root_dir, operation_timeout):
         self._conn = conn
         self._os_root_dir = os_root_dir
         self._environment = {}
+        self._osdetect_operation_timeout = operation_timeout
 
     @abc.abstractclassmethod
     def returned_detected_os_info_fields(cls):
@@ -74,11 +75,24 @@ class BaseLinuxOSDetectTools(BaseOSDetectTools):
         full_path = os.path.join(self._os_root_dir, chroot_path)
         return utils.test_ssh_path(self._conn, full_path)
 
-    def _exec_cmd(self, cmd):
-        return utils.exec_ssh_cmd(
-            self._conn, cmd, environment=self._environment, get_pty=True)
+    def _exec_cmd(self, cmd, timeout=None):
+        if not timeout:
+            timeout = self._osdetect_operation_timeout
+        try:
+            return utils.exec_ssh_cmd(
+                self._conn, cmd, environment=self._environment, get_pty=True,
+                timeout=timeout)
+        except exception.MinionMachineCommandTimeout as ex:
+            raise exception.OSMorphingSSHOperationTimeout(
+                cmd=cmd, timeout=timeout) from ex
 
-    def _exec_cmd_chroot(self, cmd):
-        return utils.exec_ssh_cmd_chroot(
-            self._conn, self._os_root_dir, cmd,
-            environment=self._environment, get_pty=True)
+    def _exec_cmd_chroot(self, cmd, timeout=None):
+        if not timeout:
+            timeout = self._osdetect_operation_timeout
+        try:
+            return utils.exec_ssh_cmd_chroot(
+                self._conn, self._os_root_dir, cmd,
+                environment=self._environment, get_pty=True, timeout=timeout)
+        except exception.MinionMachineCommandTimeout as ex:
+            raise exception.OSMorphingSSHOperationTimeout(
+                cmd=cmd, timeout=timeout) from ex

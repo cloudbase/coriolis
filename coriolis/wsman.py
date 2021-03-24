@@ -4,6 +4,7 @@
 import base64
 
 from oslo_log import log as logging
+import requests
 from winrm import protocol
 from winrm import exceptions as winrm_exceptions
 
@@ -15,21 +16,21 @@ AUTH_KERBEROS = "kerberos"
 AUTH_CERTIFICATE = "certificate"
 
 CODEPAGE_UTF8 = 65001
+DEFAULT_TIMEOUT = 3600
 
 LOG = logging.getLogger(__name__)
 
 
 class WSManConnection(object):
-    def __init__(self):
+    def __init__(self, timeout=None):
         self._protocol = None
+        self._conn_timeout = int(timeout or DEFAULT_TIMEOUT)
 
     EOL = "\r\n"
 
     @utils.retry_on_error()
     def connect(self, url, username, auth=None, password=None,
                 cert_pem=None, cert_key_pem=None):
-        protocol.Protocol.DEFAULT_TIMEOUT = 3600
-
         if not auth:
             if cert_pem:
                 auth = AUTH_CERTIFICATE
@@ -49,7 +50,7 @@ class WSManConnection(object):
             cert_key_pem=cert_key_pem)
 
     @classmethod
-    def from_connection_info(cls, connection_info):
+    def from_connection_info(cls, connection_info, timeout=DEFAULT_TIMEOUT):
         """ Returns a wsman.WSManConnection object for the provided conn info. """
         if not isinstance(connection_info, dict):
             raise ValueError(
@@ -77,7 +78,7 @@ class WSManConnection(object):
                  {"host": host, "port": port})
         utils.wait_for_port_connectivity(host, port)
 
-        conn = cls()
+        conn = cls(timeout)
         conn.connect(url=url, username=username, password=password,
                      cert_pem=cert_pem, cert_key_pem=cert_key_pem)
 
@@ -86,9 +87,17 @@ class WSManConnection(object):
     def disconnect(self):
         self._protocol = None
 
+    def set_timeout(self, timeout):
+        if timeout:
+            self._protocol.timeout = timeout
+            self._protocol.transport.timeout = timeout
+
     @utils.retry_on_error(
-        terminal_exceptions=[winrm_exceptions.InvalidCredentialsError])
-    def _exec_command(self, cmd, args=[]):
+        terminal_exceptions=[winrm_exceptions.InvalidCredentialsError,
+                             exception.OSMorphingWinRMOperationTimeout])
+    def _exec_command(self, cmd, args=[], timeout=None):
+        timeout = int(timeout or self._conn_timeout)
+        self.set_timeout(timeout)
         shell_id = self._protocol.open_shell(codepage=CODEPAGE_UTF8)
         try:
             command_id = self._protocol.run_command(shell_id, cmd, args)
@@ -97,6 +106,9 @@ class WSManConnection(object):
                  std_err,
                  exit_code) = self._protocol.get_command_output(
                     shell_id, command_id)
+            except requests.exceptions.ReadTimeout:
+                raise exception.OSMorphingWinRMOperationTimeout(
+                    cmd=("%s %s" % (cmd, " ".join(args))), timeout=timeout)
             finally:
                 self._protocol.cleanup_command(shell_id, command_id)
 
@@ -104,9 +116,10 @@ class WSManConnection(object):
         finally:
             self._protocol.close_shell(shell_id)
 
-    def exec_command(self, cmd, args=[]):
+    def exec_command(self, cmd, args=[], timeout=None):
         LOG.debug("Executing WSMAN command: %s", str([cmd] + args))
-        std_out, std_err, exit_code = self._exec_command(cmd, args)
+        std_out, std_err, exit_code = self._exec_command(
+            cmd, args, timeout=timeout)
 
         if exit_code:
             raise exception.CoriolisException(
@@ -116,11 +129,12 @@ class WSManConnection(object):
 
         return std_out
 
-    def exec_ps_command(self, cmd, ignore_stdout=False):
+    def exec_ps_command(self, cmd, ignore_stdout=False, timeout=None):
         LOG.debug("Executing PS command: %s", cmd)
         base64_cmd = base64.b64encode(cmd.encode('utf-16le')).decode()
         return self.exec_command(
-            "powershell.exe", ["-EncodedCommand", base64_cmd])[:-2]
+            "powershell.exe", ["-EncodedCommand", base64_cmd],
+            timeout=timeout)[:-2]
 
     def test_path(self, remote_path):
         ret_val = self.exec_ps_command("Test-Path -Path \"%s\"" % remote_path)

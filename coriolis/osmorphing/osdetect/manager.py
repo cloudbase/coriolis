@@ -48,7 +48,7 @@ def _check_custom_os_detect_tools(custom_os_detect_tools):
 
 
 def detect_os(
-        conn, os_type, os_root_dir, tools_environment=None,
+        conn, os_type, os_root_dir, operation_timeout, tools_environment=None,
         custom_os_detect_tools=None):
     """ Iterates through all of the OS detection tools until one successfully
     identifies the OS/release and returns the release info from it.
@@ -75,7 +75,7 @@ def detect_os(
     tools = None
     detected_info = {}
     for detectcls in detect_tools_classes:
-        tools = detectcls(conn, os_root_dir)
+        tools = detectcls(conn, os_root_dir, operation_timeout)
         tools.set_environment(tools_environment)
         LOG.debug(
             "Running OS detection tools class: %s" % detectcls.__name__)
