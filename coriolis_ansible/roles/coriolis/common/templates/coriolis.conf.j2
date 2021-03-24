@@ -39,6 +39,10 @@ use_syslog = yes
 {% if enable_coriolis_compressor %}
 compressor_address = {{ compressor_address }}
 
+# Number of seconds to wait for a pending SSH or WinRM command before the
+# socket times out
+default_osmorphing_operation_timeout = 1800
+
 {% endif %}
 [cache]
 enabled = True
