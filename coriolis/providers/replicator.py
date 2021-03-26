@@ -795,6 +795,8 @@ class Replicator(object):
                 self._event_manager.progress_update(
                     "No new chunks to replicate for disk \"%s\" (%s)" % (
                         volume['disk_id'], devName))
+                self._repl_state = curr_state
+                return self._repl_state
 
             size = self._get_size_from_chunks(chunks)
 
