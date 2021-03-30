@@ -6,7 +6,8 @@ from coriolis.conductor.rpc import client as rpc_client
 
 class API(object):
     def __init__(self):
-        self._rpc_client = rpc_client.ConductorClient()
+        self._rpc_client = rpc_client.ConductorClient(
+            reset_transport_on_call=False)
 
     def create(self, ctxt, replica_id, shutdown_instances):
         return self._rpc_client.execute_replica_tasks(

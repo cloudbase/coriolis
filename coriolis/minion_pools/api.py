@@ -7,7 +7,8 @@ from coriolis.minion_manager.rpc import client as rpc_client
 
 class API(object):
     def __init__(self):
-        self._rpc_client = rpc_client.MinionManagerClient()
+        self._rpc_client = rpc_client.MinionManagerClient(
+            reset_transport_on_call=False)
 
     def create(
             self, ctxt, name, endpoint_id, pool_platform, pool_os_type,

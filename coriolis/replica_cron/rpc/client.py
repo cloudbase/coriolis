@@ -10,10 +10,13 @@ VERSION = "1.0"
 
 
 class ReplicaCronClient(rpc.BaseRPCClient):
-    def __init__(self, topic=constants.REPLICA_CRON_MAIN_MESSAGING_TOPIC):
+    def __init__(
+            self, topic=constants.REPLICA_CRON_MAIN_MESSAGING_TOPIC,
+            reset_transport_on_call=True):
         target = messaging.Target(
             topic=topic, version=VERSION)
-        super(ReplicaCronClient, self).__init__(target)
+        super(ReplicaCronClient, self).__init__(
+            target, reset_transport_on_call=reset_transport_on_call)
 
     def register(self, ctxt, schedule):
         self._call(ctxt, 'register', schedule=schedule)

@@ -8,9 +8,11 @@ from coriolis.minion_manager.rpc import client as rpc_minion_manager_client
 
 class API(object):
     def __init__(self):
-        self._rpc_conductor_client = rpc_conductor_client.ConductorClient()
+        self._rpc_conductor_client = rpc_conductor_client.ConductorClient(
+            reset_transport_on_call=False)
         self._rpc_minion_manager_client = (
-            rpc_minion_manager_client.MinionManagerClient())
+            rpc_minion_manager_client.MinionManagerClient(
+                reset_transport_on_call=False))
 
     def create(self, ctxt, name, endpoint_type, description,
                connection_info, mapped_regions):

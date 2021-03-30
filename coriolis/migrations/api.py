@@ -6,7 +6,8 @@ from coriolis.conductor.rpc import client as rpc_client
 
 class API(object):
     def __init__(self):
-        self._rpc_client = rpc_client.ConductorClient()
+        self._rpc_client = rpc_client.ConductorClient(
+            reset_transport_on_call=False)
 
     def migrate_instances(self, ctxt, origin_endpoint_id,
                           destination_endpoint_id, origin_minion_pool_id,

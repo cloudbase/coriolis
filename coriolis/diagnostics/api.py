@@ -7,9 +7,8 @@ from coriolis.worker.rpc import client as worker_rpc
 
 class API(object):
     def __init__(self):
-        self._conductor_cli = conductor_rpc.ConductorClient()
-        self._cron_cli = cron_rpc.ReplicaCronClient()
-        self._worker_cli = worker_rpc.WorkerClient()
+        self._conductor_cli = conductor_rpc.ConductorClient(
+            reset_transport_on_call=False)
 
     def get(self, ctxt):
         diag = self._conductor_cli.get_all_diagnostics(ctxt)

@@ -22,7 +22,8 @@ CONF.register_opts(worker_opts, 'worker')
 class WorkerClient(rpc.BaseRPCClient):
     def __init__(
             self, timeout=None, host=None,
-            base_worker_topic=constants.WORKER_MAIN_MESSAGING_TOPIC):
+            base_worker_topic=constants.WORKER_MAIN_MESSAGING_TOPIC,
+            reset_transport_on_call=True):
         topic = base_worker_topic
         if host is not None:
             topic = constants.SERVICE_MESSAGING_TOPIC_FORMAT % ({
@@ -32,7 +33,8 @@ class WorkerClient(rpc.BaseRPCClient):
         if timeout is None:
             timeout = CONF.worker.worker_rpc_timeout
         super(WorkerClient, self).__init__(
-            target, timeout=timeout)
+            target, timeout=timeout,
+            reset_transport_on_call=reset_transport_on_call)
 
     @classmethod
     def from_service_definition(

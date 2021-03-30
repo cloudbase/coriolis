@@ -25,12 +25,14 @@ CONF.register_opts(conductor_opts, 'conductor')
 
 class ConductorClient(rpc.BaseRPCClient):
     def __init__(self, timeout=None,
-                 topic=constants.CONDUCTOR_MAIN_MESSAGING_TOPIC):
+                 topic=constants.CONDUCTOR_MAIN_MESSAGING_TOPIC,
+                 reset_transport_on_call=True):
         target = messaging.Target(topic=topic, version=VERSION)
         if timeout is None:
             timeout = CONF.conductor.conductor_rpc_timeout
         super(ConductorClient, self).__init__(
-            target, timeout=timeout)
+            target, timeout=timeout,
+            reset_transport_on_call=reset_transport_on_call)
 
     def create_endpoint(self, ctxt, name, endpoint_type, description,
                         connection_info, mapped_regions):

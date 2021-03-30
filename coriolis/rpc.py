@@ -70,12 +70,16 @@ class BaseRPCClient(object):
     instantiates and cleans up transports for each call.
     """
 
-    def __init__(self, target, timeout=None, serializer=None):
+    def __init__(
+            self, target, timeout=None, serializer=None,
+            reset_transport_on_call=True):
         self._target = target
         self._timeout = timeout
         if self._timeout is None:
             self._timeout = CONF.default_messaging_timeout
         self._serializer = RequestContextSerializer(serializer)
+        self._reset_transport_on_call = reset_transport_on_call
+        self._client = None
 
     def __repr__(self):
         return "<RPCClient(target=%s, timeout=%s)>" % (
@@ -85,14 +89,18 @@ class BaseRPCClient(object):
     def _rpc_messaging_client(self):
         transport = None
         try:
-            transport = _get_transport()
-            yield messaging.RPCClient(
-                transport, self._target, serializer=self._serializer,
-                timeout=self._timeout)
+            if not self._client:
+                transport = _get_transport()
+                self._client = messaging.RPCClient(
+                    transport, self._target,
+                    serializer=self._serializer,
+                    timeout=self._timeout)
+            yield self._client
         finally:
-            if transport:
+            if self._reset_transport_on_call and transport:
                 try:
                     transport.cleanup()
+                    self._client = None
                 except (Exception, KeyboardInterrupt):
                     LOG.warn(
                         "Exception occurred while cleaning up transport for "

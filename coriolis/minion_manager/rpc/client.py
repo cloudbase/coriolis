@@ -25,12 +25,15 @@ CONF.register_opts(MINION_MANAGER_OPTS, 'minion_manager')
 
 class MinionManagerClient(rpc.BaseRPCClient):
 
-    def __init__(self, timeout=None):
-        target = messaging.Target(topic='coriolis_minion_manager', version=VERSION)
+    def __init__(self, timeout=None, reset_transport_on_call=True):
+        target = messaging.Target(
+            topic=constants.MINION_MANAGER_MAIN_MESSAGING_TOPIC,
+            version=VERSION)
         if timeout is None:
             timeout = CONF.minion_manager.minion_mananger_rpc_timeout
         super(MinionManagerClient, self).__init__(
-            target, timeout=timeout)
+            target, timeout=timeout,
+            reset_transport_on_call=reset_transport_on_call)
 
     def add_minion_pool_progress_update(
             self, ctxt, minion_pool_id, message, initial_step=0, total_steps=0,
