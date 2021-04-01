@@ -810,6 +810,17 @@ class MinionManagerServerEndpoint(object):
         new_pools_machines_db_entries = {}
         pools_used = []
 
+        def _check_pool_allocation_status(
+                minion_pool, minion_pool_type):
+            if minion_pool.status != constants.MINION_POOL_STATUS_ALLOCATED:
+                raise exception.InvalidMinionPoolState(
+                    "Minion Pool '%s' is an invalid state ('%s') to be "
+                    "used as a %s pool for action '%s'. The pool must be "
+                    "in '%s' status."  % (
+                        minion_pool.id, minion_pool.status,
+                        minion_pool_type.lower(), action['id'],
+                        constants.MINION_POOL_STATUS_ALLOCATED))
+
         # add subflow for origin pool:
         if include_transfer_minions and action['origin_minion_pool_id']:
             pools_used.append(action['origin_minion_pool_id'])
@@ -820,6 +831,7 @@ class MinionManagerServerEndpoint(object):
                     ctxt, action['origin_minion_pool_id'],
                     include_machines=True, include_events=False,
                     include_progress_updates=False)
+                _check_pool_allocation_status(minion_pool, "source")
                 endpoint_dict = self._rpc_conductor_client.get_endpoint(
                     ctxt, minion_pool.endpoint_id)
                 origin_pool_store = self._get_pool_initial_taskflow_store_base(
@@ -855,6 +867,7 @@ class MinionManagerServerEndpoint(object):
                     ctxt, action['destination_minion_pool_id'],
                     include_machines=True, include_events=False,
                     include_progress_updates=False)
+                _check_pool_allocation_status(minion_pool, "destination")
                 endpoint_dict = self._rpc_conductor_client.get_endpoint(
                     ctxt, minion_pool.endpoint_id)
                 destination_pool_store = (
@@ -923,6 +936,8 @@ class MinionManagerServerEndpoint(object):
                         ctxt, osmorphing_pool_id,
                         include_machines=True, include_events=False,
                         include_progress_updates=False)
+                    _check_pool_allocation_status(
+                        minion_pool, "OSMorphing")
                     endpoint_dict = self._rpc_conductor_client.get_endpoint(
                         ctxt, minion_pool.endpoint_id)
                     osmorphing_pool_store = self._get_pool_initial_taskflow_store_base(
