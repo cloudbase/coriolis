@@ -1311,6 +1311,7 @@ class ConductorServerEndpoint(object):
         if instance_osmorphing_minion_pool_mappings:
             migration.instance_osmorphing_minion_pool_mappings.update(
                 instance_osmorphing_minion_pool_mappings)
+        self._check_minion_pools_for_action(ctxt, migration)
 
         execution = models.TasksExecution()
         migration.executions = [execution]
