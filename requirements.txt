@@ -2,6 +2,10 @@ eventlet
 keystoneauth1
 keystonemiddleware
 jsonschema
+# NOTE (aznashwan, 21-03-31): kombu>=5 has some weird interactions with
+# oslo_messaging which causes extreme RAM usage in the API service,
+# so we limit its version here.
+kombu==4.6.10
 PyMySQL
 oslo.cache
 oslo.concurrency
@@ -10,7 +14,7 @@ oslo.context>=2.19.1
 oslo.db
 oslo.i18n
 oslo.log
-oslo.messaging
+oslo.messaging==12.2.0
 oslo.middleware
 oslo.policy
 oslo.serialization
