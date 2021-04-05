@@ -225,6 +225,7 @@ class FileBackupWriterImpl(BaseBackupWriterImpl):
 
     def close(self):
         self._file.close()
+        os.system("sudo sync")
         self._file = None
 
 
@@ -385,6 +386,7 @@ class SSHBackupWriterImpl(BaseBackupWriterImpl):
 
         if self._ssh:
             self._send_msg(self._encode_eod())
+            self._ssh.exec_command("sudo sync")
             self._ssh.close()
             self._ssh = None
         if self._sender_evt:
