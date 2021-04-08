@@ -289,12 +289,13 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         return new_mountpoints
 
     def _get_symlink_target(self, symlink):
-        target = None
+        target = symlink
         try:
             target = self._exec_cmd('readlink -en %s' % symlink).decode()
             LOG.debug("readlink %s returned: %s" % (symlink, target))
         except Exception:
-            LOG.warn('Target not found for symlink: %s' % symlink)
+            LOG.warn('Target not found for symlink: %s. Original link path '
+                     'will be returned' % symlink)
 
         return target
 
