@@ -2702,9 +2702,23 @@ class ConductorServerEndpoint(object):
                             for dep_id in parent_task_statuses.keys()
                             if dep_id not in on_error_tasks}
 
+                        # if there are no non-error parents whatsoever, it
+                        # means that one or more of the parent on-error tasks
+                        # [should] have a parent non-error task which failed:
+                        if not non_error_parents and (
+                                constants.TASK_STATUS_COMPLETED in (
+                                    parent_task_statuses.values())):
+                            LOG.info(
+                                "Starting on-error task '%s' as all parent "
+                                "tasks have been finalized and there are "
+                                "no non-error parents to directly depend on, "
+                                "but one or more on-error tasks have completed"
+                                " successfully: %s",
+                                    task.id, parent_task_statuses)
+                            task_statuses[task.id] = _start_task(task)
                         # start on-error tasks only if at least one non-error
                         # parent task has completed successfully:
-                        if constants.TASK_STATUS_COMPLETED in (
+                        elif constants.TASK_STATUS_COMPLETED in (
                                 non_error_parents.values()):
                             LOG.info(
                                 "Starting on-error task '%s' as all parent "
