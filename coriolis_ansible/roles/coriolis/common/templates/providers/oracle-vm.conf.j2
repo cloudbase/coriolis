@@ -1,4 +1,31 @@
 [oracle_vm_migration_provider]
+### Shared parameters:
+# Default repository name on OVM to export/import from/to:
+# repository_name = repo1
+
+### Export parameters:
+# Whether or not Coriolis should use the in-house Exporter service to export
+# VMs' disks. This requires that the Coriolis Exporter service be pre-installed
+# on the Oracle VMM host.
+# use_coriolis_exporter = False
+
+# If using the Coriolis exporter, this option can be used to provide a local
+# path to the CA certificate chain for the OVMM and Exporter endpoint.
+# Alternatively, one may use 'allow_untrusted' directly in the Coriolis
+# endpoint to skip certificate validation during VM exports.
+# ca_chain =
+
+# Details of an existing Oracle Linux template on OVM to use for the temporary
+# machines which perform the disk hashing/export process.
+# The template should have OVMd pre-installed, and should be configured with a
+# network interface attached to a network which is both reachable by the
+# Coriolis installation, as well as have a DHCP server available on it for
+# allocating IP addresses to the temporary machines.
+# export_template = OracleLinux7_template
+# export_template_username = root
+# export_template_password = Passw0rd
+
+### Import parameters:
 # If migrating/replicating a heterogeneous workload with both Linux and
 # Windows instances, separate template names or IDs will need to be provided
 # # for the temporary OSMorphing workers for each OS type.
@@ -19,9 +46,6 @@
 
 # Default server pool name.
 # server_pool_name = pool1
-
-# Default repository name.
-# repository_name = repo1
 
 # Whether or not to just create VMs but skip powering them on.
 leave_migrated_vm_off = False
@@ -49,13 +73,6 @@ cloudbaseinit_x64_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x6
 # information on how to prepare the .zip file containing the drivers:
 # https://cloudbase.it/oracle-vm-ovm-coriolis-plugin
 windows_pv_drivers_url = http://some.fileserver/opc_win_pv_drivers.zip
-
-# For export we may need to use a different template than the linux one
-# specified in the template map, though in most cases the same one should work.
-# We specify that here (either by name or ID) with its credentials
-# export_template = OracleLinux7_template
-# export_template_username = root
-# export_template_password = Passw0rd
 
 # Whether or not to reconfigure the internal network settings of each
 # interface of the instance being migrated/replicated during the OSMorphing
