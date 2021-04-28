@@ -3,6 +3,7 @@
 
 import copy
 import re
+import uuid
 
 from oslo_log import log as logging
 
@@ -19,6 +20,8 @@ SLES_DISTRO_IDENTIFIER = suse_detect.SLES_DISTRO_IDENTIFIER
 OPENSUSE_DISTRO_IDENTIFIER = suse_detect.OPENSUSE_DISTRO_IDENTIFIER
 OPENSUSE_TUMBLEWEED_VERSION_IDENTIFIER = (
     suse_detect.OPENSUSE_TUMBLEWEED_VERSION_IDENTIFIER)
+CLOUD_TOOLS_REPO_URI_FORMAT = (
+    "https://download.opensuse.org/repositories/Cloud:/Tools/%s%s")
 
 
 class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
@@ -133,21 +136,50 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
         if self._version != (
                 OPENSUSE_TUMBLEWEED_VERSION_IDENTIFIER):
             repo_suffix = "_%s" % self._version
-        repo = "obs://Cloud:Tools/%s%s" % (
+        repo = CLOUD_TOOLS_REPO_URI_FORMAT % (
             self._detected_os_info[DETECTED_SUSE_RELEASE_FIELD_NAME].replace(
                 " ", "_"),
             repo_suffix)
-        self._event_manager.progress_update(
-            "Adding repository: %s" % repo)
+        self._add_repo(repo, 'Cloud-Tools')
+
+    def _get_repos(self):
+        repos = {}
+        repos_list = self._exec_cmd_chroot(
+            "zypper repos -u | awk -F '|' '/^\s[0-9]+/ {print $2 $7}'").decode()
+        for repo in repos_list.splitlines():
+            alias, uri = repo.strip().split()
+            repos[alias] = uri
+
+        return repos
+
+    def _add_repo(self, uri, alias):
+        repos = self._get_repos()
+        if repos.get(alias):
+            if repos[alias] == uri:
+                LOG.debug('Repo with alias %s already exists and has the same '
+                          'URI. Enabling', alias)
+                self._event_manager.progress_update(
+                    "Enabling repository: %s" % alias)
+                self._exec_cmd_chroot(
+                    'zypper --non-interactive modifyrepo -e %s' % alias)
+                self._exec_cmd_chroot(
+                    "zypper --non-interactive --no-gpg-checks refresh")
+                return
+            else:
+                LOG.debug('Repo with alias %s already exists, but has a '
+                          'different URI. Renaming alias', alias)
+                alias = "%s%s" % (alias, str(uuid.uuid4()))
+
+        self._event_manager.progress_update("Adding repository: %s" % alias)
         try:
             self._exec_cmd_chroot(
-                "zypper --non-interactive addrepo -f %s Cloud-Tools" % repo)
+                "zypper --non-interactive addrepo -f %s %s" % (uri, alias))
             self._exec_cmd_chroot(
                 "zypper --non-interactive --no-gpg-checks refresh")
         except Exception as err:
             raise exception.CoriolisException(
-                "Failed to add Cloud-Tools repo: %s. Please review logs"
-                " for more details." % repo) from err
+                "Failed to add %s repo: %s. Please review logs"
+                " for more details." % (alias, uri)) from err
 
     def install_packages(self, package_names):
         try:
