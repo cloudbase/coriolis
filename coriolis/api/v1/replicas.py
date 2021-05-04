@@ -241,9 +241,12 @@ class ReplicaController(api_wsgi.Controller):
         final_values['storage_mappings'] = self._update_storage_mappings(
             original_storage_mappings, new_storage_mappings)
 
-        final_values['user_scripts'] = self._get_updated_user_scripts(
-            replica.get('user_scripts', {}),
+        original_user_scripts = api_utils.validate_user_scripts(
+            replica.get('user_scripts', {}))
+        new_user_scripts = api_utils.validate_user_scripts(
             updated_values.get('user_scripts', {}))
+        final_values['user_scripts'] = self._get_updated_user_scripts(
+            original_user_scripts, new_user_scripts)
 
         if 'notes' in updated_values:
             final_values['notes'] = updated_values.get('notes', '')

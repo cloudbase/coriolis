@@ -89,6 +89,8 @@ def _build_keyerror_message(resource, method, key):
 
 
 def validate_user_scripts(user_scripts):
+    if user_scripts is None:
+        user_scripts = {}
     if not isinstance(user_scripts, dict):
         raise exception.InvalidInput(
             reason='"user_scripts" must be of JSON object format')
@@ -111,6 +113,8 @@ def validate_user_scripts(user_scripts):
             reason='"instances" must be a mapping between the identifiers of '
                    'the instances in the Replica/Migration and their '
                    'respective scripts.')
+
+    return user_scripts
 
 
 def normalize_user_scripts(user_scripts, instances):
