@@ -18,7 +18,7 @@ class UbuntuOSMountTools(base.BaseLinuxOSMountTools):
     def setup(self):
         super(UbuntuOSMountTools, self).setup()
         self._exec_cmd("sudo -E apt-get update -y")
-        self._exec_cmd("sudo -E apt-get install lvm2 -y")
+        self._exec_cmd("sudo -E apt-get install lvm2 psmisc -y")
         self._exec_cmd("sudo modprobe dm-mod")
 
     def _allow_ssh_env_vars(self):
