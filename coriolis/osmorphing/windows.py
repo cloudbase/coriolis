@@ -426,24 +426,24 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
         conf_file_path = "%s\\cloudbase-init.conf" % conf_dir
 
         conf_content = (
-            "[DEFAULT]\n"
-            "username = Admin\n"
-            "groups = Administrators\n"
-            "verbose = true\n"
-            "bsdtar_path = %(bin_path)s\\bsdtar.exe\n"
-            "mtools_path = %(bin_path)s\n"
-            "logdir = %(log_path)s\n"
-            "local_scripts_path = %(scripts_path)s\n"
-            "stop_service_on_exit = false\n"
-            "logfile = cloudbase-init.log\n"
-            "default_log_levels = "
-            "comtypes=INFO,suds=INFO,iso8601=WARN,requests=WARN\n"
-            "allow_reboot = false\n"
-            "plugins = %(plugins)s\n"
-            "debug = true\n"
-            "san_policy = OnlineAll\n"
-            "metadata_services = %(metadata_services)s\n"
-            "logging_serial_port_settings = %(com_port)s,9600,N,8\n" %
+            "[DEFAULT]\r\n"
+            "username = Admin\r\n"
+            "groups = Administrators\r\n"
+            "verbose = true\r\n"
+            "bsdtar_path = %(bin_path)s\\bsdtar.exe\r\n"
+            "mtools_path = %(bin_path)s\r\n"
+            "logdir = %(log_path)s\r\n"
+            "local_scripts_path = %(scripts_path)s\r\n"
+            "stop_service_on_exit = false\r\n"
+            "logfile = cloudbase-init.log\r\n"
+            "default_log_levels = \r\n"
+            "comtypes=INFO,suds=INFO,iso8601=WARN,requests=WARN\r\n"
+            "allow_reboot = false\r\n"
+            "plugins = %(plugins)s\r\n"
+            "debug = true\r\n"
+            "san_policy = OnlineAll\r\n"
+            "metadata_services = %(metadata_services)s\r\n"
+            "logging_serial_port_settings = %(com_port)s,9600,N,8\r\n" %
             {"bin_path": "%s\\Bin" % local_base_dir,
              "log_path": "%s\\Log" % local_base_dir,
              "scripts_path": "%s\\LocalScripts" % local_base_dir,
