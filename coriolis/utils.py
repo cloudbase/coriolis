@@ -276,7 +276,7 @@ def write_winrm_file(conn, remote_path, content, overwrite=True):
             data = data.encode()
         asb64 = base64.b64encode(data).decode()
         cmd = ("$ErrorActionPreference = 'Stop';"
-               "$x = [System.IO.FileStream]::new(\"%s\", "
+               "$x = New-Object System.IO.FileStream(\"%s\", "
                "[System.IO.FileMode]::Append); $bytes = "
                "[Convert]::FromBase64String('%s'); $x.Write($bytes, "
                "0, $bytes.Length); $x.Close()") % (
