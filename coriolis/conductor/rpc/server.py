@@ -1181,7 +1181,7 @@ class ConductorServerEndpoint(object):
         replica.storage_mappings = storage_mappings
         replica.instance_osmorphing_minion_pool_mappings = (
             instance_osmorphing_minion_pool_mappings)
-        replica.user_scripts = user_scripts
+        replica.user_scripts = user_scripts or {}
 
         self._check_minion_pools_for_action(ctxt, replica)
 
@@ -1726,7 +1726,7 @@ class ConductorServerEndpoint(object):
         migration.executions = [execution]
         migration.instances = instances
         migration.info = {}
-        migration.user_scripts = user_scripts
+        migration.user_scripts = user_scripts or {}
         migration.notes = notes
         migration.shutdown_instances = shutdown_instances
         migration.replication_count = replication_count
