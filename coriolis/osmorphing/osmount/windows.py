@@ -59,12 +59,15 @@ class WindowsMountTools(base.BaseOSMountTools):
 
     def _service_disks_with_status(
             self, status, service_script_with_id_fmt, skip_on_error=False,
-            logmsg_fmt="Operating on disk with index '%s'"):
+            logmsg_fmt="Operating on disk with index '%s'",
+            disk_ids_to_skip=None):
         """Executes given service script on detected disks.
 
         Uses diskpart.exe to detect all disks with the given 'status', and
         execute the given service script after formatting the disk ID in.
         """
+        if disk_ids_to_skip is None:
+            disk_ids_to_skip = []
         disk_list_script = "LIST DISK\r\nEXIT"
 
         disk_entry_re = r"\s+Disk (%s)\s+%s\s+"
@@ -81,6 +84,9 @@ class WindowsMountTools(base.BaseOSMountTools):
             "Servicing disks with status '%s' (%s) from disk list: %s",
             status, servicable_disk_ids, disk_list)
         for disk_id in servicable_disk_ids:
+            if disk_id in disk_ids_to_skip:
+                LOG.warn('Skipping disk with ID: %s', disk_id)
+                continue
             curr_disk_entry_re = disk_entry_re % (disk_id, status)
 
             disk_list = self._run_diskpart_script(disk_list_script)
@@ -104,6 +110,30 @@ class WindowsMountTools(base.BaseOSMountTools):
                         else:
                             raise
                     break
+
+    def _get_disk_ids_from_drive_letters(self, drive_letters):
+        disk_ids = []
+        volume_entry_re = r"^\s+Volume ([0-9]+)\s+([A-Z]+)\s+"
+
+        def _get_disk_ids(vol_id):
+            vol_detail_script = (
+                "SELECT VOLUME %s\r\nDETAIL VOLUME\r\nEXIT" % vol_id)
+            vol_details = self._run_diskpart_script(vol_detail_script)
+            vol_disk_re = r"^\*?\s+Disk ([0-9]+)\s+"
+            return [m.group(1) for m in [
+                re.match(vol_disk_re, l) for l in vol_details.split('\r\n')]
+                if m is not None]
+
+        volume_list_script = "LIST VOLUME\r\nEXIT"
+        vol_list = self._run_diskpart_script(volume_list_script)
+        for volume in vol_list.split('\r\n'):
+            m = re.match(volume_entry_re, volume)
+            if m:
+                vol_id, letter = m.groups()
+                if letter in drive_letters:
+                    disk_ids += _get_disk_ids(vol_id)
+
+        return disk_ids
 
     def _set_foreign_disks_rw_mode(self):
         # NOTE: in case a Dynamic Disk (which will show up as 'Foreign' to
@@ -149,11 +179,16 @@ class WindowsMountTools(base.BaseOSMountTools):
             logmsg_fmt="Clearing R/O flag on disk with ID '%s'.",
             skip_on_error=True)
 
-    def _bring_disk_offline(self, drive_letter):
-        self._conn.exec_ps_command(
-            "Get-Volume |? DriveLetter -eq \"%s\" | Get-Partition | "
-            "Get-Disk | Set-Disk -IsOffline $True" % drive_letter,
-            ignore_stdout=True)
+    def _bring_disks_offline(self, drives_to_skip=None):
+        disk_ids_to_skip = None
+        if drives_to_skip:
+            disk_ids_to_skip = self._get_disk_ids_from_drive_letters(
+                drives_to_skip)
+        offline_disk_script_fmt = "SELECT DISK %s\r\nOFFLINE DISK\r\nEXIT"
+        self._service_disks_with_status(
+            "Online", offline_disk_script_fmt, skip_on_error=True,
+            logmsg_fmt="Bringing online disk with ID %s offline.",
+            disk_ids_to_skip=disk_ids_to_skip)
 
     def _get_system_drive(self):
         return self._conn.exec_ps_command("$env:SystemDrive")
@@ -182,7 +217,8 @@ class WindowsMountTools(base.BaseOSMountTools):
 
         raise exception.OperatingSystemNotFound("root partition not found")
 
-    def dismount_os(self, dirs):
-        for dir in dirs:
-            drive_letter = dir.split(":")[0]
-            self._bring_disk_offline(drive_letter)
+    def dismount_os(self, root_drive):
+        drives = self._ignore_devices.copy()
+        drives.append(self._get_system_drive())
+        drives_to_skip = [ltr.split(":")[0] for ltr in drives]
+        self._bring_disks_offline(drives_to_skip)
