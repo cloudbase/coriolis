@@ -58,7 +58,6 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
             conn, os_root_dir, os_root_dev,
             hypervisor, event_manager, detected_os_info, osmorphing_parameters,
             operation_timeout)
-        self._enable_repos = []
 
     def disable_predictable_nic_names(self):
         cmd = 'grubby --update-kernel=ALL --args="%s"'
@@ -217,6 +216,25 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         if self._test_path('var/cache/yum'):
             self._exec_cmd_chroot("rm -rf /var/cache/yum")
 
+    def _find_yum_repos(self, repos_to_enable=[]):
+        found_repos = []
+        for repo in repos_to_enable:
+            cmd = 'egrep "^\[.*%s.*\]$" -R /etc/yum.repos.d | cut -f2 -d:'
+            available_repos = self._exec_cmd_chroot(
+                cmd % repo).decode().splitlines()
+            available_repos.sort(key=len)
+            if available_repos:
+                found_repos.append(available_repos[0].lstrip('[').rstrip(']'))
+            else:
+                LOG.warn(
+                    "Could not find yum repository while searching for "
+                    "repositories to enable: %s.", repo)
+
+        return found_repos
+
+    def _get_repos_to_enable(self):
+        return []
+
     def pre_packages_install(self, package_names):
         super(BaseRedHatMorphingTools, self).pre_packages_install(
             package_names)
@@ -224,7 +242,8 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         self._yum_install(['grubby'])
 
     def install_packages(self, package_names):
-        self._yum_install(package_names, self._enable_repos)
+        enable_repos = self._get_repos_to_enable()
+        self._yum_install(package_names, enable_repos)
 
     def uninstall_packages(self, package_names):
         self._yum_uninstall(package_names)
