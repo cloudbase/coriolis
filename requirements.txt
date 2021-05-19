@@ -1,6 +1,7 @@
 eventlet
 keystoneauth1
 keystonemiddleware
+Jinja2
 jsonschema
 # NOTE (aznashwan, 21-03-31): kombu>=5 has some weird interactions with
 # oslo_messaging which causes extreme RAM usage in the API service,

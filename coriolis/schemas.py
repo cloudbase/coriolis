@@ -56,8 +56,24 @@ def get_schema(package_name, schema_name,
     loading from the provided 'package_name' under the given
     'schemas_directory'.
     """
-    template_env = jinja2.Environment(
-        loader=jinja2.PackageLoader(package_name, schemas_directory))
+    package_loader = None
+    # NOTE(aznashwan): starting with Jinja2 3.0, submodule names (e.g.
+    # 'coriolis.schemas') are no longer referenceable, so we try both the
+    # provided name as well as its parent module (e.g. 'coriolis')
+    try:
+        package_loader = jinja2.PackageLoader(package_name, schemas_directory)
+    except ValueError as ex:
+        parent_package = ".".join(package_name.split('.')[:-1])
+        if not parent_package:
+            raise
+        LOG.trace(
+            "Failed to load module '%s' using Jinja2. Attempting to load "
+            "parent '%s'. Error was: %s",
+            package_name, parent_package, str(ex))
+        package_loader = jinja2.PackageLoader(
+            parent_package, schemas_directory)
+
+    template_env = jinja2.Environment(loader=package_loader)
 
     schema = json.loads(template_env.get_template(schema_name).render())
 
