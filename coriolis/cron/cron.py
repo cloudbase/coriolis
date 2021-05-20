@@ -99,11 +99,15 @@ class CronJob(object):
         if type(dt) is not datetime.datetime:
             raise exception.CoriolisException("Invalid datetime object")
         if self.is_expired():
+            LOG.debug('Job %s has expired', self.name)
             return False
         if self._enabled is False:
+            LOG.debug('Job %s is not enabled', self.name)
             return False
         if self._last_run:
-            if (dt - self._last_run).seconds < 60:
+            if (dt - self._last_run).total_seconds() < 60:
+                LOG.debug('Job %s has last run in less than a minute ago. '
+                          'Skipping.', self.name)
                 return False
         fields = ('year', 'month', 'dom', 'hour',
                   'minute', 'second', 'dow')
@@ -186,6 +190,8 @@ class Cron(object):
         now = timeutils.utcnow()
         if job_nr:
             for job in jobs:
+                LOG.debug('Checking job %s with schedule: %s', jobs[job].name,
+                          jobs[job].schedule)
                 if jobs[job].should_run(now):
                     LOG.debug("Spawning job %s" % job)
                     eventlet.spawn(jobs[job].start, now, self._queue)
