@@ -105,7 +105,7 @@ class CronJob(object):
             LOG.debug('Job %s is not enabled', self.name)
             return False
         if self._last_run:
-            if (dt - self._last_run).seconds < 60:
+            if (dt - self._last_run).total_seconds() < 60:
                 LOG.debug('Job %s has last run in less than a minute ago. '
                           'Skipping.', self.name)
                 return False
