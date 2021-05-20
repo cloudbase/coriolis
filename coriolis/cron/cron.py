@@ -73,7 +73,6 @@ class CronJob(object):
                 raise exception.CoriolisException(
                     "Invalid expires")
         self._expires = expires
-        self._last_run = None
 
     def _compare(self, pairs):
         # we don't support the full cron syntax. Either exact matches
@@ -104,11 +103,7 @@ class CronJob(object):
         if self._enabled is False:
             LOG.debug('Job %s is not enabled', self.name)
             return False
-        if self._last_run:
-            if (dt - self._last_run).total_seconds() < 60:
-                LOG.debug('Job %s has last run in less than a minute ago. '
-                          'Skipping.', self.name)
-                return False
+
         fields = ('year', 'month', 'dom', 'hour',
                   'minute', 'second', 'dow')
         dt_fields = dict(zip(fields, dt.timetuple()))
@@ -122,7 +117,7 @@ class CronJob(object):
             return
         queue.put(status)
 
-    def start(self, dt, status_queue=None):
+    def start(self, status_queue=None):
         result = None
         exc_info = None
         try:
@@ -142,8 +137,7 @@ class CronJob(object):
             {"result": result,
              "description": self._description,
              "name": self.name,
-             "error_info": exc_info,
-             "last_run": dt})
+             "error_info": exc_info})
 
 
 class Cron(object):
@@ -194,7 +188,7 @@ class Cron(object):
                           jobs[job].schedule)
                 if jobs[job].should_run(now):
                     LOG.debug("Spawning job %s" % job)
-                    eventlet.spawn(jobs[job].start, now, self._queue)
+                    eventlet.spawn(jobs[job].start, self._queue)
                     spawned += 1
 
         done = timeutils.utcnow()
@@ -211,13 +205,9 @@ class Cron(object):
     def _result_loop(self):
         while True:
             job_info = self._queue.get()
-            name = job_info["name"]
             result = job_info["result"]
             error = job_info["error_info"]
-            last_run = job_info["last_run"]
             desc = job_info["description"]
-            with self._semaphore:
-                self._jobs[name]._last_run = last_run
             # TODO(gsamfira): send this to the controller and update
             # the logs table...or do something much more meaningful
             if error:
