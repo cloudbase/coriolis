@@ -293,7 +293,6 @@ class DeleteReplicaSourceDiskSnapshotsTask(base.TaskRunner):
                 "No previous volumes information present, nothing to delete")
             return {'volumes_info': []}
 
-
         provider = providers_factory.get_provider(
             origin['type'], constants.PROVIDER_TYPE_REPLICA_EXPORT,
             event_handler)
@@ -618,7 +617,8 @@ class DeployReplicaInstanceResourcesTask(base.TaskRunner):
 
     @classmethod
     def get_required_task_info_properties(cls):
-        return ["export_info", "target_environment", "clone_disks"]
+        return [
+            "export_info", "target_environment", "clone_disks", "volumes_info"]
 
     @classmethod
     def get_returned_task_info_properties(cls):
