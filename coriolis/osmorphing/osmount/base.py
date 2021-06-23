@@ -509,6 +509,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
             if not found:
                 continue
             self._exec_cmd("sudo vgchange -ay %s" % vg_name)
+            self._exec_cmd("sudo vgchange --refresh")
             dev_paths_for_group = self._exec_cmd(
                 "sudo ls -1 /dev/%s/*" % vg_name).decode().splitlines()
             lvm_dev_paths.extend(dev_paths_for_group)
@@ -531,6 +532,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
             fs_type = self._exec_cmd(
                 "sudo blkid -o value -s TYPE %s || true" %
                 dev_path).decode().splitlines()
+            LOG.debug('Device %s filesystem types: %s', dev_path, fs_type)
             if fs_type and fs_type[0] in valid_filesystems:
                 if fs_type[0] == "xfs":
                     utils.run_xfs_repair(self._ssh, dev_path)
