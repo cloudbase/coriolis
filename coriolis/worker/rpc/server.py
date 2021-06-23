@@ -580,7 +580,7 @@ class WorkerServerEndpoint(object):
             LOG.warn(utils.get_exception_details())
             is_valid = False
             message = str(ex)
-        except Exception as ex:
+        except BaseException as ex:
             LOG.warn(utils.get_exception_details())
             is_valid = False
             message = (
