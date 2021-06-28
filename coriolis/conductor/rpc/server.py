@@ -1681,7 +1681,7 @@ class ConductorServerEndpoint(object):
             constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS)
         if migration.last_execution_status != awaiting_minions_status:
             raise exception.InvalidReplicaState(
-                "Machine is in '%s' status instead of the expected '%s' to "
+                "Migration is in '%s' status instead of the expected '%s' to "
                 "have minion machines allocations fail for it." % (
                     migration.last_execution_status, awaiting_minions_status))
 
