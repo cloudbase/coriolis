@@ -561,8 +561,11 @@ class ConductorServerEndpoint(object):
             # scheduled tasks count as scheduled:
             elif depends_on:
                 for task_id in depends_on:
-                    if [t for t in task.execution.tasks if t.id == task_id and
-                            t.status != constants.TASK_STATUS_ON_ERROR_ONLY]:
+                    if [t
+                        for t in task.execution.tasks
+                        if t.id == task_id and (
+                            (t.status != (
+                                constants.TASK_STATUS_ON_ERROR_ONLY)))]:
                         task.status = constants.TASK_STATUS_SCHEDULED
                         break
             # on_error tasks with no deps are automatically scheduled:
@@ -631,8 +634,8 @@ class ConductorServerEndpoint(object):
 
         newly_started_tasks = []
         for task in execution.tasks:
-            if (not task.depends_on and
-                    task.status == constants.TASK_STATUS_SCHEDULED):
+            if (not task.depends_on and (
+                    task.status == constants.TASK_STATUS_SCHEDULED)):
                 LOG.info(
                     "Starting dependency-less task '%s' for execution '%s'",
                     task.id, execution.id)
@@ -1098,8 +1101,8 @@ class ConductorServerEndpoint(object):
 
         has_tasks = False
         for instance in replica.instances:
-            if (instance in replica.info and
-                    replica.info[instance].get('volumes_info')):
+            if (instance in replica.info and (
+                    replica.info[instance].get('volumes_info'))):
                 source_del_task = self._create_task(
                     instance,
                     constants.TASK_TYPE_DELETE_REPLICA_SOURCE_DISK_SNAPSHOTS,
@@ -1145,8 +1148,8 @@ class ConductorServerEndpoint(object):
                 "the same platform (ex: migrating across public cloud regions)"
                 ", please create two separate endpoints.")
         # TODO(alexpilotti): check Barbican secrets content as well
-        if (origin_endpoint.connection_info ==
-                destination_endpoint.connection_info):
+        if (origin_endpoint.connection_info == (
+                destination_endpoint.connection_info)):
             raise exception.SameDestination()
 
     def create_instances_replica(self, ctxt, origin_endpoint_id,
