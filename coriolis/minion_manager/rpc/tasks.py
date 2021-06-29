@@ -1,5 +1,6 @@
 # Copyright 2020 Cloudbase Solutions Srl
 # All Rights Reserved.
+# pylint: disable=line-too-long
 
 import abc
 import copy
@@ -228,6 +229,11 @@ class _BaseConfirmMinionAllocationForActionTask(
             name=self._task_name, **kwargs)
 
     @abc.abstractmethod
+    def _get_action_label(self):
+        raise NotImplementedError(
+            "No minion allocation confirmation task action label defined")
+
+    @abc.abstractmethod
     def _get_task_name(self, action_id):
         raise NotImplementedError(
             "No minion allocation confirmation task name defined")
@@ -260,7 +266,8 @@ class _BaseConfirmMinionAllocationForActionTask(
                 raise exception.InvalidMinionMachineState(
                     "Minion machine with ID '%s' of pool '%s' appears to be "
                     "allocated to action with ID '%s' instead of the expected"
-                    " '%s' for it to be used as a '%s' minion for instance '%s'." % (
+                    " '%s' for it to be used as a '%s' minion for instance "
+                    "'%s'." % (
                         minion_machine.id, minion_machine.pool_id,
                         minion_machine.allocated_action, self._action_id,
                         minion_purpose, instance))
@@ -312,7 +319,8 @@ class _BaseConfirmMinionAllocationForActionTask(
                         context, origin_minion_id, raise_if_not_found=True)
                     machines_cache[origin_minion_id] = origin_minion_machine
                     _check_minion_properties(
-                        origin_minion_machine, instance, minion_purpose="source")
+                        origin_minion_machine, instance,
+                        minion_purpose="source")
                 machine_allocations[instance]['origin_minion'] = (
                     origin_minion_machine.to_dict())
 
@@ -351,12 +359,46 @@ class _BaseConfirmMinionAllocationForActionTask(
                 machine_allocations[instance]['osmorphing_minion'] = (
                     osmorphing_minion_machine.to_dict())
 
-        self._confirm_machine_allocation_for_action(
-            context, self._action_id, machine_allocations)
+        try:
+            self._confirm_machine_allocation_for_action(
+                context, self._action_id, machine_allocations)
+        except exception.NotFound as ex:
+            msg = (
+                "The Conductor has refused minion machine allocations for "
+                "%s with ID '%s' as it has purportedly been deleted."
+                " Please check both the Conductor and Minion Manager "
+                "service logs for more details." % (
+                    self._get_action_label().lower().capitalize(),
+                    self._action_id))
+            LOG.error(
+                "%s. Allocations were: %s. Original trace was: %s",
+                msg, machine_allocations, utils.get_exception_details())
+            raise exception.MinionMachineAllocationFailure(
+                msg) from ex
+        except (
+                exception.InvalidMigrationState,
+                exception.InvalidReplicaState) as ex:
+            msg = (
+                "The Conductor has refused minion machine allocations for "
+                "%s with ID '%s' as it is purportedly in an invalid state "
+                "to have minions allocated for it. It is possible "
+                "that the transfer had been user-cancelled or had "
+                "otherwise been halted. Please check both the Conductor "
+                "and Minion Manager service logs for more details." % (
+                    self._get_action_label().lower().capitalize(),
+                    self._action_id))
+            LOG.error(
+                "%s. Allocations were: %s. Original trace was: %s",
+                msg, machine_allocations, utils.get_exception_details())
+            raise exception.MinionMachineAllocationFailure(
+                msg) from ex
 
 
 class ConfirmMinionAllocationForMigrationTask(
         _BaseConfirmMinionAllocationForActionTask):
+
+    def _get_action_label(self):
+        return "migration"
 
     def _get_task_name(self, action_id):
         return MINION_POOL_CONFIRM_MIGRATION_MINION_ALLOCATION_TASK_NAME_FORMAT % (
@@ -370,6 +412,9 @@ class ConfirmMinionAllocationForMigrationTask(
 
 class ConfirmMinionAllocationForReplicaTask(
         _BaseConfirmMinionAllocationForActionTask):
+
+    def _get_action_label(self):
+        return "replica"
 
     def _get_task_name(self, action_id):
         return MINION_POOL_CONFIRM_REPLICA_MINION_ALLOCATION_TASK_NAME_FORMAT % (
@@ -553,7 +598,7 @@ class ValidateMinionPoolOptionsTask(BaseMinionManangerTask):
     def execute(self, context, origin, destination, task_info):
         self._add_minion_pool_event(
             context, "Validating minion pool options")
-        res = super(ValidateMinionPoolOptionsTask, self).execute(
+        _ = super(ValidateMinionPoolOptionsTask, self).execute(
             context, origin, destination, task_info)
         self._add_minion_pool_event(
             context, "Successfully validated minion pool options")
@@ -789,7 +834,7 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
         try:
             res = super(AllocateMinionMachineTask, self).execute(
                 context, origin, destination, execution_info)
-        except:
+        except Exception:
             self._set_minion_machine_allocation_status(
                 context, self._minion_pool_id, self._minion_machine_id,
                 constants.MINION_MACHINE_STATUS_ERROR_DEPLOYING)
@@ -847,9 +892,8 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
             LOG.warn(
                 "[Task '%s'] Allocation task reversion for machine '%s' "
                 "of pool '%s' got an unexpected task result type (%s): %s",
-                    self._task_name, self._minion_machine_id,
-                    self._minion_pool_id, type(original_result),
-                    original_result)
+                self._task_name, self._minion_machine_id,
+                self._minion_pool_id, type(original_result), original_result)
             minion_provider_properties = None
 
         # default to any minion properties found in the task_info:
@@ -882,7 +926,7 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
                 if not minion_provider_properties and (
                         machine_db_entry.provider_properties):
                     minion_provider_properties = (
-                         machine_db_entry.provider_properties)
+                        machine_db_entry.provider_properties)
                     LOG.debug(
                         "[Task '%s'] Using minion provider properties of "
                         "minion machine with ID '%s' from DB entry during the "
@@ -895,7 +939,7 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
                 self._task_name, self._minion_machine_id)
             try:
                 db_api.delete_minion_machine(context, self._minion_machine_id)
-            except Exception as ex:
+            except Exception:
                 LOG.warn(
                     "[Task '%s'] Failed to delete DB entry for minion machine "
                     "'%s' following reversion of its allocation task. Error "
@@ -917,7 +961,7 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
             try:
                 super(AllocateMinionMachineTask, self).revert(
                     context, origin, destination, cleanup_info, **kwargs)
-            except Exception as ex:
+            except Exception:
                 log_msg = (
                     "[Task '%s'] Exception occurred while attempting to revert "
                     "deployment of minion machine with ID '%s' for pool '%s'." % (
@@ -976,7 +1020,7 @@ class DeallocateMinionMachineTask(BaseMinionManangerTask):
             try:
                 _ = super(DeallocateMinionMachineTask, self).execute(
                     context, origin, destination, execution_info)
-            except Exception as ex:
+            except Exception:
                 base_msg = (
                     "Exception occured while deallocating minion machine '%s' "
                     "There might be leftover instance resources requiring "
@@ -1145,7 +1189,7 @@ class MinionMachineHealtchcheckDecider(object):
         if not history and healthcheck_task_name not in history:
             LOG.warn(
                 "Could not find healthceck result for minion machine '%s' "
-                "of pool '%s' (task name '%s'). NOT grennlighting futher "
+                "of pool '%s' (task name '%s'). NOT greenlighting futher "
                 "tasks.", self._minion_machine_id, self._minion_pool_id,
                 healthcheck_task_name)
             return False
@@ -1223,7 +1267,7 @@ class PowerOnMinionMachineTask(BaseMinionManangerTask):
                 context,
                 "Successfully powered on minion machine with internal pool "
                 "ID '%s'" % self._minion_machine_id)
-        except Exception as ex:
+        except Exception:
             base_msg = (
                 "[Task '%s'] Exception occurred while powering on minion "
                 "machine with ID '%s' of pool '%s'." % (
@@ -1303,7 +1347,7 @@ class PowerOffMinionMachineTask(BaseMinionManangerTask):
                 context,
                 "Successfully powered off minion machine with internal pool "
                 "ID '%s'" % self._minion_machine_id)
-        except Exception as ex:
+        except Exception:
             base_msg = (
                 "[Task '%s'] Exception occurred while powering off minion "
                 "machine with ID '%s' of pool '%s'." % (

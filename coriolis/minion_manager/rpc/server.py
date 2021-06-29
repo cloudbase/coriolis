@@ -1072,7 +1072,7 @@ class MinionManagerServerEndpoint(object):
                     minion_machine.id, minion_machine.allocation_status,
                     minion_machine.allocated_action)
             LOG.debug(
-                "Attempting to deallocate all minion pool machine '%s' "
+                "Attempting to deallocate minion pool machine '%s' "
                 "(currently allocated to action '%s' with status '%s')",
                 minion_machine.id, minion_machine.allocated_action,
                 minion_machine.allocation_status)
