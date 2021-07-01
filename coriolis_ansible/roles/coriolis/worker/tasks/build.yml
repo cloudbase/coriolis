@@ -40,6 +40,17 @@
   notify:
     - "build coriolis-worker"
 
+- name: Download oVirt SDK wheel
+  get_url:
+    url: "{{ ovirt_sdk_wheel_url }}"
+    dest: "{{ build_dir }}/ovirt_sdk.wheel"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+  notify:
+    - "build coriolis-worker"
+
 - name: Render template
   template:
     src: Dockerfile.j2
