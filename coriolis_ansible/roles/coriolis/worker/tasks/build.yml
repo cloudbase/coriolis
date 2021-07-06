@@ -43,7 +43,7 @@
 - name: Download oVirt SDK wheel
   get_url:
     url: "{{ ovirt_sdk_wheel_url }}"
-    dest: "{{ build_dir }}/ovirt_sdk.wheel"
+    dest: "{{ build_dir }}/{{ ovirt_sdk_wheel_url.split('/')[-1] }}"
   register: result
   retries: 10
   delay: 5
