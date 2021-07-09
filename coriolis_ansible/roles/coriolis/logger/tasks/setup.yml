@@ -26,6 +26,7 @@
     database_name: "{{ influxdb_database_name }}"
     login_username: admin
     login_password: "{{ influxdb_admin_password }}"
+    udp_port: 4444
   register: result
   retries: 10
   delay: 5
@@ -38,6 +39,7 @@
     admin: yes
     login_username: admin
     login_password: "{{ influxdb_admin_password }}"
+    udp_port: 4444
   register: result
   retries: 10
   delay: 5
