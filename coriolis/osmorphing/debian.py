@@ -144,7 +144,9 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
 
     def install_packages(self, package_names):
         try:
-            apt_get_cmd = 'apt-get install %s -y' % " ".join(package_names)
+            apt_get_cmd = (
+                '/bin/bash -c "DEBIAN_FRONTEND=noninteractive '
+                'apt-get install %s -y"' % " ".join(package_names))
             self._exec_cmd_chroot(apt_get_cmd)
         except Exception as err:
             raise exception.FailedPackageInstallationException(
