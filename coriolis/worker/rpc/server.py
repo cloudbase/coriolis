@@ -19,7 +19,6 @@ from coriolis.conductor.rpc import client as rpc_conductor_client
 from coriolis.conductor.rpc import utils as conductor_rpc_utils
 from coriolis import constants
 from coriolis import context
-from coriolis import events
 from coriolis import exception
 from coriolis.minion_manager.rpc import client as rpc_minion_manager_client
 from coriolis.providers import factory as providers_factory
@@ -234,7 +233,8 @@ class WorkerServerEndpoint(object):
             LOG.info("Task process started: %s", task_id)
             if report_to_conductor:
                 LOG.debug(
-                    "Attempting to set task process on Conductor for task '%s'.",
+                    "Attempting to set task process on Conductor "
+                    "for task '%s'.",
                     task_id)
                 self._rpc_conductor_client.set_task_process(
                     ctxt, task_id, p.pid)
@@ -247,8 +247,9 @@ class WorkerServerEndpoint(object):
                 "was: %s", task_id, utils.get_exception_details())
             # NOTE: because the task error classes are wrapped,
             # it's easiest to just check that the messages align:
-            cancelling_msg = exception.TASK_ALREADY_CANCELLING_EXCEPTION_FMT % {
-                "task_id": task_id}
+            cancelling_msg = (
+                exception.TASK_ALREADY_CANCELLING_EXCEPTION_FMT % {
+                    "task_id": task_id})
             if cancelling_msg in str(ex):
                 raise exception.TaskIsCancelling(
                     "Task '%s' was already in cancelling status." % task_id)
@@ -302,7 +303,7 @@ class WorkerServerEndpoint(object):
                     ctxt, task_id, str(ex))
             else:
                 raise
-        except exception.NoSuitableWorkerServiceError as ex:
+        except exception.NoSuitableWorkerServiceError:
             if report_to_conductor:
                 LOG.warn(
                     "A conductor-side scheduling error has occurred following "
@@ -318,7 +319,7 @@ class WorkerServerEndpoint(object):
                     task_id, utils.get_exception_details())
                 LOG.exception(ex)
                 self._rpc_conductor_client.set_task_error(
-                        ctxt, task_id, str(ex))
+                    ctxt, task_id, str(ex))
             else:
                 raise
 
