@@ -230,20 +230,17 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
             (mountpoint, mounts[mountpoint])
             for mountpoint in sorted(mounts, key=len))
 
-        # regexes for supported fstab device references:
-        uuid_char_regex = "[0-9a-fA-F]"
-        fs_uuid_regex = (
-            "%(char)s{8}-%(char)s{4}-%(char)s{4}-"
-            "%(char)s{4}-%(char)s{12}") % {"char": uuid_char_regex}
-        fs_uuid_entry_regex = "^(UUID=%s)$" % fs_uuid_regex
-        by_uuid_entry_regex = "^(/dev/disk/by-uuid/%s)$" % fs_uuid_regex
+        # regex for supported fstab device references:
+        fs_uuid_entry_regex = "^((UUID=|/dev/disk/by-uuid/)(.+))$"
         if not mountable_lvm_devs:
             mountable_lvm_devs = []
         device_paths = self._get_device_file_paths(mountable_lvm_devs)
         for (mountpoint, details) in mounts.items():
             device = details['device']
-            if (re.match(fs_uuid_entry_regex, device) is None and
-                    re.match(by_uuid_entry_regex, device) is None):
+            fs_uuid_match = re.match(fs_uuid_entry_regex, device)
+            if fs_uuid_match:
+                device = "/dev/disk/by-uuid/%s" % fs_uuid_match.group(3)
+            else:
                 device_file_path = self._get_symlink_target(device)
                 if device not in mountable_lvm_devs and (
                         device_file_path not in device_paths):
@@ -269,6 +266,10 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                       device, details)
             # NOTE: `mountpoint` should always be an absolute path:
             chroot_mountpoint = "%s%s" % (os_root_dir, mountpoint)
+            if not utils.test_ssh_path(self._ssh, device):
+                LOG.warn(
+                    "Device path %s not found, skipping mount.", device)
+                continue
             mountcmd = "sudo mount -t %s -o %s %s '%s'" % (
                 details["filesystem"], details["options"],
                 device, chroot_mountpoint)
