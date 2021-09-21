@@ -116,6 +116,12 @@ export_worker_boot_from_volume = false
 # Default is false
 # export_identify_secgroups_by_name = true
 
+# Whether or not Coriolis should wait for export cloned volumes to delete when
+# replication finishes. Setting this option to true will also affect the replica
+# execution's RPO. Some Cinder drivers require this option for the proper
+# sequential cleanup of Cinder snapshots which have child volumes created from them.
+# wait_for_volume_deletion = false
+
 ### Import parameters:
 
 # Name of a pre-created availability zone where resources migrated by Coriolis
