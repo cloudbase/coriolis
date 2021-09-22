@@ -5,7 +5,7 @@ import json
 
 import jinja2
 import jsonschema
-import mock
+from unittest import mock
 
 from coriolis import schemas
 from coriolis.tests import test_base

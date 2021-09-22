@@ -1,7 +1,7 @@
 # Copyright 2017 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-import mock
+from unittest import mock
 
 from coriolis.db import api
 from coriolis import exception

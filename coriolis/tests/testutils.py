@@ -1,6 +1,6 @@
 """Defines general utilities for all tests."""
 
-import mock
+from unittest import mock
 
 
 def identity_dec(item, *args, **kwargs):
