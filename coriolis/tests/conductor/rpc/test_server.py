@@ -2,7 +2,7 @@
 # All Rights Reserved.
 
 import ddt
-import mock
+from unittest import mock
 
 from coriolis.conductor.rpc import server
 from coriolis import exception

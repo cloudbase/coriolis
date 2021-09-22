@@ -1,6 +1,6 @@
 """Defines base classes for all provider tests."""
 
-import mock
+from unittest import mock
 
 from coriolis.tests import test_base
 from coriolis.tests import testutils
