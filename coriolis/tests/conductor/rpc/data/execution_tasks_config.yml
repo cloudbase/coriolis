@@ -1,0 +1,118 @@
+- 
+  # One task with default parameters should execute succesfully
+  tasks_config: [{}]
+  init_task_info: ~
+  expected_result: ~
+-
+  # Invalid task status
+  tasks_config:
+    - status: STARTING
+  init_task_info: ~
+  expected_result: 
+    type: 'INVALID_STATE'
+    message: "Invalid initial state 'STARTING'"
+-
+  # Empty initial task info
+  tasks_config: [{}]
+  init_task_info: {}
+  expected_result: 
+    type: "MISSING_PARAMS"
+-
+  # Task that depends on a missing dependency
+  tasks_config:
+    - depends_on: ["invalid_id"]
+  init_task_info: ~
+  expected_result: 
+    type: "MISSING_DEPENDENCIES"
+    message: |- 
+      non-existent .* dependencies: \[\'invalid_id\'\]
+-
+  # Multiple tasks with the same default parameters and instance should conflict
+  tasks_config: [{}, {}]
+  init_task_info: ~
+  expected_result: 
+    type: "FIELDS_CONFLICT"
+-
+  # Setting a different instance for one task should resolve the conflict, but should raise a missing parameters for the second instance
+  tasks_config: 
+    - {}
+    - instance: "instance_2"
+  init_task_info: ~
+  expected_result:
+    type: "MISSING_PARAMS" 
+    message: "task parameters for instance 'instance_2' are missing"
+-
+  # Setting task parameters for second instance should not raise any errors
+  tasks_config: 
+    - instance: "instance_1"
+    - instance: "instance_2"
+  init_task_info:
+    instance_1: 
+      source_environment: {}
+      export_info: {}
+    instance_2: 
+      source_environment: {}
+      export_info: {}
+  expected_result: ~
+-
+  #  First task depends on second task
+  tasks_config: 
+    - depends_on: ["task_2"]
+    - id: "task_2"
+  init_task_info: ~
+  expected_result: ~
+-
+  # 3-way task dependency
+  tasks_config: 
+    - 
+      id: "task_1"
+      depends_on: ["task_2"]
+    - id: "task_2"
+    - 
+      id: "task_3"
+      depends_on: ["task_1", "task_2"]
+  init_task_info: ~
+  expected_result: ~
+-
+  # Task depends on another task further down the list should cause deadlock
+  tasks_config: 
+    - 
+      id: "task_1"
+      depends_on: ["task_3"]
+    - id: "task_2"
+    - 
+      id: "task_3"
+      depends_on: ["task_1", "task_2"]
+  init_task_info: ~
+  expected_result: 
+    type: "DEADLOCK"
+-
+  # Circular dependency causes deadlock
+  tasks_config: 
+    - 
+      id: "task_1"
+      depends_on: ["task_2"]
+    - 
+      id: "task_2"
+      depends_on: ["task_1"]
+  init_task_info: ~
+  expected_result:
+    type: "DEADLOCK"
+-
+  # Different task type should require different task parameters
+  tasks_config:
+    - task_type: "DEPLOY_OS_MORPHING_RESOURCES"
+  init_task_info: ~
+  expected_result:
+    type: "MISSING_PARAMS"
+-
+  # A different task type with its task parameters set should execute succesfully
+  tasks_config:
+    - 
+      task_type: "DEPLOY_OS_MORPHING_RESOURCES"
+      instance: "instance_1"
+  init_task_info:
+    instance_1: 
+      target_environment: {}
+      instance_deployment_info: {}
+  expected_result: ~
