@@ -697,7 +697,7 @@ class ConductorServerEndpoint(object):
                 p for p in task_cls.get_required_task_info_properties()
                 if p not in instance_task_info_keys]
             if missing_params:
-                raise exception.CoriolisException(
+                raise exception.TaskParametersException(
                     "The following task parameters for instance '%s' "
                     "are missing from the task_info for task '%s' of "
                     "type '%s': %s" % (
@@ -728,7 +728,7 @@ class ConductorServerEndpoint(object):
                                 if dep_id not in tasks_to_process and (
                                     dep_id not in processed_tasks)]
                             if missing_deps:
-                                raise exception.CoriolisException(
+                                raise exception.TaskDependencyException(
                                     "Task '%s' (type '%s') for instance '%s' "
                                     "has non-existent tasks referenced as "
                                     "dependencies: %s" % (
@@ -739,7 +739,7 @@ class ConductorServerEndpoint(object):
                                      for dep_id in task.depends_on]):
                                 queued_tasks.append(task)
                     else:
-                        raise exception.CoriolisException(
+                        raise exception.InvalidTaskState(
                             "Invalid initial state '%s' for task '%s' "
                             "of type '%s'." % (
                                 task.status, task.id, task.task_type))
@@ -752,7 +752,7 @@ class ConductorServerEndpoint(object):
                     processed_tasks_type_map = {
                         tid: t.task_type
                         for tid, t in processed_tasks.items()}
-                    raise exception.CoriolisException(
+                    raise exception.ExecutionDeadlockException(
                         "Execution '%s' (type '%s') is bound to be deadlocked:"
                         " there are leftover tasks for instance '%s' which "
                         "will never get queued. Already processed tasks are: "
@@ -780,7 +780,7 @@ class ConductorServerEndpoint(object):
                         modified_fields_by_queued_tasks.items())
                     if len(tasks) > 1}
                 if conflicting_fields:
-                    raise exception.CoriolisException(
+                    raise exception.TaskFieldsConflict(
                         "There are fields which will encounter a state "
                         "conflict following the parallelized execution of "
                         "tasks for execution '%s' (type '%s') for instance "
