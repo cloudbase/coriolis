@@ -102,6 +102,7 @@ def parent_tasks_execution_synchronized(func):
     @functools.wraps(func)
     def wrapper(self, ctxt, task_id, *args, **kwargs):
         task = db_api.get_task(ctxt, task_id)
+
         @lockutils.synchronized(
             constants.EXECUTION_LOCK_NAME_FORMAT % task.execution_id,
             external=True)
@@ -740,7 +741,7 @@ class ConductorServerEndpoint(object):
                     else:
                         raise exception.CoriolisException(
                             "Invalid initial state '%s' for task '%s' "
-                            "of type '%s'."% (
+                            "of type '%s'." % (
                                 task.status, task.id, task.task_type))
 
                 # check if nothing was left queued:
@@ -839,17 +840,17 @@ class ConductorServerEndpoint(object):
             if instance not in replica.info:
                 replica.info[instance] = {'volumes_info': []}
             elif replica.info[instance].get('volumes_info') is None:
-                 replica.info[instance]['volumes_info'] = []
+                replica.info[instance]['volumes_info'] = []
             # NOTE: we update all of the param values before triggering an
             # execution to ensure that the latest parameters are used:
             replica.info[instance].update({
                 "source_environment": replica.source_environment,
                 "target_environment": dest_env})
-                # TODO(aznashwan): have these passed separately to the relevant
-                # provider methods (they're currently passed directly inside
-                # dest-env by the API service when accepting the call)
-                # "network_map": network_map,
-                # "storage_mappings": storage_mappings,
+            # TODO(aznashwan): have these passed separately to the relevant
+            # provider methods (they're currently passed directly inside
+            # dest-env by the API service when accepting the call)
+            # "network_map": network_map,
+            # "storage_mappings": storage_mappings,
 
             validate_replica_source_inputs_task = self._create_task(
                 instance,
@@ -1339,11 +1340,11 @@ class ConductorServerEndpoint(object):
             migration.info[instance].update({
                 "source_environment": migration.source_environment,
                 "target_environment": dest_env})
-                # TODO(aznashwan): have these passed separately to the relevant
-                # provider methods (they're currently passed directly inside
-                # dest-env by the API service when accepting the call)
-                # "network_map": network_map,
-                # "storage_mappings": storage_mappings,
+            # TODO(aznashwan): have these passed separately to the relevant
+            # provider methods (they're currently passed directly inside
+            # dest-env by the API service when accepting the call)
+            # "network_map": network_map,
+            # "storage_mappings": storage_mappings,
 
             validate_replica_deployment_inputs_task = self._create_task(
                 instance,
@@ -1755,11 +1756,11 @@ class ConductorServerEndpoint(object):
                 # NOTE: we must explicitly set this in each VM's info
                 # to prevent the Replica disks from being cloned:
                 "clone_disks": False}
-                # TODO(aznashwan): have these passed separately to the relevant
-                # provider methods (they're currently passed directly inside
-                # dest-env by the API service when accepting the call)
-                # "network_map": network_map,
-                # "storage_mappings": storage_mappings,
+            # TODO(aznashwan): have these passed separately to the relevant
+            # provider methods (they're currently passed directly inside
+            # dest-env by the API service when accepting the call)
+            # "network_map": network_map,
+            # "storage_mappings": storage_mappings,
 
             get_instance_info_task = self._create_task(
                 instance,
@@ -2694,7 +2695,7 @@ class ConductorServerEndpoint(object):
                         if all([
                                 dep_stat == constants.TASK_STATUS_COMPLETED
                                 for dep_stat in (
-                                        parent_task_statuses.values())]):
+                                    parent_task_statuses.values())]):
                             LOG.info(
                                 "Starting task '%s' as all dependencies have "
                                 "completed successfully: %s",
@@ -2735,7 +2736,7 @@ class ConductorServerEndpoint(object):
                                 "no non-error parents to directly depend on, "
                                 "but one or more on-error tasks have completed"
                                 " successfully: %s",
-                                    task.id, parent_task_statuses)
+                                task.id, parent_task_statuses)
                             task_statuses[task.id] = _start_task(task)
                         # start on-error tasks only if at least one non-error
                         # parent task has completed successfully:
@@ -3433,7 +3434,7 @@ class ConductorServerEndpoint(object):
             ctxt, replica_id, schedule_id, expired=expired)
         if not schedule:
             raise exception.NotFound(
-                "Schedule with ID '%s' for Replica '%s' not found." %  (
+                "Schedule with ID '%s' for Replica '%s' not found." % (
                     schedule_id, replica_id))
         return schedule
 
