@@ -76,43 +76,32 @@ class BaseRPCClient(object):
         if self._timeout is None:
             self._timeout = CONF.default_messaging_timeout
         self._serializer = RequestContextSerializer(serializer)
+        self._transport = _get_transport()
 
     def __repr__(self):
         return "<RPCClient(target=%s, timeout=%s)>" % (
             self._target, self._timeout)
 
-    @contextlib.contextmanager
-    def _rpc_messaging_client(self):
-        transport = None
-        try:
-            transport = _get_transport()
-            yield messaging.RPCClient(
-                transport, self._target, serializer=self._serializer,
+    def _rpc_client(self):
+        return messaging.RPCClient(
+                self._transport, self._target,
+                serializer=self._serializer,
                 timeout=self._timeout)
-        finally:
-            if transport:
-                try:
-                    transport.cleanup()
-                except (Exception, KeyboardInterrupt):
-                    LOG.warn(
-                        "Exception occurred while cleaning up transport for "
-                        "RPC client instance '%s'. Error was: %s",
-                        repr(self), utils.get_exception_details())
 
     def _call(self, ctxt, method, **kwargs):
-        with self._rpc_messaging_client() as client:
-            return client.call(ctxt, method, **kwargs)
+        client = self._rpc_client()
+        return client.call(ctxt, method, **kwargs)
 
     def _call_on_host(self, host, ctxt, method, **kwargs):
-        with self._rpc_messaging_client() as client:
-            cctxt = client.prepare(server=host)
-            return cctxt.call(ctxt, method, **kwargs)
+        client = self._rpc_client()
+        cctxt = client.prepare(server=host)
+        return cctxt.call(ctxt, method, **kwargs)
 
     def _cast(self, ctxt, method, **kwargs):
-        with self._rpc_messaging_client() as client:
-            client.cast(ctxt, method, **kwargs)
+        client = self._rpc_client()
+        client.cast(ctxt, method, **kwargs)
 
     def _cast_for_host(self, host, ctxt, method, **kwargs):
-        with self._rpc_messaging_client() as client:
-            cctxt = client.prepare(server=host)
-            cctxt.cast(ctxt, method, **kwargs)
+        client = self._rpc_client()
+        cctxt = client.prepare(server=host)
+        cctxt.cast(ctxt, method, **kwargs)
