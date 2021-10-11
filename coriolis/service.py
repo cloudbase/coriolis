@@ -51,7 +51,6 @@ def get_worker_count_from_args(argv):
         return count
     parser.add_argument(
         '--worker-process-count', metavar='N', type=_check_positive_worker_count,
-        default=processutils.get_worker_count(),
         help="Number of worker processes for this service. Defaults to the "
              "number of logical CPU cores on the system.")
     args, unknown_args = parser.parse_known_args(args=argv)
