@@ -28,6 +28,7 @@ LOG = logging.getLogger(__name__)
 
 ALLOWED_EXMODS = [
     coriolis.exception.__name__]
+_TRANSPORT = None
 
 
 class RequestContextSerializer(messaging.Serializer):
@@ -65,6 +66,13 @@ def get_server(target, endpoints, serializer=None):
                                     serializer=serializer)
 
 
+def init(reconnect=False):
+    global _TRANSPORT
+    if _TRANSPORT is None:
+        _TRANSPORT = _get_transport()
+    return _TRANSPORT
+
+
 class BaseRPCClient(object):
     """ Wrapper for 'oslo_messaging.RPCClient' which automatically
     instantiates and cleans up transports for each call.
@@ -76,11 +84,21 @@ class BaseRPCClient(object):
         if self._timeout is None:
             self._timeout = CONF.default_messaging_timeout
         self._serializer = RequestContextSerializer(serializer)
-        self._transport = _get_transport()
+        self._transport_conn = None
 
     def __repr__(self):
         return "<RPCClient(target=%s, timeout=%s)>" % (
             self._target, self._timeout)
+
+    @property
+    def _transport(self):
+        global _TRANSPORT
+        if _TRANSPORT is None:
+            if self._transport_conn is None:
+                self._transport_conn = _get_transport()
+            return self._transport_conn
+        else:
+            return _TRANSPORT
 
     def _rpc_client(self):
         return messaging.RPCClient(
