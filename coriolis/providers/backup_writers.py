@@ -635,6 +635,7 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
                 except Exception as err:
                     LOG.exception(err)
                     self._exception = err
+                    self._comp_q.task_done()
                     raise
             send_payload["chunk"] = chunk
             self._sender_q.put(send_payload)
@@ -676,6 +677,7 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
                 # the writer if this is set
                 LOG.exception(err)
                 self._exception = err
+                self._sender_q.task_done()
                 raise
             self._sender_q.task_done()
 
