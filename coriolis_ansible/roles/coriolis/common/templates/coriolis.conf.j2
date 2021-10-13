@@ -36,6 +36,8 @@ cache_time = 86400
 syslog_log_facility = LOG_LOCAL0
 use_syslog = yes
 
+compress_transfers = {{ compress_transfers | default("False", true) }}
+
 {% if enable_coriolis_compressor %}
 compressor_address = {{ compressor_address }}
 

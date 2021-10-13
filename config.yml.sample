@@ -16,6 +16,7 @@ default_coriolis_region_name: Public
 enable_coriolis_licensing_server: false
 
 enable_coriolis_compressor: true
+compress_transfers: false
 
 coriolis_profiling_dir_host: /opt/coriolis/profiling
 # Enabled memory profiling for components using 'fil'
