@@ -66,7 +66,7 @@ def get_server(target, endpoints, serializer=None):
                                     serializer=serializer)
 
 
-def init(reconnect=False):
+def init():
     global _TRANSPORT
     if _TRANSPORT is None:
         _TRANSPORT = _get_transport()
