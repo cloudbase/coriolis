@@ -98,7 +98,9 @@ def check_locks_dir_empty():
 
 
 class WSGIService(service.ServiceBase):
-    def __init__(self, name, worker_count=None):
+    def __init__(self, name, worker_count=None, init_rpc=True):
+        if init_rpc:
+            rpc.init()
         self._host = CONF.api_migration_listen
         self._port = CONF.api_migration_listen_port
 
@@ -137,7 +139,10 @@ class WSGIService(service.ServiceBase):
 
 
 class MessagingService(service.ServiceBase):
-    def __init__(self, topic, endpoints, version, worker_count=None):
+    def __init__(self, topic, endpoints, version,
+                 worker_count=None, init_rpc=True):
+        if init_rpc:
+            rpc.init()
         target = messaging.Target(topic=topic,
                                   server=utils.get_hostname(),
                                   version=version)

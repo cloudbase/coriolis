@@ -324,7 +324,7 @@ class SSHBackupWriterImpl(BaseBackupWriterImpl):
             data = self._sender_q.get()
             try:
                 self._send_msg(data)
-            except Exception as err:
+            except BaseException as err:
                 self._exception = err
                 raise
             finally:
@@ -340,7 +340,7 @@ class SSHBackupWriterImpl(BaseBackupWriterImpl):
                     payload["offset"],
                     payload["msg_id"])
                 self._sender_q.put(data)
-            except Exception as err:
+            except BaseException as err:
                 self._exception = err
                 raise
             finally:
@@ -634,9 +634,10 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
                         chunk, constants.COMPRESSION_FORMAT_GZIP)
                     if compressed:
                         send_payload["encoding"] = 'gzip'
-                except Exception as err:
+                except BaseException as err:
                     LOG.exception(err)
                     self._exception = err
+                    self._comp_q.task_done()
                     raise
             send_payload["chunk"] = chunk
             self._sender_q.put(send_payload)
@@ -675,11 +676,12 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
                     raise
             try:
                 send()
-            except Exception as err:
+            except BaseException as err:
                 # record the exception. We need to terminate
                 # the writer if this is set
                 LOG.exception(err)
                 self._exception = err
+                self._sender_q.task_done()
                 raise
             finally:
                 del headers

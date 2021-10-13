@@ -31,7 +31,7 @@ def main():
     server = service.MessagingService(
         constants.WORKER_MAIN_MESSAGING_TOPIC,
         [rpc_server.WorkerServerEndpoint()],
-        rpc_server.VERSION, worker_count=worker_count)
+        rpc_server.VERSION, worker_count=worker_count, init_rpc=False)
     launcher = service.service.launch(
         CONF, server, workers=server.get_workers_count())
     launcher.wait()
