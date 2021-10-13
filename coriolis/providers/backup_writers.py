@@ -3,6 +3,7 @@
 
 import abc
 import contextlib
+import copy
 import datetime
 import errno
 import os
@@ -328,6 +329,7 @@ class SSHBackupWriterImpl(BaseBackupWriterImpl):
                 raise
             finally:
                 self._sender_q.task_done()
+                del data
 
     def _encoder(self):
         while True:
@@ -643,18 +645,20 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
     def _sender(self):
         while True:
             payload = self._sender_q.get()
+            offset = copy.copy(payload["offset"])
             headers = {
-                "X-Write-Offset": str(payload["offset"]),
-                "X-Client-Token": self._id,
+                "X-Write-Offset": str(offset),
+                "X-Client-Token": copy.copy(self._id),
             }
             if payload.get("encoding", None):
-                headers["content-encoding"] = payload["encoding"]
+                enc = copy.copy(payload["encoding"])
+                headers["content-encoding"] = enc
 
             @utils.retry_on_error()
             def send():
                 self._ensure_session()
                 resp = self._session.post(
-                    self._uri, headers=headers, data=payload["chunk"],
+                    self._uri, headers=headers, data=copy.copy(payload["chunk"]),
                     timeout=CONF.default_requests_timeout
                 )
                 LOG.debug(
@@ -677,6 +681,9 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
                 LOG.exception(err)
                 self._exception = err
                 raise
+            finally:
+                del headers
+                del payload
             self._sender_q.task_done()
 
     @utils.retry_on_error()
