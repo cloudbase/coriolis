@@ -60,7 +60,8 @@ class BaseUbuntuMorphingTools(debian.BaseDebianMorphingTools):
 
             config_contents = self._read_file(config_path_chroot)
             config_data = yaml.load(
-                io.StringIO(config_contents.decode("utf-8")))
+                io.StringIO(config_contents.decode("utf-8")),
+                Loader=yaml.SafeLoader)
 
             config_network_data = config_data.get("network")
             if config_network_data is None:
