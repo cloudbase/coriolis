@@ -49,17 +49,6 @@ REPLICAS_POLICY_DEFAULT_RULES = [
             }
         ]
     ),
-    policy.DocumentedRuleDefault(
-        get_replicas_policy_label('show_executions'),
-        REPLICAS_POLICY_DEFAULT_RULE,
-        "Show details for Replica (including tasks executions)",
-        [
-            {
-                "path": "/replicas/{replica_id}",
-                "method": "GET"
-            }
-        ]
-    ),
     # TODO(aznashwan): replica actions should ideally be
     # declared in a separate module
     policy.DocumentedRuleDefault(
