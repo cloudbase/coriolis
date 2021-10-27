@@ -12,7 +12,7 @@ PROVIDERS_POLICY_DEFAULT_RULE = "rule:admin_or_owner"
 
 def get_providers_policy_label(rule_label):
     return "%s:%s" % (
-        PROVIDERS_POLICY_DEFAULT_RULE, rule_label)
+        PROVIDERS_POLICY_PREFIX, rule_label)
 
 
 PROVIDERS_POLICY_DEFAULT_RULES = [
