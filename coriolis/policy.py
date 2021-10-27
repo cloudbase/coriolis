@@ -15,7 +15,6 @@ from coriolis.policies import endpoints
 from coriolis.policies import general
 from coriolis.policies import migrations
 from coriolis.policies import minion_pools
-from coriolis.policies import minion_pool_tasks_executions
 from coriolis.policies import regions
 from coriolis.policies import replicas
 from coriolis.policies import replica_schedules
@@ -30,8 +29,7 @@ _ENFORCER = None
 
 DEFAULT_POLICIES_MODULES = [
     base, endpoints, general, migrations, replicas, replica_schedules,
-    replica_tasks_executions, diagnostics, regions, services, minion_pools,
-    minion_pool_tasks_executions]
+    replica_tasks_executions, diagnostics, regions, services, minion_pools]
 
 
 def reset():
