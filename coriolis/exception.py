@@ -237,6 +237,24 @@ class InvalidReplicaState(Invalid):
     message = _("Invalid replica state: %(reason)s")
 
 
+class ExecutionDeadlockException(CoriolisException):
+    message = _("Execution is bound to be deadlocked.")
+
+
+class TaskParametersException(CoriolisException):
+    message = _("Execution task parameters are missing.")
+
+
+class TaskFieldsConflict(CoriolisException):
+    message = _("There are fields which will encounter a state conflict.")
+
+
+class TaskDependencyException(CoriolisException):
+    message = _(
+        "Execution task has non-existent tasks referenced as dependencies."
+    )
+
+
 class ServiceUnavailable(Invalid):
     message = _("Service is unavailable at this time.")
 
