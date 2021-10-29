@@ -3,6 +3,7 @@
 
 import abc
 import contextlib
+import copy
 import datetime
 import errno
 import os
@@ -323,11 +324,12 @@ class SSHBackupWriterImpl(BaseBackupWriterImpl):
             data = self._sender_q.get()
             try:
                 self._send_msg(data)
-            except Exception as err:
+            except BaseException as err:
                 self._exception = err
                 raise
             finally:
                 self._sender_q.task_done()
+                del data
 
     def _encoder(self):
         while True:
@@ -338,7 +340,7 @@ class SSHBackupWriterImpl(BaseBackupWriterImpl):
                     payload["offset"],
                     payload["msg_id"])
                 self._sender_q.put(data)
-            except Exception as err:
+            except BaseException as err:
                 self._exception = err
                 raise
             finally:
@@ -632,9 +634,10 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
                         chunk, constants.COMPRESSION_FORMAT_GZIP)
                     if compressed:
                         send_payload["encoding"] = 'gzip'
-                except Exception as err:
+                except BaseException as err:
                     LOG.exception(err)
                     self._exception = err
+                    self._comp_q.task_done()
                     raise
             send_payload["chunk"] = chunk
             self._sender_q.put(send_payload)
@@ -643,18 +646,20 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
     def _sender(self):
         while True:
             payload = self._sender_q.get()
+            offset = copy.copy(payload["offset"])
             headers = {
-                "X-Write-Offset": str(payload["offset"]),
-                "X-Client-Token": self._id,
+                "X-Write-Offset": str(offset),
+                "X-Client-Token": copy.copy(self._id),
             }
             if payload.get("encoding", None):
-                headers["content-encoding"] = payload["encoding"]
+                enc = copy.copy(payload["encoding"])
+                headers["content-encoding"] = enc
 
             @utils.retry_on_error()
             def send():
                 self._ensure_session()
                 resp = self._session.post(
-                    self._uri, headers=headers, data=payload["chunk"],
+                    self._uri, headers=headers, data=copy.copy(payload["chunk"]),
                     timeout=CONF.default_requests_timeout
                 )
                 LOG.debug(
@@ -671,12 +676,16 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
                     raise
             try:
                 send()
-            except Exception as err:
+            except BaseException as err:
                 # record the exception. We need to terminate
                 # the writer if this is set
                 LOG.exception(err)
                 self._exception = err
+                self._sender_q.task_done()
                 raise
+            finally:
+                del headers
+                del payload
             self._sender_q.task_done()
 
     @utils.retry_on_error()

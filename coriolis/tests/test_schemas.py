@@ -73,7 +73,7 @@ class SchemasTestCase(test_base.CoriolisBaseTestCase):
 
         schemas.validate_value(test_value, test_schema)
 
-        mock_validate.assert_called_once_with(test_value, test_schema)
+        mock_validate.assert_called_once_with(test_value, test_schema, format_checker=None)
 
     @mock.patch.object(json, 'loads')
     @mock.patch.object(jsonschema, 'validate')
@@ -87,4 +87,4 @@ class SchemasTestCase(test_base.CoriolisBaseTestCase):
         schemas.validate_string(test_string, test_schema)
 
         mock_loads.assert_called_once_with(test_string)
-        mock_validate.assert_called_once_with(test_value, test_schema)
+        mock_validate.assert_called_once_with(test_value, test_schema, format_checker=None)

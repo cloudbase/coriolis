@@ -51,7 +51,6 @@ def get_worker_count_from_args(argv):
         return count
     parser.add_argument(
         '--worker-process-count', metavar='N', type=_check_positive_worker_count,
-        default=processutils.get_worker_count(),
         help="Number of worker processes for this service. Defaults to the "
              "number of logical CPU cores on the system.")
     args, unknown_args = parser.parse_known_args(args=argv)
@@ -99,7 +98,9 @@ def check_locks_dir_empty():
 
 
 class WSGIService(service.ServiceBase):
-    def __init__(self, name, worker_count=None):
+    def __init__(self, name, worker_count=None, init_rpc=True):
+        if init_rpc:
+            rpc.init()
         self._host = CONF.api_migration_listen
         self._port = CONF.api_migration_listen_port
 
@@ -138,7 +139,10 @@ class WSGIService(service.ServiceBase):
 
 
 class MessagingService(service.ServiceBase):
-    def __init__(self, topic, endpoints, version, worker_count=None):
+    def __init__(self, topic, endpoints, version,
+                 worker_count=None, init_rpc=True):
+        if init_rpc:
+            rpc.init()
         target = messaging.Target(topic=topic,
                                   server=utils.get_hostname(),
                                   version=version)

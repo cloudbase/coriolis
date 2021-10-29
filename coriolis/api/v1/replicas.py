@@ -31,7 +31,7 @@ class ReplicaController(api_wsgi.Controller):
 
         return replica_view.single(req, replica)
 
-    def index(self, req):
+    def _list(self, req):
         show_deleted = api_utils._get_show_deleted(
             req.GET.get("show_deleted", None))
         context = req.environ["coriolis.context"]
@@ -41,16 +41,11 @@ class ReplicaController(api_wsgi.Controller):
             req, self._replica_api.get_replicas(
                 context, include_tasks_executions=False))
 
+    def index(self, req):
+        return self._list(req)
+
     def detail(self, req):
-        show_deleted = api_utils._get_show_deleted(
-            req.GET.get("show_deleted", None))
-        context = req.environ["coriolis.context"]
-        context.show_deleted = show_deleted
-        context.can(
-            replica_policies.get_replicas_policy_label("show_executions"))
-        return replica_view.collection(
-            req, self._replica_api.get_replicas(
-                context, include_tasks_executions=True))
+        return self._list(req)
 
     @api_utils.format_keyerror_message(resource='replica', method='create')
     def _validate_create_body(self, context, body):

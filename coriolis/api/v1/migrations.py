@@ -30,7 +30,7 @@ class MigrationController(api_wsgi.Controller):
 
         return migration_view.single(req, migration)
 
-    def index(self, req):
+    def _list(self, req):
         show_deleted = api_utils._get_show_deleted(
             req.GET.get("show_deleted", None))
         context = req.environ["coriolis.context"]
@@ -40,16 +40,11 @@ class MigrationController(api_wsgi.Controller):
             req, self._migration_api.get_migrations(
                 context, include_tasks=False))
 
+    def index(self, req):
+        return self._list(req)
+
     def detail(self, req):
-        show_deleted = api_utils._get_show_deleted(
-            req.GET.get("show_deleted", None))
-        context = req.environ["coriolis.context"]
-        context.show_deleted = show_deleted
-        context.can(
-            migration_policies.get_migrations_policy_label("show_execution"))
-        return migration_view.collection(
-            req, self._migration_api.get_migrations(
-                context, include_tasks=True))
+        return self._list(req)
 
     @api_utils.format_keyerror_message(resource='migration', method='create')
     def _validate_migration_input(self, context, body):
