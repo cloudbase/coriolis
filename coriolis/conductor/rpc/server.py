@@ -3478,6 +3478,16 @@ class ConductorServerEndpoint(object):
 
     @schedule_synchronized
     def delete_replica_schedule(self, ctxt, replica_id, schedule_id):
+        replica = self._get_replica(ctxt, replica_id)
+        replica_status = replica.last_execution_status
+        valid_statuses = list(itertools.chain(
+            constants.FINALIZED_EXECUTION_STATUSES,
+            [constants.EXECUTION_STATUS_UNEXECUTED]))
+        if replica_status not in valid_statuses:
+            raise exception.InvalidReplicaState(
+                'Replica Schedule cannot be deleted while the Replica is in '
+                '%s state. Please wait for the Replica execution to finish' % (
+                    replica_status))
         db_api.delete_replica_schedule(
             ctxt, replica_id, schedule_id, None,
             lambda ctxt, sched: self._cleanup_schedule_resources(
