@@ -35,7 +35,7 @@ class MigrationController(api_wsgi.Controller):
             req.GET.get("show_deleted", None))
         context = req.environ["coriolis.context"]
         context.show_deleted = show_deleted
-        context.can(migration_policies.get_migrations_policy_label("show"))
+        context.can(migration_policies.get_migrations_policy_label("list"))
         return migration_view.collection(
             req, self._migration_api.get_migrations(
                 context, include_tasks=False))

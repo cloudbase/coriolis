@@ -49,17 +49,6 @@ MIGRATIONS_POLICY_DEFAULT_RULES = [
             }
         ]
     ),
-    policy.DocumentedRuleDefault(
-        get_migrations_policy_label('show_execution'),
-        MIGRATIONS_POLICY_DEFAULT_RULE,
-        "Show details for a migration (including tasks execution)",
-        [
-            {
-                "path": "/migration/{migration_id}",
-                "method": "GET"
-            }
-        ]
-    ),
     # TODO(aznashwan): migration actions should ideally be
     # declared in a separate module
     policy.DocumentedRuleDefault(
