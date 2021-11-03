@@ -10,9 +10,20 @@ RUN apt-get update && apt-get install -y librados2 python3-rados python3-rbd
 RUN apt-get install -y vim
 RUN apt-get install -y qemu-utils
 
+{% if "openstack" in coriolis_providers %}
 # NOTE: the `openssl` binary is required by python-novaclient when
-# decrypting the password of a Windows worker machine.
+# decrypting the password of a Windows worker machine retrieved
+# using `nova get-password`
 RUN apt-get install -y openssl
+{% endif %}
+
+{% if "ovirt" in coriolis_providers %}
+# NOTE: ovirt depends on `pycurl`, which requires the below as well as `libssl-dev`
+# (installed in the `coriolis-common` image) to be `pip3 install`d.
+RUN apt-get install -y libcurl4-openssl-dev libxml2-dev
+COPY "{{ ovirt_sdk_wheel_url.split('/')[-1] }}" /tmp
+RUN /bin/bash -c "pip3 install /tmp/{{ ovirt_sdk_wheel_url.split('/')[-1] }}"
+{% endif %}
 
 {% for item in coriolis_providers %}
 RUN /bin/bash -c "pip3 install -e ./coriolis-provider-{{ item }}"

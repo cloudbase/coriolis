@@ -1,0 +1,72 @@
+[ovirt_migration_provider]
+### General parameters:
+# Name or ID of a blank template to be used for a temporary VM through
+# which disk snapshots will be managed. The template should ideally be
+# blank (i.e. have no attached disks) in order to facilitate cloning times.
+# Internal default is '00000000-0000-0000-0000-000000000000'.
+# default_migr_blank_template = "00000000-0000-0000-0000-000000000000"
+
+### Import parameters:
+
+# Name or ID of the cluster to migrate machines to. 
+# default_cluster = Default
+
+# Name or ID of a pre-existing oVirt storage domain to be 
+# used for the disks of migrated VMs. The storage domain's
+# type must be either 'data' or 'managed block storage'.
+# default_storage_domain = ""
+
+# Name or ID of a pre-existing VM pool on oVirt to add migrated VMs to.
+# default_vm_pool = ""
+
+# Name of the OS release to use for migrated machines.
+# Internal default is 'other_linux'.
+# default_os_release = "other_linux"
+
+# Default optimization setting for migrated machines.
+# Internal default is 'server'.
+# default_optimized_for = "server"
+
+# Default setting for deletion protection on migrated machines.
+# default_delete_protected = False
+
+# Whether or not Coriolis should skip starting the migrated
+# VM(s) on oVirt after creating them.
+# Internal default is False.
+# default_leave_migrated_vms_off = false
+
+# Name or ID of a pre-existing cluster to boot temporary minion
+# machines in. If left unset, the main 'default_cluster' selected for
+# the import will be used.
+# default_migr_minion_cluster = Default
+
+# "Mapping between operating system types ('linux' or 'windows') and the
+# names or IDs of pre-existing templates on oVirt to be used for temporary
+# machines Coriolis will be spawning to perform various operations. Both
+# templates should either have a pre-defined username and password set
+# within them, or have cloud-init installed and configured for an
+# initial run. The Linux template will be used for data transfer and
+# OSMorphing of Linux machines, and must of an up-to-date Linux release
+# and be configured to listen for SSH connection on port 22. The Windows
+# template will strictly be used Windows OSMorphing and must be set
+# up with WinRM/HTTPS on port 5986.
+# default_migr_template_map = linux: Bionic-passworded, windows: WS2016
+
+# Mapping between operating system types ('linux' or 'windows') and the
+# pre-set usernames of the respective templates set using the
+# 'default_migr_template_map' option. The users must have admin rights
+# and allow for passwordless sudo on Linux. If no user or password is
+# provided, cloud-init-based initialization is attempted.
+# default_migr_template_username_map = linux: coriolis, windows: coriolis
+
+# Mapping between operating system types ('linux' or 'windows') and the
+# pre-set password for the users specified within the
+# 'default_migr_template_username_map' option for the templates provided
+# using the 'Migration Minion Template Map' option. If no user or password
+# is provided, cloud-init-based initialization is attempted.
+# default_migr_template_password_map = linux: Passw0rd, windows: Passw0rd
+
+# Name or ID of a pre-existing storage domain to boot temporary
+# minion machines in. If left unset, the default storage domain
+# on the minion machine template will be used.
+# default_migr_minion_storage_domain = ""

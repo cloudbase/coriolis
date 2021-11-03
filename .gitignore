@@ -3,3 +3,4 @@
 /config.yml
 /passwords.yml
 /coriolis_ansible/build
+*.swp

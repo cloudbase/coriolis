@@ -32,7 +32,7 @@ coriolis_profiling_dir_host: /opt/coriolis/profiling
 enable_profiling_for: []
 
 coriolis_export_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "vmware", "aws"]
-coriolis_import_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "oci", "aws", "vmware"]
+coriolis_import_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "oci", "aws", "vmware", "ovirt"]
 
 # In the case that some repo needs to be cloned on some other branch instead of
 # the default cloudbase/master that can be set using the two following dict
