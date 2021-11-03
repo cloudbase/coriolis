@@ -4,7 +4,7 @@ FROM {{ docker_registry }}/{{ docker_namespace }}/coriolis-common:{{ docker_imag
 COPY coriolis-provider-{{ item }}/ coriolis-provider-{{ item }}
 {% endfor %}
 
-RUN add-apt-repository cloud-archive:train
+RUN add-apt-repository cloud-archive:wallaby
 RUN apt-get update && apt-get install -y librados2 python3-rados python3-rbd
 
 RUN apt-get install -y vim
