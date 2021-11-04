@@ -5,6 +5,7 @@ BASE_DIR=$(dirname "$(readlink -f "$0")")
 source "$BASE_DIR/../utils/common.sh"
 
 new_config_file $CONFIG_FILE
+new_config_file $DOCKER_IMAGES_CONFIG_FILE
 
 KOLLA_BRANCH="$(get_global_config_value kolla_branch)"
 

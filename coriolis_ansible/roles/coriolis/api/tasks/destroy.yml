@@ -8,4 +8,4 @@
   docker_image:
     state: absent
     force_absent: yes
-    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-api:{{ docker_images_tag }}"
+    name: "{{ coriolis_api_docker_image_url }}"

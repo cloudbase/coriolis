@@ -2,7 +2,7 @@
 - name: Setup coriolis-minion-manager container
   docker_container:
     name: coriolis-minion-manager
-    image: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-minion-manager:{{ docker_images_tag }}"
+    image: "{{ coriolis_minion_manager_docker_image_url }}"
     pull: "{{ docker_pull_images }}"
     hostname: coriolis-minion-manager
     state: started

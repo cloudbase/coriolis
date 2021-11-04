@@ -5,7 +5,7 @@
 - name: Setup coriolis-licensing-server container
   docker_container:
     name: coriolis-licensing-server
-    image: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-licensing-server:{{ docker_images_tag }}"
+    image: "{{ coriolis_licensing_server_docker_image_url }}"
     pull: "{{ docker_pull_images }}"
     hostname: coriolis-licensing-server
     state: started

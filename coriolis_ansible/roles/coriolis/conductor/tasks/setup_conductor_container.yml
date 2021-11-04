@@ -2,7 +2,7 @@
 - name: Setup coriolis-conductor container
   docker_container:
     name: coriolis-conductor
-    image: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-conductor:{{ docker_images_tag }}"
+    image: "{{ coriolis_conductor_docker_image_url }}"
     pull: "{{ docker_pull_images }}"
     hostname: coriolis-conductor
     state: started

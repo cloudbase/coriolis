@@ -5,6 +5,7 @@ GET_CONFIG_VALUE_SCRIPT="$UTILS_DIR/get_config_value.py"
 SET_CONFIG_VALUE_SCRIPT="$UTILS_DIR/set_config_value.py"
 SET_INI_CONFIG_VALUE_SCRIPT="$UTILS_DIR/set_ini_config_value.py"
 CONFIG_FILE=$(readlink -f "$UTILS_DIR/../config.yml")
+DOCKER_IMAGES_CONFIG_FILE=$(readlink -f "$UTILS_DIR/../docker-images-config.yml")
 PASSWORDS_FILE=$(readlink -f "$UTILS_DIR/../passwords.yml")
 
 
@@ -24,10 +25,19 @@ new_config_file() {
 
 get_global_config_value() {
     local NAME="$1"
+    # Check in main config file:
     local CONFIG_VALUE=$("$GET_CONFIG_VALUE_SCRIPT" -c "$CONFIG_FILE" -n "$NAME")
+
+    # Check Docker images config file:
+    if [[ -z $CONFIG_VALUE ]]; then
+        CONFIG_VALUE=$("$GET_CONFIG_VALUE_SCRIPT" -c "$DOCKER_IMAGES_CONFIG_FILE" -n "$NAME")
+    fi
+
+    # Default to whatever's in group_vars/all.yml:
     if [[ -z $CONFIG_VALUE ]]; then
         CONFIG_VALUE=$("$GET_CONFIG_VALUE_SCRIPT" -c "$UTILS_DIR/../coriolis_ansible/group_vars/all.yml" -n "$NAME")
     fi
+
     echo $CONFIG_VALUE
 }
 

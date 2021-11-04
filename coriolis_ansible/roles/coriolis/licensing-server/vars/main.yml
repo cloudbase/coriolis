@@ -1,3 +1,4 @@
 ---
 coriolis_licensing_server_database_name: coriolis_licensing
 coriolis_licensing_server_database_user: coriolis_licensing
+coriolis_licensing_server_docker_image_url: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-licensing-server:{{ coriolis_licensing_server_docker_image_tag }}"

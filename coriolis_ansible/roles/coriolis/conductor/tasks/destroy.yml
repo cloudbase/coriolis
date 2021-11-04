@@ -8,7 +8,7 @@
   docker_image:
     state: absent
     force_absent: yes
-    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-conductor:{{ docker_images_tag }}"
+    name: "{{ coriolis_conductor_docker_image_url }}"
 
 - name: Remove locks directory
   file:

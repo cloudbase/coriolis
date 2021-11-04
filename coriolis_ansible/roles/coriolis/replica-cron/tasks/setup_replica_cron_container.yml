@@ -2,7 +2,7 @@
 - name: Setup coriolis-replica-cron container
   docker_container:
     name: coriolis-replica-cron
-    image: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-replica-cron:{{ docker_images_tag }}"
+    image: "{{ coriolis_replica_cron_docker_image_url }}"
     pull: "{{ docker_pull_images }}"
     hostname: coriolis-replica-cron
     state: started

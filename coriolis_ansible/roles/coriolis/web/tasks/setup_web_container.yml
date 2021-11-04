@@ -2,7 +2,7 @@
 - name: Setup coriolis-web container
   docker_container:
     name: coriolis-web
-    image: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-web:{{ docker_images_tag }}"
+    image: "{{ coriolis_web_docker_image_url }}"
     pull: "{{ docker_pull_images }}"
     hostname: coriolis-web
     state: started

@@ -17,6 +17,7 @@ ADMIN_OPENRC_FILE="/etc/kolla/admin-openrc.sh"
 source "$BASE_DIR/utils/common.sh"
 
 new_config_file $CONFIG_FILE
+new_config_file $DOCKER_IMAGES_CONFIG_FILE
 new_config_file $PASSWORDS_FILE
 
 $UTILS_DIR/gen_pwd.py --passwords-file $PASSWORDS_FILE
@@ -27,7 +28,7 @@ if [ ! `$GET_CONFIG_VALUE_SCRIPT -c $CONFIG_FILE -n coriolis_worker_hostname` ];
 fi
 
 PLAYBOOK="appliance.yml"
-ANSIBLE_CMD="ansible-playbook -v -i inventory/appliance -e @$CONFIG_FILE -e @$PASSWORDS_FILE"
+ANSIBLE_CMD="ansible-playbook -v -i inventory/appliance -e @$CONFIG_FILE -e @$DOCKER_IMAGES_CONFIG_FILE -e @$PASSWORDS_FILE"
 
 cd $BASE_DIR/coriolis_ansible
 
