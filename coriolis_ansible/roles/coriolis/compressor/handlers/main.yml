@@ -3,6 +3,7 @@
   include_tasks: "{{ playbook_dir }}/roles/common/docker/tasks/build_image.yml"
   vars:
     image_name: coriolis-compressor
+    image_tag: "{{ coriolis_compressor_docker_image_tag }}"
 
 - name: "restart coriolis-compressor"
   shell: "docker restart coriolis-compressor"

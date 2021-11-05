@@ -12,3 +12,4 @@
   include_tasks: "{{ playbook_dir }}/roles/common/docker/tasks/build_image.yml"
   vars:
     image_name: coriolis-common
+    image_tag: "{{ coriolis_common_docker_image_tag }}"

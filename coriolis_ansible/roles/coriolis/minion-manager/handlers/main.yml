@@ -4,6 +4,7 @@
   include_tasks: "{{ playbook_dir }}/roles/common/docker/tasks/build_image.yml"
   vars:
     image_name: coriolis-minion-manager
+    image_tag: "{{ coriolis_minion_manager_docker_image_tag }}"
 
 - name: "restart coriolis-minion-manager"
   listen: "restart coriolis core components"

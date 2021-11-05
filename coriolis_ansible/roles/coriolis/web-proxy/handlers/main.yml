@@ -3,6 +3,7 @@
   include_tasks: "{{ playbook_dir }}/roles/common/docker/tasks/build_image.yml"
   vars:
     image_name: coriolis-web-proxy
+    image_tag: "{{ coriolis_web_proxy_docker_image_tag }}"
 
 - name: "restart coriolis-web-proxy"
   shell: "docker restart coriolis-web-proxy"

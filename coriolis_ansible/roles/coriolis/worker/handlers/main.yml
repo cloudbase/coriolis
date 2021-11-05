@@ -4,6 +4,7 @@
   include_tasks: "{{ playbook_dir }}/roles/common/docker/tasks/build_image.yml"
   vars:
     image_name: coriolis-worker
+    image_tag: "{{ coriolis_worker_docker_image_tag }}"
 
 - name: "restart coriolis-worker"
   listen: "restart coriolis core components"
