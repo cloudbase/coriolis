@@ -1,0 +1,10 @@
+---
+- name: "build coriolis-console-editor"
+  include_tasks: "{{ playbook_dir }}/roles/common/docker/tasks/build_image.yml"
+  vars:
+    image_name: coriolis-console-editor
+    image_tag: "{{ coriolis_console_editor_docker_image_tag }}"
+
+- name: "restart coriolis-console-editor"
+  listen: "restart coriolis core components"
+  shell: "docker restart coriolis-console-editor"

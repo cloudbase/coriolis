@@ -1,0 +1,16 @@
+---
+- name: Set Console Editor deployment facts
+  set_fact:
+    coriolis_console_editor_container_mountpoints: "{{ coriolis_console_editor_mountdirs | map('regex_replace', '(.*)', '\\1:\\1:rw') | list }}"
+
+- name: Setup coriolis-console-editor container
+  docker_container:
+    name: coriolis-console-editor
+    image: "{{ coriolis_console_editor_docker_image_url }}"
+    pull: "{{ docker_pull_images }}"
+    hostname: coriolis-console-editor
+    state: started
+    restart_policy: unless-stopped
+    network_mode: host
+    env:
+    volumes: "{{ coriolis_console_editor_container_mountpoints }}"

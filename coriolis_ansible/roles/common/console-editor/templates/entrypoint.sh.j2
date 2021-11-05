@@ -1,0 +1,18 @@
+#!/bin/sh
+
+BANNER=$(cat <<'END_HEREDOC'
+    Welcome to the Coriolis Appliance editing environment!
+
+You are currently within a Bash shell in an Ubuntu 20.04 Docker Container
+with the following files/directories for you to edit:
+
+$CORIOLIS_EDITING_CONTAINER_MOUNTPOINTS
+
+Please feel free to install any additional utilities you would like using `apt`. 
+END_HEREDOC
+)
+
+clear
+echo "$BANNER"
+
+exec "$@"

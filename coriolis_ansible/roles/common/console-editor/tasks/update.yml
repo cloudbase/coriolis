@@ -1,0 +1,7 @@
+---
+- name: Remove Docker container
+  docker_container:
+    state: absent
+    name: coriolis-console-editor
+
+- include_tasks: setup_console_editor_container.yml
