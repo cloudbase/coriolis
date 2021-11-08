@@ -3,7 +3,7 @@ FROM ubuntu:20.04
 WORKDIR /root
 
 RUN apt-get update && apt-get install -y curl gnupg
-RUN curl --silent --location https://deb.nodesource.com/setup_12.x | bash -
+RUN curl --silent --location https://deb.nodesource.com/setup_16.x | bash -
 RUN apt-get update && apt-get install -y nodejs
 
 RUN curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add -
