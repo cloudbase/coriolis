@@ -9,43 +9,43 @@
         name: common/mariadb
 
     - import_role:
+        name: coriolis/compressor
+
+    - import_role:
+        name: coriolis/common
+
+    - import_role:
+        name: coriolis/logger
+
+    - import_role:
+        name: coriolis/api
+
+    - import_role:
+        name: coriolis/conductor
+
+    - import_role:
+        name: coriolis/replica-cron
+
+    - import_role:
+        name: coriolis/scheduler
+
+    - import_role:
+        name: coriolis/minion-manager
+
+    - import_role:
+        name: coriolis/worker
+
+    - import_role:
+        name: coriolis/web
+
+    - import_role:
+        name: coriolis/web-proxy
+
+    - import_role:
+        name: coriolis/licensing-server
+
+    - import_role:
         name: common/console-editor
-
-    #- import_role:
-    #    name: coriolis/compressor
-
-    #- import_role:
-    #    name: coriolis/common
-
-    #- import_role:
-    #    name: coriolis/logger
-
-    #- import_role:
-    #    name: coriolis/api
-
-    #- import_role:
-    #    name: coriolis/conductor
-
-    #- import_role:
-    #    name: coriolis/replica-cron
-
-    #- import_role:
-    #    name: coriolis/scheduler
-
-    #- import_role:
-    #    name: coriolis/minion-manager
-
-    #- import_role:
-    #    name: coriolis/worker
-
-    #- import_role:
-    #    name: coriolis/web
-
-    #- import_role:
-    #    name: coriolis/web-proxy
-
-    #- import_role:
-    #    name: coriolis/licensing-server
 
 - name: Apply roles for the Coriolis appliance validation
   any_errors_fatal: true

@@ -75,10 +75,14 @@ coriolis_conductor_locks_dir_host: "{{ coriolis_locks_dir_host }}/conductor"
 coriolis_minion_manager_locks_dir_host: "{{ coriolis_locks_dir_host }}/minion-manager"
 
 # Mountpoints on the coriolis-console-editor container:
+coriolis_console_editor_extra_prompt_file: "{{ appliance_coriolis_opt_dir }}/extra-coriolis-editor-prompt.txt"
 kolla_admin_openrc_filepath: "/etc/kolla/admin-openrc.sh"
 appliance_etc_hosts_filepath: "/etc/hosts"
 appliance_etc_resolvconf_filepath: "/etc/resolv.conf"
 appliance_networking_config_filepath: "/etc/netplan"
+coriolis_ansible_install_dir: "/root/coriolis-docker"
+coriolis_ansible_main_config_file: "{{ coriolis_ansible_install_dir }}/config.yml"
+coriolis_ansible_docker_config_file: "{{ coriolis_ansible_install_dir }}/docker-images-config.yml"
 coriolis_console_editor_mountdirs:
   - "{{ kolla_admin_openrc_filepath }}"
   - "{{ appliance_etc_hosts_filepath }}"
@@ -87,3 +91,5 @@ coriolis_console_editor_mountdirs:
   - "{{ appliance_coriolis_opt_dir }}"
   - "{{ coriolis_config_dir }}"
   - "{{ coriolis_log_dir }}"
+  - "{{ coriolis_ansible_main_config_file }}"
+  - "{{ coriolis_ansible_docker_config_file }}"

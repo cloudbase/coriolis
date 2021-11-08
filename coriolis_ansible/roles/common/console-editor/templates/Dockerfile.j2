@@ -6,10 +6,16 @@ WORKDIR /root
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y \
     python3-dev python3-cffi python3-pip \
-    git wget curl vim
+    wget curl iproute2 iputils-ping telnet traceroute dnsutils telnet \
+    git nano vim
 
 RUN /bin/bash -c "pip3 install python-openstackclient git+https://github.com/{{ custom_repo_owner_names['python-client'] | default('cloudbase') }}/python-coriolisclient@{{ custom_repo_branch_names['python-client'] | default('master') }}"
 RUN echo "source /etc/kolla/admin-openrc.sh" >> /root/.bashrc
+RUN echo "clear && cat /root/README.md" >> /root/.bashrc
+RUN echo 'if [ "$CORIOLIS_CONSOLE_EDITOR_PROMPT" ]; then echo; echo "$CORIOLIS_CONSOLE_EDITOR_PROMPT"; fi' >> /root/.bashrc
+RUN echo 'if [ -f "{{ coriolis_console_editor_extra_prompt_file }}" ]; then echo; cat "{{ coriolis_console_editor_extra_prompt_file }}"; fi' >> /root/.bashrc
+
+COPY README.md /root/README.md
 
 # NOTE: this will keep the container hanging indefinitely:
 CMD ["tail", "-f", "/dev/null"]

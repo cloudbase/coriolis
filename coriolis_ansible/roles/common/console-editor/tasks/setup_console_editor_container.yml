@@ -1,4 +1,9 @@
 ---
+- name: Create extra prompt file
+  file:
+    path: "{{ coriolis_console_editor_extra_prompt_file }}"
+    state: touch
+
 - name: Set Console Editor deployment facts
   set_fact:
     coriolis_console_editor_container_mountpoints: "{{ coriolis_console_editor_mountdirs | map('regex_replace', '(.*)', '\\1:\\1:rw') | list }}"

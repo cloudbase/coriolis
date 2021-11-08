@@ -3,7 +3,7 @@ set -e
 
 usage() {
     echo "USAGE: $0 <coriolis_action>"
-    echo "Valid options for <coriolis_action> are: ['bootstrap', 'build', 'deploy', 'reconfigure', 'update', 'destroy', 'reset-licensing-db', 'dump-memory-profiling']"
+    echo "Valid options for <coriolis_action> are: ['bootstrap', 'build', 'deploy', 'reconfigure', 'update', 'destroy', 'push-docker-images', 'reset-licensing-db', 'dump-memory-profiling']"
 }
 
 if [[ $# -ne 1 ]]; then
@@ -56,7 +56,7 @@ case "$1" in
     update)
         source $ADMIN_OPENRC_FILE
         docker login "$(get_global_config_value docker_registry)"
-        $SET_CONFIG_VALUE_SCRIPT -c $CONFIG_FILE -n docker_images_tag -v latest
+        $SET_CONFIG_VALUE_SCRIPT -c $CONFIG_FILE -n default_coriolis_docker_images_tag -v latest
         $ANSIBLE_CMD -e coriolis_action=update -e docker_pull_images=true $PLAYBOOK
         ;;
 
