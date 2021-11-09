@@ -5,9 +5,9 @@
 #   ./coriolis_ansible/roles/<ROLE_NAME>/vars/main.yml
 #
 
-kolla_branch: 9.0.0
-kolla_openstack_release: train
-kolla_docker_images_tag: latest
+kolla_branch: 12.0.0
+kolla_openstack_release: wallaby
+kolla_docker_images_tag: wallaby
 
 docker_pull_images: true
 coriolis_worker_hostname:

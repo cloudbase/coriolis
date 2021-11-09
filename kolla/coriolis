@@ -1,6 +1,15 @@
 [control]
 localhost       ansible_connection=local
 
+[common:children]
+control
+
+[kolla-logs:children]
+control
+
+[kolla-toolbox:children]
+control
+
 [mariadb:children]
 control
 
