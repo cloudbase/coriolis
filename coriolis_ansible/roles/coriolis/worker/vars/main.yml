@@ -5,4 +5,4 @@ custom_repo_branch_names: {}
 libqemu_url: https://cloudbase.it/downloads/libqemu.so.gz
 vmware_vix_disklib_url: https://cloudbase.it/downloads/VMware-vix-disklib-6.0.3-4888596.x86_64.tar.gz
 vmware_vix_disklib_local_archive: "/tmp/VMware-vix-disklib.tar.gz"
-ovirt_sdk_wheel_url: http://10.107.1.73/resources/ovirt_engine_sdk_python-4.4.14-cp36-cp36m-linux_x86_64.whl
+ovirt_sdk_wheel_url: http://10.107.1.73/resources/ovirt_engine_sdk_python-4.4.15-cp38-cp38-linux_x86_64.whl
