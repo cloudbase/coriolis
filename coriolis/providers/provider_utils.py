@@ -111,6 +111,9 @@ def get_storage_mapping_for_disk(
 
 def check_changed_storage_mappings(volumes_info, old_storage_mappings,
                                    new_storage_mappings):
+        if not volumes_info:
+            return
+
         old_backend_mappings = old_storage_mappings.get('backend_mappings', [])
         old_disk_mappings = old_storage_mappings.get('disk_mappings', [])
         new_backend_mappings = new_storage_mappings.get('backend_mappings', [])
