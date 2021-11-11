@@ -3,6 +3,7 @@
   include_tasks: "{{ playbook_dir }}/roles/common/docker/tasks/build_image.yml"
   vars:
     image_name: coriolis-licensing-server
+    image_tag: "{{ coriolis_licensing_server_docker_image_tag }}"
 
 - name: "restart coriolis-licensing-server"
   shell: "docker restart coriolis-licensing-server"

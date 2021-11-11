@@ -1,0 +1,2 @@
+---
+coriolis_console_editor_docker_image_url: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-console-editor:{{ coriolis_console_editor_docker_image_tag }}"

@@ -1,0 +1,11 @@
+---
+- name: Remove Docker container
+  docker_container:
+    state: absent
+    name: coriolis-console-editor
+
+- name: Remove Docker image
+  docker_image:
+    state: absent
+    force_absent: yes
+    name: "{{ coriolis_console_editor_docker_image_url }}"

@@ -1,0 +1,21 @@
+---
+- name: Render templates
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+  with_items:
+    - { src: "README.md.j2",  dest: "{{ build_dir }}/README.md" }
+    - { src: "Dockerfile.j2", dest: "{{ build_dir }}/coriolis-console-editor.Dockerfile" }
+  notify:
+    - "build coriolis-console-editor"
+
+- name: "Get Docker image stat"
+  docker_image_info:
+    name: "{{ coriolis_console_editor_docker_image_url }}"
+  register: docker_image_info
+
+- name: "Trigger Docker image build"
+  command: /bin/true
+  notify:
+    - "build coriolis-console-editor"
+  when: docker_image_info.images | length == 0

@@ -1,0 +1,2 @@
+---
+coriolis_conductor_docker_image_url: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-conductor:{{ coriolis_conductor_docker_image_tag }}"

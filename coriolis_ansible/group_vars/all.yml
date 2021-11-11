@@ -9,10 +9,32 @@ bind_address: 127.0.0.1
 
 enable_coriolis_licensing_server: false
 
+kolla_branch: 9.0.0
+kolla_openstack_release: train
+kolla_docker_images_tag: latest
+
+docker_pull_images: true
 docker_registry: registry.cloudbase.it
 docker_namespace: appliance
-docker_images_tag: latest
-docker_pull_images: true
+
+default_coriolis_docker_images_tag: latest
+coriolis_common_docker_image_tag: "{{ default_coriolis_docker_images_tag }}"
+
+coriolis_api_docker_image_tag:              "{{ default_coriolis_docker_images_tag }}"
+coriolis_conductor_docker_image_tag:        "{{ default_coriolis_docker_images_tag }}"
+coriolis_scheduler_docker_image_tag:        "{{ default_coriolis_docker_images_tag }}"
+coriolis_logger_docker_image_tag:           "{{ default_coriolis_docker_images_tag }}"
+coriolis_compressor_docker_image_tag:       "{{ default_coriolis_docker_images_tag }}"
+coriolis_licensing_server_docker_image_tag: "{{ default_coriolis_docker_images_tag }}"
+coriolis_licensing_ui_docker_image_tag:     "{{ default_coriolis_docker_images_tag }}"
+coriolis_replica_cron_docker_image_tag:     "{{ default_coriolis_docker_images_tag }}"
+coriolis_minion_manager_docker_image_tag:   "{{ default_coriolis_docker_images_tag }}"
+coriolis_worker_docker_image_tag:           "{{ default_coriolis_docker_images_tag }}"
+coriolis_web_proxy_docker_image_tag:        "{{ default_coriolis_docker_images_tag }}"
+coriolis_web_docker_image_tag:              "{{ default_coriolis_docker_images_tag }}"
+
+coriolis_console_editor_docker_image_tag: "{{ default_coriolis_docker_images_tag }}"
+coriolis_common_docker_image_url: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-common:{{ coriolis_common_docker_image_tag }}"
 
 coriolis_debug: true
 
@@ -22,10 +44,11 @@ coriolis_web_ui_base_url: "http://{{ bind_address }}:3000"
 
 coriolis_config_dir: /etc/coriolis
 coriolis_log_dir: /var/log/coriolis
-coriolis_vmware_vix_disklib_dir: /opt/coriolis/vmware-vix-disklib
-coriolis_hyperv_share_local_dir: /opt/coriolis/hyperv-exports
-coriolis_export_dir: /opt/coriolis/export
-coriolis_profiling_dir_container: /opt/coriolis/profiling
+appliance_coriolis_opt_dir: /opt/coriolis
+coriolis_vmware_vix_disklib_dir: "{{ appliance_coriolis_opt_dir }}/vmware-vix-disklib"
+coriolis_hyperv_share_local_dir: "{{ appliance_coriolis_opt_dir }}/hyperv-exports"
+coriolis_export_dir: "{{ appliance_coriolis_opt_dir }}/export"
+coriolis_profiling_dir_container: "{{ appliance_coriolis_opt_dir }}/profiling"
 
 coriolis_export_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "vmware", "aws"]
 coriolis_import_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "oci", "aws"]
@@ -46,7 +69,27 @@ coriolis_licensing_ui_endpoint: "http://{{ bind_address }}:{{ coriolis_licensing
 # We can only specify one global "[oslo_concurrency] lock_path" in
 # coriolis.conf so we will map separate directories on the host to
 # the same subpath within all of the containers:
-coriolis_locks_dir_containers: "/opt/coriolis/locks"
-coriolis_locks_dir_host: "/opt/coriolis/locks"
+coriolis_locks_dir_containers: "{{ appliance_coriolis_opt_dir }}/locks"
+coriolis_locks_dir_host: "{{ appliance_coriolis_opt_dir }}/locks"
 coriolis_conductor_locks_dir_host: "{{ coriolis_locks_dir_host }}/conductor"
 coriolis_minion_manager_locks_dir_host: "{{ coriolis_locks_dir_host }}/minion-manager"
+
+# Mountpoints on the coriolis-console-editor container:
+coriolis_console_editor_extra_prompt_file: "{{ appliance_coriolis_opt_dir }}/extra-coriolis-editor-prompt.txt"
+kolla_admin_openrc_filepath: "/etc/kolla/admin-openrc.sh"
+appliance_etc_hosts_filepath: "/etc/hosts"
+appliance_etc_resolvconf_filepath: "/etc/resolv.conf"
+appliance_networking_config_filepath: "/etc/netplan"
+coriolis_ansible_install_dir: "/root/coriolis-docker"
+coriolis_ansible_main_config_file: "{{ coriolis_ansible_install_dir }}/config.yml"
+coriolis_ansible_docker_config_file: "{{ coriolis_ansible_install_dir }}/docker-images-config.yml"
+coriolis_console_editor_mountdirs:
+  - "{{ kolla_admin_openrc_filepath }}"
+  - "{{ appliance_etc_hosts_filepath }}"
+  - "{{ appliance_etc_resolvconf_filepath }}"
+  - "{{ appliance_networking_config_filepath }}"
+  - "{{ appliance_coriolis_opt_dir }}"
+  - "{{ coriolis_config_dir }}"
+  - "{{ coriolis_log_dir }}"
+  - "{{ coriolis_ansible_main_config_file }}"
+  - "{{ coriolis_ansible_docker_config_file }}"

@@ -5,8 +5,8 @@
     - appliance
   tasks:
     - docker_image:
-        name: "{{ docker_registry }}/{{ docker_namespace }}/{{ item }}"
-        tag: "{{ docker_images_tag }}"
+        name: "{{ docker_registry }}/{{ docker_namespace }}/{{ item.name }}"
+        tag: "{{ item.tag }}"
         source: local
         push: True
       register: result
@@ -14,15 +14,16 @@
       delay: 5
       until: result is succeeded
       with_items:
-        - "coriolis-compressor"
-        - "coriolis-common"
-        - "coriolis-api"
-        - "coriolis-conductor"
-        - "coriolis-replica-cron"
-        - "coriolis-worker"
-        - "coriolis-scheduler"
-        - "coriolis-minion-manager"
-        - "coriolis-logger"
-        - "coriolis-web"
-        - "coriolis-web-proxy"
-        - "coriolis-licensing-server"
+        - {name: "coriolis-compressor", tag: "{{ coriolis_compressor_docker_image_tag }}"}
+        - {name: "coriolis-common", tag: "{{ coriolis_common_docker_image_tag }}"}
+        - {name: "coriolis-api", tag: "{{ coriolis_api_docker_image_tag }}"}
+        - {name: "coriolis-conductor", tag: "{{ coriolis_conductor_docker_image_tag }}"}
+        - {name: "coriolis-replica-cron", tag: "{{ coriolis_replica_cron_docker_image_tag }}"}
+        - {name: "coriolis-worker", tag: "{{ coriolis_worker_docker_image_tag }}"}
+        - {name: "coriolis-scheduler", tag: "{{ coriolis_scheduler_docker_image_tag }}"}
+        - {name: "coriolis-minion-manager", tag: "{{ coriolis_minion_manager_docker_image_tag }}"}
+        - {name: "coriolis-logger", tag: "{{ coriolis_logger_docker_image_tag }}"}
+        - {name: "coriolis-web", tag: "{{ coriolis_web_docker_image_tag }}"}
+        - {name: "coriolis-web-proxy", tag: "{{ coriolis_web_proxy_docker_image_tag }}"}
+        - {name: "coriolis-console-editor", tag: "{{ coriolis_console_editor_docker_image_tag }}"}
+#       - {name: "coriolis-licensing-server", tag: "{{ coriolis_licensing_server_docker_image_tag }}"}

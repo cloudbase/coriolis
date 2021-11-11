@@ -44,6 +44,9 @@
     - import_role:
         name: coriolis/licensing-server
 
+    - import_role:
+        name: common/console-editor
+
 - name: Apply roles for the Coriolis appliance validation
   any_errors_fatal: true
   gather_facts: false

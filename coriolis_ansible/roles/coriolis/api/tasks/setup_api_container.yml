@@ -2,7 +2,7 @@
 - name: Setup coriolis-api container
   docker_container:
     name: coriolis-api
-    image: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-api:{{ docker_images_tag }}"
+    image: "{{ coriolis_api_docker_image_url }}"
     pull: "{{ docker_pull_images }}"
     hostname: coriolis-api
     state: started

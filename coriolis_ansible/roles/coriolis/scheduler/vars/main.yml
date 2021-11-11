@@ -1,0 +1,2 @@
+---
+coriolis_scheduler_docker_image_url: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-scheduler:{{ coriolis_scheduler_docker_image_tag }}"

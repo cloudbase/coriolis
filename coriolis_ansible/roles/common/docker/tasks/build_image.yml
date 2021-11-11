@@ -1,7 +1,7 @@
 ---
 - name: "Remove existing Docker image"
   docker_image:
-    name: "{{ docker_registry }}/{{ docker_namespace }}/{{ image_name }}:{{ docker_images_tag }}"
+    name: "{{ docker_registry }}/{{ docker_namespace }}/{{ image_name }}:{{ image_tag }}"
     state: absent
     force_absent: yes
 
@@ -13,7 +13,7 @@
       dockerfile: "{{ image_name }}.Dockerfile"
       path: "{{ build_dir }}"
       pull: False
-    tag: "{{ docker_images_tag }}"
+    tag: "{{ image_tag }}"
   register: result
   retries: 10
   delay: 5

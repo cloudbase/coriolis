@@ -71,7 +71,7 @@
 
 - name: "Get Docker image stat"
   docker_image_info:
-    name: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-common:{{ docker_images_tag }}"
+    name: "{{ coriolis_common_docker_image_url }}"
   register: docker_image_info
 
 - name: Get coriolis-replicator file stat

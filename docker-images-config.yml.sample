@@ -1,0 +1,38 @@
+---
+# This file defines options related to the building/deployment of the 
+# Docker images with the Coriolis components.
+#
+# Any options in this file overwrite the global 'coriolis_ansible' values from:
+#   ./coriolis_ansible/group_vars/all.yml
+#   ./coriolis_ansible/roles/<ROLE_NAME>/vars/main.yml
+#
+
+### Options related to the OpenStack components we deploy using Kolla:
+kolla_branch: 12.0.0
+kolla_openstack_release: wallaby
+kolla_docker_images_tag: wallaby
+
+### Options related to the Coriolis components:
+docker_pull_images: true
+docker_registry: registry.cloudbase.it
+docker_namespace: appliance
+
+# The default tag used for all components:
+default_coriolis_docker_images_tag: latest
+
+# Tags for the base Coriolis Docker container image used by all other components:
+coriolis_common_docker_image_tag: "{{ default_coriolis_docker_images_tag }}"
+
+# Individual tag options for each Coriolis component:
+coriolis_api_docker_image_tag:              "{{ default_coriolis_docker_images_tag }}"
+coriolis_conductor_docker_image_tag:        "{{ default_coriolis_docker_images_tag }}"
+coriolis_scheduler_docker_image_tag:        "{{ default_coriolis_docker_images_tag }}"
+coriolis_logger_docker_image_tag:           "{{ default_coriolis_docker_images_tag }}"
+coriolis_compressor_docker_image_tag:       "{{ default_coriolis_docker_images_tag }}"
+coriolis_licensing_server_docker_image_tag: "{{ default_coriolis_docker_images_tag }}"
+coriolis_licensing_ui_docker_image_tag:     "{{ default_coriolis_docker_images_tag }}"
+coriolis_replica_cron_docker_image_tag:     "{{ default_coriolis_docker_images_tag }}"
+coriolis_minion_manager_docker_image_tag:   "{{ default_coriolis_docker_images_tag }}"
+coriolis_worker_docker_image_tag:           "{{ default_coriolis_docker_images_tag }}"
+coriolis_web_proxy_docker_image_tag:        "{{ default_coriolis_docker_images_tag }}"
+coriolis_web_docker_image_tag:              "{{ default_coriolis_docker_images_tag }}"

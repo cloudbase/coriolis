@@ -1,2 +1,3 @@
 ---
 coriolis_web_mod_dir: /opt/coriolis/mod
+coriolis_web_docker_image_url: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-web:{{ coriolis_web_docker_image_tag }}"

@@ -1,4 +1,4 @@
-FROM {{ docker_registry }}/{{ docker_namespace }}/coriolis-common:{{ docker_images_tag }}
+FROM {{ coriolis_common_docker_image_url }}
 
 # Mapped volume: /etc/coriolis/coriolis.conf
 {% if "scheduler" in enable_profiling_for %}

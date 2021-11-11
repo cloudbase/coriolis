@@ -1,0 +1,13 @@
+# Welcome to the Coriolis Appliance Editing Environment!
+
+You are currently running a shell inside an isolated Ubuntu 20.04 Docker container from
+which you may edit any Coriolis or appliance-related settings.
+
+You may view/edit the following files/directories:
+{{ coriolis_console_editor_mountdirs | map('regex_replace', '(.*)', '    * \\1') | sort | join('\n') }}
+
+Please feel free to use any utilities you may need such as:
+    * the `coriolis` command line client
+    * the `vim` or `nano` editors
+    * network utilities such as `ip`, `ping`, `nslookup`, or `traceroute`
+    * any other utilities you may need which you can install using `apt`

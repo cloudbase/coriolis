@@ -1,0 +1,2 @@
+---
+coriolis_api_docker_image_url: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-api:{{ coriolis_api_docker_image_tag }}"
