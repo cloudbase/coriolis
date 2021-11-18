@@ -1,0 +1,2 @@
+---
+- include_tasks: setup_console_editor_container.yml
