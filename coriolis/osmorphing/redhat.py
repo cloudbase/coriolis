@@ -217,14 +217,41 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
             self._exec_cmd_chroot("rm -rf /var/cache/yum")
 
     def _find_yum_repos(self, repos_to_enable=[]):
+        """
+        Looks for required repositories passed as `repos_to_enable` in
+        /etc/yum.repos.d and returns the found repository names, so they can
+        be temporarily enabled when installing packages using yum.
+
+        Yum only looks for repos in files with '.repo' extension, anything
+        else gets ignored, therefore this method should filter files by that
+        extension.
+
+        Also, yum repository names might be different in some guest releases,
+        but still be similar. Therefore, repo name substrings should ideally be
+        passed in `repos_to_enable`. For example, we might be looking for repo
+        name 'ol7_latest', but the guest has it named as 'public_ol7_latest' in
+        the repo file.
+        """
         found_repos = []
+
+        reposdir_path = 'etc/yum.repos.d'
+
+        repofiles = [
+            f for f in self._list_dir(reposdir_path) if f.endswith('.repo')]
+        installed_repos = []
+        for file in repofiles:
+            path = os.path.join(reposdir_path, file)
+            content = self._read_file(path).decode()
+            for line in content.splitlines():
+                m = re.match(r'^\[(.+)\]$', line)
+                if m:
+                    installed_repos.append(m.group(1))
+
         for repo in repos_to_enable:
-            cmd = 'egrep "^\[.*%s.*\]$" -R /etc/yum.repos.d | cut -f2 -d:'
-            available_repos = self._exec_cmd_chroot(
-                cmd % repo).decode().splitlines()
+            available_repos = [ir for ir in installed_repos if repo in ir]
             available_repos.sort(key=len)
             if available_repos:
-                found_repos.append(available_repos[0].lstrip('[').rstrip(']'))
+                found_repos.append(available_repos[0])
             else:
                 LOG.warn(
                     "Could not find yum repository while searching for "

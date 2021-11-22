@@ -1,6 +1,8 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+import uuid
+
 from coriolis.osmorphing import redhat
 from coriolis.osmorphing.osdetect import oracle as oracle_detect
 
@@ -26,15 +28,15 @@ class BaseOracleMorphingTools(redhat.BaseRedHatMorphingTools):
         repos = []
         major_version = int(self._version.split(".")[0])
         if major_version < 8:
-            self._yum_install(
-                ['yum-utils'],
-                self._find_yum_repos(['ol%s_latest' % major_version]))
-            # TODO(apilotti): for ULN users, use the corresponding repos
-            # e.g.: ol7_x86_64_addons
+            repo_file_path = (
+                '/etc/yum.repos.d/%s.repo' % str(uuid.uuid4()))
             self._exec_cmd_chroot(
-                "yum-config-manager --add-repo "
-                "http://public-yum.oracle.com/public-yum-ol%s.repo" %
-                major_version)
+                "curl -L http://public-yum.oracle.com/public-yum-ol%s.repo "
+                "-o %s" % (major_version, repo_file_path))
+            # During OSMorphing, we temporarily enable needed package repos,
+            # so we make sure we disable all downloaded repos here.
+            self._exec_cmd_chroot(
+                'sed -i "s/^enabled=1$/enabled=0/g" %s' % repo_file_path)
 
             repos_to_enable = ["ol%s_software_collections" % major_version,
                                "ol%s_addons" % major_version,
