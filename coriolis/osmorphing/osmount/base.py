@@ -539,7 +539,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                     utils.run_xfs_repair(self._ssh, dev_path)
                 else:
                     try:
-                        utils.check_fs(self._ssh, fs_type, dev_path)
+                        utils.check_fs(self._ssh, fs_type[0], dev_path)
                     except Exception as err:
                         self._event_manager.progress_update(
                             "Coriolis failed to check one of the migrated VM's"
