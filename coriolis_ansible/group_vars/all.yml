@@ -51,7 +51,7 @@ coriolis_export_dir: "{{ appliance_coriolis_opt_dir }}/export"
 coriolis_profiling_dir_container: "{{ appliance_coriolis_opt_dir }}/profiling"
 
 coriolis_export_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "vmware", "aws"]
-coriolis_import_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "oci", "aws"]
+coriolis_import_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "oci", "aws", "vmware", "ovirt"]
 
 coriolis_logger_socket_dir: /var/run/coriolis-logger
 coriolis_logger_socket_name: logger.socket
