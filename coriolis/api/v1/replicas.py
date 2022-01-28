@@ -1,6 +1,7 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from oslo_config import cfg as conf
 from oslo_log import log as logging
 from webob import exc
 
@@ -12,6 +13,16 @@ from coriolis.api import wsgi as api_wsgi
 from coriolis.endpoints import api as endpoints_api
 from coriolis.policies import replicas as replica_policies
 from coriolis.replicas import api
+
+
+REPLICA_API_OPTS = [
+    conf.BoolOpt("include_task_info_in_replicas_api",
+                 default=False,
+                 help="Whether or not to expose the internal 'info' field of "
+                      "a Replica as part of a `GET` request.")]
+
+CONF = conf.CONF
+CONF.register_opts(REPLICA_API_OPTS, 'api')
 
 LOG = logging.getLogger(__name__)
 
@@ -25,7 +36,9 @@ class ReplicaController(api_wsgi.Controller):
     def show(self, req, id):
         context = req.environ["coriolis.context"]
         context.can(replica_policies.get_replicas_policy_label("show"))
-        replica = self._replica_api.get_replica(context, id)
+        replica = self._replica_api.get_replica(
+            context, id,
+            include_task_info=CONF.api.include_task_info_in_replicas_api)
         if not replica:
             raise exc.HTTPNotFound()
 
@@ -37,9 +50,12 @@ class ReplicaController(api_wsgi.Controller):
         context = req.environ["coriolis.context"]
         context.show_deleted = show_deleted
         context.can(replica_policies.get_replicas_policy_label("list"))
+        include_task_info = CONF.api.include_task_info_in_replicas_api
         return replica_view.collection(
             req, self._replica_api.get_replicas(
-                context, include_tasks_executions=False))
+                context,
+                include_tasks_executions=include_task_info,
+                include_task_info=include_task_info))
 
     def index(self, req):
         return self._list(req)
