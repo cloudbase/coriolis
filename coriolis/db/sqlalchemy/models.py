@@ -256,7 +256,7 @@ class BaseTransferAction(BASE, models.TimestampMixin, models.ModelBase,
         sqlalchemy.String(255), nullable=False,
         default=lambda: constants.EXECUTION_STATUS_UNEXECUTED)
     reservation_id = sqlalchemy.Column(sqlalchemy.String(36), nullable=True)
-    info = sqlalchemy.Column(types.Bson, nullable=False)
+    info = orm.deferred(sqlalchemy.Column(types.Bson, nullable=False))
     notes = sqlalchemy.Column(sqlalchemy.Text, nullable=True)
     origin_endpoint_id = sqlalchemy.Column(
         sqlalchemy.String(36),
@@ -283,7 +283,7 @@ class BaseTransferAction(BASE, models.TimestampMixin, models.ModelBase,
         'polymorphic_on': type,
     }
 
-    def to_dict(self, include_info=True, include_executions=True):
+    def to_dict(self, include_task_info=True, include_executions=True):
         result = {
             "base_id": self.base_id,
             "user_id": self.user_id,
@@ -314,7 +314,7 @@ class BaseTransferAction(BASE, models.TimestampMixin, models.ModelBase,
         if include_executions:
             for ex in self.executions:
                 result["executions"].append(ex.to_dict())
-        if include_info:
+        if include_task_info:
             result["info"] = self.info
         return result
 
@@ -331,9 +331,9 @@ class Replica(BaseTransferAction):
         'polymorphic_identity': 'replica',
     }
 
-    def to_dict(self, include_info=True, include_executions=True):
+    def to_dict(self, include_task_info=True, include_executions=True):
         base = super(Replica, self).to_dict(
-            include_info=include_info,
+            include_task_info=include_task_info,
             include_executions=include_executions)
         base.update({"id": self.id})
         return base
@@ -360,9 +360,10 @@ class Migration(BaseTransferAction):
         'polymorphic_identity': 'migration',
     }
 
-    def to_dict(self, include_info=True, include_tasks=True):
+    def to_dict(self, include_task_info=True, include_tasks=True):
         base = super(Migration, self).to_dict(
-            include_info=include_info, include_executions=include_tasks)
+            include_task_info=include_task_info,
+            include_executions=include_tasks)
         base.update({
             "id": self.id,
             "replica_id": self.replica_id,

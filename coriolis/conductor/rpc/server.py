@@ -813,7 +813,7 @@ class ConductorServerEndpoint(object):
 
     @replica_synchronized
     def execute_replica_tasks(self, ctxt, replica_id, shutdown_instances):
-        replica = self._get_replica(ctxt, replica_id)
+        replica = self._get_replica(ctxt, replica_id, include_task_info=True)
         self._check_reservation_for_transfer(
             replica, licensing_client.RESERVATION_TYPE_REPLICA)
         self._check_replica_running_executions(ctxt, replica)
@@ -1029,14 +1029,18 @@ class ConductorServerEndpoint(object):
 
     @replica_synchronized
     def get_replica_tasks_executions(self, ctxt, replica_id,
-                                     include_tasks=False):
+                                     include_tasks=False,
+                                     include_task_info=False):
         return db_api.get_replica_tasks_executions(
-            ctxt, replica_id, include_tasks)
+            ctxt, replica_id, include_tasks,
+            include_task_info=include_task_info, to_dict=True)
 
     @tasks_execution_synchronized
-    def get_replica_tasks_execution(self, ctxt, replica_id, execution_id):
+    def get_replica_tasks_execution(self, ctxt, replica_id, execution_id,
+                                    include_task_info=False):
         return self._get_replica_tasks_execution(
-            ctxt, replica_id, execution_id)
+            ctxt, replica_id, execution_id,
+            include_task_info=include_task_info, to_dict=True)
 
     @tasks_execution_synchronized
     def delete_replica_tasks_execution(self, ctxt, replica_id, execution_id):
@@ -1066,21 +1070,28 @@ class ConductorServerEndpoint(object):
                     replica_id))
         self._cancel_tasks_execution(ctxt, execution, force=force)
 
-    def _get_replica_tasks_execution(self, ctxt, replica_id, execution_id):
+    def _get_replica_tasks_execution(self, ctxt, replica_id, execution_id,
+                                     include_task_info=False, to_dict=False):
         execution = db_api.get_replica_tasks_execution(
-            ctxt, replica_id, execution_id)
+            ctxt, replica_id, execution_id,
+            include_task_info=include_task_info, to_dict=to_dict)
         if not execution:
             raise exception.NotFound(
                 "Execution with ID '%s' for Replica '%s' not found." % (
                     execution_id, replica_id))
         return execution
 
-    def get_replicas(self, ctxt, include_tasks_executions=False):
-        return db_api.get_replicas(ctxt, include_tasks_executions)
+    def get_replicas(self, ctxt, include_tasks_executions=False,
+                     include_task_info=False):
+        return db_api.get_replicas(
+            ctxt, include_tasks_executions,
+            include_task_info=include_task_info, to_dict=True)
 
     @replica_synchronized
-    def get_replica(self, ctxt, replica_id):
-        return self._get_replica(ctxt, replica_id)
+    def get_replica(self, ctxt, replica_id, include_task_info=False):
+        return self._get_replica(
+            ctxt, replica_id,
+            include_task_info=include_task_info, to_dict=True)
 
     @replica_synchronized
     def delete_replica(self, ctxt, replica_id):
@@ -1091,7 +1102,7 @@ class ConductorServerEndpoint(object):
 
     @replica_synchronized
     def delete_replica_disks(self, ctxt, replica_id):
-        replica = self._get_replica(ctxt, replica_id)
+        replica = self._get_replica(ctxt, replica_id, include_task_info=True)
         self._check_replica_running_executions(ctxt, replica)
 
         execution = models.TasksExecution()
@@ -1196,23 +1207,28 @@ class ConductorServerEndpoint(object):
         LOG.info("Replica created: %s", replica.id)
         return self.get_replica(ctxt, replica.id)
 
-    def _get_replica(self, ctxt, replica_id):
-        replica = db_api.get_replica(ctxt, replica_id)
+    def _get_replica(self, ctxt, replica_id, include_task_info=False,
+                     to_dict=False):
+        replica = db_api.get_replica(
+            ctxt, replica_id, include_task_info=include_task_info,
+            to_dict=to_dict)
         if not replica:
             raise exception.NotFound(
                 "Replica with ID '%s' not found." % replica_id)
         return replica
 
     def get_migrations(self, ctxt, include_tasks,
-                       include_info=False):
+                       include_task_info=False):
         return db_api.get_migrations(
             ctxt, include_tasks,
-            include_info=include_info)
+            include_task_info=include_task_info,
+            to_dict=True)
 
     @migration_synchronized
-    def get_migration(self, ctxt, migration_id):
-        # the default serialization mechanism enforces a max_depth of 3
-        return utils.to_dict(self._get_migration(ctxt, migration_id))
+    def get_migration(self, ctxt, migration_id, include_task_info=False):
+        return self._get_migration(
+            ctxt, migration_id, include_task_info=include_task_info,
+            to_dict=True)
 
     @staticmethod
     def _check_running_replica_migrations(ctxt, replica_id):
@@ -1265,7 +1281,7 @@ class ConductorServerEndpoint(object):
                                  instance_osmorphing_minion_pool_mappings=None,
                                  skip_os_morphing=False,
                                  user_scripts=None):
-        replica = self._get_replica(ctxt, replica_id)
+        replica = self._get_replica(ctxt, replica_id, include_task_info=True)
         self._check_reservation_for_transfer(
             replica, licensing_client.RESERVATION_TYPE_REPLICA)
         self._check_replica_running_executions(ctxt, replica)
@@ -1610,7 +1626,7 @@ class ConductorServerEndpoint(object):
     @replica_synchronized
     def confirm_replica_minions_allocation(
             self, ctxt, replica_id, minion_machine_allocations):
-        replica = self._get_replica(ctxt, replica_id)
+        replica = self._get_replica(ctxt, replica_id, include_task_info=True)
 
         awaiting_minions_status = (
             constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS)
@@ -1658,7 +1674,8 @@ class ConductorServerEndpoint(object):
     @migration_synchronized
     def confirm_migration_minions_allocation(
             self, ctxt, migration_id, minion_machine_allocations):
-        migration = self._get_migration(ctxt, migration_id)
+        migration = self._get_migration(
+            ctxt, migration_id, include_task_info=True)
 
         awaiting_minions_status = (
             constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS)
@@ -2086,8 +2103,11 @@ class ConductorServerEndpoint(object):
 
         return self.get_migration(ctxt, migration.id)
 
-    def _get_migration(self, ctxt, migration_id):
-        migration = db_api.get_migration(ctxt, migration_id)
+    def _get_migration(self, ctxt, migration_id, include_task_info=False,
+                       to_dict=False):
+        migration = db_api.get_migration(
+            ctxt, migration_id, include_task_info=include_task_info,
+            to_dict=to_dict)
         if not migration:
             raise exception.NotFound(
                 "Migration with ID '%s' not found." % migration_id)
@@ -2581,7 +2601,8 @@ class ConductorServerEndpoint(object):
 
         origin = self._get_task_origin(ctxt, execution.action)
         destination = self._get_task_destination(ctxt, execution.action)
-        action = db_api.get_action(ctxt, execution.action_id)
+        action = db_api.get_action(
+            ctxt, execution.action_id, include_task_info=True)
         origin_endpoint = db_api.get_endpoint(
             ctxt, execution.action.origin_endpoint_id)
         destination_endpoint = db_api.get_endpoint(
@@ -3121,7 +3142,7 @@ class ConductorServerEndpoint(object):
                     execution.type] % execution.action_id,
                 external=True):
             action_id = execution.action_id
-            action = db_api.get_action(ctxt, action_id)
+            action = db_api.get_action(ctxt, action_id, include_task_info=True)
 
             updated_task_info = None
             if task_result:
@@ -3139,7 +3160,8 @@ class ConductorServerEndpoint(object):
                     db_api.update_transfer_action_info_for_instance(
                         ctxt, action_id, task.instance, task_result))
             else:
-                action = db_api.get_action(ctxt, action_id)
+                action = db_api.get_action(
+                    ctxt, action_id, include_task_info=True)
                 updated_task_info = action.info[task.instance]
                 LOG.info(
                     "Task '%s' for instance '%s' of transfer action '%s' "
@@ -3339,7 +3361,7 @@ class ConductorServerEndpoint(object):
         execution = db_api.get_tasks_execution(ctxt, task.execution_id)
 
         action_id = execution.action_id
-        action = db_api.get_action(ctxt, action_id)
+        action = db_api.get_action(ctxt, action_id, include_task_info=True)
         with lockutils.lock(
                 constants.EXECUTION_TYPE_TO_ACTION_LOCK_NAME_FORMAT_MAP[
                     execution.type] % action_id,
@@ -3507,7 +3529,7 @@ class ConductorServerEndpoint(object):
     @replica_synchronized
     def update_replica(
             self, ctxt, replica_id, updated_properties):
-        replica = self._get_replica(ctxt, replica_id)
+        replica = self._get_replica(ctxt, replica_id, include_task_info=True)
 
         minion_pool_fields = [
             "origin_minion_pool_id", "destination_minion_pool_id",
