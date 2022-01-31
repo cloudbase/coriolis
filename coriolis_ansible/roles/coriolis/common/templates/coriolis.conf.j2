@@ -19,16 +19,6 @@ coriolis_provider_{{ item | replace("-", "_") }}{% if item == "vmware" %}_vspher
 coriolis_provider_{{ item | replace("-", "_") }}{% if item == "vmware" %}_vsphere{% endif %}.ImportProvider{% if not loop.last %},{% endif %}
 {% endfor %}
 
-
-# Whether or not to expose the internal 'info' field of
-# a Migration as part of a `GET` request.
-include_task_info_in_migrations_api = False
-
-# Whether or not to expose the internal 'info' field of
-# a Replica as part of a `GET` request.
-include_task_info_in_replicas_api = False
-include_task_info_in_replica_executions_api = False
-
 caching = True
 # Time in seconds
 cache_time = 86400
@@ -80,6 +70,15 @@ policy_file = {{ coriolis_policy_file }}
 
 [oslo_concurrency]
 lock_path = {{ coriolis_locks_dir_containers }}
+
+[api]
+# Whether or not to expose the internal 'info' field of
+# a Migration as part of a `GET` request.
+include_task_info_in_migrations_api = false
+
+# Whether or not to expose the internal 'info' field of
+# a Replica as part of a `GET` request.
+include_task_info_in_replicas_api = false
 
 [conductor]
 conductor_rpc_timeout = 60
