@@ -22,7 +22,6 @@ def _format_migration(req, migration, keys=None):
     else:
         execution = {}
 
-    migration_dict["status"] = execution.get("status")
     tasks = execution.get("tasks")
     if tasks:
         migration_dict["tasks"] = tasks
