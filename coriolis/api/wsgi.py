@@ -907,7 +907,7 @@ class Resource(Application):
 
         project_id = action_args.pop("project_id", None)
         context = request.environ.get('coriolis.context')
-        if (context and project_id and (project_id != context.tenant)):
+        if (context and project_id and (project_id != context.project_id)):
             msg = _("Malformed request url")
             return Fault(webob.exc.HTTPBadRequest(explanation=msg))
 

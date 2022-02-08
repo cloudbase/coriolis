@@ -62,7 +62,7 @@ def create_trust(ctxt):
         raise exception.NotAuthorized("Trustee authentication failed")
 
     trustor_user_id = ctxt.user
-    trustor_proj_id = ctxt.tenant
+    trustor_proj_id = ctxt.project_id
     roles = ctxt.roles
 
     LOG.debug("Granting Keystone trust. Trustor: %(trustor_user_id)s, trustee:"

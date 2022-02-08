@@ -26,10 +26,10 @@ class CoriolisKeystoneContext(wsgi.Middleware):
         roles = [r.strip() for r in req.headers.get('X_ROLE', '').split(',')]
         if 'X_TENANT_ID' in req.headers:
             # This is the new header since Keystone went to ID/Name
-            tenant = req.headers['X_TENANT_ID']
+            project_id = req.headers['X_TENANT_ID']
         else:
             # This is for legacy compatibility
-            tenant = req.headers['X_TENANT']
+            project_id = req.headers['X_TENANT']
 
         project_name = req.headers.get('X_TENANT_NAME')
         project_domain_name = req.headers.get('X-Project-Domain-Name')
@@ -56,7 +56,7 @@ class CoriolisKeystoneContext(wsgi.Middleware):
                     explanation=_('Invalid service catalog json.'))
 
         ctx = context.RequestContext(user,
-                                     tenant,
+                                     project_id,
                                      project_name=project_name,
                                      project_domain_name=project_domain_name,
                                      user_domain_name=user_domain_name,
