@@ -273,27 +273,41 @@ def delete_endpoint(context, endpoint_id):
 
 
 @enginefacade.reader
-def get_replica_tasks_executions(context, replica_id, include_tasks=False):
+def get_replica_tasks_executions(context, replica_id, include_tasks=False,
+                                 include_task_info=False, to_dict=False):
     q = _soft_delete_aware_query(context, models.TasksExecution)
     q = q.join(models.Replica)
+    if include_task_info:
+        q = q.options(orm.joinedload('action').undefer('info'))
     if include_tasks:
         q = _get_tasks_with_details_options(q)
     if is_user_context(context):
         q = q.filter(models.Replica.project_id == context.project_id)
-    return q.filter(
+
+    db_result = q.filter(
         models.Replica.id == replica_id).all()
+    if to_dict:
+        return [e.to_dict() for e in db_result]
+    return db_result
 
 
 @enginefacade.reader
-def get_replica_tasks_execution(context, replica_id, execution_id):
+def get_replica_tasks_execution(context, replica_id, execution_id,
+                                include_task_info=False, to_dict=False):
     q = _soft_delete_aware_query(context, models.TasksExecution).join(
         models.Replica)
+    if include_task_info:
+        q = q.options(orm.joinedload('action').undefer('info'))
     q = _get_tasks_with_details_options(q)
     if is_user_context(context):
         q = q.filter(models.Replica.project_id == context.project_id)
-    return q.filter(
+
+    db_result = q.filter(
         models.Replica.id == replica_id,
         models.TasksExecution.id == execution_id).first()
+    if to_dict:
+        return db_result.to_dict()
+    return db_result
 
 
 @enginefacade.writer
@@ -410,13 +424,13 @@ def _get_replica_with_tasks_executions_options(q):
 @enginefacade.reader
 def get_replicas(context,
                  include_tasks_executions=False,
-                 include_info=False,
-                 to_dict=True):
+                 include_task_info=False,
+                 to_dict=False):
     q = _soft_delete_aware_query(context, models.Replica)
     if include_tasks_executions:
         q = _get_replica_with_tasks_executions_options(q)
-    if include_info is False:
-        q = q.options(orm.defer('info'))
+    if include_task_info:
+        q = q.options(orm.undefer('info'))
     q = q.filter()
     if is_user_context(context):
         q = q.filter(
@@ -425,21 +439,28 @@ def get_replicas(context,
     if to_dict:
         return [
             i.to_dict(
-                include_info=include_info,
+                include_task_info=include_task_info,
                 include_executions=include_tasks_executions)
             for i in db_result]
     return db_result
 
 
 @enginefacade.reader
-def get_replica(context, replica_id):
+def get_replica(context, replica_id, include_task_info=False, to_dict=False):
     q = _soft_delete_aware_query(context, models.Replica)
     q = _get_replica_with_tasks_executions_options(q)
+    if include_task_info:
+        q = q.options(orm.undefer('info'))
     if is_user_context(context):
         q = q.filter(
             models.Replica.project_id == context.project_id)
-    return q.filter(
+
+    replica = q.filter(
         models.Replica.id == replica_id).first()
+    if to_dict:
+        return replica.to_dict(include_task_info=include_task_info)
+
+    return replica
 
 
 @enginefacade.reader
@@ -495,14 +516,14 @@ def get_replica_migrations(context, replica_id):
 
 @enginefacade.reader
 def get_migrations(context, include_tasks=False,
-                   include_info=False, to_dict=True):
+                   include_task_info=False, to_dict=False):
     q = _soft_delete_aware_query(context, models.Migration)
     if include_tasks:
         q = _get_migration_task_query_options(q)
     else:
         q = q.options(orm.joinedload("executions"))
-    if include_info is False:
-        q = q.options(orm.defer('info'))
+    if include_task_info:
+        q = q.options(orm.undefer('info'))
 
     args = {}
     if is_user_context(context):
@@ -510,7 +531,7 @@ def get_migrations(context, include_tasks=False,
     result = q.filter_by(**args).all()
     if to_dict:
         return [i.to_dict(
-            include_info=include_info,
+            include_task_info=include_task_info,
             include_tasks=include_tasks) for i in result]
     return result
 
@@ -537,13 +558,20 @@ def _get_migration_task_query_options(query):
 
 
 @enginefacade.reader
-def get_migration(context, migration_id):
+def get_migration(context, migration_id, include_task_info=False,
+                  to_dict=False):
     q = _soft_delete_aware_query(context, models.Migration)
     q = _get_migration_task_query_options(q)
+    if include_task_info:
+        q = q.options(orm.undefer('info'))
     args = {"id": migration_id}
     if is_user_context(context):
         args["project_id"] = context.project_id
-    return q.filter_by(**args).first()
+    db_result = q.filter_by(**args).first()
+
+    if to_dict:
+        return db_result.to_dict(include_task_info=include_task_info)
+    return db_result
 
 
 @enginefacade.writer
@@ -581,9 +609,11 @@ def set_execution_status(
 
 
 @enginefacade.reader
-def get_action(context, action_id):
+def get_action(context, action_id, include_task_info=False):
     action = _soft_delete_aware_query(
         context, models.BaseTransferAction)
+    if include_task_info:
+        action = action.options(orm.undefer('info'))
     if is_user_context(context):
         action = action.filter(
             models.BaseTransferAction.project_id == context.project_id)
@@ -609,7 +639,7 @@ def update_transfer_action_info_for_instance(
     Returns the updated value.
     Sub-fields of the dict already in the info will get overwritten entirely!
     """
-    action = get_action(context, action_id)
+    action = get_action(context, action_id, include_task_info=True)
     if not new_instance_info:
         LOG.debug(
             "No new info provided for action '%s' and instance '%s'. "

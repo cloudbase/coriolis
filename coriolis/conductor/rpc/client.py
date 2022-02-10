@@ -142,10 +142,11 @@ class ConductorClient(rpc.BaseRPCClient):
             replica_id=replica_id,
             include_tasks=include_tasks)
 
-    def get_replica_tasks_execution(self, ctxt, replica_id, execution_id):
+    def get_replica_tasks_execution(self, ctxt, replica_id, execution_id,
+                                    include_task_info=False):
         return self._call(
             ctxt, 'get_replica_tasks_execution', replica_id=replica_id,
-            execution_id=execution_id)
+            execution_id=execution_id, include_task_info=include_task_info)
 
     def delete_replica_tasks_execution(self, ctxt, replica_id, execution_id):
         return self._call(
@@ -182,14 +183,17 @@ class ConductorClient(rpc.BaseRPCClient):
             source_environment=source_environment,
             user_scripts=user_scripts)
 
-    def get_replicas(self, ctxt, include_tasks_executions=False):
+    def get_replicas(self, ctxt, include_tasks_executions=False,
+                     include_task_info=False):
         return self._call(
             ctxt, 'get_replicas',
-            include_tasks_executions=include_tasks_executions)
+            include_tasks_executions=include_tasks_executions,
+            include_task_info=include_task_info)
 
-    def get_replica(self, ctxt, replica_id):
+    def get_replica(self, ctxt, replica_id, include_task_info=False):
         return self._call(
-            ctxt, 'get_replica', replica_id=replica_id)
+            ctxt, 'get_replica', replica_id=replica_id,
+            include_task_info=include_task_info)
 
     def delete_replica(self, ctxt, replica_id):
         self._call(
@@ -200,14 +204,15 @@ class ConductorClient(rpc.BaseRPCClient):
             ctxt, 'delete_replica_disks', replica_id=replica_id)
 
     def get_migrations(self, ctxt, include_tasks=False,
-                       include_info=False):
+                       include_task_info=False):
         return self._call(
             ctxt, 'get_migrations', include_tasks=include_tasks,
-            include_info=include_info)
+            include_task_info=include_task_info)
 
-    def get_migration(self, ctxt, migration_id):
+    def get_migration(self, ctxt, migration_id, include_task_info=False):
         return self._call(
-            ctxt, 'get_migration', migration_id=migration_id)
+            ctxt, 'get_migration', migration_id=migration_id,
+            include_task_info=include_task_info)
 
     def migrate_instances(self, ctxt, origin_endpoint_id,
                           destination_endpoint_id, origin_minion_pool_id,

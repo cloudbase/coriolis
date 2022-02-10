@@ -3,24 +3,12 @@
 
 import itertools
 
-from oslo_config import cfg as conf
 from oslo_log import log as logging
 
 from coriolis import constants
-from coriolis import utils
 
 
 LOG = logging.getLogger(__name__)
-
-
-REPLICA_EXECUTION_API_OPTS = [
-    conf.BoolOpt("include_task_info_in_replica_executions_api",
-                 default=False,
-                 help="Whether or not to expose the internal 'info' field of "
-                      "a Replica execution as part of a `GET` request.")]
-
-CONF = conf.CONF
-CONF.register_opts(REPLICA_EXECUTION_API_OPTS)
 
 
 def _sort_tasks(tasks, filter_error_only_tasks=True):
@@ -47,12 +35,6 @@ def format_replica_tasks_execution(req, execution, keys=None):
 
     execution_dict = dict(itertools.chain.from_iterable(
         transform(k, v) for k, v in execution.items()))
-
-    if not CONF.include_task_info_in_replica_executions_api and (
-            "action" in execution_dict):
-        action_dict = execution_dict["action"]
-        if "info" in action_dict:
-            action_dict.pop("info")
 
     return execution_dict
 

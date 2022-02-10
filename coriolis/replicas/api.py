@@ -27,11 +27,15 @@ class API(object):
     def delete(self, ctxt, replica_id):
         self._rpc_client.delete_replica(ctxt, replica_id)
 
-    def get_replicas(self, ctxt, include_tasks_executions=False):
-        return self._rpc_client.get_replicas(ctxt, include_tasks_executions)
+    def get_replicas(self, ctxt, include_tasks_executions=False,
+                     include_task_info=False):
+        return self._rpc_client.get_replicas(
+            ctxt, include_tasks_executions,
+            include_task_info=include_task_info)
 
-    def get_replica(self, ctxt, replica_id):
-        return self._rpc_client.get_replica(ctxt, replica_id)
+    def get_replica(self, ctxt, replica_id, include_task_info=False):
+        return self._rpc_client.get_replica(
+            ctxt, replica_id, include_task_info=include_task_info)
 
     def delete_disks(self, ctxt, replica_id):
         return self._rpc_client.delete_replica_disks(ctxt, replica_id)

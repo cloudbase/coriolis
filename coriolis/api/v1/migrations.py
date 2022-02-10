@@ -1,6 +1,7 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from oslo_config import cfg as conf
 from oslo_log import log as logging
 from webob import exc
 
@@ -11,6 +12,16 @@ from coriolis.api import wsgi as api_wsgi
 from coriolis.endpoints import api as endpoints_api
 from coriolis.migrations import api
 from coriolis.policies import migrations as migration_policies
+
+
+MIGRATIONS_API_OPTS = [
+    conf.BoolOpt("include_task_info_in_migrations_api",
+                 default=False,
+                 help="Whether or not to expose the internal 'info' field of "
+                      "a Migration as part of a `GET` request.")]
+
+CONF = conf.CONF
+CONF.register_opts(MIGRATIONS_API_OPTS, 'api')
 
 LOG = logging.getLogger(__name__)
 
@@ -24,7 +35,9 @@ class MigrationController(api_wsgi.Controller):
     def show(self, req, id):
         context = req.environ["coriolis.context"]
         context.can(migration_policies.get_migrations_policy_label("show"))
-        migration = self._migration_api.get_migration(context, id)
+        migration = self._migration_api.get_migration(
+            context, id,
+            include_task_info=CONF.api.include_task_info_in_migrations_api)
         if not migration:
             raise exc.HTTPNotFound()
 
@@ -38,7 +51,9 @@ class MigrationController(api_wsgi.Controller):
         context.can(migration_policies.get_migrations_policy_label("list"))
         return migration_view.collection(
             req, self._migration_api.get_migrations(
-                context, include_tasks=False))
+                context,
+                include_tasks=CONF.api.include_task_info_in_migrations_api,
+                include_task_info=CONF.api.include_task_info_in_migrations_api))
 
     def index(self, req):
         return self._list(req)
