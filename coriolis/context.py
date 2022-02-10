@@ -13,7 +13,7 @@ from coriolis import policy
 
 @enginefacade.transaction_context_provider
 class RequestContext(context.RequestContext):
-    def __init__(self, user, tenant, is_admin=None,
+    def __init__(self, user, project_id, is_admin=None,
                  roles=None, project_name=None, remote_address=None,
                  timestamp=None, request_id=None, auth_token=None,
                  overwrite=True, domain_name=None, domain_id=None,
@@ -24,7 +24,7 @@ class RequestContext(context.RequestContext):
 
         super(RequestContext, self).__init__(auth_token=auth_token,
                                              user=user,
-                                             tenant=tenant,
+                                             project_id=project_id,
                                              domain_name=domain_name,
                                              domain_id=domain_id,
                                              user_domain_name=user_domain_name,
@@ -51,7 +51,7 @@ class RequestContext(context.RequestContext):
     def to_dict(self):
         result = super(RequestContext, self).to_dict()
         result['user'] = self.user
-        result['tenant'] = self.tenant
+        result['project_id'] = self.project_id
         result['project_name'] = self.project_name
         result['domain_id'] = self.domain_id
         result['domain_name'] = self.domain_name
@@ -102,5 +102,5 @@ class RequestContext(context.RequestContext):
 
 def get_admin_context(trust_id=None):
     return RequestContext(
-        user=None, tenant=None, is_admin=True,
+        user=None, project_id=None, is_admin=True,
         trust_id=trust_id)
