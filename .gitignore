@@ -4,3 +4,4 @@
 /passwords.yml
 /coriolis_ansible/build
 *.swp
+/docker-images-config.yml
