@@ -268,7 +268,7 @@ def write_winrm_file(conn, remote_path, content, overwrite=True):
                 "File %s already exists" % remote_path)
     idx = 0
     while True:
-        data = content[idx:idx+2048]
+        data = content[idx:idx + 2048]
         if not data:
             break
 
@@ -280,7 +280,7 @@ def write_winrm_file(conn, remote_path, content, overwrite=True):
                "[System.IO.FileMode]::Append); $bytes = "
                "[Convert]::FromBase64String('%s'); $x.Write($bytes, "
                "0, $bytes.Length); $x.Close()") % (
-                    remote_path, asb64)
+            remote_path, asb64)
         conn.exec_ps_command(cmd)
         idx += 2048
 
@@ -318,7 +318,7 @@ def exec_ssh_cmd(ssh, cmd, environment=None, get_pty=False, timeout=None):
         raise exception.CoriolisException(
             "Command \"%s\" failed on host '%s' with exit code: %s\n"
             "stdout: %s\nstd_err: %s" %
-            (cmd, remote_str, exit_code, std_out, std_err))
+            (cmd, remote_str, exit_code, std_out.decode(), std_err.decode()))
     # Most of the commands will use pseudo-terminal which unfortunately will
     # include a '\r' to every newline. This will affect all plugins too, so
     # best we can do now is replace them.
@@ -560,7 +560,7 @@ def normalize_mac_address(original_mac_address):
         res = mac_address
     elif re.match(UNSPACED_MAC_ADDRESS_REGEX, mac_address):
         for i in range(0, len(mac_address), 2):
-            res = "%s:%s" % (res, mac_address[i:i+2])
+            res = "%s:%s" % (res, mac_address[i:i + 2])
         res = res.strip(':')
         if not re.match(SPACED_MAC_ADDRESS_REGEX, res):
             raise ValueError(
@@ -806,6 +806,7 @@ class Grub2ConfigEditor(object):
     contents of that file with the latest changes made.
     Use dump() to get the file contents.
     """
+
     def __init__(self, cfg):
         self._cfg = cfg
         self._parsed = self._parse_cfg(self._cfg)
@@ -892,12 +893,12 @@ class Grub2ConfigEditor(object):
         if opt_type == "key_val":
             if "opt_val" not in value or "opt_key" not in value:
                 raise ValueError(
-                        "key_val option type requires "
-                        "opt_key key and opt_val")
+                    "key_val option type requires "
+                    "opt_key key and opt_val")
         elif opt_type == "single":
             if "opt_val" not in value:
                 raise ValueError(
-                        "single option type requires opt_val")
+                    "single option type requires opt_val")
         else:
             raise ValueError("unknown option type: %s" % opt_type)
 
