@@ -120,6 +120,8 @@ def validate_user_scripts(user_scripts):
 def normalize_user_scripts(user_scripts, instances):
     """ Removes instance user_scripts if said instance is not one of the
         selected instances for the replica/migration """
+    if user_scripts is None:
+        user_scripts = {}
     for instance in user_scripts.get('instances', {}).keys():
         if instance not in instances:
             LOG.warn("Removing provided instance '%s' from user_scripts body "
