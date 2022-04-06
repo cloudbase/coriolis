@@ -318,7 +318,9 @@ def exec_ssh_cmd(ssh, cmd, environment=None, get_pty=False, timeout=None):
         raise exception.CoriolisException(
             "Command \"%s\" failed on host '%s' with exit code: %s\n"
             "stdout: %s\nstd_err: %s" %
-            (cmd, remote_str, exit_code, std_out.decode(), std_err.decode()))
+            (cmd, remote_str, exit_code,
+             std_out.decode(errors='ignore'),
+             std_err.decode(errors='ignore')))
     # Most of the commands will use pseudo-terminal which unfortunately will
     # include a '\r' to every newline. This will affect all plugins too, so
     # best we can do now is replace them.
