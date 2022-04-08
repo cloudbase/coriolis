@@ -200,12 +200,47 @@ class WindowsMountTools(base.BaseOSMountTools):
             raise exception.CoriolisException("No filesystems found")
         return drives
 
+    def _bring_nonsystem_disks_offline(self):
+        drives = self._ignore_devices.copy()
+        drives.append(self._get_system_drive())
+        drives_to_skip = [ltr.split(":")[0] for ltr in drives]
+        self._bring_disks_offline(drives_to_skip)
+
+    def _rebring_disks_online(self):
+        self._bring_nonsystem_disks_offline()
+        self._bring_all_disks_online()
+
+    def _set_volumes_drive_letter(self):
+        enable_default_drive_letter_script_fmt = (
+            "SELECT VOLUME %s\r\n"
+            "ATTRIBUTES VOLUME CLEAR NODEFAULTDRIVELETTER\r\nEXIT")
+        volume_list_script = "LIST VOLUME\r\nEXIT"
+        volume_entry_re = r"\s+Volume ([0-9]+)\s+(.*)"
+
+        volume_list = self._run_diskpart_script(volume_list_script)
+        unhidden_volume_ids = [m.group(1) for m in [
+            re.match(volume_entry_re, l) for l in volume_list.split("\r\n")]
+            if m is not None and "HIDDEN" not in m.group(2).upper()]
+        for vol_id in unhidden_volume_ids:
+            try:
+                LOG.info(
+                    "Clearing NODEFAULTDRIVELETTER flag on volume %s" % vol_id)
+                script = enable_default_drive_letter_script_fmt % vol_id
+                self._run_diskpart_script(script)
+            except Exception as ex:
+                LOG.warn(
+                    "Exception occurred while clearing flags on volume '%s'. "
+                    "Skipping running script '%s'. Error message: %s" % (
+                        vol_id, script, ex))
+        self._rebring_disks_online()
+
     def mount_os(self):
         self._refresh_storage()
         self._bring_all_disks_online()
         self._set_basic_disks_rw_mode()
         self._set_foreign_disks_rw_mode()
         self._import_foreign_disks()
+        self._set_volumes_drive_letter()
         self._refresh_storage()
         fs_roots = utils.retry_on_error(sleep_seconds=5)(self._get_fs_roots)(
                 fail_if_empty=True)
@@ -218,7 +253,4 @@ class WindowsMountTools(base.BaseOSMountTools):
         raise exception.OperatingSystemNotFound("root partition not found")
 
     def dismount_os(self, root_drive):
-        drives = self._ignore_devices.copy()
-        drives.append(self._get_system_drive())
-        drives_to_skip = [ltr.split(":")[0] for ltr in drives]
-        self._bring_disks_offline(drives_to_skip)
+        self._bring_nonsystem_disks_offline()
