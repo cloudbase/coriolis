@@ -1,0 +1,129 @@
+---
+- name: Gather Kolla deployment facts
+  kolla_deployment_facts:
+  register: kolla_deployment
+
+- name: Set Kolla deployment facts
+  set_fact:
+    database_address: "{{ kolla_deployment.result.listen_address }}"
+    database_port: "{{ kolla_deployment.result.db_port }}"
+    database_login_user: "{{ kolla_deployment.result.db_user_name }}"
+    database_login_password: "{{ kolla_deployment.result.db_user_password }}"
+    keystone_auth_url: "{{ kolla_deployment.result.keystone_protocol }}://{{ kolla_deployment.result.listen_address }}:{{ kolla_deployment.result.keystone_public_port }}/v3"
+
+- name: Create database
+  mysql_db:
+    login_host: "{{ database_address }}"
+    login_port: "{{ database_port }}"
+    login_user: "{{ database_login_user }}"
+    login_password: "{{ database_login_password }}"
+    name: "{{ coriolis_metal_hub_database_name }}"
+
+- name: Create database user with proper permissions
+  mysql_user:
+    login_host: "{{ database_address }}"
+    login_port: "{{ database_port }}"
+    login_user: "{{ database_login_user }}"
+    login_password: "{{ database_login_password }}"
+    name: "{{ coriolis_metal_hub_database_username }}"
+    password: "{{ coriolis_metal_hub_database_password }}"
+    host: "%"
+    priv: "{{ coriolis_metal_hub_database_name }}.*:ALL"
+    append_privs: "yes"
+
+- name: Create directories
+  file:
+    path: "{{ coriolis_metal_hub_config_dir }}"
+    state: directory
+
+- name: Create step user
+  ansible.builtin.user:
+    home: "{{ step_ca_home }}"
+    name: step
+    state: present
+
+- name: Create Step config directory
+  file:
+    path: "{{ step_ca_home }}"
+    state: directory
+    owner: step
+    group: step
+
+- name: Render templates
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    backup: "{{ item.backup }}"
+    mode: "{{ item.mode }}"
+  with_items:
+    - { src: metal-hub.toml.j2, dest: "{{ coriolis_metal_hub_config_dir }}/config.toml", backup: yes, mode: 644}
+    - { src: install-step-cli.sh.j2, dest: "{{ step_ca_home }}/install-step-cli.sh", backup: no, mode: 700}
+    - { src: configure-step-ca.py.j2, dest: "{{ step_ca_home }}/configure-step-ca.py", backup: no, mode: 700}
+  notify:
+    - "restart coriolis-metal-hub"
+
+- include_tasks: setup_step_ca_container.yml
+
+- name: Install Step CLI
+  shell: "bash {{ step_ca_home }}/install-step-cli.sh"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+
+- name: Bootstrap CA
+  shell: "step ca bootstrap -f --ca-url https://{{ bind_address }}:{{ step_ca_port }} --fingerprint $(step certificate fingerprint {{ step_ca_home }}/certs/root_ca.crt)"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+
+- name: Save CA fingerint
+  shell: "step certificate fingerprint {{ step_ca_home }}/certs/root_ca.crt > {{ step_ca_home }}/fingerprint"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+
+- name: Configure Step CA
+  script: "{{ step_ca_home }}/configure-step-ca.py"
+  notify:
+    - "restart step-ca"
+
+- name: Add ACME provisioner to Step CA
+  shell: "grep -q ACME {{ step_ca_home }}/config/ca.json || step ca provisioner add --type=ACME acme --ca-config {{ step_ca_home }}/config/ca.json"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+  notify:
+    - "restart step-ca"
+
+- name: Get coriolis-metal-hub certificate stat
+  stat:
+    path: "{{ coriolis_metal_hub_certs_dir }}"
+  register: cert_stat
+
+- include: generate_metal_hub_certificates.yml
+  when: not cert_stat.stat.exists
+
+- name: Create Keystone service
+  os_keystone_service:
+    state: present
+    name: coriolis-metal-hub
+    service_type: coriolis-metal-hub
+    description: "Coriolis Metal Hub Service"
+
+- name: Create Keystone endpoints
+  os_keystone_endpoint:
+    state: present
+    service: coriolis-metal-hub
+    region: RegionOne
+    endpoint_interface: "{{ item.interface }}"
+    url: "{{ item.url }}"
+  with_items:
+    - { interface: admin,    url: "{{ coriolis_metal_hub_endpoint }}" }
+    - { interface: internal, url: "{{ coriolis_metal_hub_endpoint }}" }
+    - { interface: public,   url: "{{ coriolis_metal_hub_endpoint }}" }
+
+- include_tasks: setup_metal_hub_container.yml

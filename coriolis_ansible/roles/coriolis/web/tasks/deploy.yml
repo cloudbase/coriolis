@@ -4,4 +4,9 @@
     path: "{{ coriolis_web_mod_dir }}"
     state: directory
 
+- name: Create step directory
+  file:
+    path: "{{ coriolis_web_step_dir }}"
+    state: directory
+
 - include_tasks: setup.yml

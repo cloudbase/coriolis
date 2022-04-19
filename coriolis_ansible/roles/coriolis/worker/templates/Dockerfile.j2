@@ -10,6 +10,11 @@ RUN apt-get update && apt-get install -y librados2 python3-rados python3-rbd
 RUN apt-get install -y vim
 RUN apt-get install -y qemu-utils
 
+{% if "metal" in coriolis_providers %}
+COPY python-coriolismetalhubclient/ python-coriolismetalhubclient
+RUN /bin/bash -c "pip3 install ./python-coriolismetalhubclient"
+{% endif %}
+
 {% if "openstack" in coriolis_providers %}
 # NOTE: the `openssl` binary is required by python-novaclient when
 # decrypting the password of a Windows worker machine retrieved

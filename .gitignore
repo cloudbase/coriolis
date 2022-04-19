@@ -1,6 +1,7 @@
 .DS_Store
 *.retry
 /config.yml
+/docker-images-config.yml
 /passwords.yml
 /coriolis_ansible/build
 *.swp

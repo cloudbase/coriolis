@@ -1,0 +1,68 @@
+---
+- name: Get Appliance Metal Hub endpoint ID
+  shell: "coriolis endpoint list -c ID -c Name -f value | grep {{ default_appliance_metal_hub_endpoint_name }} | awk '{print $1}'"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+
+- debug:
+    msg: "{{ result.stdout_lines }}"
+
+- set_fact:
+    default_metalhub_endpoint_id: "{{ result.stdout }}"
+
+- include: encode_metal_hub_endpoint_certificates.yml
+  with_items: "{{ coriolis_metal_hub_endpoint_cert_paths }}"
+
+- name: Render template
+  template:
+    src: metal-hub-endpoint.json.j2
+    dest: "/tmp/metal-hub-endpoint.json"
+
+- name: Store Coriolis Metal Hub endpoint secret
+  shell: "openstack secret store --file /tmp/metal-hub-endpoint.json --payload-content-type text/plain -c 'Secret href' -f value"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+
+- debug:
+    msg: "{{ result.stdout_lines }}"
+
+- set_fact:
+    metalhub_endpoint_secret_url: "{{ result.stdout }}"
+
+- name: Update Coriolis Metal Hub endpoint
+  shell: "coriolis endpoint update --connection-secret {{ metalhub_endpoint_secret_url }} -f value -c id {{ default_metalhub_endpoint_id }}"
+  register: endpoint_update_result
+  retries: 10
+  delay: 5
+  until: endpoint_update_result is succeeded
+  when: default_metalhub_endpoint_id != ""
+
+- block:
+    - name: Setup Coriolis Metal Hub endpoint
+      shell: "coriolis endpoint create --connection-secret {{ metalhub_endpoint_secret_url }} --name {{ default_appliance_metal_hub_endpoint_name }} --provider metal --skip-validation -f value -c id"
+      register: new_endpoint_result
+      retries: 10
+      delay: 5
+      until: new_endpoint_result is succeeded
+
+    - debug:
+        msg: "{{ new_endpoint_result.stdout_lines }}"
+
+    - set_fact:
+        default_metalhub_endpoint_id: "{{ new_endpoint_result.stdout }}"
+  when: default_metalhub_endpoint_id == ""
+
+- name: Validate Metal Hub endpoint
+  shell: "coriolis endpoint validate connection {{ default_metalhub_endpoint_id }}"
+  register: validation_result
+  retries: 10
+  delay: 5
+  until: validation_result is succeeded
+
+- debug:
+    msg: "Successfully validated Metal Hub Endpoint: {{ default_metalhub_endpoint_id }}"
+  when: validation_result.stdout == ""

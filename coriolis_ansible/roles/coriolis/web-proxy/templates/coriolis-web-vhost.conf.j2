@@ -36,6 +36,7 @@
     Define coriolis_base_url {{ coriolis_base_url }}
     Define licensing_server_endpoint {{ coriolis_licensing_server_endpoint }}
     Define licensing_ui_endpoint {{ coriolis_licensing_ui_endpoint }}
+    Define metal_hub_endpoint {{ coriolis_metal_hub_endpoint }}
     Define web_ui_base_url {{ coriolis_web_ui_base_url }}
 
     # Proxy matches paths to appropiate services
@@ -45,7 +46,8 @@
     RewriteRule "^/coriolis(/?.*)$" "${coriolis_base_url}$1" [P]
     RewriteRule "^/licensing-ui(/?.*)$" "${licensing_ui_endpoint}$1" [P]
     RewriteRule "^/licensing(/?.*)$" "${licensing_server_endpoint}$1" [P]
-    RewriteRule "^/((?!identity|coriolis|barbican|licensing|licensing-ui).*)$" "${web_ui_base_url}/$1" [P]
+    RewriteRule "^/metal-hub(/?.*)$" "${metal_hub_endpoint}$1" [P]
+    RewriteRule "^/((?!identity|coriolis|barbican|licensing|licensing-ui|metal-hub).*)$" "${web_ui_base_url}/$1" [P]
 
 </VirtualHost>
 

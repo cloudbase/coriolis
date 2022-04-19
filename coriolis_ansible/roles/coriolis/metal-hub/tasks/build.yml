@@ -1,0 +1,42 @@
+---
+- name: Create build directory
+  file:
+    path: "{{ build_dir }}"
+    state: directory
+
+- name: Clone git repository
+  git:
+    repo: "git@bitbucket.org:{{ repo_owner }}/coriolis-metal-hub.git"
+    dest: "{{ build_dir }}/coriolis-metal-hub"
+    update: yes
+    force: yes
+    version: "{{ repo_branch }}"
+    key_file: "{{ bitbucket_ssh_key_file if bitbucket_ssh_key_file is defined else '' }}"
+    accept_hostkey: yes
+  vars:
+    repo_owner: "{{ custom_repo_owner_names['metal-hub'] | default('cloudbase') }}"
+    repo_branch: "{{ custom_repo_branch_names['metal-hub'] | default('master') }}"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+  notify:
+    - "build coriolis-metal-hub"
+
+- name: Render template
+  template:
+    src: Dockerfile.j2
+    dest: "{{ build_dir }}/coriolis-metal-hub.Dockerfile"
+  notify:
+    - "build coriolis-metal-hub"
+
+- name: "Get Docker image stat"
+  docker_image_info:
+    name: "{{ coriolis_metal_hub_docker_image_url }}"
+  register: docker_image_info
+
+- name: "Trigger Docker image build"
+  command: /bin/true
+  notify:
+    - "build coriolis-metal-hub"
+  when: docker_image_info.images | length == 0

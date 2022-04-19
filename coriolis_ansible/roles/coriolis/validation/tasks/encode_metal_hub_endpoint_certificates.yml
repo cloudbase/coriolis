@@ -1,0 +1,10 @@
+---
+- name: Encode Endpoint Certificates
+  shell: "base64 -w0 {{ item.path }}"
+  register: encode_results
+  retries: 10
+  delay: 5
+  until: encode_results is succeeded
+
+- set_fact:
+    "{{ item.fact }}": "{{ encode_results.stdout }}"

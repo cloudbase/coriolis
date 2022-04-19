@@ -47,6 +47,9 @@
     - import_role:
         name: common/console-editor
 
+    - import_role:
+        name: coriolis/metal-hub
+
 - name: Apply roles for the Coriolis appliance validation
   any_errors_fatal: true
   gather_facts: false

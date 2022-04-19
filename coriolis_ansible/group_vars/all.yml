@@ -27,6 +27,7 @@ coriolis_logger_docker_image_tag:           "{{ default_coriolis_docker_images_t
 coriolis_compressor_docker_image_tag:       "{{ default_coriolis_docker_images_tag }}"
 coriolis_licensing_server_docker_image_tag: "{{ default_coriolis_docker_images_tag }}"
 coriolis_licensing_ui_docker_image_tag:     "{{ default_coriolis_docker_images_tag }}"
+coriolis_metal_hub_docker_image_tag:        "{{ default_coriolis_docker_images_tag }}"
 coriolis_replica_cron_docker_image_tag:     "{{ default_coriolis_docker_images_tag }}"
 coriolis_minion_manager_docker_image_tag:   "{{ default_coriolis_docker_images_tag }}"
 coriolis_worker_docker_image_tag:           "{{ default_coriolis_docker_images_tag }}"
@@ -93,3 +94,19 @@ coriolis_console_editor_mountdirs:
   - "{{ coriolis_log_dir }}"
   - "{{ coriolis_ansible_main_config_file }}"
   - "{{ coriolis_ansible_docker_config_file }}"
+
+coriolis_metal_hub_port: 9900
+coriolis_metal_hub_endpoint: "http://{{ bind_address }}:{{ coriolis_metal_hub_port }}/api/v1"
+coriolis_metal_hub_config_dir: /etc/coriolis-metal
+coriolis_metal_hub_certs_dir: "{{ coriolis_metal_hub_config_dir }}/certs"
+coriolis_metal_hub_ca_cert_path: "{{ coriolis_metal_hub_certs_dir }}/ca-pub.pem"
+coriolis_metal_hub_server_cert_path: "{{ coriolis_metal_hub_certs_dir }}/srv-pub.pem"
+coriolis_metal_hub_server_key_path: "{{ coriolis_metal_hub_certs_dir }}/srv-key.pem"
+coriolis_metal_hub_client_cert_path: "{{ coriolis_metal_hub_certs_dir }}/client-pub.pem"
+coriolis_metal_hub_client_key_path: "{{ coriolis_metal_hub_certs_dir }}/client-key.pem"
+coriolis_metal_hub_endpoint_cert_paths:
+  - { fact: metal_hub_endpoint_ca_certificate, path: "{{ coriolis_metal_hub_ca_cert_path }}" }
+  - { fact: metal_hub_endpoint_certificate, path: "{{ coriolis_metal_hub_client_cert_path }}" }
+  - { fact: metal_hub_endpoint_key, path: "{{ coriolis_metal_hub_client_key_path }}" }
+default_appliance_metal_hub_endpoint_name: appliance-metal-hub
+step_ca_home: /etc/step
