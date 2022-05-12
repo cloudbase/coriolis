@@ -300,6 +300,13 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
     def _enable_systemd_service(self, service_name):
         self._exec_cmd_chroot("systemctl enable %s.service" % service_name)
 
+    def _disable_systemd_service(self, service_name):
+        self._exec_cmd_chroot("systemctl disable %s.service" % service_name)
+
+    def _disable_upstart_service(self, service_name):
+        self._exec_cmd_chroot(
+            "echo manual | tee /etc/init/%s.override" % service_name)
+
     def _get_os_release(self):
         return self._read_config_file("etc/os-release", check_exists=True)
 
