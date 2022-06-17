@@ -8,10 +8,10 @@
 
 ### Import parameters:
 
-# Name or ID of the cluster to migrate machines to. 
+# Name or ID of the cluster to migrate machines to.
 # default_cluster = Default
 
-# Name or ID of a pre-existing oVirt storage domain to be 
+# Name or ID of a pre-existing oVirt storage domain to be
 # used for the disks of migrated VMs. The storage domain's
 # type must be either 'data' or 'managed block storage'.
 # default_storage_domain = ""
@@ -70,3 +70,14 @@
 # minion machines in. If left unset, the default storage domain
 # on the minion machine template will be used.
 # default_migr_minion_storage_domain = ""
+
+# What mechanism to use when sending disk data from the Coriolis installation
+# to the temporary VMs on the target oVirt to be written to their
+# respective disk. The HTTPS-based transfer mechanism (TCP/5566) is faster but
+# might not work if there are firewalls in the way. The SSH-based transfer
+# mechanism (TCP/22) is more costly but will be allowed by most firewalls since
+# SSH access from the Coriolis installation to the temporary worker VM is always
+# required. Coriolis automatically sets security groups rules for the temporary
+# VMs accordingly.
+# Choices are 'SSH' or 'HTTPS'. Default is 'HTTPS'.
+data_transfer_mechanism = HTTPS

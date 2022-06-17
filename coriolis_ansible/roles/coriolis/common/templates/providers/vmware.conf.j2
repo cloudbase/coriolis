@@ -129,3 +129,14 @@ automatically_enable_cbt = False
 # Must reside within the seleted 'import_datacenter'. If none is provided, the
 # default resource pool for the selected 'migr_minion_cluster' will be used.
 # migr_minion_resource_pool = Resources
+
+# What mechanism to use when sending disk data from the Coriolis installation
+# to the temporary VMs on the target VMWare to be written to their
+# respective disk. The HTTPS-based transfer mechanism (TCP/5566) is faster but
+# might not work if there are firewalls in the way. The SSH-based transfer
+# mechanism (TCP/22) is more costly but will be allowed by most firewalls since
+# SSH access from the Coriolis installation to the temporary worker VM is always
+# required. Coriolis automatically sets security groups rules for the temporary
+# VMs accordingly.
+# Choices are 'SSH' or 'HTTPS'. Default is 'HTTPS'.
+data_transfer_mechanism = HTTPS
