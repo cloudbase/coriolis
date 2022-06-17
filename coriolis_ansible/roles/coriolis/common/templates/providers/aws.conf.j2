@@ -4,6 +4,11 @@
 # worker needed to morph the OS being migrated.
 # migr_image_map = linux: ami-50946030, windows: ami-50946031
 
+# ID of a pre-existing image on the source AWS to be used
+# for the temporary export worker VM on the source. The image
+# must be available to the region provided in the Source options.
+# export_image = ami-50946030
+
 # A map similar with migr_image_map, where we specify the username for each OS
 # image. On EC2, various linux distributions, have different usernames.
 # Default is 'ubuntu' for Linux and 'coriolis' for Windows.
@@ -12,10 +17,6 @@
 # Name of the instance type to be used for the disk copy workers.
 # Default is t2.medium.
 worker_instance_type = t2.medium
-
-# Indicate whether or not to shut the VM down during the
-# migration process in order to ensure data consitency.
-shutdown_migrated_instance = False
 
 # Default instance type used for final migrated instances.
 # instance_type = t2.medium
