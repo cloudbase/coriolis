@@ -242,6 +242,11 @@ port_reuse_policy = keep_mac
 # with the right CIDR is required in the mapped network for the VM's first NIC.
 preserve_fixed_ips = False
 
+# If set, Coriolis will attempt to identify a suitable subnet from the provided
+# 'floating_ip_pool' on the target OpenStack in which to create a floating IP
+# with the same address the VM had on the source.
+preserve_floating_ip = False
+
 # Whether or not to attach a floating IP to the already migrated VM. This
 # option must be set to 'True' if the migrated VM is intended to have a public
 # IP attached. The floating IP will be allocated from the 'floating_ip_pool'
