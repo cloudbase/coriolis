@@ -2,7 +2,7 @@
 
 
 # Options and prompt definitions:
-OPTIONS=("Show Appliance Stats" "Show UI Login Details" "Edit/Inspect Coriolis Configuration" "Edit/Inspect Network Settings" "Restart Coriolis Services")
+OPTIONS=("Show Appliance Stats" "Show UI Login Details" "Edit/Inspect Coriolis Configuration" "Edit/Inspect Network Settings" "Expose Coriolis Services Endpoints" "Restart Coriolis Services")
 
 WELCOME_PROMPT=$(cat <<EOP
 Welcome to the Coriolis Appliance Interactive User Console!
@@ -54,6 +54,15 @@ Please feel free to edit the Docker registry/image settings by running:
     * vim /root/coriolis-docker/docker-images-config.yml
 
 After you are done editing, please exit this shell using exit or Ctrl^D.\n\n
+EOP
+)
+
+EXPOSING_CORIOLIS_SERVICES_PROMPT=$(cat <<EOP
+This will expose the Coriolis services endpoints by setting them on the main IP address of the
+appliance (instead of the default 127.0.0.1), thus allowing API access to external clients.
+
+WARNING: This operation requires stopping all Coriolis services while updating endpoint configuration,
+please make sure no running executions are active.\n\n
 EOP
 )
 
@@ -176,6 +185,20 @@ function confirm-restart-coriolis-containers {
     fi
 }
 
+function expose-coriolis-services {
+    printf "$EXPOSING_CORIOLIS_SERVICES_PROMPT"
+    echo
+    CONFIRMED=`prompt-for-confirmation-word "Expose Coriolis Services now? "`
+    if [ "$CONFIRMED" = "1" ]; then
+        MAIN_ADDRESS=`get-main-ip-address`
+        read -p "Which IP address should the Coriolis Services be exposed to? [$MAIN_ADDRESS]: " BIND_ADDRESS
+        BIND_ADDRESS=${BIND_ADDRESS:-$MAIN_ADDRESS}
+        python3 $BASE_DIR/expose_coriolis.py --use-address $BIND_ADDRESS
+    fi
+    echo "Sourcing ~/.bashrc"
+    source ~/.bashrc
+}
+
 function interact {
     echo "$OPTIONS_PROMPT"
     PS3="Select option: "
@@ -198,6 +221,10 @@ function interact {
                         run-coriolis-console-editor-shell "$EDITING_CONTAINER_CONSOLE_PROMPT_NETWORKING"
                         netplan apply
                         confirm-restart-coriolis-containers
+            break
+                        ;;
+                "Expose Coriolis Services Endpoints")
+                        expose-coriolis-services
             break
                         ;;
                 "Restart Coriolis Services")

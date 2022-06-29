@@ -31,7 +31,7 @@ def get_main_ip():
 def get_interface(ip):
     ifaces = netifaces.interfaces()
     for i in ifaces:
-        addrs = netifaces.ifaddresses(i)[netifaces.AF_INET]
+        addrs = netifaces.ifaddresses(i).get(netifaces.AF_INET, [])
         for addr in addrs:
             if addr.get("addr") == ip:
                 return i
