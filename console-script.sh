@@ -2,7 +2,7 @@
 
 
 # Options and prompt definitions:
-OPTIONS=("Show Appliance Stats" "Show UI Login Details" "Edit/Inspect Coriolis Configuration" "Edit/Inspect Network Settings" "Expose Coriolis Services Endpoints" "Restart Coriolis Services")
+OPTIONS=("Show Appliance Stats" "Show UI Login Details" "Edit/Inspect Coriolis Configuration" "Edit/Inspect Network Settings" "Expose Coriolis Services Endpoints" "Add Certificate to Coriolis Worker" "Restore to default Coriolis Worker certificate chain" "Restart Coriolis Services")
 
 WELCOME_PROMPT=$(cat <<EOP
 Welcome to the Coriolis Appliance Interactive User Console!
@@ -67,6 +67,18 @@ EOP
 )
 
 
+ADD_CERTIFICATE_TO_WORKER_PROMPT=$(cat <<EOP
+This option will append a PEM-encoded certificate to the worker, so it will be able to connect to certain
+platforms (i.e. AzureStack).\n\n
+EOP
+)
+
+RESTORE_WORKER_CERTIFICATE_CHAIN=$(cat <<EOP
+This option will restore the worker certificate chain to its system default. Any added certificates through this prompt
+will be removed, and might need to be re-added.\n\n
+EOP
+)
+
 # Source parent scripts:
 BASE_DIR=$(dirname "$(readlink -f "$0")")
 source "$BASE_DIR/utils/common.sh"
@@ -81,6 +93,7 @@ CONSOLE_SCRIPT_LOG_FILE="$LOGDIR/coriolis-console-script.log"
 
 # General constants:
 LANDSCAPE_SYSINFO_FILE_PATH=/etc/update-motd.d/50-landscape-sysinfo
+TMP_WORKER_CERTIFICATE_PATH=/etc/coriolis/tmp-worker-cert.pem
 
 
 # Logs all given args to the $CONSOLE_SCRIPT_LOG_FILE
@@ -199,6 +212,41 @@ function expose-coriolis-services {
     source ~/.bashrc
 }
 
+function add-certificate-to-worker {
+    printf "$ADD_CERTIFICATE_TO_WORKER_PROMPT"
+    CERTIFI_DIR=$(run-logged-command "docker exec coriolis-worker python3 -c 'import certifi; import os; print(os.path.dirname(certifi.__file__))'")
+    CACERT_PEM_PATH="$CERTIFI_DIR/cacert.pem"
+
+    read -p "Please enter a URL containing the certificate data: " URL
+
+    echo "Downloading PEM certificate..."
+    wget -O $TMP_WORKER_CERTIFICATE_PATH $URL
+    if ! [ $? -eq 0 ]; then
+        echo "ERROR: Failed to download the certificate from URL: $URL"
+        return
+    fi
+
+    echo "Validating downloaded PEM certificate"
+    openssl x509 -noout -in $TMP_WORKER_CERTIFICATE_PATH
+    if ! [ $? -eq 0 ]; then
+        echo "ERROR: The provided URL's contents do not contain a valid PEM certificate!"
+        return
+    fi
+
+    run-logged-command "docker exec coriolis-worker bash -c 'if [ ! -f $CACERT_PEM_PATH.bak ]; then cp $CACERT_PEM_PATH $CACERT_PEM_PATH.bak; fi'"
+    run-logged-command "docker exec coriolis-worker bash -c 'cat $TMP_WORKER_CERTIFICATE_PATH >> $CACERT_PEM_PATH; echo >> $CACERT_PEM_PATH'"
+}
+
+function restore-certificate-chain {
+    printf "$RESTORE_WORKER_CERTIFICATE_CHAIN"
+    CONFIRMED=`prompt-for-confirmation-word "Restore certificate chain now? "`
+    CERTIFI_DIR=$(run-logged-command "docker exec coriolis-worker python3 -c 'import certifi; import os; print(os.path.dirname(certifi.__file__))'")
+    CACERT_PEM_PATH="$CERTIFI_DIR/cacert.pem"
+    if [ "$CONFIRMED" = "1" ]; then
+        run-logged-command "docker exec coriolis-worker bash -c 'if [ -f $CACERT_PEM_PATH.bak ]; then cp $CACERT_PEM_PATH.bak $CACERT_PEM_PATH; fi'"
+    fi
+}
+
 function interact {
     echo "$OPTIONS_PROMPT"
     PS3="Select option: "
@@ -225,6 +273,16 @@ function interact {
                         ;;
                 "Expose Coriolis Services Endpoints")
                         expose-coriolis-services
+            break
+                        ;;
+                "Add Certificate to Coriolis Worker")
+                        add-certificate-to-worker
+                        confirm-restart-coriolis-containers
+            break
+                        ;;
+                "Restore to default Coriolis Worker certificate chain")
+                        restore-certificate-chain
+                        confirm-restart-coriolis-containers
             break
                         ;;
                 "Restart Coriolis Services")
