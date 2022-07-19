@@ -24,7 +24,7 @@ class BaseUbuntuMorphingTools(debian.BaseDebianMorphingTools):
                 UBUNTU_DISTRO_IDENTIFIER):
             return False
 
-        lts_releases = [12.04, 14.04, 16.04, 18.04]
+        lts_releases = [12.04, 14.04, 16.04, 18.04, 20.04]
         for lts_release in lts_releases:
             if cls._version_supported_util(
                     detected_os_info['release_version'],
@@ -32,7 +32,7 @@ class BaseUbuntuMorphingTools(debian.BaseDebianMorphingTools):
                 return True
 
         return cls._version_supported_util(
-            detected_os_info['release_version'], minimum=20.04)
+            detected_os_info['release_version'], minimum=22.04)
 
     def _set_netplan_ethernet_configs(
             self, nics_info, dhcp=False, iface_name_prefix=None):
