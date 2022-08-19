@@ -1,0 +1,7 @@
+---
+- name: Remove Docker container
+  docker_container:
+    state: absent
+    name: coriolis-metal-hub
+
+- include_tasks: setup_metal_hub_container.yml

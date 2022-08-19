@@ -1,0 +1,21 @@
+---
+- name: Gather facts
+  setup:
+
+- name: Setup coriolis-metal-hub container
+  docker_container:
+    name: coriolis-metal-hub
+    image: "{{ coriolis_metal_hub_docker_image_url }}"
+    pull: "{{ docker_pull_images }}"
+    hostname: coriolis-metal-hub
+    state: started
+    restart_policy: always
+    network_mode: host
+    log_driver: syslog
+    log_options:
+      syslog-address: "{{ coriolis_metal_hub_syslog_socket_address }}"
+      syslog-format: rfc3164
+      tag: coriolis-metal-hub
+    volumes:
+      - "{{ coriolis_metal_hub_config_dir }}:{{ coriolis_metal_hub_config_dir }}"
+      - "{{ coriolis_log_dir }}:{{ coriolis_log_dir }}"

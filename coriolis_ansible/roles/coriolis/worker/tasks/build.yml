@@ -29,6 +29,25 @@
   notify:
     - "build coriolis-worker"
 
+- name: Clone metalhubclient git repository
+  git:
+    repo: "git@bitbucket.org:{{ repo_owner }}/python-coriolismetalhubclient"
+    dest: "{{ build_dir }}/python-coriolismetalhubclient"
+    update: yes
+    force: yes
+    version: "{{ repo_branch }}"
+    key_file: "{{ bitbucket_ssh_key_file if bitbucket_ssh_key_file is defined else '' }}"
+    accept_hostkey: yes
+  vars:
+    repo_owner: "{{ custom_repo_owner_names['python-metalhubclient'] | default('cloudbase') }}"
+    repo_branch: "{{ custom_repo_branch_names['python-metalhubclient'] | default('master') }}"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+  notify:
+    - "build coriolis-worker"
+
 - name: Download libqemu
   get_url:
     url: "{{ libqemu_url }}"

@@ -1,0 +1,15 @@
+FROM golang:alpine AS builder
+LABEL stage=builder
+
+RUN mkdir -p /build/coriolis-metal-hub
+COPY coriolis-metal-hub/ /build/coriolis-metal-hub
+
+RUN apk add musl-dev gcc libtool m4 autoconf g++ make libblkid util-linux-dev git
+ENV GO111MODULE=on
+RUN chmod +x /build/coriolis-metal-hub/scripts/build-static.sh
+RUN /build/coriolis-metal-hub/scripts/build-static.sh
+
+FROM busybox
+COPY --from=builder /build/coriolis-metal-hub/coriolis-metal-hub /coriolis-metal-hub
+
+ENTRYPOINT ["/bin/sh", "-c", "/coriolis-metal-hub -config /etc/coriolis-metal/config.toml"]

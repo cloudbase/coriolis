@@ -1,0 +1,14 @@
+---
+- name: Remove Docker containers
+  docker_container:
+    state: absent
+    name: "{{ item }}"
+  with_items:
+    - coriolis-metal-hub
+    - step-ca
+
+- name: Remove Docker image
+  docker_image:
+    state: absent
+    force_absent: yes
+    name: "{{ coriolis_metal_hub_docker_image_url }}"

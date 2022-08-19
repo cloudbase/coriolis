@@ -1,0 +1,29 @@
+log_file = "{{ coriolis_log_dir }}/coriolis-metal.log"
+sysinfo_polling_period = 3600
+
+[api]
+bind = "{{ bind_address }}"
+port = {{ coriolis_metal_hub_port }}
+auth_middleware = "keystone"
+
+	[api.keystone_auth]
+	auth_uri = "{{ keystone_auth_url }}"
+
+	[api.tls]
+	certificate = "{{ coriolis_metal_hub_server_cert_path }}"
+	key = "{{ coriolis_metal_hub_server_key_path }}"
+	ca_certificate = "{{ coriolis_metal_hub_ca_cert_path }}"
+
+[database]
+backend = "mysql"
+
+	[database.mysql]
+	username = "{{ coriolis_metal_hub_database_username }}"
+	password = "{{ coriolis_metal_hub_database_password }}"
+	hostname = "{{ database_address }}"
+	database = "{{ coriolis_metal_hub_database_name }}"
+
+[client_config]
+tls_certificate = "{{ coriolis_metal_hub_client_cert_path }}"
+tls_key = "{{ coriolis_metal_hub_client_key_path }}"
+tls_ca_cert = "{{ coriolis_metal_hub_ca_cert_path }}"

@@ -1,0 +1,21 @@
+---
+- name: Install Coriolis Metal Hub Python client
+  pip:
+    name: "git+https://bitbucket.org/{{ repo_owner }}/python-coriolismetalhubclient@{{ repo_branch }}"
+  vars:
+    repo_owner: "{{ custom_repo_owner_names['python-metalhubclient'] | default('cloudbase') }}"
+    repo_branch: "{{ custom_repo_branch_names['python-metalhubclient'] | default('master') }}"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+
+- name: Render templates
+  template:
+    src: metalhubrc.j2
+    dest: "/root/metalhubrc"
+
+- name: Sourcing metalhubrc
+  shell: "grep -q '^source /root/metalhubrc$' ~/.bashrc || echo 'source /root/metalhubrc' >> ~/.bashrc"
+
+- include_tasks: setup.yml
