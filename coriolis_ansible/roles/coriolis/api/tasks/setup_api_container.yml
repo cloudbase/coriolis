@@ -11,5 +11,5 @@
     volumes:
       - "{{ coriolis_config_dir }}:{{ coriolis_config_dir }}:ro"
       - "{{ coriolis_log_dir }}:{{ coriolis_log_dir }}"
-      - "{{ coriolis_logger_volume_name }}:{{ coriolis_logger_socket_dir }}"
+      - "{{ coriolis_logger_socket_dir }}:{{ coriolis_logger_socket_dir }}"
       - "{{ coriolis_profiling_dir_host }}/api:{{ coriolis_profiling_dir_container }}"

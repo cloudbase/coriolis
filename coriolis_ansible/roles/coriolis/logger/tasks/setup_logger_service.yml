@@ -1,0 +1,29 @@
+---
+- name: Build coriolis-logger binary
+  docker_container:
+    auto_remove: yes
+    name: coriolis-logger-builder
+    image: "{{ coriolis_logger_docker_image_url }}"
+    pull: "{{ docker_pull_images }}"
+    hostname: coriolis-logger
+    state: started
+    network_mode: host
+    command: ["go", "build", "-a", "-ldflags='-w -s'", "-o", "{{ coriolis_logger_build_dir }}/coriolis-logger", "."]
+    env:
+      GO111MODULE: "on"
+      ENV GOOS: "linux"
+      ENV GOARCH: "amd64"
+      ENV CGO_ENABLED: "0"
+    volumes:
+      - "{{ coriolis_logger_binary_dir }}:{{ coriolis_logger_build_dir }}"
+
+- name: Render service unit file template
+  template:
+    src: coriolis-logger.service.j2
+    dest: "{{ coriolis_logger_service_unit_path }}"
+
+- name: Reload Systemd Daemon
+  shell: "systemctl daemon-reload"
+
+- name: Enable coriolis-logger service
+  shell: "systemctl -q enable --now coriolis-logger"
