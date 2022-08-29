@@ -1,7 +1,2 @@
 ---
-- name: Remove Docker container
-  docker_container:
-    state: absent
-    name: "coriolis-logger"
-
-- include_tasks: setup_logger_container.yml
+- include_tasks: setup_logger_service.yml

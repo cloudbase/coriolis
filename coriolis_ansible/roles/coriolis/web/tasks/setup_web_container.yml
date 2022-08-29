@@ -15,4 +15,4 @@
     volumes:
       - "{{ coriolis_web_mod_dir }}:{{ coriolis_web_mod_dir }}:rw"
       - "{{ step_ca_home }}:{{ coriolis_web_step_dir }}"
-      - "{{ coriolis_logger_volume_name }}:{{ coriolis_logger_socket_dir }}"
+      - "{{ coriolis_logger_socket_dir }}:{{ coriolis_logger_socket_dir }}"

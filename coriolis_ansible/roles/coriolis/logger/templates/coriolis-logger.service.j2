@@ -1,0 +1,13 @@
+[Unit]
+Description=Coriolis Logger Service
+Before=docker.target
+
+[Service]
+Type=simple
+RuntimeDirectory=coriolis-logger
+ExecStart={{ coriolis_logger_binary_dir }}/coriolis-logger -config {{ coriolis_logger_config_dir }}/coriolis-logger.toml
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
