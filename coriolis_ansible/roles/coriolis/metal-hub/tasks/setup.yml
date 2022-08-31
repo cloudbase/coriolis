@@ -58,7 +58,6 @@
   with_items:
     - { src: metal-hub.toml.j2, dest: "{{ coriolis_metal_hub_config_dir }}/config.toml", backup: yes, mode: 644}
     - { src: install-step-cli.sh.j2, dest: "{{ step_ca_home }}/install-step-cli.sh", backup: no, mode: 700}
-    - { src: configure-step-ca.py.j2, dest: "{{ step_ca_home }}/configure-step-ca.py", backup: no, mode: 700}
   notify:
     - "restart coriolis-metal-hub"
 
@@ -84,11 +83,6 @@
   retries: 10
   delay: 5
   until: result is succeeded
-
-- name: Configure Step CA
-  script: "{{ step_ca_home }}/configure-step-ca.py"
-  notify:
-    - "restart step-ca"
 
 - name: Add ACME provisioner to Step CA
   shell: "grep -q ACME {{ step_ca_home }}/config/ca.json || step ca provisioner add --type=ACME acme --ca-config {{ step_ca_home }}/config/ca.json"
