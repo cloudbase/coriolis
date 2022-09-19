@@ -94,6 +94,18 @@ def _disable_lvm2_lvmetad(ssh):
             ssh, "sudo vgchange -an", get_pty=True)
 
 
+def _disable_lvm_metad_udev_rule(ssh):
+    """
+    Removes lvm-metad rule which creates lvm2-pvscan services for each disk
+    detected with lvm partitions (after a transfer is complete). During normal
+    migrations with multiple replications, these services need to be disabled,
+    therefore we make it impossible for the minion OS to create them.
+    """
+    rule_path = "/lib/udev/rules.d/69-lvm-metad.rules"
+    if utils.test_ssh_path(ssh, rule_path):
+        utils.exec_ssh_cmd(ssh, "sudo rm %s" % rule_path, get_pty=True)
+
+
 def _check_deserialize_key(key):
     res = None
     if isinstance(key, paramiko.RSAKey):
@@ -459,6 +471,7 @@ class SSHBackupWriter(BaseBackupWriter):
 
     def _get_impl(self, path, disk_id):
         ssh = self._connect_ssh()
+        _disable_lvm_metad_udev_rule(ssh)
         _disable_lvm2_lvmetad(ssh)
 
         matching_devs = [
@@ -884,6 +897,7 @@ class HTTPBackupWriterBootstrapper(object):
         self._inject_iptables_allow(ssh)
 
     def setup_writer(self):
+        _disable_lvm_metad_udev_rule(self._ssh)
         _disable_lvm2_lvmetad(self._ssh)
         self._copy_writer(self._ssh)
         paths = utils.retry_on_error()(
