@@ -103,10 +103,6 @@ class WindowsMountTools(base.BaseOSMountTools):
                                 "with status '%s'.Skipping running script '%s'"
                                 ". Error message: %s" % (
                                     disk_id, status, script, ex))
-                            self._event_manager.progress_update(
-                                "Exception ocurred while servicing disk '%s' "
-                                "with status '%s'. Skipping servicing disk" % (
-                                    disk_id, status))
                         else:
                             raise
                     break

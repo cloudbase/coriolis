@@ -293,7 +293,7 @@ class SSHBackupWriterImpl(BaseBackupWriterImpl):
             "Guest path: %(path)s, offset: %(offset)d, content len: "
             "%(content_len)d, msg len: %(msg_len)d",
             {"path": self._path,
-             "offset": self._offset,
+             "offset": offset,
              "content_len": len(content),
              "msg_len": len(msg)})
         return msg
@@ -671,10 +671,16 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
             @utils.retry_on_error()
             def send():
                 self._ensure_session()
+                chunk = copy.copy(payload["chunk"])
+                LOG.debug(
+                    "Guest path: %(path)s, offset: %(offset)d, content len: "
+                    "%(content_len)d",
+                    {"path": self._path,
+                     "offset": offset,
+                     "content_len": len(chunk)})
                 resp = self._session.post(
-                    self._uri, headers=headers, data=copy.copy(payload["chunk"]),
-                    timeout=CONF.default_requests_timeout
-                )
+                    self._uri, headers=headers, data=chunk,
+                    timeout=CONF.default_requests_timeout)
                 LOG.debug(
                     "Response code: %r, content: %r" %
                     (resp.status_code, resp.content))
