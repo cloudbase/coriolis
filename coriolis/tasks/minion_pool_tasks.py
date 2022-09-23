@@ -378,6 +378,11 @@ class _BaseVolumesMinionMachineAttachmentTask(base.TaskRunner):
             "No minion disk attachment task info field specified.")
 
     @classmethod
+    def _get_minion_connection_info_task_info_field(cls):
+        raise NotImplementedError(
+            "No minion disk attachment task info field specified.")
+
+    @classmethod
     def _get_provider_disk_operation(cls, provider):
         raise NotImplementedError(
             "No minion disk attachment provider operation specified.")
@@ -410,8 +415,11 @@ class _BaseVolumesMinionMachineAttachmentTask(base.TaskRunner):
         volumes_info = self._get_volumes_info_from_task_info(task_info)
         minion_properties = task_info[
             self._get_minion_properties_task_info_field()]
+        minion_connection_info = task_info[
+            self._get_minion_connection_info_task_info_field()]
         res = self._get_provider_disk_operation(provider)(
-            ctxt, connection_info, minion_properties, volumes_info)
+            ctxt, connection_info, minion_properties,
+            minion_connection_info, volumes_info)
 
         missing_result_props = [
             prop for prop in ["volumes_info", "minion_properties"]
@@ -419,9 +427,9 @@ class _BaseVolumesMinionMachineAttachmentTask(base.TaskRunner):
         if missing_result_props:
             raise exception.CoriolisException(
                 "The following properties were missing from minion disk "
-                "operation '%s' from platform '%s'." % (
+                "operation '%s' from platform '%s': %s" % (
                     self._get_provider_disk_operation.__name__,
-                    platform_to_target))
+                    platform_to_target, missing_result_props))
 
         field_name_map = self._get_minion_task_info_field_mappings()
         result = {
@@ -475,6 +483,10 @@ class AttachVolumesToSourceMinionTask(_BaseAttachVolumesToTransferMinionTask):
         return "origin_minion_provider_properties"
 
     @classmethod
+    def _get_minion_connection_info_task_info_field(cls):
+        return "origin_minion_connection_info"
+
+    @classmethod
     def get_volumes_info_from_task_info(cls, task_info):
         return task_info["volumes_info"]
 
@@ -504,6 +516,10 @@ class AttachVolumesToDestinationMinionTask(
     @classmethod
     def _get_minion_properties_task_info_field(cls):
         return "destination_minion_provider_properties"
+
+    @classmethod
+    def _get_minion_connection_info_task_info_field(cls):
+        return "destination_minion_connection_info"
 
     @classmethod
     def _get_provider_disk_operation(cls, provider):
@@ -552,6 +568,10 @@ class AttachVolumesToOSMorphingMinionTask(
     @classmethod
     def _get_minion_properties_task_info_field(cls):
         return "osmorphing_minion_provider_properties"
+
+    @classmethod
+    def _get_minion_connection_info_task_info_field(cls):
+        return "osmorphing_minion_connection_info"
 
     @classmethod
     def _get_provider_disk_operation(cls, provider):
