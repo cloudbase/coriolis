@@ -661,7 +661,7 @@ class Replicator(object):
             utils.exec_ssh_cmd(
                 ssh,
                 "sudo %(replicator_cmd)s gen-certs -output-dir "
-                "%(cert_dir)s -certificate-hosts %(extra_hosts)s" % {
+                "%(cert_dir)s -certificate-hosts 127.0.0.1,%(extra_hosts)s" % {
                     "replicator_cmd": REPLICATOR_PATH,
                     "cert_dir": remote_base_dir,
                     "extra_hosts": ip,
