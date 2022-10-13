@@ -18,7 +18,6 @@ from coriolis.db.sqlalchemy import models
 from coriolis import exception
 from coriolis import utils
 
-
 CONF = cfg.CONF
 db_options.set_defaults(CONF)
 
@@ -1396,8 +1395,8 @@ def delete_minion_pool(context, minion_pool_id):
 
 @enginefacade.reader
 def get_minion_pool(
-        context, minion_pool_id, include_machines=True, include_events=True,
-        include_progress_updates=True):
+        context, minion_pool_id, include_machines=False,
+        include_events=False, include_progress_updates=False):
     q = _soft_delete_aware_query(context, models.MinionPool)
     if include_machines:
         q = q.options(orm.joinedload('minion_machines'))
