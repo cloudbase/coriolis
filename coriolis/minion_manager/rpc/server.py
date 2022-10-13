@@ -30,7 +30,6 @@ from coriolis.taskflow import utils as taskflow_utils
 from coriolis import utils
 from coriolis.worker.rpc import client as rpc_worker_client
 
-
 VERSION = "1.0"
 
 LOG = logging.getLogger(__name__)
@@ -1456,7 +1455,9 @@ class MinionManagerServerEndpoint(object):
                 "performed at this time")
             db_api.add_minion_pool_event(
                 ctxt, minion_pool.id, constants.TASK_EVENT_INFO, msg)
-            return self._get_minion_pool(ctxt, minion_pool.id)
+            return self._get_minion_pool(
+                ctxt, minion_pool.id, include_machines=True,
+                include_events=True, include_progress_updates=True)
 
         initial_store = self._get_pool_initial_taskflow_store_base(
             ctxt, minion_pool, endpoint_dict)
@@ -1466,7 +1467,9 @@ class MinionManagerServerEndpoint(object):
             ctxt, minion_pool.id, constants.TASK_EVENT_INFO,
             "Begun minion pool refreshing process")
 
-        return self._get_minion_pool(ctxt, minion_pool.id)
+        return self._get_minion_pool(
+            ctxt, minion_pool.id, include_machines=True,
+            include_events=True, include_progress_updates=True)
 
     def _get_minion_pool_allocation_flow(self, minion_pool):
         """ Returns a taskflow.Flow object pertaining to all the tasks
@@ -1693,7 +1696,9 @@ class MinionManagerServerEndpoint(object):
                 ctxt, minion_pool_id, current_status)
             raise
 
-        return self._get_minion_pool(ctxt, minion_pool.id)
+        return self._get_minion_pool(
+            ctxt, minion_pool.id, include_machines=True,
+            include_events=True, include_progress_updates=True)
 
     def _get_minion_pool_deallocation_flow(
             self, minion_pool, raise_on_error=True):
@@ -1766,7 +1771,9 @@ class MinionManagerServerEndpoint(object):
             LOG.debug(
                 "Deallocation requested on already deallocated pool '%s'. "
                 "Nothing to do so returning early.", minion_pool_id)
-            return self._get_minion_pool(ctxt, minion_pool.id)
+            return self._get_minion_pool(
+                ctxt, minion_pool.id, include_machines=True,
+                include_events=True, include_progress_updates=True)
         acceptable_deallocation_statuses = [
             constants.MINION_POOL_STATUS_ALLOCATED,
             constants.MINION_POOL_STATUS_ERROR]
@@ -1814,7 +1821,9 @@ class MinionManagerServerEndpoint(object):
                 ctxt, minion_pool_id, current_status)
             raise
 
-        return self._get_minion_pool(ctxt, minion_pool.id)
+        return self._get_minion_pool(
+            ctxt, minion_pool.id, include_machines=True,
+            include_events=True, include_progress_updates=True)
 
     def get_minion_pools(self, ctxt, include_machines=True):
         return db_api.get_minion_pools(
@@ -1822,8 +1831,8 @@ class MinionManagerServerEndpoint(object):
             include_progress_updates=False)
 
     def _get_minion_pool(
-            self, ctxt, minion_pool_id, include_machines=True,
-            include_events=True, include_progress_updates=True):
+            self, ctxt, minion_pool_id, include_machines=False,
+            include_events=False, include_progress_updates=False):
         minion_pool = db_api.get_minion_pool(
             ctxt, minion_pool_id, include_machines=include_machines,
             include_events=include_events,
@@ -1831,6 +1840,7 @@ class MinionManagerServerEndpoint(object):
         if not minion_pool:
             raise exception.NotFound(
                 "Minion pool with ID '%s' not found." % minion_pool_id)
+
         return minion_pool
 
     @minion_manager_utils.minion_pool_synchronized_op
@@ -1859,7 +1869,9 @@ class MinionManagerServerEndpoint(object):
         self._add_minion_pool_event(
             ctxt, minion_pool.id, constants.TASK_EVENT_INFO,
             "Successfully updated minion pool properties")
-        return db_api.get_minion_pool(ctxt, minion_pool_id)
+        return db_api.get_minion_pool(
+            ctxt, minion_pool_id, include_machines=True,
+            include_events=True, include_progress_updates=True)
 
     @minion_manager_utils.minion_pool_synchronized_op
     def delete_minion_pool(self, ctxt, minion_pool_id):
