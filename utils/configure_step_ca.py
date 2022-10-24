@@ -3,6 +3,7 @@
 import json
 import netifaces
 import os
+import sys
 import yaml
 
 
@@ -35,6 +36,7 @@ def get_config(config_file):
 
 
 def main():
+    set_dns = bool("setdnsnames" in sys.argv)
     step_ca_home = None
     for config_path in CONFIG_PATHS:
         config = get_config(config_path)
@@ -49,9 +51,10 @@ def main():
             f.seek(0)
             data['authority']['claims'] = {"maxTLSCertDuration": "87672h",
                                            "defaultTLSCertDuration": "87672h"}
-            main_ip_addr = get_main_ip()
-            if main_ip_addr and main_ip_addr not in data['dnsNames']:
-                data['dnsNames'].append(main_ip_addr)
+            if set_dns:
+                main_ip_addr = get_main_ip()
+                if main_ip_addr and main_ip_addr not in data['dnsNames']:
+                    data['dnsNames'].append(main_ip_addr)
             json.dump(data, f, indent=2)
     else:
         raise Exception(
