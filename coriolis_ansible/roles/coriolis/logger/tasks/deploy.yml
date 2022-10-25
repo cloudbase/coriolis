@@ -12,6 +12,5 @@
     name: "{{ item }}"
   with_items:
     - "{{ influxdb_data_volume_name }}"
-    - "{{ coriolis_logger_volume_name }}"
 
 - include_tasks: setup.yml

@@ -17,7 +17,6 @@
     - { src: coriolis-logger.toml.j2, dest: "{{ coriolis_logger_config_dir }}/coriolis-logger.toml" }
   notify:
     - "restart influxdb"
-    - "restart coriolis-logger"
 
 - include_tasks: setup_influxdb_container.yml
 
@@ -64,4 +63,4 @@
     - { interface: internal, url: "{{ coriolis_logger_endpoint }}" }
     - { interface: public,   url: "{{ coriolis_logger_endpoint }}" }
 
-- include_tasks: setup_logger_container.yml
+- include_tasks: setup_logger_service.yml
