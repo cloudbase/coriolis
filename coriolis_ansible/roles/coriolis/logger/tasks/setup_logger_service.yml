@@ -27,3 +27,6 @@
 
 - name: Enable coriolis-logger service
   shell: "systemctl -q enable --now coriolis-logger"
+
+- name: Restart coriolis-logger service
+  shell: "systemctl restart coriolis-logger"
