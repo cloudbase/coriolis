@@ -84,6 +84,11 @@
   delay: 5
   until: result is succeeded
 
+- name: Configure Step CA
+  script: "{{ coriolis_ansible_install_dir }}/utils/configure_step_ca.py"
+  notify:
+    - "restart step-ca"
+
 - name: Add ACME provisioner to Step CA
   shell: "grep -q ACME {{ step_ca_home }}/config/ca.json || step ca provisioner add --type=ACME acme --ca-config {{ step_ca_home }}/config/ca.json"
   register: result
