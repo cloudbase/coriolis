@@ -1,0 +1,31 @@
+name: Coriolis Tests
+
+on:
+  pull_request:
+    branches: [ "master" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python 3.5
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.5"
+    - name: Install dependencies
+      run: |
+        sudo apt install python3-pip
+        sudo apt install libmysqlclient-dev
+        sudo apt install python3-nose
+
+        pip install -r requirements.txt
+        pip install -r test-requirements.txt
+    - name: Run tests
+      run: |
+        nosetests3 -v --nocapture --logging-level=ERROR coriolis/tests/
