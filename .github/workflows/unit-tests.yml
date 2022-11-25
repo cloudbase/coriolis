@@ -1,0 +1,27 @@
+name: Coriolis Unit Tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ "master" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install dependencies
+      run: |
+        sudo apt install python3-nose
+        sudo apt install libmysqlclient-dev
+
+        pip install -r requirements.txt
+        pip install -r test-requirements.txt
+    - name: Run unit tests
+      run: |
+        nosetests3 -v --nocapture --logging-level=ERROR coriolis/tests/

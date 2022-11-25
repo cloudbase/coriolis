@@ -37,7 +37,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
                           self.server, mock.sentinel.context, mock.sentinel.replica_id)
 
         mock_get_replica.assert_called_once_with(mock.sentinel.context,
-                                                 mock.sentinel.replica_id)
+                                                 mock.sentinel.replica_id, include_task_info=True)
         mock_check_replica_running.assert_called_once_with(
             mock.sentinel.context, mock_replica)
         mock_create_task.assert_not_called()
