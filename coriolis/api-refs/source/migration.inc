@@ -10,7 +10,7 @@ Lists, creates, cancels, shows details for, and deletes Coriolis migrations.
 List Migrations
 ===============
 
-.. rest_method:: GET /migrations/detail
+.. rest_method:: GET /migrations
 
 Lists all migrations.
 
@@ -42,7 +42,6 @@ Response
   - replica_id : migration_replica_id
   - base_id : base_id
   - destination_endpoint_id : migration_destination_endpoint_id
-  - tasks : migration_tasks
   - network_map : network_map
   - storage_mappings : storage_map
   - last_execution_status : migration_last_execution_status

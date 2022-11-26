@@ -80,7 +80,7 @@ API
 ---
 
 The API is also very straightforward, here's a complete example available on
-Postman: https://www.getpostman.com/collections/734dc164d4b6b00cd8fc
+Postman: https://api.postman.com/collections/2414861-766ace3d-b46c-4510-bbaf-e1f001a8be75?access_key=PMAT-01GJTF9HV7MY7YMHZW7Q79N5V2
 
 
 Create a migration job:

@@ -813,6 +813,12 @@ replica_destination_environment:
   in: body
   type: string
   required: false
+replica_empty_execution_array:
+  description: |
+    An empty array. Use the ``/replicas/{replica_id}`` request to get the replica executions.
+  in: body
+  type: array
+  required: true
 replica_execution:
   description: |
     An ``execution`` object.
