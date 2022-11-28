@@ -10,9 +10,9 @@ Lists, creates, updates, shows details for, and deletes cloud replicas.
 List Replicas
 =============
 
-.. rest_method:: GET /replicas/detail
+.. rest_method:: GET /replicas
 
-List details for all replicas.
+List all replicas.
 
 Normal response codes: 200
 
@@ -28,7 +28,7 @@ Response
   - id : replica_id
   - deleted : replica_deleted
   - deleted_at : replica_deleted_at
-  - executions : replica_execution_array
+  - executions : replica_empty_execution_array
   - instances : replica_instances
   - notes : replica_notes
   - user_id : user_id

@@ -59,28 +59,7 @@
       "origin_minion_pool_id": null,
       "destination_minion_pool_id": null,
       "instance_osmorphing_minion_pool_mappings": {},
-      "executions": [
-        {
-          "created_at": "2019-07-23T17:01:03.000000",
-          "updated_at": "2019-07-23T17:07:09.000000",
-          "deleted_at": null,
-          "deleted": "0",
-          "id": "84951ec8-9b0d-4d68-b1eb-b0c143213c75",
-          "action_id": "0460aa4d-6b16-4c98-bd56-27ee186e4a22",
-          "status": "COMPLETED",
-          "number": 1
-        },
-        {
-          "created_at": "2019-07-23T17:18:38.000000",
-          "updated_at": "2019-07-23T17:18:53.000000",
-          "deleted_at": null,
-          "deleted": "0",
-          "id": "9d64e152-1fcc-4ef1-8b09-60a7fabd97a9",
-          "action_id": "0460aa4d-6b16-4c98-bd56-27ee186e4a22",
-          "status": "COMPLETED",
-          "number": 2
-        }
-      ]
+      "executions": []
     }
   ]
 }
