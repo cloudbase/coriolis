@@ -40,3 +40,4 @@ nova/vcsversion.py
 tools/conf/nova.conf*
 coriolis/resources/bin/write_data
 .vscode/
+.pylintrc
