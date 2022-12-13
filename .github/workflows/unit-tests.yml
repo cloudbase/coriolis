@@ -17,11 +17,8 @@ jobs:
     - uses: actions/checkout@v3
     - name: Install dependencies
       run: |
-        sudo apt install python3-nose
-        sudo apt install libmysqlclient-dev
-
         pip install -r requirements.txt
         pip install -r test-requirements.txt
     - name: Run unit tests
       run: |
-        nosetests3 -v --nocapture --logging-level=ERROR coriolis/tests/
+        python -m nose -v --nocapture --logging-level=ERROR coriolis/tests
