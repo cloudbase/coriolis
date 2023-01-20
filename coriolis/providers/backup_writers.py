@@ -798,7 +798,25 @@ class HTTPBackupWriterBootstrapper(object):
             raise
         return ssh
 
+    def _ensure_packages_installed(self, ssh, packages):
+        try:
+            iter(packages)
+        except TypeError:
+            LOG.warning(
+                "Passed packages list '%s' is not iterable. Skipping "
+                "installing packages", packages)
+            return
+
+        utils.exec_ssh_cmd(ssh, "sudo apt-get update || true", get_pty=True)
+        utils.exec_ssh_cmd(
+            ssh,
+            "sudo apt-get install -y %(packages)s || "
+            "sudo yum install -y %(packages)s || true" % {
+                "packages": " ".join(list(packages))},
+            get_pty=True)
+
     def _inject_iptables_allow(self, ssh):
+        self._ensure_packages_installed(ssh, ["iptables"])
         utils.exec_ssh_cmd(
             ssh,
             "sudo /sbin/iptables -I INPUT -p tcp --dport %s "
