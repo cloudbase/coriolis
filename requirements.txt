@@ -25,7 +25,7 @@ paramiko>=2.1.0
 paste
 pbr
 psutil
-pyOpenSSL
+pyOpenSSL>=21.0.0
 python-keystoneclient
 # required by `oslo_cache` when imported by `keystonemiddleware`
 python-memcached>=1.56
