@@ -1556,3 +1556,286 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             migration,
             mock_get_migration.return_value
         )
+
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "get_endpoint"
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "_check_endpoints"
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "_get_provider_types"
+    )
+    @mock.patch.object(models, "Migration")
+    @mock.patch.object(uuid, "uuid4")
+    @mock.patch.object(models, "TasksExecution")
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "_check_create_reservation_for_transfer"
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "_check_minion_pools_for_action"
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "_get_instance_scripts"
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "_create_task"
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "_check_execution_tasks_sanity"
+    )
+    @mock.patch.object(
+        db_api,
+        "add_migration"
+    )
+    @mock.patch.object(
+        lockutils,
+        "lock"
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "_minion_manager_client"
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "_set_tasks_execution_status"
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "_begin_tasks"
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "get_migration"
+    )
+    @ddt.file_data("data/migrate_instances_config.yml")
+    @ddt.unpack
+    def test_migrate_instances(
+            self,
+            mock_get_migration,
+            mock_begin_tasks,
+            mock_set_tasks_execution_status,
+            mock_minion_manager_client,
+            mock_lock,
+            mock_add_migration,
+            mock_check_execution_tasks_sanity,
+            mock_create_task,
+            mock_get_instance_scripts,
+            mock_check_minion_pools_for_action,
+            mock_check_create_reservation_for_transfer,
+            mock_tasks_execution,
+            mock_uuid4,  # pylint: disable=unused-argument
+            mock_migration,
+            mock_get_provider_types,
+            mock_check_endpoints,
+            mock_get_endpoint,
+            config,
+            expected_tasks,
+    ):
+        has_origin_minion_pool = config.get(
+            'has_origin_minion_pool', False
+        )
+        has_destination_minion_pool = config.get(
+            'has_destination_minion_pool', False
+        )
+        has_os_morphing_pool = config.get(
+            'has_os_morphing_pool', False
+        )
+        shutdown_instances = config.get('shutdown_instances', False)
+        skip_os_morphing = config.get('skip_os_morphing', True)
+        get_optimal_flavor = config.get('get_optimal_flavor', False)
+
+        if get_optimal_flavor:
+            mock_get_provider_types.return_value = [
+                constants.PROVIDER_TYPE_INSTANCE_FLAVOR
+            ]
+
+        instances = [
+            mock.sentinel.instance_1,
+            mock.sentinel.instance_2,
+        ]
+        instance_osmorphing_minion_pool_mappings = {}
+        if has_os_morphing_pool:
+            instance_osmorphing_minion_pool_mappings = {
+                mock.sentinel.instance_1: mock.sentinel.minion_pool_1,
+                mock.sentinel.instance_2: mock.sentinel.minion_pool_2,
+            }
+
+        replication_count = 2
+
+        def create_task_side_effect(
+                instance,
+                task_type,
+                execution,
+                depends_on=None,
+                on_error=False,
+                on_error_only=False
+        ):
+            return mock.Mock(
+                id=task_type,
+                type=task_type,
+                instance=instance,
+                execution=execution,
+                depends_on=depends_on,
+                on_error=on_error,
+                on_error_only=on_error_only,
+            )
+
+        mock_create_task.side_effect = create_task_side_effect
+
+        migration = self.server.migrate_instances(
+            mock.sentinel.context,
+            mock.sentinel.origin_endpoint_id,
+            mock.sentinel.destination_endpoint_id,
+            has_origin_minion_pool
+            and mock.sentinel.origin_minion_pool_id,
+            has_destination_minion_pool
+            and mock.sentinel.destination_minion_pool_id,
+            instance_osmorphing_minion_pool_mappings,
+            mock.sentinel.source_environment,
+            mock.sentinel.destination_environment,
+            instances,
+            mock.sentinel.network_map,
+            mock.sentinel.storage_mappings,
+            replication_count,
+            shutdown_instances=shutdown_instances,
+            notes=mock.sentinel.notes,
+            skip_os_morphing=skip_os_morphing,
+            user_scripts=mock.sentinel.user_scripts,
+        )
+
+        mock_get_endpoint.assert_has_calls([
+            mock.call(
+                mock.sentinel.context,
+                mock.sentinel.origin_endpoint_id,
+            ),
+            mock.call(
+                mock.sentinel.context,
+                mock.sentinel.destination_endpoint_id,
+            ),
+        ])
+
+        mock_check_endpoints.assert_called_once_with(
+            mock.sentinel.context,
+            mock_get_endpoint.return_value,
+            mock_get_endpoint.return_value,
+        )
+
+        self.assertEqual(
+            mock_migration.return_value.last_execution_status,
+            constants.EXECUTION_STATUS_UNEXECUTED,
+        )
+        self.assertEqual(
+            mock_tasks_execution.return_value.status,
+            constants.EXECUTION_STATUS_UNEXECUTED,
+        )
+        self.assertEqual(
+            mock_tasks_execution.return_value.type,
+            constants.EXECUTION_TYPE_MIGRATION,
+        )
+
+        mock_check_create_reservation_for_transfer.assert_called_once_with(
+            mock_migration.return_value,
+            licensing_client.RESERVATION_TYPE_MIGRATION,
+        )
+
+        mock_check_minion_pools_for_action.assert_called_once_with(
+            mock.sentinel.context,
+            mock_migration.return_value,
+        )
+
+        for instance in instances:
+            mock_get_instance_scripts.assert_any_call(
+                mock.sentinel.user_scripts,
+                instance,
+            )
+            mock_create_task.assert_has_calls([
+                mock.call(
+                    instance,
+                    constants.TASK_TYPE_GET_INSTANCE_INFO,
+                    mock_tasks_execution.return_value,
+                ),
+                mock.call(
+                    instance,
+                    constants.TASK_TYPE_VALIDATE_MIGRATION_SOURCE_INPUTS,
+                    mock_tasks_execution.return_value,
+                ),
+                mock.call(
+                    instance,
+                    constants.TASK_TYPE_VALIDATE_MIGRATION_DESTINATION_INPUTS,
+                    mock_tasks_execution.return_value,
+                    depends_on=[constants.TASK_TYPE_GET_INSTANCE_INFO]
+                ),
+            ])
+
+            # tasks defined in the yaml config
+            for task in expected_tasks:
+                kwargs = {}
+                if 'on_error' in task:
+                    kwargs = {'on_error': task['on_error']}
+                if 'on_error_only' in task:
+                    kwargs = {'on_error_only': task['on_error_only']}
+                mock_create_task.assert_has_calls([
+                    mock.call(
+                        instance,
+                        task['type'],
+                        mock_tasks_execution.return_value,
+                        depends_on=task['depends_on'],
+                        **kwargs,
+                    )
+                ])
+
+        mock_check_execution_tasks_sanity.assert_called_once_with(
+            mock_tasks_execution.return_value,
+            mock_migration.return_value.info,
+        )
+
+        mock_add_migration.assert_called_once_with(
+            mock.sentinel.context,
+            mock_migration.return_value,
+        )
+
+        if any([
+            has_origin_minion_pool,
+            has_destination_minion_pool,
+            has_os_morphing_pool,
+        ]):
+            mock_lock.assert_any_call(
+                constants.MIGRATION_LOCK_NAME_FORMAT
+                % mock_migration.return_value.id,
+                external=True,
+            )
+            mock_minion_manager_client\
+                .allocate_minion_machines_for_migration\
+                .assert_called_once_with(
+                    mock.sentinel.context,
+                    mock_migration.return_value,
+                    include_transfer_minions=True,
+                    include_osmorphing_minions=not skip_os_morphing,
+                )
+            mock_set_tasks_execution_status.assert_called_once_with(
+                mock.sentinel.context,
+                mock_tasks_execution.return_value,
+                constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS
+            )
+        else:
+            mock_begin_tasks.assert_called_once_with(
+                mock.sentinel.context,
+                mock_migration.return_value,
+                mock_tasks_execution.return_value,
+            )
+
+        mock_get_migration.assert_called_once_with(
+            mock.sentinel.context,
+            mock_migration.return_value.id,
+        )
+
+        self.assertEqual(migration, mock_get_migration.return_value)
