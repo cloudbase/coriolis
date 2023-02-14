@@ -1,0 +1,112 @@
+# If tasks are scheduled, they should be set to PENDING
+# If no expected_status, no set status call should be made
+# test 1
+- config:
+    tasks:
+      - id: task_1
+        status: SCHEDULED
+        expected_status: PENDING
+      - id: task_2
+        status: SCHEDULED
+        expected_status: PENDING
+      - id: task_3
+        status: RUNNING
+
+# If parent tasks are unscheduled, the child tasks should be unscheduled as well
+# test 2
+- config:
+    tasks:
+      - id: task_1
+        status: UNSCHEDULED
+      - id: task_2
+        status: UNSCHEDULED
+      - id: task_3
+        depends_on: [task_1]
+        status: SCHEDULED
+        expected_status: UNSCHEDULED
+      - id: task_4
+        depends_on: [task_1, task_2]
+        status: SCHEDULED
+        expected_status: UNSCHEDULED
+      - id: task_5
+        depends_on: [task_3]
+        status: SCHEDULED
+        expected_status: UNSCHEDULED
+
+# parent tasks are finalized, but one is error
+# test 3
+- config:
+    tasks:
+      - id: task_1
+        status: ERROR
+      - id: task_2
+        status: COMPLETED
+      - id: task_3
+        depends_on: [task_1, task_2]
+        status: SCHEDULED
+        expected_status: UNSCHEDULED
+
+# all parent tasks are finalized, none are completed
+# test 4
+- config:
+    tasks:
+      - id: task_1
+        status: ERROR
+      - id: task_2
+        status: CANCELED
+      - id: task_3
+        depends_on: [task_1, task_2]
+        status: SCHEDULED
+        expected_status: UNSCHEDULED
+
+# test 5
+- config:
+    tasks:
+      - id: task_1
+        status: COMPLETED
+      - id: task_2
+        status: COMPLETED
+      - id: task_3
+        depends_on: [task_1, task_2]
+        status: SCHEDULED
+        expected_status: PENDING
+
+# Unscheduled due to no non-error parent tasks having completed successfully.
+# test 6
+- config:
+    tasks:
+      - id: task_1
+        status: ERROR
+      - id: task_2
+        status: SCHEDULED
+        depends_on: [task_1]
+        on_error: True
+        expected_status: UNSCHEDULED
+
+# All parent tasks have been finalized and there are no non-error parents
+# but no on-error tasks completed
+# test 7
+- config:
+    tasks:
+      - id: task_1
+        status: COMPLETED
+        on_error: True
+      - id: task_2
+        status: SCHEDULED
+        depends_on: [task_1]
+        on_error: True
+        expected_status: PENDING
+
+# All parent tasks finalized and at least one non-error parent was completed
+# test 8
+- config:
+    tasks:
+      - id: task_1
+        status: CANCELED
+      - id: task_2
+        status: COMPLETED
+      - id: task_3
+        status: SCHEDULED
+        depends_on: [task_2]
+        on_error: True
+        expected_status: PENDING

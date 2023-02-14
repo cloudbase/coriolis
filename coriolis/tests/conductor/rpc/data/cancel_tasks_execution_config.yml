@@ -1,0 +1,32 @@
+- config:
+    force: True
+    tasks: [RUNNING, PENDING, STARTING, CANCELLING, CANCELLING_AFTER_COMPLETION, FAILED_TO_CANCEL]
+  expected_status: FORCE_CANCELED
+
+- config:
+    hides_exception_details: True
+    tasks: [RUNNING, FAILED_TO_CANCEL]
+  expected_status: CANCELLING
+
+- config:
+    on_error: True
+    tasks: [RUNNING, FAILED_TO_CANCEL]
+  expected_status: CANCELLING_AFTER_COMPLETION
+
+- config:
+    tasks: [SCHEDULED, PENDING, STARTING]
+  expected_status: UNSCHEDULED
+
+- config:
+    depends_on: True
+    tasks: [SCHEDULED]
+  expected_status: ~
+
+- config:
+    hides_exception_details: True
+    tasks: [EXECUTE_ON_ERROR_ONLY]
+  expected_status: SCHEDULED
+
+- config:
+    tasks: [UNSCHEDULED, ARBITRARY_STATUS]
+  expected_status: ~

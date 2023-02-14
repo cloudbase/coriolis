@@ -1,0 +1,31 @@
+- config:
+    tasks: [RUNNING, PENDING, STARTING, CANCELLING, CANCELLING_AFTER_COMPLETION]
+  expected_status: CANCELLING
+
+- config:
+    tasks: [RUNNING, PENDING, STARTING]
+  expected_status: RUNNING
+
+- config:
+    tasks: [CANCELED, UNSCHEDULED, FORCE_CANCELED, CANCELED_AFTER_COMPLETION, CANCELED_FOR_DEBUGGING, STRANDED_AFTER_DEADLOCK, FAILED_TO_SCHEDULE, FAILED_TO_CANCEL]
+  expected_status: ERROR
+
+- config:
+    tasks: [CANCELED, UNSCHEDULED, FORCE_CANCELED, CANCELED_AFTER_COMPLETION, CANCELED_FOR_DEBUGGING, STRANDED_AFTER_DEADLOCK, FAILED_TO_CANCEL]
+  expected_status: CANCELED
+
+- config:
+    tasks: [ERROR, FAILED_TO_SCHEDULE]
+  expected_status: ERROR
+
+- config:
+    tasks: [CANCELLING, CANCELLING_AFTER_COMPLETION]
+  expected_status: CANCELLING
+
+- config:
+    tasks: [SCHEDULED]
+  expected_status: DEADLOCKED
+
+- config:
+    tasks: [SCHEDULED, PENDING]
+  expected_status: RUNNING
