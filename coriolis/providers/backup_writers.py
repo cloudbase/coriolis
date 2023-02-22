@@ -798,11 +798,18 @@ class HTTPBackupWriterBootstrapper(object):
             raise
         return ssh
 
-    def _inject_iptables_allow(self, ssh):
-        utils.exec_ssh_cmd(
-            ssh,
-            "sudo /sbin/iptables -I INPUT -p tcp --dport %s "
-            "-j ACCEPT" % self._writer_port, get_pty=True)
+    def _inject_dport_allow_rule(self, ssh):
+        cmd = (
+            "sudo nft insert rule ip filter INPUT tcp dport %(port)s counter "
+            "accept || "
+            "sudo iptables -I INPUT -p tcp --dport %(port)s -j ACCEPT" % {
+                "port": self._writer_port})
+        try:
+            utils.exec_ssh_cmd(ssh, cmd, get_pty=True)
+        except exception.CoriolisException:
+            LOG.warn(
+                "Could not inject TCP FW rule. Error was: %s",
+                utils.get_exception_details())
 
     @utils.retry_on_error()
     def _copy_writer(self, ssh):
@@ -900,7 +907,7 @@ class HTTPBackupWriterBootstrapper(object):
             }
         utils.create_service(
             ssh, cmdline, _CORIOLIS_HTTP_WRITER_CMD, start=True)
-        self._inject_iptables_allow(ssh)
+        self._inject_dport_allow_rule(ssh)
 
     def setup_writer(self):
         _disable_lvm_metad_udev_rule(self._ssh)
