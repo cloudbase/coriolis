@@ -1,6 +1,7 @@
 # Copyright 2017 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+import copy
 import uuid
 from unittest import mock
 
@@ -10,6 +11,7 @@ from coriolis import constants, exception
 from coriolis.conductor.rpc import server
 from coriolis.db import api as db_api
 from coriolis.db.sqlalchemy import models
+from coriolis.licensing import client as licensing_client
 from coriolis.tests import test_base, testutils
 from coriolis.worker.rpc import client as rpc_worker_client
 
@@ -806,3 +808,471 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
                 self.server._check_execution_tasks_sanity(
                     execution, initial_task_info
                 )
+
+    @mock.patch.object(copy, "deepcopy")
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "get_replica_tasks_execution"
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "_begin_tasks"
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "_set_tasks_execution_status"
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "_minion_manager_client"
+    )
+    @mock.patch.object(db_api, "add_replica_tasks_execution")
+    @mock.patch.object(db_api, "update_transfer_action_info_for_instance")
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "_check_execution_tasks_sanity"
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "_create_task"
+    )
+    @mock.patch.object(uuid, "uuid4")
+    @mock.patch.object(models, "TasksExecution")
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "_check_minion_pools_for_action"
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "_check_replica_running_executions"
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "_check_reservation_for_transfer"
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "_get_replica"
+    )
+    @ddt.file_data("data/execute_replica_tasks_config.yml")
+    @ddt.unpack
+    def test_execute_replica_tasks(
+            self,
+            mock_get_replica,
+            mock_check_reservation,
+            mock_check_replica_running_executions,
+            mock_check_minion_pools_for_action,
+            mock_tasks_execution,
+            mock_uuid4,  # pylint: disable=unused-argument
+            mock_create_task,
+            mock_check_execution_tasks_sanity,
+            mock_update_transfer_action_info_for_instance,
+            mock_add_replica_tasks_execution,
+            mock_minion_manager_client,
+            mock_set_tasks_execution_status,
+            mock_begin_tasks,
+            mock_get_replica_tasks_execution,
+            mock_deepcopy,
+            config,
+            expected_tasks,
+    ):
+        has_origin_minion_pool = config.get("origin_minion_pool", False)
+        has_target_minion_pool = config.get("target_minion_pool", False)
+        shutdown_instances = config.get("shutdown_instances", False)
+
+        def call_execute_replica_tasks():
+            return testutils\
+                .get_wrapped_function(self.server.execute_replica_tasks)(
+                    self.server,
+                    mock.sentinel.context,
+                    mock.sentinel.replica_id,
+                    shutdown_instances,  # type: ignore
+                )
+
+        instances = [mock.sentinel.instance1, mock.sentinel.instance2]
+        mock_replica = mock.Mock(
+            instances=instances,
+            network_map=mock.sentinel.network_map,
+            info={},
+            origin_minion_pool_id=mock.sentinel.origin_minion_pool_id
+            if has_origin_minion_pool else None,
+            destination_minion_pool_id=mock.sentinel.destination_minion_pool_id
+            if has_target_minion_pool else None,
+        )
+        mock_get_replica.return_value = mock_replica
+
+        def create_task_side_effect(
+                instance,
+                task_type,
+                execution,
+                depends_on=None,
+                on_error=False,
+                on_error_only=False
+        ):
+            return mock.Mock(
+                id=task_type,
+                type=task_type,
+                instance=instance,
+                execution=execution,
+                depends_on=depends_on,
+                on_error=on_error,
+                on_error_only=on_error_only,
+            )
+
+        mock_create_task.side_effect = create_task_side_effect
+
+        result = call_execute_replica_tasks()
+        mock_get_replica.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            include_task_info=True,
+        )
+        mock_check_reservation.assert_called_once_with(
+            mock_replica,
+            licensing_client.RESERVATION_TYPE_REPLICA
+        )
+        mock_check_replica_running_executions.assert_called_once_with(
+            mock.sentinel.context, mock_replica)
+        mock_check_minion_pools_for_action.assert_called_once_with(
+            mock.sentinel.context, mock_replica)
+
+        mock_deepcopy.assert_called_once_with(
+            mock_replica.destination_environment)
+
+        for instance in instances:
+            assert instance in mock_replica.info
+
+            self.assertEqual(
+                mock_replica.info[instance]['source_environment'],
+                mock_replica.source_environment)
+
+            self.assertEqual(
+                mock_replica.info[instance]['target_environment'],
+                mock_deepcopy.return_value)
+
+            # generic tasks
+            mock_create_task.assert_has_calls([
+                mock.call(
+                    instance,
+                    constants.TASK_TYPE_VALIDATE_REPLICA_SOURCE_INPUTS,
+                    mock_tasks_execution.return_value),
+                mock.call(
+                    instance,
+                    constants.TASK_TYPE_GET_INSTANCE_INFO,
+                    mock_tasks_execution.return_value),
+                mock.call(
+                    instance,
+                    constants.TASK_TYPE_VALIDATE_REPLICA_DESTINATION_INPUTS,
+                    mock_tasks_execution.return_value,
+                    depends_on=[constants.TASK_TYPE_GET_INSTANCE_INFO]),
+            ])
+
+            # tasks defined in the yaml config
+            for task in expected_tasks:
+                kwargs = {}
+                if 'on_error' in task:
+                    kwargs = {'on_error': task['on_error']}
+                mock_create_task.assert_has_calls([
+                    mock.call(
+                        instance,
+                        task['type'],
+                        mock_tasks_execution.return_value,
+                        depends_on=task['depends_on'],
+                        **kwargs,
+                    )
+                ])
+
+            mock_update_transfer_action_info_for_instance.assert_has_calls([
+                mock.call(
+                    mock.sentinel.context,
+                    mock_replica.id,
+                    instance,
+                    mock_replica.info[instance],
+                )
+            ])
+
+        mock_check_execution_tasks_sanity.assert_called_once_with(
+            mock_tasks_execution.return_value,
+            mock_replica.info)
+
+        mock_add_replica_tasks_execution.assert_called_once_with(
+            mock.sentinel.context,
+            mock_tasks_execution.return_value)
+
+        if any([has_origin_minion_pool, has_target_minion_pool]):
+            mock_minion_manager_client\
+                .allocate_minion_machines_for_replica.assert_called_once_with(
+                    mock.sentinel.context,
+                    mock_replica,
+                )
+            mock_set_tasks_execution_status.assert_called_once_with(
+                mock.sentinel.context,
+                mock_tasks_execution.return_value,
+                constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS,
+            )
+        else:
+            mock_begin_tasks.assert_called_once_with(
+                mock.sentinel.context,
+                mock_replica,
+                mock_tasks_execution.return_value,
+            )
+
+        mock_get_replica_tasks_execution.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock_tasks_execution.return_value.id)
+
+        self.assertEqual(
+            mock_tasks_execution.return_value.status,
+            constants.EXECUTION_STATUS_UNEXECUTED)
+        self.assertEqual(
+            mock_tasks_execution.return_value.type,
+            constants.EXECUTION_TYPE_REPLICA_EXECUTION)
+        self.assertEqual(result, mock_get_replica_tasks_execution.return_value)
+
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        '_get_replica_tasks_execution'
+    )
+    @mock.patch.object(db_api, 'delete_replica_tasks_execution')
+    def test_delete_replica_tasks_execution(
+            self,
+            mock_delete_replica_tasks_execution,
+            mock_get_replica_tasks_execution
+    ):
+        def call_delete_replica_tasks_execution():
+            return testutils.get_wrapped_function(
+                self.server.delete_replica_tasks_execution)(
+                self.server,
+                mock.sentinel.context,
+                mock.sentinel.replica_id,
+                mock.sentinel.execution_id,  # type: ignore
+            )
+        call_delete_replica_tasks_execution()
+        mock_get_replica_tasks_execution.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.execution_id)
+        mock_delete_replica_tasks_execution.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.execution_id)
+
+        # raises exception if status is active
+        mock_get_replica_tasks_execution.return_value.status = constants\
+            .EXECUTION_STATUS_RUNNING
+
+        self.assertRaises(
+            exception.InvalidMigrationState,
+            call_delete_replica_tasks_execution)
+
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        'get_replica_tasks_execution'
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        '_begin_tasks'
+    )
+    @mock.patch.object(db_api, "add_replica_tasks_execution")
+    @mock.patch.object(db_api, "update_transfer_action_info_for_instance")
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        '_check_execution_tasks_sanity'
+    )
+    @mock.patch.object(copy, "deepcopy")
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        '_create_task'
+    )
+    @mock.patch.object(uuid, "uuid4")
+    @mock.patch.object(models, "TasksExecution")
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        '_check_replica_running_executions'
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        '_get_replica'
+    )
+    def test_delete_replica_disks(
+            self,
+            mock_get_replica,
+            mock_check_replica_running_executions,
+            mock_tasks_execution,
+            mock_uuid4,  # pylint: disable=unused-argument
+            mock_create_task,
+            mock_deepcopy,
+            mock_check_execution_tasks_sanity,
+            mock_update_transfer_action_info_for_instance,
+            mock_add_replica_tasks_execution,
+            mock_begin_tasks,
+            mock_get_replica_tasks_execution,
+    ):
+        def call_delete_replica_disks():
+            return testutils.get_wrapped_function(
+                self.server.delete_replica_disks)(
+                self.server,
+                mock.sentinel.context,
+                mock.sentinel.replica_id,  # type: ignore
+            )
+        instances = [mock.Mock(), mock.Mock()]
+        mock_replica = mock.Mock(
+            instances=instances,
+            id=mock.sentinel.replica_id,
+            network_map=mock.sentinel.network_map,
+            info={
+                instance: instance
+                for instance in instances
+            }
+        )
+
+        def create_task_side_effect(
+                instance,
+                task_type,
+                execution,
+                depends_on=None,
+        ):
+            return mock.Mock(
+                id=task_type,
+                type=task_type,
+                instance=instance,
+                execution=execution,
+                depends_on=depends_on,
+            )
+
+        mock_create_task.side_effect = create_task_side_effect
+
+        mock_get_replica.return_value = mock_replica
+        result = call_delete_replica_disks()
+
+        mock_get_replica.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            include_task_info=True
+        )
+        mock_check_replica_running_executions.assert_called_once_with(
+            mock.sentinel.context,
+            mock_replica
+        )
+
+        self.assertEqual(
+            mock_tasks_execution.return_value.status,
+            constants.EXECUTION_STATUS_UNEXECUTED
+        )
+        self.assertEqual(
+            mock_tasks_execution.return_value.type,
+            constants.EXECUTION_TYPE_REPLICA_DISKS_DELETE
+        )
+
+        for instance in instances:
+            assert instance in mock_replica.info
+
+            mock_create_task.assert_has_calls([
+                mock.call(
+                    instance,
+                    constants.TASK_TYPE_DELETE_REPLICA_SOURCE_DISK_SNAPSHOTS,
+                    mock_tasks_execution.return_value,
+                ),
+                mock.call(
+                    instance,
+                    constants.TASK_TYPE_DELETE_REPLICA_DISKS,
+                    mock_tasks_execution.return_value,
+                    depends_on=[
+                        constants
+                        .TASK_TYPE_DELETE_REPLICA_SOURCE_DISK_SNAPSHOTS
+                    ],
+                ),
+            ])
+
+            mock_update_transfer_action_info_for_instance\
+                .assert_has_calls([mock.call(
+                    mock.sentinel.context,
+                    mock_replica.id,
+                    instance,
+                    mock_replica.info[instance],
+                )])
+
+        mock_deepcopy.assert_called_once_with(
+            mock_replica.destination_environment)
+        mock_check_execution_tasks_sanity.assert_called_once_with(
+            mock_tasks_execution.return_value,
+            mock_replica.info,
+        )
+        mock_add_replica_tasks_execution.assert_called_once_with(
+            mock.sentinel.context,
+            mock_tasks_execution.return_value
+        )
+        mock_begin_tasks.assert_called_once_with(
+            mock.sentinel.context,
+            mock_replica,
+            mock_tasks_execution.return_value
+        )
+        mock_get_replica_tasks_execution.assert_called_once_with(
+            mock.sentinel.context,
+            mock_replica.id,
+            mock_tasks_execution.return_value.id
+        )
+
+        self.assertEqual(result, mock_get_replica_tasks_execution.return_value)
+
+        # raises exception if instances have no volumes info
+        instances[0].get.return_value = None
+        instances[1].get.return_value = None
+
+        self.assertRaises(
+            exception.InvalidReplicaState,
+            call_delete_replica_disks
+        )
+
+        # raises exception if instance not in replica.info
+        instances[0].get.return_value = mock.sentinel.volume_info
+        instances[1].get.return_value = mock.sentinel.volume_info
+        mock_replica.info = {}
+
+        self.assertRaises(
+            exception.InvalidReplicaState,
+            call_delete_replica_disks
+        )
+
+    def test_check_valid_replica_tasks_execution(self):
+        execution1 = mock.Mock(
+            number=1,
+            type=constants.EXECUTION_TYPE_REPLICA_EXECUTION,
+            status=constants.EXECUTION_STATUS_COMPLETED,
+        )
+        execution2 = mock.Mock(
+            number=2,
+            type=constants.EXECUTION_TYPE_REPLICA_EXECUTION,
+            status=constants.EXECUTION_STATUS_COMPLETED,
+        )
+        mock_replica = mock.Mock(
+            executions=[execution1, execution2]
+        )
+        self.server._check_valid_replica_tasks_execution(
+            mock_replica
+        )
+
+        # raises exception if all executions are incomplete
+        execution1.status = constants.EXECUTION_STATUS_UNEXECUTED
+        execution2.status = constants.EXECUTION_STATUS_UNEXECUTED
+
+        self.assertRaises(
+            exception.InvalidReplicaState,
+            self.server._check_valid_replica_tasks_execution,
+            mock_replica
+        )
+
+        # doesn't raise exception if all executions are incomplete
+        # and is forced
+        self.server._check_valid_replica_tasks_execution(
+            mock_replica,
+            True
+        )
+
+        # doesn't raise exception if only one execution is completed
+        execution1.status = constants.EXECUTION_STATUS_COMPLETED
+        execution2.status = constants.EXECUTION_STATUS_UNEXECUTED
+
+        self.server._check_valid_replica_tasks_execution(
+            mock_replica
+        )

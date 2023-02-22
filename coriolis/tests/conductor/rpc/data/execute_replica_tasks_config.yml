@@ -1,0 +1,249 @@
+-
+  config:
+    origin_minion_pool: False
+    target_minion_pool: False
+    shutdown_instances: False
+  expected_tasks:
+    -
+      type: 'DEPLOY_REPLICA_DISKS'
+      depends_on: ['VALIDATE_REPLICA_SOURCE_INPUTS', 'VALIDATE_REPLICA_DESTINATION_INPUTS']
+    -
+      type: 'DEPLOY_REPLICA_SOURCE_RESOURCES'
+      depends_on: ['DEPLOY_REPLICA_DISKS']
+    -
+      type: 'DEPLOY_REPLICA_TARGET_RESOURCES'
+      depends_on: ['DEPLOY_REPLICA_DISKS']
+    -
+      type: 'REPLICATE_DISKS'
+      depends_on: ['DEPLOY_REPLICA_SOURCE_RESOURCES', 'DEPLOY_REPLICA_TARGET_RESOURCES']
+    -
+      type: 'DELETE_REPLICA_SOURCE_RESOURCES'
+      depends_on: ['DEPLOY_REPLICA_SOURCE_RESOURCES', 'REPLICATE_DISKS']
+      on_error: True
+    -
+      type: 'DELETE_REPLICA_TARGET_RESOURCES'
+      depends_on: ['DEPLOY_REPLICA_TARGET_RESOURCES', 'REPLICATE_DISKS']
+      on_error: True
+-
+  config:
+    origin_minion_pool: False
+    target_minion_pool: True
+    shutdown_instances: False
+  expected_tasks:
+    -
+      type: 'VALIDATE_DESTINATION_MINION_POOL_COMPATIBILITY'
+      depends_on: ['VALIDATE_REPLICA_DESTINATION_INPUTS']
+    -
+      type: 'DEPLOY_REPLICA_DISKS'
+      depends_on: ['VALIDATE_REPLICA_SOURCE_INPUTS', 'VALIDATE_DESTINATION_MINION_POOL_COMPATIBILITY']
+    -
+      type: 'DELETE_REPLICA_SOURCE_RESOURCES'
+      depends_on: ['DEPLOY_REPLICA_SOURCE_RESOURCES', 'REPLICATE_DISKS']
+      on_error: True
+    -
+      type: 'ATTACH_VOLUMES_TO_DESTINATION_MINION'
+      depends_on: ['DEPLOY_REPLICA_DISKS']
+    -
+      type: 'REPLICATE_DISKS'
+      depends_on: ['DEPLOY_REPLICA_SOURCE_RESOURCES', 'ATTACH_VOLUMES_TO_DESTINATION_MINION']
+    -
+      type: 'DEPLOY_REPLICA_SOURCE_RESOURCES'
+      depends_on: ['DEPLOY_REPLICA_DISKS']
+    -
+      type: 'DETACH_VOLUMES_FROM_DESTINATION_MINION'
+      depends_on: ['ATTACH_VOLUMES_TO_DESTINATION_MINION', 'REPLICATE_DISKS']
+      on_error: True
+    -
+      type: 'RELEASE_DESTINATION_MINION'
+      depends_on: ['VALIDATE_DESTINATION_MINION_POOL_COMPATIBILITY', 'DETACH_VOLUMES_FROM_DESTINATION_MINION']
+      on_error: True
+    
+-
+  config:
+    origin_minion_pool: True
+    target_minion_pool: False
+    shutdown_instances: False
+  expected_tasks:
+    -
+      type: 'VALIDATE_SOURCE_MINION_POOL_COMPATIBILITY'
+      depends_on: ['GET_INSTANCE_INFO', 'VALIDATE_REPLICA_SOURCE_INPUTS']
+    -
+      type: 'DEPLOY_REPLICA_DISKS'
+      depends_on: ['VALIDATE_SOURCE_MINION_POOL_COMPATIBILITY', 'VALIDATE_REPLICA_DESTINATION_INPUTS']
+    -
+      type: 'DEPLOY_REPLICA_TARGET_RESOURCES'
+      depends_on: ['DEPLOY_REPLICA_DISKS']
+    -
+      type: 'REPLICATE_DISKS'
+      depends_on: ['DEPLOY_REPLICA_TARGET_RESOURCES']
+    -
+      type: 'RELEASE_SOURCE_MINION'
+      depends_on: ['VALIDATE_SOURCE_MINION_POOL_COMPATIBILITY', 'REPLICATE_DISKS']
+      on_error: True
+    -
+      type: 'DELETE_REPLICA_TARGET_RESOURCES'
+      depends_on: ['DEPLOY_REPLICA_TARGET_RESOURCES', 'REPLICATE_DISKS']
+      on_error: True
+-
+  config:
+    origin_minion_pool: True
+    target_minion_pool: True
+    shutdown_instances: False
+  expected_tasks:
+    -
+      type: 'VALIDATE_SOURCE_MINION_POOL_COMPATIBILITY'
+      depends_on: ['GET_INSTANCE_INFO', 'VALIDATE_REPLICA_SOURCE_INPUTS']
+    -
+      type: 'VALIDATE_DESTINATION_MINION_POOL_COMPATIBILITY'
+      depends_on: ['VALIDATE_REPLICA_DESTINATION_INPUTS']
+    -
+      type: 'DEPLOY_REPLICA_DISKS'
+      depends_on: ['VALIDATE_SOURCE_MINION_POOL_COMPATIBILITY', 'VALIDATE_DESTINATION_MINION_POOL_COMPATIBILITY']
+    -
+      type: 'ATTACH_VOLUMES_TO_DESTINATION_MINION'
+      depends_on: ['DEPLOY_REPLICA_DISKS']
+    -
+      type: 'REPLICATE_DISKS'
+      depends_on: ['ATTACH_VOLUMES_TO_DESTINATION_MINION']
+    -
+      type: 'RELEASE_SOURCE_MINION'
+      depends_on: ['VALIDATE_SOURCE_MINION_POOL_COMPATIBILITY', 'REPLICATE_DISKS']
+      on_error: True
+    -
+      type: 'DETACH_VOLUMES_FROM_DESTINATION_MINION'
+      depends_on: ['ATTACH_VOLUMES_TO_DESTINATION_MINION', 'REPLICATE_DISKS']
+      on_error: True
+    -
+      type: 'RELEASE_DESTINATION_MINION'
+      depends_on: ['VALIDATE_DESTINATION_MINION_POOL_COMPATIBILITY', 'DETACH_VOLUMES_FROM_DESTINATION_MINION']
+      on_error: True
+-
+  config:
+    origin_minion_pool: False
+    target_minion_pool: False
+    shutdown_instances: True
+  expected_tasks:
+    -
+      type: 'DEPLOY_REPLICA_DISKS'
+      depends_on: ['VALIDATE_REPLICA_SOURCE_INPUTS', 'VALIDATE_REPLICA_DESTINATION_INPUTS']
+    -
+      type: 'DEPLOY_REPLICA_SOURCE_RESOURCES'
+      depends_on: ['DEPLOY_REPLICA_DISKS']
+    -
+      type: 'DEPLOY_REPLICA_TARGET_RESOURCES'
+      depends_on: ['DEPLOY_REPLICA_DISKS']
+    -
+      type: 'SHUTDOWN_INSTANCE'
+      depends_on: ['DEPLOY_REPLICA_SOURCE_RESOURCES', 'DEPLOY_REPLICA_TARGET_RESOURCES']
+    -
+      type: 'REPLICATE_DISKS'
+      depends_on: ['SHUTDOWN_INSTANCE']
+    -
+      type: 'DELETE_REPLICA_SOURCE_RESOURCES'
+      depends_on: ['DEPLOY_REPLICA_SOURCE_RESOURCES', 'REPLICATE_DISKS']
+      on_error: True
+    -
+      type: 'DELETE_REPLICA_TARGET_RESOURCES'
+      depends_on: ['DEPLOY_REPLICA_TARGET_RESOURCES', 'REPLICATE_DISKS']
+      on_error: True
+-
+  config:
+    origin_minion_pool: False
+    target_minion_pool: True
+    shutdown_instances: True
+  expected_tasks:
+    -
+      type: 'VALIDATE_DESTINATION_MINION_POOL_COMPATIBILITY'
+      depends_on: ['VALIDATE_REPLICA_DESTINATION_INPUTS']
+    -
+      type: 'DEPLOY_REPLICA_DISKS'
+      depends_on: ['VALIDATE_REPLICA_SOURCE_INPUTS', 'VALIDATE_DESTINATION_MINION_POOL_COMPATIBILITY']
+    -
+      type: 'DEPLOY_REPLICA_SOURCE_RESOURCES'
+      depends_on: ['DEPLOY_REPLICA_DISKS']
+    -
+      type: 'ATTACH_VOLUMES_TO_DESTINATION_MINION'
+      depends_on: ['DEPLOY_REPLICA_DISKS']
+    -
+      type: 'SHUTDOWN_INSTANCE'
+      depends_on: ['DEPLOY_REPLICA_SOURCE_RESOURCES', 'ATTACH_VOLUMES_TO_DESTINATION_MINION']
+    -
+      type: 'REPLICATE_DISKS'
+      depends_on: ['SHUTDOWN_INSTANCE']
+    -
+      type: 'DELETE_REPLICA_SOURCE_RESOURCES'
+      depends_on: ['DEPLOY_REPLICA_SOURCE_RESOURCES', 'REPLICATE_DISKS']
+      on_error: True
+    -
+      type: 'DETACH_VOLUMES_FROM_DESTINATION_MINION'
+      depends_on: ['ATTACH_VOLUMES_TO_DESTINATION_MINION', 'REPLICATE_DISKS']
+      on_error: True
+    -
+      type: 'RELEASE_DESTINATION_MINION'
+      depends_on: ['VALIDATE_DESTINATION_MINION_POOL_COMPATIBILITY', 'DETACH_VOLUMES_FROM_DESTINATION_MINION']
+      on_error: True
+-
+  config:
+    origin_minion_pool: True
+    target_minion_pool: False
+    shutdown_instances: True
+  expected_tasks:
+    -
+      type: 'VALIDATE_SOURCE_MINION_POOL_COMPATIBILITY'
+      depends_on: ['GET_INSTANCE_INFO', 'VALIDATE_REPLICA_SOURCE_INPUTS']
+    -
+      type: 'DEPLOY_REPLICA_DISKS'
+      depends_on: ['VALIDATE_SOURCE_MINION_POOL_COMPATIBILITY', 'VALIDATE_REPLICA_DESTINATION_INPUTS']
+    -
+      type: 'DEPLOY_REPLICA_TARGET_RESOURCES'
+      depends_on: ['DEPLOY_REPLICA_DISKS']
+    -
+      type: 'SHUTDOWN_INSTANCE'
+      depends_on: ['DEPLOY_REPLICA_TARGET_RESOURCES']
+    -
+      type: 'REPLICATE_DISKS'
+      depends_on: ['SHUTDOWN_INSTANCE']
+    -
+      type: 'RELEASE_SOURCE_MINION'
+      depends_on: ['VALIDATE_SOURCE_MINION_POOL_COMPATIBILITY', 'REPLICATE_DISKS']
+      on_error: True
+    -
+      type: 'DELETE_REPLICA_TARGET_RESOURCES'
+      depends_on: ['DEPLOY_REPLICA_TARGET_RESOURCES', 'REPLICATE_DISKS']
+      on_error: True
+-
+  config:
+    origin_minion_pool: True
+    target_minion_pool: True
+    shutdown_instances: True
+  expected_tasks:
+    -
+      type: 'VALIDATE_SOURCE_MINION_POOL_COMPATIBILITY'
+      depends_on: ['GET_INSTANCE_INFO', 'VALIDATE_REPLICA_SOURCE_INPUTS']
+    -
+      type: 'VALIDATE_DESTINATION_MINION_POOL_COMPATIBILITY'
+      depends_on: ['VALIDATE_REPLICA_DESTINATION_INPUTS']
+    -
+      type: 'DEPLOY_REPLICA_DISKS'
+      depends_on: ['VALIDATE_SOURCE_MINION_POOL_COMPATIBILITY', 'VALIDATE_DESTINATION_MINION_POOL_COMPATIBILITY']
+    -
+      type: 'ATTACH_VOLUMES_TO_DESTINATION_MINION'
+      depends_on: ['DEPLOY_REPLICA_DISKS']
+    -
+      type: 'SHUTDOWN_INSTANCE'
+      depends_on: ['ATTACH_VOLUMES_TO_DESTINATION_MINION']
+    -
+      type: 'REPLICATE_DISKS'
+      depends_on: ['SHUTDOWN_INSTANCE']
+    -
+      type: 'RELEASE_SOURCE_MINION'
+      depends_on: ['VALIDATE_SOURCE_MINION_POOL_COMPATIBILITY', 'REPLICATE_DISKS']
+      on_error: True
+    -
+      type: 'DETACH_VOLUMES_FROM_DESTINATION_MINION'
+      depends_on: ['ATTACH_VOLUMES_TO_DESTINATION_MINION', 'REPLICATE_DISKS']
+      on_error: True
+    -
+      type: 'RELEASE_DESTINATION_MINION'
+      depends_on: ['VALIDATE_DESTINATION_MINION_POOL_COMPATIBILITY', 'DETACH_VOLUMES_FROM_DESTINATION_MINION']
+      on_error: True
