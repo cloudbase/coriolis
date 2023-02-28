@@ -19,12 +19,10 @@ from oslo_log import log as logging
 import paramiko
 import requests
 from six import with_metaclass
-
 from coriolis import constants
 from coriolis import data_transfer
 from coriolis import exception
 from coriolis import utils
-
 
 CONF = cfg.CONF
 opts = [
@@ -811,6 +809,22 @@ class HTTPBackupWriterBootstrapper(object):
                 "Could not inject TCP FW rule. Error was: %s",
                 utils.get_exception_details())
 
+    def _add_firewalld_port(self, ssh):
+        cmd = "sudo firewall-cmd --add-port=%s/tcp" % self._writer_port
+        try:
+            utils.exec_ssh_cmd(ssh, cmd, get_pty=True)
+        except exception.CoriolisException:
+            LOG.warn("Could not add TCP port to firewalld. Error was: %s",
+                     utils.get_exception_details())
+
+    def _change_binary_se_context(self, ssh):
+        cmd = "sudo chcon -t bin_t %s" % self._writer_cmd
+        try:
+            utils.exec_ssh_cmd(ssh, cmd, get_pty=True)
+        except exception.CoriolisException:
+            LOG.warn("Could not change SELinux context of writer binary. "
+                     "Error was:%s", utils.get_exception_details())
+
     @utils.retry_on_error()
     def _copy_writer(self, ssh):
         local_path = os.path.join(
@@ -905,9 +919,11 @@ class HTTPBackupWriterBootstrapper(object):
                        "srv_cert": cert_paths["srv_crt"],
                        "listen_port": self._writer_port,
             }
+        self._change_binary_se_context(ssh)
         utils.create_service(
             ssh, cmdline, _CORIOLIS_HTTP_WRITER_CMD, start=True)
         self._inject_dport_allow_rule(ssh)
+        self._add_firewalld_port(ssh)
 
     def setup_writer(self):
         _disable_lvm_metad_udev_rule(self._ssh)
