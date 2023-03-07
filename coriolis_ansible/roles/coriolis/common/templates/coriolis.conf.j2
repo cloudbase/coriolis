@@ -16,7 +16,7 @@ providers=
 coriolis_provider_{{ item | replace("-", "_") }}{% if item == "vmware" %}_vsphere{% endif %}.{% if item == "scvmm" %}HyperV{% endif %}ExportProvider,
 {%- endfor %}
 {%- for item in coriolis_import_providers %}
-coriolis_provider_{{ item | replace("-", "_") }}{% if item == "vmware" %}_vsphere{% endif %}{% if item == "ovirt" %}_olvm.ImportProvider,coriolis_provider_ovirt_rhev{% endif %}.ImportProvider{% if not loop.last %},{% endif %}
+coriolis_provider_{{ item | replace("-", "_") }}{% if item == "vmware" %}_vsphere{% endif %}{% if item == "ovirt" %}_olvm.ImportProvider,coriolis_provider_ovirt_rhev{% endif %}{% if item == "oci" %}.ImportProvider,coriolis_provider_opca{% endif %}.ImportProvider{% if not loop.last %},{% endif %}
 {% endfor %}
 
 caching = True
