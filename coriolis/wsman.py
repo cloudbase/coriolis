@@ -143,19 +143,26 @@ class WSManConnection(object):
     def download_file(self, url, remote_path):
         LOG.debug("Downloading: \"%(url)s\" to \"%(path)s\"",
                   {"url": url, "path": remote_path})
-        # Nano Server does not have Invoke-WebRequest and additionally
-        # this is also faster
-        self.exec_ps_command(
-            "[Net.ServicePointManager]::SecurityProtocol = "
-            "[Net.SecurityProtocolType]::Tls12;"
-            "if(!([System.Management.Automation.PSTypeName]'"
-            "System.Net.Http.HttpClient').Type) {$assembly = "
-            "[System.Reflection.Assembly]::LoadWithPartialName("
-            "'System.Net.Http')}; (new-object System.Net.Http.HttpClient)."
-            "GetStreamAsync('%(url)s').Result.CopyTo("
-            "(New-Object IO.FileStream '%(outfile)s', Create, Write, None), "
-            "1MB)" % {"url": url, "outfile": remote_path},
-            ignore_stdout=True)
+        try:
+            # Nano Server does not have Invoke-WebRequest and additionally
+            # this is also faster
+            self.exec_ps_command(
+                "[Net.ServicePointManager]::SecurityProtocol = "
+                "[Net.SecurityProtocolType]::Tls12;"
+                "if(!([System.Management.Automation.PSTypeName]'"
+                "System.Net.Http.HttpClient').Type) {$assembly = "
+                "[System.Reflection.Assembly]::LoadWithPartialName("
+                "'System.Net.Http')}; (new-object System.Net.Http.HttpClient)."
+                "GetStreamAsync('%(url)s').Result.CopyTo("
+                "(New-Object IO.FileStream '%(outfile)s', Create, Write, "
+                "None), 1MB)" % {"url": url, "outfile": remote_path},
+                ignore_stdout=True)
+        except exception.CoriolisException as ex:
+            LOG.trace(utils.get_exception_details())
+            raise exception.CoriolisException(
+                "Failed to download file from URL: %s to path: %s. Please "
+                "check logs for more details." % (
+                    url, remote_path)) from ex
 
     def write_file(self, remote_path, content):
         self.exec_ps_command(
