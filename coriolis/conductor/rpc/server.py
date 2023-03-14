@@ -1,18 +1,14 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-import contextlib
 import copy
 import functools
 import itertools
-import random
-import time
 import uuid
 
 from oslo_concurrency import lockutils
 from oslo_config import cfg
 from oslo_log import log as logging
-
 from coriolis import constants
 from coriolis import context
 from coriolis.db import api as db_api
@@ -27,7 +23,6 @@ from coriolis import schemas
 from coriolis.tasks import factory as tasks_factory
 from coriolis import utils
 from coriolis.worker.rpc import client as rpc_worker_client
-
 
 VERSION = "1.0"
 
@@ -3628,7 +3623,18 @@ class ConductorServerEndpoint(object):
         return self.get_replica_tasks_execution(ctxt, replica_id, execution.id)
 
     def get_diagnostics(self, ctxt):
-        return utils.get_diagnostics_info()
+        diagnostics = utils.get_diagnostics_info()
+        if self._licensing_client:
+            diagnostics['licensing_status'] = (
+                self._licensing_client.get_licence_status())
+            diagnostics['licences'] = self._licensing_client.get_licences()
+            diagnostics['reservations'] = (
+                self._licensing_client.get_reservations())
+        else:
+            LOG.debug(
+                "Licensing client not instantiated. Cannot add licensing "
+                "information to diagnostics.")
+        return diagnostics
 
     def create_region(self, ctxt, region_name, description="", enabled=True):
         region = models.Region()
