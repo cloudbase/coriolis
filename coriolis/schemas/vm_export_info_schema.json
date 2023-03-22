@@ -57,6 +57,10 @@
       "description": "The type of firmware of the VM.",
       "enum": ["BIOS", "EFI"]
     },
+    "secure_boot": {
+      "type": "boolean",
+      "description": "Whether the machine has UEFI Secure Boot enabled or not."
+    },
     "nested_virtualization": {
       "type": "boolean",
       "description": "Indicates whether or not nested hardware accelerated virtualization is possible on the VM."
