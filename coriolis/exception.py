@@ -237,6 +237,10 @@ class InvalidReplicaState(Invalid):
     message = _("Invalid replica state: %(reason)s")
 
 
+class InvalidInstanceState(Invalid):
+    message = _("Invalid instance state: %(reason)s")
+
+
 class ExecutionDeadlockException(CoriolisException):
     message = _("Execution is bound to be deadlocked.")
 
