@@ -1,0 +1,224 @@
+## ENABLED TESTS ##
+
+# no filters, but services available
+- config: 
+    services_db:
+      - id: 1
+        topic: coriolis_worker
+      - id: 2
+        topic: coriolis_scheduler
+      - id: 3
+        topic: coriolis_worker
+  expected_result: [1, 3]
+  expected_exception: ~
+
+# different topic and enabled combinations
+- config: 
+    enabled: true
+    services_db:
+      - id: 1
+        topic: coriolis_worker
+        enabled: true
+      - id: 2
+        topic: coriolis_worker
+        enabled: false
+      - id: 3
+        topic: coriolis_worker
+        enabled: true
+      - id: 4
+        topic: coriolis_scheduler
+        enabled: true
+  expected_result: [1, 3]
+  expected_exception: ~
+
+# REGIONS TESTS ##
+
+- config:
+    region_sets: [[region_1, region_2], [region_3]]
+    regions_db:
+      - id: region_1
+        enabled: true
+      - id: region_2
+        enabled: false
+      - id: region_3
+        enabled: true
+    services_db:
+      - id: 1
+        topic: coriolis_worker
+        mapped_regions: 
+          - id: region_1
+          - id: region_3
+      - id: 2
+        topic: coriolis_worker
+        mapped_regions: 
+          - id: region_2
+          - id: region_3
+      # region_3 not mapped
+      - id: 3
+        topic: coriolis_worker
+        mapped_regions: 
+          - id: region_2
+      - id: 4
+        topic: coriolis_worker
+        mapped_regions: 
+          - id: region_1
+          - id: region_2
+          - id: region_3
+      - id: 5
+        topic: coriolis_worker
+        mapped_regions: 
+          - id: invalid_region
+  expected_result: [1, 2, 4]
+  expected_exception: ~
+
+# region_3 is disabled in DB
+- config:
+    region_sets: [[region_1, region_2], [region_3]]
+    regions_db: ~
+    services_db:
+      - id: 1
+        topic: coriolis_worker
+        mapped_regions: 
+          - id: region_1
+          - id: region_3
+  expected_result: ~
+  expected_exception: NoSuitableRegionError
+
+## PROVIDERS TESTS ##
+
+- config:
+    provider_requirements:
+      provider_1: [1, 2, 16]
+      provider_2: [1, 2]
+      provider_3: [1, 32]
+    services_db:
+      - id: 1
+        topic: coriolis_worker
+        providers: 
+          provider_1: 
+            types: [1, 2, 16]
+          provider_2: 
+            types: [1, 2, 16]
+          provider_3: 
+            types: [1, 2, 16, 32]
+      # 2 is missing provider_3 with 32
+      - id: 2
+        topic: coriolis_worker
+        providers: 
+          provider_1: 
+            types: [1, 2, 16]
+          provider_2: 
+            types: [1, 2, 16]
+          provider_3: 
+            types: [1, 2, 16]
+      - id: 3
+        topic: coriolis_worker
+        providers: 
+          provider_1: 
+            types: [1, 2, 16, 32]
+          provider_2: 
+            types: [1, 2, 16, 32]
+          provider_3: 
+            types: [1, 2, 16, 32, 64]
+  expected_result: [1, 3]
+  expected_exception: ~
+
+## ALL TOGETHER: ENABLED, REGIONS AND PROVIDER ##
+
+- config:
+    enabled: true
+    region_sets: [[region_1, region_2], [region_3]]
+    provider_requirements:
+      provider_1: [1, 2, 16]
+      provider_2: [1, 2]
+      provider_3: [1, 32]
+    regions_db:
+      - id: region_1
+        enabled: true
+      - id: region_2
+        enabled: false
+      - id: region_3
+        enabled: true
+    services_db:
+      - id: 1
+        topic: coriolis_worker
+        enabled: true
+        mapped_regions: 
+          - id: region_1
+          - id: region_3
+        providers: 
+          provider_1: 
+            types: [1, 2, 16]
+          provider_2: 
+            types: [1, 2, 16]
+          provider_3: 
+            types: [1, 2, 16, 32]
+      # 2 is missing provider_3 with 32
+      - id: 2
+        topic: coriolis_worker
+        enabled: true
+        mapped_regions: 
+          - id: region_2
+          - id: region_3
+        providers: 
+          provider_1: 
+            types: [1, 2, 16]
+          provider_2: 
+            types: [1, 2, 16]
+          provider_3: 
+            types: [1, 2, 16]
+      - id: 3
+        topic: coriolis_worker
+        enabled: true
+        mapped_regions: 
+          - id: region_1
+          - id: region_2
+          - id: region_3
+        providers: 
+          provider_1: 
+            types: [1, 2, 16, 32]
+          provider_2: 
+            types: [1, 2, 16, 32]
+          provider_3: 
+            types: [1, 2, 16, 32, 64]
+      - id: 4
+        topic: coriolis_worker
+        enabled: true
+        # missing region_1 or region_2
+        mapped_regions: 
+          - id: region_3
+        providers: 
+          provider_1: 
+            types: [1, 2, 16, 32]
+          provider_2: 
+            types: [1, 2, 16, 32]
+          provider_3: 
+            types: [1, 2, 16, 32, 64]
+      - id: 5
+        topic: coriolis_worker
+        enabled: true
+        mapped_regions: 
+          - id: region_1
+          - id: region_3
+        providers: 
+          provider_1: 
+            types: [1, 2, 16, 32]
+          provider_2: 
+            types: [1, 2, 16, 32]
+          provider_3: 
+            types: [1, 2, 16, 32, 64]
+      - id: 6
+        topic: coriolis_worker
+        # is not enabled
+        mapped_regions: 
+          - id: region_1
+          - id: region_3
+        providers: 
+          provider_1: 
+            types: [1, 2, 16, 32]
+          provider_2: 
+            types: [1, 2, 16, 32]
+          provider_3: 
+            types: [1, 2, 16, 32, 64]
+  expected_result: [1, 3, 5]
+  expected_exception: ~
