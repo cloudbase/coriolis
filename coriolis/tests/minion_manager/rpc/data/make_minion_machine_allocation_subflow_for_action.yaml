@@ -1,0 +1,243 @@
+## EXCEPTIONS
+
+# requires 2 machines, but only 1 is available
+- config:
+    minion_pool:
+      id: minion_pool_1
+      maximum_minions: 1
+      minion_machines:
+        - allocation_status: AVAILABLE
+    action_instances:
+      instance_1:
+        name: Instance 1
+      instance_2:
+        name: Instance 2
+  expect:
+    exception: InvalidMinionPoolState
+
+# requires 2 machines, but only 1 is available
+- config:
+    minion_pool:
+      id: minion_pool_1
+      maximum_minions: 2
+      minion_machines:
+        - allocation_status: IN_USE
+        - allocation_status: AVAILABLE
+    action_instances:
+      instance_1:
+        name: Instance 1
+      instance_2:
+        name: Instance 2
+  expect:
+    exception: InvalidMinionPoolState
+
+# maximum_minions is too low for 4 new machines
+- config:
+    minion_pool:
+      id: minion_pool_1
+      maximum_minions: 6
+      minion_machines:
+        - id: machine_1
+          allocation_status: IN_USE
+        - id: machine_2
+          allocation_status: IN_USE
+        - id: machine_3
+          allocation_status: IN_USE
+    action_instances:
+      instance_1:
+        name: Instance 1
+      instance_2:
+        name: Instance 2
+      instance_3:
+        name: Instance 3
+      instance_4:
+        name: Instance 4
+  expect:
+    exception: InvalidMinionPoolState
+
+# duplicate instance names
+- config:
+    minion_pool:
+      id: minion_pool_1
+      maximum_minions: 4
+      minion_machines:
+        - id: machine_1
+          allocation_status: AVAILABLE
+        - id: machine_2
+          allocation_status: AVAILABLE
+    action_instances:
+      - instance_1
+      - instance_1
+      - instance_2
+  expect:
+    exception: InvalidInput
+
+## SUCCESS
+
+# no new machines need to be allocated
+- config:
+    minion_pool:
+      id: minion_pool_1
+      maximum_minions: 4
+      minion_machines:
+        - id: machine_1
+          allocation_status: AVAILABLE
+        - id: machine_2
+          allocation_status: AVAILABLE
+        - id: machine_3
+          allocation_status: AVAILABLE
+        - id: machine_4
+          allocation_status: AVAILABLE
+    action_instances:
+      instance_1:
+        name: Instance 1
+      instance_2:
+        name: Instance 2
+      instance_3:
+        name: Instance 3
+      instance_4:
+        name: Instance 4
+  expect:
+    result:
+      mappings:
+        instance_1: machine_1
+        instance_2: machine_2
+        instance_3: machine_3
+        instance_4: machine_4
+      flow_allocations:
+        - pool-minion_pool_1-machine-machine_1-healthcheck
+        - pool-minion_pool_1-machine-machine_2-healthcheck
+        - pool-minion_pool_1-machine-machine_3-healthcheck
+        - pool-minion_pool_1-machine-machine_4-healthcheck
+
+# 2 new machines are allocated
+- config:
+    minion_pool:
+      id: minion_pool_1
+      maximum_minions: 5
+      minion_machines:
+        - id: machine_1
+          allocation_status: AVAILABLE
+        - id: machine_2
+          allocation_status: IN_USE
+        - id: machine_3
+          allocation_status: AVAILABLE
+    action_instances:
+      instance_1:
+        name: Instance 1
+      instance_2:
+        name: Instance 2
+      instance_3:
+        name: Instance 3
+      instance_4:
+        name: Instance 4
+  expect:
+    result:
+      mappings:
+        instance_1: machine_1
+        instance_2: machine_3
+        instance_3: new_machine
+        instance_4: new_machine
+      flow_allocations:
+        - pool-minion_pool_1-machine-machine_1-healthcheck
+        - pool-minion_pool_1-machine-machine_3-healthcheck
+        - pool-minion_pool_1-machine-new_machine-allocation
+        - pool-minion_pool_1-machine-new_machine-allocation
+
+# 3 new machines are allocated
+- config:
+    minion_pool:
+      id: minion_pool_1
+      maximum_minions: 6
+      minion_machines:
+        - id: machine_1
+          allocation_status: AVAILABLE
+        - id: machine_2
+          allocation_status: IN_USE
+        - id: machine_3
+          allocation_status: IN_USE
+    action_instances:
+      instance_1:
+        name: Instance 1
+      instance_2:
+        name: Instance 2
+      instance_3:
+        name: Instance 3
+      instance_4:
+        name: Instance 4
+  expect:
+    result:
+      mappings:
+        instance_1: machine_1
+        instance_2: new_machine
+        instance_3: new_machine
+        instance_4: new_machine
+      flow_allocations:
+        - pool-minion_pool_1-machine-machine_1-healthcheck
+        - pool-minion_pool_1-machine-new_machine-allocation
+        - pool-minion_pool_1-machine-new_machine-allocation
+        - pool-minion_pool_1-machine-new_machine-allocation
+
+# 4 new machines are allocated
+- config:
+    minion_pool:
+      id: minion_pool_1
+      maximum_minions: 7
+      minion_machines:
+        - id: machine_1
+          allocation_status: IN_USE
+        - id: machine_2
+          allocation_status: IN_USE
+        - id: machine_3
+          allocation_status: IN_USE
+    action_instances:
+      instance_1:
+        name: Instance 1
+      instance_2:
+        name: Instance 2
+      instance_3:
+        name: Instance 3
+      instance_4:
+        name: Instance 4
+  expect:
+    result:
+      mappings:
+        instance_1: new_machine
+        instance_2: new_machine
+        instance_3: new_machine
+        instance_4: new_machine
+      flow_allocations:
+        - pool-minion_pool_1-machine-new_machine-allocation
+        - pool-minion_pool_1-machine-new_machine-allocation
+        - pool-minion_pool_1-machine-new_machine-allocation
+        - pool-minion_pool_1-machine-new_machine-allocation
+
+# 1 allocated
+- config:
+    minion_pool:
+      id: minion_pool_1
+      maximum_minions: 4
+      minion_machines:
+        - id: machine_1
+          allocation_status: AVAILABLE
+    action_instances:
+      instance_1:
+        name: Instance 1
+      instance_2:
+        name: Instance 2
+      instance_3:
+        name: Instance 3
+      instance_4:
+        name: Instance 4
+  expect:
+    result:
+      mappings:
+        instance_1: machine_1
+        instance_2: new_machine
+        instance_3: new_machine
+        instance_4: new_machine
+      flow_allocations:
+        - pool-minion_pool_1-machine-machine_1-healthcheck
+        - pool-minion_pool_1-machine-new_machine-allocation
+        - pool-minion_pool_1-machine-new_machine-allocation
+        - pool-minion_pool_1-machine-new_machine-allocation

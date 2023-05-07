@@ -1,0 +1,199 @@
+# perform health checks for powered on machines
+# skip health checks for non-powered on machines
+# skip health checks for non-healthcheckable (ex. IN_USE)
+- config:
+    minion_pool:
+      id: minion_pool1
+      minimum_minions: 4
+      minion_retention_strategy: delete
+      minion_machines:
+        - id: minion1
+          allocation_status: AVAILABLE
+          power_status: POWERED_ON
+        - id: minion2
+          allocation_status: ERROR
+          power_status: POWERED_ERROR
+        - id: minion3
+          allocation_status: AVAILABLE
+          power_status: POWERED_ON
+        - id: minion4
+          allocation_status: IN_USE
+          power_status: POWERED_ON
+  expect:
+    result:
+      flow_tasks:
+        - pool-minion_pool1-machine-minion1-healthcheck
+        - pool-minion_pool1-machine-minion3-healthcheck
+      # "include" are the db calls that must be present
+      # "exclude" are the db calls that must not be present
+      db_calls:
+        include:
+          - set_minion_machine_allocation_status:
+              id: minion1
+              allocation_status: HEALTHCHECKING
+          - set_minion_machine_allocation_status:
+              id: minion3
+              allocation_status: HEALTHCHECKING
+        exclude:
+          - set_minion_machine_allocation_status:
+              id: minion2
+              allocation_status: HEALTHCHECKING
+
+# power off machines that are not needed and are expired
+- config:
+    minion_pool:
+      id: minion_pool1
+      # minimum_minions 1 means we have too many minions
+      minimum_minions: 1
+      minion_max_idle_time: 0
+      minion_retention_strategy: poweroff
+      minion_machines:
+        - id: minion1
+          allocation_status: AVAILABLE
+          power_status: POWERED_ON
+        - id: minion2
+          allocation_status: AVAILABLE
+          power_status: POWERED_ON
+          # not expired
+          last_used_at: [2099, 1, 1, 0, 0, 0]
+        - id: minion3
+          allocation_status: AVAILABLE
+          power_status: POWERED_OFF
+        - id: minion4
+          allocation_status: ERROR_DEPLOYING
+          power_status: POWERED_ON
+        - id: minion5
+          allocation_status: ERROR
+          power_status: POWERED_ERROR
+  expect:
+    result:
+      flow_tasks:
+        - pool-minion_pool1-machine-minion1-power-off
+        - pool-minion_pool1-machine-minion2-healthcheck # not expired
+        - pool-minion_pool1-machine-minion4-healthcheck
+      db_calls:
+        include:
+          - set_minion_machine_allocation_status:
+              id: minion1
+              allocation_status: POWERING_OFF
+          - set_minion_machine_allocation_status:
+              id: minion2
+              allocation_status: HEALTHCHECKING
+          - set_minion_machine_allocation_status:
+              id: minion4
+              allocation_status: HEALTHCHECKING
+        exclude:
+          - set_minion_machine_allocation_status:
+              id: minion3
+              allocation_status: POWERING_OFF
+          - set_minion_machine_allocation_status:
+              id: minion5
+              allocation_status: HEALTHCHECKING
+
+# delete machines that are not needed
+- config:
+    minion_pool:
+      id: minion_pool1
+      # minimum_minions 1 means we have too many minions
+      minimum_minions: 1
+      minion_max_idle_time: 0
+      minion_retention_strategy: delete
+      minion_machines:
+        - id: minion1
+          allocation_status: AVAILABLE
+          power_status: POWERING_OFF
+        - id: minion2
+          allocation_status: ERROR
+          power_status: POWERED_ERROR
+        - id: minion3
+          allocation_status: AVAILABLE
+          power_status: POWERED_ON
+        - id: minion4
+          allocation_status: ERROR_DEPLOYING
+          power_status: POWERED_ON
+  expect:
+    result:
+      flow_tasks:
+        - pool-minion_pool1-machine-minion1-deallocation
+        - pool-minion_pool1-machine-minion3-healthcheck
+        - pool-minion_pool1-machine-minion4-healthcheck
+      db_calls:
+        include:
+          - set_minion_machine_allocation_status:
+              id: minion1
+              allocation_status: DEALLOCATING
+          - set_minion_machine_allocation_status:
+              id: minion3
+              allocation_status: HEALTHCHECKING
+          - set_minion_machine_allocation_status:
+              id: minion4
+              allocation_status: HEALTHCHECKING
+        exclude:
+          - set_minion_machine_allocation_status:
+              id: minion2
+              allocation_status: HEALTHCHECKING
+          - set_minion_machine_allocation_status:
+              id: minion2
+              allocation_status: DEALLOCATING
+
+# invalid retention strategy
+- config:
+    minion_pool:
+      id: minion_pool1
+      # minimum_minions 1 means we have too many minions
+      minimum_minions: 1
+      minion_max_idle_time: 0
+      minion_retention_strategy: invalid
+      minion_machines:
+        - id: minion1
+          allocation_status: AVAILABLE
+          power_status: POWERING_OFF
+        - id: minion2
+          allocation_status: ERROR
+          power_status: POWERED_ERROR
+        - id: minion3
+          allocation_status: AVAILABLE
+          power_status: POWERED_ON
+        - id: minion4
+          allocation_status: ERROR_DEPLOYING
+          power_status: POWERED_ON
+  expect:
+    exception: InvalidMinionPoolState
+
+# no machines to healthcheck
+- config:
+    minion_pool:
+      id: minion_pool1
+      # minimum_minions 1 means we have too many minions
+      minimum_minions: 1
+      minion_max_idle_time: 0
+      minion_retention_strategy: poweroff
+      minion_machines:
+        - id: minion1
+          allocation_status: AVAILABLE
+          power_status: POWERED_ON
+          # is expired, no healthcheck
+          last_used_at: [2000, 1, 1, 0, 0, 0]
+        - id: minion2
+          allocation_status: AVAILABLE
+          # not powered on, no healthcheck
+          power_status: POWERED_OFF
+        - id: minion3
+          allocation_status: ERROR
+          power_status: POWERED_ERROR
+  expect:
+    result:
+      flow_tasks:
+        - pool-minion_pool1-machine-minion1-power-off
+      db_calls:
+        include:
+          - set_minion_machine_allocation_status:
+              id: minion1
+              allocation_status: POWERING_OFF
+        exclude:
+          - set_minion_machine_allocation_status:
+              id: minion2
+              allocation_status: HEALTHCHECKING
+          - set_minion_machine_allocation_status:
+              id: minion3
+              allocation_status: HEALTHCHECKING

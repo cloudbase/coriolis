@@ -715,7 +715,7 @@ class MinionManagerServerEndpoint(object):
                 " the DB for pool '%s' for use with action '%s'. Clearing "
                 "any DB entries added so far (%s). Error was: %s",
                 minion_pool.id, action_id,
-                [m.id for m in new_machine_db_entries_added],
+                new_machine_db_entries_added,
                 utils.get_exception_details())
             try:
                 LOG.debug(
@@ -739,13 +739,13 @@ class MinionManagerServerEndpoint(object):
                     utils.get_exception_details())
             for new_machine in new_machine_db_entries_added:
                 try:
-                    db_api.delete_minion_machine(ctxt, new_machine.id)
+                    db_api.delete_minion_machine(ctxt, new_machine)
                 except Exception:
                     LOG.warn(
                         "Error occurred while removing minion machine entry "
                         "'%s' from the DB. This may leave the pool in an "
                         "inconsistent state. Error trace was: %s" % (
-                            new_machine.id, utils.get_exception_details()))
+                            new_machine, utils.get_exception_details()))
                     continue
             raise
 

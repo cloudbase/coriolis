@@ -1,0 +1,389 @@
+# valid action
+- config:
+    minion_pools:
+      - id: "origin-pool-1"
+        endpoint_id: "origin-endpoint-1"
+        platform: source
+        os_type: linux
+        status: ALLOCATED
+        maximum_minions: 2
+      - id: "destination-pool-1"
+        endpoint_id: "destination-endpoint-1"
+        platform: destination
+        os_type: linux
+        status: ALLOCATED
+        maximum_minions: 3
+    action:
+      id: "action-1"
+      origin_endpoint_id: "origin-endpoint-1"
+      destination_endpoint_id: "destination-endpoint-1"
+      origin_minion_pool_id: "origin-pool-1"
+      destination_minion_pool_id: "destination-pool-1"
+      instance_osmorphing_minion_pool_mappings: {}
+      instances: ["instance-1", "instance-2"]
+  expected_exception: ~
+
+# could not find minion pool (1)
+- config:
+    minion_pools:
+      - id: "invalid id"
+    action:
+      id: "action-1"
+      origin_endpoint_id: "origin-endpoint-1"
+      destination_endpoint_id: "destination-endpoint-1"
+      origin_minion_pool_id: "origin-pool-1"
+      destination_minion_pool_id: "destination-pool-1"
+      instance_osmorphing_minion_pool_mappings: {}
+      instances: ["instance-1", "instance-2"]
+  expected_exception: NotFound
+
+# could not find minion pool (2)
+- config:
+    action:
+      id: "action-1"
+      origin_endpoint_id: "origin-endpoint-1"
+      destination_endpoint_id: "destination-endpoint-1"
+      origin_minion_pool_id: "origin-pool-1"
+      destination_minion_pool_id: "destination-pool-1"
+      instance_osmorphing_minion_pool_mappings: {}
+      instances: ["instance-1", "instance-2"]
+  expected_exception: NotFound
+
+# maxmimum minions is less than number of instances
+- config:
+    minion_pools:
+      - id: "origin-pool-1"
+        endpoint_id: "origin-endpoint-1"
+        platform: source
+        os_type: linux
+        status: ALLOCATED
+        maximum_minions: 1
+      - id: "destination-pool-1"
+        endpoint_id: "destination-endpoint-1"
+        platform: destination
+        os_type: linux
+        status: ALLOCATED
+        maximum_minions: 3
+    action:
+      id: "action-1"
+      origin_endpoint_id: "origin-endpoint-1"
+      destination_endpoint_id: "destination-endpoint-1"
+      origin_minion_pool_id: "origin-pool-1"
+      destination_minion_pool_id: "destination-pool-1"
+      instance_osmorphing_minion_pool_mappings: {}
+      instances: ["instance-1", "instance-2"]
+  expected_exception: InvalidMinionPoolSelection
+
+# minion pool is not allocated
+- config:
+    minion_pools:
+      - id: "origin-pool-1"
+        endpoint_id: "origin-endpoint-1"
+        platform: source
+        os_type: linux
+        status: ALLOCATED
+        maximum_minions: 2
+      - id: "destination-pool-1"
+        endpoint_id: "destination-endpoint-1"
+        platform: destination
+        os_type: linux
+        status: DEALLOCATED
+        maximum_minions: 3
+    action:
+      id: "action-1"
+      origin_endpoint_id: "origin-endpoint-1"
+      destination_endpoint_id: "destination-endpoint-1"
+      origin_minion_pool_id: "origin-pool-1"
+      destination_minion_pool_id: "destination-pool-1"
+      instance_osmorphing_minion_pool_mappings: {}
+      instances: ["instance-1", "instance-2"]
+  expected_exception: InvalidMinionPoolState
+
+## ORIGIN TESTS ##
+
+# origin endpoint id does not match with minion pool endpoint id
+- config:
+    minion_pools:
+      - id: "origin-pool-1"
+        endpoint_id: "invalid id"
+        platform: source
+        os_type: linux
+        status: ALLOCATED
+        maximum_minions: 2
+      - id: "destination-pool-1"
+        endpoint_id: "destination-endpoint-1"
+        platform: destination
+        os_type: linux
+        status: ALLOCATED
+        maximum_minions: 3
+    action:
+      id: "action-1"
+      origin_endpoint_id: "origin-endpoint-1"
+      destination_endpoint_id: "destination-endpoint-1"
+      origin_minion_pool_id: "origin-pool-1"
+      destination_minion_pool_id: "destination-pool-1"
+      instance_osmorphing_minion_pool_mappings: {}
+      instances: ["instance-1", "instance-2"]
+  expected_exception: InvalidMinionPoolSelection
+
+# origin pool platform is not source
+- config:
+    minion_pools:
+      - id: "origin-pool-1"
+        endpoint_id: "origin-endpoint-1"
+        platform: destination
+        os_type: linux
+        status: ALLOCATED
+        maximum_minions: 2
+      - id: "destination-pool-1"
+        endpoint_id: "destination-endpoint-1"
+        platform: destination
+        os_type: linux
+        status: ALLOCATED
+        maximum_minions: 3
+    action:
+      id: "action-1"
+      origin_endpoint_id: "origin-endpoint-1"
+      destination_endpoint_id: "destination-endpoint-1"
+      origin_minion_pool_id: "origin-pool-1"
+      destination_minion_pool_id: "destination-pool-1"
+      instance_osmorphing_minion_pool_mappings: {}
+      instances: ["instance-1", "instance-2"]
+  expected_exception: InvalidMinionPoolSelection
+
+# origin minion pool is not linux
+- config:
+    minion_pools:
+      - id: "origin-pool-1"
+        endpoint_id: "origin-endpoint-1"
+        platform: source
+        os_type: windows
+        status: ALLOCATED
+        maximum_minions: 2
+      - id: "destination-pool-1"
+        endpoint_id: "destination-endpoint-1"
+        platform: destination
+        os_type: linux
+        status: ALLOCATED
+        maximum_minions: 3
+    action:
+      id: "action-1"
+      origin_endpoint_id: "origin-endpoint-1"
+      destination_endpoint_id: "destination-endpoint-1"
+      origin_minion_pool_id: "origin-pool-1"
+      destination_minion_pool_id: "destination-pool-1"
+      instance_osmorphing_minion_pool_mappings: {}
+      instances: ["instance-1", "instance-2"]
+  expected_exception: InvalidMinionPoolSelection
+
+## DESTINATION TESTS ##
+
+# destination endpoint id does not match with minion pool endpoint id
+- config:
+    minion_pools:
+      - id: "origin-pool-1"
+        endpoint_id: "origin-endpoint-1"
+        platform: source
+        os_type: linux
+        status: ALLOCATED
+        maximum_minions: 2
+      - id: "destination-pool-1"
+        endpoint_id: "invalid id"
+        platform: destination
+        os_type: linux
+        status: ALLOCATED
+        maximum_minions: 3
+    action:
+      id: "action-1"
+      origin_endpoint_id: "origin-endpoint-1"
+      destination_endpoint_id: "destination-endpoint-1"
+      origin_minion_pool_id: "origin-pool-1"
+      destination_minion_pool_id: "destination-pool-1"
+      instance_osmorphing_minion_pool_mappings: {}
+      instances: ["instance-1", "instance-2"]
+  expected_exception: InvalidMinionPoolSelection
+
+# destination pool platform is not destination
+- config:
+    minion_pools:
+      - id: "origin-pool-1"
+        endpoint_id: "origin-endpoint-1"
+        platform: source
+        os_type: linux
+        status: ALLOCATED
+        maximum_minions: 2
+      - id: "destination-pool-1"
+        endpoint_id: "destination-endpoint-1"
+        platform: source
+        os_type: linux
+        status: ALLOCATED
+        maximum_minions: 3
+    action:
+      id: "action-1"
+      origin_endpoint_id: "origin-endpoint-1"
+      destination_endpoint_id: "destination-endpoint-1"
+      origin_minion_pool_id: "origin-pool-1"
+      destination_minion_pool_id: "destination-pool-1"
+      instance_osmorphing_minion_pool_mappings: {}
+      instances: ["instance-1", "instance-2"]
+  expected_exception: InvalidMinionPoolSelection
+
+# destination minion pool is not linux
+- config:
+    minion_pools:
+      - id: "origin-pool-1"
+        endpoint_id: "origin-endpoint-1"
+        platform: source
+        os_type: linux
+        status: ALLOCATED
+        maximum_minions: 2
+      - id: "destination-pool-1"
+        endpoint_id: "destination-endpoint-1"
+        platform: destination
+        os_type: windows
+        status: ALLOCATED
+        maximum_minions: 3
+    action:
+      id: "action-1"
+      origin_endpoint_id: "origin-endpoint-1"
+      destination_endpoint_id: "destination-endpoint-1"
+      origin_minion_pool_id: "origin-pool-1"
+      destination_minion_pool_id: "destination-pool-1"
+      instance_osmorphing_minion_pool_mappings: {}
+      instances: ["instance-1", "instance-2"]
+  expected_exception: InvalidMinionPoolSelection
+
+# OSMORPHING TESTS ##
+
+# valid action with os morphing mappings (1)
+- config:
+    minion_pools:
+      - id: "origin-pool-1"
+        endpoint_id: "origin-endpoint-1"
+        platform: source
+        os_type: linux
+        status: ALLOCATED
+        maximum_minions: 2
+      - id: "destination-pool-1"
+        endpoint_id: "destination-endpoint-1"
+        platform: destination
+        os_type: linux
+        status: ALLOCATED
+        maximum_minions: 3
+    action:
+      id: "action-1"
+      origin_endpoint_id: "origin-endpoint-1"
+      destination_endpoint_id: "destination-endpoint-1"
+      origin_minion_pool_id: "origin-pool-1"
+      destination_minion_pool_id: "destination-pool-1"
+      instance_osmorphing_minion_pool_mappings:
+        instance-1: "destination-pool-1"
+      instances: ["instance-1", "instance-2"]
+  expected_exception: ~
+# valid action with os morphing mappings (2)
+
+- config:
+    minion_pools:
+      - id: "origin-pool-1"
+        endpoint_id: "origin-endpoint-1"
+        platform: source
+        os_type: linux
+        status: ALLOCATED
+        maximum_minions: 2
+      - id: "destination-pool-1"
+        endpoint_id: "destination-endpoint-1"
+        platform: destination
+        os_type: linux
+        status: ALLOCATED
+        maximum_minions: 3
+    action:
+      id: "action-1"
+      origin_endpoint_id: "origin-endpoint-1"
+      destination_endpoint_id: "destination-endpoint-1"
+      origin_minion_pool_id: "origin-pool-1"
+      destination_minion_pool_id: "destination-pool-1"
+      instance_osmorphing_minion_pool_mappings:
+        instance-1: "destination-pool-1"
+        instance-2: "destination-pool-1"
+      instances: ["instance-1", "instance-2"]
+  expected_exception: ~
+
+# pool belongs to origin endpoint
+- config:
+    minion_pools:
+      - id: "origin-pool-1"
+        endpoint_id: "origin-endpoint-1"
+        platform: source
+        os_type: linux
+        status: ALLOCATED
+        maximum_minions: 2
+      - id: "destination-pool-1"
+        endpoint_id: "destination-endpoint-1"
+        platform: destination
+        os_type: linux
+        status: ALLOCATED
+        maximum_minions: 3
+    action:
+      id: "action-1"
+      origin_endpoint_id: "origin-endpoint-1"
+      destination_endpoint_id: "destination-endpoint-1"
+      origin_minion_pool_id: "origin-pool-1"
+      destination_minion_pool_id: "destination-pool-1"
+      instance_osmorphing_minion_pool_mappings:
+        instance-1: "origin-pool-1"
+        instance-2: "destination-pool-1"
+      instances: ["instance-1", "instance-2"]
+  expected_exception: InvalidMinionPoolSelection
+
+# os morphing pool platform is not destination
+- config:
+    minion_pools:
+      - id: "origin-pool-1"
+        endpoint_id: "destination-endpoint-1"
+        platform: source
+        os_type: linux
+        status: ALLOCATED
+        maximum_minions: 2
+      - id: "destination-pool-1"
+        endpoint_id: "destination-endpoint-1"
+        platform: destination
+        os_type: linux
+        status: ALLOCATED
+        maximum_minions: 3
+    action:
+      id: "action-1"
+      origin_endpoint_id: "origin-endpoint-1"
+      destination_endpoint_id: "destination-endpoint-1"
+      origin_minion_pool_id: ~
+      destination_minion_pool_id: ~
+      instance_osmorphing_minion_pool_mappings:
+        instance-1: "origin-pool-1"
+        instance-2: "destination-pool-1"
+      instances: ["instance-1", "instance-2"]
+  expected_exception: InvalidMinionPoolSelection
+
+# os morphing mapping with invalid instance ID should get ignored
+- config:
+    minion_pools:
+      - id: "origin-pool-1"
+        endpoint_id: "origin-endpoint-1"
+        platform: source
+        os_type: linux
+        status: ALLOCATED
+        maximum_minions: 2
+      - id: "destination-pool-1"
+        endpoint_id: "destination-endpoint-1"
+        platform: destination
+        os_type: linux
+        status: ALLOCATED
+        maximum_minions: 3
+    action:
+      id: "action-1"
+      origin_endpoint_id: "origin-endpoint-1"
+      destination_endpoint_id: "destination-endpoint-1"
+      origin_minion_pool_id: "origin-pool-1"
+      destination_minion_pool_id: "destination-pool-1"
+      instance_osmorphing_minion_pool_mappings:
+        invalid-instance-id: "destination-pool-1"
+      instances: ["instance-1", "instance-2"]
+  expected_exception: ~
