@@ -2,7 +2,7 @@
 
 
 # Options and prompt definitions:
-OPTIONS=("Show Appliance Stats" "Show UI Login Details" "Edit/Inspect Coriolis Configuration" "Edit/Inspect Network Settings" "Expose Coriolis Services Endpoints" "Add Certificate to Coriolis Worker" "Restore to default Coriolis Worker certificate chain" "Restart Coriolis Services")
+OPTIONS=("Show Appliance Stats" "Show UI Login Details" "Edit/Inspect Coriolis Configuration" "Edit/Inspect Network Settings" "Edit/Inspect Proxy Settings" "Expose Coriolis Services Endpoints" "Add Certificate to Coriolis Worker" "Restore to default Coriolis Worker certificate chain" "Restart Coriolis Services")
 
 WELCOME_PROMPT=$(cat <<EOP
 Welcome to the Coriolis Appliance Interactive User Console!
@@ -66,6 +66,13 @@ please make sure no running executions are active.\n\n
 EOP
 )
 
+PROXY_SETTINGS=$(cat <<EOP
+This will set-up HTTP/HTTPS/NO PROXY environment variables in coriolis-worker docker container.
+
+WARNING: This operation requires restarting all Coriolis containers and docker service,
+please make sure no running executions are active.\n\n
+EOP
+)
 
 ADD_CERTIFICATE_TO_WORKER_PROMPT=$(cat <<EOP
 This option will append a PEM-encoded certificate to the worker, so it will be able to connect to certain
@@ -94,7 +101,7 @@ CONSOLE_SCRIPT_LOG_FILE="$LOGDIR/coriolis-console-script.log"
 # General constants:
 LANDSCAPE_SYSINFO_FILE_PATH=/etc/update-motd.d/50-landscape-sysinfo
 TMP_WORKER_CERTIFICATE_PATH=/etc/coriolis/tmp-worker-cert.pem
-
+DOCKER_CONTAINERS_FOLDER="/var/lib/docker/containers"
 
 # Logs all given args to the $CONSOLE_SCRIPT_LOG_FILE
 function log-console-message {
@@ -247,6 +254,66 @@ function restore-certificate-chain {
     fi
 }
 
+function display-proxy-settings {
+    CURR_PROXY_SETTINGS=$(run-logged-command "docker exec -ti coriolis-worker env|grep PROXY")
+    echo -e "Current Proxy settings:\n$CURR_PROXY_SETTINGS\n"
+}
+
+#checks coriolis-worker .json configuration file for env. var. existence and creates new/updates values
+#$1 argument ccontains the env. variable name, $2 the value of it, $3 coriolis-worker container .json configuration file path
+function apply-proxy-variable {
+    VAR_PRESENT=$(run-logged-command "jq --arg value $1 '.Config.Env | contains(["'$value'"])' $2")
+    if [[ $VAR_PRESENT == "true" ]]; then
+        run-logged-command "jq --arg var1 $1 --arg value $1=$3 '(.Config.Env[] | select(contains("'$var1'"))) |= "'($value ? // .)'"' $2 > "$2.tmp" && mv "$2.tmp" "$2""
+    else
+        run-logged-command "jq --arg var1 $1 --arg value $1=$3 '(.Config.Env += ["'$value'"])' $2 > "$2.tmp" && mv "$2.tmp" "$2""
+    fi
+}
+
+#127.0.0.1 and Coriolis Appliance IP@ needs to skip proxy since Coriolis internal endpoints are using it.
+function add-proxy {
+    printf "$PROXY_SETTINGS"
+    WORKER_CONT_ID=$(run-logged-command 'docker inspect --format="{{.Id}}" coriolis-worker')
+    WORKER_CONT_CONF_FILE="$DOCKER_CONTAINERS_FOLDER/$WORKER_CONT_ID/config.v2.json"
+    IP_ADDR=`get-main-ip-address`
+
+    display-proxy-settings
+    CONTINUE_SETUP=`prompt-for-confirmation-word "Continue setting-up proxy environment variables? "`
+    if [ "$CONTINUE_SETUP" = "0" ]; then
+        echo
+        return
+    fi
+
+    read -p "Enter HTTP proxy ( http://<HOST>:<PORT>, Enter=None ): " PROXY_HTTP
+    read -p "Enter HTTPS proxy ( http(s)://<HOST>:<PORT>, Enter=None ): " PROXY_HTTPS
+    read -p "Enter NO proxy ( *.test.example.com,.example2.com ): " PROXY_SKIP
+    APPLY_PROXY_WORKER=`prompt-for-confirmation-word "Apply Proxy settings to Coriolis Worker container? "`
+    if [ "$APPLY_PROXY_WORKER" = "1" ]; then
+        echo
+        echo 'Stopping coriolis-worker container'
+        run-logged-command "docker stop coriolis-worker 2>&1 > /dev/null"
+        if ! [ $? -eq 0 ]; then
+            echo "ERROR: Failed to stop coriolis-worker container."
+            return
+        fi
+        apply-proxy-variable HTTP_PROXY $WORKER_CONT_CONF_FILE $PROXY_HTTP
+        apply-proxy-variable HTTPS_PROXY $WORKER_CONT_CONF_FILE $PROXY_HTTPS
+        apply-proxy-variable NO_PROXY $WORKER_CONT_CONF_FILE 127.0.0.1,$IP_ADDR,$PROXY_SKIP
+        echo "Restarting docker service."
+        run-logged-command "systemctl restart docker"
+        echo "Starting coriolis-worker container."
+        run-logged-command "docker start coriolis-worker 2>&1 > /dev/null"
+        if ! [ $? -eq 0 ]; then
+            echo "ERROR: Failed to start coriolis-worker container."
+            return
+        fi
+        display-proxy-settings
+    else
+        echo
+        echo 'Proxy settings not applied to Coriolis Worker container.'
+    fi
+}
+
 function interact {
     echo "$OPTIONS_PROMPT"
     PS3="Select option: "
@@ -269,6 +336,10 @@ function interact {
                         run-coriolis-console-editor-shell "$EDITING_CONTAINER_CONSOLE_PROMPT_NETWORKING"
                         netplan apply
                         confirm-restart-coriolis-containers
+            break
+                        ;;
+                "Edit/Inspect Proxy Settings")
+                        add-proxy
             break
                         ;;
                 "Expose Coriolis Services Endpoints")
