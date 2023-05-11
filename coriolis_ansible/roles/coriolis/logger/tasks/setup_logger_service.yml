@@ -27,3 +27,9 @@
 
 - name: Enable coriolis-logger service
   shell: "systemctl -q enable --now coriolis-logger"
+
+- name: Waiting for logger socket file
+  ansible.builtin.wait_for:
+    path: /var/run/coriolis-logger/logger.socket
+    state: present
+    msg: Timed out waiting for /var/run/coriolis-logger/logger.socket file
