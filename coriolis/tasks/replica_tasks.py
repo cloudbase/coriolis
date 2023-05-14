@@ -31,24 +31,35 @@ def _check_ensure_volumes_info_ordering(export_info, volumes_info):
     instance = export_info.get(
         'instance_name',
         export_info.get('name', export_info['id']))
+
+    vol_info_cpy = utils.sanitize_task_info(
+        {"volumes_info": volumes_info}).get("volumes_info", [])
+
     ordered_volumes_info = []
     for disk in export_info['devices']['disks']:
         disk_id = disk['id']
         matching_volumes = [
             vol for vol in volumes_info if vol['disk_id'] == disk_id]
         if not matching_volumes:
-            raise exception.InvalidActionTasksExecutionState(
+            LOG.error(
                 "Could not find source disk '%s' (ID '%s') in Replica "
-                "volumes info: %s" % (disk, disk_id, volumes_info))
-        elif len(matching_volumes) > 1:
+                "volumes info: %s", disk, disk_id, vol_info_cpy)
             raise exception.InvalidActionTasksExecutionState(
-                "Multiple disks with ID '%s' foind in Replica "
-                "volumes info: %s" % (disk_id, volumes_info))
+                "Source disk with ID '%s' not recognized. If this disk is "
+                "newly added to the instance, please make sure to Execute the "
+                "Replica before Updating. Check logs for more "
+                "information." % disk_id)
+        elif len(matching_volumes) > 1:
+            LOG.error(
+                "Multiple disks with ID '%s' found in Replica volumes "
+                "info: %s", disk_id, vol_info_cpy)
+            raise exception.InvalidActionTasksExecutionState(
+                "Multiple disks with ID '%s' found in Replica volumes info. "
+                "Please check that the instance doesn't have the same volume "
+                "attached twice, or whether there's a UUID collision between "
+                "its disks. Check the logs for more information." % disk_id)
 
         ordered_volumes_info.append(matching_volumes[0])
-
-    vol_info_cpy = utils.sanitize_task_info(
-        {"volumes_info": volumes_info}).get("volumes_info", [])
 
     ordered_vol_info_cpy = utils.sanitize_task_info(
         {"volumes_info": ordered_volumes_info}).get("volumes_info", [])
