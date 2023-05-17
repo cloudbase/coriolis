@@ -3,6 +3,6 @@ coriolis_metal_hub_database_username: metal
 coriolis_metal_hub_docker_image_url: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-metal-hub:{{ coriolis_metal_hub_docker_image_tag }}"
 coriolis_metal_hub_syslog_socket_address: "unixgram://{{ coriolis_logger_socket_file }}"
 
-step_ca_version: 0.19.0
+step_ca_version: 0.24.4
 step_ca_image: "smallstep/step-ca:{{ step_ca_version }}"
 step_ca_port: 9000
