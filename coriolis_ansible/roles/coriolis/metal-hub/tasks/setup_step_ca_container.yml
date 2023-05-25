@@ -1,4 +1,11 @@
 ---
+- name: Create password for step-ca initialisation
+  shell: "/usr/bin/openssl rand -base64 32"
+  register: step_password
+  retries: 10
+  delay: 5
+  until: step_password is succeeded
+
 - name: Setup step-ca container
   docker_container:
     name: step-ca
@@ -13,5 +20,6 @@
     env:
       DOCKER_STEPCA_INIT_NAME: "MetalHubCA"
       DOCKER_STEPCA_INIT_DNS_NAMES: "localhost,coriolis,{{ bind_address }}"
+      DOCKER_STEPCA_INIT_PASSWORD: "{{ step_password.stdout }}"
     volumes:
       - "{{ step_ca_home }}:/home/step:rw"
