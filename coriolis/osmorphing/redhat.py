@@ -276,28 +276,7 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         self._yum_uninstall(package_names)
 
     def _run_dracut(self):
-        self._run_dracut_base('kernel')
-
-    def _run_dracut_base(self, rpm_base_name):
-        package_names = []
-        try:
-            package_names = self._exec_cmd_chroot(
-                'rpm -q %s' % rpm_base_name).decode().splitlines()
-        except Exception as ex:
-            self._event_manager.progress_update(
-                "Failed to query kernel package name: '%s'. Unable to rebuild"
-                " initrd for the new platform" % rpm_base_name)
-            LOG.exception(ex)
-
-        for package_name in package_names:
-            m = re.match('^%s-(.*)$' % rpm_base_name, package_name)
-            if m:
-                kernel_version = m.groups()[0]
-                self._event_manager.progress_update(
-                    "Generating initrd for kernel: %s" % kernel_version)
-                self._exec_cmd_chroot(
-                    "dracut -f /boot/initramfs-%(version)s.img %(version)s" %
-                    {"version": kernel_version})
+        self._exec_cmd_chroot("dracut --regenerate-all -f")
 
     def _set_network_nozeroconf_config(self):
         network_cfg_file = "etc/sysconfig/network"

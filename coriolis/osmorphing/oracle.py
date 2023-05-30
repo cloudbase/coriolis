@@ -20,10 +20,6 @@ class BaseOracleMorphingTools(redhat.BaseRedHatMorphingTools):
         return cls._version_supported_util(
             detected_os_info['release_version'], minimum=6)
 
-    def _run_dracut(self):
-        self._run_dracut_base('kernel')
-        self._run_dracut_base('kernel-uek')
-
     def _get_oracle_repos(self):
         repos = []
         major_version = int(self._version.split(".")[0])
