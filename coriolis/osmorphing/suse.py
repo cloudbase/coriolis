@@ -63,17 +63,7 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
         pass
 
     def _run_dracut(self):
-        package_names = self._exec_cmd_chroot(
-            'rpm -q kernel-default').decode().splitlines()
-        for package_name in package_names:
-            m = re.match(r'^kernel-default-(.*)\.\d\..*$', package_name)
-            if m:
-                kernel_version = "%s-default" % m.groups()[0]
-                self._event_manager.progress_update(
-                    "Generating initrd for kernel: %s" % kernel_version)
-                self._exec_cmd_chroot(
-                    "dracut -f /boot/initrd-%(version)s %(version)s" %
-                    {"version": kernel_version})
+        self._exec_cmd_chroot("dracut --regenerate-all -f")
 
     def _run_mkinitrd(self):
         self._event_manager.progress_update("Rebuilding initrds")
