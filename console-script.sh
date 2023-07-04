@@ -168,6 +168,11 @@ function print-ui-details {
 
 # Restarts all Coriolis service containers. (including currently stopped ones)
 function restart-coriolis-containers {
+    echo "Restarting Coriolis Logger service."
+    run-logged-command "systemctl restart coriolis-logger.service"
+    if [ $? -eq 0 ]; then
+        echo "Successfully restarted Coriolis Logger Service."
+    fi
     echo "Restarting Coriolis Service containers."
     run-logged-command "docker restart $(get-coriolis-containers)"
     if [ $? -eq 0 ]; then
