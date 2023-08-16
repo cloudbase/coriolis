@@ -1,0 +1,26 @@
+- config:
+    task_status: CANCELLING_AFTER_COMPLETION
+  expected_status: CANCELED_AFTER_COMPLETION
+- config:
+    task_status: CANCELLING
+  expected_status: CANCELED_AFTER_COMPLETION
+- config:
+    task_status: FAILED_TO_CANCEL
+  expected_status: CANCELED_AFTER_COMPLETION
+- config:
+    task_status: COMPLETED
+  expected_status: ~
+- config:
+    task_status: ERROR
+  expected_status: ~
+- config:
+    task_status: UNSCHEDULED
+  expected_status: ~
+- config:
+    task_status: RUNNING
+    has_exception_details: false
+  expected_status: COMPLETED
+- config:
+    task_status: PENDING
+    has_exception_details: false
+  expected_status: COMPLETED

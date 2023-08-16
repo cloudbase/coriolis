@@ -4,9 +4,10 @@
 import copy
 import ddt
 import uuid
+
 from unittest import mock
 
-from coriolis import constants, exception
+from coriolis import constants, exception, schemas, utils
 from coriolis.conductor.rpc import server
 from coriolis.db import api as db_api
 from coriolis.db.sqlalchemy import models
@@ -14,6 +15,7 @@ from coriolis.licensing import client as licensing_client
 from coriolis.tests import test_base, testutils
 from coriolis.worker.rpc import client as rpc_worker_client
 from oslo_concurrency import lockutils
+from oslo_config import cfg
 
 
 @ddt.ddt
@@ -584,7 +586,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     def test_get_provider_schemas(
             self, mock_service_definition, mock_scheduler_client
     ):
-        schemas = self.server.get_provider_schemas(
+        provider_schemas = self.server.get_provider_schemas(
             mock.sentinel.context,
             mock.sentinel.platform_name,
             mock.sentinel.provider_type,
@@ -599,7 +601,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
                 mock.sentinel.provider_type,
                 )
         self.assertEqual(
-            schemas,
+            provider_schemas,
             mock_service_definition.return_value
             .get_provider_schemas.return_value,
         )
@@ -1839,3 +1841,1296 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         )
 
         self.assertEqual(migration, mock_get_migration.return_value)
+
+    @mock.patch.object(db_api, 'get_tasks_execution')
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        '_set_tasks_execution_status',
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        '_advance_execution_state',
+    )
+    @mock.patch.object(db_api, 'set_task_status')
+    @mock.patch.object(
+        rpc_worker_client,
+        'WorkerClient',
+    )
+    def test_cancel_tasks_execution_no_config(
+            self,
+            mock_worker_client,
+            mock_set_task_status,
+            mock_advance_execution_state,
+            mock_set_tasks_execution_status,
+            mock_get_tasks_execution
+    ):
+        execution = mock.Mock(
+            id=mock.sentinel.execution_id,
+            tasks=[],
+        )
+
+        def call_cancel_tasks_execution(
+                requery=False,
+                force=False,
+        ):
+            self.server._cancel_tasks_execution(
+                mock.sentinel.context,
+                execution,
+                requery=requery,
+                force=force,
+            )
+
+        call_cancel_tasks_execution(requery=True)
+        mock_get_tasks_execution.assert_called_once_with(
+            mock.sentinel.context,
+            execution.id,
+        )
+
+        mock_get_tasks_execution.reset_mock()
+        execution.status = constants.EXECUTION_STATUS_RUNNING
+
+        call_cancel_tasks_execution()
+        # no requery
+        mock_get_tasks_execution.assert_not_called()
+        mock_set_tasks_execution_status.assert_called_once_with(
+            mock.sentinel.context,
+            execution,
+            constants.EXECUTION_STATUS_CANCELLING,
+        )
+
+        mock_advance_execution_state.reset_mock()
+        execution.status = constants.EXECUTION_STATUS_CANCELLING
+        call_cancel_tasks_execution()
+        mock_advance_execution_state.assert_called_once_with(
+            mock.sentinel.context,
+            execution,
+            requery=True,
+        )
+
+        # execution is in finalized state
+        mock_advance_execution_state.reset_mock()
+        execution.status = constants.TASK_STATUS_COMPLETED
+        call_cancel_tasks_execution()
+        mock_advance_execution_state.assert_not_called()
+
+        # for a RUNNING task with no on_error and not forced
+        # worker_rpc.cancel_task should be called
+        mock_set_task_status.reset_mock()
+        mock_worker_client.return_value.cancel_task.reset_mock()
+        execution.status = constants.EXECUTION_STATUS_RUNNING
+        execution.tasks = [
+            mock.Mock(
+                index=1,
+                status=constants.TASK_STATUS_RUNNING,
+                depends_on=None,
+                on_error=False,
+            )
+        ]
+        call_cancel_tasks_execution()
+        mock_worker_client.return_value.cancel_task\
+            .assert_called_once_with(
+                mock.sentinel.context,
+                execution.tasks[0].id,
+                execution.tasks[0].process_id,
+                False
+            )
+
+        # if worker_rpc.cancel_task fails
+        # _set_task_status should be called with FAILED_TO_CANCEL
+        mock_set_task_status.reset_mock()
+        mock_worker_client.return_value.cancel_task\
+            .side_effect = Exception()
+        call_cancel_tasks_execution()
+        mock_set_task_status.assert_any_call(
+            mock.sentinel.context,
+            execution.tasks[0].id,
+            constants.TASK_STATUS_FAILED_TO_CANCEL,
+            exception_details=mock.ANY,
+        )
+
+    @mock.patch.object(db_api, 'get_tasks_execution')
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        '_set_tasks_execution_status',
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        '_advance_execution_state',
+    )
+    @mock.patch.object(db_api, 'set_task_status')
+    @mock.patch.object(
+        rpc_worker_client,
+        'WorkerClient',
+    )
+    @ddt.file_data("data/cancel_tasks_execution_config.yml")
+    @ddt.unpack
+    def test_cancel_tasks_execution(
+            self,
+            mock_worker_client,  # pylint: disable=unused-argument
+            mock_set_task_status,
+            mock_advance_execution_state,  # pylint: disable=unused-argument
+            mock_set_tasks_execution_status,  # pylint: disable=unused-argument
+            mock_get_tasks_execution,  # pylint: disable=unused-argument
+            config,
+            expected_status,
+    ):
+        force = config.get('force', False)
+        tasks = config.get('tasks', [])
+        on_error = config.get('on_error')
+        hides_exception_details = config.get('hides_exception_details', False)
+        depends_on = config.get('depends_on') and [
+            mock.sentinel.depends_on
+        ]
+        execution = mock.Mock(
+            id=mock.sentinel.execution_id,
+            status=constants.EXECUTION_STATUS_RUNNING,
+            tasks=[
+                mock.Mock(
+                    id=f"task-{t}",
+                    index=i,
+                    status=t,
+                    depends_on=depends_on,
+                    on_error=on_error,
+                ) for i, t in enumerate(tasks)
+            ]
+        )
+
+        self.server._cancel_tasks_execution(
+            mock.sentinel.context,
+            execution,
+            requery=False,
+            force=force,
+        )
+
+        if not expected_status:
+            mock_set_task_status.assert_not_called()
+            return
+
+        for execution_task in execution.tasks:
+            kwargs = {'exception_details': mock.ANY}
+            if hides_exception_details:
+                kwargs = {}
+            mock_set_task_status.assert_has_calls([
+                mock.call(
+                    mock.sentinel.context,
+                    execution_task.id,
+                    expected_status,
+                    **kwargs
+                )
+            ])
+
+    @mock.patch.object(db_api, 'set_task_status')
+    @mock.patch.object(db_api, 'set_task_host_properties')
+    @mock.patch.object(db_api, 'get_task')
+    def test_set_task_host(
+            self,
+            mock_get_task,
+            mock_set_task_host_properties,
+            mock_set_task_status,
+    ):
+        def call_set_task_host():
+            testutils.get_wrapped_function(
+                self.server.set_task_host
+            )(
+                self.server,
+                mock.sentinel.context,
+                mock.sentinel.task_id,
+                mock.sentinel.host,  # type: ignore
+            )
+
+        # task status is not expected
+        self.assertRaises(
+            exception.InvalidTaskState,
+            call_set_task_host,
+        )
+
+        mock_get_task.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.task_id,
+        )
+
+        mock_get_task.return_value.status = constants.TASK_STATUS_CANCELLING
+        self.assertRaises(
+            exception.TaskIsCancelling,
+            call_set_task_host
+        )
+
+        mock_get_task.return_value.status = constants\
+            .TASK_STATUS_CANCELLING_AFTER_COMPLETION
+        call_set_task_host()
+        mock_set_task_host_properties.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.task_id,
+            host=mock.sentinel.host
+        )
+        mock_set_task_status.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.task_id,
+            constants.TASK_STATUS_CANCELLING_AFTER_COMPLETION,
+            exception_details=mock.ANY,
+        )
+
+        mock_set_task_status.reset_mock()
+        mock_get_task.return_value.status = constants.TASK_STATUS_PENDING
+        call_set_task_host()
+        mock_set_task_status.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.task_id,
+            constants.TASK_STATUS_STARTING,
+            exception_details=None,
+        )
+
+    @mock.patch.object(db_api, 'set_task_status')
+    @mock.patch.object(db_api, 'set_task_host_properties')
+    @mock.patch.object(db_api, 'get_task')
+    def test_set_task_process(
+            self,
+            mock_get_task,
+            mock_set_task_host_properties,
+            mock_set_task_status,
+    ):
+        def call_set_task_host():
+            testutils.get_wrapped_function(
+                self.server.set_task_process
+            )(
+                self.server,
+                mock.sentinel.context,
+                mock.sentinel.task_id,
+                mock.sentinel.process_id,  # type: ignore
+            )
+
+        # task status is not in accepted state
+        with self.assertRaisesRegex(
+                exception.InvalidTaskState,
+                "expected statuses",
+            ):
+            call_set_task_host()
+
+        mock_get_task.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.task_id,
+        )
+
+        # task is in acceptable state
+        mock_get_task.return_value.status = constants.TASK_STATUS_STARTING
+        call_set_task_host()
+        mock_set_task_host_properties.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.task_id,
+            process_id=mock.sentinel.process_id
+        )
+        mock_set_task_status.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.task_id,
+            constants.TASK_STATUS_RUNNING,
+        )
+
+        # task has no host
+        mock_get_task.return_value = mock.Mock(
+            host=None,
+        )
+        with self.assertRaisesRegex(
+                exception.InvalidTaskState,
+                "has no host",
+            ):
+            call_set_task_host()
+
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        '_set_tasks_execution_status'
+    )
+    @mock.patch.object(db_api, 'set_task_status')
+    @mock.patch.object(db_api, 'get_tasks_execution')
+    def test_check_clean_execution_deadlock(
+            self,
+            mock_get_tasks_execution,
+            mock_set_task_status,
+            mock_set_tasks_execution_status,
+    ):
+        execution = mock.Mock(
+            id=mock.sentinel.execution_id,
+        )
+
+        def call_check_clean_execution_deadlock(
+                task_statuses=None,
+                requery=False,
+        ):
+            return self.server._check_clean_execution_deadlock(
+                mock.sentinel.context,
+                execution,
+                task_statuses=task_statuses,
+                requery=requery,
+            )
+
+        # requery with default task_statuses
+        determined_state = call_check_clean_execution_deadlock(requery=True)
+        mock_get_tasks_execution.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.execution_id,
+        )
+        # RUNNING is default state
+        self.assertEqual(
+            determined_state,
+            constants.EXECUTION_STATUS_RUNNING
+        )
+
+        # is deadlocked with 2 tasks that should be stranded
+        task_statuses = {
+            mock.sentinel.task_1: constants.TASK_STATUS_SCHEDULED,
+            mock.sentinel.task_2: constants.TASK_STATUS_ON_ERROR_ONLY,
+        }
+        determined_state = call_check_clean_execution_deadlock(
+            task_statuses=task_statuses,
+        )
+        mock_set_task_status.assert_has_calls([
+            mock.call(
+                mock.sentinel.context,
+                mock.sentinel.task_1,
+                constants.TASK_STATUS_CANCELED_FROM_DEADLOCK,
+                exception_details=mock.ANY,
+            ),
+            mock.call(
+                mock.sentinel.context,
+                mock.sentinel.task_2,
+                constants.TASK_STATUS_CANCELED_FROM_DEADLOCK,
+                exception_details=mock.ANY,
+            ),
+        ])
+        mock_set_tasks_execution_status.assert_called_once_with(
+            mock.sentinel.context,
+            execution,
+            constants.EXECUTION_STATUS_DEADLOCKED,
+        )
+        self.assertEqual(
+            determined_state,
+            constants.EXECUTION_STATUS_DEADLOCKED
+        )
+
+        # has a pending task, not deadlocked
+        task_statuses = {
+            mock.sentinel.task_1: constants.TASK_STATUS_SCHEDULED,
+            mock.sentinel.task_2: constants.TASK_STATUS_PENDING,
+        }
+        mock_set_task_status.reset_mock()
+        mock_set_tasks_execution_status.reset_mock()
+        determined_state = call_check_clean_execution_deadlock(
+            task_statuses=task_statuses,
+        )
+        mock_set_task_status.assert_not_called()
+        mock_set_tasks_execution_status.assert_not_called()
+        self.assertEqual(
+            determined_state,
+            constants.EXECUTION_STATUS_RUNNING
+        )
+
+        # deadlocked with 2 tasks but one is not stranded
+        task_statuses = {
+            mock.sentinel.task_1: constants.TASK_STATUS_SCHEDULED,
+            mock.sentinel.task_2: constants.TASK_STATUS_ERROR,
+        }
+        determined_state = call_check_clean_execution_deadlock(
+            task_statuses=task_statuses,
+        )
+        mock_set_task_status.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.task_1,
+            constants.TASK_STATUS_CANCELED_FROM_DEADLOCK,
+            exception_details=mock.ANY,
+        )
+        mock_set_tasks_execution_status.assert_called_once_with(
+            mock.sentinel.context,
+            execution,
+            constants.EXECUTION_STATUS_DEADLOCKED,
+        )
+        self.assertEqual(
+            determined_state,
+            constants.EXECUTION_STATUS_DEADLOCKED
+        )
+
+    @mock.patch.object(db_api, 'get_tasks_execution')
+    def test_get_execution_status_no_config(
+            self,
+            mock_get_tasks_execution,
+    ):
+        execution = mock.Mock(
+            id=mock.sentinel.execution_id,
+        )
+
+        def call_get_execution_status(
+                requery=False,
+        ):
+            return self.server._get_execution_status(
+                mock.sentinel.context,
+                execution,
+                requery=requery,
+            )
+
+        # task is requeried
+        status = call_get_execution_status(requery=True)
+        mock_get_tasks_execution.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.execution_id,
+        )
+        # default state is COMPLETED
+        self.assertEqual(
+            status,
+            constants.EXECUTION_STATUS_COMPLETED
+        )
+
+    @ddt.file_data("data/get_execution_status_config.yml")
+    @ddt.unpack
+    def test_get_execution_status(
+            self,
+            config,
+            expected_status
+    ):
+        tasks = config.get('tasks', [])
+        execution = mock.Mock(
+            id=mock.sentinel.execution_id,
+            tasks=[
+                mock.Mock(
+                    id=f'task_{status}',
+                    status=status,
+                ) for status in tasks
+            ],
+        )
+        status = self.server._get_execution_status(
+            mock.sentinel.context,
+            execution,
+            requery=False,
+        )
+        self.assertEqual(status, expected_status)
+
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        '_set_tasks_execution_status'
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        '_get_execution_status'
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        '_cancel_tasks_execution'
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        '_get_worker_service_rpc_for_task'
+    )
+    @mock.patch.object(db_api, 'set_task_status')
+    @mock.patch.object(db_api, 'get_endpoint')
+    @mock.patch.object(db_api, 'get_action')
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        '_get_task_destination'
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        '_get_task_origin'
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        '_check_clean_execution_deadlock'
+    )
+    @mock.patch.object(db_api, 'get_tasks_execution')
+    def test_advance_execution_state_no_config(
+            self,
+            mock_get_tasks_execution,
+            mock_check_clean_execution_deadlock,
+            mock_get_task_origin,
+            mock_get_task_destination,
+            mock_get_action,
+            mock_get_endpoint,
+            mock_set_task_status,  # pylint: disable=unused-argument
+            mock_get_worker_service_rpc_for_task,
+            mock_cancel_tasks_execution,
+            mock_get_execution_status,
+            mock_set_tasks_execution_status,
+    ):
+        # no active status and requery
+        started_tasks = self.server._advance_execution_state(
+            mock.sentinel.context,
+            mock.Mock(
+                id=mock.sentinel.execution_id,
+            ),
+        )
+        mock_get_tasks_execution.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.execution_id,
+        )
+        mock_check_clean_execution_deadlock.assert_called_once_with(
+            mock.sentinel.context,
+            mock_get_tasks_execution.return_value,
+            task_statuses=None,
+            requery=False,
+        )
+        self.assertEqual(started_tasks, [])
+
+        execution = mock.Mock(
+            status=constants.EXECUTION_STATUS_RUNNING,
+            tasks=[],
+        )
+
+        def call_advance_execution_state(
+                requery=False,
+        ):
+            return self.server._advance_execution_state(
+                mock.sentinel.context,
+                execution,
+                requery=requery,
+                instance=None,
+            )
+
+        # call with no tasks
+        with self.assertRaisesRegex(
+            exception.InvalidActionTasksExecutionState,
+            "no tasks"
+        ):
+            call_advance_execution_state()
+
+        # test the flow with 1 non-scheduled task
+        execution.tasks = [
+            mock.Mock(
+                id=mock.sentinel.task_1,
+                status=constants.TASK_STATUS_ERROR,
+                depends_on=[],
+            ),
+        ]
+        started_tasks = call_advance_execution_state()
+
+        mock_get_task_origin.assert_called_once_with(
+            mock.sentinel.context,
+            execution.action
+        )
+        mock_get_task_destination.assert_called_once_with(
+            mock.sentinel.context,
+            execution.action
+        )
+        mock_get_action.assert_called_once_with(
+            mock.sentinel.context,
+            execution.action_id,
+            include_task_info=True,
+        )
+        mock_get_endpoint.assert_has_calls([
+            mock.call(
+                mock.sentinel.context,
+                execution.action.origin_endpoint_id,
+            ),
+            mock.call(
+                mock.sentinel.context,
+                execution.action.destination_endpoint_id,
+            ),
+        ])
+        mock_check_clean_execution_deadlock.assert_called_with(
+            mock.sentinel.context,
+            execution,
+            task_statuses={mock.sentinel.task_1: constants.TASK_STATUS_ERROR},
+        )
+        mock_get_execution_status.assert_called_once_with(
+            mock.sentinel.context,
+            execution,
+            requery=True,
+        )
+        mock_set_tasks_execution_status.assert_called_once_with(
+            mock.sentinel.context,
+            execution,
+            mock_get_execution_status.return_value,
+        )
+        self.assertEqual(started_tasks, [])
+
+        # execution is deadlocked
+        mock_check_clean_execution_deadlock\
+            .return_value = constants.EXECUTION_STATUS_DEADLOCKED
+        mock_get_execution_status.reset_mock()
+        started_tasks = call_advance_execution_state()
+        mock_get_execution_status.assert_not_called()
+        self.assertEqual(started_tasks, [])
+
+        # last execution status is the execution status
+        mock_check_clean_execution_deadlock.reset_mock(return_value=True)
+        mock_get_execution_status\
+            .return_value = constants.EXECUTION_STATUS_RUNNING
+        mock_set_tasks_execution_status.reset_mock()
+        call_advance_execution_state()
+        mock_set_tasks_execution_status.assert_not_called()
+
+        # task info is set from action info of the instance
+        task = mock.Mock(
+            id=mock.sentinel.task_1,
+            status=constants.TASK_STATUS_SCHEDULED,
+            instance=mock.sentinel.instance,
+            task_type=mock.sentinel.task_type,
+            depends_on=[],
+        )
+        execution.tasks = [task]
+        task_info = {
+            mock.sentinel.instance: {
+                'test': 'info',
+                },
+            }
+        mock_get_action.return_value = mock.Mock(
+            info=task_info
+        )
+        started_tasks = call_advance_execution_state()
+        mock_get_worker_service_rpc_for_task.assert_called_once_with(
+            mock.sentinel.context,
+            task,
+            mock.ANY,
+            mock.ANY,
+        )
+        mock_get_worker_service_rpc_for_task.return_value\
+            .begin_task.assert_called_once_with(
+                mock.sentinel.context,
+                task_id=mock.sentinel.task_1,
+                task_type=mock.sentinel.task_type,
+                origin=mock_get_task_origin.return_value,
+                destination=mock_get_task_destination.return_value,
+                instance=mock.sentinel.instance,
+                task_info=task_info[mock.sentinel.instance],
+            )
+        self.assertEqual(started_tasks, [task.id])
+
+        # handles worker service rpc error
+        mock_get_worker_service_rpc_for_task.side_effect = Exception()
+        self.assertRaises(
+            Exception,
+            call_advance_execution_state,
+        )
+        mock_cancel_tasks_execution.assert_called_once_with(
+            mock.sentinel.context,
+            execution,
+            requery=True,
+        )
+
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        '_set_tasks_execution_status'
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        '_get_execution_status'
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        '_cancel_tasks_execution'
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        '_get_worker_service_rpc_for_task'
+    )
+    @mock.patch.object(db_api, 'set_task_status')
+    @mock.patch.object(db_api, 'get_endpoint')
+    @mock.patch.object(db_api, 'get_action')
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        '_get_task_destination'
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        '_get_task_origin'
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        '_check_clean_execution_deadlock'
+    )
+    @mock.patch.object(db_api, 'get_tasks_execution')
+    @ddt.file_data("data/advance_execution_state.yml")
+    @ddt.unpack
+    def test_advance_execution_state_scheduled_tasks(
+            self,
+            mock_get_tasks_execution,  # pylint: disable=unused-argument
+            mock_check_clean_execution_deadlock,  # pylint: disable=unused-argument
+            mock_get_task_origin,  # pylint: disable=unused-argument
+            mock_get_task_destination,  # pylint: disable=unused-argument
+            mock_get_action,  # pylint: disable=unused-argument
+            mock_get_endpoint,  # pylint: disable=unused-argument
+            mock_set_task_status,
+            mock_get_worker_service_rpc_for_task,  # pylint: disable=unused-argument
+            mock_cancel_tasks_execution,  # pylint: disable=unused-argument
+            mock_get_execution_status,  # pylint: disable=unused-argument
+            mock_set_tasks_execution_status,  # pylint: disable=unused-argument
+            config,
+    ):
+        tasks = config.get('tasks', [])
+        execution = mock.Mock(
+            status=constants.EXECUTION_STATUS_RUNNING,
+            tasks=[
+                mock.Mock(
+                    index=i,
+                    id=t['id'],
+                    status=t['status'],
+                    on_error=t.get('on_error', None),
+                    depends_on=t.get('depends_on', []),
+                ) for i, t in enumerate(tasks)
+            ],
+        )
+
+        started_tasks = self.server._advance_execution_state(
+            mock.sentinel.context,
+            execution,
+            requery=False,
+            instance=None,
+        )
+
+        for task in tasks:
+            if not 'expected_status' in task:
+                continue
+            kwargs = {'exception_details': mock.ANY}
+            if task['expected_status'] == constants.TASK_STATUS_PENDING:
+                kwargs = {}
+            mock_set_task_status.assert_has_calls([
+                mock.call(
+                    mock.sentinel.context,
+                    task['id'],
+                    task['expected_status'],
+                    **kwargs
+                )
+            ])
+
+        self.assertEqual(
+            started_tasks,
+            [t['id'] for t in tasks
+             if 'expected_status' in t and t['expected_status'] ==
+                constants.TASK_STATUS_PENDING]
+        )
+
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        '_minion_manager_client'
+    )
+    @mock.patch.object(db_api, 'update_minion_machine')
+    @mock.patch.object(db_api, 'update_replica')
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        '_update_replica_volumes_info'
+    )
+    @mock.patch.object(db_api, 'set_transfer_action_result')
+    @mock.patch.object(schemas, 'validate_value')
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        '_update_volumes_info_for_migration_parent_replica'
+    )
+    def test_handle_post_task_actions(
+            self,
+            mock_update_volumes_info_for_migration_parent_replica,
+            mock_validate_value,
+            mock_set_transfer_action_result,
+            mock_update_replica_volumes_info,
+            mock_update_replica,
+            mock_update_minion_machine,
+            mock_minion_manager_client,
+    ):
+        # TASK_TYPE_RESTORE_REPLICA_DISK_SNAPSHOTS
+        task = mock.Mock(
+            task_type=constants.TASK_TYPE_RESTORE_REPLICA_DISK_SNAPSHOTS,
+            instance=mock.sentinel.instance,
+        )
+        execution = mock.Mock(
+            action_id=mock.sentinel.action_id,
+        )
+        task_info = {
+            'volumes_info': [],
+        }
+
+        def call_handle_post_task_actions():
+            self.server._handle_post_task_actions(
+                mock.sentinel.context,
+                task,
+                execution,
+                task_info,
+            )
+        call_handle_post_task_actions()
+
+        # no volumes_info
+        mock_update_volumes_info_for_migration_parent_replica\
+            .assert_not_called()
+
+        # has volumes_info
+        task_info["volumes_info"] = [
+            {
+                "id": "volume_id",
+            }
+        ]
+        call_handle_post_task_actions()
+        mock_update_volumes_info_for_migration_parent_replica\
+            .assert_called_once_with(
+                mock.sentinel.context,
+                mock.sentinel.action_id,
+                mock.sentinel.instance,
+                {"volumes_info": task_info["volumes_info"]},
+            )
+
+        # TASK_TYPE_DELETE_REPLICA_TARGET_DISK_SNAPSHOTS
+        task.task_type = constants\
+            .TASK_TYPE_DELETE_REPLICA_TARGET_DISK_SNAPSHOTS
+        call_handle_post_task_actions()
+        # no clone_disks, reset volumes_info
+        mock_update_volumes_info_for_migration_parent_replica\
+            .assert_called_with(
+                mock.sentinel.context,
+                mock.sentinel.action_id,
+                mock.sentinel.instance,
+                {"volumes_info": []},
+            )
+
+        # has clone_disks
+        task_info['clone_disks'] = [
+            {
+                'id': 'clone_disk_id',
+            }
+        ]
+        mock_update_volumes_info_for_migration_parent_replica\
+            .reset_mock()
+        call_handle_post_task_actions()
+        mock_update_volumes_info_for_migration_parent_replica\
+            .assert_not_called()
+
+        # TASK_TYPE_FINALIZE_INSTANCE_DEPLOYMENT
+        # TASK_TYPE_FINALIZE_REPLICA_INSTANCE_DEPLOYMENT
+        types = [
+            constants.TASK_TYPE_FINALIZE_INSTANCE_DEPLOYMENT,
+            constants.TASK_TYPE_FINALIZE_REPLICA_INSTANCE_DEPLOYMENT,
+        ]
+        for task_type in types:
+            task.task_type = task_type
+
+            # no transfer_result
+            task_info.pop('transfer_result', None)
+            call_handle_post_task_actions()
+            mock_validate_value.assert_not_called()
+            mock_set_transfer_action_result.assert_not_called()
+
+            # has transfer_result
+            task_info['transfer_result'] = [
+                {
+                    'result_1': 'value_1',
+                }
+            ]
+            call_handle_post_task_actions()
+            mock_validate_value.assert_called_once_with(
+                task_info['transfer_result'],
+                schemas.CORIOLIS_VM_EXPORT_INFO_SCHEMA
+            )
+            mock_set_transfer_action_result.assert_called_once_with(
+                mock.sentinel.context,
+                mock.sentinel.action_id,
+                mock.sentinel.instance,
+                task_info['transfer_result'],
+            )
+
+            # handles schema validation error
+            mock_set_transfer_action_result.reset_mock()
+            mock_validate_value.side_effect = (
+                exception.SchemaValidationException()
+            )
+            call_handle_post_task_actions()
+            mock_set_transfer_action_result.assert_not_called()
+            mock_validate_value.side_effect = None
+            mock_validate_value.reset_mock()
+            mock_set_transfer_action_result.reset_mock()
+
+        # TASK_TYPE_UPDATE_SOURCE_REPLICA
+        # TASK_TYPE_UPDATE_DESTINATION_REPLICA
+        types = [
+            constants.TASK_TYPE_UPDATE_SOURCE_REPLICA,
+            constants.TASK_TYPE_UPDATE_DESTINATION_REPLICA,
+        ]
+        execution.tasks = [
+            mock.Mock(
+                id='task_id_1',
+                status=constants.TASK_STATUS_PENDING,
+            )
+        ]
+        for task_type in types:
+            task.task_type = task_type
+            mock_update_replica_volumes_info.reset_mock()
+            call_handle_post_task_actions()
+            mock_update_replica_volumes_info.assert_called_once_with(
+                mock.sentinel.context,
+                mock.sentinel.action_id,
+                mock.sentinel.instance,
+                {"volumes_info": task_info["volumes_info"]},
+            )
+
+        # execution has active tasks
+        task.type = constants.TASK_TYPE_UPDATE_DESTINATION_REPLICA
+        call_handle_post_task_actions()
+        mock_update_replica.assert_not_called()
+
+        # execution has no active tasks
+        execution.tasks = [
+            mock.Mock(
+                id='task_id_1',
+                status=constants.TASK_STATUS_ERROR,
+            )
+        ]
+        call_handle_post_task_actions()
+        mock_update_replica.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.action_id,
+            task_info
+        )
+        mock_update_replica.reset_mock()
+
+        # TASK_TYPE_ATTACH_VOLUMES_TO_SOURCE_MINION
+        # TASK_TYPE_DETACH_VOLUMES_FROM_SOURCE_MINION
+        types = [
+            constants.TASK_TYPE_ATTACH_VOLUMES_TO_SOURCE_MINION,
+            constants.TASK_TYPE_DETACH_VOLUMES_FROM_SOURCE_MINION,
+        ]
+        task_info['origin_minion_machine_id'] = ['minion_machine_id']
+        task_info['origin_minion_provider_properties'] = [
+            {'minion_provider_properties': 'value'}
+        ]
+        for task_type in types:
+            task.task_type = task_type
+            call_handle_post_task_actions()
+            mock_update_minion_machine.assert_called_once_with(
+                mock.sentinel.context,
+                task_info['origin_minion_machine_id'],
+                {'provider_properties': [
+                    {'minion_provider_properties': 'value'}]},
+            )
+            mock_update_minion_machine.reset_mock()
+
+        # TASK_TYPE_ATTACH_VOLUMES_TO_DESTINATION_MINION
+        # TASK_TYPE_DETACH_VOLUMES_FROM_DESTINATION_MINION
+        types = [
+            constants.TASK_TYPE_ATTACH_VOLUMES_TO_DESTINATION_MINION,
+            constants.TASK_TYPE_DETACH_VOLUMES_FROM_DESTINATION_MINION,
+        ]
+        task_info['destination_minion_machine_id'] = ['minion_machine_id']
+        task_info['destination_minion_provider_properties'] = [
+            {'minion_provider_properties': 'value'}
+        ]
+        for task_type in types:
+            task.task_type = task_type
+            call_handle_post_task_actions()
+            mock_update_minion_machine.assert_called_once_with(
+                mock.sentinel.context,
+                task_info['destination_minion_machine_id'],
+                {'provider_properties': [
+                    {'minion_provider_properties': 'value'}]},
+            )
+            mock_update_minion_machine.reset_mock()
+
+        # TASK_TYPE_ATTACH_VOLUMES_TO_OSMORPHING_MINION
+        # TASK_TYPE_DETACH_VOLUMES_FROM_OSMORPHING_MINION
+        task_info['osmorphing_minion_machine_id'] = ['minion_machine_id']
+        task_info['osmorphing_minion_provider_properties'] = [
+            {'minion_provider_properties': 'value'}
+        ]
+        types = [
+            constants.TASK_TYPE_ATTACH_VOLUMES_TO_OSMORPHING_MINION,
+            constants.TASK_TYPE_DETACH_VOLUMES_FROM_OSMORPHING_MINION,
+        ]
+        for task_type in types:
+            task.task_type = task_type
+            call_handle_post_task_actions()
+            mock_update_minion_machine.assert_called_once_with(
+                mock.sentinel.context,
+                task_info['osmorphing_minion_machine_id'],
+                {'provider_properties': [
+                    {'minion_provider_properties': 'value'}]},
+            )
+            mock_update_minion_machine.reset_mock()
+
+        # TASK_TYPE_RELEASE_SOURCE_MINION
+        task.task_type = constants.TASK_TYPE_RELEASE_SOURCE_MINION
+        call_handle_post_task_actions()
+        mock_minion_manager_client.deallocate_minion_machine\
+            .assert_called_once_with(
+                mock.sentinel.context,
+                task_info['origin_minion_machine_id'],
+            )
+        mock_minion_manager_client.deallocate_minion_machine.reset_mock()
+
+        # TASK_TYPE_RELEASE_DESTINATION_MINION
+        task.task_type = constants.TASK_TYPE_RELEASE_DESTINATION_MINION
+
+        # destination minion machine is the same as osmorphing minion machine
+        task_info['destination_minion_machine_id'] = ['other id']
+        call_handle_post_task_actions()
+        mock_minion_manager_client.deallocate_minion_machine\
+            .assert_called_once_with(
+                mock.sentinel.context,
+                task_info['destination_minion_machine_id'],
+            )
+        mock_minion_manager_client.deallocate_minion_machine.reset_mock()
+
+        # destination minion machine is different
+        # from osmorphing minion machine
+        task_info['destination_minion_machine_id'] = ['minion_machine_id']
+        call_handle_post_task_actions()
+        mock_minion_manager_client.deallocate_minion_machine\
+            .assert_not_called()
+        mock_minion_manager_client.deallocate_minion_machine.reset_mock()
+
+        # TASK_TYPE_RELEASE_OSMORPHING_MINION
+        task.task_type = constants.TASK_TYPE_RELEASE_OSMORPHING_MINION
+        call_handle_post_task_actions()
+        mock_minion_manager_client.deallocate_minion_machine\
+            .assert_called_once_with(
+                mock.sentinel.context,
+                task_info['osmorphing_minion_machine_id'],
+            )
+        mock_minion_manager_client.deallocate_minion_machine.reset_mock()
+
+        # for any other type of task nothing is called
+        task.task_type = constants.TASK_TYPE_COLLECT_OSMORPHING_INFO
+        call_handle_post_task_actions()
+        mock_update_replica.assert_not_called()
+        mock_update_minion_machine.assert_not_called()
+        mock_minion_manager_client.deallocate_minion_machine\
+            .assert_not_called()
+
+    @mock.patch.object(utils, "sanitize_task_info")
+    @mock.patch.object(db_api, "get_task")
+    @mock.patch.object(db_api, "set_task_status")
+    @mock.patch.object(db_api, "get_tasks_execution")
+    @mock.patch.object(db_api, "get_action")
+    @mock.patch.object(db_api, "update_transfer_action_info_for_instance")
+    @mock.patch.object(lockutils, "lock")
+    @ddt.file_data("data/task_completed_config.yml")
+    @ddt.unpack
+    def test_task_completed(
+            self,
+            mock_lock,  # pylint: disable=unused-argument
+            mock_update_transfer_action_info,
+            mock_get_action,
+            mock_get_tasks_execution,
+            mock_set_task_status,
+            mock_get_task,
+            mock_sanitize_task_info,  # pylint: disable=unused-argument
+            config,
+            expected_status,
+    ):
+        task_status = config['task_status']
+        has_exception_details = config.get('has_exception_details', True)
+        mock_get_task.return_value = mock.Mock(
+            status=task_status,
+            instance=mock.sentinel.instance,
+        )
+
+        mock_get_tasks_execution.return_value = mock.Mock(
+            id=mock.sentinel.execution_id,
+            type=constants.EXECUTION_TYPE_MIGRATION,
+            action_id=mock.sentinel.action_id,
+            tasks=[
+                mock.Mock(
+                    id=mock.sentinel.task_id,
+                    status=constants.TASK_STATUS_COMPLETED
+                )
+            ]
+        )
+
+        self.server.task_completed(
+            mock.sentinel.context,
+            mock.sentinel.task_id,
+            mock.sentinel.task_result
+        )
+        if expected_status is None:
+            mock_set_task_status.assert_not_called()
+            return
+        else:
+            kwargs = {'exception_details': mock.ANY}
+            if has_exception_details is False:
+                kwargs = {}
+            mock_set_task_status.assert_called_once_with(
+                mock.sentinel.context,
+                mock.sentinel.task_id,
+                expected_status,
+                **kwargs,
+            )
+
+        mock_get_tasks_execution.assert_called_with(
+            mock.sentinel.context,
+            mock.sentinel.execution_id,
+        )
+        mock_get_action.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.action_id,
+            include_task_info=True,
+        )
+        mock_update_transfer_action_info.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.action_id,
+            mock.sentinel.instance,
+            mock.sentinel.task_result,
+        )
+
+        mock_get_action.reset_mock()
+        mock_update_transfer_action_info.reset_mock()
+
+        # no task result
+        self.server.task_completed(
+            mock.sentinel.context,
+            mock.sentinel.task_id,
+            None
+        )
+        mock_update_transfer_action_info.assert_not_called()
+        self.assertEqual(2, mock_get_action.call_count)
+
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "_check_delete_reservation_for_transfer"
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "_cancel_tasks_execution"
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "_set_tasks_execution_status"
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "_cancel_execution_for_osmorphing_debugging"
+    )
+    @mock.patch.object(lockutils, "lock")
+    @mock.patch.object(db_api, "get_action")
+    @mock.patch.object(db_api, "get_tasks_execution")
+    @mock.patch.object(db_api, "set_task_status")
+    @mock.patch.object(db_api, "get_task")
+    @ddt.file_data("data/set_task_error_config.yml")
+    @ddt.unpack
+    def test_set_task_error(
+            self,
+            mock_get_task,
+            mock_set_task_status,
+            mock_get_tasks_execution,
+            mock_get_action,  # pylint: disable=unused-argument
+            mock_lock,  # pylint: disable=unused-argument
+            mock_cancel_execution_for_osmorphing_debugging,  # pylint: disable=unused-argument
+            mock_set_tasks_execution_status,  # pylint: disable=unused-argument
+            mock_cancel_tasks_execution,  # pylint: disable=unused-argument
+            mock_check_delete_reservation_for_transfer,  # pylint: disable=unused-argument
+            config,
+            expected_status,
+    ):
+        task_status = config['task_status']
+        mock_get_tasks_execution.return_value = mock.Mock(
+            type=constants.EXECUTION_TYPE_MIGRATION,
+            action_id=mock.sentinel.action_id,
+            tasks=[
+                mock.Mock(
+                    id=mock.sentinel.task_id,
+                    status=constants.TASK_STATUS_COMPLETED
+                )
+            ]
+        )
+        mock_get_task.return_value = mock.Mock(
+            status=task_status,
+        )
+        self.server.set_task_error(
+            mock.sentinel.context,
+            mock.sentinel.task_id,
+            mock.sentinel.exception_details,
+        )
+        mock_get_task.assert_called_with(
+            mock.sentinel.context,
+            mock.sentinel.task_id,
+        )
+        mock_set_task_status.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.task_id,
+            expected_status,
+            mock.ANY,
+        )
+
+    @mock.patch.object(cfg.CONF, "conductor")
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "_check_delete_reservation_for_transfer"
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "_cancel_tasks_execution"
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "_set_tasks_execution_status"
+    )
+    @mock.patch.object(
+        server.ConductorServerEndpoint,
+        "_cancel_execution_for_osmorphing_debugging"
+    )
+    @mock.patch.object(lockutils, "lock")
+    @mock.patch.object(db_api, "get_action")
+    @mock.patch.object(db_api, "get_tasks_execution")
+    @mock.patch.object(db_api, "set_task_status")
+    @mock.patch.object(db_api, "get_task")
+    def test_set_task_error_os_morphing(
+            self,
+            mock_get_task,
+            mock_set_task_status,
+            mock_get_tasks_execution,
+            mock_get_action,
+            mock_lock,  # pylint: disable=unused-argument
+            mock_cancel_execution_for_osmorphing_debugging,
+            mock_set_tasks_execution_status,
+            mock_cancel_tasks_execution,
+            mock_check_delete_reservation_for_transfer,
+            mock_conf_conductor,
+    ):
+        execution = mock.Mock(
+            type=constants.EXECUTION_TYPE_REPLICA_UPDATE,
+            action_id=mock.sentinel.action_id,
+            tasks=[
+                mock.Mock(
+                    id=mock.sentinel.task_id,
+                    status=constants.TASK_STATUS_COMPLETED,
+                    task_type=constants.TASK_TYPE_OS_MORPHING,
+                )
+            ]
+        )
+
+        # non running tasks of type OS Morphing with debugging enabled
+        mock_get_tasks_execution.return_value = execution
+        mock_get_task.return_value = mock.Mock(
+            task_type=constants.TASK_TYPE_OS_MORPHING,
+            status=constants.TASK_STATUS_RUNNING,
+        )
+
+        self.server.set_task_error(
+            mock.sentinel.context,
+            mock.sentinel.task_id,
+            mock.sentinel.exception_details,
+        )
+        mock_cancel_execution_for_osmorphing_debugging.assert_called_once_with(
+            mock.sentinel.context,
+            mock_get_tasks_execution.return_value,
+        )
+        self.assertEqual(2, mock_set_task_status.call_count)
+        mock_set_tasks_execution_status.assert_called_once_with(
+            mock.sentinel.context,
+            mock_get_tasks_execution.return_value,
+            constants.EXECUTION_STATUS_CANCELED_FOR_DEBUGGING
+        )
+        mock_cancel_tasks_execution.assert_not_called()
+
+        # non running tasks of type OS Morphing with debugging disabled
+        mock_cancel_execution_for_osmorphing_debugging.reset_mock()
+        mock_conf_conductor.debug_os_morphing_errors = False
+        self.server.set_task_error(
+            mock.sentinel.context,
+            mock.sentinel.task_id,
+            mock.sentinel.exception_details,
+        )
+        mock_cancel_execution_for_osmorphing_debugging.assert_not_called()
+        mock_cancel_tasks_execution.assert_called_once_with(
+            mock.sentinel.context,
+            mock_get_tasks_execution.return_value,
+        )
+
+        # migration execution
+        mock_check_delete_reservation_for_transfer.assert_not_called()
+        execution.type = constants.EXECUTION_TYPE_MIGRATION
+        self.server.set_task_error(
+            mock.sentinel.context,
+            mock.sentinel.task_id,
+            mock.sentinel.exception_details,
+        )
+        mock_check_delete_reservation_for_transfer.assert_called_once_with(
+            mock_get_action.return_value,
+        )
