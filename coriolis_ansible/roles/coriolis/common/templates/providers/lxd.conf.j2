@@ -1,0 +1,36 @@
+[lxd_migration_provider]
+
+# Default network name used for worker instances during migrations.
+# migr_network =
+
+# Images used for worker instances during migrations
+# migr_image_map = linux: <fingerprint>, windows: <fingerprint>
+
+# Default storage pool used for replica disks.
+# default_storage_pool =
+
+# CPU limit of the replica VM
+# migr_worker_cpu_limit = 2
+
+# Memory limit (in GiB) of the replica VM
+# migr_worker_memory_limit = 4
+
+# Whether or not Coriolis should reconfigure cloud-init during OSMorphing to prevent
+# it from creating a new system user or disabling the root user and other existing users,
+# including by disabling password-based SSH authentication, or locking the user by
+# changing/removing its password completely.
+# retain_user_credentials = false
+
+# What mechanism to use when sending disk data from the Coriolis installation to the
+# temporary VMs on the target OCI to be written to their respective disk.
+# The HTTPS-based transfer mechanism (TCP/5566) is faster but might not work if there
+# are firewalls in the way. The SSH-based transfer mechanism (TCP/22) is more costly but
+# will be allowed by most firewalls since SSH access from the Coriolis installation to the
+# temporary worker VM is always required. Coriolis automatically sets security groups rules
+# for the temporary VMs accordingly. Default is HTTPS. Accepted values are: HTTPS, SSH
+# data_transfer_mechanism = HTTPS
+
+# Use network forward address on the worker's interface, for Coriolis to externally gain access.
+# The address is randomly chosen from the selected migration network's uplink.
+# Only available on bridged networks.
+# use_network_forwarding = false
