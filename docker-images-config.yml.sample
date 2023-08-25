@@ -1,5 +1,5 @@
 ---
-# This file defines options related to the building/deployment of the 
+# This file defines options related to the building/deployment of the
 # Docker images with the Coriolis components.
 #
 # Any options in this file overwrite the global 'coriolis_ansible' values from:
@@ -8,7 +8,7 @@
 #
 
 ### Options related to the OpenStack components we deploy using Kolla:
-kolla_branch: 12.0.0
+kolla_branch: stable/wallaby
 kolla_openstack_release: wallaby
 kolla_docker_images_tag: wallaby
 
