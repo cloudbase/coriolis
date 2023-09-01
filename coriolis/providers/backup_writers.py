@@ -19,10 +19,12 @@ from oslo_log import log as logging
 import paramiko
 import requests
 from six import with_metaclass
+
 from coriolis import constants
 from coriolis import data_transfer
 from coriolis import exception
 from coriolis import utils
+
 
 CONF = cfg.CONF
 opts = [
@@ -99,9 +101,12 @@ def _disable_lvm_metad_udev_rule(ssh):
     migrations with multiple replications, these services need to be disabled,
     therefore we make it impossible for the minion OS to create them.
     """
-    rule_path = "/lib/udev/rules.d/69-lvm-metad.rules"
-    if utils.test_ssh_path(ssh, rule_path):
-        utils.exec_ssh_cmd(ssh, "sudo rm %s" % rule_path, get_pty=True)
+    rule_paths = [
+        "/lib/udev/rules.d/69-lvm-metad.rules",
+        "/lib/udev/rules.d/69-dm-lvm.rules"]
+    for path in rule_paths:
+        if utils.test_ssh_path(ssh, path):
+            utils.exec_ssh_cmd(ssh, "sudo rm %s" % path, get_pty=True)
 
 
 def _check_deserialize_key(key):
