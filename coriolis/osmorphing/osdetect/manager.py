@@ -12,6 +12,7 @@ from coriolis.osmorphing.osdetect import debian
 from coriolis.osmorphing.osdetect import openwrt
 from coriolis.osmorphing.osdetect import oracle
 from coriolis.osmorphing.osdetect import redhat
+from coriolis.osmorphing.osdetect import rocky
 from coriolis.osmorphing.osdetect import suse
 from coriolis.osmorphing.osdetect import ubuntu
 from coriolis.osmorphing.osdetect import windows
@@ -27,6 +28,7 @@ LINUX_OS_DETECTION_TOOLS = [
     openwrt.OpenWRTOSDetectTools,
     oracle.OracleOSDetectTools,
     redhat.RedHatOSDetectTools,
+    rocky.RockyLinuxOSDetectTools,
     suse.SUSEOSDetectTools,
     ubuntu.UbuntuOSDetectTools
 ]

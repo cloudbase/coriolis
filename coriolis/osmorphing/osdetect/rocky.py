@@ -1,4 +1,4 @@
-# Copyright 2020 Cloudbase Solutions Srl
+# Copyright 2023 Cloudbase Solutions Srl
 # All Rights Reserved.
 
 import re
@@ -9,11 +9,10 @@ from coriolis.osmorphing.osdetect import base
 
 
 LOG = logging.getLogger(__name__)
-CENTOS_DISTRO_IDENTIFIER = "CentOS"
-CENTOS_STREAM_DISTRO_IDENTIFIER = "CentOS Stream"
+ROCKY_LINUX_DISTRO_IDENTIFIER = "Rocky Linux"
 
 
-class CentOSOSDetectTools(base.BaseLinuxOSDetectTools):
+class RockyLinuxOSDetectTools(base.BaseLinuxOSDetectTools):
 
     def detect_os(self):
         info = {}
@@ -26,18 +25,16 @@ class CentOSOSDetectTools(base.BaseLinuxOSDetectTools):
                              release_info[0].strip())
                 if m:
                     distro, version, _, _ = m.groups()
-                    if CENTOS_DISTRO_IDENTIFIER not in distro:
+                    if ROCKY_LINUX_DISTRO_IDENTIFIER not in distro:
                         LOG.debug(
-                            "Distro does not appear to be a CentOS: %s", distro)
+                            "Distro does not appear to be a Rocky Linux: %s",
+                            distro)
                         return {}
 
-                    distribution_name = CENTOS_DISTRO_IDENTIFIER
-                    if CENTOS_STREAM_DISTRO_IDENTIFIER in distro:
-                        distribution_name = CENTOS_STREAM_DISTRO_IDENTIFIER
                     info = {
                         "os_type": constants.OS_TYPE_LINUX,
-                        "distribution_name": distribution_name,
+                        "distribution_name": ROCKY_LINUX_DISTRO_IDENTIFIER,
                         "release_version": version,
                         "friendly_release_name": "%s Version %s" % (
-                            distribution_name, version)}
+                            ROCKY_LINUX_DISTRO_IDENTIFIER, version)}
         return info

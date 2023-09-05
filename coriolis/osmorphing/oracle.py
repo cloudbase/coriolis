@@ -23,6 +23,7 @@ class BaseOracleMorphingTools(redhat.BaseRedHatMorphingTools):
     def _get_oracle_repos(self):
         repos = []
         major_version = int(self._version.split(".")[0])
+        uekr_version = int(major_version) - 2
         if major_version < 8:
             repo_file_path = (
                 '/etc/yum.repos.d/%s.repo' % str(uuid.uuid4()))
@@ -45,7 +46,8 @@ class BaseOracleMorphingTools(redhat.BaseRedHatMorphingTools):
                 self._find_yum_repos(['ol%s_baseos_latest' % major_version]))
             repos_to_enable = ["ol%s_baseos_latest" % major_version,
                                "ol%s_appstream" % major_version,
-                               "ol%s_UEKR6" % major_version]
+                               "ol%d_addons" % major_version,
+                               "ol%s_UEKR%s" % (major_version, uekr_version)]
             repos = self._find_yum_repos(repos_to_enable)
 
         return repos
