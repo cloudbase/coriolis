@@ -25,7 +25,6 @@ import OpenSSL
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
-
 import netifaces
 import paramiko
 # NOTE(gsamfira): I am aware that this is not ideal, but pip
@@ -40,6 +39,7 @@ from webob import exc
 from coriolis import constants
 from coriolis import exception
 from coriolis import secrets
+
 
 opts = [
     cfg.StrOpt('qemu_img_path',
@@ -709,6 +709,15 @@ def _write_systemd(ssh, cmdline, svcname, run_as=None, start=True):
                 ssh, "sudo systemctl start %s" % svcname,
                 get_pty=True)
 
+    def _correct_selinux_label():
+        cmd = "sudo /sbin/restorecon -v %s" % serviceFilePath
+        try:
+            exec_ssh_cmd(ssh, cmd, get_pty=True)
+        except exception.CoriolisException:
+            LOG.warn(
+                "Could not relabel service '%s'. SELinux might not be "
+                "installed. Error was: %s", svcname, get_exception_details())
+
     systemd_args = {
         "cmdline": cmdline,
         "username": "root",
@@ -726,6 +735,7 @@ def _write_systemd(ssh, cmdline, svcname, run_as=None, start=True):
         ssh,
         "sudo mv /tmp/%s.service %s" % (name, serviceFilePath),
         get_pty=True)
+    _correct_selinux_label()
     _reload_and_start(start=start)
 
 
