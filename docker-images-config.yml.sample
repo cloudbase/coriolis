@@ -8,7 +8,7 @@
 #
 
 ### Options related to the OpenStack components we deploy using Kolla:
-kolla_branch: stable/wallaby
+kolla_branch: wallaby-eol
 kolla_openstack_release: wallaby
 kolla_docker_images_tag: wallaby
 
