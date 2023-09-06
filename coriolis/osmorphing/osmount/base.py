@@ -8,6 +8,7 @@ import collections
 import itertools
 import os
 import re
+import uuid
 
 from oslo_log import log as logging
 import paramiko
@@ -15,6 +16,7 @@ from six import with_metaclass
 
 from coriolis import exception
 from coriolis import utils
+
 
 LOG = logging.getLogger(__name__)
 
@@ -129,6 +131,34 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                     "Ignoring improper `pvdisplay` output entry: %s" % line)
         LOG.debug("Physical Volume attributes: %s", pvs)
         return pvs
+
+    def _get_vgs(self):
+        vgs_cmd = (
+            "sudo vgs -o vg_name,pv_name,vg_uuid, --noheadings --separator :")
+        out = self._exec_cmd(vgs_cmd).decode().splitlines()
+        LOG.debug("Output of %s command: %s", vgs_cmd, out)
+        vgs = {}
+        for line in out:
+            if line == "":
+                continue
+            line = line.strip().split(":")
+            if len(line) >= 3:
+                vg_name, pv_name, vg_uuid = line[0], line[1], line[2]
+                if vgs.get(vg_name) is None:
+                    vgs[vg_name] = pv_name
+                else:
+                    new_name = str(uuid.uuid4())
+                    LOG.debug(
+                        "VG with name '%s' already detected. Renaming VG with "
+                        "UUID '%s' to '%s' to avoid conflicts",
+                        vg_name, vg_uuid, new_name)
+                    self._exec_cmd("sudo vgrename %s %s" % (vg_uuid, new_name))
+                    vgs[new_name] = pv_name
+            else:
+                LOG.warning("Ignoring improper `vgs` output entry: %s", line)
+        LOG.debug("Volume groups: %s", vgs)
+
+        return vgs
 
     def _check_vgs(self):
         try:
@@ -500,20 +530,14 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
 
         lvm_dev_paths = []
         self._check_vgs()
-        pvs = self._get_pvs()
-        for vg_name in self._get_vgnames():
-            found = False
-            for pv in pvs[vg_name]:
-                if pv in dev_paths:
-                    found = True
-                    break
-            if not found:
-                continue
-            self._exec_cmd("sudo vgchange -ay %s" % vg_name)
-            self._exec_cmd("sudo vgchange --refresh")
-            dev_paths_for_group = self._exec_cmd(
-                "sudo ls -1 /dev/%s/*" % vg_name).decode().splitlines()
-            lvm_dev_paths.extend(dev_paths_for_group)
+        vgs = self._get_vgs()
+        for vg_name, pv_name in vgs.items():
+            if pv_name in dev_paths:
+                self._exec_cmd("sudo vgchange -ay %s" % vg_name)
+                self._exec_cmd("sudo vgchange --refresh")
+                dev_paths_for_group = self._exec_cmd(
+                    "sudo ls -1 /dev/%s/*" % vg_name).decode().splitlines()
+                lvm_dev_paths.extend(dev_paths_for_group)
         LOG.debug("All LVM vols to scan: %s", lvm_dev_paths)
 
         valid_filesystems = ['ext2', 'ext3', 'ext4', 'xfs', 'btrfs']

@@ -710,7 +710,7 @@ def _write_systemd(ssh, cmdline, svcname, run_as=None, start=True):
                 get_pty=True)
 
     def _correct_selinux_label():
-        cmd = "sudo /sbin/restorecon -v %s" % serviceFilePath
+        cmd = "sudo restorecon -v %s" % serviceFilePath
         try:
             exec_ssh_cmd(ssh, cmd, get_pty=True)
         except exception.CoriolisException:
