@@ -1,4 +1,4 @@
-ansible==2.9.0
+ansible>=6,<8
 dnspython
 docker
 influxdb
@@ -7,4 +7,6 @@ pymysql
 toml
 virtualenv
 python-barbicanclient
-python-openstackclient
+#we need to pin openstack client and sdk to be supported by ansible 7
+python-openstackclient<=6.0.0
+openstacksdk<=0.61.0

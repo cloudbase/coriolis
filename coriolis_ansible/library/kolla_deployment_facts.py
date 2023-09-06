@@ -66,7 +66,7 @@ def main():
         "keystone_admin_password": passwords["keystone_admin_password"],
         "keystone_protocol": "http",
         "keystone_public_port": 5000,
-        "keystone_admin_port": 35357,
+        "keystone_internal_port": 5000,
         "barbican_protocol": "http",
         "barbican_port": 9311,
         "db_port": 3306,

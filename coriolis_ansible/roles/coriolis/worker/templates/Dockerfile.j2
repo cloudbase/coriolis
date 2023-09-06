@@ -4,7 +4,7 @@ FROM {{ coriolis_common_docker_image_url }}
 COPY coriolis-provider-{{ item }}/ coriolis-provider-{{ item }}
 {% endfor %}
 
-RUN add-apt-repository cloud-archive:wallaby
+RUN add-apt-repository -y cloud-archive:antelope
 RUN apt-get update && apt-get install -y librados2 python3-rados python3-rbd
 
 RUN apt-get install -y vim
@@ -26,8 +26,6 @@ RUN apt-get install -y openssl
 # NOTE: ovirt depends on `pycurl`, which requires the below as well as `libssl-dev`
 # (installed in the `coriolis-common` image) to be `pip3 install`d.
 RUN apt-get install -y libcurl4-openssl-dev libxml2-dev
-COPY "{{ ovirt_sdk_wheel_url.split('/')[-1] }}" /tmp
-RUN /bin/bash -c "pip3 install /tmp/{{ ovirt_sdk_wheel_url.split('/')[-1] }}"
 {% endif %}
 
 {% for item in coriolis_providers %}
