@@ -476,7 +476,7 @@ class Replicator(object):
             return ssh
         except paramiko.ssh_exception.SSHException as ex:
             raise exception.CoriolisException(
-                "Failed to setup SSH client: %s" % str(ex))
+                "Failed to setup SSH client: %s" % str(ex)) from ex
 
     def _parse_source_ssh_conn_info(self, conn_info):
         # if we get valid SSH connection info we can
