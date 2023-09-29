@@ -16,7 +16,6 @@ import requests
 
 from coriolis import exception
 from coriolis import utils
-from coriolis.exception import NotAuthorized
 
 LOG = logging.getLogger(__name__)
 
@@ -476,7 +475,8 @@ class Replicator(object):
             ssh.connect(**args)
             return ssh
         except paramiko.ssh_exception.SSHException as ex:
-            raise NotAuthorized("Failed to setup SSH client: %s" % str(ex))
+            raise exception.CoriolisException(
+                "Failed to setup SSH client: %s" % str(ex))
 
     def _parse_source_ssh_conn_info(self, conn_info):
         # if we get valid SSH connection info we can
