@@ -37,7 +37,8 @@ def _copy_volume(volume, disk_image_reader, backup_writer, event_manager):
                     offset, max_block_size)
                 if not allocated or zero_block and skip_zeroes:
                     if not allocated:
-                        LOG.debug("Unallocated block detected: %s", block_size)
+                        LOG.debug(
+                            "Unallocated block detected: %s", block_size)
                     else:
                         LOG.debug("Skipping zero block: %s", block_size)
                     offset += block_size

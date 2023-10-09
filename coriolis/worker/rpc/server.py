@@ -3,11 +3,11 @@
 
 import multiprocessing
 
+import eventlet
 import os
 import shutil
 import signal
 import sys
-import eventlet
 
 from logging import handlers
 from oslo_config import cfg
@@ -206,8 +206,9 @@ class WorkerServerEndpoint(object):
                 break
         return result
 
-    def _exec_task_process(self, ctxt, task_id, task_type, origin, destination,
-                           instance, task_info, report_to_conductor=True):
+    def _exec_task_process(
+            self, ctxt, task_id, task_type, origin, destination, instance,
+            task_info, report_to_conductor=True):
         mp_ctx = multiprocessing.get_context('spawn')
         mp_q = mp_ctx.Queue()
         mp_log_q = mp_ctx.Queue()
@@ -452,7 +453,8 @@ class WorkerServerEndpoint(object):
 
         return options
 
-    def get_endpoint_networks(self, ctxt, platform_name, connection_info, env):
+    def get_endpoint_networks(
+            self, ctxt, platform_name, connection_info, env):
         env = env or {}
         provider = providers_factory.get_provider(
             platform_name, constants.PROVIDER_TYPE_ENDPOINT_NETWORKS, None)
@@ -575,8 +577,8 @@ class WorkerServerEndpoint(object):
                 "Schema validation for the provided connection parameters has "
                 "failed. Please ensure that you have included all the "
                 "necessary connection parameters and they are all properly "
-                "formatted for the '%s' Coriolis plugin in use." % (
-                    platform_name))
+                "formatted for the '%s' Coriolis plugin in use." %
+                (platform_name))
         except exception.ConnectionValidationException as ex:
             LOG.warn(utils.get_exception_details())
             is_valid = False

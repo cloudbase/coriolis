@@ -65,13 +65,13 @@ def create_trust(ctxt):
     trustor_proj_id = ctxt.project_id
     roles = ctxt.roles
 
-    LOG.debug("Granting Keystone trust. Trustor: %(trustor_user_id)s, trustee:"
-              " %(trustee_user_id)s, project: %(trustor_proj_id)s, roles:"
-              " %(roles)s",
-              {"trustor_user_id": trustor_user_id,
-               "trustee_user_id": trustee_user_id,
-               "trustor_proj_id": trustor_proj_id,
-               "roles": roles})
+    LOG.debug(
+        "Granting Keystone trust. Trustor: %(trustor_user_id)s, trustee:"
+        " %(trustee_user_id)s, project: %(trustor_proj_id)s, roles:"
+        " %(roles)s",
+        {"trustor_user_id": trustor_user_id,
+         "trustee_user_id": trustee_user_id,
+         "trustor_proj_id": trustor_proj_id, "roles": roles})
 
     # Trusts are not supported before Keystone v3
     client = kc_v3.Client(session=session)

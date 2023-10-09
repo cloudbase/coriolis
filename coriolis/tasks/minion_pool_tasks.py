@@ -530,7 +530,8 @@ class AttachVolumesToDestinationMinionTask(
         return TARGET_MINION_TASK_INFO_FIELD_MAPPINGS
 
 
-class DetachVolumesFromDestinationMinionTask(AttachVolumesToDestinationMinionTask):
+class DetachVolumesFromDestinationMinionTask(
+    AttachVolumesToDestinationMinionTask):
 
     @classmethod
     def _get_provider_disk_operation(cls, provider):
@@ -764,7 +765,7 @@ class ValidateOSMorphingMinionCompatibilityTask(
 
     @classmethod
     def _get_minion_task_info_field_mappings(cls):
-        return  OSMOPRHING_MINION_TASK_INFO_FIELD_MAPPINGS
+        return OSMOPRHING_MINION_TASK_INFO_FIELD_MAPPINGS
 
 
 class _BaseReleaseMinionTask(base.TaskRunner):

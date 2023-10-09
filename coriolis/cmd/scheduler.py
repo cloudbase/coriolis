@@ -6,15 +6,14 @@ import sys
 from oslo_config import cfg
 
 from coriolis import constants
+from coriolis.scheduler.rpc import server as rpc_server
 from coriolis import service
 from coriolis import utils
-from coriolis.scheduler.rpc import server as rpc_server
 
 scheduler_opts = [
-    cfg.IntOpt('worker_count',
-               min=1, default=1,
-               help='Number of processes in which the service will be running')
-]
+    cfg.IntOpt(
+        'worker_count', min=1, default=1,
+        help='Number of processes in which the service will be running')]
 
 CONF = cfg.CONF
 CONF.register_opts(scheduler_opts, 'scheduler')

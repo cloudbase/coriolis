@@ -153,7 +153,7 @@ def validate_instances_list_for_transfer(instances):
         inst: count for (inst, count) in appearances.items() if count > 1}
     if duplicates:
         raise exception.InvalidInput(
-            "Transfer action instances (%s) list contained duplicates: %s " % (
-                instances, duplicates))
+            "Transfer action instances (%s) list contained duplicates: %s " %
+            (instances, duplicates))
 
     return instances

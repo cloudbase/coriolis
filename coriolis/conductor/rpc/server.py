@@ -9,6 +9,7 @@ import uuid
 from oslo_concurrency import lockutils
 from oslo_config import cfg
 from oslo_log import log as logging
+
 from coriolis import constants
 from coriolis import context
 from coriolis.db import api as db_api
@@ -216,7 +217,7 @@ class ConductorServerEndpoint(object):
                     rpc_worker_client.WorkerClient.from_service_definition(
                         wrk, timeout=10))
                 for wrk in worker_services})
-        except Exception as ex:
+        except Exception:
             LOG.warn(
                 "Exception occurred while listing worker services for "
                 "diagnostics fetching. Exception was: %s",
@@ -226,20 +227,20 @@ class ConductorServerEndpoint(object):
         for (service_name, service_client) in client_objects.items():
             try:
                 diagnostics.append(service_client.get_diagnostics(ctxt))
-            except Exception as ex:
+            except Exception:
                 LOG.warn(
                     "Exception occurred while fetching diagnostics for service"
                     " '%s'. Exception was: %s",
                     service_name, utils.get_exception_details())
 
-        worker_diagnostics = []
         for worker_service in self._scheduler_client.get_workers_for_specs(
                 ctxt):
-            worker_rpc = rpc_worker_client.WorkerClient.from_service_definition(
-                worker_service)
+            worker_rpc = (
+                rpc_worker_client.WorkerClient.from_service_definition(
+                    worker_service))
             try:
                 diagnostics.append(worker_rpc.get_diagnostics(ctxt))
-            except Exception as ex:
+            except Exception:
                 LOG.warn(
                     "Exception occurred while fetching diagnostics for "
                     "worker service '%s'. Error was: %s",
@@ -359,11 +360,12 @@ class ConductorServerEndpoint(object):
                 db_api.update_endpoint(
                     ctxt, endpoint.id, {
                         "mapped_regions": mapped_regions})
-            except Exception as ex:
+            except Exception:
                 LOG.warn(
-                    "Error adding region mappings during new endpoint creation "
-                    "(name: %s), cleaning up endpoint and all created "
-                    "mappings for regions: %s", endpoint.name, mapped_regions)
+                    "Error adding region mappings during new endpoint "
+                    "creation (name: %s), cleaning up endpoint and all "
+                    "created mappings for regions: %s",
+                    endpoint.name, mapped_regions)
                 db_api.delete_endpoint(ctxt, endpoint.id)
                 raise
 
@@ -591,11 +593,12 @@ class ConductorServerEndpoint(object):
             retry_count=5, retry_period=2, random_choice=True):
         worker_service = None
         try:
-            worker_service = self._scheduler_client.get_worker_service_for_task(
-                ctxt, {"id": task.id, "task_type": task.task_type},
-                origin_endpoint, destination_endpoint,
-                retry_count=retry_count, retry_period=retry_period,
-                random_choice=random_choice)
+            worker_service = (
+                self._scheduler_client.get_worker_service_for_task(
+                    ctxt, {"id": task.id, "task_type": task.task_type},
+                    origin_endpoint, destination_endpoint,
+                    retry_count=retry_count, retry_period=retry_period,
+                    random_choice=random_choice))
         except Exception as ex:
             LOG.debug(
                 "Failed to get worker service for task '%s'. Updating status "
@@ -650,7 +653,7 @@ class ConductorServerEndpoint(object):
                         destination=destination,
                         instance=task.instance,
                         task_info=task_info.get(task.instance, {}))
-                except Exception as ex:
+                except Exception:
                     LOG.warn(
                         "Error occured while starting new task '%s'. "
                         "Cancelling execution '%s'. Error was: %s",
@@ -753,7 +756,8 @@ class ConductorServerEndpoint(object):
                         "will never get queued. Already processed tasks are: "
                         "%s. Tasks left: %s" % (
                             execution.id, execution.type, instance,
-                            processed_tasks_type_map, remaining_tasks_deps_map))
+                            processed_tasks_type_map, remaining_tasks_deps_map
+                        ))
 
                 # mapping for task_info fields modified by each task:
                 modified_fields_by_queued_tasks = {}
@@ -763,7 +767,8 @@ class ConductorServerEndpoint(object):
                     for new_field in _check_task_cls_param_requirements(
                             task, task_info_keys):
                         if new_field not in modified_fields_by_queued_tasks:
-                            modified_fields_by_queued_tasks[new_field] = [task]
+                            modified_fields_by_queued_tasks[new_field] = [
+                                task]
                         else:
                             modified_fields_by_queued_tasks[new_field].append(
                                 task)
@@ -793,9 +798,8 @@ class ConductorServerEndpoint(object):
                 LOG.debug(
                     "Successfully processed following tasks for instance '%s' "
                     "for execution %s (type '%s') for any state conflict "
-                    "checks: %s",
-                    instance, execution.id, execution.type, [
-                        (t.id, t.task_type) for t in queued_tasks])
+                    "checks: %s", instance, execution.id, execution.type,
+                    [(t.id, t.task_type) for t in queued_tasks])
             LOG.debug(
                 "Successfully checked all tasks for instance '%s' as part of "
                 "execution '%s' (type '%s') for any state conflicts: %s",
@@ -876,7 +880,7 @@ class ConductorServerEndpoint(object):
                     "origin_minion_connection_info": None})
                 validate_origin_minion_task = self._create_task(
                     instance,
-                    constants.TASK_TYPE_VALIDATE_SOURCE_MINION_POOL_COMPATIBILITY,
+                    constants.TASK_TYPE_VALIDATE_SOURCE_MINION_POOL_COMPATIBILITY,  # noqa: E501
                     execution,
                     depends_on=[
                         get_instance_info_task.id,
@@ -900,7 +904,7 @@ class ConductorServerEndpoint(object):
                     "destination_minion_backup_writer_connection_info": None})
                 validate_destination_minion_task = self._create_task(
                     instance,
-                    constants.TASK_TYPE_VALIDATE_DESTINATION_MINION_POOL_COMPATIBILITY,
+                    constants.TASK_TYPE_VALIDATE_DESTINATION_MINION_POOL_COMPATIBILITY,  # noqa: E501
                     execution,
                     depends_on=[
                         validate_replica_destination_inputs_task.id])
@@ -1020,7 +1024,8 @@ class ConductorServerEndpoint(object):
         else:
             self._begin_tasks(ctxt, replica, execution)
 
-        return self.get_replica_tasks_execution(ctxt, replica_id, execution.id)
+        return self.get_replica_tasks_execution(
+            ctxt, replica_id, execution.id)
 
     @replica_synchronized
     def get_replica_tasks_executions(self, ctxt, replica_id,
@@ -1144,7 +1149,8 @@ class ConductorServerEndpoint(object):
         LOG.info("Replica tasks execution created: %s", execution.id)
 
         self._begin_tasks(ctxt, replica, execution)
-        return self.get_replica_tasks_execution(ctxt, replica_id, execution.id)
+        return self.get_replica_tasks_execution(
+            ctxt, replica_id, execution.id)
 
     @staticmethod
     def _check_endpoints(ctxt, origin_endpoint, destination_endpoint):
@@ -1169,7 +1175,8 @@ class ConductorServerEndpoint(object):
                                  network_map, storage_mappings, notes=None,
                                  user_scripts=None):
         origin_endpoint = self.get_endpoint(ctxt, origin_endpoint_id)
-        destination_endpoint = self.get_endpoint(ctxt, destination_endpoint_id)
+        destination_endpoint = self.get_endpoint(
+            ctxt, destination_endpoint_id)
         self._check_endpoints(ctxt, origin_endpoint, destination_endpoint)
 
         replica = models.Replica()
@@ -1271,11 +1278,10 @@ class ConductorServerEndpoint(object):
         return provider_types["types"]
 
     @replica_synchronized
-    def deploy_replica_instances(self, ctxt, replica_id,
-                                 clone_disks, force,
-                                 instance_osmorphing_minion_pool_mappings=None,
-                                 skip_os_morphing=False,
-                                 user_scripts=None):
+    def deploy_replica_instances(
+            self, ctxt, replica_id, clone_disks, force,
+            instance_osmorphing_minion_pool_mappings=None,
+            skip_os_morphing=False, user_scripts=None):
         replica = self._get_replica(ctxt, replica_id, include_task_info=True)
         self._check_reservation_for_transfer(
             replica, licensing_client.RESERVATION_TYPE_REPLICA)
@@ -1376,7 +1382,7 @@ class ConductorServerEndpoint(object):
                     "osmorphing_minion_connection_info": None})
                 validate_osmorphing_minion_task = self._create_task(
                     instance,
-                    constants.TASK_TYPE_VALIDATE_OSMORPHING_MINION_POOL_COMPATIBILITY,
+                    constants.TASK_TYPE_VALIDATE_OSMORPHING_MINION_POOL_COMPATIBILITY,  # noqa: E501
                     execution, depends_on=[
                         validate_replica_deployment_inputs_task.id])
                 last_validation_task = validate_osmorphing_minion_task
@@ -1404,7 +1410,7 @@ class ConductorServerEndpoint(object):
                     osmorphing_vol_attachment_deps.extend(depends_on)
                     attach_osmorphing_minion_volumes_task = self._create_task(
                         instance,
-                        constants.TASK_TYPE_ATTACH_VOLUMES_TO_OSMORPHING_MINION,
+                        constants.TASK_TYPE_ATTACH_VOLUMES_TO_OSMORPHING_MINION,  # noqa: E501
                         execution, depends_on=osmorphing_vol_attachment_deps)
                     last_osmorphing_resources_deployment_task = (
                         attach_osmorphing_minion_volumes_task)
@@ -1435,7 +1441,7 @@ class ConductorServerEndpoint(object):
                         migration.instance_osmorphing_minion_pool_mappings):
                     detach_osmorphing_minion_volumes_task = self._create_task(
                         instance,
-                        constants.TASK_TYPE_DETACH_VOLUMES_FROM_OSMORPHING_MINION,
+                        constants.TASK_TYPE_DETACH_VOLUMES_FROM_OSMORPHING_MINION,  # noqa: E501
                         execution, depends_on=[
                             attach_osmorphing_minion_volumes_task.id,
                             task_osmorphing.id],
@@ -1451,7 +1457,8 @@ class ConductorServerEndpoint(object):
                     depends_on.append(release_osmorphing_minion_task.id)
                 else:
                     task_delete_os_morphing_resources = self._create_task(
-                        instance, constants.TASK_TYPE_DELETE_OS_MORPHING_RESOURCES,
+                        instance,
+                        constants.TASK_TYPE_DELETE_OS_MORPHING_RESOURCES,
                         execution, depends_on=[
                             task_deploy_os_morphing_resources.id,
                             task_osmorphing.id],
@@ -1507,9 +1514,10 @@ class ConductorServerEndpoint(object):
             with lockutils.lock(
                     constants.MIGRATION_LOCK_NAME_FORMAT % migration.id,
                     external=True):
-                self._minion_manager_client.allocate_minion_machines_for_migration(
-                    ctxt, migration, include_transfer_minions=False,
-                    include_osmorphing_minions=True)
+                (self._minion_manager_client
+                     .allocate_minion_machines_for_migration(
+                         ctxt, migration, include_transfer_minions=False,
+                         include_osmorphing_minions=True))
                 self._set_tasks_execution_status(
                     ctxt, execution,
                     constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS)
@@ -1532,8 +1540,10 @@ class ConductorServerEndpoint(object):
         return ret
 
     def _deallocate_minion_machines_for_action(self, ctxt, action):
-        return self._minion_manager_client.deallocate_minion_machines_for_action(
-            ctxt, action.base_id)
+        return (
+            self._minion_manager_client.deallocate_minion_machines_for_action(
+                ctxt, action.base_id)
+        )
 
     def _check_minion_pools_for_action(self, ctxt, action):
         self._minion_manager_client.validate_minion_pool_selections_for_action(
@@ -1558,27 +1568,28 @@ class ConductorServerEndpoint(object):
                     "origin_minion_connection_info": (
                         instance_origin_minion['connection_info'])})
 
-            instance_destination_minion = instance_minion_machines.get(
+            instance_dst_minion = instance_minion_machines.get(
                 'destination_minion')
-            if instance_destination_minion:
-                action.info[instance].update({
-                    "destination_minion_machine_id": instance_destination_minion['id'],
+            if instance_dst_minion:
+                instance_dst_minion_dict = {
+                    "destination_minion_machine_id": instance_dst_minion['id'],
                     "destination_minion_provider_properties": (
-                        instance_destination_minion['provider_properties']),
+                        instance_dst_minion['provider_properties']),
                     "destination_minion_connection_info": (
-                        instance_destination_minion['connection_info']),
+                        instance_dst_minion['connection_info']),
                     "destination_minion_backup_writer_connection_info": (
-                        instance_destination_minion['backup_writer_connection_info'])})
+                        instance_dst_minion['backup_writer_connection_info'])}
+                action.info[instance].update(instance_dst_minion_dict)
 
-            instance_osmorphing_minion = instance_minion_machines.get(
+            osmorph_min = instance_minion_machines.get(
                 'osmorphing_minion')
-            if instance_osmorphing_minion:
+            if osmorph_min:
                 action.info[instance].update({
-                    "osmorphing_minion_machine_id": instance_osmorphing_minion['id'],
+                    "osmorphing_minion_machine_id": osmorph_min['id'],
                     "osmorphing_minion_provider_properties": (
-                        instance_osmorphing_minion['provider_properties']),
+                        osmorph_min['provider_properties']),
                     "osmorphing_minion_connection_info": (
-                        instance_osmorphing_minion['connection_info'])})
+                        osmorph_min['connection_info'])})
 
         # update the action info for all of the instances:
         for instance in minion_machine_allocations:
@@ -1701,8 +1712,9 @@ class ConductorServerEndpoint(object):
         execution = self._get_execution_for_migration(
             ctxt, migration, requery=False)
         LOG.warn(
-            "Error occured while allocating minion machines for Migration '%s'. "
-            "Cancelling the current Execution ('%s'). Error was: %s",
+            "Error occured while allocating minion machines for "
+            "Migration '%s'. Cancelling the current Execution ('%s'). "
+            "Error was: %s",
             migration_id, execution.id, minion_allocation_error_details)
         self._cancel_tasks_execution(
             ctxt, execution, requery=True)
@@ -1710,16 +1722,16 @@ class ConductorServerEndpoint(object):
             ctxt, execution,
             constants.EXECUTION_STATUS_ERROR_ALLOCATING_MINIONS)
 
-    def migrate_instances(self, ctxt, origin_endpoint_id,
-                          destination_endpoint_id, origin_minion_pool_id,
-                          destination_minion_pool_id,
-                          instance_osmorphing_minion_pool_mappings,
-                          source_environment, destination_environment,
-                          instances, network_map, storage_mappings,
-                          replication_count, shutdown_instances=False,
-                          notes=None, skip_os_morphing=False, user_scripts=None):
+    def migrate_instances(
+            self, ctxt, origin_endpoint_id, destination_endpoint_id,
+            origin_minion_pool_id, destination_minion_pool_id,
+            instance_osmorphing_minion_pool_mappings, source_environment,
+            destination_environment, instances, network_map, storage_mappings,
+            replication_count, shutdown_instances=False, notes=None,
+            skip_os_morphing=False, user_scripts=None):
         origin_endpoint = self.get_endpoint(ctxt, origin_endpoint_id)
-        destination_endpoint = self.get_endpoint(ctxt, destination_endpoint_id)
+        destination_endpoint = self.get_endpoint(
+            ctxt, destination_endpoint_id)
         self._check_endpoints(ctxt, origin_endpoint, destination_endpoint)
 
         destination_provider_types = self._get_provider_types(
@@ -1807,7 +1819,7 @@ class ConductorServerEndpoint(object):
                     "origin_minion_connection_info": None})
                 validate_origin_minion_task = self._create_task(
                     instance,
-                    constants.TASK_TYPE_VALIDATE_SOURCE_MINION_POOL_COMPATIBILITY,
+                    constants.TASK_TYPE_VALIDATE_SOURCE_MINION_POOL_COMPATIBILITY,  # noqa: E501
                     execution,
                     depends_on=migration_resources_task_deps)
                 migration_resources_task_ids.append(
@@ -1840,7 +1852,7 @@ class ConductorServerEndpoint(object):
                     "destination_minion_connection_info": None,
                     "destination_minion_backup_writer_connection_info": None})
                 ttyp = (
-                    constants.TASK_TYPE_VALIDATE_DESTINATION_MINION_POOL_COMPATIBILITY)
+                    constants.TASK_TYPE_VALIDATE_DESTINATION_MINION_POOL_COMPATIBILITY)  # noqa: E501
                 validate_destination_minion_task = self._create_task(
                     instance, ttyp, execution, depends_on=[
                         validate_migration_destination_inputs_task.id])
@@ -1874,7 +1886,7 @@ class ConductorServerEndpoint(object):
                     "osmorphing_minion_connection_info": None})
                 validate_osmorphing_minion_task = self._create_task(
                     instance,
-                    constants.TASK_TYPE_VALIDATE_OSMORPHING_MINION_POOL_COMPATIBILITY,
+                    constants.TASK_TYPE_VALIDATE_OSMORPHING_MINION_POOL_COMPATIBILITY,  # noqa: E501
                     execution, depends_on=[
                         validate_migration_destination_inputs_task.id])
                 migration_resources_task_ids.append(
@@ -1909,7 +1921,7 @@ class ConductorServerEndpoint(object):
             if migration.origin_minion_pool_id:
                 release_origin_minion_task = self._create_task(
                     instance,
-                    constants.TASK_TYPE_RELEASE_SOURCE_MINION,
+                    constants.TASK_TYPE_RELEASE_SOURCE_MINION,  # noqa: E501
                     execution,
                     depends_on=[
                         validate_origin_minion_task.id,
@@ -1935,14 +1947,15 @@ class ConductorServerEndpoint(object):
 
             target_resources_cleanup_task = None
             if migration.destination_minion_pool_id:
-                detach_volumes_from_destination_minion_task = self._create_task(
-                    instance,
-                    constants.TASK_TYPE_DETACH_VOLUMES_FROM_DESTINATION_MINION,
-                    execution,
-                    depends_on=[
-                        attach_destination_minion_disks_task.id,
-                        last_sync_task.id],
-                    on_error=True)
+                detach_volumes_from_destination_minion_task = (
+                    self._create_task(
+                        instance,
+                        constants.TASK_TYPE_DETACH_VOLUMES_FROM_DESTINATION_MINION,  # noqa: E501
+                        execution,
+                        depends_on=[
+                            attach_destination_minion_disks_task.id,
+                            last_sync_task.id],
+                        on_error=True))
 
                 release_destination_minion_task = self._create_task(
                     instance,
@@ -1983,7 +1996,7 @@ class ConductorServerEndpoint(object):
                     osmorphing_vol_attachment_deps.extend(depends_on)
                     attach_osmorphing_minion_volumes_task = self._create_task(
                         instance,
-                        constants.TASK_TYPE_ATTACH_VOLUMES_TO_OSMORPHING_MINION,
+                        constants.TASK_TYPE_ATTACH_VOLUMES_TO_OSMORPHING_MINION,  # noqa: E501
                         execution, depends_on=osmorphing_vol_attachment_deps)
                     last_osmorphing_resources_deployment_task = (
                         attach_osmorphing_minion_volumes_task)
@@ -2014,7 +2027,7 @@ class ConductorServerEndpoint(object):
                         migration.instance_osmorphing_minion_pool_mappings):
                     detach_osmorphing_minion_volumes_task = self._create_task(
                         instance,
-                        constants.TASK_TYPE_DETACH_VOLUMES_FROM_OSMORPHING_MINION,
+                        constants.TASK_TYPE_DETACH_VOLUMES_FROM_OSMORPHING_MINION,  # noqa: E501
                         execution, depends_on=[
                             attach_osmorphing_minion_volumes_task.id,
                             task_osmorphing.id],
@@ -2031,12 +2044,14 @@ class ConductorServerEndpoint(object):
                     osmorphing_resources_cleanup_task = (
                         release_osmorphing_minion_task)
                 else:
-                    task_delete_os_morphing_resources = self._create_task(
-                        instance, constants.TASK_TYPE_DELETE_OS_MORPHING_RESOURCES,
-                        execution, depends_on=[
-                            task_deploy_os_morphing_resources.id,
-                            task_osmorphing.id],
-                        on_error=True)
+                    task_delete_os_morphing_resources = (
+                        self._create_task(
+                            instance, constants.TASK_TYPE_DELETE_OS_MORPHING_RESOURCES,  # noqa: E501
+                            execution, depends_on=[
+                                task_deploy_os_morphing_resources.id,
+                                task_osmorphing.id],
+                            on_error=True))
+
                     depends_on.append(task_delete_os_morphing_resources.id)
                     osmorphing_resources_cleanup_task = (
                         task_delete_os_morphing_resources)
@@ -2087,9 +2102,11 @@ class ConductorServerEndpoint(object):
             with lockutils.lock(
                     constants.MIGRATION_LOCK_NAME_FORMAT % migration.id,
                     external=True):
-                self._minion_manager_client.allocate_minion_machines_for_migration(
-                    ctxt, migration, include_transfer_minions=True,
-                    include_osmorphing_minions=not skip_os_morphing)
+                (self._minion_manager_client
+                    .allocate_minion_machines_for_migration(
+                        ctxt, migration, include_transfer_minions=True,
+                        include_osmorphing_minions=not skip_os_morphing)
+                 )
                 self._set_tasks_execution_status(
                     ctxt, execution,
                     constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS)
@@ -2470,7 +2487,8 @@ class ConductorServerEndpoint(object):
                         constants.TASK_STATUS_CANCELED_FROM_DEADLOCK,
                         exception_details=TASK_DEADLOCK_ERROR_MESSAGE)
             LOG.warn(
-                "Marking deadlocked execution '%s' as DEADLOCKED", execution.id)
+                "Marking deadlocked execution '%s' as DEADLOCKED",
+                execution.id)
             self._set_tasks_execution_status(
                 ctxt, execution, constants.EXECUTION_STATUS_DEADLOCKED)
             LOG.error(
@@ -2611,9 +2629,9 @@ class ConductorServerEndpoint(object):
                 LOG.error(
                     "No info present for instance '%s' in action '%s' for task"
                     " '%s' (type '%s') of execution '%s' (type '%s'). "
-                    "Defaulting to empty dict." % (
-                        task.instance, action.id, task.id, task.task_type,
-                        execution.id, execution.type))
+                    "Defaulting to empty dict." %
+                    (task.instance, action.id, task.id, task.task_type,
+                     execution.id, execution.type))
                 task_info = {}
             else:
                 task_info = action.info[task.instance]
@@ -2636,7 +2654,7 @@ class ConductorServerEndpoint(object):
                     execution.id)
                 started_tasks.append(task.id)
                 return constants.TASK_STATUS_PENDING
-            except Exception as ex:
+            except Exception:
                 LOG.warn(
                     "Error occured while starting new task '%s'. "
                     "Cancelling execution '%s'. Error was: %s",
@@ -2751,8 +2769,8 @@ class ConductorServerEndpoint(object):
                                 "tasks have been finalized and there are "
                                 "no non-error parents to directly depend on, "
                                 "but one or more on-error tasks have completed"
-                                " successfully: %s",
-                                task.id, parent_task_statuses)
+                                " successfully: %s", task.id,
+                                parent_task_statuses)
                             task_statuses[task.id] = _start_task(task)
                         # start on-error tasks only if at least one non-error
                         # parent task has completed successfully:
@@ -2950,8 +2968,8 @@ class ConductorServerEndpoint(object):
                     # as they are in the DB:
                     LOG.info(
                         "All tasks of the '%s' Replica update procedure have "
-                        "completed successfully.  Setting the updated parameter "
-                        "values on the parent Replica itself.",
+                        "completed successfully.  Setting the updated "
+                        "parameter values on the parent Replica itself.",
                         execution.action_id)
                     # NOTE: considering all the instances of the Replica get
                     # the same params, it doesn't matter which instance's
@@ -2989,7 +3007,8 @@ class ConductorServerEndpoint(object):
                 task_info['destination_minion_machine_id'],
                 task.id, task_type, updated_values)
             db_api.update_minion_machine(
-                ctxt, task_info['destination_minion_machine_id'], updated_values)
+                ctxt, task_info['destination_minion_machine_id'],
+                updated_values)
 
         elif task_type in (
                 constants.TASK_TYPE_ATTACH_VOLUMES_TO_OSMORPHING_MINION,
@@ -3078,7 +3097,7 @@ class ConductorServerEndpoint(object):
             LOG.error(
                 "Received confirmation that presumably cancelling task '%s' "
                 "(status '%s') has just completed successfully. "
-                "This should have never happened and indicates that its worker "
+                "This should have never happened, indicates that its worker "
                 "host ('%s') has either failed to cancel it properly, or it "
                 "was completed before the cancellation request was received. "
                 "Please check the worker logs for more details. "
@@ -3087,7 +3106,8 @@ class ConductorServerEndpoint(object):
                 task.id, task.status, task.host,
                 constants.TASK_STATUS_CANCELED_AFTER_COMPLETION)
             db_api.set_task_status(
-                ctxt, task_id, constants.TASK_STATUS_CANCELED_AFTER_COMPLETION,
+                ctxt, task_id,
+                constants.TASK_STATUS_CANCELED_AFTER_COMPLETION,
                 exception_details=(
                     "The worker host for this task ('%s') has either failed "
                     "at cancelling it or the cancellation request arrived "
@@ -3097,7 +3117,7 @@ class ConductorServerEndpoint(object):
                         task.host)))
         elif task.status == constants.TASK_STATUS_FAILED_TO_CANCEL:
             LOG.error(
-                "Received confirmation that presumably '%s' task '%s' has just "
+                "Received confirmation '%s' task '%s' has presumably just "
                 "completed successfully. Marking as '%s' and processing its "
                 "result as if it had completed normally.",
                 task.status, task.id,
@@ -3137,7 +3157,8 @@ class ConductorServerEndpoint(object):
                     execution.type] % execution.action_id,
                 external=True):
             action_id = execution.action_id
-            action = db_api.get_action(ctxt, action_id, include_task_info=True)
+            action = db_api.get_action(
+                ctxt, action_id, include_task_info=True)
 
             updated_task_info = None
             if task_result:
@@ -3179,7 +3200,7 @@ class ConductorServerEndpoint(object):
                         newly_started_tasks))
             else:
                 LOG.debug(
-                    "No new tasks were started for execution '%s' for instance "
+                    "No new tasks started for execution '%s' for instance "
                     "'%s' following the successful completion of task '%s'.",
                     execution.id, task.instance, task.id)
 
@@ -3204,8 +3225,8 @@ class ConductorServerEndpoint(object):
                     msg = (
                         "%s Please note that any cleanup operations this task "
                         "should have included will need to performed manually "
-                        "once the debugging process has been completed." % (
-                            msg))
+                        "once the debugging process has been completed." %
+                        (msg))
                 db_api.set_task_status(
                     ctxt, subtask.id,
                     constants.TASK_STATUS_CANCELED_FOR_DEBUGGING,
@@ -3503,8 +3524,8 @@ class ConductorServerEndpoint(object):
         if replica_status not in valid_statuses:
             raise exception.InvalidReplicaState(
                 'Replica Schedule cannot be deleted while the Replica is in '
-                '%s state. Please wait for the Replica execution to finish' % (
-                    replica_status))
+                '%s state. Please wait for the Replica execution to finish' %
+                (replica_status))
         db_api.delete_replica_schedule(
             ctxt, replica_id, schedule_id, None,
             lambda ctxt, sched: self._cleanup_schedule_resources(
@@ -3620,7 +3641,8 @@ class ConductorServerEndpoint(object):
 
         self._begin_tasks(ctxt, replica, execution)
 
-        return self.get_replica_tasks_execution(ctxt, replica_id, execution.id)
+        return self.get_replica_tasks_execution(
+            ctxt, replica_id, execution.id)
 
     def get_diagnostics(self, ctxt):
         diagnostics = utils.get_diagnostics_info()
@@ -3711,7 +3733,7 @@ class ConductorServerEndpoint(object):
                 db_api.update_service(
                     ctxt, service.id, {
                         "mapped_regions": mapped_regions})
-            except Exception as ex:
+            except Exception:
                 LOG.warn(
                     "Error adding region mappings during new service "
                     "registration (host: %s), cleaning up endpoint and "

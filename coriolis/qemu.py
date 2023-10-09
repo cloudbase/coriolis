@@ -54,7 +54,8 @@ _libqemu.qemu_init_exec_dir.argtypes = [ctypes.c_char_p]
 _libqemu.qemu_init_exec_dir.restype = None
 qemu_init_exec_dir = _libqemu.qemu_init_exec_dir
 
-_libqemu.qemu_init_main_loop.argtypes = [ctypes.POINTER(ctypes.POINTER(Error))]
+_libqemu.qemu_init_main_loop.argtypes = [
+    ctypes.POINTER(ctypes.POINTER(Error))]
 _libqemu.qemu_init_main_loop.res_type = ctypes.c_int
 qemu_init_main_loop = _libqemu.qemu_init_main_loop
 

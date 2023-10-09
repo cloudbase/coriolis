@@ -26,15 +26,16 @@ CONF.register_opts(MINION_MANAGER_OPTS, 'minion_manager')
 class MinionManagerClient(rpc.BaseRPCClient):
 
     def __init__(self, timeout=None):
-        target = messaging.Target(topic='coriolis_minion_manager', version=VERSION)
+        target = messaging.Target(
+            topic='coriolis_minion_manager', version=VERSION)
         if timeout is None:
             timeout = CONF.minion_manager.minion_mananger_rpc_timeout
         super(MinionManagerClient, self).__init__(
             target, timeout=timeout)
 
     def add_minion_pool_progress_update(
-            self, ctxt, minion_pool_id, message, initial_step=0, total_steps=0,
-            return_event=False):
+            self, ctxt, minion_pool_id, message, initial_step=0,
+            total_steps=0, return_event=False):
         operation = self._cast
         if return_event:
             operation = self._call
@@ -44,14 +45,14 @@ class MinionManagerClient(rpc.BaseRPCClient):
             initial_step=initial_step, total_steps=total_steps)
 
     def update_minion_pool_progress_update(
-            self, ctxt, minion_pool_id, progress_update_index, new_current_step,
-            new_total_steps=None, new_message=None):
+            self, ctxt, minion_pool_id, progress_update_index,
+            new_current_step, new_total_steps=None, new_message=None):
         self._cast(
             ctxt, 'update_minion_pool_progress_update',
             minion_pool_id=minion_pool_id,
             progress_update_index=progress_update_index,
-            new_current_step=new_current_step, new_total_steps=new_total_steps,
-            new_message=new_message)
+            new_current_step=new_current_step,
+            new_total_steps=new_total_steps, new_message=new_message)
 
     def add_minion_pool_event(self, ctxt, minion_pool_id, level, message):
         return self._cast(
@@ -81,13 +82,14 @@ class MinionManagerClient(rpc.BaseRPCClient):
             include_osmorphing_minions=include_osmorphing_minions)
 
     def deallocate_minion_machine(self, ctxt, minion_machine_id):
-         return self._cast(
+        return self._cast(
             ctxt, 'deallocate_minion_machine',
             minion_machine_id=minion_machine_id)
 
     def deallocate_minion_machines_for_action(self, ctxt, action_id):
         return self._cast(
-            ctxt, 'deallocate_minion_machines_for_action', action_id=action_id)
+            ctxt, 'deallocate_minion_machines_for_action',
+            action_id=action_id)
 
     def create_minion_pool(
             self, ctxt, name, endpoint_id, pool_platform, pool_os_type,

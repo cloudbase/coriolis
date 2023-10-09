@@ -7,15 +7,23 @@ import uuid
 
 from unittest import mock
 
-from coriolis import constants, exception, schemas, utils
 from coriolis.conductor.rpc import server
+from coriolis import constants
 from coriolis.db import api as db_api
 from coriolis.db.sqlalchemy import models
+from coriolis import exception
 from coriolis.licensing import client as licensing_client
-from coriolis.tests import test_base, testutils
+from coriolis import schemas
+from coriolis.tests import test_base
+from coriolis.tests import testutils
+from coriolis import utils
 from coriolis.worker.rpc import client as rpc_worker_client
 from oslo_concurrency import lockutils
 from oslo_config import cfg
+
+
+class CoriolisTestException(Exception):
+    pass
 
 
 @ddt.ddt
@@ -31,9 +39,10 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     )
     @mock.patch.object(server.ConductorServerEndpoint, "_scheduler_client")
     def test_get_all_diagnostics(self, mock_scheduler_client, _):
-        mock_scheduler_client.get_workers_for_specs.side_effect = Exception()
+        mock_scheduler_client.get_workers_for_specs.side_effect = (
+            CoriolisTestException())
         self.assertRaises(
-            Exception,
+            CoriolisTestException,
             lambda: self.server.get_all_diagnostics(mock.sentinel.context),
         )
         mock_scheduler_client.get_workers_for_specs.side_effect = None
@@ -139,9 +148,9 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_delete_endpoint.assert_not_called()
 
         # mapped_regions exist and there's an error updating the endpoint
-        mock_update_endpoint.side_effect = Exception()
+        mock_update_endpoint.side_effect = CoriolisTestException()
         self.assertRaises(
-            Exception,
+            CoriolisTestException,
             lambda: self.server.create_endpoint(
                 mock.sentinel.context,
                 mock.sentinel.name,
@@ -368,7 +377,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
                 mock_get_endpoint.return_value.connection_info,
                 mock.sentinel.environment,
                 mock.sentinel.option_names,
-                )
+            )
 
         self.assertEqual(
             options,
@@ -521,7 +530,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
                 mock.sentinel.context,
                 mock_get_endpoint.return_value.type,
                 mock.sentinel.target_env,
-                )
+            )
 
     @mock.patch.object(
         server.ConductorServerEndpoint, "_get_worker_service_rpc_for_specs"
@@ -556,7 +565,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
                 mock.sentinel.context,
                 mock_get_endpoint.return_value.type,
                 mock.sentinel.source_env,
-                )
+            )
 
     @mock.patch.object(
         rpc_worker_client.WorkerClient, "from_service_definition"
@@ -567,12 +576,12 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     ):
         providers = self.server.get_available_providers(mock.sentinel.context)
         mock_service_definition.assert_called_once_with(
-            mock_scheduler_client.get_any_worker_service(mock.sentinel.context)
-        )
+            mock_scheduler_client.get_any_worker_service(
+                mock.sentinel.context))
         mock_service_definition.return_value\
             .get_available_providers.assert_called_once_with(
                 mock.sentinel.context
-                )
+            )
         self.assertEqual(
             providers,
             mock_service_definition
@@ -592,14 +601,14 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.provider_type,
         )
         mock_service_definition.assert_called_once_with(
-            mock_scheduler_client.get_any_worker_service(mock.sentinel.context)
-        )
+            mock_scheduler_client.get_any_worker_service(
+                mock.sentinel.context))
         mock_service_definition.return_value\
             .get_provider_schemas.assert_called_once_with(
                 mock.sentinel.context,
                 mock.sentinel.platform_name,
                 mock.sentinel.provider_type,
-                )
+            )
         self.assertEqual(
             provider_schemas,
             mock_service_definition.return_value
@@ -610,7 +619,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(uuid, "uuid4", return_value="task_id")
     def test_create_task(
             self, mock_uuid4, mock_task_model
-    ):  # pylint: disable=unused-argument
+    ):
         task1 = mock.sentinel.task1
         task1.id = mock.sentinel.task1_id
         task2 = mock.sentinel.task2
@@ -694,7 +703,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
                 retry_count=5,
                 retry_period=2,
                 random_choice=True,
-                )
+            )
         mock_service_definition.assert_called_once_with(
             mock_scheduler_client.get_worker_service_for_task.return_value
         )
@@ -703,10 +712,10 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
 
         # Handles exception
         mock_scheduler_client.get_worker_service_for_task.side_effect = (
-            Exception("test")
+            CoriolisTestException("test")
         )
         self.assertRaises(
-            Exception,
+            CoriolisTestException,
             self.server._get_worker_service_rpc_for_task,
             mock.sentinel.context,
             task_mock,
@@ -865,7 +874,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock_check_replica_running_executions,
             mock_check_minion_pools_for_action,
             mock_tasks_execution,
-            mock_uuid4,  # pylint: disable=unused-argument
+            mock_uuid4,
             mock_create_task,
             mock_check_execution_tasks_sanity,
             mock_update_transfer_action_info_for_instance,
@@ -1030,7 +1039,8 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         self.assertEqual(
             mock_tasks_execution.return_value.type,
             constants.EXECUTION_TYPE_REPLICA_EXECUTION)
-        self.assertEqual(result, mock_get_replica_tasks_execution.return_value)
+        self.assertEqual(
+            result, mock_get_replica_tasks_execution.return_value)
 
     @mock.patch.object(
         server.ConductorServerEndpoint,
@@ -1101,7 +1111,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock_get_replica,
             mock_check_replica_running_executions,
             mock_tasks_execution,
-            mock_uuid4,  # pylint: disable=unused-argument
+            mock_uuid4,
             mock_create_task,
             mock_deepcopy,
             mock_check_execution_tasks_sanity,
@@ -1215,7 +1225,8 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock_tasks_execution.return_value.id
         )
 
-        self.assertEqual(result, mock_get_replica_tasks_execution.return_value)
+        self.assertEqual(
+            result, mock_get_replica_tasks_execution.return_value)
 
         # raises exception if instances have no volumes info
         instances[0].get.return_value = None
@@ -1356,8 +1367,8 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock_get_instance_scripts,
             mock_tasks_execution,
             mock_check_minion_pools_for_action,
-            mock_deepcopy,  # pylint: disable=unused-argument
-            mock_uuid4,  # pylint: disable=unused-argument
+            mock_deepcopy,
+            mock_uuid4,
             mock_migration,
             mock_get_provider_types,
             mock_get_endpoint,
@@ -1634,7 +1645,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock_check_minion_pools_for_action,
             mock_check_create_reservation_for_transfer,
             mock_tasks_execution,
-            mock_uuid4,  # pylint: disable=unused-argument
+            mock_uuid4,
             mock_migration,
             mock_get_provider_types,
             mock_check_endpoints,
@@ -1966,11 +1977,11 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     @ddt.unpack
     def test_cancel_tasks_execution(
             self,
-            mock_worker_client,  # pylint: disable=unused-argument
+            mock_worker_client,
             mock_set_task_status,
-            mock_advance_execution_state,  # pylint: disable=unused-argument
-            mock_set_tasks_execution_status,  # pylint: disable=unused-argument
-            mock_get_tasks_execution,  # pylint: disable=unused-argument
+            mock_advance_execution_state,
+            mock_set_tasks_execution_status,
+            mock_get_tasks_execution,
             config,
             expected_status,
     ):
@@ -2102,8 +2113,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         # task status is not in accepted state
         with self.assertRaisesRegex(
                 exception.InvalidTaskState,
-                "expected statuses",
-            ):
+                "expected statuses"):
             call_set_task_host()
 
         mock_get_task.assert_called_once_with(
@@ -2131,8 +2141,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         )
         with self.assertRaisesRegex(
                 exception.InvalidTaskState,
-                "has no host",
-            ):
+                "has no host"):
             call_set_task_host()
 
     @mock.patch.object(
@@ -2341,7 +2350,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock_get_task_destination,
             mock_get_action,
             mock_get_endpoint,
-            mock_set_task_status,  # pylint: disable=unused-argument
+            mock_set_task_status,
             mock_get_worker_service_rpc_for_task,
             mock_cancel_tasks_execution,
             mock_get_execution_status,
@@ -2466,8 +2475,8 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         task_info = {
             mock.sentinel.instance: {
                 'test': 'info',
-                },
-            }
+            },
+        }
         mock_get_action.return_value = mock.Mock(
             info=task_info
         )
@@ -2491,9 +2500,10 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         self.assertEqual(started_tasks, [task.id])
 
         # handles worker service rpc error
-        mock_get_worker_service_rpc_for_task.side_effect = Exception()
+        mock_get_worker_service_rpc_for_task.side_effect = (
+            CoriolisTestException())
         self.assertRaises(
-            Exception,
+            CoriolisTestException,
             call_advance_execution_state,
         )
         mock_cancel_tasks_execution.assert_called_once_with(
@@ -2538,19 +2548,18 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     @ddt.unpack
     def test_advance_execution_state_scheduled_tasks(
             self,
-            mock_get_tasks_execution,  # pylint: disable=unused-argument
-            mock_check_clean_execution_deadlock,  # pylint: disable=unused-argument
-            mock_get_task_origin,  # pylint: disable=unused-argument
-            mock_get_task_destination,  # pylint: disable=unused-argument
-            mock_get_action,  # pylint: disable=unused-argument
-            mock_get_endpoint,  # pylint: disable=unused-argument
+            mock_get_tasks_execution,
+            mock_check_clean_execution_deadlock,
+            mock_get_task_origin,
+            mock_get_task_destination,
+            mock_get_action,
+            mock_get_endpoint,
             mock_set_task_status,
-            mock_get_worker_service_rpc_for_task,  # pylint: disable=unused-argument
-            mock_cancel_tasks_execution,  # pylint: disable=unused-argument
-            mock_get_execution_status,  # pylint: disable=unused-argument
-            mock_set_tasks_execution_status,  # pylint: disable=unused-argument
-            config,
-    ):
+            mock_get_worker_service_rpc_for_task,
+            mock_cancel_tasks_execution,
+            mock_get_execution_status,
+            mock_set_tasks_execution_status,
+            config):
         tasks = config.get('tasks', [])
         execution = mock.Mock(
             status=constants.EXECUTION_STATUS_RUNNING,
@@ -2573,7 +2582,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         )
 
         for task in tasks:
-            if not 'expected_status' in task:
+            if 'expected_status' not in task:
                 continue
             kwargs = {'exception_details': mock.ANY}
             if task['expected_status'] == constants.TASK_STATUS_PENDING:
@@ -2895,13 +2904,13 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     @ddt.unpack
     def test_task_completed(
             self,
-            mock_lock,  # pylint: disable=unused-argument
+            mock_lock,
             mock_update_transfer_action_info,
             mock_get_action,
             mock_get_tasks_execution,
             mock_set_task_status,
             mock_get_task,
-            mock_sanitize_task_info,  # pylint: disable=unused-argument
+            mock_sanitize_task_info,
             config,
             expected_status,
     ):
@@ -2999,12 +3008,12 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock_get_task,
             mock_set_task_status,
             mock_get_tasks_execution,
-            mock_get_action,  # pylint: disable=unused-argument
-            mock_lock,  # pylint: disable=unused-argument
-            mock_cancel_execution_for_osmorphing_debugging,  # pylint: disable=unused-argument
-            mock_set_tasks_execution_status,  # pylint: disable=unused-argument
-            mock_cancel_tasks_execution,  # pylint: disable=unused-argument
-            mock_check_delete_reservation_for_transfer,  # pylint: disable=unused-argument
+            mock_get_action,
+            mock_lock,
+            mock_cancel_execution_for_osmorphing_debugging,
+            mock_set_tasks_execution_status,
+            mock_cancel_tasks_execution,
+            mock_check_delete_reservation_for_transfer,
             config,
             expected_status,
     ):
@@ -3066,7 +3075,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock_set_task_status,
             mock_get_tasks_execution,
             mock_get_action,
-            mock_lock,  # pylint: disable=unused-argument
+            mock_lock,
             mock_cancel_execution_for_osmorphing_debugging,
             mock_set_tasks_execution_status,
             mock_cancel_tasks_execution,
@@ -3098,9 +3107,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.exception_details,
         )
         mock_cancel_execution_for_osmorphing_debugging.assert_called_once_with(
-            mock.sentinel.context,
-            mock_get_tasks_execution.return_value,
-        )
+            mock.sentinel.context, mock_get_tasks_execution.return_value, )
         self.assertEqual(2, mock_set_task_status.call_count)
         mock_set_tasks_execution_status.assert_called_once_with(
             mock.sentinel.context,

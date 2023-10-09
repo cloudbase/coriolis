@@ -1,18 +1,18 @@
 # Copyright 2017 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from coriolis.api.v1.views import replica_schedule_view
+from coriolis.api import wsgi as api_wsgi
+from coriolis import exception
+from coriolis.policies import replica_schedules as schedules_policies
+from coriolis.replica_cron import api
+from coriolis import schemas
+
 import jsonschema
 from oslo_log import log as logging
 from oslo_utils import strutils
 from oslo_utils import timeutils
 from webob import exc
-
-from coriolis import exception
-from coriolis import schemas
-from coriolis.api.v1.views import replica_schedule_view
-from coriolis.api import wsgi as api_wsgi
-from coriolis.policies import replica_schedules as schedules_policies
-from coriolis.replica_cron import api
 
 
 LOG = logging.getLogger(__name__)

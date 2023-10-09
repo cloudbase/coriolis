@@ -10,7 +10,6 @@ from coriolis.db import api as db_api
 from coriolis import exception
 from coriolis.replica_cron.rpc import client as rpc_cron_client
 from coriolis.scheduler.rpc import client as rpc_scheduler_client
-from coriolis import utils
 from coriolis.worker.rpc import client as rpc_worker_client
 
 
@@ -57,6 +56,7 @@ def get_any_worker_service(
     if raw_dict:
         return service
     return db_api.get_service(ctxt, service['id'])
+
 
 def get_worker_rpc_for_host(host, *client_args, **client_kwargs):
     rpc_client_class = RPC_TOPIC_TO_CLIENT_CLASS_MAP[

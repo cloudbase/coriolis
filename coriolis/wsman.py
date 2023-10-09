@@ -2,11 +2,12 @@
 # All Rights Reserved.
 
 import base64
+import requests
 
 from oslo_log import log as logging
-import requests
-from winrm import protocol
+
 from winrm import exceptions as winrm_exceptions
+from winrm import protocol
 
 from coriolis import exception
 from coriolis import utils
@@ -51,18 +52,19 @@ class WSManConnection(object):
 
     @classmethod
     def from_connection_info(cls, connection_info, timeout=DEFAULT_TIMEOUT):
-        """ Returns a wsman.WSManConnection object for the provided conn info. """
+        """ Returns a wsman.WSManConnection obj for the provided conn info. """
         if not isinstance(connection_info, dict):
             raise ValueError(
-                "WSMan connection must be a dict. Got type '%s', value: %s" % (
-                    type(connection_info), connection_info))
+                "WSMan connection must be a dict. Got type '%s', value: %s" %
+                (type(connection_info),
+                 connection_info))
 
         required_keys = ["ip", "username", "password"]
         missing = [key for key in required_keys if key not in connection_info]
         if missing:
             raise ValueError(
-                "The following keys were missing from WSMan connection info %s. "
-                "Got: %s" % (missing, connection_info))
+                "The following keys were missing from WSMan connection "
+                "info %s. Got: %s" % (missing, connection_info))
 
         host = connection_info["ip"]
         port = connection_info.get("port", 5986)

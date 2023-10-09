@@ -77,9 +77,12 @@ class WindowsMountTools(base.BaseOSMountTools):
         # Disk Group also imports the other ones), so we must take care to
         # re-status before performing any operation on any disk => O(n**2)
         disk_list = self._run_diskpart_script(disk_list_script)
-        servicable_disk_ids = [m.group(1) for m in [
-            re.match(search_disk_entry_re, l) for l in disk_list.split("\r\n")]
-            if m is not None]
+        servicable_disk_ids = [
+            m.group(1)
+            for m
+            in
+            [re.match(search_disk_entry_re, d)
+             for d in disk_list.split("\r\n")] if m is not None]
         LOG.debug(
             "Servicing disks with status '%s' (%s) from disk list: %s",
             status, servicable_disk_ids, disk_list)
@@ -101,8 +104,8 @@ class WindowsMountTools(base.BaseOSMountTools):
                             LOG.warn(
                                 "Exception ocurred while servicing disk '%s' "
                                 "with status '%s'.Skipping running script '%s'"
-                                ". Error message: %s" % (
-                                    disk_id, status, script, ex))
+                                ". Error message: %s" %
+                                (disk_id, status, script, ex))
                         else:
                             raise
                     break
@@ -117,7 +120,7 @@ class WindowsMountTools(base.BaseOSMountTools):
             vol_details = self._run_diskpart_script(vol_detail_script)
             vol_disk_re = r"^\*?\s+Disk ([0-9]+)\s+"
             return [m.group(1) for m in [
-                re.match(vol_disk_re, l) for l in vol_details.split('\r\n')]
+                re.match(vol_disk_re, v) for v in vol_details.split('\r\n')]
                 if m is not None]
 
         volume_list_script = "LIST VOLUME\r\nEXIT"
@@ -215,12 +218,13 @@ class WindowsMountTools(base.BaseOSMountTools):
 
         volume_list = self._run_diskpart_script(volume_list_script)
         unhidden_volume_ids = [m.group(1) for m in [
-            re.match(volume_entry_re, l) for l in volume_list.split("\r\n")]
+            re.match(volume_entry_re, v) for v in volume_list.split("\r\n")]
             if m is not None and "HIDDEN" not in m.group(2).upper()]
         for vol_id in unhidden_volume_ids:
             try:
                 LOG.info(
-                    "Clearing NODEFAULTDRIVELETTER flag on volume %s" % vol_id)
+                    "Clearing NODEFAULTDRIVELETTER flag on volume %s" %
+                    vol_id)
                 script = enable_default_drive_letter_script_fmt % vol_id
                 self._run_diskpart_script(script)
             except Exception as ex:
@@ -239,7 +243,7 @@ class WindowsMountTools(base.BaseOSMountTools):
         self._set_volumes_drive_letter()
         self._refresh_storage()
         fs_roots = utils.retry_on_error(sleep_seconds=5)(self._get_fs_roots)(
-                fail_if_empty=True)
+            fail_if_empty=True)
         system_drive = self._get_system_drive()
 
         for fs_root in [r for r in fs_roots if not r[:-1] == system_drive]:

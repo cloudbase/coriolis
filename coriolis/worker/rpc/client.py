@@ -11,9 +11,9 @@ VERSION = "1.0"
 
 
 worker_opts = [
-    cfg.IntOpt("worker_rpc_timeout",
-               help="Number of seconds until RPC calls to the worker timeout.")
-]
+    cfg.IntOpt(
+        "worker_rpc_timeout",
+        help="Number of seconds until RPC calls to the worker timeout.")]
 
 CONF = cfg.CONF
 CONF.register_opts(worker_opts, 'worker')
@@ -48,7 +48,8 @@ class WorkerClient(rpc.BaseRPCClient):
         if topic_override:
             topic = topic_override
         return cls(
-            timeout=timeout, base_worker_topic=topic, host=service.get('host'))
+            timeout=timeout, base_worker_topic=topic,
+            host=service.get('host'))
 
     def begin_task(self, ctxt, task_id, task_type, origin, destination,
                    instance, task_info):
@@ -108,7 +109,8 @@ class WorkerClient(rpc.BaseRPCClient):
             env=env,
             option_names=option_names)
 
-    def get_endpoint_networks(self, ctxt, platform_name, connection_info, env):
+    def get_endpoint_networks(
+            self, ctxt, platform_name, connection_info, env):
         return self._call(
             ctxt, 'get_endpoint_networks',
             platform_name=platform_name,

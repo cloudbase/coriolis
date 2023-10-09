@@ -10,8 +10,6 @@ def upgrade(migrate_engine):
     meta = sqlalchemy.MetaData()
     meta.bind = migrate_engine
 
-    endpoint = sqlalchemy.Table(
-        'endpoint', meta, autoload=True)
     base_transfer_action = sqlalchemy.Table(
         'base_transfer_action', meta, autoload=True)
 
@@ -25,36 +23,42 @@ def upgrade(migrate_engine):
     # add table for pool lifecycles:
     tables.append(
         sqlalchemy.Table(
-            'minion_pool',
-            meta,
-            sqlalchemy.Column(
+            'minion_pool', meta, sqlalchemy.Column(
                 "id", sqlalchemy.String(36),
-                default=lambda: str(uuid.uuid4()), primary_key=True),
+                default=lambda: str(uuid.uuid4()),
+                primary_key=True),
             sqlalchemy.Column("notes", sqlalchemy.Text, nullable=True),
             sqlalchemy.Column(
-                "user_id", sqlalchemy.String(255), nullable=False),
+                "user_id", sqlalchemy.String(255),
+                nullable=False),
             sqlalchemy.Column(
-                "project_id", sqlalchemy.String(255), nullable=False),
+                "project_id", sqlalchemy.String(255),
+                nullable=False),
             sqlalchemy.Column(
-                "maintenance_trust_id", sqlalchemy.String(255), nullable=True),
+                "maintenance_trust_id", sqlalchemy.String(255),
+                nullable=True),
             sqlalchemy.Column('created_at', sqlalchemy.DateTime),
             sqlalchemy.Column('updated_at', sqlalchemy.DateTime),
             sqlalchemy.Column('deleted_at', sqlalchemy.DateTime),
             sqlalchemy.Column('deleted', sqlalchemy.String(36)),
             sqlalchemy.Column(
-                "name", sqlalchemy.String(255), nullable=False),
+                "name", sqlalchemy.String(255),
+                nullable=False),
             sqlalchemy.Column(
                 "endpoint_id", sqlalchemy.String(36),
-                sqlalchemy.ForeignKey('endpoint.id'), nullable=False),
+                sqlalchemy.ForeignKey('endpoint.id'),
+                nullable=False),
             sqlalchemy.Column(
                 "environment_options", sqlalchemy.Text, nullable=False),
             sqlalchemy.Column(
-                "os_type", sqlalchemy.String(255), nullable=False),
+                "os_type", sqlalchemy.String(255),
+                nullable=False),
             sqlalchemy.Column(
-                "platform", sqlalchemy.String(255), nullable=True),
+                "platform", sqlalchemy.String(255),
+                nullable=True),
             sqlalchemy.Column(
-                "status", sqlalchemy.String(255), nullable=False,
-                default=lambda: "UNKNOWN"),
+                "status", sqlalchemy.String(255),
+                nullable=False, default=lambda: "UNKNOWN"),
             sqlalchemy.Column(
                 "shared_resources", sqlalchemy.Text, nullable=True),
             sqlalchemy.Column(
@@ -121,24 +125,27 @@ def upgrade(migrate_engine):
         mysql_engine='InnoDB',
         mysql_charset='utf8'))
 
-    tables.append(sqlalchemy.Table(
-        'minion_pool_progress_update', meta,
-        sqlalchemy.Column('id', sqlalchemy.String(36), primary_key=True,
-                          default=lambda: str(uuid.uuid4())),
-        sqlalchemy.Column('created_at', sqlalchemy.DateTime),
-        sqlalchemy.Column('updated_at', sqlalchemy.DateTime),
-        sqlalchemy.Column('deleted_at', sqlalchemy.DateTime),
-        sqlalchemy.Column('index', sqlalchemy.Integer, default=0),
-        sqlalchemy.Column('deleted', sqlalchemy.String(36)),
-        sqlalchemy.Column("pool_id", sqlalchemy.String(36),
-                          sqlalchemy.ForeignKey('minion_pool.id'),
-                          nullable=False),
-        sqlalchemy.Column(
-            "current_step", sqlalchemy.BigInteger, nullable=False),
-        sqlalchemy.Column("total_steps", sqlalchemy.BigInteger, nullable=True),
-        sqlalchemy.Column("message", sqlalchemy.Text, nullable=True),
-        mysql_engine='InnoDB',
-        mysql_charset='utf8'))
+    tables.append(
+        sqlalchemy.Table(
+            'minion_pool_progress_update', meta, sqlalchemy.Column(
+                'id', sqlalchemy.String(36),
+                primary_key=True, default=lambda: str(uuid.uuid4())),
+            sqlalchemy.Column('created_at', sqlalchemy.DateTime),
+            sqlalchemy.Column('updated_at', sqlalchemy.DateTime),
+            sqlalchemy.Column('deleted_at', sqlalchemy.DateTime),
+            sqlalchemy.Column('index', sqlalchemy.Integer, default=0),
+            sqlalchemy.Column('deleted', sqlalchemy.String(36)),
+            sqlalchemy.Column(
+                "pool_id", sqlalchemy.String(36),
+                sqlalchemy.ForeignKey('minion_pool.id'),
+                nullable=False),
+            sqlalchemy.Column(
+                "current_step", sqlalchemy.BigInteger, nullable=False),
+            sqlalchemy.Column(
+                "total_steps", sqlalchemy.BigInteger, nullable=True),
+            sqlalchemy.Column(
+                "message", sqlalchemy.Text, nullable=True),
+            mysql_engine='InnoDB', mysql_charset='utf8'))
 
     # add the pool option properties for the transfer:
     origin_minion_pool_id = sqlalchemy.Column(

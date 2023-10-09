@@ -10,10 +10,9 @@ from coriolis import service
 from coriolis import utils
 
 api_opts = [
-    cfg.IntOpt('worker_count',
-               min=1, default=processutils.get_worker_count(),
-               help='Number of processes in which the service will be running')
-]
+    cfg.IntOpt(
+        'worker_count', min=1, default=processutils.get_worker_count(),
+        help='Number of processes in which the service will be running')]
 
 CONF = cfg.CONF
 CONF.register_opts(api_opts, 'api')

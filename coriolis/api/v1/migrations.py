@@ -1,17 +1,17 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-from oslo_config import cfg as conf
-from oslo_log import log as logging
-from webob import exc
-
-from coriolis import exception
 from coriolis.api.v1 import utils as api_utils
 from coriolis.api.v1.views import migration_view
 from coriolis.api import wsgi as api_wsgi
 from coriolis.endpoints import api as endpoints_api
+from coriolis import exception
 from coriolis.migrations import api
 from coriolis.policies import migrations as migration_policies
+
+from oslo_config import cfg as conf
+from oslo_log import log as logging
+from webob import exc
 
 
 MIGRATIONS_API_OPTS = [
@@ -53,7 +53,8 @@ class MigrationController(api_wsgi.Controller):
             req, self._migration_api.get_migrations(
                 context,
                 include_tasks=CONF.api.include_task_info_in_migrations_api,
-                include_task_info=CONF.api.include_task_info_in_migrations_api))
+                include_task_info=CONF.api.include_task_info_in_migrations_api
+            ))
 
     def index(self, req):
         return self._list(req)
@@ -143,8 +144,9 @@ class MigrationController(api_wsgi.Controller):
             # NOTE: destination environment for replica should have been
             # validated upon its creation.
             migration = self._migration_api.deploy_replica_instances(
-                context, replica_id, instance_osmorphing_minion_pool_mappings, clone_disks,
-                force, skip_os_morphing, user_scripts=user_scripts)
+                context, replica_id, instance_osmorphing_minion_pool_mappings,
+                clone_disks, force, skip_os_morphing,
+                user_scripts=user_scripts)
         else:
             (origin_endpoint_id,
              destination_endpoint_id,

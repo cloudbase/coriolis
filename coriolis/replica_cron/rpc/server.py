@@ -6,11 +6,11 @@ import json
 from oslo_log import log as logging
 from oslo_utils import timeutils
 
+from coriolis.conductor.rpc import client as rpc_client
 from coriolis import context
+from coriolis.cron import cron
 from coriolis import exception
 from coriolis import utils
-from coriolis.conductor.rpc import client as rpc_client
-from coriolis.cron import cron
 
 LOG = logging.getLogger(__name__)
 

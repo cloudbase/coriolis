@@ -2,8 +2,8 @@
 # All Rights Reserved.
 
 
-from coriolis.osmorphing import redhat
 from coriolis.osmorphing.osdetect import centos as centos_detect
+from coriolis.osmorphing import redhat
 
 
 CENTOS_DISTRO_IDENTIFIER = centos_detect.CENTOS_DISTRO_IDENTIFIER

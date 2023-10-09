@@ -242,11 +242,10 @@ class ConductorClient(rpc.BaseRPCClient):
             source_environment=source_environment,
             user_scripts=user_scripts)
 
-    def deploy_replica_instances(self, ctxt, replica_id,
-                                 instance_osmorphing_minion_pool_mappings=None,
-                                 clone_disks=False,
-                                 force=False, skip_os_morphing=False,
-                                 user_scripts=None):
+    def deploy_replica_instances(
+            self, ctxt, replica_id,
+            instance_osmorphing_minion_pool_mappings=None, clone_disks=False,
+            force=False, skip_os_morphing=False, user_scripts=None):
         return self._call(
             ctxt, 'deploy_replica_instances', replica_id=replica_id,
             instance_osmorphing_minion_pool_mappings=(
@@ -286,8 +285,8 @@ class ConductorClient(rpc.BaseRPCClient):
             exception_details=exception_details)
 
     def add_task_event(self, ctxt, task_id, level, message):
-        self._cast(
-            ctxt, 'add_task_event', task_id=task_id, level=level, message=message)
+        self._cast(ctxt, 'add_task_event', task_id=task_id,
+                   level=level, message=message)
 
     def add_task_progress_update(
             self, ctxt, task_id, message, initial_step=0, total_steps=0,
@@ -306,8 +305,8 @@ class ConductorClient(rpc.BaseRPCClient):
         self._cast(
             ctxt, 'update_task_progress_update', task_id=task_id,
             progress_update_index=progress_update_index,
-            new_current_step=new_current_step, new_total_steps=new_total_steps,
-            new_message=new_message)
+            new_current_step=new_current_step,
+            new_total_steps=new_total_steps, new_message=new_message)
 
     def create_replica_schedule(self, ctxt, replica_id,
                                 schedule, enabled, exp_date,
@@ -426,7 +425,8 @@ class ConductorClient(rpc.BaseRPCClient):
     def report_replica_minions_allocation_error(
             self, ctxt, replica_id, minion_allocation_error_details):
         self._call(
-            ctxt, 'report_replica_minions_allocation_error', replica_id=replica_id,
+            ctxt, 'report_replica_minions_allocation_error',
+            replica_id=replica_id,
             minion_allocation_error_details=minion_allocation_error_details)
 
     def confirm_migration_minions_allocation(

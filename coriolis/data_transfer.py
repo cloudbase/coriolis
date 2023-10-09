@@ -10,9 +10,9 @@ import zlib
 import requests
 import requests_unixsocket
 
-from urllib import parse
 from oslo_config import cfg
 from oslo_log import log as logging
+from urllib import parse
 
 from coriolis import constants
 from coriolis import exception

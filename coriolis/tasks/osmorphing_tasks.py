@@ -5,9 +5,9 @@ from oslo_log import log as logging
 
 from coriolis import constants
 from coriolis import exception
-from coriolis import schemas
 from coriolis.osmorphing import manager as osmorphing_manager
 from coriolis.providers import factory as providers_factory
+from coriolis import schemas
 from coriolis.tasks import base
 
 
@@ -108,7 +108,8 @@ class DeployOSMorphingResourcesTask(base.TaskRunner):
         instance_deployment_info = task_info["instance_deployment_info"]
 
         import_info = provider.deploy_os_morphing_resources(
-            ctxt, connection_info, target_environment, instance_deployment_info)
+            ctxt, connection_info, target_environment,
+            instance_deployment_info)
 
         schemas.validate_value(
             import_info, schemas.CORIOLIS_OS_MORPHING_RESOURCES_SCHEMA,

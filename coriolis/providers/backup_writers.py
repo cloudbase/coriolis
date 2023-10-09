@@ -7,11 +7,11 @@ import copy
 import datetime
 import errno
 import os
+import shutil
 import tempfile
 import threading
 import time
 import uuid
-import shutil
 
 import eventlet
 from oslo_config import cfg
@@ -368,8 +368,8 @@ class SSHBackupWriterImpl(BaseBackupWriterImpl):
 
         if self._exception:
             raise exception.CoriolisException(
-                    "Failed to write data. See log "
-                    "for details.") from self._exception
+                "Failed to write data. See log "
+                "for details.") from self._exception
 
         payload = {
             "offset": self._offset,
@@ -482,7 +482,8 @@ class SSHBackupWriter(BaseBackupWriter):
 
         if not matching_devs:
             base_msg = (
-                "Could not locate disk with ID '%s' in volumes_info" % disk_id)
+                "Could not locate disk with ID '%s' in volumes_info" %
+                disk_id)
             LOG.error("%s: %s", base_msg, self._volumes_info)
             raise exception.CoriolisException(base_msg)
         elif len(matching_devs) > 1:
@@ -923,7 +924,7 @@ class HTTPBackupWriterBootstrapper(object):
                        "srv_key": cert_paths["srv_key"],
                        "srv_cert": cert_paths["srv_crt"],
                        "listen_port": self._writer_port,
-            }
+        }
         self._change_binary_se_context(ssh)
         utils.create_service(
             ssh, cmdline, _CORIOLIS_HTTP_WRITER_CMD, start=True)

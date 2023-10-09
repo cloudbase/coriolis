@@ -1,13 +1,13 @@
 # Copyright 2018 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-from oslo_log import log as logging
-
-from coriolis import utils
 from coriolis.api.v1.views import endpoint_resources_view
 from coriolis.api import wsgi as api_wsgi
 from coriolis.endpoint_resources import api
 from coriolis.policies import endpoints as endpoint_policies
+from coriolis import utils
+
+from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
 

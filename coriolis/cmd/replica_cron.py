@@ -6,9 +6,9 @@ import sys
 from oslo_config import cfg
 
 from coriolis import constants
+from coriolis.replica_cron.rpc import server as rpc_server
 from coriolis import service
 from coriolis import utils
-from coriolis.replica_cron.rpc import server as rpc_server
 
 CONF = cfg.CONF
 

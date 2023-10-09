@@ -8,9 +8,9 @@ import uuid
 from oslo_log import log as logging
 
 from coriolis import exception
-from coriolis import utils
 from coriolis.osmorphing import base
 from coriolis.osmorphing.osdetect import suse as suse_detect
+from coriolis import utils
 
 
 LOG = logging.getLogger(__name__)
@@ -118,8 +118,8 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
             raise exception.CoriolisException(
                 "Failed to activate SLES module: %s. Please check whether the "
                 "SUSE system registration is still valid on the source VM "
-                "and retry. Review logs for more details. Error was: %s" % (
-                    module, str(err))) from err
+                "and retry. Review logs for more details. Error was: %s" %
+                (module, str(err))) from err
 
     def _add_cloud_tools_repo(self):
         repo_suffix = ""
@@ -135,7 +135,8 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
     def _get_repos(self):
         repos = {}
         repos_list = self._exec_cmd_chroot(
-            "zypper repos -u | awk -F '|' '/^\s[0-9]+/ {print $2 $7}'").decode()
+            "zypper repos -u | awk -F '|' '/^\s[0-9]+/ {print $2 $7}'"
+        ).decode()
         for repo in repos_list.splitlines():
             alias, uri = repo.strip().split()
             repos[alias] = uri
@@ -146,8 +147,9 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
         repos = self._get_repos()
         if repos.get(alias):
             if repos[alias] == uri:
-                LOG.debug('Repo with alias %s already exists and has the same '
-                          'URI. Enabling', alias)
+                LOG.debug(
+                    'Repo with alias %s already exists and has the same '
+                    'URI. Enabling', alias)
                 self._event_manager.progress_update(
                     "Enabling repository: %s" % alias)
                 self._exec_cmd_chroot(
@@ -184,7 +186,8 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
     def uninstall_packages(self, package_names):
         try:
             self._exec_cmd_chroot(
-                'zypper --non-interactive remove %s' % " ".join(package_names))
+                'zypper --non-interactive remove %s' %
+                " ".join(package_names))
         except Exception:
             self._event_manager.progress_update(
                 "Error occured while uninstalling packages. Ignoring")

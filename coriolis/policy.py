@@ -8,7 +8,6 @@ from oslo_log import log as logging
 from oslo_policy import policy
 
 from coriolis import exception
-from coriolis import utils
 from coriolis.policies import base
 from coriolis.policies import diagnostics
 from coriolis.policies import endpoints
@@ -16,10 +15,11 @@ from coriolis.policies import general
 from coriolis.policies import migrations
 from coriolis.policies import minion_pools
 from coriolis.policies import regions
-from coriolis.policies import replicas
 from coriolis.policies import replica_schedules
 from coriolis.policies import replica_tasks_executions
+from coriolis.policies import replicas
 from coriolis.policies import services
+from coriolis import utils
 
 
 LOG = logging.getLogger(__name__)

@@ -45,29 +45,36 @@ def upgrade(migrate_engine):
     )
 
     task = sqlalchemy.Table(
-        'task', meta,
-        sqlalchemy.Column('id', sqlalchemy.String(36), primary_key=True,
-                          default=lambda: str(uuid.uuid4())),
+        'task', meta, sqlalchemy.Column(
+            'id', sqlalchemy.String(36),
+            primary_key=True, default=lambda: str(uuid.uuid4())),
         sqlalchemy.Column('created_at', sqlalchemy.DateTime),
         sqlalchemy.Column('updated_at', sqlalchemy.DateTime),
         sqlalchemy.Column('deleted_at', sqlalchemy.DateTime),
         sqlalchemy.Column('deleted', sqlalchemy.String(36)),
-        sqlalchemy.Column("execution_id", sqlalchemy.String(36),
-                          sqlalchemy.ForeignKey(
-                              'tasks_execution.id'),
-                          nullable=False),
-        sqlalchemy.Column("instance", sqlalchemy.String(1024), nullable=False),
-        sqlalchemy.Column("host", sqlalchemy.String(1024), nullable=True),
-        sqlalchemy.Column("process_id", sqlalchemy.Integer, nullable=True),
-        sqlalchemy.Column("status", sqlalchemy.String(100), nullable=False),
-        sqlalchemy.Column("task_type", sqlalchemy.String(100),
-                          nullable=False),
-        sqlalchemy.Column("exception_details", sqlalchemy.Text, nullable=True),
+        sqlalchemy.Column(
+            "execution_id", sqlalchemy.String(36),
+            sqlalchemy.ForeignKey('tasks_execution.id'),
+            nullable=False),
+        sqlalchemy.Column(
+            "instance", sqlalchemy.String(1024),
+            nullable=False),
+        sqlalchemy.Column(
+            "host", sqlalchemy.String(1024),
+            nullable=True),
+        sqlalchemy.Column(
+            "process_id", sqlalchemy.Integer, nullable=True),
+        sqlalchemy.Column(
+            "status", sqlalchemy.String(100),
+            nullable=False),
+        sqlalchemy.Column(
+            "task_type", sqlalchemy.String(100),
+            nullable=False),
+        sqlalchemy.Column(
+            "exception_details", sqlalchemy.Text, nullable=True),
         sqlalchemy.Column("depends_on", sqlalchemy.Text, nullable=True),
         sqlalchemy.Column("on_error", sqlalchemy.Boolean, nullable=True),
-        mysql_engine='InnoDB',
-        mysql_charset='utf8'
-    )
+        mysql_engine='InnoDB', mysql_charset='utf8')
 
     tasks_execution = sqlalchemy.Table(
         'tasks_execution', meta,

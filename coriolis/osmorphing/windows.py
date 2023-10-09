@@ -13,9 +13,9 @@ from oslo_log import log as logging
 
 from coriolis import constants
 from coriolis import exception
-from coriolis import utils
 from coriolis.osmorphing import base
 from coriolis.osmorphing.osdetect import windows as windows_osdetect
+from coriolis import utils
 
 
 LOG = logging.getLogger(__name__)
@@ -148,7 +148,7 @@ $NICS_INFO = ConvertFrom-Json $nics_info_json
 $IPS_INFO = ConvertFrom-Json $ips_info_json
 
 Invoke-Main $NICS_INFO $IPS_INFO
-""" # noqa
+"""  # noqa
 
 
 class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
@@ -221,7 +221,8 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
             return self._conn.exec_command(
                 dism_path,
                 ["/add-driver", "/image:%s" % self._os_root_dir,
-                 "/driver:\"%s\"" % driver_path, "/recurse", "/forceunsigned"])
+                 "/driver:\"%s\"" % driver_path, "/recurse",
+                 "/forceunsigned"])
         except Exception as ex:
             dism_log_path = "%s\\Windows\\Logs\\DISM\\dism.log" % (
                 self._get_worker_os_drive_path())
@@ -234,7 +235,8 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
                     driver_path, dism_log_path, dism_log_contents)
             else:
                 LOG.warn(
-                    "Could not find DISM error logs for failure:'%s'", str(ex))
+                    "Could not find DISM error logs for failure:'%s'",
+                    str(ex))
             raise
 
     def _mount_disk_image(self, path):
@@ -314,12 +316,9 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
             "16 -Type DWord -Force;"
             "New-ItemProperty -Path '%(path)s' -Name 'ErrorControl' -Value "
             "0 -Type DWord -Force" %
-            {"path": registry_path,
-             "image_path": image_path,
-             "display_name": display_name,
-             "description": description,
-             "depends_on": depends_on_ps,
-             "service_account": service_account,
+            {"path": registry_path, "image_path": image_path,
+             "display_name": display_name, "description": description,
+             "depends_on": depends_on_ps, "service_account": service_account,
              "start_mode": start_mode},
             ignore_stdout=True)
 

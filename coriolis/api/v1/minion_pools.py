@@ -1,17 +1,17 @@
 # Copyright 2020 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from coriolis.api.v1 import utils as api_utils
+from coriolis.api.v1.views import minion_pool_view
+from coriolis.api import wsgi as api_wsgi
+from coriolis import constants
+from coriolis.endpoints import api as endpoints_api
+from coriolis import exception
+from coriolis.minion_pools import api
+from coriolis.policies import minion_pools as pools_policies
+
 from oslo_log import log as logging
 from webob import exc
-
-from coriolis import constants
-from coriolis import exception
-from coriolis.api.v1.views import minion_pool_view
-from coriolis.api.v1 import utils as api_utils
-from coriolis.api import wsgi as api_wsgi
-from coriolis.endpoints import api as endpoints_api
-from coriolis.policies import minion_pools as pools_policies
-from coriolis.minion_pools import api
 
 LOG = logging.getLogger(__name__)
 
@@ -65,15 +65,16 @@ class MinionPoolController(api_wsgi.Controller):
             if maximum_minions < minimum_minions:
                 raise Exception(
                     "'maximum_minions' value (%s) must be at least as large as"
-                    " the 'minimum_minions' value (%s)." % (
-                        maximum_minions, minimum_minions))
+                    " the 'minimum_minions' value (%s)." %
+                    (maximum_minions, minimum_minions))
         if minion_max_idle_time is not None:
             if minion_max_idle_time <= 0:
                 raise Exception(
                     "'minion_max_idle_time' must be a strictly positive "
                     "integer. Got: %s" % maximum_minions)
 
-    @api_utils.format_keyerror_message(resource='minion_pool', method='create')
+    @api_utils.format_keyerror_message(resource='minion_pool',
+                                       method='create')
     def _validate_create_body(self, ctxt, body):
         minion_pool = body["minion_pool"]
         name = minion_pool["name"]
@@ -104,7 +105,8 @@ class MinionPoolController(api_wsgi.Controller):
             self._endpoints_api.validate_endpoint_source_minion_pool_options(
                 ctxt, endpoint_id, environment_options)
         elif pool_platform == constants.PROVIDER_PLATFORM_DESTINATION:
-            self._endpoints_api.validate_endpoint_destination_minion_pool_options(
+            (self._endpoints_api.
+             validate_endpoint_destination_minion_pool_options)(
                 ctxt, endpoint_id, environment_options)
 
         minimum_minions = minion_pool.get("minimum_minions", 1)
@@ -141,7 +143,8 @@ class MinionPoolController(api_wsgi.Controller):
             minion_max_idle_time, minion_retention_strategy, notes=notes,
             skip_allocation=skip_allocation))
 
-    @api_utils.format_keyerror_message(resource='minion_pool', method='update')
+    @api_utils.format_keyerror_message(resource='minion_pool',
+                                       method='update')
     def _validate_update_body(self, id, context, body):
         minion_pool = body["minion_pool"]
         if 'endpoint_id' in minion_pool:
@@ -173,12 +176,14 @@ class MinionPoolController(api_wsgi.Controller):
             if 'environment_options' in vals:
                 if minion_pool['platform'] == (
                         constants.PROVIDER_PLATFORM_SOURCE):
-                    self._endpoints_api.validate_endpoint_source_minion_pool_options(
+                    (self._endpoints_api.
+                     validate_endpoint_source_minion_pool_options)(
                         context, minion_pool['endpoint_id'],
                         vals['environment_options'])
                 elif minion_pool['platform'] == (
                         constants.PROVIDER_PLATFORM_DESTINATION):
-                    self._endpoints_api.validate_endpoint_destination_minion_pool_options(
+                    (self._endpoints_api.
+                     validate_endpoint_destination_minion_pool_options)(
                         context, minion_pool['endpoint_id'],
                         vals['environment_options'])
                 else:

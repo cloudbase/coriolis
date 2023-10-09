@@ -8,10 +8,10 @@ from oslo_log import log as logging
 
 from coriolis import events
 from coriolis import exception
-from coriolis import schemas
 from coriolis.osmorphing import base as base_osmorphing
-from coriolis.osmorphing.osmount import factory as osmount_factory
 from coriolis.osmorphing.osdetect import manager as osdetect_manager
+from coriolis.osmorphing.osmount import factory as osmount_factory
+from coriolis import schemas
 
 
 opts = [
@@ -187,8 +187,8 @@ def morph_image(origin_provider, destination_provider, connection_info,
             export_os_morphing_tools.set_environment(environment)
         else:
             LOG.debug(
-                "No compatible OSMorphing tools class found for export provider "
-                "'%s'", type(origin_provider).__name__)
+                "No compatible OSMorphing tools class found for export "
+                "provider '%s'", type(origin_provider).__name__)
     except exception.OSMorphingToolsNotFound:
         LOG.warn(
             "No tools found for export provider of type: %s",

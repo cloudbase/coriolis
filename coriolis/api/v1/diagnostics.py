@@ -1,13 +1,12 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-import logging
-
-from coriolis import exception
-from coriolis.api import wsgi as api_wsgi
 from coriolis.api.v1.views import diagnostic_view
+from coriolis.api import wsgi as api_wsgi
 from coriolis.diagnostics import api
 from coriolis.policies import diagnostics
+
+import logging
 
 
 LOG = logging.getLogger(__name__)

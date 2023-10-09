@@ -10,8 +10,8 @@ from six import with_metaclass
 
 from coriolis import constants
 from coriolis import exception
-from coriolis import utils
 from coriolis.providers import factory as providers_factory
+from coriolis import utils
 
 serialization_opts = [
     cfg.StrOpt('temp_keypair_password',

@@ -1,12 +1,12 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-from webob import exc
-
-from coriolis import exception
 from coriolis.api import wsgi as api_wsgi
+from coriolis import exception
 from coriolis.migrations import api
 from coriolis.policies import migrations as migration_policies
+
+from webob import exc
 
 
 class MigrationActionsController(api_wsgi.Controller):

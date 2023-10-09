@@ -21,7 +21,8 @@ LOG = logging.getLogger(__name__)
 # Required OS release fields which are expected from the OSDetect tools.
 # 'schemas.CORIOLIS_DETECTED_OS_MORPHING_INFO_SCHEMA' schema:
 REQUIRED_DETECTED_OS_FIELDS = [
-    "os_type", "distribution_name", "release_version", "friendly_release_name"]
+    "os_type", "distribution_name", "release_version",
+    "friendly_release_name"]
 
 
 class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):

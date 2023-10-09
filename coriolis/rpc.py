@@ -1,15 +1,13 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-import contextlib
-
+import coriolis.exception
 import oslo_messaging as messaging
+
 from oslo_config import cfg
 from oslo_log import log as logging
 
-import coriolis.exception
 from coriolis import context
-from coriolis import utils
 
 
 rpc_opts = [
@@ -102,9 +100,9 @@ class BaseRPCClient(object):
 
     def _rpc_client(self):
         return messaging.RPCClient(
-                self._transport, self._target,
-                serializer=self._serializer,
-                timeout=self._timeout)
+            self._transport, self._target,
+            serializer=self._serializer,
+            timeout=self._timeout)
 
     def _call(self, ctxt, method, **kwargs):
         client = self._rpc_client()

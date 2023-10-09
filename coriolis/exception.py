@@ -300,7 +300,8 @@ class OSMorphingToolsNotFound(NotFound):
 
 class OSDetectToolsNotFound(NotFound):
     message = _(
-        'No "%(os_type)s" OS detect tools were able to identify the OS for this VM. '
+        'No "%(os_type)s" OS detect tools were able to identify the OS for '
+        ' this VM. '
         'This would indicate that it was either not possible to determine the '
         'exact OS release, or this OS release is not supported by Coriolis. '
         'Suggestions include performing any needed OSMorphing steps manually '
@@ -506,8 +507,7 @@ class OSMorphingSSHOperationTimeout(OSMorphingOperationTimeout):
         "Coriolis may have encountered connection issues to the minion machine"
         " or the command execution time exceeds the timeout set. Try extending"
         " the timeout by editing the 'default_osmorphing_operation_timeout' "
-        "in Coriolis' static configuration file."
-    )
+        "in Coriolis' static configuration file.")
 
 
 class OSMorphingWinRMOperationTimeout(OSMorphingOperationTimeout):
@@ -516,5 +516,4 @@ class OSMorphingWinRMOperationTimeout(OSMorphingOperationTimeout):
         "Coriolis may have encountered connection issues to the minion machine"
         " or the command execution time exceeds the timeout set. Try extending"
         " the timeout by editing the 'default_osmorphing_operation_timeout' "
-        "in Coriolis' static configuration file."
-    )
+        "in Coriolis' static configuration file.")

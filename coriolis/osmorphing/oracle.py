@@ -3,8 +3,8 @@
 
 import uuid
 
-from coriolis.osmorphing import redhat
 from coriolis.osmorphing.osdetect import oracle as oracle_detect
+from coriolis.osmorphing import redhat
 
 
 ORACLE_DISTRO_IDENTIFIER = oracle_detect.ORACLE_DISTRO_IDENTIFIER

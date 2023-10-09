@@ -6,8 +6,8 @@ from oslo_log import log as logging
 from coriolis import constants
 from coriolis import events
 from coriolis import exception
-from coriolis.providers import factory as providers_factory
 from coriolis.providers import backup_writers
+from coriolis.providers import factory as providers_factory
 from coriolis import schemas
 from coriolis.tasks import base
 from coriolis import utils

@@ -140,7 +140,8 @@ class LicensingClient(object):
             response_key=response_key,
             appliance_scoped=appliance_scoped)
 
-    def _delete(self, resource, body, response_key=None, appliance_scoped=True):
+    def _delete(self, resource, body, response_key=None,
+                appliance_scoped=True):
         return self._do_req(
             "DELETE", resource, body=body,
             response_key=response_key,

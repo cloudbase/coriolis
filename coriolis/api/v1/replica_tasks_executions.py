@@ -1,13 +1,13 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-from webob import exc
-
 from coriolis.api.v1.views import replica_tasks_execution_view
 from coriolis.api import wsgi as api_wsgi
 from coriolis import exception
-from coriolis.replica_tasks_executions import api
 from coriolis.policies import replica_tasks_executions as executions_policies
+from coriolis.replica_tasks_executions import api
+
+from webob import exc
 
 
 class ReplicaTasksExecutionController(api_wsgi.Controller):

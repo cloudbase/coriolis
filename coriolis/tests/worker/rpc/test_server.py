@@ -10,9 +10,12 @@ import ddt
 import eventlet
 import psutil
 
-from coriolis import schemas, constants, utils, exception
+from coriolis import constants
+from coriolis import exception
 from coriolis.providers import factory as providers_factory
+from coriolis import schemas
 from coriolis.tests import test_base
+from coriolis import utils
 from coriolis.worker.rpc import server
 
 
@@ -20,14 +23,14 @@ from coriolis.worker.rpc import server
 class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     """Test suite for the Coriolis Worker RPC server."""
 
-    @mock.patch.object(server.WorkerServerEndpoint, "_register_worker_service")
+    @mock.patch.object(server.WorkerServerEndpoint,
+                       "_register_worker_service")
     def setUp(self, _):  # pylint: disable=arguments-differ
         super(WorkerServerEndpointTestCase, self).setUp()
         self.server = server.WorkerServerEndpoint()
 
-    @mock.patch.object(
-        server.WorkerServerEndpoint, "_start_process_with_custom_library_paths"
-    )
+    @mock.patch.object(server.WorkerServerEndpoint,
+                       "_start_process_with_custom_library_paths")
     @mock.patch.object(server, "_task_process")
     @mock.patch.object(eventlet, "spawn")
     @mock.patch.object(server.WorkerServerEndpoint, "_rpc_conductor_client")
@@ -298,7 +301,8 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_client.reset_mock()
         mock_exec.reset_mock()
         mock_exec.side_effect = Exception("mock_message")
-        self.assertRaises(Exception, lambda: call_exec_task(False))
+        self.assertRaises(Exception,  # noqa: H202
+                          lambda: call_exec_task(False))
 
     @mock.patch.object(schemas, "validate_value")
     @mock.patch.object(utils, "get_secret_connection_info")
@@ -433,7 +437,7 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
                 mock_get_secret.return_value,
                 env=mock.sentinel.environment,
                 option_names=mock.sentinel.option_names,
-                )
+            )
         mock_validate.assert_called_once_with(
             mock_get_provider.return_value
             .get_target_environment_options.return_value,
@@ -484,7 +488,7 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
                 mock_get_secret.return_value,
                 env=mock.sentinel.environment,
                 option_names=mock.sentinel.option_names,
-                )
+            )
         mock_validate.assert_called_once_with(
             mock_get_provider.return_value
             .get_minion_pool_options.return_value,
@@ -536,7 +540,7 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
                 mock_get_secret.return_value,
                 env=mock.sentinel.environment,
                 option_names=mock.sentinel.option_names,
-                )
+            )
         mock_validate.assert_called_once_with(
             mock_get_provider.return_value
             .get_minion_pool_options.return_value,
@@ -588,7 +592,7 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
                 mock_get_secret.return_value,
                 env=mock.sentinel.environment,
                 option_names=mock.sentinel.option_names,
-                )
+            )
         mock_validate.assert_called_once_with(
             mock_get_provider.return_value
             .get_source_environment_options.return_value,
@@ -735,7 +739,8 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         self.assertEqual(result, (True, None))
 
         # handle SchemaValidationException
-        mock_validate.side_effect = exception.SchemaValidationException("test")
+        mock_validate.side_effect = exception.SchemaValidationException(
+            "test")
         result = self.server.validate_endpoint_source_environment(
             mock.sentinel.context,
             mock.sentinel.source_platform_name,
@@ -769,7 +774,8 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         self.assertEqual(result, (True, None))
 
         # handle SchemaValidationException
-        mock_validate.side_effect = exception.SchemaValidationException("test")
+        mock_validate.side_effect = exception.SchemaValidationException(
+            "test")
         result = self.server.validate_endpoint_target_environment(
             mock.sentinel.context,
             mock.sentinel.target_platform_name,
@@ -803,7 +809,8 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         self.assertEqual(result, (True, None))
 
         # handle SchemaValidationException
-        mock_validate.side_effect = exception.SchemaValidationException("test")
+        mock_validate.side_effect = exception.SchemaValidationException(
+            "test")
         result = self.server.validate_endpoint_source_minion_pool_options(
             mock.sentinel.context,
             mock.sentinel.source_platform_name,
@@ -837,7 +844,8 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         self.assertEqual(result, (True, None))
 
         # handle SchemaValidationException
-        mock_validate.side_effect = exception.SchemaValidationException("test")
+        mock_validate.side_effect = exception.SchemaValidationException(
+            "test")
         result = self.server.validate_endpoint_destination_minion_pool_options(
             mock.sentinel.context,
             mock.sentinel.destination_platform_name,
@@ -875,7 +883,7 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_get_provider.return_value\
             .validate_connection.assert_called_once_with(
                 mock.sentinel.context, mock_get_secret.return_value
-                )
+            )
 
         self.assertEqual(result, (True, None))
 

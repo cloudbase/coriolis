@@ -15,7 +15,6 @@ class CoreOSOSDetectTools(base.BaseLinuxOSDetectTools):
         os_release = self._get_os_release()
         osid = os_release.get("ID")
         if osid == "coreos":
-            name = os_release.get("NAME")
             version = os_release.get("VERSION_ID")
             info = {
                 "os_type": constants.OS_TYPE_LINUX,

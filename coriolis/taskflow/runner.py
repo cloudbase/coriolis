@@ -4,9 +4,9 @@
 # NOTE: we neeed to make sure eventlet is imported:
 import multiprocessing
 import sys
-from logging import handlers
+import eventlet  # noqa
 
-import eventlet  #noqa
+from logging import handlers
 from oslo_config import cfg
 from oslo_log import log as logging
 from six.moves import queue
@@ -76,10 +76,11 @@ class TaskFlowRunner(object):
         LOG.debug("Running flow with name '%s'", flow.name)
         try:
             engine.run()
-        except Exception as ex:
+        except Exception:
             LOG.warn(
                 "Fatal error occurred while attempting to run flow '%s'. "
-                "Full trace was: %s", flow.name, utils.get_exception_details())
+                "Full trace was: %s", flow.name,
+                utils.get_exception_details())
             raise
         LOG.info(
             "Successfully ran flow with name '%s'. Statistics were: %s",
