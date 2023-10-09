@@ -65,7 +65,8 @@ def _model_query(context, *args):
     return session.query(*args)
 
 
-def _update_sqlalchemy_object_fields(obj, updateable_fields, values_to_update):
+def _update_sqlalchemy_object_fields(
+        obj, updateable_fields, values_to_update):
     """ Updates the given 'values_to_update' on the provided sqlalchemy object
     as long as they are included as 'updateable_fields'.
     :param obj: object: sqlalchemy object
@@ -182,7 +183,7 @@ def update_endpoint(context, endpoint_id, updated_values):
                     region_to_unmap, endpoint_id)
                 delete_endpoint_region_mapping(
                     context, endpoint_id, region_to_unmap)
-            except Exception as ex:
+            except Exception:
                 LOG.warn(
                     "Exception occurred while attempting to unmap region '%s' "
                     "from endpoint '%s'. Ignoring. Error was: %s",
@@ -227,7 +228,7 @@ def update_endpoint(context, endpoint_id, updated_values):
                 mapping.endpoint_id = endpoint_id
                 add_endpoint_region_mapping(context, mapping)
                 newly_mapped_regions.append(region_id)
-        except Exception as ex:
+        except Exception:
             LOG.warn(
                 "Exception occurred while adding region mapping for '%s' to "
                 "endpoint '%s'. Cleaning up created mappings (%s). Error was: "
@@ -240,7 +241,7 @@ def update_endpoint(context, endpoint_id, updated_values):
     try:
         _update_sqlalchemy_object_fields(
             endpoint, updateable_fields, updated_values)
-    except Exception as ex:
+    except Exception:
         LOG.warn(
             "Exception occurred while updating fields of endpoint '%s'. "
             "Cleaning ""up created mappings (%s). Error was: %s",
@@ -886,7 +887,8 @@ def add_task_progress_update(
 def update_task_progress_update(
         context, task_id, update_index, new_current_step,
         new_total_steps=None, new_message=None):
-    task_progress_update = _get_progress_update(context, task_id, update_index)
+    task_progress_update = _get_progress_update(
+        context, task_id, update_index)
     if not task_progress_update:
         raise exception.NotFound(
             "Could not find progress update for task with ID '%s' and "
@@ -1042,7 +1044,7 @@ def get_region_mappings_for_endpoint(
         models.EndpointRegionMapping.endpoint_id == endpoint_id)
     if enabled_regions_only:
         q = q.filter(
-            models.Region.enabled == True)
+            models.Region.enabled == True)  # noqa: E712
     return q.all()
 
 
@@ -1108,7 +1110,7 @@ def update_service(context, service_id, updated_values):
                     region_to_unmap, service_id)
                 delete_service_region_mapping(
                     context, service_id, region_to_unmap)
-            except Exception as ex:
+            except Exception:
                 LOG.warn(
                     "Exception occurred while attempting to unmap region '%s' "
                     "from service '%s'. Ignoring. Error was: %s",
@@ -1153,7 +1155,7 @@ def update_service(context, service_id, updated_values):
                 mapping.service_id = service_id
                 add_service_region_mapping(context, mapping)
                 newly_mapped_regions.append(region_id)
-        except Exception as ex:
+        except Exception:
             LOG.warn(
                 "Exception occurred while adding region mapping for '%s' to "
                 "service '%s'. Cleaning up created mappings (%s). Error was: "
@@ -1166,7 +1168,7 @@ def update_service(context, service_id, updated_values):
     try:
         _update_sqlalchemy_object_fields(
             service, updateable_fields, updated_values)
-    except Exception as ex:
+    except Exception:
         LOG.warn(
             "Exception occurred while updating fields of service '%s'. "
             "Cleaning ""up created mappings (%s). Error was: %s",
@@ -1244,7 +1246,7 @@ def get_region_mappings_for_service(
         models.ServiceRegionMapping.service_id == service_id)
     if enabled_regions_only:
         q = q.filter(
-            models.Region.enabled == True)
+            models.Region.enabled == True)  # noqa: E712
     return q.all()
 
 
@@ -1349,7 +1351,6 @@ def set_minion_machines_allocation_statuses(
 
 @enginefacade.writer
 def delete_minion_machine(context, minion_machine_id):
-    minion_machine = get_minion_machine(context, minion_machine_id)
     # TODO(aznashwan): update models to be soft-delete-aware to
     # avoid needing to hard-delete here:
     count = _soft_delete_aware_query(context, models.MinionMachine).filter_by(

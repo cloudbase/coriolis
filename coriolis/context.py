@@ -22,21 +22,15 @@ class RequestContext(context.RequestContext):
                  show_deleted=None, trust_id=None,
                  delete_trust_id=False, **kwargs):
 
-        super(RequestContext, self).__init__(auth_token=auth_token,
-                                             user=user,
-                                             project_id=project_id,
-                                             domain_name=domain_name,
-                                             domain_id=domain_id,
-                                             user_domain_name=user_domain_name,
-                                             user_domain_id=user_domain_id,
-                                             project_domain_name=(
-                                                 project_domain_name),
-                                             project_domain_id=(
-                                                 project_domain_id),
-                                             is_admin=is_admin,
-                                             show_deleted=show_deleted,
-                                             request_id=request_id,
-                                             overwrite=overwrite)
+        super(
+            RequestContext, self).__init__(
+            auth_token=auth_token, user=user, project_id=project_id,
+            domain_name=domain_name, domain_id=domain_id,
+            user_domain_name=user_domain_name, user_domain_id=user_domain_id,
+            project_domain_name=(project_domain_name),
+            project_domain_id=(project_domain_id),
+            is_admin=is_admin, show_deleted=show_deleted,
+            request_id=request_id, overwrite=overwrite)
         self.roles = roles or []
         self.project_name = project_name
         self.remote_address = remote_address

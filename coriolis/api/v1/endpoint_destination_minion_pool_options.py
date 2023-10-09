@@ -1,13 +1,13 @@
 # Copyright 2020 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-from oslo_log import log as logging
-
-from coriolis import utils
 from coriolis.api.v1.views import endpoint_options_view
 from coriolis.api import wsgi as api_wsgi
 from coriolis.endpoint_options import api
 from coriolis.policies import endpoints as endpoint_policies
+from coriolis import utils
+
+from oslo_log import log as logging
 
 
 LOG = logging.getLogger(__name__)
@@ -35,9 +35,11 @@ class EndpointDestinationMinionPoolOptionsController(api_wsgi.Controller):
         else:
             options = {}
 
-        return endpoint_options_view.destination_minion_pool_options_collection(
+        return (endpoint_options_view.
+                destination_minion_pool_options_collection)(
             req,
-            self._minion_pool_options_api.get_endpoint_destination_minion_pool_options(
+            (self._minion_pool_options_api.
+             get_endpoint_destination_minion_pool_options)(
                 context, endpoint_id, env=env, option_names=options))
 
 

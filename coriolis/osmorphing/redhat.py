@@ -8,10 +8,10 @@ import uuid
 from oslo_log import log as logging
 
 from coriolis import exception
-from coriolis import utils
 from coriolis.osmorphing import base
 from coriolis.osmorphing.osdetect import centos as centos_detect
 from coriolis.osmorphing.osdetect import redhat as redhat_detect
+from coriolis import utils
 
 
 RED_HAT_DISTRO_IDENTIFIER = redhat_detect.RED_HAT_DISTRO_IDENTIFIER
@@ -54,10 +54,10 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
     def __init__(self, conn, os_root_dir, os_root_dev,
                  hypervisor, event_manager, detected_os_info,
                  osmorphing_parameters, operation_timeout=None):
-        super(BaseRedHatMorphingTools, self).__init__(
-            conn, os_root_dir, os_root_dev,
-            hypervisor, event_manager, detected_os_info, osmorphing_parameters,
-            operation_timeout)
+        super(
+            BaseRedHatMorphingTools, self).__init__(
+            conn, os_root_dir, os_root_dev, hypervisor, event_manager,
+            detected_os_info, osmorphing_parameters, operation_timeout)
 
     def disable_predictable_nic_names(self):
         cmd = 'grubby --update-kernel=ALL --args="%s"'
@@ -160,7 +160,8 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         for ifcfgf in all_ifcfg_files:
             if not re.match(regex, ifcfgf):
                 LOG.debug(
-                    "Skipping ifcfg file with unknown filename '%s'." % ifcfgf)
+                    "Skipping ifcfg file with unknown filename '%s'." %
+                    ifcfgf)
                 continue
 
             if interfaces and not any([i in ifcfgf for i in interfaces]):

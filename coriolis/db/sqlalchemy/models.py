@@ -45,7 +45,7 @@ class TaskEvent(BASE, models.TimestampMixin, models.SoftDeleteMixin,
 
 
 class MinionPoolEvent(BASE, models.TimestampMixin, models.SoftDeleteMixin,
-                models.ModelBase):
+                      models.ModelBase):
     __tablename__ = 'minion_pool_event'
 
     id = sqlalchemy.Column(sqlalchemy.String(36),
@@ -538,8 +538,8 @@ class MinionMachine(BASE, models.TimestampMixin, models.ModelBase,
 
 
 class MinionPool(
-            BASE, models.TimestampMixin, models.ModelBase,
-            models.SoftDeleteMixin):
+    BASE, models.TimestampMixin, models.ModelBase,
+    models.SoftDeleteMixin):
     __tablename__ = 'minion_pool'
 
     id = sqlalchemy.Column(

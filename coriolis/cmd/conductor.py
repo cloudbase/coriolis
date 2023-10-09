@@ -6,16 +6,15 @@ import sys
 from oslo_concurrency import processutils
 from oslo_config import cfg
 
-from coriolis import constants
 from coriolis.conductor.rpc import server as rpc_server
+from coriolis import constants
 from coriolis import service
 from coriolis import utils
 
 conductor_opts = [
-    cfg.IntOpt('worker_count',
-               min=1, default=processutils.get_worker_count(),
-               help='Number of processes in which the service will be running')
-]
+    cfg.IntOpt(
+        'worker_count', min=1, default=processutils.get_worker_count(),
+        help='Number of processes in which the service will be running')]
 
 CONF = cfg.CONF
 CONF.register_opts(conductor_opts, 'conductor')

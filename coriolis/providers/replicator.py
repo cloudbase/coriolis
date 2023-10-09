@@ -11,6 +11,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import units
 from sshtunnel import SSHTunnelForwarder
+
 import paramiko
 import requests
 
@@ -374,10 +375,12 @@ class Replicator(object):
         new_device_paths = None
         for i in range(retry_count):
             new_disks_status = self._cli.get_status()
-            new_device_paths = [dev['device-path'] for dev in new_disks_status]
+            new_device_paths = [dev['device-path']
+                                for dev in new_disks_status]
             LOG.debug(
                 "Polled devices while waiting for disk '%s' to attach "
-                "(try %d/%d): %s", disk_id, i+1, retry_count, new_device_paths)
+                "(try %d/%d): %s", disk_id, i + 1, retry_count,
+                new_device_paths)
 
             # check for missing/multiple new device paths:
             missing_device_paths = (
@@ -389,7 +392,8 @@ class Replicator(object):
                         dev for dev in previous_disks_status
                         if dev['device-path'] in missing_device_paths])
 
-            new_device_paths = set(new_device_paths) - set(previous_device_paths)
+            new_device_paths = set(
+                new_device_paths) - set(previous_device_paths)
             if new_device_paths:
                 break
             else:
@@ -433,8 +437,8 @@ class Replicator(object):
                 perc_step = perc_steps.get(devName)
                 if perc_step is None:
                     perc_step = self._event_manager.add_percentage_step(
-                        "Performing chunking for disk %s (total size %.2f MB)" % (
-                            devName, dev_size), 100)
+                        "Performing chunking for disk %s (total size %.2f MB)"
+                        % (devName, dev_size), 100)
                     perc_steps[devName] = perc_step
                 perc_done = vol["checksum-status"]["percentage"]
                 self._event_manager.set_percentage_step(
@@ -837,7 +841,8 @@ class Replicator(object):
 
         total = 0
         with self._cli._cli.get(diskUri, stream=True,
-                                timeout=CONF.replicator.default_requests_timeout) as dw:
+                                timeout=(CONF.replicator.
+                                         default_requests_timeout)) as dw:
             with open(path, 'wb') as dsk:
                 for chunk in dw.iter_content(chunk_size=self._chunk_size):
                     if chunk:

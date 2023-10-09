@@ -13,7 +13,8 @@ from coriolis import utils
 # Required OS release fields to be returned as declared in the
 # 'schemas.CORIOLIS_DETECTED_OS_MORPHING_INFO_SCHEMA' schema:
 REQUIRED_DETECTED_OS_FIELDS = [
-    "os_type", "distribution_name", "release_version", "friendly_release_name"]
+    "os_type", "distribution_name", "release_version",
+    "friendly_release_name"]
 
 
 class BaseOSDetectTools(object, with_metaclass(abc.ABCMeta)):

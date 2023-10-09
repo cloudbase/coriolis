@@ -3,7 +3,7 @@
 
 
 def single(req, diag):
-    return {"diagnostic":  diag}
+    return {"diagnostic": diag}
 
 
 def collection(req, diag):

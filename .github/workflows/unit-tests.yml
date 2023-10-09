@@ -31,4 +31,5 @@ jobs:
     - name: Run unit tests with tox
       shell: bash
       run: |
-        tox -e py3 -v
+        tox -e py3,pep8 -v
+

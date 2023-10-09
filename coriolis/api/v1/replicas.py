@@ -1,19 +1,18 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-from oslo_config import cfg as conf
-from oslo_log import log as logging
-from webob import exc
-
-from coriolis import exception
 from coriolis.api.v1 import utils as api_utils
-from coriolis.api.v1.views import replica_view
 from coriolis.api.v1.views import replica_tasks_execution_view
+from coriolis.api.v1.views import replica_view
 from coriolis.api import wsgi as api_wsgi
 from coriolis.endpoints import api as endpoints_api
+from coriolis import exception
 from coriolis.policies import replicas as replica_policies
 from coriolis.replicas import api
 
+from oslo_config import cfg as conf
+from oslo_log import log as logging
+from webob import exc
 
 REPLICA_API_OPTS = [
     conf.BoolOpt("include_task_info_in_replicas_api",
@@ -158,7 +157,8 @@ class ReplicaController(api_wsgi.Controller):
 
         backend_mappings = original_storage_mappings.get(
             'backend_mappings', [])
-        new_backend_mappings = new_storage_mappings.get('backend_mappings', [])
+        new_backend_mappings = new_storage_mappings.get(
+            'backend_mappings', [])
         new_backend_mapping_sources = [mapping['source'] for mapping in
                                        new_backend_mappings]
 

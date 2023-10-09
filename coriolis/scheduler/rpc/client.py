@@ -1,18 +1,18 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+import oslo_messaging as messaging
 import random
 import time
-
-import oslo_messaging as messaging
-from oslo_config import cfg
-from oslo_log import log as logging
 
 from coriolis import constants
 from coriolis import exception
 from coriolis import rpc
-from coriolis import utils
 from coriolis.tasks import factory as tasks_factory
+from coriolis import utils
+
+from oslo_config import cfg
+from oslo_log import log as logging
 
 
 VERSION = "1.0"
@@ -163,11 +163,11 @@ class SchedulerClient(rpc.BaseRPCClient):
                     worker_service['id'], task['id'], task['task_type'],
                     origin_endpoint['id'], destination_endpoint['id'])
                 return worker_service
-            except Exception as ex:
+            except Exception:
                 LOG.warn(
                     "Failed to schedule task with ID '%s' (attempt %d/%d). "
                     "Waiting %d seconds and then retrying. Error was: %s",
-                    task['id'], i+1, retry_count, retry_period,
+                    task['id'], i + 1, retry_count, retry_period,
                     utils.get_exception_details())
                 time.sleep(retry_period)
 

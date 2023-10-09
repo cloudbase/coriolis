@@ -1,15 +1,15 @@
 # Copyright 2020 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-from oslo_log import log as logging
-from webob import exc
-
-from coriolis import exception
-from coriolis.api.v1.views import region_view
 from coriolis.api.v1 import utils as api_utils
+from coriolis.api.v1.views import region_view
 from coriolis.api import wsgi as api_wsgi
+from coriolis import exception
 from coriolis.policies import regions as region_policies
 from coriolis.regions import api
+
+from oslo_log import log as logging
+from webob import exc
 
 LOG = logging.getLogger(__name__)
 

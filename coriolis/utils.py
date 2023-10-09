@@ -9,6 +9,7 @@ import functools
 import hashlib
 import io
 import json
+import OpenSSL
 import os
 import pickle
 import re
@@ -19,12 +20,13 @@ import sys
 import time
 import traceback
 import uuid
+
 from io import StringIO
 
-import OpenSSL
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
+
 import netifaces
 import paramiko
 # NOTE(gsamfira): I am aware that this is not ideal, but pip
@@ -625,7 +627,8 @@ def bad_request_on_error(error_message):
         def wrapper(*args, **kwargs):
             (is_valid, message) = func(*args, **kwargs)
             if not is_valid:
-                raise exc.HTTPBadRequest(explanation=(error_message % message))
+                raise exc.HTTPBadRequest(
+                    explanation=(error_message % message))
             return (is_valid, message)
         return wrapper
     return _bad_request_on_error

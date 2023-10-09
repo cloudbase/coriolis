@@ -6,15 +6,14 @@ import sys
 from oslo_config import cfg
 
 from coriolis import constants
+from coriolis.minion_manager.rpc import server as rpc_server
 from coriolis import service
 from coriolis import utils
-from coriolis.minion_manager.rpc import server as rpc_server
 
 minion_manager_opts = [
-    cfg.IntOpt('worker_count',
-               min=1, default=1,
-               help='Number of processes in which the service will be running')
-]
+    cfg.IntOpt(
+        'worker_count', min=1, default=1,
+        help='Number of processes in which the service will be running')]
 
 CONF = cfg.CONF
 CONF.register_opts(minion_manager_opts, 'minion_manager')

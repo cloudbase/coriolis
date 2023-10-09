@@ -201,7 +201,6 @@ class BaseInstanceProvider(BaseProvider):
         """
         raise exception.OSMorphingToolsNotFound(os_type=os_type)
 
-
     def get_custom_os_detect_tools(self, os_type, osmorphing_info):
         """ Returns a list of custom OSDetect classes which inherit from
         coriolis.osmorphing.osdetect.base.BaseOSDetectTools.

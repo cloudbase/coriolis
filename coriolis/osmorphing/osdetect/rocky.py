@@ -3,9 +3,9 @@
 
 import re
 
-from oslo_log import log as logging
 from coriolis import constants
 from coriolis.osmorphing.osdetect import base
+from oslo_log import log as logging
 
 
 LOG = logging.getLogger(__name__)

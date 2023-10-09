@@ -11,8 +11,8 @@ from oslo_log import log as logging
 
 from coriolis import constants
 from coriolis import exception
-from coriolis import utils
 from coriolis.osmorphing.osdetect import base
+from coriolis import utils
 
 
 WINDOWS_SERVER_IDENTIFIER = "Server"
@@ -99,7 +99,7 @@ class WindowsOSDetectTools(base.BaseOSDetectTools):
              edition_id,
              installation_type,
              product_name) = self._get_image_version_info()
-        except exception.CoriolisException as ex:
+        except exception.CoriolisException:
             LOG.debug(
                 "Exception during Windows OS detection: %s",
                 utils.get_exception_details())

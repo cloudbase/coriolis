@@ -23,10 +23,12 @@ class API(object):
 
     def get_endpoint_source_minion_pool_options(
             self, ctxt, endpoint_id, env=None, option_names=None):
-        return self._rpc_minion_manager_client.get_endpoint_source_minion_pool_options(
+        return (self._rpc_minion_manager_client.
+                get_endpoint_source_minion_pool_options)(
             ctxt, endpoint_id, env, option_names)
 
     def get_endpoint_destination_minion_pool_options(
             self, ctxt, endpoint_id, env=None, option_names=None):
-        return self._rpc_minion_manager_client.get_endpoint_destination_minion_pool_options(
+        return (self._rpc_minion_manager_client.
+                get_endpoint_destination_minion_pool_options)(
             ctxt, endpoint_id, env, option_names)

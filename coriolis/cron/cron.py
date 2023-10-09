@@ -108,7 +108,8 @@ class CronJob(object):
                   'minute', 'second', 'dow')
         dt_fields = dict(zip(fields, dt.timetuple()))
 
-        pairs = [(dt_fields[i], self.schedule.get(i)) for i in SCHEDULE_FIELDS]
+        pairs = [(dt_fields[i], self.schedule.get(i))
+                 for i in SCHEDULE_FIELDS]
         compared = self._compare(pairs)
         return False not in compared
 
@@ -211,9 +212,9 @@ class Cron(object):
             # TODO(gsamfira): send this to the controller and update
             # the logs table...or do something much more meaningful
             if error:
-                LOG.error("Job %(job_desc)s exited with error: %(job_err)r" % {
-                    "job_desc": desc,
-                    "job_err": error})
+                LOG.error(
+                    "Job %(job_desc)s exited with error: %(job_err)r" %
+                    {"job_desc": desc, "job_err": error})
             if result:
                 LOG.info("Job %(desc)s returned: %(ret)r" % {
                     "desc": desc,

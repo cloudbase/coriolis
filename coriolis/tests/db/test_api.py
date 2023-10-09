@@ -5,7 +5,8 @@ from unittest import mock
 
 from coriolis.db import api
 from coriolis import exception
-from coriolis.tests import test_base, testutils
+from coriolis.tests import test_base
+from coriolis.tests import testutils
 
 
 class DBAPITestCase(test_base.CoriolisBaseTestCase):

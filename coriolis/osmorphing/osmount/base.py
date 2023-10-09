@@ -81,8 +81,8 @@ class BaseSSHOSMountTools(BaseOSMountTools):
         utils.wait_for_port_connectivity(ip, port)
 
         self._event_manager.progress_update(
-            "Connecting through SSH to OSMorphing host on: %(ip)s:%(port)s" % (
-                {"ip": ip, "port": port}))
+            "Connecting through SSH to OSMorphing host on: %(ip)s:%(port)s" %
+            ({"ip": ip, "port": port}))
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(hostname=ip, port=port, username=username, pkey=pkey,
@@ -152,7 +152,8 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                         "VG with name '%s' already detected. Renaming VG with "
                         "UUID '%s' to '%s' to avoid conflicts",
                         vg_name, vg_uuid, new_name)
-                    self._exec_cmd("sudo vgrename %s %s" % (vg_uuid, new_name))
+                    self._exec_cmd("sudo vgrename %s %s" %
+                                   (vg_uuid, new_name))
                     vgs[new_name] = pv_name
             else:
                 LOG.warning("Ignoring improper `vgs` output entry: %s", line)
@@ -279,8 +280,8 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                         "%s. Only LVM volumes or devices referenced by UUID=* "
                         "or /dev/disk/by-uuid/* notation are supported. "
                         "Devicemapper paths for LVM volumes are also "
-                        "supported. Skipping mounting directory." % (
-                            mountpoint, device))
+                        "supported. Skipping mounting directory." %
+                        (mountpoint, device))
                     continue
             if mountpoint in skip_mounts:
                 LOG.debug(
@@ -614,7 +615,8 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                 self._exec_cmd('sudo umount %s' % d)
 
         dev_fs = "%s/%s" % (root_dir.rstrip('/'), "dev")
-        self._exec_cmd('mountpoint -q %s && sudo umount %s' % (dev_fs, dev_fs))
+        self._exec_cmd('mountpoint -q %s && sudo umount %s' %
+                       (dev_fs, dev_fs))
         self._exec_cmd(
             'mountpoint -q %s && sudo umount %s' % (root_dir, root_dir))
 

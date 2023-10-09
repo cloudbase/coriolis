@@ -3,8 +3,8 @@
 
 from coriolis import exception
 
-from oslo_config import cfg
 from oslo_cache import core as cache
+from oslo_config import cfg
 
 opts = [
     cfg.BoolOpt('caching', default=False),

@@ -8,15 +8,16 @@ import copy
 from oslo_log import log as logging
 from oslo_utils import timeutils
 
-from coriolis import constants
-from coriolis import exception
-from coriolis import utils
 from coriolis.conductor.rpc import client as rpc_conductor_client
+from coriolis import constants
 from coriolis.db import api as db_api
 from coriolis.db.sqlalchemy import models
+from coriolis import exception
 from coriolis.minion_manager.rpc import client as rpc_minion_manager_client
 from coriolis.minion_manager.rpc import utils as minion_manager_utils
 from coriolis.taskflow import base as coriolis_taskflow_base
+from coriolis import utils
+
 from taskflow.types import failure
 
 
@@ -184,8 +185,9 @@ class ReportMinionAllocationFailureForMigrationTask(
         _BaseReportMinionAllocationFailureForActionTask):
 
     def _get_task_name(self, action_id):
-        return MINION_POOL_REPORT_MIGRATION_ALLOCATION_FAILURE_TASK_NAME_FORMAT % (
-            action_id)
+        return (
+            MINION_POOL_REPORT_MIGRATION_ALLOCATION_FAILURE_TASK_NAME_FORMAT
+            % (action_id))
 
     def _report_machine_allocation_failure(
             self, context, action_id, failure_str):
@@ -197,8 +199,9 @@ class ReportMinionAllocationFailureForReplicaTask(
         _BaseReportMinionAllocationFailureForActionTask):
 
     def _get_task_name(self, action_id):
-        return MINION_POOL_REPORT_REPLICA_ALLOCATION_FAILURE_TASK_NAME_FORMAT % (
-            action_id)
+        return (
+            MINION_POOL_REPORT_REPLICA_ALLOCATION_FAILURE_TASK_NAME_FORMAT
+            % (action_id))
 
     def _report_machine_allocation_failure(
             self, context, action_id, failure_str):
@@ -401,8 +404,9 @@ class ConfirmMinionAllocationForMigrationTask(
         return "migration"
 
     def _get_task_name(self, action_id):
-        return MINION_POOL_CONFIRM_MIGRATION_MINION_ALLOCATION_TASK_NAME_FORMAT % (
-            action_id)
+        return (
+            MINION_POOL_CONFIRM_MIGRATION_MINION_ALLOCATION_TASK_NAME_FORMAT
+            % (action_id))
 
     def _confirm_machine_allocation_for_action(
             self, context, action_id, machine_allocations):
@@ -417,8 +421,9 @@ class ConfirmMinionAllocationForReplicaTask(
         return "replica"
 
     def _get_task_name(self, action_id):
-        return MINION_POOL_CONFIRM_REPLICA_MINION_ALLOCATION_TASK_NAME_FORMAT % (
-            action_id)
+        return (
+            MINION_POOL_CONFIRM_REPLICA_MINION_ALLOCATION_TASK_NAME_FORMAT
+            % (action_id))
 
     def _confirm_machine_allocation_for_action(
             self, context, action_id, machine_allocations):
@@ -623,7 +628,7 @@ class AllocateSharedPoolResourcesTask(BaseMinionManangerTask):
             resource_deployment_task_type = (
                 constants.TASK_TYPE_SET_UP_DESTINATION_POOL_SHARED_RESOURCES)
             resource_cleanup_task_type = (
-                constants.TASK_TYPE_TEAR_DOWN_DESTINATION_POOL_SHARED_RESOURCES)
+                constants.TASK_TYPE_TEAR_DOWN_DESTINATION_POOL_SHARED_RESOURCES)  # noqa: E501
         super(AllocateSharedPoolResourcesTask, self).__init__(
             minion_pool_id, minion_machine_id, resource_deployment_task_type,
             cleanup_task_runner_type=resource_cleanup_task_type, **kwargs)
@@ -698,7 +703,7 @@ class DeallocateSharedPoolResourcesTask(BaseMinionManangerTask):
             constants.TASK_TYPE_TEAR_DOWN_SOURCE_POOL_SHARED_RESOURCES)
         if minion_pool_type != constants.PROVIDER_PLATFORM_SOURCE:
             resource_deallocation_task = (
-                constants.TASK_TYPE_TEAR_DOWN_DESTINATION_POOL_SHARED_RESOURCES)
+                constants.TASK_TYPE_TEAR_DOWN_DESTINATION_POOL_SHARED_RESOURCES)  # noqa: E501
         super(DeallocateSharedPoolResourcesTask, self).__init__(
             minion_pool_id, minion_machine_id, resource_deallocation_task,
             **kwargs)
@@ -769,7 +774,8 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
                     "Minion machine entry with ID '%s' already exists within "
                     "the DB and it is in '%s' status instead of the expected "
                     "'%s' status. Existing machine's properties are: %s" % (
-                        self._minion_machine_id, minion_machine.allocation_status,
+                        self._minion_machine_id,
+                        minion_machine.allocation_status,
                         constants.MINION_MACHINE_STATUS_UNINITIALIZED,
                         minion_machine.to_dict()))
             if minion_machine.pool_id != self._minion_pool_id:
@@ -919,10 +925,8 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
                     "[Task %s] Removing minion machine entry with ID '%s' for "
                     "minion pool '%s' from the DB as part of reversion of its "
                     "allocation task. Machine properties at deletion time "
-                    "were: %s",
-                    self._task_name, self._minion_machine_id,
-                    self._minion_pool_id,
-                    machine_db_entry.to_dict())
+                    "were: %s", self._task_name, self._minion_machine_id,
+                    self._minion_pool_id, machine_db_entry.to_dict())
                 if not minion_provider_properties and (
                         machine_db_entry.provider_properties):
                     minion_provider_properties = (
@@ -963,8 +967,9 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
                     context, origin, destination, cleanup_info, **kwargs)
             except Exception:
                 log_msg = (
-                    "[Task '%s'] Exception occurred while attempting to revert "
-                    "deployment of minion machine with ID '%s' for pool '%s'." % (
+                    "[Task '%s'] Exception occurred while attempting to "
+                    "revert deployment of minion machine with ID '%s' "
+                    "for pool '%s'." % (
                         self._task_name, self._minion_machine_id,
                         self._minion_pool_id))
                 if not self._raise_on_cleanup_failure:
@@ -1064,7 +1069,7 @@ class HealthcheckMinionMachineTask(BaseMinionManangerTask):
     def __init__(
             self, minion_pool_id, minion_machine_id, minion_pool_type,
             fail_on_error=False,
-            machine_status_on_success=constants.MINION_MACHINE_STATUS_AVAILABLE,
+            machine_status_on_success=constants.MINION_MACHINE_STATUS_AVAILABLE,  # noqa: E501
             **kwargs):
         self._fail_on_error = fail_on_error
         self._machine_status_on_success = machine_status_on_success
@@ -1233,7 +1238,8 @@ class PowerOnMinionMachineTask(BaseMinionManangerTask):
         machine = self._get_minion_machine(
             context, self._minion_machine_id, raise_if_not_found=True)
 
-        if machine.power_status == constants.MINION_MACHINE_POWER_STATUS_POWERED_ON:
+        if (machine.power_status ==
+                constants.MINION_MACHINE_POWER_STATUS_POWERED_ON):
             LOG.debug(
                 "[Task '%s'] Minion machine with ID '%s' from pool '%s' is "
                 "already marked as powered on. Returning early." % (
@@ -1241,7 +1247,8 @@ class PowerOnMinionMachineTask(BaseMinionManangerTask):
                     self._minion_pool_id))
             return task_info
 
-        if machine.power_status != constants.MINION_MACHINE_POWER_STATUS_POWERED_OFF:
+        if (machine.power_status !=
+                constants.MINION_MACHINE_POWER_STATUS_POWERED_OFF):
             raise exception.InvalidMinionMachineState(
                 "Minion machine with ID '%s' from pool '%s' is in '%s' state "
                 "instead of the expected '%s' required for it to be powered "

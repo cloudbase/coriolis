@@ -80,7 +80,8 @@ def get_storage_mapping_for_disk(
                     disk_info)
         else:
             LOG.debug(
-                "No 'storage_backend_identifier' set for disk '%s'", disk_info)
+                "No 'storage_backend_identifier' set for disk '%s'",
+                disk_info)
 
     # 3) use provided default:
     if not mapped_backend:
@@ -111,24 +112,24 @@ def get_storage_mapping_for_disk(
 
 def check_changed_storage_mappings(volumes_info, old_storage_mappings,
                                    new_storage_mappings):
-        if not volumes_info:
-            return
+    if not volumes_info:
+        return
 
-        old_backend_mappings = old_storage_mappings.get('backend_mappings', [])
-        old_disk_mappings = old_storage_mappings.get('disk_mappings', [])
-        new_backend_mappings = new_storage_mappings.get('backend_mappings', [])
-        new_disk_mappings = new_storage_mappings.get('disk_mappings', [])
+    old_backend_mappings = old_storage_mappings.get('backend_mappings', [])
+    old_disk_mappings = old_storage_mappings.get('disk_mappings', [])
+    new_backend_mappings = new_storage_mappings.get('backend_mappings', [])
+    new_disk_mappings = new_storage_mappings.get('disk_mappings', [])
 
-        old_backend_mappings_set = [
-            tuple(mapping.values()) for mapping in old_backend_mappings]
-        old_disk_mappings_set = [
-            tuple(mapping.values()) for mapping in old_disk_mappings]
-        new_backend_mappings_set = [
-            tuple(mapping.values()) for mapping in new_backend_mappings]
-        new_disk_mappings_set = [
-            tuple(mapping.values()) for mapping in new_disk_mappings]
+    old_backend_mappings_set = [
+        tuple(mapping.values()) for mapping in old_backend_mappings]
+    old_disk_mappings_set = [
+        tuple(mapping.values()) for mapping in old_disk_mappings]
+    new_backend_mappings_set = [
+        tuple(mapping.values()) for mapping in new_backend_mappings]
+    new_disk_mappings_set = [
+        tuple(mapping.values()) for mapping in new_disk_mappings]
 
-        if (old_backend_mappings_set != new_backend_mappings_set or
-                old_disk_mappings_set != new_disk_mappings_set):
-            raise exception.CoriolisException("Modifying storage mappings is "
-                                              "not supported.")
+    if (old_backend_mappings_set != new_backend_mappings_set or
+            old_disk_mappings_set != new_disk_mappings_set):
+        raise exception.CoriolisException("Modifying storage mappings is "
+                                          "not supported.")

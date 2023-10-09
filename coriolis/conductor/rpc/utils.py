@@ -46,7 +46,7 @@ def check_create_registration_for_service(
                     mapped_regions=mapped_regions, providers=providers,
                     specs=specs)
             return worker_service
-        except Exception as ex:
+        except Exception:
             LOG.warn(
                 "Failed to register service with specs %s. Retrying again in "
                 "%d seconds. Error was: %s", props, retry_period,

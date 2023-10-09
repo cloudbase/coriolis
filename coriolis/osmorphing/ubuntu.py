@@ -101,7 +101,8 @@ class BaseUbuntuMorphingTools(debian.BaseDebianMorphingTools):
                     LOG.debug(
                         "Renamed interface '%s' to '%s' in '%s'",
                         iface_name, new_iface_name, config_path_chroot)
-                new_config = copy.deepcopy(ethernet_configurations[iface_name])
+                new_config = copy.deepcopy(
+                    ethernet_configurations[iface_name])
                 if set_dhcp:
                     new_config["dhcp4"] = True
                     new_config["dhcp6"] = True

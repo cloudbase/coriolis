@@ -42,6 +42,7 @@ def get_worker_count_from_args(argv):
     --worker-process-count is not present), as well as the unprocessed args.
     """
     parser = argparse.ArgumentParser()
+
     def _check_positive_worker_count(worker_count):
         count = int(worker_count)
         if count <= 0:
@@ -50,9 +51,10 @@ def get_worker_count_from_args(argv):
                 "got: %s" % worker_count)
         return count
     parser.add_argument(
-        '--worker-process-count', metavar='N', type=_check_positive_worker_count,
+        '--worker-process-count', metavar='N',
+        type=_check_positive_worker_count,
         help="Number of worker processes for this service. Defaults to the "
-             "number of logical CPU cores on the system.")
+        "number of logical CPU cores on the system.")
     args, unknown_args = parser.parse_known_args(args=argv)
     return args.worker_process_count, unknown_args
 
@@ -76,7 +78,8 @@ def check_locks_dir_empty():
 
     if not os.path.exists(locks_dir):
         LOG.warn(
-            "Configured 'lock_path' directory '%s' does NOT exist!", locks_dir)
+            "Configured 'lock_path' directory '%s' does NOT exist!",
+            locks_dir)
         return
 
     if not os.path.isdir(locks_dir):

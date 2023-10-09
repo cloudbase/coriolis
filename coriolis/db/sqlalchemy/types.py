@@ -56,7 +56,7 @@ class Bson(Blob):
 
     def process_bind_param(self, value, dialect):
         return zlib.compress(
-                jsonutils.dumps(value).encode('utf-8'))
+            jsonutils.dumps(value).encode('utf-8'))
 
     def process_result_value(self, value, dialect):
         if value is None:
@@ -64,7 +64,7 @@ class Bson(Blob):
         data = None
         try:
             data = zlib.decompress(value)
-        except:
+        except Exception:
             data = value
         return jsonutils.loads(data)
 

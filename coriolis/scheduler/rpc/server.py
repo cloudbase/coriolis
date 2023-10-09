@@ -1,20 +1,15 @@
 # Copyright 2020 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-import copy
-import functools
-import random
-import uuid
-
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from coriolis import constants
-from coriolis import exception
-from coriolis import utils
 from coriolis.conductor.rpc import client as rpc_conductor_client
-from coriolis.scheduler.filters import trivial_filters
+from coriolis import constants
 from coriolis.db import api as db_api
+from coriolis import exception
+from coriolis.scheduler.filters import trivial_filters
+from coriolis import utils
 
 
 VERSION = "1.0"
@@ -56,7 +51,6 @@ class SchedulerServerEndpoint(object):
             return [(service, 100) for service in services]
 
         scores = []
-
 
         service_ids = [service.id for service in services]
         LOG.debug(
@@ -156,7 +150,8 @@ class SchedulerServerEndpoint(object):
                         "None of the selected Regions (%s) are enabled or "
                         "otherwise usable." % region_set)
                 filters.append(
-                    trivial_filters.RegionsFilter(region_set, any_region=True))
+                    trivial_filters.RegionsFilter(
+                        region_set, any_region=True))
         if provider_requirements:
             filters.append(
                 trivial_filters.ProviderTypesFilter(provider_requirements))

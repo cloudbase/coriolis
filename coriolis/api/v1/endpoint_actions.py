@@ -1,12 +1,12 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-from webob import exc
-
-from coriolis import exception
 from coriolis.api import wsgi as api_wsgi
 from coriolis.endpoints import api
+from coriolis import exception
 from coriolis.policies import endpoints as endpoint_policies
+
+from webob import exc
 
 
 class EndpointActionsController(api_wsgi.Controller):

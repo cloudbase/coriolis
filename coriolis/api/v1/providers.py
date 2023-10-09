@@ -1,11 +1,11 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-from oslo_log import log as logging
-
 from coriolis.api import wsgi as api_wsgi
-from coriolis.providers import api
 from coriolis.policies import general as general_policies
+from coriolis.providers import api
+
+from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
 

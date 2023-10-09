@@ -3,8 +3,8 @@
 
 from webob import exc
 
-from coriolis import exception
 from coriolis.api import wsgi as api_wsgi
+from coriolis import exception
 from coriolis.policies import replica_tasks_executions as execution_policies
 from coriolis.replica_tasks_executions import api
 

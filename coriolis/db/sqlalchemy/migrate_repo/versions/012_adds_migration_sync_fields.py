@@ -1,5 +1,4 @@
 import sqlalchemy
-from sqlalchemy import types
 
 
 def upgrade(migrate_engine):

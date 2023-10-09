@@ -2,14 +2,14 @@
 # All Rights Reserved.
 
 import os
-from io import StringIO
-
 import yaml
 
+from io import StringIO
+
 from coriolis import exception
-from coriolis import utils
 from coriolis.osmorphing import base
 from coriolis.osmorphing.osdetect import debian as debian_osdetect
+from coriolis import utils
 
 
 DEBIAN_DISTRO_IDENTIFIER = debian_osdetect.DEBIAN_DISTRO_IDENTIFIER

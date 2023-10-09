@@ -3,7 +3,6 @@
 
 from oslo_log import log as logging
 
-from coriolis import constants
 from coriolis.scheduler.filters import base
 
 
@@ -98,8 +97,8 @@ class ProviderTypesFilter(base.BaseServiceFilter):
         for platform_type in self._provider_requirements:
             if platform_type not in service.providers:
                 LOG.debug(
-                    "Service with ID '%s' does not have a provider for platform "
-                    "type '%s'", service.id, platform_type)
+                    "Service with ID '%s' does not have a provider for "
+                    "platform type '%s'", service.id, platform_type)
                 return 0
 
             available_types = service.providers[

@@ -1,9 +1,9 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-from coriolis import utils
 from coriolis.conductor.rpc import client as rpc_conductor_client
 from coriolis.minion_manager.rpc import client as rpc_minion_manager_client
+from coriolis import utils
 
 
 class API(object):
@@ -48,12 +48,14 @@ class API(object):
     @utils.bad_request_on_error("Invalid source minion pool environment: %s")
     def validate_endpoint_source_minion_pool_options(
             self, ctxt, endpoint_id, pool_environment):
-        return self._rpc_minion_manager_client.validate_endpoint_source_minion_pool_options(
+        return (self._rpc_minion_manager_client.
+                validate_endpoint_source_minion_pool_options)(
             ctxt, endpoint_id, pool_environment)
 
     @utils.bad_request_on_error(
         "Invalid destination minion pool environment: %s")
     def validate_endpoint_destination_minion_pool_options(
             self, ctxt, endpoint_id, pool_environment):
-        return self._rpc_minion_manager_client.validate_endpoint_destination_minion_pool_options(
+        return (self._rpc_minion_manager_client.
+                validate_endpoint_destination_minion_pool_options)(
             ctxt, endpoint_id, pool_environment)

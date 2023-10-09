@@ -8,22 +8,21 @@ from taskflow.types import failure
 
 from coriolis import constants
 from coriolis import exception
-from coriolis import utils
-from coriolis.tasks import factory as tasks_factory
 from coriolis.scheduler.rpc import client as rpc_scheduler_client
+from coriolis.tasks import factory as tasks_factory
+from coriolis import utils
 from coriolis.worker.rpc import client as rpc_worker_client
 
 
 TASK_RETURN_VALUE_FORMAT = "%s-result" % (
-        constants.TASK_LOCK_NAME_FORMAT)
+    constants.TASK_LOCK_NAME_FORMAT)
 LOG = logging.getLogger()
 
 taskflow_opts = [
-    cfg.IntOpt("worker_task_execution_timeout",
-               default=3600,
-               help="Number of seconds until Coriolis tasks which are executed"
-                    "remotely on a Worker Service through taskflow timeout.")
-]
+    cfg.IntOpt(
+        "worker_task_execution_timeout", default=3600,
+        help="Number of seconds until Coriolis tasks which are executed"
+        "remotely on a Worker Service through taskflow timeout.")]
 
 CONF = cfg.CONF
 CONF.register_opts(taskflow_opts, 'taskflow')
@@ -154,8 +153,8 @@ class BaseRunWorkerTask(BaseCoriolisTaskflowTask):
             cleanup_task_deps = list(
                 set(
                     cleanup_task_runner.get_required_task_info_properties(
-                        )).difference(
-                            main_task_runner.get_returned_task_info_properties()))
+                    )).difference(
+                    main_task_runner.get_returned_task_info_properties()))
             new_requires.extend(cleanup_task_deps)
 
         kwargs['requires'] = new_requires
@@ -173,8 +172,8 @@ class BaseRunWorkerTask(BaseCoriolisTaskflowTask):
             cleanup_task_res = list(
                 set(
                     cleanup_task_runner.get_returned_task_info_properties(
-                        )).difference(
-                            main_task_runner.get_returned_task_info_properties()))
+                    )).difference(
+                    main_task_runner.get_returned_task_info_properties()))
             new_provides.extend(cleanup_task_res)
 
         kwargs['provides'] = new_provides
@@ -191,9 +190,9 @@ class BaseRunWorkerTask(BaseCoriolisTaskflowTask):
             ctxt, task_info, origin, destination, retry_count=retry_count,
             retry_period=retry_period, random_choice=True)
         LOG.debug(
-            "[Task '%s'] Was offered the following worker service for executing "
-            "Taskflow worker task '%s': %s",
-                self._task_name, task_id, worker_service['id'])
+            "[Task '%s'] Was offered the following worker service for "
+            "executing Taskflow worker task '%s': %s",
+            self._task_name, task_id, worker_service['id'])
 
         return rpc_worker_client.WorkerClient.from_service_definition(
             worker_service, timeout=rpc_timeout)
@@ -216,7 +215,7 @@ class BaseRunWorkerTask(BaseCoriolisTaskflowTask):
                 "successfully run and returned the following info: %s" % (
                     self._task_name, task_id, task_type, res))
             return res
-        except Exception as ex:
+        except Exception:
             LOG.debug(
                 "[Task %s] Exception occurred while executing task '%s' "
                 "(type '%s') on the worker service: %s", self._task_name,
@@ -241,9 +240,9 @@ class BaseRunWorkerTask(BaseCoriolisTaskflowTask):
 
         try:
             res = self._execute_task(
-                context, self._task_id, self._cleanup_task_runner_type, origin,
-                destination, task_info)
-        except Exception as ex:
+                context, self._task_id, self._cleanup_task_runner_type,
+                origin, destination, task_info)
+        except Exception:
             LOG.warn(
                 "Task cleanup for '%s' (main task type '%s', cleanup task type"
                 "'%s') has failed with the following trace: %s",
@@ -255,6 +254,6 @@ class BaseRunWorkerTask(BaseCoriolisTaskflowTask):
 
         LOG.debug(
             "Reversion of taskflow task '%s' (ID '%s') was successfully "
-            "executed using task runner '%s' with the following result: %s" % (
-                self._task_name, self._task_id, self._cleanup_task_runner_type,
-                res))
+            "executed using task runner '%s' with the following result: %s" %
+            (self._task_name, self._task_id, self._cleanup_task_runner_type,
+             res))

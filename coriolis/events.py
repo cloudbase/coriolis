@@ -56,18 +56,19 @@ class EventManager(object, with_metaclass(abc.ABCMeta)):
         if initial_step > 0 and total_steps > 0:
             perc = int(initial_step * 100 // total_steps)
         self._perc_steps[progress_update_id] = _PercStepData(
-                progress_update_id, perc, initial_step, total_steps)
+            progress_update_id, perc, initial_step, total_steps)
 
         return self._perc_steps[progress_update_id]
 
     def set_percentage_step(self, step, new_current_step):
         perc_step = self._perc_steps.get(
-                step.progress_update_id, None)
+            step.progress_update_id, None)
         if perc_step is None:
             return
 
         if perc_step.last_value > new_current_step:
-            LOG.warn("rollback for perc update %s not allowed" % step.progress_update_id)
+            LOG.warn("rollback for perc update %s not allowed" %
+                     step.progress_update_id)
             return
 
         perc = 0
