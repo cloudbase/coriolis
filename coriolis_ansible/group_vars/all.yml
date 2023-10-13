@@ -10,7 +10,7 @@ bind_address: 127.0.0.1
 enable_coriolis_licensing_server: false
 
 kolla_branch: 9.0.0
-kolla_openstack_release: train
+kolla_openstack_release: 2023.1
 kolla_docker_images_tag: latest
 
 docker_pull_images: true

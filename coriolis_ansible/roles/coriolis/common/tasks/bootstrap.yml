@@ -22,3 +22,8 @@
         dest: /etc/cloud/cloud.cfg.d/99-coriolis.cfg
         mode: "0660"
       when: cloud_init.stat.exists
+
+- name: Remove kolla_toolbox container
+  docker_container:
+    name: kolla_toolbox
+    state: absent

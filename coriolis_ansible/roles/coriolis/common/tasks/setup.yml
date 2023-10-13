@@ -14,7 +14,7 @@
     keystone_protocol: "{{ kolla_deployment.result.keystone_protocol }}"
     keystone_host: "{{ kolla_deployment.result.listen_address }}"
     keystone_public_port: "{{ kolla_deployment.result.keystone_public_port }}"
-    keystone_admin_port: "{{ kolla_deployment.result.keystone_admin_port }}"
+    keystone_internal_port: "{{ kolla_deployment.result.keystone_internal_port }}"
     keystone_project_name: "{{ kolla_deployment.result.keystone_project_name }}"
     keystone_admin_name: "{{ kolla_deployment.result.keystone_admin_name }}"
     keystone_admin_password: "{{ kolla_deployment.result.keystone_admin_password }}"

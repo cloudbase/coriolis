@@ -8,9 +8,9 @@
 #
 
 ### Options related to the OpenStack components we deploy using Kolla:
-kolla_branch: wallaby-eol
-kolla_openstack_release: wallaby
-kolla_docker_images_tag: wallaby
+kolla_branch: stable/2023.1
+kolla_openstack_release: 2023.1
+kolla_docker_images_tag: 2023.1
 
 ### Options related to the Coriolis components:
 docker_pull_images: true

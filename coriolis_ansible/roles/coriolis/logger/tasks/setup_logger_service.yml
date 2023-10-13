@@ -8,7 +8,7 @@
     hostname: coriolis-logger
     state: started
     network_mode: host
-    command: ["go", "build", "-a", "-ldflags='-w -s'", "-o", "{{ coriolis_logger_build_dir }}/coriolis-logger", "."]
+    command: ["go", "build", "-a", "-ldflags=-w", "-ldflags=-s", "-o", "{{ coriolis_logger_build_dir }}/coriolis-logger", "."]
     env:
       GO111MODULE: "on"
       ENV GOOS: "linux"

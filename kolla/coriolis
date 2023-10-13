@@ -1,5 +1,5 @@
 [control]
-localhost       ansible_connection=local
+coriolis       ansible_connection=local
 
 [common:children]
 control

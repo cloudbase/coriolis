@@ -1,4 +1,4 @@
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 WORKDIR /root
 
@@ -7,7 +7,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y \
     python3-dev python3-cffi python3-pip \
     gcc make git zlib1g-dev libmysqlclient-dev \
-    software-properties-common build-essential libssl-dev pkg-config
+    software-properties-common build-essential \
+    libssl-dev pkg-config libcurl4-openssl-dev \
+    libxml2-dev gcc python3-dev
+
 
 RUN /bin/bash -c "pip3 install -U pip"
 RUN /bin/bash -c "pip3 install wheel"
