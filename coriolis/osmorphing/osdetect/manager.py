@@ -5,6 +5,7 @@ from oslo_log import log as logging
 
 from coriolis import constants
 from coriolis import exception
+from coriolis.osmorphing.osdetect import amazon
 from coriolis.osmorphing.osdetect import base
 from coriolis.osmorphing.osdetect import centos
 from coriolis.osmorphing.osdetect import coreos
@@ -17,11 +18,11 @@ from coriolis.osmorphing.osdetect import suse
 from coriolis.osmorphing.osdetect import ubuntu
 from coriolis.osmorphing.osdetect import windows
 
-
 LOG = logging.getLogger(__name__)
 
 
 LINUX_OS_DETECTION_TOOLS = [
+    amazon.AmazonLinuxOSDetectTools,
     centos.CentOSOSDetectTools,
     coreos.CoreOSOSDetectTools,
     debian.DebianOSDetectTools,
