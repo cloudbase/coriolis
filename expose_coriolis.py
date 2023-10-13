@@ -62,9 +62,21 @@ def update_coriolis_cfg(ip):
     with open(CORIOLIS_CFG, 'w') as f:
         f.write(yaml.safe_dump(config, default_flow_style=False))
 
+def remove_container(container):
+    print("Removing docker container %s" % container)
+    try:
+        subprocess.check_call(
+            ["/usr/bin/docker", "stop", container, "-t", "30"])
+        subprocess.check_call(["/usr/bin/docker", "wait", container])
+        subprocess.check_call(["/usr/bin/docker", "rm", container])
+    except subprocess.CalledProcessError as err:
+        print(err.output)
+        return
 
 def expose():
     print("Exposing Coriolis appliance")
+
+    remove_container("rabbitmq")
 
     subprocess.check_call([CORIOLIS_ANSIBLE_BIN, "bootstrap"])
 
