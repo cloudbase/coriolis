@@ -5,4 +5,6 @@ import eventlet
 
 from coriolis import conf
 
+
 eventlet.monkey_patch()
+conf.init_common_opts()
