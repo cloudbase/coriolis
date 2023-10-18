@@ -18,6 +18,7 @@ from coriolis.db.sqlalchemy import models
 from coriolis import exception
 from coriolis import utils
 
+
 CONF = cfg.CONF
 db_options.set_defaults(CONF)
 
@@ -306,7 +307,7 @@ def get_replica_tasks_execution(context, replica_id, execution_id,
     db_result = q.filter(
         models.Replica.id == replica_id,
         models.TasksExecution.id == execution_id).first()
-    if to_dict:
+    if to_dict and db_result is not None:
         return db_result.to_dict()
     return db_result
 
@@ -458,7 +459,7 @@ def get_replica(context, replica_id, include_task_info=False, to_dict=False):
 
     replica = q.filter(
         models.Replica.id == replica_id).first()
-    if to_dict:
+    if to_dict and replica is not None:
         return replica.to_dict(include_task_info=include_task_info)
 
     return replica
@@ -570,7 +571,7 @@ def get_migration(context, migration_id, include_task_info=False,
         args["project_id"] = context.project_id
     db_result = q.filter_by(**args).first()
 
-    if to_dict:
+    if to_dict and db_result is not None:
         return db_result.to_dict(include_task_info=include_task_info)
     return db_result
 
