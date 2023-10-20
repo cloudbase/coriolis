@@ -28,7 +28,7 @@
     udp_port: 4444
   register: result
   retries: 10
-  delay: 5
+  delay: 20
   until: result is succeeded
 
 - name: Create influxdb user
