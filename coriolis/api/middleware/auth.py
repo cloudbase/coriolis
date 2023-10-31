@@ -14,22 +14,33 @@ LOG = logging.getLogger(__name__)
 
 
 class CoriolisKeystoneContext(wsgi.Middleware):
-    @webob.dec.wsgify(RequestClass=wsgi.Request)
-    def __call__(self, req):
+    def _get_project_id(self, req):
+        if 'X_TENANT_ID' in req.headers:
+            # This is the new header since Keystone went to ID/Name
+            return req.headers['X_TENANT_ID']
+        elif 'X_TENANT' in req.headers:
+            # This is for legacy compatibility
+            return req.headers['X_TENANT']
+        else:
+            raise webob.exc.HTTPBadRequest(
+                explanation=_("No 'X_TENANT_ID' or 'X_TENANT' passed."))
+
+    def _get_user(self, req):
         user = req.headers.get('X_USER')
         user = req.headers.get('X_USER_ID', user)
         if user is None:
-            LOG.debug("Neither X_USER_ID nor X_USER found in request")
-            return webob.exc.HTTPUnauthorized()
+            raise webob.exc.HTTPUnauthorized(
+                explanation=_("Neither X_USER_ID nor X_USER found in request"))
+        return user
+
+    @webob.dec.wsgify(RequestClass=wsgi.Request)
+    def __call__(self, req):
+        user = self._get_user(req)
+
+        project_id = self._get_project_id(req)
 
         # get the roles
         roles = [r.strip() for r in req.headers.get('X_ROLE', '').split(',')]
-        if 'X_TENANT_ID' in req.headers:
-            # This is the new header since Keystone went to ID/Name
-            project_id = req.headers['X_TENANT_ID']
-        else:
-            # This is for legacy compatibility
-            project_id = req.headers['X_TENANT']
 
         project_name = req.headers.get('X_TENANT_NAME')
         project_domain_name = req.headers.get('X-Project-Domain-Name')
