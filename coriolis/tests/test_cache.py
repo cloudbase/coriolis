@@ -2,8 +2,9 @@
 # All Rights Reserved.
 
 from unittest import mock
-from coriolis import exception
+
 from coriolis import cache
+from coriolis import exception
 from coriolis.tests import test_base
 
 
