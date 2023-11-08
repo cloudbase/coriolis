@@ -28,7 +28,7 @@ class EndpointStorageController(api_wsgi.Controller):
             env = {}
 
         return endpoint_resources_view.storage_collection(
-            req, self._storage_api.get_endpoint_storage(
+            self._storage_api.get_endpoint_storage(
                 context, endpoint_id, env))
 
 

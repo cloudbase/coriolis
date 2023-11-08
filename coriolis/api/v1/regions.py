@@ -26,13 +26,13 @@ class RegionController(api_wsgi.Controller):
         if not region:
             raise exc.HTTPNotFound()
 
-        return region_view.single(req, region)
+        return region_view.single(region)
 
     def index(self, req):
         context = req.environ["coriolis.context"]
         context.can(region_policies.get_regions_policy_label("list"))
         return region_view.collection(
-            req, self._region_api.get_regions(context))
+            self._region_api.get_regions(context))
 
     @api_utils.format_keyerror_message(resource='region', method='create')
     def _validate_create_body(self, body):
@@ -46,7 +46,7 @@ class RegionController(api_wsgi.Controller):
         context = req.environ["coriolis.context"]
         context.can(region_policies.get_regions_policy_label("create"))
         (name, description, enabled) = self._validate_create_body(body)
-        return region_view.single(req, self._region_api.create(
+        return region_view.single(self._region_api.create(
             context, region_name=name, description=description,
             enabled=enabled))
 
@@ -60,7 +60,7 @@ class RegionController(api_wsgi.Controller):
         context = req.environ["coriolis.context"]
         context.can(region_policies.get_regions_policy_label("update"))
         updated_values = self._validate_update_body(body)
-        return region_view.single(req, self._region_api.update(
+        return region_view.single(self._region_api.update(
             req.environ['coriolis.context'], id, updated_values))
 
     def delete(self, req, id):

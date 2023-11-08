@@ -27,13 +27,13 @@ class EndpointController(api_wsgi.Controller):
         if not endpoint:
             raise exc.HTTPNotFound()
 
-        return endpoint_view.single(req, endpoint)
+        return endpoint_view.single(endpoint)
 
     def index(self, req):
         context = req.environ["coriolis.context"]
         context.can(endpoint_policies.get_endpoints_policy_label("list"))
         return endpoint_view.collection(
-            req, self._endpoint_api.get_endpoints(context))
+            self._endpoint_api.get_endpoints(context))
 
     @api_utils.format_keyerror_message(resource='endpoint', method='create')
     def _validate_create_body(self, body):
@@ -52,7 +52,7 @@ class EndpointController(api_wsgi.Controller):
         context.can(endpoint_policies.get_endpoints_policy_label("create"))
         (name, endpoint_type, description,
          connection_info, mapped_regions) = self._validate_create_body(body)
-        return endpoint_view.single(req, self._endpoint_api.create(
+        return endpoint_view.single(self._endpoint_api.create(
             context, name, endpoint_type, description, connection_info,
             mapped_regions))
 
@@ -69,7 +69,7 @@ class EndpointController(api_wsgi.Controller):
         context = req.environ["coriolis.context"]
         context.can(endpoint_policies.get_endpoints_policy_label("update"))
         updated_values = self._validate_update_body(body)
-        return endpoint_view.single(req, self._endpoint_api.update(
+        return endpoint_view.single(self._endpoint_api.update(
             req.environ['coriolis.context'], id, updated_values))
 
     def delete(self, req, id):

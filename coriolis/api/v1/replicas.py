@@ -41,7 +41,7 @@ class ReplicaController(api_wsgi.Controller):
         if not replica:
             raise exc.HTTPNotFound()
 
-        return replica_view.single(req, replica)
+        return replica_view.single(replica)
 
     def _list(self, req):
         show_deleted = api_utils._get_show_deleted(
@@ -51,7 +51,7 @@ class ReplicaController(api_wsgi.Controller):
         context.can(replica_policies.get_replicas_policy_label("list"))
         include_task_info = CONF.api.include_task_info_in_replicas_api
         return replica_view.collection(
-            req, self._replica_api.get_replicas(
+            self._replica_api.get_replicas(
                 context,
                 include_tasks_executions=include_task_info,
                 include_task_info=include_task_info))
@@ -135,7 +135,7 @@ class ReplicaController(api_wsgi.Controller):
          instance_osmorphing_minion_pool_mappings, user_scripts) = (
             self._validate_create_body(context, body))
 
-        return replica_view.single(req, self._replica_api.create(
+        return replica_view.single(self._replica_api.create(
             context, origin_endpoint_id, destination_endpoint_id,
             origin_minion_pool_id, destination_minion_pool_id,
             instance_osmorphing_minion_pool_mappings, source_environment,
@@ -342,8 +342,8 @@ class ReplicaController(api_wsgi.Controller):
         updated_values = self._validate_update_body(id, context, body)
         try:
             return replica_tasks_execution_view.single(
-                req, self._replica_api.update(req.environ['coriolis.context'],
-                                              id, updated_values))
+                self._replica_api.update(req.environ['coriolis.context'],
+                                         id, updated_values))
         except exception.NotFound as ex:
             raise exc.HTTPNotFound(explanation=ex.msg)
         except exception.InvalidParameterValue as ex:

@@ -36,7 +36,6 @@ class EndpointSourceOptionsController(api_wsgi.Controller):
             options = {}
 
         return endpoint_options_view.source_options_collection(
-            req,
             self._source_options_api.get_endpoint_source_options(
                 context, endpoint_id, env=env, option_names=options))
 

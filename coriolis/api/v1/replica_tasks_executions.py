@@ -24,7 +24,7 @@ class ReplicaTasksExecutionController(api_wsgi.Controller):
         if not execution:
             raise exc.HTTPNotFound()
 
-        return replica_tasks_execution_view.single(req, execution)
+        return replica_tasks_execution_view.single(execution)
 
     def index(self, req, replica_id):
         context = req.environ["coriolis.context"]
@@ -32,7 +32,7 @@ class ReplicaTasksExecutionController(api_wsgi.Controller):
             executions_policies.get_replica_executions_policy_label("list"))
 
         return replica_tasks_execution_view.collection(
-            req, self._replica_tasks_execution_api.get_executions(
+            self._replica_tasks_execution_api.get_executions(
                 context, replica_id, include_tasks=False))
 
     def detail(self, req, replica_id):
@@ -41,7 +41,7 @@ class ReplicaTasksExecutionController(api_wsgi.Controller):
             executions_policies.get_replica_executions_policy_label("show"))
 
         return replica_tasks_execution_view.collection(
-            req, self._replica_tasks_execution_api.get_executions(
+            self._replica_tasks_execution_api.get_executions(
                 context, replica_id, include_tasks=True))
 
     def create(self, req, replica_id, body):
@@ -55,7 +55,7 @@ class ReplicaTasksExecutionController(api_wsgi.Controller):
         shutdown_instances = execution_body.get("shutdown_instances", False)
 
         return replica_tasks_execution_view.single(
-            req, self._replica_tasks_execution_api.create(
+            self._replica_tasks_execution_api.create(
                 context, replica_id, shutdown_instances))
 
     def delete(self, req, replica_id, id):

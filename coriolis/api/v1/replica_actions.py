@@ -22,7 +22,7 @@ class ReplicaActionsController(api_wsgi.Controller):
             replica_policies.get_replicas_policy_label("delete_disks"))
         try:
             return replica_tasks_execution_view.single(
-                req, self._replica_api.delete_disks(context, id))
+                self._replica_api.delete_disks(context, id))
         except exception.NotFound as ex:
             raise exc.HTTPNotFound(explanation=ex.msg)
         except exception.InvalidParameterValue as ex:

@@ -1,17 +1,11 @@
 # Copyright 2020 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-import itertools
+from coriolis.api.v1.views import utils as view_utils
 
 
-def _format_minion_pool(req, minion_pool, keys=None):
-    def transform(key, value):
-        if keys and key not in keys:
-            return
-        yield (key, value)
-
-    minion_pool_dict = dict(itertools.chain.from_iterable(
-        transform(k, v) for k, v in minion_pool.items()))
+def _format_minion_pool(minion_pool, keys=None):
+    minion_pool_dict = view_utils.format_opt(minion_pool, keys)
 
     def _hide_minion_creds(minion_conn):
         if not minion_conn:
@@ -38,11 +32,11 @@ def _format_minion_pool(req, minion_pool, keys=None):
     return minion_pool_dict
 
 
-def single(req, minion_pool):
-    return {"minion_pool": _format_minion_pool(req, minion_pool)}
+def single(minion_pool, keys=None):
+    return {"minion_pool": _format_minion_pool(minion_pool, keys)}
 
 
-def collection(req, minion_pools):
+def collection(minion_pools, keys=None):
     formatted_minion_pools = [
-        _format_minion_pool(req, r) for r in minion_pools]
+        _format_minion_pool(r, keys) for r in minion_pools]
     return {'minion_pools': formatted_minion_pools}

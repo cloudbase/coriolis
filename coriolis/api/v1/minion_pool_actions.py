@@ -23,7 +23,7 @@ class MinionPoolActionsController(api_wsgi.Controller):
                 "allocate"))
         try:
             return minion_pool_view.single(
-                req, self.minion_pool_api.allocate_minion_pool(
+                self.minion_pool_api.allocate_minion_pool(
                     context, id))
         except exception.NotFound as ex:
             raise exc.HTTPNotFound(explanation=ex.msg)
@@ -38,7 +38,7 @@ class MinionPoolActionsController(api_wsgi.Controller):
                 "refresh"))
         try:
             return minion_pool_view.single(
-                req, self.minion_pool_api.refresh_minion_pool(
+                self.minion_pool_api.refresh_minion_pool(
                     context, id))
         except exception.NotFound as ex:
             raise exc.HTTPNotFound(explanation=ex.msg)
@@ -54,7 +54,7 @@ class MinionPoolActionsController(api_wsgi.Controller):
         force = (body["deallocate"] or {}).get("force", False)
         try:
             return minion_pool_view.single(
-                req, self.minion_pool_api.deallocate_minion_pool(
+                self.minion_pool_api.deallocate_minion_pool(
                     context, id, force=force))
         except exception.NotFound as ex:
             raise exc.HTTPNotFound(explanation=ex.msg)

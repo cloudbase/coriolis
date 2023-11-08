@@ -32,7 +32,7 @@ class EndpointInstanceController(api_wsgi.Controller):
             env = {}
 
         return endpoint_resources_view.instances_collection(
-            req, self._instance_api.get_endpoint_instances(
+            self._instance_api.get_endpoint_instances(
                 context, endpoint_id, env, marker, limit,
                 instance_name_pattern))
 
@@ -52,7 +52,7 @@ class EndpointInstanceController(api_wsgi.Controller):
             env = {}
 
         return endpoint_resources_view.instance_single(
-            req, self._instance_api.get_endpoint_instance(
+            self._instance_api.get_endpoint_instance(
                 req.environ['coriolis.context'], endpoint_id, env, id))
 
 

@@ -36,7 +36,6 @@ class EndpointDestinationOptionsController(api_wsgi.Controller):
             options = {}
 
         return endpoint_options_view.destination_options_collection(
-            req,
             self._destination_options_api.get_endpoint_destination_options(
                 context, endpoint_id, env=env, option_names=options))
 

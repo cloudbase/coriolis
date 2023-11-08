@@ -1,17 +1,11 @@
 # Copyright 2020 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-import itertools
+from coriolis.api.v1.views import utils as view_utils
 
 
-def _format_region(req, region, keys=None):
-    def transform(key, value):
-        if keys and key not in keys:
-            return
-        yield (key, value)
-
-    region_dict = dict(itertools.chain.from_iterable(
-        transform(k, v) for k, v in region.items()))
+def _format_region(region, keys=None):
+    region_dict = view_utils.format_opt(region, keys)
 
     mapped_endpoints = region_dict.get('mapped_endpoints', [])
     region_dict['mapped_endpoints'] = [
@@ -24,11 +18,11 @@ def _format_region(req, region, keys=None):
     return region_dict
 
 
-def single(req, region):
-    return {"region": _format_region(req, region)}
+def single(region, keys=None):
+    return {"region": _format_region(region, keys)}
 
 
-def collection(req, regions):
+def collection(regions, keys=None):
     formatted_regions = [
-        _format_region(req, r) for r in regions]
+        _format_region(r, keys) for r in regions]
     return {'regions': formatted_regions}

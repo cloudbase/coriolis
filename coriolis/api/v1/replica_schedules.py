@@ -31,7 +31,7 @@ class ReplicaScheduleController(api_wsgi.Controller):
         if not schedule:
             raise exc.HTTPNotFound()
 
-        return replica_schedule_view.single(req, schedule)
+        return replica_schedule_view.single(schedule)
 
     def index(self, req, replica_id):
         context = req.environ["coriolis.context"]
@@ -41,7 +41,7 @@ class ReplicaScheduleController(api_wsgi.Controller):
         show_expired = strutils.bool_from_string(
             req.GET.get("show_expired", True), strict=True)
         return replica_schedule_view.collection(
-            req, self._schedule_api.get_schedules(
+            self._schedule_api.get_schedules(
                 context, replica_id, expired=show_expired))
 
     def _validate_schedule(self, schedule):
@@ -112,7 +112,7 @@ class ReplicaScheduleController(api_wsgi.Controller):
         except Exception as err:
             raise exception.InvalidInput(err)
 
-        return replica_schedule_view.single(req, self._schedule_api.create(
+        return replica_schedule_view.single(self._schedule_api.create(
             context, replica_id, schedule, enabled, exp_date, shutdown))
 
     def update(self, req, replica_id, id, body):
@@ -128,7 +128,7 @@ class ReplicaScheduleController(api_wsgi.Controller):
         except Exception as err:
             raise exception.InvalidInput(err)
 
-        return replica_schedule_view.single(req, self._schedule_api.update(
+        return replica_schedule_view.single(self._schedule_api.update(
             context, replica_id, id, update_values))
 
     def delete(self, req, replica_id, id):

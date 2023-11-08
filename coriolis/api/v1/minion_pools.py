@@ -29,13 +29,13 @@ class MinionPoolController(api_wsgi.Controller):
         if not minion_pool:
             raise exc.HTTPNotFound()
 
-        return minion_pool_view.single(req, minion_pool)
+        return minion_pool_view.single(minion_pool)
 
     def index(self, req):
         context = req.environ["coriolis.context"]
         context.can(pools_policies.get_minion_pools_policy_label("list"))
         return minion_pool_view.collection(
-            req, self._minion_pool_api.get_minion_pools(context))
+            self._minion_pool_api.get_minion_pools(context))
 
     def _check_pool_retention_strategy(self, pool_retention_strategy):
         if not pool_retention_strategy:
@@ -137,7 +137,7 @@ class MinionPoolController(api_wsgi.Controller):
          minimum_minions, maximum_minions, minion_max_idle_time,
          minion_retention_strategy, notes, skip_allocation) = (
             self._validate_create_body(context, body))
-        return minion_pool_view.single(req, self._minion_pool_api.create(
+        return minion_pool_view.single(self._minion_pool_api.create(
             context, name, endpoint_id, pool_platform, pool_os_type,
             environment_options, minimum_minions, maximum_minions,
             minion_max_idle_time, minion_retention_strategy, notes=notes,
@@ -197,7 +197,7 @@ class MinionPoolController(api_wsgi.Controller):
         context.can(pools_policies.get_minion_pools_policy_label("update"))
         updated_values = self._validate_update_body(id, context, body)
         return minion_pool_view.single(
-            req, self._minion_pool_api.update(
+            self._minion_pool_api.update(
                 req.environ['coriolis.context'], id, updated_values))
 
     def delete(self, req, id):

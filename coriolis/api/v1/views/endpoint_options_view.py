@@ -1,38 +1,29 @@
 # Copyright 2020 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-import itertools
+from coriolis.api.v1.views import utils as view_utils
 
 
-def _format_opt(req, option, keys=None):
-    def transform(key, value):
-        if keys and key not in keys:
-            return
-        yield (key, value)
-
-    return dict(itertools.chain.from_iterable(
-        transform(k, v) for k, v in option.items()))
-
-
-def destination_minion_pool_options_collection(req, destination_pool_options):
+def destination_minion_pool_options_collection(destination_pool_options,
+                                               keys=None):
     formatted_opts = [
-        _format_opt(req, opt) for opt in destination_pool_options]
+        view_utils.format_opt(opt, keys) for opt in destination_pool_options]
     return {'destination_minion_pool_options': formatted_opts}
 
 
-def destination_options_collection(req, destination_options):
+def destination_options_collection(destination_options, keys=None):
     formatted_opts = [
-        _format_opt(req, opt) for opt in destination_options]
+        view_utils.format_opt(opt, keys) for opt in destination_options]
     return {'destination_options': formatted_opts}
 
 
-def source_minion_pool_options_collection(req, source_pool_options):
+def source_minion_pool_options_collection(source_pool_options, keys=None):
     formatted_opts = [
-        _format_opt(req, opt) for opt in source_pool_options]
+        view_utils.format_opt(opt, keys) for opt in source_pool_options]
     return {'source_minion_pool_options': formatted_opts}
 
 
-def source_options_collection(req, source_options):
+def source_options_collection(source_options, keys=None):
     formatted_opts = [
-        _format_opt(req, opt) for opt in source_options]
+        view_utils.format_opt(opt, keys) for opt in source_options]
     return {'source_options': formatted_opts}
