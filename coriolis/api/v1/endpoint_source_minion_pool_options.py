@@ -36,7 +36,6 @@ class EndpointSourceMinionPoolOptionsController(api_wsgi.Controller):
             options = {}
 
         return endpoint_options_view.source_minion_pool_options_collection(
-            req,
             (self._minion_pool_options_api.
              get_endpoint_source_minion_pool_options)(
                 context, endpoint_id, env=env, option_names=options))

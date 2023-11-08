@@ -23,7 +23,7 @@ class DiagnosticsController(api_wsgi.Controller):
             diagnostics.get_diagnostics_policy_label("get"))
 
         return diagnostic_view.collection(
-            req, self._diag_api.get(context))
+            self._diag_api.get(context))
 
 
 def create_resource():

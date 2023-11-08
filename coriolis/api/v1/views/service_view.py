@@ -1,17 +1,11 @@
 # Copyright 2020 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-import itertools
+from coriolis.api.v1.views import utils as view_utils
 
 
-def _format_service(req, service, keys=None):
-    def transform(key, value):
-        if keys and key not in keys:
-            return
-        yield (key, value)
-
-    service_dict = dict(itertools.chain.from_iterable(
-        transform(k, v) for k, v in service.items()))
+def _format_service(service, keys=None):
+    service_dict = view_utils.format_opt(service, keys)
 
     mapped_regions = service_dict.get('mapped_regions', [])
     service_dict['mapped_regions'] = [
@@ -20,11 +14,11 @@ def _format_service(req, service, keys=None):
     return service_dict
 
 
-def single(req, service):
-    return {"service": _format_service(req, service)}
+def single(service, keys=None):
+    return {"service": _format_service(service, keys)}
 
 
-def collection(req, services):
+def collection(services, keys=None):
     formatted_services = [
-        _format_service(req, r) for r in services]
+        _format_service(r, keys) for r in services]
     return {'services': formatted_services}

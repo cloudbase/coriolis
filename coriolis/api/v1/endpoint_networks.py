@@ -28,7 +28,7 @@ class EndpointNetworkController(api_wsgi.Controller):
             env = {}
 
         return endpoint_resources_view.networks_collection(
-            req, self._network_api.get_endpoint_networks(
+            self._network_api.get_endpoint_networks(
                 context, endpoint_id, env))
 
 

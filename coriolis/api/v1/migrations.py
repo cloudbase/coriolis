@@ -41,7 +41,7 @@ class MigrationController(api_wsgi.Controller):
         if not migration:
             raise exc.HTTPNotFound()
 
-        return migration_view.single(req, migration)
+        return migration_view.single(migration)
 
     def _list(self, req):
         show_deleted = api_utils._get_show_deleted(
@@ -50,7 +50,7 @@ class MigrationController(api_wsgi.Controller):
         context.show_deleted = show_deleted
         context.can(migration_policies.get_migrations_policy_label("list"))
         return migration_view.collection(
-            req, self._migration_api.get_migrations(
+            self._migration_api.get_migrations(
                 context,
                 include_tasks=CONF.api.include_task_info_in_migrations_api,
                 include_task_info=CONF.api.include_task_info_in_migrations_api
@@ -173,7 +173,7 @@ class MigrationController(api_wsgi.Controller):
                 skip_os_morphing=skip_os_morphing,
                 user_scripts=user_scripts)
 
-        return migration_view.single(req, migration)
+        return migration_view.single(migration)
 
     def delete(self, req, id):
         context = req.environ['coriolis.context']

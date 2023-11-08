@@ -1,23 +1,16 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-import itertools
-
 from coriolis.api.v1.views import replica_tasks_execution_view as view
+from coriolis.api.v1.views import utils as view_utils
 
 
-def _format_migration(req, migration, keys=None):
-    def transform(key, value):
-        if keys and key not in keys:
-            return
-        yield (key, value)
-
-    migration_dict = dict(itertools.chain.from_iterable(
-        transform(k, v) for k, v in migration.items()))
+def _format_migration(migration, keys=None):
+    migration_dict = view_utils.format_opt(migration, keys)
 
     if len(migration_dict.get("executions", [])):
         execution = view.format_replica_tasks_execution(
-            req, migration_dict["executions"][0])
+            migration_dict["executions"][0], keys)
         del migration_dict["executions"]
     else:
         execution = {}
@@ -29,11 +22,11 @@ def _format_migration(req, migration, keys=None):
     return migration_dict
 
 
-def single(req, migration):
-    return {"migration": _format_migration(req, migration)}
+def single(migration, keys=None):
+    return {"migration": _format_migration(migration, keys)}
 
 
-def collection(req, migrations):
-    formatted_migrations = [_format_migration(req, m)
+def collection(migrations, keys=None):
+    formatted_migrations = [_format_migration(m, keys)
                             for m in migrations]
     return {'migrations': formatted_migrations}

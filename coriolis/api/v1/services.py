@@ -26,13 +26,13 @@ class ServiceController(api_wsgi.Controller):
         if not service:
             raise exc.HTTPNotFound()
 
-        return service_view.single(req, service)
+        return service_view.single(service)
 
     def index(self, req):
         context = req.environ["coriolis.context"]
         context.can(service_policies.get_services_policy_label("list"))
         return service_view.collection(
-            req, self._service_api.get_services(context))
+            self._service_api.get_services(context))
 
     @api_utils.format_keyerror_message(resource='service', method='create')
     def _validate_create_body(self, body):
@@ -49,7 +49,7 @@ class ServiceController(api_wsgi.Controller):
         context.can(service_policies.get_services_policy_label("create"))
         (host, binary, topic, mapped_regions, enabled) = (
             self._validate_create_body(body))
-        return service_view.single(req, self._service_api.create(
+        return service_view.single(self._service_api.create(
             context, host=host, binary=binary, topic=topic,
             mapped_regions=mapped_regions, enabled=enabled))
 
@@ -63,7 +63,7 @@ class ServiceController(api_wsgi.Controller):
         context = req.environ["coriolis.context"]
         context.can(service_policies.get_services_policy_label("update"))
         updated_values = self._validate_update_body(body)
-        return service_view.single(req, self._service_api.update(
+        return service_view.single(self._service_api.update(
             req.environ['coriolis.context'], id, updated_values))
 
     def delete(self, req, id):

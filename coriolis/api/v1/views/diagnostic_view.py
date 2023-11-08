@@ -2,9 +2,9 @@
 # All Rights Reserved.
 
 
-def single(req, diag):
+def single(diag):
     return {"diagnostic": diag}
 
 
-def collection(req, diag):
+def collection(diag):
     return {'diagnostics': diag}
