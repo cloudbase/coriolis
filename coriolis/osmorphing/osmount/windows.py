@@ -39,9 +39,6 @@ class WindowsMountTools(base.BaseOSMountTools):
         except exception.CoriolisException:
             pass
 
-    def _refresh_storage(self):
-        self._run_diskpart_script("RESCAN")
-
     def _run_diskpart_script(self, script):
         """Executes the given script with diskpart.exe.
 
@@ -110,30 +107,6 @@ class WindowsMountTools(base.BaseOSMountTools):
                             raise
                     break
 
-    def _get_disk_ids_from_drive_letters(self, drive_letters):
-        disk_ids = []
-        volume_entry_re = r"^\s+Volume ([0-9]+)\s+([A-Z]+)\s+"
-
-        def _get_disk_ids(vol_id):
-            vol_detail_script = (
-                "SELECT VOLUME %s\r\nDETAIL VOLUME\r\nEXIT" % vol_id)
-            vol_details = self._run_diskpart_script(vol_detail_script)
-            vol_disk_re = r"^\*?\s+Disk ([0-9]+)\s+"
-            return [m.group(1) for m in [
-                re.match(vol_disk_re, v) for v in vol_details.split('\r\n')]
-                if m is not None]
-
-        volume_list_script = "LIST VOLUME\r\nEXIT"
-        vol_list = self._run_diskpart_script(volume_list_script)
-        for volume in vol_list.split('\r\n'):
-            m = re.match(volume_entry_re, volume)
-            if m:
-                vol_id, letter = m.groups()
-                if letter in drive_letters:
-                    disk_ids += _get_disk_ids(vol_id)
-
-        return disk_ids
-
     def _set_foreign_disks_rw_mode(self):
         # NOTE: in case a Dynamic Disk (which will show up as 'Foreign' to
         # the worker) is part of a Dynamic Disk group, ALL disks from that
@@ -152,7 +125,7 @@ class WindowsMountTools(base.BaseOSMountTools):
         worker. Needed when servicing installations on Dynamic Disks.
         """
         # NOTE: foreign disks are not exposed via the APIs the PowerShell
-        # disk cmdlets use, thus any disk which is foreign is is likely
+        # disk cmdlets use, thus any disk which is foreign is likely
         # still RO, which is why we must change the RO attribute as well:
         import_disk_script_fmt = (
             "SELECT DISK %s\r\nIMPORT\r\nEXIT")
@@ -161,33 +134,14 @@ class WindowsMountTools(base.BaseOSMountTools):
             logmsg_fmt="Importing foreign disk with ID '%s'.")
 
     def _bring_all_disks_online(self):
-        online_disk_script_fmt = "SELECT DISK %s\r\nONLINE DISK\r\nEXIT"
-        # NOTE (aznashwan): there is a chance that some disks on Windows
-        # worker VMs won't be able to be brought online, but they may not be
-        # the boot disk and thus can be skipped on error and still have a good
-        # chance that the OSMorphing process will complete successfully.
-        self._service_disks_with_status(
-            "Offline", online_disk_script_fmt, skip_on_error=True,
-            logmsg_fmt="Bringing offline disk with ID %s online.")
+        self._conn.exec_ps_command(
+            "Get-Disk | Where-Object { $_.IsOffline -eq $True } | "
+            "Set-Disk -IsOffline $False")
 
     def _set_basic_disks_rw_mode(self):
-        set_rw_foreign_disk_script_fmt = (
-            "SELECT DISK %s\r\nATTRIBUTES DISK CLEAR READONLY\r\nEXIT")
-        self._service_disks_with_status(
-            "Online", set_rw_foreign_disk_script_fmt,
-            logmsg_fmt="Clearing R/O flag on disk with ID '%s'.",
-            skip_on_error=True)
-
-    def _bring_disks_offline(self, drives_to_skip=None):
-        disk_ids_to_skip = None
-        if drives_to_skip:
-            disk_ids_to_skip = self._get_disk_ids_from_drive_letters(
-                drives_to_skip)
-        offline_disk_script_fmt = "SELECT DISK %s\r\nOFFLINE DISK\r\nEXIT"
-        self._service_disks_with_status(
-            "Online", offline_disk_script_fmt, skip_on_error=True,
-            logmsg_fmt="Bringing online disk with ID %s offline.",
-            disk_ids_to_skip=disk_ids_to_skip)
+        self._conn.exec_ps_command(
+            "Get-Disk | Where-Object { $_.IsReadOnly -eq $True } | "
+            "Set-Disk -IsReadOnly $False")
 
     def _get_system_drive(self):
         return self._conn.exec_ps_command("$env:SystemDrive")
@@ -199,14 +153,13 @@ class WindowsMountTools(base.BaseOSMountTools):
             raise exception.CoriolisException("No filesystems found")
         return drives
 
-    def _bring_nonsystem_disks_offline(self):
-        drives = self._ignore_devices.copy()
-        drives.append(self._get_system_drive())
-        drives_to_skip = [ltr.split(":")[0] for ltr in drives]
-        self._bring_disks_offline(drives_to_skip)
+    def _bring_nonboot_disks_offline(self):
+        self._conn.exec_ps_command(
+            "Get-Disk | Where-Object { $_.IsBoot -eq $False } | "
+            "Set-Disk -IsOffline $True")
 
     def _rebring_disks_online(self):
-        self._bring_nonsystem_disks_offline()
+        self._bring_nonboot_disks_offline()
         self._bring_all_disks_online()
 
     def _set_volumes_drive_letter(self):
@@ -221,11 +174,11 @@ class WindowsMountTools(base.BaseOSMountTools):
             re.match(volume_entry_re, v) for v in volume_list.split("\r\n")]
             if m is not None and "HIDDEN" not in m.group(2).upper()]
         for vol_id in unhidden_volume_ids:
+            LOG.info(
+                "Clearing NODEFAULTDRIVELETTER flag on volume %s" %
+                vol_id)
+            script = enable_default_drive_letter_script_fmt % vol_id
             try:
-                LOG.info(
-                    "Clearing NODEFAULTDRIVELETTER flag on volume %s" %
-                    vol_id)
-                script = enable_default_drive_letter_script_fmt % vol_id
                 self._run_diskpart_script(script)
             except Exception as ex:
                 LOG.warn(
@@ -235,13 +188,8 @@ class WindowsMountTools(base.BaseOSMountTools):
         self._rebring_disks_online()
 
     def mount_os(self):
-        self._refresh_storage()
         self._bring_all_disks_online()
         self._set_basic_disks_rw_mode()
-        self._set_foreign_disks_rw_mode()
-        self._import_foreign_disks()
-        self._set_volumes_drive_letter()
-        self._refresh_storage()
         fs_roots = utils.retry_on_error(sleep_seconds=5)(self._get_fs_roots)(
             fail_if_empty=True)
         system_drive = self._get_system_drive()
@@ -253,4 +201,4 @@ class WindowsMountTools(base.BaseOSMountTools):
         raise exception.OperatingSystemNotFound("root partition not found")
 
     def dismount_os(self, root_drive):
-        self._bring_nonsystem_disks_offline()
+        self._bring_nonboot_disks_offline()
