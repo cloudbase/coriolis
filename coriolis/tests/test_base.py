@@ -46,3 +46,21 @@ class CoriolisApiViewsTestCase(CoriolisBaseTestCase):
                 f_opts.append(format_mock.return_value)
             expected_result = {expected_result_key: f_opts}
             self.assertEqual(expected_result, result)
+
+
+class CoriolisRPCClientTestCase(CoriolisBaseTestCase):
+    def setUp(self):
+        super(CoriolisRPCClientTestCase, self).setUp()
+        self.client = None
+
+    def _test(self, fun, args, rpc_op='_call',
+              server_fun_name=None, custom_args=None):
+        if server_fun_name is None:
+            server_fun_name = fun.__name__
+        with mock.patch.object(self.client, rpc_op) as op_mock:
+            ctxt = mock.sentinel.ctxt
+            fun(ctxt, **args)
+            op_args = {**args}
+            if isinstance(custom_args, dict):
+                op_args.update(custom_args)
+            op_mock.assert_called_once_with(ctxt, server_fun_name, **op_args)
