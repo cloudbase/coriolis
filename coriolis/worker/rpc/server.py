@@ -1,15 +1,14 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from logging import handlers
 import multiprocessing
-
-import eventlet
 import os
 import shutil
 import signal
 import sys
 
-from logging import handlers
+import eventlet
 from oslo_config import cfg
 from oslo_log import log as logging
 import psutil
@@ -26,7 +25,6 @@ from coriolis import schemas
 from coriolis import service
 from coriolis.tasks import factory as task_runners_factory
 from coriolis import utils
-
 
 CONF = cfg.CONF
 CONF.register_opts([], 'worker')
@@ -146,6 +144,16 @@ class WorkerServerEndpoint(object):
                 if not p.is_alive():
                     break
 
+    def _get_custom_ld_path(self, original_ld_path, extra_library_paths):
+        if not isinstance(extra_library_paths, list):
+            raise TypeError("Passed extra_library_paths is not a list")
+
+        extra_libdirs = ":".join(extra_library_paths)
+        if not original_ld_path:
+            return extra_libdirs
+        else:
+            return "%s:%s" % (original_ld_path, extra_libdirs)
+
     def _start_process_with_custom_library_paths(
             self, process, extra_library_paths):
         """ Given a process instance, this method will add any shared libs
@@ -159,19 +167,17 @@ class WorkerServerEndpoint(object):
         libraries which should be available to the worker process.
         """
         original_ld_path = os.environ.get('LD_LIBRARY_PATH', "")
-        new_ld_path = None
-        extra_libdirs = ":".join(extra_library_paths)
-        if not original_ld_path:
-            new_ld_path = extra_libdirs
-        else:
-            new_ld_path = "%s:%s" % (original_ld_path, extra_libdirs)
-
         LOG.debug(
             "Starting new worker process with extra libraries: '%s'",
             extra_library_paths)
         try:
-            os.environ['LD_LIBRARY_PATH'] = new_ld_path
+            os.environ['LD_LIBRARY_PATH'] = self._get_custom_ld_path(
+                original_ld_path, extra_library_paths)
             process.start()
+        except TypeError:
+            LOG.warning(
+                "Failed to set extra library paths: %s. Error was: %s",
+                extra_library_paths, utils.get_exception_details())
         finally:
             os.environ['LD_LIBRARY_PATH'] = original_ld_path
 

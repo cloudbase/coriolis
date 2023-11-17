@@ -1,0 +1,38 @@
+- config:
+    extra_library_paths: ""
+    exception_expected: true
+
+- config:
+    extra_library_paths: ~
+    exception_expected: true
+
+- config:
+    extra_library_paths: 12
+    exception_expected: true
+
+- config:
+    extra_library_paths: {}
+    exception_expected: true
+
+- config:
+    extra_library_paths:
+      - 1
+      - 2
+    exception_expected: true
+
+- config:
+    extra_library_paths:
+      - "path1"
+      - "path2"
+    expected_result: "path1:path2"
+
+- config:
+    original_ld_path: "original_path"
+    expected_result: "original_path:"
+
+- config:
+    original_ld_path: "original_path"
+    extra_library_paths:
+      - "path1"
+      - "path2"
+    expected_result: "original_path:path1:path2"
