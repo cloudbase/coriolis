@@ -1,0 +1,37 @@
+- config:
+    platform: source
+    source_lib_dirs:
+      - source_dir1
+      - source_dir2
+    return_source_dirs: true
+  expected_result:
+    - source_dir1
+    - source_dir2
+
+- config:
+    platform: destination
+    source_lib_dirs:
+      - source_dir
+    destination_lib_dirs:
+      - dest_dir
+    return_dest_dirs: true
+  expected_result:
+    - dest_dir
+
+- config:
+    platform: bilateral
+    source_lib_dirs:
+      - source_dir1
+    destination_lib_dirs:
+      - dest_dir1
+      - dest_dir2
+    return_source_dirs: true
+    return_dest_dirs: true
+  expected_result:
+    - source_dir1
+    - dest_dir1
+    - dest_dir2
+
+- config:
+    platform: invalid
+  expected_result: []

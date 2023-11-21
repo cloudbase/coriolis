@@ -1,0 +1,54 @@
+# Missing required property
+- config:
+    required_properties:
+      - "prop1"
+      - "prop2"
+    task_info:
+      prop1: value1
+  exception_expected: true
+
+# Result is not dict
+- config:
+    required_properties:
+      - "prop1"
+      - "prop2"
+    task_info:
+      prop1: value1
+      prop2: value2
+    run_result: invalid_obj
+  exception_expected: true
+
+# missing result keys
+- config:
+    returned_properties:
+      - "prop1"
+      - "prop2"
+    run_result:
+      prop1: value1
+    sanitize_check: true
+  exception_expected: true
+
+# additional result keys (undeclared)
+- config:
+    returned_properties:
+      - "prop1"
+    run_result:
+      prop1: value1
+      prop2: value2
+  exception_expected: true
+
+# valid data
+- config:
+    required_properties:
+      - "prop1"
+      - "prop2"
+    task_info:
+      prop1: value1
+      prop2: value2
+    returned_properties:
+      - "prop1"
+      - "prop3"
+    run_result:
+      prop1: value1
+      prop3: value3
+  exception_expected: false
