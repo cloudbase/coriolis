@@ -37,6 +37,7 @@ MANIFEST
 nosetests.xml
 nova/tests/cover/*
 nova/vcsversion.py
+.stestr/
 tools/conf/nova.conf*
 coriolis/resources/bin/write_data
 .vscode/

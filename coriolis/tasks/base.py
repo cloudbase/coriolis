@@ -2,10 +2,10 @@
 # All Rights Reserved.
 
 import abc
-import paramiko
 
 from oslo_config import cfg
 from oslo_log import log as logging
+import paramiko
 from six import with_metaclass
 
 from coriolis import constants
@@ -36,26 +36,15 @@ class TaskRunner(with_metaclass(abc.ABCMeta)):
         if platform in [
                 constants.TASK_PLATFORM_SOURCE,
                 constants.TASK_PLATFORM_BILATERAL]:
-            origin_provider = providers_factory.get_provider(
-                origin["type"], constants.PROVIDER_TYPE_SETUP_LIBS,
-                event_handler, raise_if_not_found=False)
-            if origin_provider:
-                conn_info = get_connection_info(ctxt, origin)
-                required_libs.extend(
-                    origin_provider.get_shared_library_directories(
-                        ctxt, conn_info))
+            required_libs.extend(
+                get_shared_lib_dirs_for_provider(ctxt, origin, event_handler))
 
         if platform in [
                 constants.TASK_PLATFORM_DESTINATION,
                 constants.TASK_PLATFORM_BILATERAL]:
-            destination_provider = providers_factory.get_provider(
-                destination["type"], constants.PROVIDER_TYPE_SETUP_LIBS,
-                event_handler, raise_if_not_found=False)
-            if destination_provider:
-                conn_info = get_connection_info(ctxt, destination)
-                required_libs.extend(
-                    destination_provider.get_shared_library_directories(
-                        ctxt, conn_info))
+            required_libs.extend(
+                get_shared_lib_dirs_for_provider(
+                    ctxt, destination, event_handler))
 
         return required_libs
 
@@ -152,6 +141,16 @@ class TaskRunner(with_metaclass(abc.ABCMeta)):
                     self.__class__, undeclared_returns))
 
         return result
+
+
+def get_shared_lib_dirs_for_provider(ctxt, endpoint, event_handler):
+    provider = providers_factory.get_provider(
+        endpoint['type'], constants.PROVIDER_TYPE_SETUP_LIBS,
+        event_handler, raise_if_not_found=False)
+    if provider:
+        conn_info = get_connection_info(ctxt, endpoint)
+        return provider.get_shared_library_directories(ctxt, conn_info)
+    return []
 
 
 def get_connection_info(ctxt, data):
