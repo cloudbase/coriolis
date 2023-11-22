@@ -9,7 +9,6 @@ from coriolis import exception
 from coriolis.providers import factory as providers_factory
 from coriolis.tasks import base
 
-
 LOG = logging.getLogger(__name__)
 
 
@@ -38,6 +37,53 @@ def _get_required_minion_pool_provider_types_for_platform(
             "platform of type '%s'" % platform_type)
     return {
         platform_type: [provider_type]}
+
+
+def _get_platform_to_target(required_platform, origin, destination):
+    platform_to_target = None
+    if required_platform == constants.TASK_PLATFORM_SOURCE:
+        platform_to_target = origin
+    elif required_platform == constants.TASK_PLATFORM_DESTINATION:
+        platform_to_target = destination
+    else:
+        raise NotImplementedError(
+            "Unknown minion pool platform '%s'" % (
+                required_platform))
+    return platform_to_target
+
+
+def _check_missing_minion_properties(provider_type, minion_properties,
+                                     properties_to_check=None):
+    if properties_to_check is None:
+        properties_to_check = []
+    missing = [
+        key for key in properties_to_check
+        if key not in minion_properties]
+    if missing:
+        LOG.warn(
+            "Provider of type '%s' failed to return the following minion "
+            "property keys: %s. Allowing run to completion for later "
+            "cleanup.", provider_type, missing)
+
+
+def _get_minion_conn_info(minion_properties):
+    minion_connection_info = {}
+    if 'connection_info' in minion_properties:
+        minion_connection_info = base.marshal_migr_conn_info(
+            minion_properties['connection_info'])
+    return minion_connection_info
+
+
+def _get_minion_backup_writer_conn_info(minion_properties):
+    minion_backup_writer_conn = {}
+    if 'backup_writer_connection_info' in minion_properties:
+        minion_backup_writer_conn = minion_properties[
+            'backup_writer_connection_info']
+        if 'connection_details' in minion_backup_writer_conn:
+            minion_backup_writer_conn['connection_details'] = (
+                base.marshal_migr_conn_info(
+                    minion_backup_writer_conn['connection_details']))
+    return minion_backup_writer_conn
 
 
 class _BaseValidateMinionPoolOptionsTask(base.TaskRunner):
@@ -134,34 +180,15 @@ class _BaseCreateMinionMachineTask(base.TaskRunner):
             ctxt, connection_info, environment_options, pool_identifier,
             pool_os_type, pool_shared_resources, minion_pool_machine_id)
 
-        missing = [
-            key for key in [
+        _check_missing_minion_properties(
+            provider_type, minion_properties,
+            properties_to_check=[
                 "connection_info", "minion_provider_properties",
-                "backup_writer_connection_info"]
-            if key not in minion_properties]
-        if missing:
-            LOG.warn(
-                "Provider of type '%s' failed to return the following minion "
-                "property keys: %s. Allowing run to completion for later "
-                "cleanup.")
-
-        minion_connection_info = {}
-        if 'connection_info' in minion_properties:
-            minion_connection_info = base.marshal_migr_conn_info(
-                minion_properties['connection_info'])
-        minion_backup_writer_conn = {}
-        if 'backup_writer_connection_info' in minion_properties:
-            minion_backup_writer_conn = minion_properties[
-                'backup_writer_connection_info']
-            if 'connection_details' in minion_backup_writer_conn:
-                minion_backup_writer_conn['connection_details'] = (
-                    base.marshal_migr_conn_info(
-                        minion_backup_writer_conn['connection_details']))
-
+                "backup_writer_connection_info"])
         return {
-            "minion_connection_info": minion_connection_info,
+            "minion_connection_info": _get_minion_conn_info(minion_properties),
             "minion_backup_writer_connection_info": (
-                minion_backup_writer_conn),
+                _get_minion_backup_writer_conn_info(minion_properties)),
             "minion_provider_properties": minion_properties.get(
                 "minion_provider_properties")}
 
@@ -392,20 +419,23 @@ class _BaseVolumesMinionMachineAttachmentTask(base.TaskRunner):
         raise NotImplementedError(
             "No minion task info field mappings provided.")
 
+    def _check_missing_disk_op_result_keys(self, platform_to_target,
+                                           disk_op_res):
+        missing_result_props = [
+            prop for prop in ["volumes_info", "minion_properties"]
+            if prop not in disk_op_res]
+        if missing_result_props:
+            raise exception.CoriolisException(
+                "The following properties were missing from minion disk "
+                "operation '%s' from platform '%s': %s" % (
+                    self._get_provider_disk_operation.__name__,
+                    platform_to_target, missing_result_props))
+
     def _run(self, ctxt, instance, origin, destination,
              task_info, event_handler):
 
-        platform_to_target = None
-        required_platform = self.get_required_platform()
-        if required_platform == constants.TASK_PLATFORM_SOURCE:
-            platform_to_target = origin
-        elif required_platform == constants.TASK_PLATFORM_DESTINATION:
-            platform_to_target = destination
-        else:
-            raise NotImplementedError(
-                "Unknown minion pool disk operation platform '%s'" % (
-                    required_platform))
-
+        platform_to_target = _get_platform_to_target(
+            self.get_required_platform(), origin, destination)
         connection_info = base.get_connection_info(ctxt, platform_to_target)
         provider_type = self.get_required_provider_types()[
             self.get_required_platform()][0]
@@ -421,15 +451,7 @@ class _BaseVolumesMinionMachineAttachmentTask(base.TaskRunner):
             ctxt, connection_info, minion_properties,
             minion_connection_info, volumes_info)
 
-        missing_result_props = [
-            prop for prop in ["volumes_info", "minion_properties"]
-            if prop not in res]
-        if missing_result_props:
-            raise exception.CoriolisException(
-                "The following properties were missing from minion disk "
-                "operation '%s' from platform '%s': %s" % (
-                    self._get_provider_disk_operation.__name__,
-                    platform_to_target, missing_result_props))
+        self._check_missing_disk_op_result_keys(platform_to_target, res)
 
         field_name_map = self._get_minion_task_info_field_mappings()
         result = {
@@ -531,7 +553,7 @@ class AttachVolumesToDestinationMinionTask(
 
 
 class DetachVolumesFromDestinationMinionTask(
-    AttachVolumesToDestinationMinionTask):
+        AttachVolumesToDestinationMinionTask):
 
     @classmethod
     def _get_provider_disk_operation(cls, provider):
@@ -675,17 +697,8 @@ class _BaseValidateMinionCompatibilityTask(base.TaskRunner):
     def _run(self, ctxt, instance, origin, destination,
              task_info, event_handler):
 
-        platform_to_target = None
-        required_platform = self.get_required_platform()
-        if required_platform == constants.TASK_PLATFORM_SOURCE:
-            platform_to_target = origin
-        elif required_platform == constants.TASK_PLATFORM_DESTINATION:
-            platform_to_target = destination
-        else:
-            raise NotImplementedError(
-                "Unknown minion pool validation operation platform '%s'" % (
-                    required_platform))
-
+        platform_to_target = _get_platform_to_target(
+            self.get_required_platform(), origin, destination)
         connection_info = base.get_connection_info(ctxt, platform_to_target)
         provider_type = self.get_required_provider_types()[
             self.get_required_platform()][0]
@@ -907,17 +920,8 @@ class _BaseHealthcheckMinionMachineTask(base.TaskRunner):
     def _run(self, ctxt, instance, origin, destination,
              task_info, event_handler):
 
-        platform_to_target = None
-        required_platform = self.get_required_platform()
-        if required_platform == constants.TASK_PLATFORM_SOURCE:
-            platform_to_target = origin
-        elif required_platform == constants.TASK_PLATFORM_DESTINATION:
-            platform_to_target = destination
-        else:
-            raise NotImplementedError(
-                "Unknown minion healthcheck platform '%s'" % (
-                    required_platform))
-
+        platform_to_target = _get_platform_to_target(
+            self.get_required_platform(), origin, destination)
         connection_info = base.get_connection_info(ctxt, platform_to_target)
         provider_type = self.get_required_provider_types()[
             self.get_required_platform()][0]
@@ -976,17 +980,8 @@ class _BasePowerCycleMinionTask(base.TaskRunner):
     def _run(self, ctxt, instance, origin, destination,
              task_info, event_handler):
 
-        platform_to_target = None
-        required_platform = self.get_required_platform()
-        if required_platform == constants.TASK_PLATFORM_SOURCE:
-            platform_to_target = origin
-        elif required_platform == constants.TASK_PLATFORM_DESTINATION:
-            platform_to_target = destination
-        else:
-            raise NotImplementedError(
-                "Unknown minion healthcheck platform '%s'" % (
-                    required_platform))
-
+        platform_to_target = _get_platform_to_target(
+            self.get_required_platform(), origin, destination)
         connection_info = base.get_connection_info(ctxt, platform_to_target)
         provider_type = self.get_required_provider_types()[
             self.get_required_platform()][0]
