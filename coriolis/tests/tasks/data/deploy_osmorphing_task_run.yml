@@ -1,0 +1,34 @@
+- import_info:
+    os_morphing_resources: {}
+  raise_expected: true
+  log_expected: false
+
+- import_info:
+    os_morphing_resources:
+      res1: id1
+      res2: id2
+  raise_expected: true
+  log_expected: false
+
+- import_info:
+    os_morphing_resources:
+      res1: id1
+      res2: id2
+    osmorphing_connection_info:
+      info1: secret1
+      info2: secret2
+  raise_expected: false
+  log_expected: true
+
+- import_info:
+    os_morphing_resources:
+      res1: id1
+      res2: id2
+    osmorphing_connection_info:
+      info1: secret1
+      info2: secret2
+    osmorphing_info:
+      info1: value1
+      info2: value2
+  raise_expected: false
+  log_expected: false
