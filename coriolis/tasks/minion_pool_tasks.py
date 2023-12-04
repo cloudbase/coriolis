@@ -654,7 +654,7 @@ class _BaseValidateMinionCompatibilityTask(base.TaskRunner):
             "export_info",
             cls._get_transfer_properties_task_info_field(),
             cls._get_minion_properties_task_info_field()])
-        base_props.union(set(
+        base_props = base_props.union(set(
             cls._get_minion_task_info_field_mappings().keys()))
         return list(base_props)
 
