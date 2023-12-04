@@ -1,0 +1,69 @@
+- config:
+    instance: instance_1
+    task_info:
+      osmorphing_info: {}
+      osmorphing_connection_info:
+        info1: value1
+        info2: value2
+  expected_instance_script: ~
+
+- config:
+    instance: instance_1
+    task_info:
+      osmorphing_info: {}
+      osmorphing_connection_info:
+        info1: value1
+        info2: value2
+      user_scripts:
+        instances:
+          instance_1: instance_script1
+  expected_instance_script: instance_script1
+
+- config:
+    instance: instance_1
+    task_info:
+      osmorphing_info:
+        os_type: linux
+      osmorphing_connection_info:
+        info1: value1
+        info2: value2
+      user_scripts:
+        global:
+          linux: linux_script1
+  expected_instance_script: linux_script1
+
+- config:
+    instance: instance_1
+    task_info:
+      osmorphing_info: {}
+      osmorphing_connection_info:
+        info1: value1
+        info2: value2
+      user_scripts:
+        global:
+          linux: linux_script1
+  expected_instance_script: ~
+
+- config:
+    instance: instance_1
+    task_info:
+      osmorphing_info:
+        os_type: linux
+      osmorphing_connection_info:
+        info1: value1
+        info2: value2
+      user_scripts: {}
+  expected_instance_script: ~
+
+- config:
+    instance: instance_1
+    task_info:
+      osmorphing_info:
+        os_type: linux
+      osmorphing_connection_info:
+        info1: value1
+        info2: value2
+      user_scripts:
+        global:
+          windows: windows_script1
+  expected_instance_script: ~
