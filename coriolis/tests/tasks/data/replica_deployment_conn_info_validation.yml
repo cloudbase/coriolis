@@ -1,0 +1,24 @@
+- migr_conn_info: {}
+  writer_fails: true
+  validates_conn_info: false
+  marshals_conn_info: false
+
+- migr_conn_info: {}
+  writer_fails: false
+  validates_conn_info: false
+  marshals_conn_info: false
+
+- migr_conn_info:
+    additional_key: value1
+  writer_fails: false
+  validates_conn_info: true
+  marshals_conn_info: false
+
+- migr_conn_info:
+    additional_key: value1
+    connection_details:
+      user: ubuntu
+      password: S3kr3t
+  writer_fails: false
+  validates_conn_info: true
+  marshals_conn_info: true
