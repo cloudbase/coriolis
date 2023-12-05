@@ -1,0 +1,45 @@
+# no matching volume IDs
+- export_info:
+    id: instance_id
+    devices:
+      disks:
+        - id: disk_id1
+  volumes_info:
+    - disk_id: disk_id2
+  exception_expected: true
+  expected_result: ~
+
+# too many volume IDs matched
+- export_info:
+    id: instance_id
+    devices:
+      disks:
+        - id: disk_id1
+  volumes_info:
+    - disk_id: disk_id1
+    - disk_id: disk_id1
+  exception_expected: true
+  expected_result: ~
+
+- export_info:
+    id: instance_id
+    devices:
+      disks:
+        - id: disk_id1
+        - id: disk_id2
+        - id: disk_id3
+  volumes_info:
+    - disk_id: disk_id2
+      id: vol_id2
+    - disk_id: disk_id3
+      id: vol_id3
+    - disk_id: disk_id1
+      id: vol_id1
+  exception_expected: false
+  expected_result:
+    - disk_id: disk_id1
+      id: vol_id1
+    - disk_id: disk_id2
+      id: vol_id2
+    - disk_id: disk_id3
+      id: vol_id3

@@ -1,0 +1,66 @@
+- replica_resources_info: {}
+  expected_result:
+    # "task_vol_info" configured in test method
+    volumes_info: task_vol_info
+    target_resources: {}
+    target_resources_connection_info: {}
+
+- replica_resources_info:
+    volumes_info:
+      - id: vol_id1
+        name: vol_name1
+      - id: vol_id2
+        name: vol_name2
+  expected_result:
+    volumes_info:
+      - id: vol_id1
+        name: vol_name1
+      - id: vol_id2
+        name: vol_name2
+    target_resources: {}
+    target_resources_connection_info: {}
+
+- replica_resources_info:
+    volumes_info:
+      - id: vol_id1
+        name: vol_name1
+      - id: vol_id2
+        name: vol_name2
+    connection_info:
+      conn1: info1
+      conn2: info2
+  expected_result:
+    volumes_info:
+      - id: vol_id1
+        name: vol_name1
+      - id: vol_id2
+        name: vol_name2
+    target_resources: {}
+    target_resources_connection_info:
+      conn1: info1
+      conn2: info2
+
+- replica_resources_info:
+    volumes_info:
+      - id: vol_id1
+        name: vol_name1
+      - id: vol_id2
+        name: vol_name2
+    connection_info:
+      conn1: info1
+      conn2: info2
+    migr_resources:
+      res1: res_id1
+      res2: res_id2
+  expected_result:
+    volumes_info:
+      - id: vol_id1
+        name: vol_name1
+      - id: vol_id2
+        name: vol_name2
+    target_resources:
+      res1: res_id1
+      res2: res_id2
+    target_resources_connection_info:
+      conn1: info1
+      conn2: info2

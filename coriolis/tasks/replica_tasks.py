@@ -471,6 +471,8 @@ class DeleteReplicaSourceResourcesTask(base.TaskRunner):
         connection_info = base.get_connection_info(ctxt, origin)
 
         migr_resources = task_info["source_resources"]
+        # TODO(dvincze): Check whether this was supposed to be `task_info`
+        # instead of `origin`
         source_environment = origin["source_environment"]
 
         if migr_resources:

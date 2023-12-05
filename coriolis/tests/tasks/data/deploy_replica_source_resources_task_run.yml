@@ -1,0 +1,28 @@
+- replica_resources_info: {}
+  log_expected: true
+  expected_result:
+    source_resources: {}
+    source_resources_connection_info: {}
+
+- replica_resources_info:
+    connection_info: {}
+  log_expected: true
+  expected_result:
+    source_resources: {}
+    source_resources_connection_info: {}
+
+- replica_resources_info:
+    connection_info:
+      conn1: info1
+      conn2: info2
+    migr_resources:
+      res1: id1
+      res2: id2
+  log_expected: false
+  expected_result:
+    source_resources:
+      res1: id1
+      res2: id2
+    source_resources_connection_info:
+      conn1: info1
+      conn2: info2
