@@ -106,8 +106,9 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     def test__check_remove_dir_fails(self, mock_rmtree):
         tmp = tempfile.mkdtemp()
         mock_rmtree.side_effect = Exception('YOLO')
-        self.server._check_remove_dir(tmp)
-        self.assertLogs(server.LOG, level=logging.ERROR)
+        with self.assertLogs('coriolis.worker.rpc.server',
+                             level=logging.ERROR):
+            self.server._check_remove_dir(tmp)
         os.rmdir(tmp)
 
     @mock.patch.object(server.WorkerServerEndpoint, 'get_available_providers')
@@ -356,10 +357,10 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_custom_ld_path.side_effect = TypeError()
         process = mock.MagicMock()
 
-        self.server._start_process_with_custom_library_paths(
-            process, mock.sentinel.extra_library_paths)
+        with self.assertLogs('coriolis.worker.rpc.server', logging.WARNING):
+            self.server._start_process_with_custom_library_paths(
+                process, mock.sentinel.extra_library_paths)
         process.assert_not_called()
-        self.assertLogs(server.LOG, logging.WARNING)
         self.assertEqual(original_ld_path, os.environ['LD_LIBRARY_PATH'])
 
     @mock.patch.object(task_runners_factory, 'get_task_runner_class')
