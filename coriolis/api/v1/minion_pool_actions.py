@@ -1,13 +1,13 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from webob import exc
+
 from coriolis.api.v1.views import minion_pool_view
 from coriolis.api import wsgi as api_wsgi
 from coriolis import exception
 from coriolis.minion_pools import api
 from coriolis.policies import minion_pools as minion_pool_policies
-
-from webob import exc
 
 
 class MinionPoolActionsController(api_wsgi.Controller):
