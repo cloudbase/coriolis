@@ -143,6 +143,23 @@ class MinionPoolController(api_wsgi.Controller):
             minion_max_idle_time, minion_retention_strategy, notes=notes,
             skip_allocation=skip_allocation))
 
+    def _validate_updated_environment_options(self, context, minion_pool,
+                                              environment_options):
+        if minion_pool['platform'] == (
+                constants.PROVIDER_PLATFORM_SOURCE):
+            (self._endpoints_api.
+                validate_endpoint_source_minion_pool_options)(
+                context, minion_pool['endpoint_id'], environment_options)
+        elif minion_pool['platform'] == (
+                constants.PROVIDER_PLATFORM_DESTINATION):
+            (self._endpoints_api.
+                validate_endpoint_destination_minion_pool_options)(
+                context, minion_pool['endpoint_id'], environment_options)
+        else:
+            raise Exception(
+                "Unknown pool platform: %s" % minion_pool[
+                    'platform'])
+
     @api_utils.format_keyerror_message(resource='minion_pool',
                                        method='update')
     def _validate_update_body(self, id, context, body):
@@ -174,22 +191,8 @@ class MinionPoolController(api_wsgi.Controller):
                 vals.get('minion_max_idle_time'))
 
             if 'environment_options' in vals:
-                if minion_pool['platform'] == (
-                        constants.PROVIDER_PLATFORM_SOURCE):
-                    (self._endpoints_api.
-                     validate_endpoint_source_minion_pool_options)(
-                        context, minion_pool['endpoint_id'],
-                        vals['environment_options'])
-                elif minion_pool['platform'] == (
-                        constants.PROVIDER_PLATFORM_DESTINATION):
-                    (self._endpoints_api.
-                     validate_endpoint_destination_minion_pool_options)(
-                        context, minion_pool['endpoint_id'],
-                        vals['environment_options'])
-                else:
-                    raise Exception(
-                        "Unknown pool platform: %s" % minion_pool[
-                            'platform'])
+                self._validate_updated_environment_options(
+                    context, minion_pool, vals['environment_options'])
         return vals
 
     def update(self, req, id, body):
