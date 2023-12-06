@@ -505,6 +505,28 @@ class DeployReplicaTargetResourcesTask(base.TaskRunner):
                 constants.PROVIDER_TYPE_REPLICA_IMPORT]
         }
 
+    def _validate_connection_info(self, migr_connection_info):
+        try:
+            backup_writers.BackupWritersFactory(
+                migr_connection_info, None).get_writer()
+        except Exception as err:
+            LOG.warn(
+                "Seemingly invalid backup writer conn info. Replica will "
+                "likely fail during disk Replication. Error is: %s" % (
+                    str(err)))
+
+        if migr_connection_info:
+            if 'connection_details' in migr_connection_info:
+                migr_connection_info['connection_details'] = (
+                    base.marshal_migr_conn_info(
+                        migr_connection_info['connection_details']))
+            schemas.validate_value(
+                migr_connection_info,
+                schemas.CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA,
+                # NOTE: we avoid raising so that the cleanup task
+                # can [try] to deal with the temporary resources.
+                raise_on_error=False)
+
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
         target_environment = task_info["target_environment"]
@@ -538,26 +560,7 @@ class DeployReplicaTargetResourcesTask(base.TaskRunner):
         migr_connection_info = {}
         if 'connection_info' in replica_resources_info:
             migr_connection_info = replica_resources_info['connection_info']
-            try:
-                backup_writers.BackupWritersFactory(
-                    migr_connection_info, None).get_writer()
-            except Exception as err:
-                LOG.warn(
-                    "Seemingly invalid backup writer conn info. Replica will "
-                    "likely fail during disk Replication. Error is: %s" % (
-                        str(err)))
-
-            if migr_connection_info:
-                if 'connection_details' in migr_connection_info:
-                    migr_connection_info['connection_details'] = (
-                        base.marshal_migr_conn_info(
-                            migr_connection_info['connection_details']))
-                schemas.validate_value(
-                    migr_connection_info,
-                    schemas.CORIOLIS_DISK_SYNC_RESOURCES_CONN_INFO_SCHEMA,
-                    # NOTE: we avoid raising so that the cleanup task
-                    # can [try] to deal with the temporary resources.
-                    raise_on_error=False)
+            self._validate_connection_info(migr_connection_info)
         else:
             LOG.warn(
                 "Replica target provider for '%s' did NOT return any "
