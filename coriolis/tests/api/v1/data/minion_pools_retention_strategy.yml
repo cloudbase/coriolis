@@ -1,0 +1,11 @@
+- exception_raised: True
+  pool_retention_strategy: null
+
+- exception_raised: False
+  pool_retention_strategy: 'MINION_POOL_MACHINE_RETENTION_STRATEGY_DELETE'
+
+- exception_raised: False
+  pool_retention_strategy: 'MINION_POOL_MACHINE_RETENTION_STRATEGY_POWEROFF'
+
+- exception_raised: True
+  pool_retention_strategy: 'invalid'
