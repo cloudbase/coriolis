@@ -1,0 +1,86 @@
+- config:
+    body:
+      minion_pool: {}
+  exception_raised: False
+  expected_result: {}
+
+- config:
+    body:
+      minion_pool:
+        name: "mock_name"
+        notes: "mock_notes"
+        os_type: "mock_os_type"
+  exception_raised: False
+  expected_result:
+    name: "mock_name"
+    notes: "mock_notes"
+    os_type: "mock_os_type"
+
+- config:
+    body:
+      minion_pool:
+        name: "mock_name"
+        notes: "mock_notes"
+        os_type: "mock_os_type"
+        minion_retention_strategy: "mock_minion_retention_strategy"
+    validate_minion_retention_strategy: True
+  exception_raised: False
+  expected_result:
+    minion_retention_strategy: "mock_minion_retention_strategy"
+    name: "mock_name"
+    notes: "mock_notes"
+    os_type: "mock_os_type"
+
+
+- config:
+    body:
+      minion_pool:
+        name: "mock_name"
+        notes: "mock_notes"
+        os_type: "mock_os_type"
+        endpoint_id: "mock_endpoint_id"
+  exception_raised: "The 'endpoint_id' of a minion pool cannot be updated."
+  expected_result:
+
+- config:
+    body:
+      minion_pool:
+        name: "mock_name"
+        notes: "mock_notes"
+        os_type: "mock_os_type"
+        platform: "mock_platform"
+  exception_raised: "The 'platform' of a minion pool cannot be updated."
+  expected_result:
+
+- config:
+    body:
+      minion_pool:
+        name: "mock_name"
+        notes: "mock_notes"
+        os_type: "mock_os_type"
+        minimum_minions: 2
+        maximum_minions: 2
+        minion_max_idle_time: 2
+    validate_get_minion_pool: True
+  exception_raised: False
+  expected_result:
+    minimum_minions: 2
+    maximum_minions: 2
+    minion_max_idle_time: 2
+    name: "mock_name"
+    notes: "mock_notes"
+    os_type: "mock_os_type"
+
+- config:
+    body:
+      minion_pool:
+        name: "mock_name"
+        notes: "mock_notes"
+        os_type: "mock_os_type"
+        environment_options: "mock_environment_options"
+  exception_raised: False
+  expected_result:
+    environment_options: "mock_environment_options"
+    name: "mock_name"
+    notes: "mock_notes"
+    os_type: "mock_os_type"

@@ -1,0 +1,34 @@
+- config:
+    {}
+  exception_raised: False
+
+- config:
+    minimum_minions: 1
+    maximum_minions: 1
+    minion_max_idle_time: 1
+  exception_raised: False
+
+- config:
+    minimum_minions: 0
+  exception_raised: "'minimum_minions' must be a strictly positive integer. "
+
+- config:
+    minimum_minions: 1
+    maximum_minions: 0
+  exception_raised: "'maximum_minions' must be a strictly positive integer. "
+
+- config:
+    minimum_minions: 1
+    maximum_minions: 1
+  exception_raised: False
+
+- config:
+    minimum_minions: 2
+    maximum_minions: 1
+  exception_raised: "'maximum_minions' value .* must be at least as large as"
+
+- config:
+    minimum_minions: 1
+    maximum_minions: 1
+    minion_max_idle_time: 0
+  exception_raised: "'minion_max_idle_time' must be a strictly positive "

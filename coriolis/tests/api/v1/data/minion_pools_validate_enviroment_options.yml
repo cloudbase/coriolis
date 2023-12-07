@@ -1,0 +1,11 @@
+- platform: "PROVIDER_PLATFORM_SOURCE"
+  expected_api_method: "validate_endpoint_source_minion_pool_options"
+  exception_raised: False
+
+- platform: "PROVIDER_PLATFORM_DESTINATION"
+  expected_api_method: "validate_endpoint_destination_minion_pool_options"
+  exception_raised: False
+
+- platform: "invalid"
+  expected_api_method: 
+  exception_raised: "Unknown pool platform: .*"

@@ -1,0 +1,117 @@
+
+- config:
+    body:
+      minion_pool:
+        name: "mock_name"
+        endpoint_id: "mock_endpoint_id"
+        os_type: "OS_TYPE_LINUX"
+        platform: "PROVIDER_PLATFORM_SOURCE"
+        environment_options: "mock_environment_options"
+        notes: "mock_notes"
+    expected_validation_api_method: "validate_endpoint_source_minion_pool_options"
+  exception_raised: False
+  expected_result:
+    - mock_name
+    - mock_endpoint_id
+    - source
+    - linux
+    - mock_environment_options
+    - 1 
+    - 1
+    - 1
+    - delete
+    - mock_notes
+    - false
+
+- config:
+    body:
+      minion_pool:
+        name: "mock_name"
+        endpoint_id: "mock_endpoint_id"
+        os_type: "OS_TYPE_LINUX"
+        platform: "PROVIDER_PLATFORM_DESTINATION"
+        environment_options: "mock_environment_options"
+        notes: "mock_notes"
+    expected_validation_api_method: "validate_endpoint_destination_minion_pool_options"
+  exception_raised: False
+  expected_result:
+    - mock_name
+    - mock_endpoint_id
+    - destination
+    - linux
+    - mock_environment_options
+    - 1 
+    - 1
+    - 1
+    - delete
+    - mock_notes
+    - false
+
+- config:
+    body:
+      minion_pool:
+        name: "mock_name"
+        endpoint_id: "mock_endpoint_id"
+        os_type: "OS_TYPE_LINUX"
+        platform: "PROVIDER_PLATFORM_SOURCE"
+        environment_options: "mock_environment_options"
+        notes: "mock_notes"
+        minion_retention_strategy: "MINION_POOL_MACHINE_RETENTION_STRATEGY_DELETE"
+        minimum_minions: 2
+        maximum_minions: 2
+        minion_max_idle_time: 2
+    expected_validation_api_method: "validate_endpoint_source_minion_pool_options"
+  exception_raised: False
+  expected_result:
+    - mock_name
+    - mock_endpoint_id
+    - source
+    - linux
+    - mock_environment_options
+    - 2
+    - 2
+    - 2
+    - delete
+    - mock_notes
+    - false
+
+- config:
+    body:
+      minion_pool:
+        name: "mock_name"
+        endpoint_id: "mock_endpoint_id"
+        os_type: "invalid"
+        platform: "PROVIDER_PLATFORM_SOURCE"
+        environment_options: "mock_environment_options"
+        notes: "mock_notes"
+    expected_validation_api_method: "validate_endpoint_source_minion_pool_options"
+  exception_raised: "The provided pool OS type .* is invalid."
+  expected_result:
+
+
+- config:
+    body:
+      minion_pool:
+        name: "mock_name"
+        endpoint_id: "mock_endpoint_id"
+        os_type: "OS_TYPE_LINUX"
+        platform: "invalid"
+        environment_options: "mock_environment_options"
+        notes: "mock_notes"
+    expected_validation_api_method: "validate_endpoint_source_minion_pool_options"
+  exception_raised: "The provided pool platform .* is invalid."
+  expected_result:
+
+
+- config:
+    body:
+      minion_pool:
+        name: "mock_name"
+        endpoint_id: "mock_endpoint_id"
+        os_type: "OS_TYPE_WINDOWS"
+        platform: "PROVIDER_PLATFORM_SOURCE"
+        environment_options: "mock_environment_options"
+        notes: "mock_notes"
+    expected_validation_api_method: "validate_endpoint_source_minion_pool_options"
+  exception_raised: "Source Minion Pools are required to be of OS type "
+  expected_result:
