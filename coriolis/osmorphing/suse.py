@@ -2,6 +2,7 @@
 # All Rights Reserved.
 
 import copy
+import os
 import re
 import uuid
 
@@ -11,7 +12,6 @@ from coriolis import exception
 from coriolis.osmorphing import base
 from coriolis.osmorphing.osdetect import suse as suse_detect
 from coriolis import utils
-
 
 LOG = logging.getLogger(__name__)
 
@@ -25,6 +25,9 @@ CLOUD_TOOLS_REPO_URI_FORMAT = (
 
 
 class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
+
+    BIOS_GRUB_LOCATION = "/boot/grub2"
+    UEFI_GRUB_LOCATION = "/boot/efi/EFI/suse"
 
     @classmethod
     def get_required_detected_os_info_fields(cls):
@@ -61,6 +64,23 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
     def set_net_config(self, nics_info, dhcp):
         # TODO(alexpilotti): add networking support
         pass
+
+    def get_update_grub2_command(self):
+        location = self._get_grub2_cfg_location()
+        return "grub2-mkconfig -o %s" % location
+
+    def _get_grub2_cfg_location(self):
+        self._exec_cmd_chroot("mount /boot || true")
+        self._exec_cmd_chroot("mount /boot/efi || true")
+        uefi_cfg = os.path.join(self.UEFI_GRUB_LOCATION, "grub.cfg")
+        bios_cfg = os.path.join(self.BIOS_GRUB_LOCATION, "grub.cfg")
+        if self._test_path_chroot(uefi_cfg):
+            return uefi_cfg
+        if self._test_path_chroot(bios_cfg):
+            return bios_cfg
+        raise Exception(
+            "could not determine grub location."
+            " boot partition not mounted?")
 
     def _run_dracut(self):
         self._exec_cmd_chroot("dracut --regenerate-all -f")

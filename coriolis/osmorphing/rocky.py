@@ -10,6 +10,8 @@ ROCKY_LINUX_DISTRO_IDENTIFIER = rocky_osdetect.ROCKY_LINUX_DISTRO_IDENTIFIER
 
 class BaseRockyLinuxMorphingTools(centos.BaseCentOSMorphingTools):
 
+    UEFI_GRUB_LOCATION = "/boot/efi/EFI/rocky"
+
     @classmethod
     def check_os_supported(cls, detected_os_info):
         if detected_os_info['distribution_name'] != (

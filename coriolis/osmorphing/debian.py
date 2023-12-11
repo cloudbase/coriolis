@@ -58,6 +58,9 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
         self._write_file_sudo("etc/default/grub", cfg.dump())
         self._exec_cmd_chroot("/usr/sbin/update-grub")
 
+    def get_update_grub2_command(self):
+        return "update-grub"
+
     def _compose_interfaces_config(self, nics_info):
         fp = StringIO()
         fp.write(LO_NIC_TPL)

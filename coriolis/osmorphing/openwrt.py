@@ -34,3 +34,6 @@ class BaseOpenWRTMorphingTools(base.BaseLinuxOSMorphingTools):
 
     def set_net_config(self, nics_info, dhcp):
         pass
+
+    def get_update_grub2_command(self):
+        raise NotImplementedError()
