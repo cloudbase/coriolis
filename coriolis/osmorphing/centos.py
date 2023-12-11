@@ -12,6 +12,8 @@ CENTOS_STREAM_DISTRO_IDENTIFIER = centos_detect.CENTOS_STREAM_DISTRO_IDENTIFIER
 
 class BaseCentOSMorphingTools(redhat.BaseRedHatMorphingTools):
 
+    UEFI_GRUB_LOCATION = "/boot/efi/EFI/centos"
+
     @classmethod
     def check_os_supported(cls, detected_os_info):
         supported_oses = [

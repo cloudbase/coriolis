@@ -13,7 +13,6 @@ from coriolis.osmorphing.osdetect import centos as centos_detect
 from coriolis.osmorphing.osdetect import redhat as redhat_detect
 from coriolis import utils
 
-
 RED_HAT_DISTRO_IDENTIFIER = redhat_detect.RED_HAT_DISTRO_IDENTIFIER
 
 LOG = logging.getLogger(__name__)
@@ -42,6 +41,8 @@ NM_CONTROLLED=no
 
 class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
     _NETWORK_SCRIPTS_PATH = "etc/sysconfig/network-scripts"
+    BIOS_GRUB_LOCATION = "/boot/grub2"
+    UEFI_GRUB_LOCATION = "/boot/efi/EFI/redhat"
 
     @classmethod
     def check_os_supported(cls, detected_os_info):
@@ -62,6 +63,23 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
     def disable_predictable_nic_names(self):
         cmd = 'grubby --update-kernel=ALL --args="%s"'
         self._exec_cmd_chroot(cmd % "net.ifnames=0 biosdevname=0")
+
+    def get_update_grub2_command(self):
+        location = self._get_grub2_cfg_location()
+        return "grub2-mkconfig -o %s" % location
+
+    def _get_grub2_cfg_location(self):
+        self._exec_cmd_chroot("mount /boot || true")
+        self._exec_cmd_chroot("mount /boot/efi || true")
+        uefi_cfg = os.path.join(self.UEFI_GRUB_LOCATION, "grub.cfg")
+        bios_cfg = os.path.join(self.BIOS_GRUB_LOCATION, "grub.cfg")
+        if self._test_path_chroot(uefi_cfg):
+            return uefi_cfg
+        if self._test_path_chroot(bios_cfg):
+            return bios_cfg
+        raise Exception(
+            "could not determine grub location."
+            " boot partition not mounted?")
 
     def _get_net_ifaces_info(self, ifcfgs_ethernet, mac_addresses):
         net_ifaces_info = []
