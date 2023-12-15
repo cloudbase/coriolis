@@ -95,7 +95,7 @@ def delete_trust(ctxt):
         try:
             client.trusts.delete(ctxt.trust_id)
         except ks_exceptions.NotFound:
-            LOG.debug("Trust id not found: %s", ctxt.trust_id)
+            LOG.warn("Trust id not found: %s", ctxt.trust_id)
         ctxt.trust_id = None
 
 
