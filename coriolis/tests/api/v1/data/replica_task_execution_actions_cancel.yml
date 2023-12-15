@@ -1,0 +1,36 @@
+- config:
+    body:
+      cancel: 
+        force: True
+  expected_force: True
+  exception_raised: null
+  expected_result: "HTTPNoContent"
+
+- config:
+    body:
+      cancel: 
+        force: False
+  expected_force: False
+  exception_raised: null
+  expected_result: "HTTPNoContent"
+
+- config:
+    body:
+      cancel: {}
+  expected_force: False
+  exception_raised: null
+  expected_result: "HTTPNoContent"
+
+- config:
+    body:
+      cancel: {}
+  expected_force: False
+  exception_raised: "NotFound"
+  expected_result: "HTTPNotFound"
+
+- config:
+    body:
+      cancel: {}
+  expected_force: False
+  exception_raised: "InvalidParameterValue"
+  expected_result: "HTTPNotFound"
