@@ -1,0 +1,56 @@
+
+- config:
+    body:
+      replica:
+        origin_endpoint_id: "mock_origin_endpoint_id"
+        destination_endpoint_id: "mock_destination_endpoint_id"
+        source_environment: "mock_source_environment"
+        destination_environment:
+          network_map: "mock_network_map"
+        instances: ['mock_instance_1', 'mock_instance_2']
+        notes: "mock_notes"
+        origin_minion_pool_id: "mock_origin_minion_pool_id"
+        destination_minion_pool_id: "mock_destination_minion_pool_id"
+        instance_osmorphing_minion_pool_mappings:
+          mock_instance_1: "mock_pool"
+          mock_instance_2: "mock_pool"
+        network_map: "mock_network_map"
+        user_scripts: "mock_user_scripts"
+        storage_mappings: "mock_storage_mappings"
+  exception_raised: False
+  expected_result:
+    - mock_origin_endpoint_id
+    - mock_destination_endpoint_id
+    - mock_source_environment
+    - {'network_map': 'mock_network_map',
+      'storage_mappings': 'mock_storage_mappings'}
+    - ['mock_instance_1', 'mock_instance_2']
+    - mock_network_map
+    - mock_storage_mappings
+    - mock_notes
+    - mock_origin_minion_pool_id
+    - mock_destination_minion_pool_id
+    - {'mock_instance_1': 'mock_pool', 'mock_instance_2': 'mock_pool'}
+    - mock_user_scripts
+
+- config:
+    body:
+      replica:
+        origin_endpoint_id: "mock_origin_endpoint_id"
+        destination_endpoint_id: "mock_destination_endpoint_id"
+        source_environment: "mock_source_environment"
+        destination_environment:
+          network_map: "mock_network_map"
+        instances: ['mock_instance_1', 'mock_instance_2']
+        notes: "mock_notes"
+        origin_minion_pool_id: "mock_origin_minion_pool_id"
+        destination_minion_pool_id: "mock_destination_minion_pool_id"
+        instance_osmorphing_minion_pool_mappings:
+          mock_instance_1: "mock_pool"
+          mock_instance_3: "mock_pool"
+        network_map: "mock_network_map"
+        user_scripts: "mock_user_scripts"
+        storage_mappings: "mock_storage_mappings"
+  exception_raised: "One or more instance OSMorphing pool mappings were"
+  expected_result: 
+
