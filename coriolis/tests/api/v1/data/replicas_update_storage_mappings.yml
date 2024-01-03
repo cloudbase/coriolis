@@ -1,0 +1,156 @@
+
+- config:
+    original_storage_mappings:
+      backend_mappings:
+        - source: "source_1"
+          destination: destination_1
+        - source: "source_2"
+          destination: destination_2
+      disk_mappings:
+        - disk_id: "disk_1"
+          destination: destination_1
+        - disk_id: "disk_2"
+          destination: destination_2
+    new_storage_mappings:
+      backend_mappings:
+        - source: "source_1"
+          destination: destination_3
+      disk_mappings:
+        - disk_id: "disk_1"
+          destination: destination_4
+  logs_expected: True
+  expected_result:
+    backend_mappings:
+      - source: "source_2"
+        destination: destination_2
+      - source: "source_1"
+        destination: destination_3
+    disk_mappings:
+      - disk_id: "disk_2"
+        destination: destination_2
+      - disk_id: "disk_1"
+        destination: destination_4
+
+- config:
+    original_storage_mappings:
+      backend_mappings:
+        - source: "source_1"
+          destination: destination_1
+        - source: "source_2"
+          destination: destination_2
+      disk_mappings:
+        - disk_id: "disk_1"
+          destination: destination_1
+        - disk_id: "disk_2"
+          destination: destination_2
+    new_storage_mappings:
+      backend_mappings:
+        - source: "source_1"
+          destination: destination_3
+  logs_expected: True
+  expected_result:
+    backend_mappings:
+      - source: "source_2"
+        destination: destination_2
+      - source: "source_1"
+        destination: destination_3
+    disk_mappings:
+      - disk_id: "disk_1"
+        destination: destination_1
+      - disk_id: "disk_2"
+        destination: destination_2
+
+- config:
+    original_storage_mappings:
+      backend_mappings:
+        - source: "source_1"
+          destination: destination_1
+        - source: "source_2"
+          destination: destination_2
+      disk_mappings:
+        - disk_id: "disk_1"
+          destination: destination_1
+        - disk_id: "disk_2"
+          destination: destination_2
+    new_storage_mappings:
+      disk_mappings:
+        - disk_id: "disk_1"
+          destination: destination_3
+  logs_expected: True
+  expected_result:
+    backend_mappings:
+      - source: "source_1"
+        destination: destination_1
+      - source: "source_2"
+        destination: destination_2
+    disk_mappings:
+      - disk_id: "disk_2"
+        destination: destination_2
+      - disk_id: "disk_1"
+        destination: destination_3
+
+- config:
+    original_storage_mappings:
+      backend_mappings:
+        - source: "source_1"
+          destination: destination_1
+        - source: "source_2"
+          destination: destination_2
+      disk_mappings:
+        - disk_id: "disk_1"
+          destination: destination_1
+        - disk_id: "disk_2"
+          destination: destination_2
+    new_storage_mappings: {}
+  logs_expected: False
+  expected_result:
+    backend_mappings:
+      - source: "source_1"
+        destination: destination_1
+      - source: "source_2"
+        destination: destination_2
+    disk_mappings:
+      - disk_id: "disk_1"
+        destination: destination_1
+      - disk_id: "disk_2"
+        destination: destination_2
+
+- config:
+    original_storage_mappings:
+      backend_mappings:
+        - source: "source_1"
+          destination: destination_1
+        - source: "source_2"
+          destination: destination_2
+      disk_mappings:
+        - disk_id: "disk_1"
+          destination: destination_1
+        - disk_id: "disk_2"
+          destination: destination_2
+      default: "mock_default_1"
+    new_storage_mappings:
+      backend_mappings:
+        - source: "source_3"
+          destination: destination_3
+      disk_mappings:
+        - disk_id: "disk_3"
+          destination: destination_3
+      default: "mock_default_2"
+  logs_expected: False
+  expected_result:
+    backend_mappings:
+      - source: "source_1"
+        destination: destination_1
+      - source: "source_2"
+        destination: destination_2
+      - source: "source_3"
+        destination: destination_3
+    disk_mappings:
+      - disk_id: "disk_1"
+        destination: destination_1
+      - disk_id: "disk_2"
+        destination: destination_2
+      - disk_id: "disk_3"
+        destination: destination_3
+    default: "mock_default_2"
+
