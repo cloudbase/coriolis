@@ -1,0 +1,54 @@
+[proxmox_migration_provider]
+
+# Default Proxmox node to migrate to.
+import_node = "proxmox01"
+
+# The name of a storage datastore to default to for migrated VMs' disks.
+import_default_storage = "zfs1"
+
+# The device model to use for disks for the migrated VMs.
+# If using a paravirtual device model such as VirtIO, the OSMorphing process is recommended.
+disks_device_model = "virtio"
+
+# Whether or not to skip starting migrated virtual machines on Proxmox after transferring them.
+skip_migrated_vm_start = false
+
+# The device model to use for network interfaces for the migrated VMs.
+# If using a paravirtual device model such as VirtIO, the OSMorphing process is recommended.
+nics_device_model = "virtio"
+
+# Whether or not to enable the cluster-wide Proxmox firewall configuration migrated VMs.
+nics_enable_firewall = true
+
+# Sets whether or not to configure the VM to use DHCP during the OSMorphing stage.
+set_dhcp = true
+
+# Whether or not Coriolis should reconfigure Cloud-init/Cloudbase-init during the
+# OSMorphing process to prevent them from creating a new system user or
+# disabling the root user and other existing users, including by disabling
+# password-based SSH authentication, or locking the user by changing/removing
+# its password completely. This will also prevent the application of
+# the 'Cloud-init New Username/Password/Update Packages/Authorized SSH Keys'
+# environment options."
+retain_user_credentials = true
+
+# Whether or not Coriolis should preserve the MAC addresses of the network interfaces
+# of the migrated VMs. In order to avoid MAC address conflicts, please
+# ensure that the addresses will not conflict with existing Proxmox VMs
+# on the same network(s), or that the source and target platforms do NOT share
+# the same L2 VM network.
+preserve_mac_addresses = false
+
+# The name/ID of an Ubuntu 22.04 Linux template on the provided 'import_node'.
+# Must have Cloud-init and the Qemu-guest-agent installed and ready for a first run.
+linux_template = "coriolis-minion-ubuntu-22.04"
+
+# The name/ID of a Windows template on the provided 'import_node'. Must have the
+# Qemu-guest-agent installed, Must have WinRM/HTTPS enabled, and the
+# QEMU guest agent installed and configured.
+windows_template = "coriolis-minion-ws-2022"
+
+# URL to a .iso file containing the Windows VirtIO drivers to be injected
+# within Windows instances being migrated to Proxmox. The URL must be accessible
+# from the OSMorphing worker VM which will be deployed on Proxmox.
+windows_virtio_iso_url = "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
