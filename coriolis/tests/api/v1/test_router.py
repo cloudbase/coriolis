@@ -3,10 +3,6 @@
 
 from unittest import mock
 
-from webob import exc
-
-from coriolis.api.v1 import router
-from coriolis import api
 from coriolis.api.v1 import diagnostics
 from coriolis.api.v1 import endpoint_actions
 from coriolis.api.v1 import endpoint_destination_minion_pool_options
@@ -29,12 +25,13 @@ from coriolis.api.v1 import replica_schedules
 from coriolis.api.v1 import replica_tasks_execution_actions
 from coriolis.api.v1 import replica_tasks_executions
 from coriolis.api.v1 import replicas
+from coriolis.api.v1 import router
 from coriolis.api.v1 import services
 from coriolis.tests import test_base
 
 
 class APIRouterTestCase(test_base.CoriolisBaseTestCase):
-    """Test suite for the Coriolis <> v1 API"""
+    """Test suite for the Coriolis APIRouter v1 API"""
 
     def setUp(self):
         super(APIRouterTestCase, self).setUp()
