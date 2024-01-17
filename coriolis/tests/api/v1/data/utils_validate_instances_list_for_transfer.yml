@@ -1,0 +1,18 @@
+
+- instances: ['mock_instance_1', 'mock_instance_2']
+  exception_raised: False
+  expected_result: ['mock_instance_1', 'mock_instance_2']
+
+- instances:
+  exception_raised: True
+  expected_result:
+
+- instances:
+    mock_instance_1: 'mock_value_1'
+    mock_instance_2: 'mock_value_2'
+  exception_raised: True
+  expected_result:
+
+- instances: ['mock_instance_1', 'mock_instance_2', 'mock_instance_2']
+  exception_raised: True
+  expected_result: 
