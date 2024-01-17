@@ -1,0 +1,16 @@
+
+- user_scripts: "invalid"
+
+- user_scripts:
+    global: "invalid"
+
+- user_scripts:
+    global:
+      invalid_os: 'mock_scripts_invalid_os'
+      windows: 'mock_scripts_windows'
+
+- user_scripts:
+    global:
+      linux: 'mock_scripts_linux'
+      windows: 'mock_scripts_windows'
+    instances: "invalid"
