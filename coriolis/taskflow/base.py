@@ -16,7 +16,7 @@ from coriolis.worker.rpc import client as rpc_worker_client
 
 TASK_RETURN_VALUE_FORMAT = "%s-result" % (
     constants.TASK_LOCK_NAME_FORMAT)
-LOG = logging.getLogger()
+LOG = logging.getLogger(__name__)
 
 taskflow_opts = [
     cfg.IntOpt(
