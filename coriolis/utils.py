@@ -469,7 +469,7 @@ def get_ssl_cert_thumbprint(context, host, port=443, digest_algorithm="sha1"):
     sock.close()
 
     x509 = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_ASN1, cert)
-    return x509.digest('sha1').decode()
+    return x509.digest(digest_algorithm).decode()
 
 
 def get_resources_dir():
