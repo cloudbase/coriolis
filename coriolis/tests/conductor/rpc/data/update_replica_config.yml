@@ -1,0 +1,38 @@
+- config:
+    replica:
+      instances: ['mock_instance_1', 'mock_instance_2']
+      info:
+        mock_instance_1: {}
+        mock_instance_2: {}
+    updated_properties:
+      origin_minion_pool_id: "mock_origin_minion_pool_id"
+      destination_minion_pool_id: "mock_destination_minion_pool_id"
+      instance_osmorphing_minion_pool_mappings:
+        mock_instance_1: "mock_pool"
+        mock_instance_2: "mock_pool"
+      user_scripts: "mock_user_scripts"
+      instances: ['mock_instance_1', 'mock_instance_2']
+      destination_environment:
+        network_map: "mock_network_map"
+  has_updated_values: True
+  has_replica_instance: True
+
+- config:
+    replica: {}
+    updated_properties:
+      origin_minion_pool_id: "mock_origin_minion_pool_id"
+      destination_minion_pool_id: "mock_destination_minion_pool_id"
+      instance_osmorphing_minion_pool_mappings:
+        mock_instance_1: "mock_pool"
+        mock_instance_2: "mock_pool"
+      user_scripts: "mock_user_scripts"
+      destination_environment:
+        network_map: "mock_network_map"
+  has_updated_values: True
+  has_replica_instance: False
+
+- config:
+    replica: {}
+    updated_properties: {}
+  has_updated_values: False
+  has_replica_instance: False

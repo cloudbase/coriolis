@@ -1,0 +1,19 @@
+- task_status: TASK_STATUS_CANCELLING_AFTER_COMPLETION
+  expected_final_status: TASK_STATUS_CANCELED
+  expected_advance_execution_state_call: True
+
+- task_status: TASK_STATUS_FORCE_CANCELED
+  expected_final_status: TASK_STATUS_FORCE_CANCELED
+  expected_advance_execution_state_call: False
+
+- task_status: TASK_STATUS_FAILED_TO_CANCEL
+  expected_final_status: TASK_STATUS_CANCELED
+  expected_advance_execution_state_call: True
+
+- task_status: TASK_STATUS_COMPLETED
+  expected_final_status: TASK_STATUS_COMPLETED
+  expected_advance_execution_state_call: False
+
+- task_status: EXECUTION_STATUS_RUNNING
+  expected_final_status: TASK_STATUS_CANCELED
+  expected_advance_execution_state_call: True
