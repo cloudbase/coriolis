@@ -1,0 +1,34 @@
+- config:
+    force: False
+    execution_statuses: [EXECUTION_STATUS_RUNNING]
+  raises_exception: False
+
+- config:
+    force: False
+    execution_statuses: []
+  raises_exception: True
+
+- config:
+    force: False
+    execution_statuses: [EXECUTION_STATUS_COMPLETED]
+  raises_exception: True
+
+- config:
+    force: True
+    execution_statuses: [EXECUTION_STATUS_CANCELLING]
+  raises_exception: False
+
+- config:
+    force: False
+    execution_statuses: [EXECUTION_STATUS_CANCELLING]
+  raises_exception: True
+
+- config:
+    force: False
+    execution_statuses: [EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS]
+  raises_exception: False
+
+- config:
+    force: True
+    execution_statuses: [EXECUTION_STATUS_RUNNING, EXECUTION_STATUS_CANCELLING, EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS]
+  raises_exception: True
