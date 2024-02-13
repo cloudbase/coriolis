@@ -154,9 +154,16 @@ class WindowsMountTools(base.BaseOSMountTools):
         return drives
 
     def _bring_nonboot_disks_offline(self):
-        self._conn.exec_ps_command(
-            "Get-Disk | Where-Object { $_.IsBoot -eq $False } | "
-            "Set-Disk -IsOffline $True")
+        nonboot_disk_nums = self._conn.exec_ps_command(
+            "(Get-Disk | Where-Object { $_.IsBoot -eq $False }).Number")
+        for disk_num in nonboot_disk_nums.splitlines():
+            try:
+                self._conn.exec_ps_command(
+                    "Set-Disk -IsOffline $True %s" % disk_num)
+            except exception.CoriolisException:
+                LOG.warning(
+                    "Failed setting disk %s offline. Error was: %s",
+                    disk_num, utils.get_exception_details())
 
     def _rebring_disks_online(self):
         self._bring_nonboot_disks_offline()
