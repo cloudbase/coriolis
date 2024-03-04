@@ -5,6 +5,7 @@ import re
 import uuid
 
 from oslo_log import log as logging
+from winrm import exceptions as winrm_exceptions
 
 from coriolis import exception
 from coriolis.osmorphing.osmount import base
@@ -36,7 +37,22 @@ class WindowsMountTools(base.BaseOSMountTools):
                 "(get-ciminstance Win32_OperatingSystem).Caption")
             LOG.debug("Windows version: %s", version_info)
             return True
+        except winrm_exceptions.InvalidCredentialsError as ex:
+            raise exception.NotAuthorized(
+                message="The WinRM connection credentials are invalid. "
+                        "If you are using a template with a default "
+                        "pre-baked username/password, please ensure "
+                        "that you have passed the credentials to the "
+                        "destination Coriolis plugin you have selected,"
+                        " either via the Target Environment parameters "
+                        "set when creating the Migration/Replica, or "
+                        "by setting it in the destination plugin's "
+                        "dedicated section of the coriolis.conf "
+                        "static configuration file.") from ex
         except exception.CoriolisException:
+            LOG.debug(
+                "Failed Windows OSMount OS check: %s",
+                utils.get_exception_details())
             pass
 
     def _run_diskpart_script(self, script):
