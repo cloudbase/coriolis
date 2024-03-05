@@ -116,6 +116,18 @@ class WSManConnection(object):
                 self._protocol.cleanup_command(shell_id, command_id)
 
             return (std_out, std_err, exit_code)
+        except winrm_exceptions.InvalidCredentialsError as ex:
+            raise exception.NotAuthorized(
+                message="The WinRM connection credentials are invalid. "
+                        "If you are using a template with a default "
+                        "pre-baked username/password, please ensure "
+                        "that you have passed the credentials to the "
+                        "destination Coriolis plugin you have selected,"
+                        " either via the Target Environment parameters "
+                        "set when creating the Migration/Replica, or "
+                        "by setting it in the destination plugin's "
+                        "dedicated section of the coriolis.conf "
+                        "static configuration file.") from ex
         finally:
             if shell_id:
                 self._protocol.close_shell(shell_id)
