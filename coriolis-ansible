@@ -24,7 +24,7 @@ $UTILS_DIR/gen_pwd.py --passwords-file $PASSWORDS_FILE
 
 # generate worker hostname, if not present:
 if [ ! `$GET_CONFIG_VALUE_SCRIPT -c $CONFIG_FILE -n coriolis_worker_hostname` ]; then
-    $SET_CONFIG_VALUE_SCRIPT -c $CONFIG_FILE -n coriolis_worker_hostname -v "coriolis-worker-$(openssl rand -base64 6)"
+    $SET_CONFIG_VALUE_SCRIPT -c $CONFIG_FILE -n coriolis_worker_hostname -v "coriolis-worker-$(openssl rand -hex 3)"
 fi
 
 PLAYBOOK="appliance.yml"
