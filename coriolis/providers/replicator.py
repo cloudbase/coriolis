@@ -711,6 +711,14 @@ class Replicator(object):
             },
         }
 
+    def _change_binary_se_context(self, ssh):
+        cmd = "sudo chcon -t bin_t %s" % REPLICATOR_PATH
+        try:
+            utils.exec_ssh_cmd(ssh, cmd, get_pty=True)
+        except exception.CoriolisException:
+            LOG.warn("Could not change SELinux context of replicator binary. "
+                     "Error was:%s", utils.get_exception_details())
+
     @utils.retry_on_error()
     def _setup_replicator(self, ssh):
         # copy the binary, set up the service, generate certificates,
@@ -723,6 +731,7 @@ class Replicator(object):
 
         args = self._parse_replicator_conn_info(self._conn_info)
         self._copy_replicator_cmd(ssh)
+        self._change_binary_se_context(ssh)
         group_existed = self._setup_replicator_group(
             ssh, group_name=REPLICATOR_GROUP_NAME)
         if not group_existed:
