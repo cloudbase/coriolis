@@ -23,5 +23,5 @@ class UbuntuOSMountTools(base.BaseLinuxOSMountTools):
 
     def _allow_ssh_env_vars(self):
         self._exec_cmd('sudo sed -i -e "\$aAcceptEnv *" /etc/ssh/sshd_config')
-        self._exec_cmd("sudo service ssh reload")
+        utils.restart_service(self._ssh, "sshd")
         return True
