@@ -52,3 +52,11 @@ windows_template = "coriolis-minion-ws-2022"
 # within Windows instances being migrated to Proxmox. The URL must be accessible
 # from the OSMorphing worker VM which will be deployed on Proxmox.
 windows_virtio_iso_url = "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
+
+# The HTTP(S) URL of the .ZIP file containing the Cloudbase-Init release
+# Coriolis should install within migrated amd64 Windows guests.
+cloudbaseinit_x64_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x64.zip
+
+# The HTTP(S) URL of the .ZIP file containing the Cloudbase-Init release
+# Coriolis should install within migrated i386 Windows guests.
+cloudbaseinit_x86_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x86.zip
