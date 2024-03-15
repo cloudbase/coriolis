@@ -869,10 +869,18 @@ def _get_progress_update(context, task_id, index):
 def add_task_progress_update(
         context, task_id, message, initial_step=0, total_steps=0):
     task_progress_update = models.TaskProgressUpdate()
-    task_progress_update.id = str(uuid.uuid4())
+    task_event_id = str(uuid.uuid4())
+    task_progress_update.id = task_event_id
     task_progress_update.task_id = task_id
     task_progress_update.current_step = initial_step
     task_progress_update.total_steps = total_steps
+    max_msg_len = models.MAX_EVENT_MESSAGE_LENGHT
+    if len(message) > max_msg_len:
+        LOG.warn(
+            f"Progress message for task '{task_id}' with ID '{task_event_id}'"
+            f"is too long. Truncating before insertion. "
+            f"Original message was: '{message}'")
+        message = f"{message[:max_msg_len-len('...')]}..."
     task_progress_update.message = message
 
     task_progress_update.index = 0
@@ -899,6 +907,14 @@ def update_task_progress_update(
     if new_total_steps is not None:
         task_progress_update.total_steps = new_total_steps
     if new_message is not None:
+        max_msg_len = models.MAX_EVENT_MESSAGE_LENGHT
+        if len(new_message) > max_msg_len:
+            task_event_id = task_progress_update.id
+            LOG.warn(
+                f"Progress message for task '{task_id}' with ID "
+                f"'{task_event_id}' is too long. Truncating before insertion."
+                f" Original message was: '{new_message}'")
+            new_message = f"{new_message[:max_msg_len-len('...')]}..."
         task_progress_update.message = new_message
 
 
