@@ -13,6 +13,12 @@ disks_device_model = "virtio"
 # Whether or not to skip starting migrated virtual machines on Proxmox after transferring them.
 skip_migrated_vm_start = false
 
+# Default virtual CPU model to use for migrated VMs.
+# Note that some CPU models might not be compatible with all CPU vendors.
+# Additionally, using the 'host' model might lead to incompatibilities in
+# live-migrating between hosts with different physical CPU models.
+import_default_cpu_model = "x86-64-v2-AES"
+
 # The device model to use for network interfaces for the migrated VMs.
 # If using a paravirtual device model such as VirtIO, the OSMorphing process is recommended.
 nics_device_model = "virtio"
