@@ -177,33 +177,15 @@ class WindowsMountTools(base.BaseOSMountTools):
         self._bring_all_disks_online()
 
     def _set_volumes_drive_letter(self):
-        enable_default_drive_letter_script_fmt = (
-            "SELECT VOLUME %s\r\n"
-            "ATTRIBUTES VOLUME CLEAR NODEFAULTDRIVELETTER\r\nEXIT")
-        volume_list_script = "LIST VOLUME\r\nEXIT"
-        volume_entry_re = r"\s+Volume ([0-9]+)\s+(.*)"
-
-        volume_list = self._run_diskpart_script(volume_list_script)
-        unhidden_volume_ids = [m.group(1) for m in [
-            re.match(volume_entry_re, v) for v in volume_list.split("\r\n")]
-            if m is not None and "HIDDEN" not in m.group(2).upper()]
-        for vol_id in unhidden_volume_ids:
-            LOG.info(
-                "Clearing NODEFAULTDRIVELETTER flag on volume %s" %
-                vol_id)
-            script = enable_default_drive_letter_script_fmt % vol_id
-            try:
-                self._run_diskpart_script(script)
-            except Exception as ex:
-                LOG.warn(
-                    "Exception occurred while clearing flags on volume '%s'. "
-                    "Skipping running script '%s'. Error message: %s" % (
-                        vol_id, script, ex))
+        self._conn.exec_ps_command(
+            'Get-Partition | Where-Object { $_.Type -eq "Basic" } | '
+            'Set-Partition -NoDefaultDriveLetter $False')
         self._rebring_disks_online()
 
     def mount_os(self):
         self._bring_all_disks_online()
         self._set_basic_disks_rw_mode()
+        self._set_volumes_drive_letter()
         fs_roots = utils.retry_on_error(sleep_seconds=5)(self._get_fs_roots)(
             fail_if_empty=True)
         system_drive = self._get_system_drive()
