@@ -122,6 +122,14 @@ class WSManConnectionTestCase(test_base.CoriolisBaseTestCase):
             mock.ANY, mock.ANY)
         self.conn._protocol.close_shell.assert_called_once_with(mock.ANY)
 
+    def test__exec_command_invalid_credentials(self):
+        self.conn._protocol.open_shell.side_effect = (
+            wsman.winrm_exceptions.InvalidCredentialsError)
+
+        self.assertRaises(exception.NotAuthorized, self.conn._exec_command,
+                          self.cmd, self.args)
+        self.conn._protocol.close_shell.assert_not_called()
+
     def test_exec_command(self):
         self.conn._protocol.get_command_output.return_value = (
             "std_out", "std_err", 0)
