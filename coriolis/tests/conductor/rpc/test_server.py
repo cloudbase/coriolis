@@ -2,24 +2,27 @@
 # All Rights Reserved.
 
 import copy
-import ddt
+import logging
+from unittest import mock
 import uuid
 
-from unittest import mock
+import ddt
+from oslo_concurrency import lockutils
+from oslo_config import cfg
 
 from coriolis.conductor.rpc import server
 from coriolis import constants
+from coriolis import context
 from coriolis.db import api as db_api
 from coriolis.db.sqlalchemy import models
 from coriolis import exception
+from coriolis import keystone
 from coriolis.licensing import client as licensing_client
 from coriolis import schemas
 from coriolis.tests import test_base
 from coriolis.tests import testutils
 from coriolis import utils
 from coriolis.worker.rpc import client as rpc_worker_client
-from oslo_concurrency import lockutils
-from oslo_config import cfg
 
 
 class CoriolisTestException(Exception):
@@ -33,12 +36,18 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     def setUp(self):
         super(ConductorServerEndpointTestCase, self).setUp()
         self.server = server.ConductorServerEndpoint()
+        self._licensing_client = mock.Mock()
+        self.server._licensing_client = self._licensing_client
 
     @mock.patch.object(
         rpc_worker_client.WorkerClient, "from_service_definition"
     )
     @mock.patch.object(server.ConductorServerEndpoint, "_scheduler_client")
-    def test_get_all_diagnostics(self, mock_scheduler_client, _):
+    def test_get_all_diagnostics(
+        self,
+        mock_scheduler_client,
+        mock_from_service_definition
+    ):
         mock_scheduler_client.get_workers_for_specs.side_effect = (
             CoriolisTestException())
         self.assertRaises(
@@ -50,6 +59,22 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         diagnostics = self.server.get_all_diagnostics(mock.sentinel.context)
         assert (
             mock_scheduler_client.get_diagnostics.return_value in diagnostics
+        )
+        mock_scheduler_client.get_workers_for_specs.return_value = {
+            mock.sentinel.diagnostics
+        }
+        diagnostics = self.server.get_all_diagnostics(mock.sentinel.context)
+        assert (
+            mock_scheduler_client.get_diagnostics.return_value in diagnostics
+        )
+        mock_scheduler_client.get_workers_for_specs.return_value = [{
+            'host': mock.sentinel.host
+        }]
+        mock_from_service_definition.side_effect = (
+            mock.sentinel.rpc_worker, CoriolisTestException())
+        self.assertRaises(
+            CoriolisTestException,
+            lambda: self.server.get_all_diagnostics(mock.sentinel.context),
         )
 
     @mock.patch.object(
@@ -85,6 +110,161 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         )
 
         self.assertEqual(result, mock_from_service_definition.return_value)
+
+    def test_check_delete_reservation_for_transfer(self):
+        transfer_action = mock.Mock()
+        self.server._check_delete_reservation_for_transfer(transfer_action)
+        self._licensing_client.delete_reservation.assert_called_once_with(
+            transfer_action.reservation_id
+        )
+
+    def test_check_delete_reservation_for_transfer_no_licensing_client(self):
+        transfer_action = mock.Mock()
+        self.server._licensing_client = None
+        with self.assertLogs(
+            'coriolis.conductor.rpc.server', level=logging.WARNING):
+            self.server._check_delete_reservation_for_transfer(transfer_action)
+
+    def test_check_delete_reservation_for_transfer_delete_fails(self):
+        transfer_action = mock.Mock()
+        self._licensing_client.delete_reservation.side_effect = \
+            CoriolisTestException()
+        with self.assertLogs(
+            'coriolis.conductor.rpc.server', level=logging.WARNING):
+            self.server._check_delete_reservation_for_transfer(transfer_action)
+        self._licensing_client.delete_reservation.assert_called_once_with(
+            transfer_action.reservation_id
+        )
+
+    def test_check_create_reservation_for_transfer(self):
+        transfer_action = mock.Mock()
+        transfer_action.instances = ['instance_1', 'instance_2']
+        transfer_type = mock.sentinel.transfer_type
+        self._licensing_client.add_reservation.return_value = {
+            'id': mock.sentinel.id
+        }
+        self.server._check_create_reservation_for_transfer(
+            transfer_action, transfer_type)
+        self._licensing_client.add_reservation.assert_called_once_with(
+            mock.sentinel.transfer_type,
+            2
+        )
+        self.assertEqual(
+            transfer_action.reservation_id,
+            mock.sentinel.id
+        )
+
+    def test_check_create_reservation_for_transfer_no_licensing_client(self):
+        transfer_action = mock.Mock()
+        transfer_type = mock.sentinel.transfer_type
+        self.server._licensing_client = None
+        with self.assertLogs(
+            'coriolis.conductor.rpc.server', level=logging.WARNING):
+            self.server._check_create_reservation_for_transfer(
+                transfer_action, transfer_type)
+
+    def test_check_reservation_for_transfer(self):
+        transfer_action = mock.Mock()
+        transfer_action.reservation_id = mock.sentinel.reservation_id
+        reservation_type = mock.sentinel.reservation_type
+        self._licensing_client.check_refresh_reservation.return_value = {
+            'id': mock.sentinel.reservation_id}
+        self.server._check_reservation_for_transfer(
+            transfer_action, reservation_type)
+        (self._licensing_client.check_refresh_reservation.
+            assert_called_once_with)(
+                mock.sentinel.reservation_id)
+
+    def test_check_reservation_for_transfer_no_licensing_client(
+        self
+    ):
+        transfer_action = mock.Mock()
+        reservation_type = mock.sentinel.reservation_type
+        self.server._licensing_client = None
+        with self.assertLogs(
+            'coriolis.conductor.rpc.server', level=logging.WARNING):
+            self.server._check_reservation_for_transfer(
+                transfer_action, reservation_type)
+
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_check_create_reservation_for_transfer')
+    def test_check_reservation_for_transfer_no_reservation_id(
+        self,
+        mock_check_create_reservation_for_transfer
+    ):
+        transfer_action = mock.Mock()
+        transfer_action.reservation_id = None
+        reservation_type = mock.sentinel.reservation_type
+        self.server._check_reservation_for_transfer(
+            transfer_action, reservation_type)
+        self._licensing_client.check_refresh_reservation.assert_not_called()
+        mock_check_create_reservation_for_transfer.assert_called_once_with(
+            transfer_action, reservation_type
+        )
+
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_check_create_reservation_for_transfer')
+    def test_check_reservation_for_transfer_exc_code_404(
+        self,
+        mock_check_create_reservation_for_transfer
+    ):
+        transfer_action = mock.Mock()
+        transfer_action.reservation_id = mock.sentinel.reservation_id
+        reservation_type = mock.sentinel.reservation_type
+        ex = CoriolisTestException()
+        ex.code = 404
+        self._licensing_client.check_refresh_reservation.side_effect = ex
+        self.server._check_reservation_for_transfer(
+            transfer_action, reservation_type)
+        (self._licensing_client.check_refresh_reservation
+            .assert_called_once_with)(
+                mock.sentinel.reservation_id)
+        mock_check_create_reservation_for_transfer.assert_called_once_with(
+            transfer_action, reservation_type
+        )
+
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_check_create_reservation_for_transfer')
+    def test_check_reservation_for_transfer_exc_code_409(
+        self,
+        mock_check_create_reservation_for_transfer
+    ):
+        transfer_action = mock.Mock()
+        transfer_action.reservation_id = mock.sentinel.reservation_id
+        reservation_type = mock.sentinel.reservation_type
+        ex = CoriolisTestException()
+        ex.code = 409
+        self._licensing_client.check_refresh_reservation.side_effect = ex
+        self.server._check_reservation_for_transfer(
+            transfer_action, reservation_type)
+        (self._licensing_client.check_refresh_reservation
+            .assert_called_once_with)(
+                mock.sentinel.reservation_id)
+        mock_check_create_reservation_for_transfer.assert_called_once_with(
+            transfer_action, reservation_type
+        )
+
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_check_create_reservation_for_transfer')
+    def test_check_reservation_for_transfer_exc_code_not_excepted(
+        self,
+        mock_check_create_reservation_for_transfer
+    ):
+        transfer_action = mock.Mock()
+        transfer_action.reservation_id = mock.sentinel.reservation_id
+        reservation_type = mock.sentinel.reservation_type
+        ex = CoriolisTestException()
+        self._licensing_client.check_refresh_reservation.side_effect = ex
+        self.assertRaises(
+            CoriolisTestException,
+            self.server._check_reservation_for_transfer,
+            transfer_action,
+            reservation_type
+        )
+        (self._licensing_client.check_refresh_reservation
+            .assert_called_once_with)(
+                mock.sentinel.reservation_id)
+        mock_check_create_reservation_for_transfer.assert_not_called()
 
     @mock.patch.object(server.ConductorServerEndpoint, "get_endpoint")
     @mock.patch.object(db_api, "delete_endpoint")
@@ -206,6 +386,17 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
 
         # endpoint not found
         mock_get_endpoint.side_effect = exception.NotFound()
+        self.assertRaises(exception.NotFound, call_get_endpoint)
+
+    @mock.patch.object(db_api, "get_endpoint")
+    def test_get_endpoint_not_found(self, mock_get_endpoint):
+        def call_get_endpoint():
+            return testutils.get_wrapped_function(self.server.get_endpoint)(
+                self, mock.sentinel.context,
+                mock.sentinel.endpoint_id  # type: ignore
+            )
+
+        mock_get_endpoint.return_value = None
         self.assertRaises(exception.NotFound, call_get_endpoint)
 
     @mock.patch.object(db_api, "delete_endpoint")
@@ -676,6 +867,64 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         self.assertEqual(task.on_error, True)
         self.assertEqual(task.status, constants.TASK_STATUS_SCHEDULED)
 
+    @mock.patch.object(server.ConductorServerEndpoint, "get_endpoint")
+    def test_get_task_origin(self, mock_get_endpoint):
+        mock_endpoint = mock.Mock()
+        mock_endpoint.connection_info = mock.sentinel.connection_info
+        mock_endpoint.type = mock.sentinel.type
+        mock_get_endpoint.return_value = mock_endpoint
+        action = mock.Mock()
+        action.origin_endpoint_id = mock.sentinel.origin_endpoint_id
+        action.source_environment = mock.sentinel.source_environment
+
+        expected_result = {
+            "connection_info": mock.sentinel.connection_info,
+            "type": mock.sentinel.type,
+            "source_environment": mock.sentinel.source_environment
+        }
+
+        result = self.server._get_task_origin(
+            mock.sentinel.context,
+            action
+        )
+
+        self.assertEqual(
+            expected_result,
+            result
+        )
+
+        mock_get_endpoint.assert_called_once_with(
+            mock.sentinel.context, mock.sentinel.origin_endpoint_id)
+
+    @mock.patch.object(server.ConductorServerEndpoint, "get_endpoint")
+    def test_get_task_destination(self, mock_get_endpoint):
+        mock_endpoint = mock.Mock()
+        mock_endpoint.connection_info = mock.sentinel.connection_info
+        mock_endpoint.type = mock.sentinel.type
+        mock_get_endpoint.return_value = mock_endpoint
+        action = mock.Mock()
+        action.destination_endpoint_id = mock.sentinel.destination_endpoint_id
+        action.destination_environment = mock.sentinel.destination_environment
+
+        expected_result = {
+            "connection_info": mock.sentinel.connection_info,
+            "type": mock.sentinel.type,
+            "target_environment": mock.sentinel.destination_environment
+        }
+
+        result = self.server._get_task_destination(
+            mock.sentinel.context,
+            action
+        )
+
+        self.assertEqual(
+            expected_result,
+            result
+        )
+
+        mock_get_endpoint.assert_called_once_with(
+            mock.sentinel.context, mock.sentinel.destination_endpoint_id)
+
     @mock.patch.object(
         rpc_worker_client.WorkerClient, "from_service_definition"
     )
@@ -728,6 +977,241 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             constants.TASK_STATUS_FAILED_TO_SCHEDULE,
             exception_details="test",
         )
+
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       "_set_tasks_execution_status")
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       "_get_worker_service_rpc_for_task")
+    @mock.patch.object(db_api, "set_task_status")
+    @mock.patch.object(db_api, "get_endpoint")
+    @mock.patch.object(server.ConductorServerEndpoint, "_get_task_destination")
+    @mock.patch.object(server.ConductorServerEndpoint, "_get_task_origin")
+    @mock.patch.object(keystone, 'create_trust')
+    def test_begin_tasks(
+        self,
+        mock_create_trust,
+        mock_get_task_origin,
+        mock_get_task_destination,
+        mock_get_endpoint,
+        mock_set_task_status,
+        mock_get_worker_service_rpc_for_task,
+        mock_set_tasks_execution_status,
+    ):
+        mock_context = mock.Mock()
+        mock_action = mock.Mock()
+        task_info = {'instance_1': "mock_instance_1"}
+        expected_task_instance = "mock_instance_1"
+        mock_action.info = task_info
+        mock_context.trust_id = None
+        mock_get_endpoint.side_effect = [
+            mock.sentinel.origin_endpoint_id,
+            mock.sentinel.destination_endpoint_id]
+
+        task = mock.Mock(
+            id=mock.sentinel.task_id,
+            index=mock.sentinel.task_index,
+            status=constants.TASK_STATUS_SCHEDULED,
+            instance='instance_1',
+            depends_on=None,
+            on_error=None,
+        )
+        execution = mock.Mock(
+            id=mock.sentinel.execution_id,
+            tasks=[task]
+        )
+
+        self.server._begin_tasks(
+            mock_context,
+            mock_action,
+            execution,
+            task_info_override=task_info,
+            scheduling_retry_count=mock.sentinel.scheduling_retry_count,
+            scheduling_retry_period=mock.sentinel.scheduling_retry_period,
+        )
+
+        mock_create_trust.assert_called_once_with(mock_context)
+        mock_get_task_origin.assert_called_once_with(mock_context, mock_action)
+        mock_get_task_destination.assert_called_once_with(
+            mock_context, mock_action)
+        mock_get_endpoint.assert_has_calls([
+            mock.call(mock_context, mock_action.origin_endpoint_id),
+            mock.call(mock_context, mock_action.destination_endpoint_id)
+        ])
+        mock_set_task_status.assert_called_once_with(
+            mock_context, mock.sentinel.task_id, constants.TASK_STATUS_PENDING)
+        mock_get_worker_service_rpc_for_task.assert_called_once_with(
+            mock_context,
+            task,
+            mock.sentinel.origin_endpoint_id,
+            mock.sentinel.destination_endpoint_id,
+            retry_count=mock.sentinel.scheduling_retry_count,
+            retry_period=mock.sentinel.scheduling_retry_period
+        )
+        (mock_get_worker_service_rpc_for_task.return_value.begin_task.
+         assert_called_once_with)(
+            mock_context,
+            task_id=mock.sentinel.task_id,
+            task_type=task.task_type,
+            origin=mock_get_task_origin.return_value,
+            destination=mock_get_task_destination.return_value,
+            instance=task.instance,
+            task_info=expected_task_instance
+        )
+        mock_set_tasks_execution_status.assert_called_once_with(
+            mock_context, execution, constants.TASK_STATUS_RUNNING
+        )
+
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       "_cancel_tasks_execution")
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       "_get_worker_service_rpc_for_task")
+    @mock.patch.object(db_api, "set_task_status")
+    @mock.patch.object(db_api, "get_endpoint")
+    @mock.patch.object(server.ConductorServerEndpoint, "_get_task_destination")
+    @mock.patch.object(server.ConductorServerEndpoint, "_get_task_origin")
+    @mock.patch.object(keystone, 'create_trust')
+    def test_begin_tasks_begin_task_raises(
+        self,
+        mock_create_trust,
+        mock_get_task_origin,
+        mock_get_task_destination,
+        mock_get_endpoint,
+        mock_set_task_status,
+        mock_get_worker_service_rpc_for_task,
+        mock_cancel_tasks_execution
+    ):
+        mock_context = mock.Mock()
+        task_info = {'instance_1': "mock_instance_1"}
+        expected_task_instance = "mock_instance_1"
+        mock_action = mock.Mock()
+        mock_action.info = task_info
+        mock_context.trust_id = None
+        mock_get_endpoint.side_effect = [
+            mock.sentinel.origin_endpoint_id,
+            mock.sentinel.destination_endpoint_id]
+
+        task = mock.Mock(
+            id=mock.sentinel.task_id,
+            index=mock.sentinel.task_index,
+            status=constants.TASK_STATUS_SCHEDULED,
+            instance='instance_1',
+            depends_on=None,
+            on_error=None,
+        )
+        execution = mock.Mock(
+            id=mock.sentinel.execution_id,
+            tasks=[task]
+        )
+        (mock_get_worker_service_rpc_for_task.return_value.begin_task
+            .side_effect) = CoriolisTestException()
+
+        self.assertRaises(
+            CoriolisTestException,
+            self.server._begin_tasks,
+            mock_context,
+            mock_action,
+            execution,
+            task_info_override=task_info,
+            scheduling_retry_count=mock.sentinel.scheduling_retry_count,
+            scheduling_retry_period=mock.sentinel.scheduling_retry_period,
+        )
+
+        mock_create_trust.assert_called_once_with(mock_context)
+        mock_get_task_origin.assert_called_once_with(mock_context, mock_action)
+        mock_get_task_destination.assert_called_once_with(
+            mock_context, mock_action)
+        mock_get_endpoint.assert_has_calls([
+            mock.call(mock_context, mock_action.origin_endpoint_id),
+            mock.call(mock_context, mock_action.destination_endpoint_id)
+        ])
+        mock_set_task_status.assert_called_once_with(
+            mock_context, mock.sentinel.task_id, constants.TASK_STATUS_PENDING)
+        mock_get_worker_service_rpc_for_task.assert_called_once_with(
+            mock_context,
+            task,
+            mock.sentinel.origin_endpoint_id,
+            mock.sentinel.destination_endpoint_id,
+            retry_count=mock.sentinel.scheduling_retry_count,
+            retry_period=mock.sentinel.scheduling_retry_period
+        )
+        (mock_get_worker_service_rpc_for_task.return_value.begin_task.
+         assert_called_once_with)(
+            mock_context,
+            task_id=mock.sentinel.task_id,
+            task_type=task.task_type,
+            origin=mock_get_task_origin.return_value,
+            destination=mock_get_task_destination.return_value,
+            instance=task.instance,
+            task_info=expected_task_instance
+        )
+        mock_cancel_tasks_execution.assert_called_once_with(
+            mock_context, execution, requery=True)
+
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       "_cancel_tasks_execution")
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       "_get_worker_service_rpc_for_task")
+    @mock.patch.object(db_api, "set_task_status")
+    @mock.patch.object(db_api, "get_endpoint")
+    @mock.patch.object(server.ConductorServerEndpoint, "_get_task_destination")
+    @mock.patch.object(server.ConductorServerEndpoint, "_get_task_origin")
+    @mock.patch.object(keystone, 'create_trust')
+    def test_begin_tasks_no_newly_started_tasks(
+        self,
+        mock_create_trust,
+        mock_get_task_origin,
+        mock_get_task_destination,
+        mock_get_endpoint,
+        mock_set_task_status,
+        mock_get_worker_service_rpc_for_task,
+        mock_cancel_tasks_execution
+    ):
+        mock_context = mock.Mock()
+        task_info = mock.Mock()
+        mock_action = mock.Mock()
+        task_info.instance = {}
+        mock_action.info = task_info
+        mock_context.trust_id = None
+        mock_get_endpoint.side_effect = [
+            mock.sentinel.origin_endpoint_id,
+            mock.sentinel.destination_endpoint_id]
+
+        task = mock.Mock(
+            id=mock.sentinel.task_id,
+            index=mock.sentinel.task_index,
+            status=constants.TASK_STATUS_PENDING,
+            depends_on=None,
+            on_error=None,
+        )
+        execution = mock.Mock(
+            id=mock.sentinel.execution_id,
+            tasks=[task]
+        )
+
+        self.assertRaises(
+            exception.InvalidActionTasksExecutionState,
+            self.server._begin_tasks,
+            mock_context,
+            mock_action,
+            execution,
+            task_info,
+            mock.sentinel.scheduling_retry_count,
+            mock.sentinel.scheduling_retry_period,
+        )
+
+        mock_create_trust.assert_called_once_with(mock_context)
+        mock_get_task_origin.assert_called_once_with(mock_context, mock_action)
+        mock_get_task_destination.assert_called_once_with(
+            mock_context, mock_action)
+        mock_get_endpoint.assert_has_calls([
+            mock.call(mock_context, mock_action.origin_endpoint_id),
+            mock.call(mock_context, mock_action.destination_endpoint_id)
+        ])
+        mock_set_task_status.assert_not_called()
+        mock_get_worker_service_rpc_for_task.assert_not_called()
+        (mock_get_worker_service_rpc_for_task.return_value.begin_task.
+         assert_not_called)()
+        mock_cancel_tasks_execution.assert_not_called()
 
     @mock.patch.object(server.ConductorServerEndpoint, "_create_task")
     @mock.patch.object(
@@ -904,7 +1388,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_replica = mock.Mock(
             instances=instances,
             network_map=mock.sentinel.network_map,
-            info={},
+            info={mock.sentinel.instance1: {'volume_info': None}},
             origin_minion_pool_id=mock.sentinel.origin_minion_pool_id
             if has_origin_minion_pool else None,
             destination_minion_pool_id=mock.sentinel.destination_minion_pool_id
@@ -1042,6 +1526,58 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         self.assertEqual(
             result, mock_get_replica_tasks_execution.return_value)
 
+    @mock.patch.object(db_api, "get_replica_tasks_executions")
+    def test_get_replica_tasks_executions(
+        self,
+        mock_get_replica_tasks_executions
+    ):
+        result = testutils.get_wrapped_function(
+            self.server.get_replica_tasks_executions)(
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.execution_id,
+            include_task_info=False
+        )
+
+        self.assertEqual(
+            mock_get_replica_tasks_executions.return_value,
+            result
+        )
+        mock_get_replica_tasks_executions.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.execution_id,
+            include_task_info=False,
+            to_dict=True
+        )
+
+    @mock.patch.object(db_api, "get_replica_tasks_execution")
+    def test_get_replica_tasks_execution(
+        self,
+        mock_get_replica_tasks_execution
+    ):
+        result = testutils.get_wrapped_function(
+            self.server.get_replica_tasks_execution)(
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.execution_id,
+            include_task_info=False
+        )
+
+        self.assertEqual(
+            mock_get_replica_tasks_execution.return_value,
+            result
+        )
+        mock_get_replica_tasks_execution.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.execution_id,
+            include_task_info=False,
+            to_dict=True
+        )
+
     @mock.patch.object(
         server.ConductorServerEndpoint,
         '_get_replica_tasks_execution'
@@ -1076,6 +1612,219 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         self.assertRaises(
             exception.InvalidMigrationState,
             call_delete_replica_tasks_execution)
+
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_get_replica_tasks_execution')
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_cancel_tasks_execution')
+    def test_cancel_replica_tasks_execution(
+            self,
+            mock_cancel_replica_tasks_execution,
+            mock_get_replica_tasks_execution
+    ):
+        mock_get_replica_tasks_execution.return_value.status = constants\
+            .EXECUTION_STATUS_RUNNING
+        testutils.get_wrapped_function(
+            self.server.cancel_replica_tasks_execution)(
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.execution_id,
+            False
+        )
+        mock_get_replica_tasks_execution.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.execution_id)
+        mock_cancel_replica_tasks_execution.assert_called_once_with(
+            mock.sentinel.context,
+            mock_get_replica_tasks_execution.return_value,
+            force=False)
+
+        mock_get_replica_tasks_execution.reset_mock()
+        mock_cancel_replica_tasks_execution.reset_mock()
+        mock_get_replica_tasks_execution.return_value.status = constants\
+            .EXECUTION_STATUS_CANCELLING
+        testutils.get_wrapped_function(
+            self.server.cancel_replica_tasks_execution)(
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.execution_id,
+            True
+        )
+        mock_get_replica_tasks_execution.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.execution_id)
+        mock_cancel_replica_tasks_execution.assert_called_once_with(
+            mock.sentinel.context,
+            mock_get_replica_tasks_execution.return_value,
+            force=True)
+
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_get_replica_tasks_execution')
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_cancel_tasks_execution')
+    def test_cancel_replica_tasks_execution_status_not_active(
+            self,
+            mock_cancel_replica_tasks_execution,
+            mock_get_replica_tasks_execution
+    ):
+        self.assertRaises(
+            exception.InvalidReplicaState,
+            testutils.get_wrapped_function(
+                self.server.cancel_replica_tasks_execution),
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.execution_id,
+            False
+        )
+        mock_get_replica_tasks_execution.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.execution_id)
+        mock_cancel_replica_tasks_execution.assert_not_called()
+
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_get_replica_tasks_execution')
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_cancel_tasks_execution')
+    def test_cancel_replica_tasks_execution_status_cancelling_no_force(
+            self,
+            mock_cancel_replica_tasks_execution,
+            mock_get_replica_tasks_execution
+    ):
+        mock_get_replica_tasks_execution.return_value.status = constants\
+            .EXECUTION_STATUS_CANCELLING
+        self.assertRaises(
+            exception.InvalidReplicaState,
+            testutils.get_wrapped_function(
+                self.server.cancel_replica_tasks_execution),
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.execution_id,
+            False
+        )
+        mock_get_replica_tasks_execution.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.execution_id)
+        mock_cancel_replica_tasks_execution.assert_not_called()
+
+    @mock.patch.object(db_api, 'get_replica_tasks_execution')
+    def test__get_replica_tasks_execution(
+            self,
+            mock_get_replica_tasks_execution
+    ):
+        result = self.server._get_replica_tasks_execution(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.execution_id,
+            include_task_info=False,
+            to_dict=False,
+        )
+        self.assertEqual(
+            mock_get_replica_tasks_execution.return_value,
+            result
+        )
+        mock_get_replica_tasks_execution.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.execution_id,
+            include_task_info=False,
+            to_dict=False)
+
+    @mock.patch.object(db_api, 'get_replica_tasks_execution')
+    def test__get_replica_tasks_execution_no_execution(
+            self,
+            mock_get_replica_tasks_execution
+    ):
+        mock_get_replica_tasks_execution.return_value = None
+        self.assertRaises(
+            exception.NotFound,
+            self.server._get_replica_tasks_execution,
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.execution_id,
+            include_task_info=False,
+            to_dict=False,
+        )
+
+        mock_get_replica_tasks_execution.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.execution_id,
+            include_task_info=False,
+            to_dict=False)
+
+    @mock.patch.object(db_api, 'get_replicas')
+    def test_get_replicas(self, mock_get_replicas):
+        result = self.server.get_replicas(
+            mock.sentinel.context,
+            include_tasks_executions=False,
+            include_task_info=False
+        )
+
+        self.assertEqual(
+            mock_get_replicas.return_value,
+            result
+        )
+        mock_get_replicas.assert_called_once_with(
+            mock.sentinel.context,
+            False,
+            include_task_info=False,
+            to_dict=True
+        )
+
+    @mock.patch.object(server.ConductorServerEndpoint, '_get_replica')
+    def test_get_replica(self, mock_get_replica):
+        result = testutils.get_wrapped_function(self.server.get_replica)(
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            include_task_info=False
+        )
+
+        self.assertEqual(
+            mock_get_replica.return_value,
+            result
+        )
+        mock_get_replica.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            include_task_info=False,
+            to_dict=True
+        )
+
+    @mock.patch.object(db_api, 'delete_replica')
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_check_delete_reservation_for_transfer')
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_check_replica_running_executions')
+    @mock.patch.object(server.ConductorServerEndpoint, '_get_replica')
+    def test_delete_replica(
+        self,
+        mock_get_replica,
+        mock_check_replica_running_executions,
+        mock_check_delete_reservation_for_transfer,
+        mock_delete_replica,
+    ):
+        testutils.get_wrapped_function(self.server.delete_replica)(
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.replica_id
+        )
+        mock_get_replica.assert_called_once_with(
+            mock.sentinel.context, mock.sentinel.replica_id)
+        mock_check_replica_running_executions.assert_called_once_with(
+            mock.sentinel.context, mock_get_replica.return_value)
+        mock_check_delete_reservation_for_transfer.assert_called_once_with(
+            mock_get_replica.return_value)
+        mock_delete_replica.assert_called_once_with(
+            mock.sentinel.context, mock.sentinel.replica_id)
 
     @mock.patch.object(
         server.ConductorServerEndpoint,
@@ -1247,6 +1996,296 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             call_delete_replica_disks
         )
 
+    def test_check_endpoints(self):
+        origin_endpoint = mock.Mock()
+        destination_endpoint = mock.Mock()
+        self.server._check_endpoints(
+            mock.sentinel.context, origin_endpoint, destination_endpoint)
+
+    def test_check_endpoints_same_destination_id(self):
+        origin_endpoint = mock.Mock()
+        destination_endpoint = mock.Mock()
+        origin_endpoint.id = mock.sentinel.origin_endpoint_id
+        destination_endpoint.id = mock.sentinel.origin_endpoint_id
+        self.assertRaises(
+            exception.SameDestination,
+            self.server._check_endpoints,
+            mock.sentinel.context,
+            origin_endpoint,
+            destination_endpoint
+        )
+
+    def test_check_endpoints_same_destination_connection_info(self):
+        origin_endpoint = mock.Mock()
+        destination_endpoint = mock.Mock()
+        origin_endpoint.connection_info = \
+            mock.sentinel.origin_endpoint_connection_info
+        destination_endpoint.connection_info = \
+            mock.sentinel.origin_endpoint_connection_info
+        self.assertRaises(
+            exception.SameDestination,
+            self.server._check_endpoints,
+            mock.sentinel.context,
+            origin_endpoint,
+            destination_endpoint
+        )
+
+    @mock.patch.object(server.ConductorServerEndpoint, 'get_replica')
+    @mock.patch.object(db_api, 'add_replica')
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_check_create_reservation_for_transfer')
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_check_minion_pools_for_action')
+    @mock.patch.object(models, 'Replica')
+    @mock.patch.object(server.ConductorServerEndpoint, '_check_endpoints')
+    @mock.patch.object(server.ConductorServerEndpoint, 'get_endpoint')
+    def test_create_instances_replica(
+        self,
+        mock_get_endpoint,
+        mock_check_endpoints,
+        mock_replica,
+        mock_check_minion_pools_for_action,
+        mock_check_create_reservation_for_transfer,
+        mock_add_replica,
+        mock_get_replica
+    ):
+        mock_get_endpoint.side_effect = mock.sentinel.origin_endpoint_id, \
+            mock.sentinel.destination_endpoint_id
+        mock_replica.return_value = mock.Mock()
+        result = self.server.create_instances_replica(
+            mock.sentinel.context,
+            mock.sentinel.origin_endpoint_id,
+            mock.sentinel.destination_endpoint_id,
+            mock.sentinel.origin_minion_pool_id,
+            mock.sentinel.destination_minion_pool_id,
+            mock.sentinel.instance_osmorphing_minion_pool_mappings,
+            mock.sentinel.source_environment,
+            mock.sentinel.destination_environment,
+            [mock.sentinel.instance_1, mock.sentinel.instance_2],
+            mock.sentinel.network_map,
+            mock.sentinel.storage_mappings,
+            notes=None,
+            user_scripts=None
+        )
+        self.assertEqual(
+            mock_get_replica.return_value,
+            result
+        )
+        mock_get_endpoint.assert_has_calls([
+            mock.call(mock.sentinel.context, mock.sentinel.origin_endpoint_id),
+            mock.call(mock.sentinel.context,
+                      mock.sentinel.destination_endpoint_id)])
+        mock_check_endpoints.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.origin_endpoint_id,
+            mock.sentinel.destination_endpoint_id
+        )
+        self.assertEqual(
+            (
+                mock_replica.return_value.origin_endpoint_id,
+                mock_replica.return_value.destination_endpoint_id,
+                mock_replica.return_value.destination_endpoint_id,
+                mock_replica.return_value.origin_minion_pool_id,
+                mock_replica.return_value.destination_minion_pool_id,
+                (mock_replica.return_value.
+                    instance_osmorphing_minion_pool_mappings),
+                mock_replica.return_value.source_environment,
+                mock_replica.return_value.destination_environment,
+                mock_replica.return_value.info,
+                mock_replica.return_value.notes,
+                mock_replica.return_value.user_scripts),
+            (
+                mock.sentinel.origin_endpoint_id,
+                mock.sentinel.destination_endpoint_id,
+                mock.sentinel.destination_endpoint_id,
+                mock.sentinel.origin_minion_pool_id,
+                mock.sentinel.destination_minion_pool_id,
+                (mock.sentinel.
+                    instance_osmorphing_minion_pool_mappings),
+                mock.sentinel.source_environment,
+                mock.sentinel.destination_environment,
+                {mock.sentinel.instance_1: {'volumes_info': []},
+                 mock.sentinel.instance_2: {'volumes_info': []}},
+                None,
+                {})
+        )
+        mock_check_minion_pools_for_action.assert_called_once_with(
+            mock.sentinel.context, mock_replica.return_value)
+        mock_check_create_reservation_for_transfer.assert_called_once_with(
+            mock_replica.return_value,
+            licensing_client.RESERVATION_TYPE_REPLICA
+        )
+        mock_add_replica.assert_called_once_with(
+            mock.sentinel.context, mock_replica.return_value)
+        mock_get_replica.assert_called_once_with(
+            mock.sentinel.context, mock_replica.return_value.id)
+
+    @mock.patch.object(db_api, 'get_replica')
+    def test__get_replica(self, mock_get_replica):
+        result = self.server._get_replica(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            include_task_info=False,
+            to_dict=False
+        )
+        self.assertEqual(
+            mock_get_replica.return_value,
+            result
+        )
+        mock_get_replica.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            include_task_info=False,
+            to_dict=False
+        )
+
+    @mock.patch.object(db_api, 'get_replica')
+    def test__get_replica_not_found(self, mock_get_replica):
+        mock_get_replica.return_value = None
+        self.assertRaises(
+            exception.NotFound,
+            self.server._get_replica,
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            include_task_info=False,
+            to_dict=False
+        )
+        mock_get_replica.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            include_task_info=False,
+            to_dict=False
+        )
+
+    @mock.patch.object(db_api, 'get_migrations')
+    def test_get_migrations(self, mock_get_migrations):
+        result = self.server.get_migrations(
+            mock.sentinel.context,
+            mock.sentinel.migration_id,
+            include_task_info=False
+        )
+        self.assertEqual(
+            mock_get_migrations.return_value,
+            result
+        )
+        mock_get_migrations.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.migration_id,
+            include_task_info=False,
+            to_dict=True
+        )
+
+    @mock.patch.object(server.ConductorServerEndpoint, '_get_migration')
+    def test_get_migration(self, mock_get_migration):
+        result = testutils.get_wrapped_function(self.server.get_migration)(
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.migration_id,
+            include_task_info=False
+        )
+        self.assertEqual(
+            mock_get_migration.return_value,
+            result
+        )
+        mock_get_migration.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.migration_id,
+            include_task_info=False,
+            to_dict=True
+        )
+
+    @mock.patch.object(db_api, 'get_replica_migrations')
+    def test_check_running_replica_migrations(
+        self,
+        mock_get_replica_migrations
+    ):
+        migration_1 = mock.Mock()
+        migration_2 = mock.Mock()
+        migration_1.executions = [mock.Mock()]
+        migration_1.executions[0].status = \
+            constants.EXECUTION_STATUS_COMPLETED
+        migration_2.executions = [mock.Mock()]
+        migration_2.executions[0].status = \
+            constants.EXECUTION_STATUS_ERROR
+        migrations = [migration_1, migration_2]
+        mock_get_replica_migrations.return_value = migrations
+        self.server._check_running_replica_migrations(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+        )
+        mock_get_replica_migrations.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+        )
+
+    @mock.patch.object(db_api, 'get_replica_migrations')
+    def test_check_running_replica_migrations_invalid_replica_state(
+        self,
+        mock_get_replica_migrations
+    ):
+        migration_1 = mock.Mock()
+        migration_2 = mock.Mock()
+        migration_1.executions = [mock.Mock()]
+        migration_1.executions[0].status = constants.EXECUTION_STATUS_RUNNING
+        migration_2.executions = [mock.Mock()]
+        migration_2.executions[0].status = \
+            constants.EXECUTION_STATUS_COMPLETED
+        migrations = [migration_1, migration_2]
+        mock_get_replica_migrations.return_value = migrations
+        self.assertRaises(
+            exception.InvalidReplicaState,
+            self.server._check_running_replica_migrations,
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+        )
+        mock_get_replica_migrations.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+        )
+
+    def test_check_running_executions(self):
+        execution_1 = mock.Mock()
+        execution_2 = mock.Mock()
+        action = mock.Mock()
+        execution_1.status = constants.EXECUTION_STATUS_COMPLETED
+        execution_2.status = constants.EXECUTION_STATUS_COMPLETED
+        action.executions = [execution_1, execution_2]
+        self.server._check_running_executions(action)
+
+    def test_check_running_executions_invalid_state(self):
+        execution_1 = mock.Mock()
+        execution_2 = mock.Mock()
+        action = mock.Mock()
+        execution_1.status = constants.EXECUTION_STATUS_COMPLETED
+        execution_2.status = constants.EXECUTION_STATUS_RUNNING
+        action.executions = [execution_1, execution_2]
+        self.assertRaises(
+            exception.InvalidActionTasksExecutionState,
+            self.server._check_running_executions,
+            action
+        )
+
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_check_running_replica_migrations')
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_check_running_executions')
+    def test_check_replica_running_executions(
+        self,
+        mock_check_running_executions,
+        mock_check_running_replica_migrations
+    ):
+        replica = mock.Mock()
+        self.server._check_replica_running_executions(
+            mock.sentinel.context,
+            replica
+        )
+
+        mock_check_running_executions.assert_called_once_with(replica)
+        mock_check_running_replica_migrations.assert_called_once_with(
+            mock.sentinel.context,
+            replica.id
+        )
+
     def test_check_valid_replica_tasks_execution(self):
         execution1 = mock.Mock(
             number=1,
@@ -1289,6 +2328,45 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         self.server._check_valid_replica_tasks_execution(
             mock_replica
         )
+
+        mock_replica.executions = []
+
+        self.assertRaises(
+            exception.InvalidReplicaState,
+            self.server._check_valid_replica_tasks_execution,
+            mock_replica
+        )
+
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       "get_available_providers")
+    def test_get_provider_types(self, mock_get_available_providers):
+        endpoint = mock.Mock()
+        result = self.server._get_provider_types(
+            mock.sentinel.context,
+            endpoint
+        )
+
+        self.assertEqual(
+            (mock_get_available_providers.return_value.
+                get(endpoint.type)["types"]),
+            result
+        )
+
+        mock_get_available_providers.assert_called_once_with(
+            mock.sentinel.context)
+
+        mock_get_available_providers.reset_mock()
+        endpoint.type = "mock_type"
+        mock_get_available_providers.return_value = {"mock_type": None}
+        self.assertRaises(
+            exception.NotFound,
+            self.server._get_provider_types,
+            mock.sentinel.context,
+            endpoint
+        )
+
+        mock_get_available_providers.assert_called_once_with(
+            mock.sentinel.context)
 
     @mock.patch.object(
         server.ConductorServerEndpoint,
@@ -1569,6 +2647,653 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             migration,
             mock_get_migration.return_value
         )
+
+    def test_get_instance_scripts(
+        self
+    ):
+        user_scripts = {
+            "global": 'mock_user_scripts',
+            "instances": {
+                mock.sentinel.instance_1: mock.sentinel.scripts_1,
+                mock.sentinel.instance_2: mock.sentinel.scripts_2,
+            }
+        }
+        expected_result = {
+            'global': 'mock_user_scripts',
+            'instances': {mock.sentinel.instance_1: mock.sentinel.scripts_1}
+        }
+        result = self.server._get_instance_scripts(
+            user_scripts, mock.sentinel.instance_1
+        )
+        self.assertEqual(
+            expected_result,
+            result
+        )
+
+    def test_get_instance_scripts_no_instance_script(
+        self
+    ):
+        user_scripts = {
+            "global": 'mock_user_scripts',
+            "instances": {
+                mock.sentinel.instance_1: None,
+                mock.sentinel.instance_2: mock.sentinel.scripts_2,
+            }
+        }
+        expected_result = {
+            'global': 'mock_user_scripts',
+            'instances': {}
+        }
+        result = self.server._get_instance_scripts(
+            user_scripts, mock.sentinel.instance_1
+        )
+        self.assertEqual(
+            expected_result,
+            result
+        )
+
+    def test_get_instance_scripts_no_user_scripts(
+        self
+    ):
+        user_scripts = None
+        expected_result = {
+            'global': {},
+            'instances': {}
+        }
+        result = self.server._get_instance_scripts(
+            user_scripts, mock.sentinel.instance_1
+        )
+        self.assertEqual(
+            expected_result,
+            result
+        )
+
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       "_minion_manager_client")
+    def test_deallocate_minion_machines_for_action(
+        self,
+        mock_minion_manager_client
+    ):
+        action = mock.Mock()
+        result = self.server._deallocate_minion_machines_for_action(
+            mock.sentinel.context,
+            action
+        )
+
+        self.assertEqual(
+            (mock_minion_manager_client.deallocate_minion_machines_for_action.
+                return_value),
+            result
+        )
+        (mock_minion_manager_client.deallocate_minion_machines_for_action.
+            assert_called_once_with(
+                mock.sentinel.context,
+                action.base_id
+            ))
+
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       "_minion_manager_client")
+    def test_check_minion_pools_for_action(
+        self,
+        mock_minion_manager_client
+    ):
+        action = mock.Mock()
+        self.server._check_minion_pools_for_action(
+            mock.sentinel.context,
+            action
+        )
+
+        (mock_minion_manager_client.
+            validate_minion_pool_selections_for_action.assert_called_once_with(
+                mock.sentinel.context,
+                action
+            ))
+
+    @mock.patch.object(db_api, "update_transfer_action_info_for_instance")
+    def test_update_task_info_for_minion_allocations(
+        self,
+        mock_update_transfer_action_info_for_instance
+    ):
+        action = mock.Mock()
+        action.id = mock.sentinel.action_id
+        action.instances = [mock.sentinel.instance1, mock.sentinel.instance2]
+        action.info = {
+            mock.sentinel.instance1: {},
+            mock.sentinel.instance2: {
+                'origin_minion_machine_id':
+                mock.sentinel.origin_minion_id,
+                'origin_minion_provider_properties':
+                mock.sentinel.origin_minion_provider_properties,
+                'origin_minion_connection_info':
+                mock.sentinel.origin_minion_connection_info,
+                'destination_minion_machine_id':
+                mock.sentinel.destination_minion_id,
+                'destination_minion_provider_properties':
+                mock.sentinel.destination_minion_provider_properties,
+                'destination_minion_connection_info':
+                mock.sentinel.destination_minion_connection_info,
+                'destination_minion_backup_writer_connection_info':
+                mock.sentinel.destination_minion_backup_writer_connection_info,
+                'osmorphing_minion_machine_id':
+                mock.sentinel.osmorphing_minion_id,
+                'osmorphing_minion_provider_properties':
+                mock.sentinel.osmorphing_minion_provider_properties,
+                'osmorphing_minion_connection_info':
+                mock.sentinel.osmorphing_minion_connection_info,
+            },
+            mock.sentinel.instance3: {}
+        }
+        minion_machine_allocations = {
+            mock.sentinel.instance1: {
+                'origin_minion': {
+                    'id': mock.sentinel.updated_origin_minion_id,
+                    "provider_properties":
+                    mock.sentinel.updated_origin_minion_provider_properties,
+                    "connection_info":
+                    mock.sentinel.updated_origin_minion_connection_info,
+                },
+                'destination_minion': {
+                    'id': mock.sentinel.updated_destination_minion_id,
+                    "provider_properties":
+                    (mock.sentinel.
+                     updated_destination_minion_provider_properties),
+                    "connection_info":
+                    mock.sentinel.updated_destination_minion_connection_info,
+                    "backup_writer_connection_info":
+                    (mock.sentinel.
+                     updated_destination_minion_backup_writer_connection_info)
+                },
+                'osmorphing_minion': {
+                    'id': mock.sentinel.updated_osmorphing_minion_id,
+                    "provider_properties":
+                    (mock.sentinel.
+                     updated_osmorphing_minion_provider_properties),
+                    "connection_info":
+                    mock.sentinel.updated_osmorphing_minion_connection_info,
+                }
+            },
+        }
+
+        expected_action_info = {
+            mock.sentinel.instance1: {
+                'origin_minion_machine_id':
+                mock.sentinel.updated_origin_minion_id,
+                'origin_minion_provider_properties':
+                mock.sentinel.updated_origin_minion_provider_properties,
+                'origin_minion_connection_info':
+                mock.sentinel.updated_origin_minion_connection_info,
+                'destination_minion_machine_id':
+                mock.sentinel.updated_destination_minion_id,
+                'destination_minion_provider_properties':
+                mock.sentinel.updated_destination_minion_provider_properties,
+                'destination_minion_connection_info':
+                mock.sentinel.updated_destination_minion_connection_info,
+                'destination_minion_backup_writer_connection_info':
+                (mock.sentinel.
+                 updated_destination_minion_backup_writer_connection_info),
+                'osmorphing_minion_machine_id':
+                mock.sentinel.updated_osmorphing_minion_id,
+                'osmorphing_minion_provider_properties':
+                mock.sentinel.updated_osmorphing_minion_provider_properties,
+                'osmorphing_minion_connection_info':
+                mock.sentinel.updated_osmorphing_minion_connection_info,
+            },
+        }
+        self.server._update_task_info_for_minion_allocations(
+            mock.sentinel.context,
+            action,
+            minion_machine_allocations
+        )
+        mock_update_transfer_action_info_for_instance.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.action_id,
+            mock.sentinel.instance1,
+            expected_action_info[mock.sentinel.instance1]
+        )
+        minion_machine_allocations = {
+            mock.sentinel.instance2: {},
+            mock.sentinel.instance4: {},
+        }
+        expected_action_info = {
+            mock.sentinel.instance2: {
+                'origin_minion_machine_id':
+                mock.sentinel.origin_minion_id,
+                'origin_minion_provider_properties':
+                mock.sentinel.origin_minion_provider_properties,
+                'origin_minion_connection_info':
+                mock.sentinel.origin_minion_connection_info,
+                'destination_minion_machine_id':
+                mock.sentinel.destination_minion_id,
+                'destination_minion_provider_properties':
+                mock.sentinel.destination_minion_provider_properties,
+                'destination_minion_connection_info':
+                mock.sentinel.destination_minion_connection_info,
+                'destination_minion_backup_writer_connection_info':
+                mock.sentinel.destination_minion_backup_writer_connection_info,
+                'osmorphing_minion_machine_id':
+                mock.sentinel.osmorphing_minion_id,
+                'osmorphing_minion_provider_properties':
+                mock.sentinel.osmorphing_minion_provider_properties,
+                'osmorphing_minion_connection_info':
+                mock.sentinel.osmorphing_minion_connection_info,
+            },
+        }
+        mock_update_transfer_action_info_for_instance.reset_mock()
+        self.server._update_task_info_for_minion_allocations(
+            mock.sentinel.context,
+            action,
+            minion_machine_allocations
+        )
+        mock_update_transfer_action_info_for_instance.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.action_id,
+            mock.sentinel.instance2,
+            expected_action_info[mock.sentinel.instance2]
+        )
+
+    @mock.patch.object(server.ConductorServerEndpoint, '_get_replica')
+    def test_get_last_execution_for_replica(
+        self,
+        mock_get_replica
+    ):
+        replica = mock.Mock()
+        replica.id = mock.sentinel.id
+        execution1 = mock.Mock(id=mock.sentinel.execution_id1, number=1)
+        execution2 = mock.Mock(id=mock.sentinel.execution_id2, number=3)
+        execution3 = mock.Mock(id=mock.sentinel.execution_id3, number=2)
+        replica.executions = [execution1, execution2, execution3]
+        mock_get_replica.return_value = replica
+        result = self.server._get_last_execution_for_replica(
+            mock.sentinel.context,
+            replica,
+            requery=False
+        )
+        self.assertEqual(
+            execution2,
+            result
+        )
+        mock_get_replica.assert_not_called()
+        replica.executions = None
+        self.assertRaises(
+            exception.InvalidReplicaState,
+            self.server._get_last_execution_for_replica,
+            mock.sentinel.context,
+            replica,
+            requery=True
+        )
+        mock_get_replica.assert_called_once_with(
+            mock.sentinel.context, mock.sentinel.id)
+
+    @mock.patch.object(server.ConductorServerEndpoint, '_get_migration')
+    def test_get_execution_for_migration(
+        self,
+        mock_get_migration
+    ):
+        migration = mock.Mock()
+        migration.id = mock.sentinel.id
+        execution1 = mock.Mock(id=mock.sentinel.execution_id1)
+        execution2 = mock.Mock(id=mock.sentinel.execution_id2)
+        migration.executions = [execution1]
+        mock_get_migration.return_value = migration
+        result = self.server._get_execution_for_migration(
+            mock.sentinel.context,
+            migration,
+            requery=False
+        )
+        self.assertEqual(
+            execution1,
+            result
+        )
+        mock_get_migration.assert_not_called()
+        migration.executions = [execution1, execution2]
+        self.assertRaises(
+            exception.InvalidMigrationState,
+            self.server._get_execution_for_migration,
+            mock.sentinel.context,
+            migration,
+            requery=True
+        )
+        mock_get_migration.assert_called_once_with(
+            mock.sentinel.context, mock.sentinel.id)
+        migration.executions = []
+        self.assertRaises(
+            exception.InvalidMigrationState,
+            self.server._get_execution_for_migration,
+            mock.sentinel.context,
+            migration,
+            requery=False
+        )
+
+    @mock.patch.object(server.ConductorServerEndpoint, '_begin_tasks')
+    @mock.patch.object(db_api, 'get_replica_tasks_execution')
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_update_task_info_for_minion_allocations')
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_get_last_execution_for_replica')
+    @mock.patch.object(server.ConductorServerEndpoint, '_get_replica')
+    def test_confirm_replica_minions_allocation(
+        self,
+        mock_get_replica,
+        mock_get_last_execution_for_replica,
+        mock_update_task_info_for_minion_allocations,
+        mock_get_replica_tasks_execution,
+        mock_begin_tasks
+    ):
+        mock_get_replica.return_value.last_execution_status = \
+            constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS
+
+        testutils.get_wrapped_function(
+            self.server.confirm_replica_minions_allocation)(
+                self.server,
+                mock.sentinel.context,
+                mock.sentinel.replica_id,
+                mock.sentinel.minion_machine_allocations
+        )
+
+        mock_get_replica.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            include_task_info=True
+        )
+        mock_get_last_execution_for_replica.assert_called_once_with(
+            mock.sentinel.context,
+            mock_get_replica.return_value,
+            requery=False
+        )
+        mock_update_task_info_for_minion_allocations.assert_called_once_with(
+            mock.sentinel.context,
+            mock_get_replica.return_value,
+            mock.sentinel.minion_machine_allocations
+        )
+        mock_get_replica_tasks_execution.assert_called_once_with(
+            mock.sentinel.context,
+            mock_get_replica.return_value.id,
+            mock_get_last_execution_for_replica.return_value.id
+        )
+        mock_begin_tasks.assert_called_once_with(
+            mock.sentinel.context,
+            mock_get_replica.return_value,
+            mock_get_replica_tasks_execution.return_value
+        )
+
+    @mock.patch.object(server.ConductorServerEndpoint, '_begin_tasks')
+    @mock.patch.object(db_api, 'get_replica_tasks_execution')
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_update_task_info_for_minion_allocations')
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_get_last_execution_for_replica')
+    @mock.patch.object(server.ConductorServerEndpoint, '_get_replica')
+    def test_confirm_replica_minions_allocation_unexpected_status(
+        self,
+        mock_get_replica,
+        mock_get_last_execution_for_replica,
+        mock_update_task_info_for_minion_allocations,
+        mock_get_replica_tasks_execution,
+        mock_begin_tasks
+    ):
+        mock_get_replica.return_value.last_execution_status = \
+            constants.EXECUTION_STATUS_CANCELED
+
+        self.assertRaises(
+            exception.InvalidReplicaState,
+            testutils.get_wrapped_function(
+                self.server.confirm_replica_minions_allocation),
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.minion_machine_allocations
+        )
+
+        mock_get_replica.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            include_task_info=True
+        )
+        mock_get_last_execution_for_replica.assert_not_called()
+        mock_update_task_info_for_minion_allocations.assert_not_called()
+        mock_get_replica_tasks_execution.assert_not_called()
+        mock_begin_tasks.assert_not_called()
+
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_set_tasks_execution_status')
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_cancel_tasks_execution')
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_get_last_execution_for_replica')
+    @mock.patch.object(server.ConductorServerEndpoint, '_get_replica')
+    def test_report_replica_minions_allocation_error(
+        self,
+        mock_get_replica,
+        mock_get_last_execution_for_replica,
+        mock_cancel_tasks_execution,
+        mock_set_tasks_execution_status
+    ):
+        mock_get_replica.return_value.last_execution_status = \
+            constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS
+
+        testutils.get_wrapped_function(
+            self.server.report_replica_minions_allocation_error)(
+                self.server,
+                mock.sentinel.context,
+                mock.sentinel.replica_id,
+                mock.sentinel.minion_allocation_error_details
+        )
+
+        mock_get_replica.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id
+        )
+        mock_get_last_execution_for_replica.assert_called_once_with(
+            mock.sentinel.context,
+            mock_get_replica.return_value,
+            requery=False
+        )
+        mock_cancel_tasks_execution.assert_called_once_with(
+            mock.sentinel.context,
+            mock_get_last_execution_for_replica.return_value,
+            requery=True
+        )
+        mock_set_tasks_execution_status.assert_called_once_with(
+            mock.sentinel.context,
+            mock_get_last_execution_for_replica.return_value,
+            constants.EXECUTION_STATUS_ERROR_ALLOCATING_MINIONS
+        )
+
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_set_tasks_execution_status')
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_cancel_tasks_execution')
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_get_last_execution_for_replica')
+    @mock.patch.object(server.ConductorServerEndpoint, '_get_replica')
+    def test_report_replica_minions_allocation_error_unexpected_status(
+        self,
+        mock_get_replica,
+        mock_get_last_execution_for_replica,
+        mock_cancel_tasks_execution,
+        mock_set_tasks_execution_status
+    ):
+        mock_get_replica.return_value.last_execution_status = \
+            constants.EXECUTION_STATUS_CANCELED
+
+        self.assertRaises(
+            exception.InvalidReplicaState,
+            testutils.get_wrapped_function(
+                self.server.report_replica_minions_allocation_error),
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.minion_allocation_error_details
+        )
+
+        mock_get_replica.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id
+        )
+        mock_get_last_execution_for_replica.assert_not_called()
+        mock_cancel_tasks_execution.assert_not_called()
+        mock_set_tasks_execution_status.assert_not_called()
+
+    @mock.patch.object(server.ConductorServerEndpoint, '_begin_tasks')
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_update_task_info_for_minion_allocations')
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_get_execution_for_migration')
+    @mock.patch.object(server.ConductorServerEndpoint, '_get_migration')
+    def test_confirm_migration_minions_allocation(
+        self,
+        mock_get_migration,
+        mock_get_execution_for_migration,
+        mock_update_task_info_for_minion_allocations,
+        mock_begin_tasks
+    ):
+        mock_get_migration.return_value.last_execution_status = \
+            constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS
+
+        testutils.get_wrapped_function(
+            self.server.confirm_migration_minions_allocation)(
+                self.server,
+                mock.sentinel.context,
+                mock.sentinel.replica_id,
+                mock.sentinel.minion_machine_allocations
+        )
+
+        mock_get_migration.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            include_task_info=True
+        )
+        mock_get_execution_for_migration.assert_called_once_with(
+            mock.sentinel.context,
+            mock_get_migration.return_value,
+            requery=False
+        )
+        mock_update_task_info_for_minion_allocations.assert_called_once_with(
+            mock.sentinel.context,
+            mock_get_migration.return_value,
+            mock.sentinel.minion_machine_allocations
+        )
+        mock_begin_tasks.assert_called_once_with(
+            mock.sentinel.context,
+            mock_get_migration.return_value,
+            mock_get_execution_for_migration.return_value
+        )
+
+    @mock.patch.object(server.ConductorServerEndpoint, '_begin_tasks')
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_update_task_info_for_minion_allocations')
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_get_execution_for_migration')
+    @mock.patch.object(server.ConductorServerEndpoint, '_get_migration')
+    def test_confirm_migration_minions_allocation_unexpected_status(
+        self,
+        mock_get_migration,
+        mock_get_execution_for_migration,
+        mock_update_task_info_for_minion_allocations,
+        mock_begin_tasks
+    ):
+        mock_get_migration.return_value.last_execution_status = \
+            constants.EXECUTION_STATUS_CANCELED
+
+        self.assertRaises(
+            exception.InvalidMigrationState,
+            testutils.get_wrapped_function(
+                self.server.confirm_migration_minions_allocation),
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.minion_machine_allocations
+        )
+
+        mock_get_migration.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            include_task_info=True
+        )
+        mock_get_execution_for_migration.assert_not_called()
+        mock_update_task_info_for_minion_allocations.assert_not_called()
+
+        mock_begin_tasks.assert_not_called()
+
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_set_tasks_execution_status')
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_cancel_tasks_execution')
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_get_execution_for_migration')
+    @mock.patch.object(server.ConductorServerEndpoint, '_get_migration')
+    def test_report_migration_minions_allocation_error(
+        self,
+        mock_get_migration,
+        mock_get_execution_for_migration,
+        mock_cancel_tasks_execution,
+        mock_set_tasks_execution_status
+    ):
+        mock_get_migration.return_value.last_execution_status = \
+            constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS
+
+        testutils.get_wrapped_function(
+            self.server.report_migration_minions_allocation_error)(
+                self.server,
+                mock.sentinel.context,
+                mock.sentinel.replica_id,
+                mock.sentinel.minion_allocation_error_details
+        )
+
+        mock_get_migration.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id
+        )
+        mock_get_execution_for_migration.assert_called_once_with(
+            mock.sentinel.context,
+            mock_get_migration.return_value,
+            requery=False
+        )
+        mock_cancel_tasks_execution.assert_called_once_with(
+            mock.sentinel.context,
+            mock_get_execution_for_migration.return_value,
+            requery=True
+        )
+        mock_set_tasks_execution_status.assert_called_once_with(
+            mock.sentinel.context,
+            mock_get_execution_for_migration.return_value,
+            constants.EXECUTION_STATUS_ERROR_ALLOCATING_MINIONS
+        )
+
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_set_tasks_execution_status')
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_cancel_tasks_execution')
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_get_execution_for_migration')
+    @mock.patch.object(server.ConductorServerEndpoint, '_get_migration')
+    def test_report_migration_minions_allocation_error_unexpected_status(
+        self,
+        mock_get_migration,
+        mock_get_execution_for_migration,
+        mock_cancel_tasks_execution,
+        mock_set_tasks_execution_status
+    ):
+        mock_get_migration.return_value.last_execution_status = \
+            constants.EXECUTION_STATUS_CANCELED
+
+        self.assertRaises(
+            exception.InvalidMigrationState,
+            testutils.get_wrapped_function(
+                self.server.report_migration_minions_allocation_error),
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.minion_allocation_error_details
+        )
+
+        mock_get_migration.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id
+        )
+        mock_get_execution_for_migration.assert_not_called()
+        mock_cancel_tasks_execution.assert_not_called()
+        mock_set_tasks_execution_status.assert_not_called()
 
     @mock.patch.object(
         server.ConductorServerEndpoint,
@@ -1959,6 +3684,152 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             exception_details=mock.ANY,
         )
 
+    @mock.patch.object(db_api, 'get_migration')
+    def test__get_migration(
+        self,
+        mock_get_migration
+    ):
+        result = self.server._get_migration(
+            mock.sentinel.context,
+            mock.sentinel.migration_id,
+            include_task_info=False,
+            to_dict=False
+        )
+        self.assertEqual(
+            mock_get_migration.return_value,
+            result
+        )
+
+        mock_get_migration.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.migration_id,
+            include_task_info=False,
+            to_dict=False
+        )
+        mock_get_migration.reset_mock()
+        mock_get_migration.return_value = None
+
+        self.assertRaises(
+            exception.NotFound,
+            self.server._get_migration,
+            mock.sentinel.context,
+            mock.sentinel.migration_id,
+            include_task_info=False,
+            to_dict=False
+        )
+
+        mock_get_migration.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.migration_id,
+            include_task_info=False,
+            to_dict=False
+        )
+
+    @mock.patch.object(db_api, 'delete_migration')
+    @mock.patch.object(server.ConductorServerEndpoint, '_get_migration')
+    def test_delete_migration(
+        self,
+        mock_get_migration,
+        mock_delete_migration
+    ):
+        migration = mock.Mock()
+        execution = mock.Mock()
+        execution.status = constants.EXECUTION_STATUS_COMPLETED
+        migration.executions = [execution]
+        mock_get_migration.return_value = migration
+
+        testutils.get_wrapped_function(self.server.delete_migration)(
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.migration_id
+        )
+
+        mock_get_migration.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.migration_id
+        )
+        mock_delete_migration.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.migration_id
+        )
+        mock_get_migration.reset_mock()
+        mock_delete_migration.reset_mock()
+        execution.status = constants.EXECUTION_STATUS_RUNNING
+
+        self.assertRaises(
+            exception.InvalidMigrationState,
+            testutils.get_wrapped_function(self.server.delete_migration),
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.migration_id
+        )
+
+        mock_get_migration.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.migration_id
+        )
+        mock_delete_migration.assert_not_called()
+
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_check_delete_reservation_for_transfer')
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_cancel_tasks_execution')
+    @mock.patch.object(lockutils, 'lock')
+    @mock.patch.object(server.ConductorServerEndpoint, '_get_migration')
+    @ddt.file_data("data/cancel_migration_config.yml")
+    @ddt.unpack
+    def test_cancel_migration(
+        self,
+        mock_get_migration,
+        mock_lock,
+        mock_cancel_tasks_execution,
+        mock_check_delete_reservation_for_transfer,
+        config,
+        raises_exception
+    ):
+        migration = mock.Mock()
+        migration.executions = []
+        statuses = config.get('execution_statuses', [])
+        for status in statuses:
+            execution = mock.Mock()
+            execution.status = getattr(constants, status)
+            migration.executions.append(execution)
+        mock_get_migration.return_value = migration
+        force = config.get('force', False)
+
+        if raises_exception:
+            self.assertRaises(
+                exception.InvalidMigrationState,
+                testutils.get_wrapped_function(self.server.cancel_migration),
+                self.server,
+                mock.sentinel.context,
+                mock.sentinel.migration_id,
+                force=force
+            )
+        else:
+            testutils.get_wrapped_function(self.server.cancel_migration)(
+                self.server,
+                mock.sentinel.context,
+                mock.sentinel.migration_id,
+                force=force
+            )
+            mock_lock.assert_called_once_with(
+                constants.EXECUTION_LOCK_NAME_FORMAT % execution.id,
+                external=True
+            )
+            mock_cancel_tasks_execution.assert_called_once_with(
+                mock.sentinel.context,
+                execution,
+                force=force
+            )
+            mock_check_delete_reservation_for_transfer.assert_called_once_with(
+                migration)
+
+        mock_get_migration.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.migration_id
+        )
+
     @mock.patch.object(db_api, 'get_tasks_execution')
     @mock.patch.object(
         server.ConductorServerEndpoint,
@@ -2029,6 +3900,71 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
                     **kwargs
                 )
             ])
+
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_deallocate_minion_machines_for_action')
+    @mock.patch.object(db_api, 'get_action')
+    @mock.patch.object(keystone, 'delete_trust')
+    @mock.patch.object(db_api, 'set_execution_status')
+    def test_set_tasks_execution_status(
+        self,
+        mock_set_execution_status,
+        mock_delete_trust,
+        mock_get_action,
+        mock_deallocate_minion_machines_for_action
+    ):
+        context = mock.Mock()
+        execution = mock.Mock()
+
+        def call_set_tasks_execution_status(new_execution_status):
+            self.server._set_tasks_execution_status(
+                context,
+                execution,
+                new_execution_status
+            )
+
+        context.delete_trust_id = mock.sentinel.delete_trust_id
+        execution.status = (constants.
+                            EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS)
+        call_set_tasks_execution_status(constants.EXECUTION_STATUS_COMPLETED)
+
+        mock_set_execution_status.assert_called_once_with(
+            context,
+            execution.id,
+            constants.EXECUTION_STATUS_COMPLETED
+        )
+        mock_delete_trust.assert_called_once_with(
+            context
+        )
+        mock_get_action.assert_not_called()
+
+        mock_set_execution_status.reset_mock()
+        mock_delete_trust.reset_mock()
+        context.delete_trust_id = None
+        execution.status = constants.EXECUTION_STATUS_RUNNING
+        call_set_tasks_execution_status(constants.EXECUTION_STATUS_CANCELED)
+
+        mock_set_execution_status.assert_called_once_with(
+            context,
+            execution.id,
+            constants.EXECUTION_STATUS_CANCELED
+        )
+        mock_delete_trust.assert_not_called()
+        mock_get_action.assert_called_once_with(
+            context, mock_set_execution_status.return_value.action_id)
+        mock_deallocate_minion_machines_for_action.assert_called_once_with(
+            context, mock_get_action.return_value)
+
+        mock_set_execution_status.reset_mock()
+        mock_get_action.reset_mock()
+        call_set_tasks_execution_status(constants.EXECUTION_STATUS_RUNNING)
+        mock_set_execution_status.assert_called_once_with(
+            context,
+            execution.id,
+            constants.EXECUTION_STATUS_RUNNING
+        )
+        mock_delete_trust.assert_not_called()
+        mock_get_action.assert_not_called()
 
     @mock.patch.object(db_api, 'set_task_status')
     @mock.patch.object(db_api, 'set_task_host_properties')
@@ -2603,6 +4539,61 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
                 constants.TASK_STATUS_PENDING]
         )
 
+    @mock.patch.object(db_api, 'update_transfer_action_info_for_instance')
+    def test_update_replica_volumes_info(
+        self,
+        mock_update_transfer_action_info_for_instance
+    ):
+        self.server._update_replica_volumes_info(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.instance,
+            mock.sentinel.updated_task_info
+        )
+
+        mock_update_transfer_action_info_for_instance.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.instance,
+            mock.sentinel.updated_task_info
+        )
+
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_update_replica_volumes_info')
+    @mock.patch.object(lockutils, 'lock')
+    @mock.patch.object(db_api, 'get_migration')
+    def test_update_volumes_info_for_migration_parent_replica(
+        self,
+        mock_get_migration,
+        mock_lock,
+        mock_update_replica_volumes_info
+    ):
+        migration = mock.Mock()
+        mock_get_migration.return_value = migration
+
+        self.server._update_volumes_info_for_migration_parent_replica(
+            mock.sentinel.context,
+            mock.sentinel.migration_id,
+            mock.sentinel.instance,
+            mock.sentinel.updated_task_info
+        )
+
+        mock_get_migration.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.migration_id
+        )
+        mock_lock.assert_called_once_with(
+            constants.REPLICA_LOCK_NAME_FORMAT %
+            mock_get_migration.return_value.replica_id,
+            external=True
+        )
+        mock_update_replica_volumes_info.assert_called_once_with(
+            mock.sentinel.context,
+            mock_get_migration.return_value.replica_id,
+            mock.sentinel.instance,
+            mock.sentinel.updated_task_info
+        )
+
     @mock.patch.object(
         server.ConductorServerEndpoint,
         '_minion_manager_client'
@@ -2980,6 +4971,98 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_update_transfer_action_info.assert_not_called()
         self.assertEqual(2, mock_get_action.call_count)
 
+    @mock.patch.object(db_api, 'set_task_status')
+    def test_cancel_execution_for_osmorphing_debugging(
+        self,
+        mock_set_task_status
+    ):
+        subtask = mock.Mock()
+        execution = mock.Mock()
+        execution.tasks = [subtask]
+
+        subtask.task_type = constants.TASK_TYPE_OS_MORPHING
+        subtask.status = constants.TASK_STATUS_PENDING
+        self.server._cancel_execution_for_osmorphing_debugging(
+            mock.sentinel.context,
+            execution
+        )
+        mock_set_task_status.assert_not_called()
+
+        subtask.task_type = None
+        self.assertRaises(
+            exception.CoriolisException,
+            self.server._cancel_execution_for_osmorphing_debugging,
+            mock.sentinel.context,
+            execution
+        )
+
+        subtask.status = constants.TASK_STATUS_COMPLETED
+        self.server._cancel_execution_for_osmorphing_debugging(
+            mock.sentinel.context,
+            execution
+        )
+        mock_set_task_status.assert_not_called()
+
+        subtask.status = constants.TASK_STATUS_SCHEDULED
+        subtask.on_error = True
+        self.server._cancel_execution_for_osmorphing_debugging(
+            mock.sentinel.context,
+            execution
+        )
+        mock_set_task_status.assert_called_once_with(
+            mock.sentinel.context,
+            subtask.id,
+            constants.TASK_STATUS_CANCELED_FOR_DEBUGGING,
+            exception_details=mock.ANY
+        )
+
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       "_advance_execution_state")
+    @mock.patch.object(db_api, "get_tasks_execution")
+    @mock.patch.object(db_api, "set_task_status")
+    @mock.patch.object(db_api, "get_task")
+    @ddt.file_data("data/confirm_task_cancellation.yml")
+    @ddt.unpack
+    def test_confirm_task_cancellation(
+        self,
+        mock_get_task,
+        mock_set_task_status,
+        mock_get_tasks_execution,
+        mock_advance_execution_state,
+        task_status,
+        expected_final_status,
+        expected_advance_execution_state_call
+    ):
+        task = mock.Mock()
+        task.status = getattr(constants, task_status)
+        expected_final_status = getattr(constants, expected_final_status)
+        mock_get_task.return_value = task
+
+        testutils.get_wrapped_function(self.server.confirm_task_cancellation)(
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.task_id,
+            mock.sentinel.cancellation_details
+        )
+
+        mock_set_task_status.assert_called_once_with(
+            mock.sentinel.context,
+            task.id,
+            expected_final_status,
+            exception_details=mock.ANY
+        )
+        if expected_advance_execution_state_call:
+            mock_get_tasks_execution.assert_called_once_with(
+                mock.sentinel.context, task.execution_id)
+            mock_advance_execution_state.assert_called_once_with(
+                mock.sentinel.context,
+                mock_get_tasks_execution.return_value,
+                requery=False
+            )
+        else:
+            mock_get_tasks_execution.assert_not_called()
+            mock_advance_execution_state.assert_not_called()
+
     @mock.patch.object(
         server.ConductorServerEndpoint,
         "_check_delete_reservation_for_transfer"
@@ -3045,6 +5128,964 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.task_id,
             expected_status,
             mock.ANY,
+        )
+
+    @mock.patch.object(db_api, "add_task_event")
+    @mock.patch.object(db_api, "get_task")
+    def test_add_task_event(
+        self,
+        mock_get_task,
+        mock_add_task_event
+    ):
+        task = mock.Mock()
+        mock_get_task.return_value = task
+        task.status = constants.EXECUTION_STATUS_COMPLETED
+
+        self.assertRaises(
+            exception.InvalidTaskState,
+            testutils.get_wrapped_function(self.server.add_task_event),
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.task_id,
+            mock.sentinel.level,
+            mock.sentinel.message
+        )
+
+        mock_get_task.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.task_id
+        )
+        mock_add_task_event.assert_not_called()
+
+        mock_get_task.reset_mock()
+        task.status = constants.EXECUTION_STATUS_RUNNING
+
+        testutils.get_wrapped_function(self.server.add_task_event)(
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.task_id,
+            mock.sentinel.level,
+            mock.sentinel.message
+        )
+
+        mock_get_task.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.task_id
+        )
+        mock_add_task_event.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.task_id,
+            mock.sentinel.level,
+            mock.sentinel.message
+        )
+
+    @mock.patch.object(db_api, "add_task_progress_update")
+    @mock.patch.object(db_api, "get_task")
+    def test_add_task_progress_update(
+        self,
+        mock_get_task,
+        mock_add_task_progress_update
+    ):
+        task = mock.Mock()
+        mock_get_task.return_value = task
+        task.status = constants.EXECUTION_STATUS_COMPLETED
+
+        self.assertRaises(
+            exception.InvalidTaskState,
+            testutils.get_wrapped_function(
+                self.server.add_task_progress_update),
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.task_id,
+            mock.sentinel.message,
+            initial_step=mock.sentinel.initial_step,
+            total_steps=mock.sentinel.total_steps
+        )
+
+        mock_get_task.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.task_id
+        )
+        mock_add_task_progress_update.assert_not_called()
+
+        mock_get_task.reset_mock()
+        task.status = constants.EXECUTION_STATUS_RUNNING
+
+        result = testutils.get_wrapped_function(
+            self.server.add_task_progress_update)(
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.task_id,
+            mock.sentinel.message,
+            initial_step=mock.sentinel.initial_step,
+            total_steps=mock.sentinel.total_steps
+        )
+
+        self.assertEqual(
+            mock_add_task_progress_update.return_value,
+            result
+        )
+        mock_get_task.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.task_id
+        )
+        mock_add_task_progress_update.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.task_id,
+            mock.sentinel.message,
+            initial_step=mock.sentinel.initial_step,
+            total_steps=mock.sentinel.total_steps
+        )
+
+    @mock.patch.object(db_api, "update_task_progress_update")
+    def test_update_task_progress_update(
+        self,
+        mock_update_task_progress_update
+    ):
+        testutils.get_wrapped_function(
+            self.server.update_task_progress_update)(
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.task_id,
+            mock.sentinel.progress_update_index,
+            mock.sentinel.new_current_step,
+            new_total_steps=mock.sentinel.new_total_steps,
+            new_message=mock.sentinel.new_message,
+        )
+
+        mock_update_task_progress_update.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.task_id,
+            mock.sentinel.progress_update_index,
+            mock.sentinel.new_current_step,
+            new_total_steps=mock.sentinel.new_total_steps,
+            new_message=mock.sentinel.new_message,
+        )
+
+    @mock.patch.object(db_api, "get_replica_schedule")
+    def test__get_replica_schedule(
+        self,
+        mock_get_replica_schedule
+    ):
+        result = self.server._get_replica_schedule(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.schedule_id,
+            expired=True
+        )
+
+        self.assertEqual(
+            mock_get_replica_schedule.return_value,
+            result
+        )
+        mock_get_replica_schedule.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.schedule_id,
+            expired=True
+        )
+
+        mock_get_replica_schedule.reset_mock()
+        mock_get_replica_schedule.return_value = None
+
+        self.assertRaises(
+            exception.NotFound,
+            self.server._get_replica_schedule,
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.schedule_id,
+            expired=False
+        )
+
+        mock_get_replica_schedule.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.schedule_id,
+            expired=False
+        )
+
+    @mock.patch.object(server.ConductorServerEndpoint, "get_replica_schedule")
+    @mock.patch.object(db_api, "add_replica_schedule")
+    @mock.patch.object(models, "ReplicaSchedule")
+    @mock.patch.object(server.ConductorServerEndpoint, "_get_replica")
+    @mock.patch.object(keystone, "create_trust")
+    def test_create_replica_schedule(
+        self,
+        mock_create_trust,
+        mock_get_replica,
+        mock_ReplicaSchedule,
+        mock_add_replica_schedule,
+        mock_get_replica_schedule
+    ):
+        context = mock.Mock()
+        replica_schedule = mock.Mock()
+        context.trust_id = mock.sentinel.trust_id
+        mock_ReplicaSchedule.return_value = replica_schedule
+
+        result = self.server.create_replica_schedule(
+            context,
+            mock.sentinel.replica_id,
+            mock.sentinel.schedule,
+            mock.sentinel.enabled,
+            mock.sentinel.exp_date,
+            mock.sentinel.shutdown_instance
+        )
+
+        self.assertEqual(
+            mock_get_replica_schedule.return_value,
+            result
+        )
+        self.assertEqual(
+            (
+                replica_schedule.replica,
+                replica_schedule.replica_id,
+                replica_schedule.schedule,
+                replica_schedule.expiration_date,
+                replica_schedule.enabled,
+                replica_schedule.shutdown_instance,
+                replica_schedule.trust_id
+            ),
+            (
+                mock_get_replica.return_value,
+                mock.sentinel.replica_id,
+                mock.sentinel.schedule,
+                mock.sentinel.exp_date,
+                mock.sentinel.enabled,
+                mock.sentinel.shutdown_instance,
+                mock.sentinel.trust_id
+            )
+        )
+        mock_create_trust.assert_called_once_with(context)
+        mock_get_replica.assert_called_once_with(
+            context,
+            mock.sentinel.replica_id,
+        )
+        mock_ReplicaSchedule.assert_called_once()
+        mock_add_replica_schedule.assert_called_once_with(
+            context,
+            replica_schedule,
+            mock.ANY
+        )
+        mock_get_replica_schedule.assert_called_once_with(
+            context,
+            mock.sentinel.replica_id,
+            replica_schedule.id
+        )
+
+    @mock.patch.object(server.ConductorServerEndpoint, "_get_replica_schedule")
+    @mock.patch.object(db_api, "update_replica_schedule")
+    def test_update_replica_schedule(
+        self,
+        mock_update_replica_schedule,
+        mock_get_replica_schedule
+    ):
+        result = testutils.get_wrapped_function(
+            self.server.update_replica_schedule)(
+                self.server,
+                mock.sentinel.context,
+                mock.sentinel.replica_id,
+                mock.sentinel.schedule_id,
+                mock.sentinel.updated_values,
+        )
+
+        self.assertEqual(
+            mock_get_replica_schedule.return_value,
+            result
+        )
+        mock_update_replica_schedule.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.schedule_id,
+            mock.sentinel.updated_values,
+            None,
+            mock.ANY
+        )
+        mock_get_replica_schedule.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.schedule_id,
+        )
+
+    @mock.patch.object(keystone, "delete_trust")
+    @mock.patch.object(context, "get_admin_context")
+    @mock.patch.object(server.ConductorServerEndpoint, "_replica_cron_client")
+    def test_cleanup_schedule_resources(
+        self,
+        mock_replica_cron_client,
+        mock_get_admin_context,
+        mock_delete_trust,
+    ):
+        schedule = mock.Mock()
+        schedule.trust_id = None
+
+        self.server._cleanup_schedule_resources(
+            mock.sentinel.context,
+            schedule
+        )
+
+        mock_replica_cron_client.unregister.assert_called_once_with(
+            mock.sentinel.context,
+            schedule
+        )
+        mock_get_admin_context.assert_not_called()
+        mock_delete_trust.assert_not_called()
+
+        mock_replica_cron_client.reset_mock()
+        schedule.trust_id = mock.sentinel.trust_id
+
+        self.server._cleanup_schedule_resources(
+            mock.sentinel.context,
+            schedule
+        )
+
+        mock_replica_cron_client.unregister.assert_called_once_with(
+            mock.sentinel.context,
+            schedule
+        )
+        mock_get_admin_context.assert_called_once_with(
+            trust_id=mock.sentinel.trust_id)
+        mock_delete_trust.assert_called_once_with(
+            mock_get_admin_context.return_value)
+
+    @mock.patch.object(db_api, "delete_replica_schedule")
+    @mock.patch.object(server.ConductorServerEndpoint, "_get_replica")
+    def test_delete_replica_schedule(
+        self,
+        mock_get_replica,
+        mock_delete_replica_schedule
+    ):
+        replica = mock.Mock()
+        replica.last_execution_status = constants.EXECUTION_STATUS_COMPLETED
+        mock_get_replica.return_value = replica
+
+        testutils.get_wrapped_function(self.server.delete_replica_schedule)(
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.schedule_id
+        )
+
+        mock_get_replica.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id
+        )
+        mock_delete_replica_schedule.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.schedule_id,
+            None,
+            mock.ANY
+        )
+
+        mock_get_replica.reset_mock()
+        mock_delete_replica_schedule.reset_mock()
+        replica.last_execution_status = constants.EXECUTION_STATUS_RUNNING
+
+        self.assertRaises(
+            exception.InvalidReplicaState,
+            testutils.get_wrapped_function(
+                self.server.delete_replica_schedule),
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.schedule_id
+        )
+
+        mock_get_replica.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id
+        )
+        mock_delete_replica_schedule.assert_not_called()
+
+    @mock.patch.object(db_api, "get_replica_schedules")
+    def test_get_replica_schedules(self, mock_get_replica_schedules):
+        result = testutils.get_wrapped_function(
+            self.server.get_replica_schedules)(
+                self.server,
+                mock.sentinel.context,
+                replica_id=None,
+                expired=True
+        )
+
+        self.assertEqual(
+            mock_get_replica_schedules.return_value,
+            result
+        )
+        mock_get_replica_schedules.assert_called_once_with(
+            mock.sentinel.context,
+            replica_id=None,
+            expired=True
+        )
+
+    @mock.patch.object(db_api, "get_replica_schedule")
+    def test_get_replica_schedule(self, mock_get_replica_schedule):
+        result = testutils.get_wrapped_function(
+            self.server.get_replica_schedule)(
+                self.server,
+                mock.sentinel.context,
+                mock.sentinel.replica_id,
+                mock.sentinel.schedule_id,
+                expired=True
+        )
+
+        self.assertEqual(
+            mock_get_replica_schedule.return_value,
+            result
+        )
+        mock_get_replica_schedule.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            mock.sentinel.schedule_id,
+            expired=True
+        )
+
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       "get_replica_tasks_execution")
+    @mock.patch.object(server.ConductorServerEndpoint, "_begin_tasks")
+    @mock.patch.object(db_api, "add_replica_tasks_execution")
+    @mock.patch.object(db_api, "update_transfer_action_info_for_instance")
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       "_check_execution_tasks_sanity")
+    @mock.patch.object(server.ConductorServerEndpoint, "_create_task")
+    @mock.patch.object(utils, "sanitize_task_info")
+    @mock.patch.object(models, "TasksExecution")
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       "_check_valid_replica_tasks_execution")
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       "_check_replica_running_executions")
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       "_check_minion_pools_for_action")
+    @mock.patch.object(models, "Replica")
+    @mock.patch.object(server.ConductorServerEndpoint, "_get_replica")
+    @ddt.file_data("data/update_replica_config.yml")
+    @ddt.unpack
+    def test_update_replica(
+        self,
+        mock_get_replica,
+        mock_Replica,
+        mock_check_minion_pools_for_action,
+        mock_check_replica_running_executions,
+        mock_check_valid_replica_tasks_execution,
+        mock_TasksExecution,
+        mock_sanitize_task_info,
+        mock_create_task,
+        mock_check_execution_tasks_sanity,
+        mock_update_transfer_action_info_for_instance,
+        mock_add_replica_tasks_execution,
+        mock_begin_tasks,
+        mock_get_replica_tasks_execution,
+        config,
+        has_updated_values,
+        has_replica_instance
+    ):
+        replica = mock.Mock()
+        dummy = mock.Mock()
+        execution = mock.Mock()
+        replica.instances = config['replica'].get("instances", [])
+        replica.info = config['replica'].get("info", {})
+        mock_get_replica.return_value = replica
+        mock_Replica.return_value = dummy
+        mock_TasksExecution.return_value = execution
+        updated_properties = config.get("updated_properties", {})
+
+        result = testutils.get_wrapped_function(self.server.update_replica)(
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            updated_properties
+        )
+
+        self.assertEqual(
+            mock_get_replica_tasks_execution.return_value,
+            result
+        )
+        mock_get_replica.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            include_task_info=True
+        )
+        mock_check_replica_running_executions.assert_called_once_with(
+            mock.sentinel.context,
+            mock_get_replica.return_value,
+        )
+        mock_check_valid_replica_tasks_execution.assert_called_once_with(
+            mock_get_replica.return_value,
+            force=True,
+        )
+        self.assertEqual(
+            execution.action,
+            mock_get_replica.return_value
+        )
+        mock_check_execution_tasks_sanity.assert_called_once_with(
+            execution,
+            replica.info
+        )
+        mock_add_replica_tasks_execution.assert_called_once_with(
+            mock.sentinel.context,
+            execution
+        )
+        mock_begin_tasks.assert_called_once_with(
+            mock.sentinel.context,
+            replica,
+            execution
+        )
+        mock_get_replica_tasks_execution.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.replica_id,
+            execution.id
+        )
+        if has_updated_values:
+            mock_check_minion_pools_for_action.assert_called_once_with(
+                mock.sentinel.context,
+                dummy
+            )
+        else:
+            mock_check_minion_pools_for_action.assert_not_called()
+        if has_replica_instance:
+            expected_sanitize_task_info_calls = []
+            create_task_calls = []
+            update_transfer_action_info_for_instance_calls = []
+            for instance in config['replica'].get("info", {}):
+                expected_sanitize_task_info_calls.append(
+                    mock.call(mock.ANY))
+                expected_sanitize_task_info_calls.append(
+                    mock.call(replica.info[instance]))
+                create_task_calls.append(mock.call(
+                    instance,
+                    constants.TASK_TYPE_GET_INSTANCE_INFO,
+                    execution))
+                create_task_calls.append(mock.call(
+                    instance,
+                    constants.TASK_TYPE_UPDATE_SOURCE_REPLICA,
+                    execution))
+                create_task_calls.append(mock.call(
+                    instance,
+                    constants.TASK_TYPE_UPDATE_DESTINATION_REPLICA,
+                    execution,
+                    depends_on=mock.ANY))
+                update_transfer_action_info_for_instance_calls.append(
+                    mock.call(
+                        mock.sentinel.context,
+                        replica.id,
+                        instance,
+                        replica.info[instance])
+                )
+            mock_sanitize_task_info.assert_has_calls(
+                expected_sanitize_task_info_calls)
+            mock_create_task.assert_has_calls(create_task_calls)
+            mock_update_transfer_action_info_for_instance.assert_has_calls(
+                update_transfer_action_info_for_instance_calls)
+
+    @mock.patch.object(server.ConductorServerEndpoint, "get_region")
+    @mock.patch.object(db_api, "add_region")
+    @mock.patch.object(models, "Region")
+    def test_create_region(
+        self,
+        mock_Region,
+        mock_add_region,
+        mock_get_region
+    ):
+        result = self.server.create_region(
+            mock.sentinel.context,
+            mock.sentinel.region_name,
+            description=mock.sentinel.description,
+            enabled=True
+        )
+
+        self.assertEqual(
+            mock_get_region.return_value,
+            result
+        )
+        self.assertEqual(
+            (
+                mock_Region.return_value.name,
+                mock_Region.return_value.description,
+                mock_Region.return_value.enabled
+            ),
+            (
+                mock.sentinel.region_name,
+                mock.sentinel.description,
+                True
+            )
+        )
+        mock_Region.assert_called_once()
+        mock_add_region.assert_called_once_with(
+            mock.sentinel.context,
+            mock_Region.return_value
+        )
+        mock_get_region.assert_called_once_with(
+            mock.sentinel.context,
+            mock_Region.return_value.id
+        )
+
+    @mock.patch.object(db_api, "get_regions")
+    def test_get_regions(self, mock_get_regions):
+        result = self.server.get_regions(mock.sentinel.context)
+
+        self.assertEqual(
+            mock_get_regions.return_value,
+            result
+        )
+        mock_get_regions.assert_called_once_with(mock.sentinel.context)
+
+    @mock.patch.object(db_api, "get_region")
+    def test_get_region(self, mock_get_region):
+        result = testutils.get_wrapped_function(
+            self.server.get_region)(
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.region_id
+        )
+
+        self.assertEqual(
+            mock_get_region.return_value,
+            result
+        )
+        mock_get_region.assert_called_once_with(
+            mock.sentinel.context, mock.sentinel.region_id)
+
+        mock_get_region.reset_mock()
+        mock_get_region.return_value = None
+        self.assertRaises(
+            exception.NotFound,
+            testutils.get_wrapped_function(self.server.get_region),
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.region_id,
+        )
+        mock_get_region.assert_called_once_with(
+            mock.sentinel.context, mock.sentinel.region_id)
+
+    @mock.patch.object(db_api, "get_region")
+    @mock.patch.object(db_api, "update_region")
+    def test_update_region(
+        self,
+        mock_update_region,
+        mock_get_region
+    ):
+        result = testutils.get_wrapped_function(
+            self.server.update_region)(
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.region_id,
+            mock.sentinel.updated_values
+        )
+
+        self.assertEqual(
+            mock_get_region.return_value,
+            result
+        )
+        mock_update_region.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.region_id,
+            mock.sentinel.updated_values
+        )
+        mock_get_region.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.region_id
+        )
+
+    @mock.patch.object(db_api, "delete_region")
+    def test_delete_region(self, mock_delete_region):
+        testutils.get_wrapped_function(self.server.delete_region)(
+            self.server, mock.sentinel.context, mock.sentinel.region_id)
+
+        mock_delete_region.assert_called_once_with(
+            mock.sentinel.context, mock.sentinel.region_id)
+
+    @mock.patch.object(rpc_worker_client.WorkerClient, "get_service_status")
+    @mock.patch.object(db_api, "delete_service")
+    @mock.patch.object(db_api, "update_service")
+    @mock.patch.object(server.ConductorServerEndpoint, "get_service")
+    @mock.patch.object(db_api, "add_service")
+    @mock.patch.object(models, "Service")
+    @mock.patch.object(db_api, "find_service")
+    def test_register_service(
+        self,
+        mock_find_service,
+        mock_Service,
+        mock_add_service,
+        mock_get_service,
+        mock_update_service,
+        mock_delete_service,
+        mock_get_service_status
+    ):
+        self.assertRaises(
+            exception.Conflict,
+            self.server.register_service,
+            mock.sentinel.context,
+            mock.sentinel.host,
+            mock.sentinel.binary,
+            mock.sentinel.topic,
+            mock.sentinel.enabled,
+            mapped_regions=mock.sentinel.mapped_regions,
+            providers=mock.sentinel.providers,
+            specs=mock.sentinel.specs
+        )
+
+        mock_find_service.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.host,
+            mock.sentinel.binary,
+            topic=mock.sentinel.topic
+        )
+
+        mock_find_service.reset_mock()
+        mock_find_service.return_value = None
+
+        result = self.server.register_service(
+            mock.sentinel.context,
+            mock.sentinel.host,
+            mock.sentinel.binary,
+            mock.sentinel.topic,
+            mock.sentinel.enabled,
+            mapped_regions=mock.sentinel.mapped_regions,
+            providers=mock.sentinel.providers,
+            specs=mock.sentinel.specs
+        )
+
+        self.assertEqual(
+            mock_get_service.return_value,
+            result
+        )
+        self.assertEqual(
+            (
+                mock_Service.return_value.host,
+                mock_Service.return_value.binary,
+                mock_Service.return_value.topic,
+                mock_Service.return_value.enabled,
+                mock_Service.return_value.providers,
+                mock_Service.return_value.specs
+            ),
+            (
+                mock.sentinel.host,
+                mock.sentinel.binary,
+                mock.sentinel.topic,
+                mock.sentinel.enabled,
+                mock.sentinel.providers,
+                mock.sentinel.specs
+            )
+        )
+        mock_find_service.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.host,
+            mock.sentinel.binary,
+            topic=mock.sentinel.topic
+        )
+        mock_Service.assert_called_once()
+        mock_add_service.assert_called_once_with(
+            mock.sentinel.context,
+            mock_Service.return_value
+        )
+        mock_get_service_status.assert_not_called()
+        mock_update_service.assert_called_once_with(
+            mock.sentinel.context,
+            mock_Service.return_value.id,
+            {"mapped_regions": mock.sentinel.mapped_regions}
+        )
+        mock_delete_service.assert_not_called()
+        mock_get_service.assert_called_once_with(
+            mock.sentinel.context,
+            mock_Service.return_value.id
+        )
+
+        mock_add_service.reset_mock()
+        mock_get_service.reset_mock()
+        mock_update_service.reset_mock()
+        mock_update_service.side_effect = CoriolisTestException()
+        self.assertRaises(
+            CoriolisTestException,
+            self.server.register_service,
+            mock.sentinel.context,
+            mock.sentinel.host,
+            mock.sentinel.binary,
+            mock.sentinel.topic,
+            mock.sentinel.enabled,
+            mapped_regions=mock.sentinel.mapped_regions,
+            providers=None,
+            specs=None
+        )
+        self.assertEqual(
+            (
+                mock_Service.return_value.providers,
+                mock_Service.return_value.specs
+            ),
+            (
+                mock_get_service_status.return_value["providers"],
+                mock_get_service_status.return_value["specs"]
+            )
+        )
+        mock_add_service.assert_called_once_with(
+            mock.sentinel.context,
+            mock_Service.return_value
+        )
+        mock_get_service_status.assert_called_once_with(
+            mock.sentinel.context)
+        mock_update_service.assert_called_once_with(
+            mock.sentinel.context,
+            mock_Service.return_value.id,
+            {"mapped_regions": mock.sentinel.mapped_regions}
+        )
+        mock_delete_service.assert_called_once_with(
+            mock.sentinel.context,
+            mock_Service.return_value.id
+        )
+        mock_get_service.assert_not_called()
+
+    @mock.patch.object(db_api, "find_service")
+    def test_check_service_registered(self, mock_find_service):
+        result = self.server.check_service_registered(
+            mock.sentinel.context,
+            mock.sentinel.host,
+            mock.sentinel.binary,
+            mock.sentinel.topic
+        )
+
+        self.assertEqual(
+            mock_find_service.return_value,
+            result
+        )
+        mock_find_service.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.host,
+            mock.sentinel.binary,
+            topic=mock.sentinel.topic
+        )
+
+    @mock.patch.object(db_api, "find_service")
+    def test_check_service_registered_no_service(self, mock_find_service):
+        mock_find_service.return_value = None
+        result = self.server.check_service_registered(
+            mock.sentinel.context,
+            mock.sentinel.host,
+            mock.sentinel.binary,
+            mock.sentinel.topic
+        )
+
+        self.assertEqual(
+            None,
+            result
+        )
+        mock_find_service.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.host,
+            mock.sentinel.binary,
+            topic=mock.sentinel.topic
+        )
+
+    @mock.patch.object(db_api, "update_service")
+    @mock.patch.object(rpc_worker_client.WorkerClient, "get_service_status")
+    @mock.patch.object(db_api, "get_service")
+    def test_refresh_service_status(
+        self,
+        mock_get_service,
+        mock_get_service_status,
+        mock_update_service
+    ):
+        result = testutils.get_wrapped_function(
+            self.server.refresh_service_status)(
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.service_id,
+        )
+        self.assertEqual(
+            mock_get_service.return_value,
+            result
+        )
+        mock_get_service.has_calls([
+            mock.call(
+                mock.sentinel.context,
+                mock.sentinel.service_id
+            ) * 2
+        ])
+        mock_get_service_status.assert_called_once_with(
+            mock.sentinel.context)
+        mock_update_service.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.service_id,
+            {
+                "providers": mock_get_service_status.return_value["providers"],
+                "specs": mock_get_service_status.return_value["specs"],
+                "status": constants.SERVICE_STATUS_UP
+            }
+        )
+
+    @mock.patch.object(db_api, "get_services")
+    def test_get_services(self, mock_get_services):
+        result = self.server.get_services(mock.sentinel.context)
+
+        self.assertEqual(
+            mock_get_services.return_value,
+            result
+        )
+        mock_get_services.assert_called_once_with(mock.sentinel.context)
+
+    @mock.patch.object(db_api, "get_service")
+    def test_get_service(self, mock_get_service):
+        result = testutils.get_wrapped_function(
+            self.server.get_service)(
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.service_id
+        )
+
+        self.assertEqual(
+            mock_get_service.return_value,
+            result
+        )
+        mock_get_service.assert_called_once_with(
+            mock.sentinel.context, mock.sentinel.service_id)
+
+        mock_get_service.reset_mock()
+        mock_get_service.return_value = None
+        self.assertRaises(
+            exception.NotFound,
+            testutils.get_wrapped_function(self.server.get_service),
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.service_id,
+        )
+        mock_get_service.assert_called_once_with(
+            mock.sentinel.context, mock.sentinel.service_id)
+
+    @mock.patch.object(db_api, "delete_service")
+    def test_delete_service(self, mock_delete_service):
+        testutils.get_wrapped_function(self.server.delete_service)(
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.service_id
+        )
+
+        mock_delete_service.assert_called_once_with(
+            mock.sentinel.context, mock.sentinel.service_id)
+
+    @mock.patch.object(db_api, "get_service")
+    @mock.patch.object(db_api, "update_service")
+    def test_update_service(
+        self,
+        mock_update_service,
+        mock_get_service
+    ):
+        result = testutils.get_wrapped_function(
+            self.server.update_service)(
+            self.server,
+            mock.sentinel.context,
+            mock.sentinel.service_id,
+            mock.sentinel.updated_values
+        )
+
+        self.assertEqual(
+            mock_get_service.return_value,
+            result
+        )
+        mock_update_service.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.service_id,
+            mock.sentinel.updated_values
+        )
+        mock_get_service.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.service_id
         )
 
     @mock.patch.object(cfg.CONF, "conductor")

@@ -1704,7 +1704,7 @@ class ConductorServerEndpoint(object):
         awaiting_minions_status = (
             constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS)
         if migration.last_execution_status != awaiting_minions_status:
-            raise exception.InvalidReplicaState(
+            raise exception.InvalidMigrationState(
                 "Migration is in '%s' status instead of the expected '%s' to "
                 "have minion machines allocations fail for it." % (
                     migration.last_execution_status, awaiting_minions_status))
@@ -3291,19 +3291,16 @@ class ConductorServerEndpoint(object):
                 "NOT altering state of finalized task '%s' ('%s') following "
                 "confirmation of cancellation. Updating its exception "
                 "details though: %s", task.id, task.status, exception_details)
-            db_api.set_task_status(
-                ctxt, task.id, final_status,
-                exception_details=exception_details)
         else:
             LOG.info(
                 "Transitioning canceled task '%s' from '%s' to '%s' following "
                 "confirmation of its cancellation.",
                 task.id, task.status, final_status)
-            db_api.set_task_status(
-                ctxt, task.id, final_status,
-                exception_details=exception_details)
             execution = db_api.get_tasks_execution(ctxt, task.execution_id)
             self._advance_execution_state(ctxt, execution, requery=False)
+        db_api.set_task_status(
+            ctxt, task.id, final_status,
+            exception_details=exception_details)
 
     @parent_tasks_execution_synchronized
     def set_task_error(self, ctxt, task_id, exception_details):
