@@ -166,7 +166,7 @@ class Client(object):
 
     @utils.retry_on_error()
     def get_status(self, device=None, brief=True):
-        uri = "%s/api/v1/dev/" % (self._base_uri)
+        uri = "%s/api/v1/dev" % (self._base_uri)
         if device is not None:
             uri = "%s/%s/" % (uri, device)
         params = {
