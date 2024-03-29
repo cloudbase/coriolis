@@ -129,7 +129,6 @@ class Client(object):
         it simply creates the object, without actually connecting.
         """
         remote_host = self._ssh_conn_info["hostname"]
-        remote_port = self._ssh_conn_info["port"]
         remote_user = self._ssh_conn_info["username"]
         local_host = "127.0.0.1"
         remote_port = self._ssh_conn_info.get("port", 22)
