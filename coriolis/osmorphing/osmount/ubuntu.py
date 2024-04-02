@@ -17,8 +17,24 @@ class UbuntuOSMountTools(base.BaseLinuxOSMountTools):
 
     def setup(self):
         super(UbuntuOSMountTools, self).setup()
-        self._exec_cmd("sudo -E apt-get update -y")
-        self._exec_cmd("sudo -E apt-get install lvm2 psmisc -y")
+
+        # NOTE(aznashwan): it's possible that if the Ubuntu minion has
+        # unattended automatic upgrades enabled, the package list
+        # locks (/var/lib/apt/lists/lock*) may be held because
+        # another package list refresh is happening.
+        # Apart from relying on possibly not-yet-installed tools like `fuser`,
+        # or checking every /proc/*/fd ourselves, we simply retry it:
+        retry_ssh_cmd = utils.retry_on_error(
+            max_attempts=10, sleep_seconds=30)(self._exec_cmd)
+        retry_ssh_cmd("sudo -E apt-get update -y")
+
+        # NOTE(aznashwan): in case an unattended upgrade is already happening
+        # and is at the package installation stage (in which case the
+        # /var/lib/dpkg/* locks will be held), we pass a 10-minute timeout:
+        self._exec_cmd(
+            "sudo -E apt-get -o DPkg::Lock::Timeout=600 "
+            "install lvm2 psmisc -y")
+
         self._exec_cmd("sudo modprobe dm-mod")
 
     def _allow_ssh_env_vars(self):
