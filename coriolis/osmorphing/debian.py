@@ -147,6 +147,14 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
 
     def install_packages(self, package_names):
         try:
+            # NOTE(aznashwan): in the rare event that a replica sync occurs
+            # while the source machine was midway through installing or
+            # configuring a package, forcing it to retain old conf files
+            # which were previously modified on the source machine.
+            deb_reconfigure_cmd = (
+                "dpkg --configure --force-confold -a")
+            self._exec_cmd_chroot(deb_reconfigure_cmd)
+
             apt_get_cmd = (
                 '/bin/bash -c "DEBIAN_FRONTEND=noninteractive '
                 'apt-get install %s -y '
