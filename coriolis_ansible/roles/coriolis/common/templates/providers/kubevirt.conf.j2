@@ -1,0 +1,46 @@
+[kubevirt_migration_provider]
+# Default storage class to use
+# default_storage_class =
+# Default snapshot storage class to use
+# snapshot_storage_class =
+# The OS migration image map to use. This mapping will be used to spin up the OSMorphing worker
+migr_image_map = linux: quay.io/containerdisks/ubuntu:22.04, windows:
+# Namespace in which migrations should happen
+namespace = default
+# The maximum number of CPU cores to allocate to instances. This is a hard cap to default to when
+# migrating huge instances.
+# max_cpu_cores =
+# The maximum memory to allocate to instances. This is a hard cap to default to when migrating huge
+# instances.
+# max_memory_mb =
+# On some storage backends, restoring PVCs from snapshots do not work as intended, therefore, for
+# migrations, volume snapshots can be disabled by enabling this option.
+disable_volume_snapshots = false
+# VM network used to deploy the worker VM on. Must be reachable by the Coriolis appliance. If multiple
+# networks are not supported, the default pod network is used.
+# migr_network =
+# What mechanism to use when sending disk data from the Coriolis installation to the temporary VMs on
+# the target KubeVirt to be written to their respective disk. The HTTPS-based transfer mechanism
+# (TCP/5566) is faster but might not work if there are firewalls in the way. The SSH-based transfer
+# mechanism (TCP/22) is more costly but will be allowed by most firewalls since SSH access from the
+# Coriolis installation to the temporary worker VM is always required. Default is HTTPS.
+data_transfer_mechanism = HTTPS
+# Whether or not Coriolis should reconfigure the Migrated VMs to use DHCP on all network interfaces
+# during the OSMorphing process.
+set_dhcp = true
+# CPU core limit to be set to the worker VMs
+migr_worker_cpu_limit = 2
+# Memory limit (in GiB) to be set to the worker VMs
+migr_worker_memory_limit = 4
+# Location of the virtio-win ISO
+windows_virtio_iso_url = https://github.com/SUSE/vmdp/releases/download/2.5.4.2/VMDP-WIN-2.5.4.2-Community.iso
+# Location of the Cloudbase-Init ZIP for amd64 systems
+cloudbaseinit_x64_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x64.zip
+# Location of the Cloudbase-Init ZIP for x86 systems
+cloudbaseinit_x86_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x86.zip
+# Type of disk device to emulate on the migrated instance. Currently supported values are:
+# virtio, sata, scsi, usb
+disk_bus = virtio
+# Network interface card model to emulate on the migrated instance. Currently supported values
+# are: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio
+nic_model = virtio
