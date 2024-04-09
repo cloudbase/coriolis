@@ -330,6 +330,9 @@ class Replica(BaseTransferAction):
         sqlalchemy.String(36),
         sqlalchemy.ForeignKey(
             'base_transfer_action.base_id'), primary_key=True)
+    scenario = sqlalchemy.Column(
+        sqlalchemy.String(255),
+        default=constants.REPLICA_SCENARIO_REPLICA)
 
     __mapper_args__ = {
         'polymorphic_identity': 'replica',
@@ -339,7 +342,9 @@ class Replica(BaseTransferAction):
         base = super(Replica, self).to_dict(
             include_task_info=include_task_info,
             include_executions=include_executions)
-        base.update({"id": self.id})
+        base.update({
+            "id": self.id,
+            "scenario": self.scenario})
         return base
 
 
@@ -368,9 +373,13 @@ class Migration(BaseTransferAction):
         base = super(Migration, self).to_dict(
             include_task_info=include_task_info,
             include_executions=include_tasks)
+        replica_scenario_type = None
+        if self.replica:
+            replica_scenario_type = self.replica.scenario
         base.update({
             "id": self.id,
             "replica_id": self.replica_id,
+            "replica_scenario_type": replica_scenario_type,
             "shutdown_instances": self.shutdown_instances,
             "replication_count": self.replication_count,
         })
