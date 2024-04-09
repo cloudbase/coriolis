@@ -159,7 +159,9 @@ class ConductorClient(rpc.BaseRPCClient):
             ctxt, 'cancel_replica_tasks_execution', replica_id=replica_id,
             execution_id=execution_id, force=force)
 
-    def create_instances_replica(self, ctxt, origin_endpoint_id,
+    def create_instances_replica(self, ctxt,
+                                 replica_scenario,
+                                 origin_endpoint_id,
                                  destination_endpoint_id,
                                  origin_minion_pool_id,
                                  destination_minion_pool_id,
@@ -169,6 +171,7 @@ class ConductorClient(rpc.BaseRPCClient):
                                  notes=None, user_scripts=None):
         return self._call(
             ctxt, 'create_instances_replica',
+            replica_scenario=replica_scenario,
             origin_endpoint_id=origin_endpoint_id,
             destination_endpoint_id=destination_endpoint_id,
             origin_minion_pool_id=origin_minion_pool_id,
@@ -212,6 +215,17 @@ class ConductorClient(rpc.BaseRPCClient):
     def get_migration(self, ctxt, migration_id, include_task_info=False):
         return self._call(
             ctxt, 'get_migration', migration_id=migration_id,
+            include_task_info=include_task_info)
+
+    def get_deployments(self, ctxt, include_tasks=False,
+                        include_task_info=False):
+        return self._call(
+            ctxt, 'get_deployments', include_tasks=include_tasks,
+            include_task_info=include_task_info)
+
+    def get_deployment(self, ctxt, deployment_id, include_task_info=False):
+        return self._call(
+            ctxt, 'get_deployment', deployment_id=deployment_id,
             include_task_info=include_task_info)
 
     def migrate_instances(self, ctxt, origin_endpoint_id,
@@ -261,6 +275,14 @@ class ConductorClient(rpc.BaseRPCClient):
     def cancel_migration(self, ctxt, migration_id, force):
         self._call(
             ctxt, 'cancel_migration', migration_id=migration_id, force=force)
+
+    def delete_deployment(self, ctxt, deployment_id):
+        self._call(
+            ctxt, 'delete_deployment', deployment_id=deployment_id)
+
+    def cancel_deployment(self, ctxt, deployment_id, force):
+        self._call(
+            ctxt, 'cancel_deployment', deployment_id=deployment_id, force=force)
 
     def set_task_host(self, ctxt, task_id, host):
         self._call(
@@ -460,7 +482,7 @@ class ConductorTaskRpcEventHandler(events.BaseEventHandler):
         return self._rpc_conductor_client_instance
 
     @classmethod
-    def get_progress_update_identifier(self, progress_update):
+    def get_progress_update_identifier(cls, progress_update):
         return progress_update['index']
 
     def add_progress_update(

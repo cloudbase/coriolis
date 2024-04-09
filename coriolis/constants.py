@@ -307,6 +307,8 @@ TASKFLOW_LOCK_NAME_FORMAT = "taskflow-%s"
 EXECUTION_LOCK_NAME_FORMAT = "execution-%s"
 ENDPOINT_LOCK_NAME_FORMAT = "endpoint-%s"
 MIGRATION_LOCK_NAME_FORMAT = "migration-%s"
+# NOTE(aznashwan): intentionately left identical to Migration locks.
+DEPLOYMENT_LOCK_NAME_FORMAT = "migration-%s"
 REPLICA_LOCK_NAME_FORMAT = "replica-%s"
 SCHEDULE_LOCK_NAME_FORMAT = "schedule-%s"
 REGION_LOCK_NAME_FORMAT = "region-%s"

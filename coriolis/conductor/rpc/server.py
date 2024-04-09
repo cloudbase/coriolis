@@ -123,6 +123,18 @@ def migration_synchronized(func):
     return wrapper
 
 
+def deployment_synchronized(func):
+    @functools.wraps(func)
+    def wrapper(self, ctxt, deployment_id, *args, **kwargs):
+        @lockutils.synchronized(
+            constants.DEPLOYMENT_LOCK_NAME_FORMAT % deployment_id,
+            external=True)
+        def inner():
+            return func(self, ctxt, deployment_id, *args, **kwargs)
+        return inner()
+    return wrapper
+
+
 def tasks_execution_synchronized(func):
     @functools.wraps(func)
     def wrapper(self, ctxt, replica_id, execution_id, *args, **kwargs):
@@ -1097,6 +1109,12 @@ class ConductorServerEndpoint(object):
     def delete_replica(self, ctxt, replica_id):
         replica = self._get_replica(ctxt, replica_id)
         self._check_replica_running_executions(ctxt, replica)
+        # TODO(aznashwan): update reservation deletion logic if
+        # the Replica was never successfully deployed and its
+        # disks were deleted.
+        # This might not be possible if its executions were deleted,
+        # but might be possible to set the new 'fulfilled' field within
+        # the reservation on the licensing server after a successful execution.
         self._check_delete_reservation_for_transfer(replica)
         db_api.delete_replica(ctxt, replica_id)
 
@@ -1165,7 +1183,8 @@ class ConductorServerEndpoint(object):
                 destination_endpoint.connection_info)):
             raise exception.SameDestination()
 
-    def create_instances_replica(self, ctxt, origin_endpoint_id,
+    def create_instances_replica(self, ctxt, replica_scenario,
+                                 origin_endpoint_id,
                                  destination_endpoint_id,
                                  origin_minion_pool_id,
                                  destination_minion_pool_id,
@@ -1174,6 +1193,14 @@ class ConductorServerEndpoint(object):
                                  destination_environment, instances,
                                  network_map, storage_mappings, notes=None,
                                  user_scripts=None):
+        supported_scenarios = [
+            constants.REPLICA_SCENARIO_REPLICA,
+            constants.REPLICA_SCENARIO_LIVE_MIGRATION]
+        if replica_scenario not in supported_scenarios:
+            raise exception.InvalidInput(
+                message=f"Unsupported Replica scenario '{replica_scenario}'. "
+                        f"Must be one of: {supported_scenarios}")
+
         origin_endpoint = self.get_endpoint(ctxt, origin_endpoint_id)
         destination_endpoint = self.get_endpoint(
             ctxt, destination_endpoint_id)
@@ -1182,6 +1209,7 @@ class ConductorServerEndpoint(object):
         replica = models.Replica()
         replica.id = str(uuid.uuid4())
         replica.base_id = replica.id
+        replica.scenario = replica_scenario
         replica.origin_endpoint_id = origin_endpoint_id
         replica.origin_minion_pool_id = origin_minion_pool_id
         replica.destination_endpoint_id = destination_endpoint_id
@@ -1202,6 +1230,8 @@ class ConductorServerEndpoint(object):
 
         self._check_minion_pools_for_action(ctxt, replica)
 
+        # TODO(aznashwan): add scenario-appropriate steps for
+        # defining the Replica reservation:
         self._check_create_reservation_for_transfer(
             replica, licensing_client.RESERVATION_TYPE_REPLICA)
 
@@ -1230,6 +1260,20 @@ class ConductorServerEndpoint(object):
     def get_migration(self, ctxt, migration_id, include_task_info=False):
         return self._get_migration(
             ctxt, migration_id, include_task_info=include_task_info,
+            to_dict=True)
+
+    def get_deployments(self, ctxt, include_tasks,
+                        include_task_info=False):
+        return db_api.get_migrations(
+            ctxt, include_tasks,
+            include_task_info=include_task_info,
+            replica_migrations_only=True,
+            to_dict=True)
+
+    @deployment_synchronized
+    def get_deployment(self, ctxt, deployment_id, include_task_info=False):
+        return self._get_migration(
+            ctxt, deployment_id, include_task_info=include_task_info,
             to_dict=True)
 
     @staticmethod
@@ -2125,8 +2169,7 @@ class ConductorServerEndpoint(object):
                 "Migration with ID '%s' not found." % migration_id)
         return migration
 
-    @migration_synchronized
-    def delete_migration(self, ctxt, migration_id):
+    def _delete_migration(self, ctxt, migration_id):
         migration = self._get_migration(ctxt, migration_id)
         execution = migration.executions[0]
         if execution.status in constants.ACTIVE_EXECUTION_STATUSES:
@@ -2136,7 +2179,14 @@ class ConductorServerEndpoint(object):
         db_api.delete_migration(ctxt, migration_id)
 
     @migration_synchronized
-    def cancel_migration(self, ctxt, migration_id, force):
+    def delete_migration(self, ctxt, migration_id):
+        self._delete_migration(ctxt, migration_id)
+
+    @deployment_synchronized
+    def delete_deployment(self, ctxt, deployment_id):
+        self._delete_migration(ctxt, deployment_id)
+
+    def _cancel_migration(self, ctxt, migration_id, force):
         migration = self._get_migration(ctxt, migration_id)
         if len(migration.executions) != 1:
             raise exception.InvalidMigrationState(
@@ -2156,6 +2206,14 @@ class ConductorServerEndpoint(object):
                 constants.EXECUTION_LOCK_NAME_FORMAT % execution.id,
                 external=True):
             self._cancel_tasks_execution(ctxt, execution, force=force)
+
+    @migration_synchronized
+    def cancel_migration(self, ctxt, migration_id, force):
+        self._cancel_migration(ctxt, migration_id, force)
+
+    @deployment_synchronized
+    def cancel_deployment(self, ctxt, deployment_id, force):
+        self._cancel_migration(ctxt, deployment_id, force)
 
     def _cancel_tasks_execution(
             self, ctxt, execution, requery=True, force=False):
