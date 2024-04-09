@@ -15,6 +15,7 @@ from sqlalchemy import orm
 from sqlalchemy.sql import null
 
 from coriolis.db.sqlalchemy import models
+from coriolis import constants
 from coriolis import exception
 from coriolis import utils
 
@@ -424,6 +425,7 @@ def _get_replica_with_tasks_executions_options(q):
 
 @enginefacade.reader
 def get_replicas(context,
+                 replica_scenario=None,
                  include_tasks_executions=False,
                  include_task_info=False,
                  to_dict=False):
@@ -433,6 +435,8 @@ def get_replicas(context,
     if include_task_info:
         q = q.options(orm.undefer('info'))
     q = q.filter()
+    if replica_scenario:
+        q.filter(models.Replica.scenario == replica_scenario)
     if is_user_context(context):
         q = q.filter(
             models.Replica.project_id == context.project_id)
@@ -447,11 +451,17 @@ def get_replicas(context,
 
 
 @enginefacade.reader
-def get_replica(context, replica_id, include_task_info=False, to_dict=False):
+def get_replica(context, replica_id,
+                replica_scenario=None,
+                include_task_info=False,
+                to_dict=False):
     q = _soft_delete_aware_query(context, models.Replica)
     q = _get_replica_with_tasks_executions_options(q)
     if include_task_info:
         q = q.options(orm.undefer('info'))
+    if replica_scenario:
+        q = q.filter(
+            models.Replica.scenario == replica_scenario)
     if is_user_context(context):
         q = q.filter(
             models.Replica.project_id == context.project_id)
@@ -465,12 +475,20 @@ def get_replica(context, replica_id, include_task_info=False, to_dict=False):
 
 
 @enginefacade.reader
-def get_endpoint_replicas_count(context, endpoint_id):
+def get_endpoint_replicas_count(
+        context, endpoint_id, replica_scenario=None):
+
+    scenario_filter_kwargs = {}
+    if replica_scenario:
+        scenario_filter_kwargs = {"scenario": replica_scenario}
+
     origin_args = {'origin_endpoint_id': endpoint_id}
+    origin_args.update(scenario_filter_kwargs)
     q_origin_count = _soft_delete_aware_query(
         context, models.Replica).filter_by(**origin_args).count()
 
     destination_args = {'destination_endpoint_id': endpoint_id}
+    destination_args.update(scenario_filter_kwargs)
     q_destination_count = _soft_delete_aware_query(
         context, models.Replica).filter_by(**destination_args).count()
 
@@ -516,8 +534,11 @@ def get_replica_migrations(context, replica_id):
 
 
 @enginefacade.reader
-def get_migrations(context, include_tasks=False,
-                   include_task_info=False, to_dict=False):
+def get_migrations(context,
+                   include_tasks=False,
+                   include_task_info=False,
+                   to_dict=False,
+                   replica_migrations_only=False):
     q = _soft_delete_aware_query(context, models.Migration)
     if include_tasks:
         q = _get_migration_task_query_options(q)
@@ -525,6 +546,9 @@ def get_migrations(context, include_tasks=False,
         q = q.options(orm.joinedload("executions"))
     if include_task_info:
         q = q.options(orm.undefer('info'))
+
+    if replica_migrations_only:
+        q.filter(models.Migration.replica_id != None)
 
     args = {}
     if is_user_context(context):
