@@ -7,7 +7,7 @@ from coriolis.api import wsgi as api_wsgi
 from coriolis.endpoints import api as endpoints_api
 from coriolis import exception
 from coriolis.deployments import api
-from coriolis.policies import migrations as migration_policies
+from coriolis.policies import deployments as deployment_policies
 
 from oslo_config import cfg as conf
 from oslo_log import log as logging
@@ -34,8 +34,7 @@ class DeploymentsController(api_wsgi.Controller):
 
     def show(self, req, id):
         context = req.environ["coriolis.context"]
-        # TODO(aznashwan): add policy definitions and checks for deployments:
-        context.can(migration_policies.get_migrations_policy_label("show"))
+        context.can(deployment_policies.get_deployments_policy_label("show"))
         deployment = self._deployment_api.get_deployment(
             context, id,
             include_task_info=CONF.api.include_task_info_in_deployments_api)
@@ -49,8 +48,7 @@ class DeploymentsController(api_wsgi.Controller):
             req.GET.get("show_deleted", None))
         context = req.environ["coriolis.context"]
         context.show_deleted = show_deleted
-        # TODO(aznashwan): add policy definitions and checks for deployments:
-        context.can(migration_policies.get_migrations_policy_label("list"))
+        context.can(deployment_policies.get_deployments_policy_label("list"))
         return deployment_view.collection(
             self._deployment_api.get_deployments(
                 context,
@@ -95,8 +93,7 @@ class DeploymentsController(api_wsgi.Controller):
     def create(self, req, body):
         deployment_body = body.get("deployment", {})
         context = req.environ['coriolis.context']
-        # TODO(aznashwan): add policy definitions and checks for deployments:
-        context.can(migration_policies.get_migrations_policy_label("create"))
+        context.can(deployment_policies.get_deployments_policy_label("create"))
 
         (replica_id, force, clone_disks, skip_os_morphing,
          instance_osmorphing_minion_pool_mappings,
@@ -114,8 +111,7 @@ class DeploymentsController(api_wsgi.Controller):
 
     def delete(self, req, id):
         context = req.environ['coriolis.context']
-        # TODO(aznashwan): add policy definitions and checks for deployments:
-        context.can(migration_policies.get_migrations_policy_label("delete"))
+        context.can(deployment_policies.get_deployments_policy_label("delete"))
         try:
             self._deployment_api.delete(context, id)
             raise exc.HTTPNoContent()
