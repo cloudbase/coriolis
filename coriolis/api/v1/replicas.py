@@ -5,8 +5,9 @@ from coriolis.api.v1 import utils as api_utils
 from coriolis.api.v1.views import replica_tasks_execution_view
 from coriolis.api.v1.views import replica_view
 from coriolis.api import wsgi as api_wsgi
-from coriolis.endpoints import api as endpoints_api
+from coriolis import constants
 from coriolis import exception
+from coriolis.endpoints import api as endpoints_api
 from coriolis.policies import replicas as replica_policies
 from coriolis.replicas import api
 
@@ -24,6 +25,10 @@ CONF = conf.CONF
 CONF.register_opts(REPLICA_API_OPTS, 'api')
 
 LOG = logging.getLogger(__name__)
+
+SUPPORTED_REPLICA_SCENARIOS = [
+    constants.REPLICA_SCENARIO_REPLICA,
+    constants.REPLICA_SCENARIO_LIVE_MIGRATION]
 
 
 class ReplicaController(api_wsgi.Controller):
@@ -65,6 +70,19 @@ class ReplicaController(api_wsgi.Controller):
     @api_utils.format_keyerror_message(resource='replica', method='create')
     def _validate_create_body(self, context, body):
         replica = body["replica"]
+
+        scenario = replica.get("scenario", "")
+        if scenario:
+            if scenario not in SUPPORTED_REPLICA_SCENARIOS:
+                raise exc.HTTPBadRequest(
+                    explanation=f"Unsupported Replica creation scenario "
+                                f"'{scenario}', must be one of: "
+                                f"{SUPPORTED_REPLICA_SCENARIOS}")
+        else:
+            scenario = constants.REPLICA_SCENARIO_REPLICA
+            LOG.warn(
+                "No Replica 'scenario' field set in Replica body, "
+                f"defaulting to: '{scenario}'")
 
         origin_endpoint_id = replica["origin_endpoint_id"]
         destination_endpoint_id = replica["destination_endpoint_id"]
@@ -118,7 +136,7 @@ class ReplicaController(api_wsgi.Controller):
 
         destination_environment['storage_mappings'] = storage_mappings
 
-        return (origin_endpoint_id, destination_endpoint_id,
+        return (scenario, origin_endpoint_id, destination_endpoint_id,
                 source_environment, destination_environment, instances,
                 network_map, storage_mappings, notes,
                 origin_minion_pool_id, destination_minion_pool_id,
@@ -128,7 +146,7 @@ class ReplicaController(api_wsgi.Controller):
         context = req.environ["coriolis.context"]
         context.can(replica_policies.get_replicas_policy_label("create"))
 
-        (origin_endpoint_id, destination_endpoint_id,
+        (scenario, origin_endpoint_id, destination_endpoint_id,
          source_environment, destination_environment, instances, network_map,
          storage_mappings, notes, origin_minion_pool_id,
          destination_minion_pool_id,
@@ -136,7 +154,7 @@ class ReplicaController(api_wsgi.Controller):
             self._validate_create_body(context, body))
 
         return replica_view.single(self._replica_api.create(
-            context, origin_endpoint_id, destination_endpoint_id,
+            context, scenario, origin_endpoint_id, destination_endpoint_id,
             origin_minion_pool_id, destination_minion_pool_id,
             instance_osmorphing_minion_pool_mappings, source_environment,
             destination_environment, instances, network_map,
@@ -288,8 +306,15 @@ class ReplicaController(api_wsgi.Controller):
 
     @api_utils.format_keyerror_message(resource='replica', method='update')
     def _validate_update_body(self, id, context, body):
-
         replica = self._replica_api.get_replica(context, id)
+
+        scenario = body.get("scenario", "")
+        if scenario and scenario != replica["scenario"]:
+            raise exc.HTTPBadRequest(
+                explanation=f"Changing Replica creation scenario is not "
+                            f"supported (original scenario is "
+                            f"{replica['scenario']}, received '{scenario}')")
+
         replica_body = body['replica']
         origin_endpoint_id = replica_body.get('origin_endpoint_id', None)
         destination_endpoint_id = replica_body.get(
