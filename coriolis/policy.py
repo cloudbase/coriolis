@@ -9,6 +9,7 @@ from oslo_policy import policy
 
 from coriolis import exception
 from coriolis.policies import base
+from coriolis.policies import deployments
 from coriolis.policies import diagnostics
 from coriolis.policies import endpoints
 from coriolis.policies import general
@@ -28,8 +29,9 @@ CONF = conf.CONF
 _ENFORCER = None
 
 DEFAULT_POLICIES_MODULES = [
-    base, endpoints, general, migrations, replicas, replica_schedules,
-    replica_tasks_executions, diagnostics, regions, services, minion_pools]
+    base, deployments, endpoints, general, migrations, replicas,
+    replica_schedules, replica_tasks_executions, diagnostics, regions,
+    services, minion_pools]
 
 
 def reset():

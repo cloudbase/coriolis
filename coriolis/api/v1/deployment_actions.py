@@ -4,7 +4,7 @@
 from coriolis.api import wsgi as api_wsgi
 from coriolis import exception
 from coriolis.deployments import api
-from coriolis.policies import migrations as migration_policies
+from coriolis.policies import deployments as deployment_policies
 
 from webob import exc
 
@@ -17,8 +17,7 @@ class DeploymentActionsController(api_wsgi.Controller):
     @api_wsgi.action('cancel')
     def _cancel(self, req, id, body):
         context = req.environ['coriolis.context']
-        # TODO(aznashwan): add policy definitions and checks for deployments:
-        context.can(migration_policies.get_migrations_policy_label("cancel"))
+        context.can(deployment_policies.get_deployments_policy_label("cancel"))
         try:
             force = (body["cancel"] or {}).get("force", False)
 
