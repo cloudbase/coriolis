@@ -8,13 +8,15 @@ class API(object):
     def __init__(self):
         self._rpc_client = rpc_client.ConductorClient()
 
-    def create(self, ctxt, origin_endpoint_id, destination_endpoint_id,
+    def create(self, ctxt, replica_scenario,
+               origin_endpoint_id, destination_endpoint_id,
                origin_minion_pool_id, destination_minion_pool_id,
                instance_osmorphing_minion_pool_mappings,
                source_environment, destination_environment, instances,
                network_map, storage_mappings, notes=None, user_scripts=None):
         return self._rpc_client.create_instances_replica(
-            ctxt, origin_endpoint_id, destination_endpoint_id,
+            ctxt, replica_scenario,
+            origin_endpoint_id, destination_endpoint_id,
             origin_minion_pool_id, destination_minion_pool_id,
             instance_osmorphing_minion_pool_mappings,
             source_environment, destination_environment, instances,
