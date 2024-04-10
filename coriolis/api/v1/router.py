@@ -5,6 +5,8 @@ from oslo_log import log as logging
 
 from coriolis import api
 from coriolis.api.v1 import diagnostics
+from coriolis.api.v1 import deployments
+from coriolis.api.v1 import deployment_actions
 from coriolis.api.v1 import endpoint_actions
 from coriolis.api.v1 import endpoint_destination_minion_pool_options
 from coriolis.api.v1 import endpoint_destination_options
@@ -151,6 +153,21 @@ class APIRouter(api.APIRouter):
         mapper.connect('migration_actions',
                        migration_path + '/actions',
                        controller=self.resources['migration_actions'],
+                       action='action',
+                       conditions={'method': 'POST'})
+
+        self.resources['deployments'] = deployments.create_resource()
+        mapper.resource('deployment', 'deployments',
+                        controller=self.resources['deployments'],
+                        collection={'detail': 'GET'},
+                        member={'action': 'POST'})
+
+        deployments_actions_resource = deployment_actions.create_resource()
+        self.resources['deployment_actions'] = deployments_actions_resource
+        deployment_path  = '/{project_id}/deployment/{id}'
+        mapper.connect('deployment_actions',
+                       deployment_path + '/actions',
+                       controller=self.resources['deployment_actions'],
                        action='action',
                        conditions={'method': 'POST'})
 
