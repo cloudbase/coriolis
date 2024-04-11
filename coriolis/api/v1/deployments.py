@@ -91,14 +91,13 @@ class DeploymentsController(api_wsgi.Controller):
 
 
     def create(self, req, body):
-        deployment_body = body.get("deployment", {})
         context = req.environ['coriolis.context']
         context.can(deployment_policies.get_deployments_policy_label("create"))
 
         (replica_id, force, clone_disks, skip_os_morphing,
          instance_osmorphing_minion_pool_mappings,
           user_scripts) = self._validate_deployment_input(
-            context, deployment_body)
+            context, body)
 
         # NOTE: destination environment for replica should have been
         # validated upon its creation.
