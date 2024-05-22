@@ -243,7 +243,7 @@ class BaseDebianMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         apt_get_cmd = (
             '/bin/bash -c "DEBIAN_FRONTEND=noninteractive '
             'apt-get install %s -y '
-            '-o Dpkg::Option::=\'--force-confdef\'"' % (
+            '-o Dpkg::Options::=\'--force-confdef\'"' % (
                 " ".join(self.package_names)))
         deb_reconfigure_cmd = "dpkg --configure --force-confold -a"
 
