@@ -69,7 +69,8 @@ def upgrade(migrate_engine):
                 'minion_max_idle_time', sqlalchemy.Integer, nullable=False),
             sqlalchemy.Column(
                 'minion_retention_strategy', sqlalchemy.String(255),
-                nullable=False)))
+                nullable=False,
+            mysql_engine='InnoDB', mysql_charset='utf8'))
 
     # declare minion machine table:
     tables.append(
@@ -106,7 +107,8 @@ def upgrade(migrate_engine):
                 nullable=True),
             sqlalchemy.Column(
                 'provider_properties', sqlalchemy.Text,
-                nullable=True)))
+                nullable=True),
+            mysql_engine='InnoDB', mysql_charset='utf8'))
 
     tables.append(sqlalchemy.Table(
         'minion_pool_event', meta,
