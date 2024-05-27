@@ -10,3 +10,4 @@ python-barbicanclient
 #we need to pin openstack client and sdk to be supported by ansible 7
 python-openstackclient<=6.0.0
 openstacksdk<=0.61.0
+requests<2.32.0
