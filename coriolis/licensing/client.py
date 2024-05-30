@@ -214,6 +214,12 @@ class LicensingClient(object):
             "/reservations/%s/refresh" % reservation_id, None,
             response_key="reservation")
 
+    def mark_reservation_fulfilled(self, reservation_id):
+        """ Marks the given reservation as fulfilled. """
+        return self._post(
+            "/reservations/%s/fulfill" % reservation_id, None,
+            response_key="reservation")
+
     def delete_reservation(self, reservation_id, raise_on_404=False):
         """ Deletes a reservation by its ID.
         Unless `raise_on_404` is set, ignores not found reservations.
