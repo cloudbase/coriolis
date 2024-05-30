@@ -137,6 +137,12 @@ class Conflict(CoriolisException):
     safe = True
 
 
+class LicensingException(Conflict):
+    message = _("Licensing exception occurred")
+    code = 409
+    safe = True
+
+
 class AdminRequired(NotAuthorized):
     message = _("User does not have admin privileges")
 
