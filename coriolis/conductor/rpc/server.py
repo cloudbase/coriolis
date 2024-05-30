@@ -2389,8 +2389,6 @@ class ConductorServerEndpoint(object):
     def _set_tasks_execution_status(
             self, ctxt, execution, new_execution_status):
         previous_execution_status = execution.status
-        execution = db_api.set_execution_status(
-            ctxt, execution.id, new_execution_status)
         LOG.info(
             "Tasks execution %(id)s (action %(action)s) status updated "
             "from %(old_status)s to %(new_status)s",
@@ -2437,6 +2435,9 @@ class ConductorServerEndpoint(object):
                 "active Execution status (%s)",
                 execution.id, execution.type, execution.action_id,
                 new_execution_status)
+
+        execution = db_api.set_execution_status(
+            ctxt, execution.id, new_execution_status)
 
     @parent_tasks_execution_synchronized
     def set_task_host(self, ctxt, task_id, host):
