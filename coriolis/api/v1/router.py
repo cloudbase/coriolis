@@ -164,7 +164,7 @@ class APIRouter(api.APIRouter):
 
         deployments_actions_resource = deployment_actions.create_resource()
         self.resources['deployment_actions'] = deployments_actions_resource
-        deployment_path  = '/{project_id}/deployment/{id}'
+        deployment_path  = '/{project_id}/deployments/{id}'
         mapper.connect('deployment_actions',
                        deployment_path + '/actions',
                        controller=self.resources['deployment_actions'],
