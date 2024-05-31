@@ -245,7 +245,7 @@ class _BaseConfirmMinionAllocationForActionTask(
     def _confirm_machine_allocation_for_action(
             self, context, action_id, machine_allocations):
         raise NotImplementedError(
-            "No minion allocation confrimation operation defined")
+            "No minion allocation confirmation operation defined")
 
     def execute(self, context):
         machines_cache = {}
@@ -1096,7 +1096,7 @@ class HealthcheckMinionMachineTask(BaseMinionManangerTask):
                 self._task_name, self._minion_machine_id)
             base_msg = (
                 "Could not find minion machine DB entry with ID '%s' for "
-                "healtcheck." % self._minion_machine_id)
+                "healthcheck." % self._minion_machine_id)
             self._add_minion_pool_event(
                 context,
                 "%s Reporting healthcheck as failed" % base_msg,
@@ -1127,7 +1127,7 @@ class HealthcheckMinionMachineTask(BaseMinionManangerTask):
 
         self._add_minion_pool_event(
             context,
-            "Healthchecking  minion machine with internal pool ID '%s'" % (
+            "Healthchecking minion machine with internal pool ID '%s'" % (
                 self._minion_machine_id))
 
         execution_info = {
@@ -1138,7 +1138,7 @@ class HealthcheckMinionMachineTask(BaseMinionManangerTask):
                 context, origin, destination, execution_info)
             self._add_minion_pool_event(
                 context,
-                "Successfully healtchecked minion machine with internal "
+                "Successfully healthchecked minion machine with internal "
                 "pool ID '%s'" % self._minion_machine_id)
             self._set_minion_machine_allocation_status(
                 context, self._minion_pool_id, self._minion_machine_id,
@@ -1146,11 +1146,11 @@ class HealthcheckMinionMachineTask(BaseMinionManangerTask):
         except Exception as ex:
             self._add_minion_pool_event(
                 context,
-                "Healtcheck for machine with internal pool ID '%s' has "
+                "Healthcheck for machine with internal pool ID '%s' has "
                 "failed." % (self._minion_machine_id),
                 level=constants.TASK_EVENT_WARNING)
             LOG.debug(
-                "[Task '%s'] Healtcheck failed for machine '%s' of pool '%s'. "
+                "[Task '%s'] Healthcheck failed for machine '%s' of pool '%s'."
                 "Full trace was:\n%s", self._task_name,
                 self._minion_machine_id, self._minion_pool_id,
                 utils.get_exception_details())
@@ -1191,7 +1191,7 @@ class MinionMachineHealtchcheckDecider(object):
             HealthcheckMinionMachineTask.get_healthcheck_task_name(
                 self._minion_pool_id, self._minion_machine_id))
 
-        if not history and healthcheck_task_name not in history:
+        if not history or healthcheck_task_name not in history:
             LOG.warn(
                 "Could not find healthceck result for minion machine '%s' "
                 "of pool '%s' (task name '%s'). NOT greenlighting futher "
@@ -1287,7 +1287,7 @@ class PowerOnMinionMachineTask(BaseMinionManangerTask):
                 context,
                 "Exception occurred while powering on minion machine with "
                 "internal pool ID '%s'. The minion machine will be marked "
-                "as ERROR'd and automatically redeployed later" % (
+                "as ERROR'd and automatically redeployed later." % (
                     self._minion_machine_id),
                 level=constants.TASK_EVENT_ERROR)
             self._set_minion_machine_allocation_status(
