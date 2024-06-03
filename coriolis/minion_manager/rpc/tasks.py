@@ -646,7 +646,7 @@ class AllocateSharedPoolResourcesTask(BaseMinionManangerTask):
                 raise exception.InvalidMinionPoolSelection(
                     "[Task '%s'] Minion pool '%s' doesn't exist in the DB. "
                     "It cannot have shared resources deployed for it." % (
-                        self._task_name))
+                        self._task_name, self._minion_pool_id))
             if minion_pool.shared_resources:
                 raise exception.InvalidMinionPoolState(
                     "[Task '%s'] Minion pool already has shared resources "
