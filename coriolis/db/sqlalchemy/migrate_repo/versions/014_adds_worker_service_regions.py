@@ -31,7 +31,8 @@ def upgrade(migrate_engine):
             sqlalchemy.Column('deleted', sqlalchemy.String(36)),
             sqlalchemy.Column(
                 'enabled', sqlalchemy.Boolean, nullable=True,
-                default=lambda: False)))
+                default=lambda: False),
+            mysql_engine='InnoDB', mysql_charset='utf8'))
 
     # declare endpoint-region-mapping table:
     tables.append(
@@ -56,7 +57,8 @@ def upgrade(migrate_engine):
             sqlalchemy.Column('created_at', sqlalchemy.DateTime),
             sqlalchemy.Column('updated_at', sqlalchemy.DateTime),
             sqlalchemy.Column('deleted_at', sqlalchemy.DateTime),
-            sqlalchemy.Column('deleted', sqlalchemy.String(36))))
+            sqlalchemy.Column('deleted', sqlalchemy.String(36)),
+            mysql_engine='InnoDB', mysql_charset='utf8'))
 
     # declare service table:
     tables.append(
@@ -87,7 +89,8 @@ def upgrade(migrate_engine):
             sqlalchemy.Column('created_at', sqlalchemy.DateTime),
             sqlalchemy.Column('updated_at', sqlalchemy.DateTime),
             sqlalchemy.Column('deleted_at', sqlalchemy.DateTime),
-            sqlalchemy.Column('deleted', sqlalchemy.String(36))))
+            sqlalchemy.Column('deleted', sqlalchemy.String(36)),
+            mysql_engine='InnoDB', mysql_charset='utf8'))
 
     # declare service-region mappings table:
     tables.append(
@@ -112,7 +115,8 @@ def upgrade(migrate_engine):
             sqlalchemy.Column('created_at', sqlalchemy.DateTime),
             sqlalchemy.Column('updated_at', sqlalchemy.DateTime),
             sqlalchemy.Column('deleted_at', sqlalchemy.DateTime),
-            sqlalchemy.Column('deleted', sqlalchemy.String(36))))
+            sqlalchemy.Column('deleted', sqlalchemy.String(36)),
+            mysql_engine='InnoDB', mysql_charset='utf8'))
 
     for index, table in enumerate(tables):
         try:
