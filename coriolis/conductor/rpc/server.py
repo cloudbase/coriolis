@@ -2508,7 +2508,7 @@ class ConductorServerEndpoint(object):
                 f"Skipping setting replica fulfillment for execution "
                 f"'{execution.id}' of type '{execution.type}' on parent"
                 f"action {transfer_id} of scenario type "
-                f"{transfer_action.scenatio}.")
+                f"{transfer_action.scenario}.")
 
     def _set_tasks_execution_status(
             self, ctxt, execution, new_execution_status):
