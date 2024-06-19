@@ -196,7 +196,14 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
 
         mock_exec_cmd.assert_called_once_with(
             "sudo vgs -o vg_name,pv_name,vg_uuid, --noheadings --separator :")
-        expected_result = {"vg1": "pv1", "vg2": "pv3"}
+        expected_result = {
+            "uuid1": {
+                "name": "vg1",
+                "pvs": ["pv1"]},
+            "uuid2": {
+                "name": "vg2",
+                "pvs": ["pv3"]}
+        }
 
         self.assertEqual(result, expected_result)
 
@@ -217,7 +224,17 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
             mock.call(vgs_cmd),
             mock.call("sudo vgrename uuid2 random_uuid")
         ])
-        expected_result = {"vg1": "pv1", "random_uuid": "pv2"}
+
+        expected_result = {
+            "uuid1": {
+                "name": "vg1",
+                "pvs": ["pv1"]
+            },
+            "uuid2": {
+                "name": "random_uuid",
+                "pvs": ["pv2"]
+            }
+        }
 
         self.assertEqual(result, expected_result)
 
@@ -803,7 +820,12 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
                       mock_check_fs):
         mock_get_volume_block_devices.return_value = ["/dev/sda", "/dev/sdb"]
         mock_find_and_mount_root.return_value = ("/tmp/tmp_dir", "/dev/sdb1")
-        mock_get_vgs.return_value = {"vg1": "/dev/sda1"}
+        mock_get_vgs.return_value = {
+            "vgid1": {
+                "name": "vg1",
+                "pvs": ["/dev/sda1"]
+            }
+        }
         mock_get_mounted_devices.return_value = ["/dev/sda1"]
         mock_find_dev_with_contents.return_value = "/dev/sdb1"
         mock_exec_cmd.side_effect = [
@@ -832,7 +854,7 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
             mock.call('sudo partx -v -a /dev/sdb || true'),
             mock.call('sudo ls -1 /dev/sdb*'),
             mock.call('sudo vgck'),
-            mock.call('sudo vgchange -ay vg1'),
+            mock.call('sudo vgchange -ay -S vg_uuid=vgid1'),
             mock.call('sudo vgchange --refresh'),
             mock.call('sudo ls -1 /dev/vg1/*'),
             mock.call('readlink -en /dev/sda1'),
@@ -875,7 +897,12 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
                               mock_exec_cmd):
         mock_get_volume_block_devices.return_value = ["/dev/sda", "/dev/sdb"]
         mock_find_and_mount_root.return_value = ("/tmp/tmp_dir", "/dev/sdb1")
-        mock_get_vgs.return_value = {"vg1": "/dev/sda1"}
+        mock_get_vgs.return_value = {
+            "vgid1": {
+                "name": "vg1",
+                "pvs": ["/dev/sda1"]
+            }
+        }
         mock_get_mounted_devices.return_value = ["/dev/sda1"]
         mock_exec_cmd.side_effect = [
             b"",

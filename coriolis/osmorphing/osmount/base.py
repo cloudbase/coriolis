@@ -133,33 +133,48 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         return pvs
 
     def _get_vgs(self):
+        """ Returns a dict of the form: {
+            "VG UUID": {
+                "name": "<VG name>",
+                "pvs": ["list", "of", "PV", "names", "in", "VG"],
+            }
+        }
+        """
         vgs_cmd = (
             "sudo vgs -o vg_name,pv_name,vg_uuid, --noheadings --separator :")
         out = self._exec_cmd(vgs_cmd).decode().splitlines()
         LOG.debug("Output of %s command: %s", vgs_cmd, out)
-        vgs = {}
+        vgs_uuid_map = {}
         for line in out:
             if line == "":
                 continue
             line = line.strip().split(":")
             if len(line) >= 3:
                 vg_name, pv_name, vg_uuid = line[0], line[1], line[2]
-                if vgs.get(vg_name) is None:
-                    vgs[vg_name] = pv_name
+
+                if vg_uuid in vgs_uuid_map:
+                    vgs_uuid_map[vg_uuid]["pvs"].append(pv_name)
                 else:
-                    new_name = str(uuid.uuid4())
-                    LOG.debug(
-                        "VG with name '%s' already detected. Renaming VG with "
-                        "UUID '%s' to '%s' to avoid conflicts",
-                        vg_name, vg_uuid, new_name)
-                    self._exec_cmd("sudo vgrename %s %s" %
-                                   (vg_uuid, new_name))
-                    vgs[new_name] = pv_name
+                    new_name = vg_name
+                    # Ensure that there isn't an existing VG with a
+                    # coinciding name, and rename it if so.
+                    if vg_name in [vg['name'] for vg in vgs_uuid_map.values()]:
+                        new_name = str(uuid.uuid4())
+                        LOG.debug(
+                            "VG with name '%s' already detected. Renaming VG "
+                            "with UUID '%s' to '%s' to avoid conflicts",
+                            vg_name, vg_uuid, new_name)
+                        self._exec_cmd("sudo vgrename %s %s" %
+                                       (vg_uuid, new_name))
+                    vgs_uuid_map[vg_uuid] = {
+                        "name": new_name,
+                        "pvs": [pv_name]
+                    }
             else:
                 LOG.warning("Ignoring improper `vgs` output entry: %s", line)
-        LOG.debug("Volume groups: %s", vgs)
+        LOG.debug("Volume groups: %s", vgs_uuid_map)
 
-        return vgs
+        return vgs_uuid_map
 
     def _check_vgs(self):
         try:
@@ -532,13 +547,15 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         lvm_dev_paths = []
         self._check_vgs()
         vgs = self._get_vgs()
-        for vg_name, pv_name in vgs.items():
-            if pv_name in dev_paths:
-                self._exec_cmd("sudo vgchange -ay %s" % vg_name)
-                self._exec_cmd("sudo vgchange --refresh")
-                dev_paths_for_group = self._exec_cmd(
-                    "sudo ls -1 /dev/%s/*" % vg_name).decode().splitlines()
-                lvm_dev_paths.extend(dev_paths_for_group)
+        for vg_uuid, vg_props in vgs.items():
+            if not any([pv in dev_paths for pv in vg_props['pvs']]):
+                continue
+
+            self._exec_cmd("sudo vgchange -ay -S vg_uuid=%s" % vg_uuid)
+            self._exec_cmd("sudo vgchange --refresh")
+            dev_paths_for_group = self._exec_cmd(
+                f"sudo ls -1 /dev/{vg_props['name']}/*").decode().splitlines()
+            lvm_dev_paths.extend(dev_paths_for_group)
         LOG.debug("All LVM vols to scan: %s", lvm_dev_paths)
 
         valid_filesystems = ['ext2', 'ext3', 'ext4', 'xfs', 'btrfs']
