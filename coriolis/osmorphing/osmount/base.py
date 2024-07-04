@@ -261,6 +261,13 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
 
             device = match.group(2)
             mountpoint = match.group(3)
+
+            if not mountpoint.startswith('/'):
+                LOG.warning(
+                    f"Skipping mountpoint that is not a valid directory: "
+                    f"{mountpoint}")
+                continue
+
             if mountpoint in mounts:
                 raise exception.CoriolisException(
                     "Mountpoint '%s' appears to be mounted twice in "
