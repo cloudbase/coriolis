@@ -166,6 +166,23 @@ def add_endpoint(context, endpoint):
 
 
 @enginefacade.writer
+def _try_unmap_regions(context, region_ids, endpoint_id):
+    for region_to_unmap in region_ids:
+        try:
+            LOG.debug(
+                "Attempting to unmap region '%s' from endpoint '%s'",
+                region_to_unmap, endpoint_id)
+            delete_endpoint_region_mapping(
+                context, endpoint_id, region_to_unmap)
+        except Exception:
+            LOG.warn(
+                "Exception occurred while attempting to unmap region '%s' "
+                "from endpoint '%s'. Ignoring. Error was: %s",
+                region_to_unmap, endpoint_id,
+                utils.get_exception_details())
+
+
+@enginefacade.writer
 def update_endpoint(context, endpoint_id, updated_values):
     endpoint = get_endpoint(context, endpoint_id)
     if not endpoint:
@@ -175,21 +192,6 @@ def update_endpoint(context, endpoint_id, updated_values):
         raise exception.InvalidInput(
             "Update payload for endpoints must be a dict. Got the following "
             "(type: %s): %s" % (type(updated_values), updated_values))
-
-    def _try_unmap_regions(region_ids):
-        for region_to_unmap in region_ids:
-            try:
-                LOG.debug(
-                    "Attempting to unmap region '%s' from endpoint '%s'",
-                    region_to_unmap, endpoint_id)
-                delete_endpoint_region_mapping(
-                    context, endpoint_id, region_to_unmap)
-            except Exception:
-                LOG.warn(
-                    "Exception occurred while attempting to unmap region '%s' "
-                    "from endpoint '%s'. Ignoring. Error was: %s",
-                    region_to_unmap, endpoint_id,
-                    utils.get_exception_details())
 
     newly_mapped_regions = []
     regions_to_unmap = []
@@ -235,7 +237,7 @@ def update_endpoint(context, endpoint_id, updated_values):
                 "endpoint '%s'. Cleaning up created mappings (%s). Error was: "
                 "%s", region_id, endpoint_id, newly_mapped_regions,
                 utils.get_exception_details())
-            _try_unmap_regions(newly_mapped_regions)
+            _try_unmap_regions(context, newly_mapped_regions, endpoint_id)
             raise
 
     updateable_fields = ["name", "description", "connection_info"]
@@ -247,14 +249,14 @@ def update_endpoint(context, endpoint_id, updated_values):
             "Exception occurred while updating fields of endpoint '%s'. "
             "Cleaning ""up created mappings (%s). Error was: %s",
             endpoint_id, newly_mapped_regions, utils.get_exception_details())
-        _try_unmap_regions(newly_mapped_regions)
+        _try_unmap_regions(context, newly_mapped_regions, endpoint_id)
         raise
 
     # remove all of the old region mappings:
     LOG.debug(
         "Unmapping the following regions during update of endpoint '%s': %s",
         endpoint_id, regions_to_unmap)
-    _try_unmap_regions(regions_to_unmap)
+    _try_unmap_regions(context, regions_to_unmap, endpoint_id)
 
 
 @enginefacade.writer
@@ -593,7 +595,7 @@ def set_execution_status(
         context, execution_id, status, update_action_status=True):
     execution = _soft_delete_aware_query(
         context, models.TasksExecution).join(
-            models.TasksExecution.action)
+            models.TasksExecution.action_id)
     if is_user_context(context):
         execution = execution.filter(
             models.BaseTransferAction.project_id == context.project_id)
