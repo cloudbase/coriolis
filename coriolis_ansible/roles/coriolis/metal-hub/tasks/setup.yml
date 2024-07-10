@@ -46,8 +46,8 @@
   file:
     path: "{{ step_ca_home }}"
     state: directory
-    owner: step
-    group: step
+    owner: 1000
+    group: 1000
 
 - name: Render templates
   template:
