@@ -3286,6 +3286,10 @@ class ConductorServerEndpoint(object):
                 "task '%s' (status '%s'). Marking as '%s' anyway.",
                 task.id, task.status, final_status)
 
+        db_api.set_task_status(
+            ctxt, task.id, final_status,
+            exception_details=exception_details)
+
         if final_status == task.status:
             LOG.debug(
                 "NOT altering state of finalized task '%s' ('%s') following "
@@ -3298,9 +3302,6 @@ class ConductorServerEndpoint(object):
                 task.id, task.status, final_status)
             execution = db_api.get_tasks_execution(ctxt, task.execution_id)
             self._advance_execution_state(ctxt, execution, requery=False)
-        db_api.set_task_status(
-            ctxt, task.id, final_status,
-            exception_details=exception_details)
 
     @parent_tasks_execution_synchronized
     def set_task_error(self, ctxt, task_id, exception_details):
