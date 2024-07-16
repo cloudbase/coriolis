@@ -1,8 +1,4 @@
 ---
-- name: Gather Kolla deployment facts
-  kolla_deployment_facts:
-  register: kolla_deployment
-
 - name: Create step user
   ansible.builtin.user:
     home: "{{ step_ca_home }}"
@@ -34,23 +30,18 @@
   delay: 5
   until: result is succeeded
 
-- name: Get step-ca certs stat
-  stat:
-    path: "{{ step_ca_home }}/certs/root_ca.crt"
-  register: spep_ca_crt_stat
-
-- name: Bootstrap CA
-  shell: "step ca bootstrap -f --ca-url https://{{ endpoint_base_address }}:{{ step_ca_port }} --fingerprint $(step certificate fingerprint {{ step_ca_home }}/certs/root_ca.crt)"
-  register: result
-  retries: 10
-  delay: 5
-  when: not spep_ca_crt_stat.stat.exists
-  until: result is succeeded
-
 - name: Get step-ca fingerprint stat
   stat:
     path: "{{ step_ca_home }}/fingerprint"
   register: spep_ca_fp_stat
+
+- name: Bootstrap CA
+  shell: "step ca bootstrap -f --ca-url https://127.0.0.1:{{ step_ca_port }} --fingerprint $(step certificate fingerprint {{ step_ca_home }}/certs/root_ca.crt)"
+  register: result
+  retries: 10
+  delay: 5
+  when: not spep_ca_fp_stat.stat.exists
+  until: result is succeeded
 
 - name: Save CA fingerint
   shell: "step certificate fingerprint {{ step_ca_home }}/certs/root_ca.crt > {{ step_ca_home }}/fingerprint"
@@ -66,8 +57,9 @@
     - "restart step-ca"
 
 - name: Check if ACME is installed
-  shell: grep -q ACME {{ step_ca_home }}/config/ca.json
+  shell: grep -q ACME {{ step_ca_home }}/config/ca.json 2>&1 >/dev/null
   register: has_step_ca
+  ignore_errors: true
 
 - name: Add ACME provisioner to Step CA
   shell: step ca provisioner add --type=ACME acme --ca-config {{ step_ca_home }}/config/ca.json

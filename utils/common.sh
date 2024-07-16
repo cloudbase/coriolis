@@ -5,9 +5,17 @@ GET_CONFIG_VALUE_SCRIPT="$UTILS_DIR/get_config_value.py"
 SET_CONFIG_VALUE_SCRIPT="$UTILS_DIR/set_config_value.py"
 SET_INI_CONFIG_VALUE_SCRIPT="$UTILS_DIR/set_ini_config_value.py"
 CONFIG_FILE=$(readlink -f "$UTILS_DIR/../config.yml")
+ALL_VARS_FILE=$(readlink -f "$UTILS_DIR/../coriolis_ansible/group_vars/all.yml")
+
 DOCKER_IMAGES_CONFIG_FILE=$(readlink -f "$UTILS_DIR/../docker-images-config.yml")
 PASSWORDS_FILE=$(readlink -f "$UTILS_DIR/../passwords.yml")
-
+VARS_AS_JSON=$(ANSIBLE_LOAD_CALLBACK_PLUGINS=1 \
+    ANSIBLE_CALLBACK_WHITELIST=json \
+    ANSIBLE_STDOUT_CALLBACK=json \
+    ansible localhost -m debug \
+    -a var='hostvars["localhost"]' \
+    -e @$CONFIG_FILE \
+    -e @$ALL_VARS_FILE | jq '.plays[0].tasks[0].hosts.localhost."hostvars[\"localhost\"]"')
 
 new_config_file() {
     local CONF_FILE_PATH="$1"
@@ -23,6 +31,16 @@ new_config_file() {
     cp "${CONF_FILE_PATH}.sample" "$CONF_FILE_PATH"
 }
 
+get_global_config_value2() {
+    local NAME="$1"
+
+    local VALUE=$(echo "$VARS_AS_JSON" | jq -r ".$NAME")
+    if [[ "$VALUE" == "null" ]]; then
+        VALUE=""
+    fi
+    echo "$VALUE"
+}
+
 get_global_config_value() {
     local NAME="$1"
     # Check in main config file:
@@ -35,7 +53,7 @@ get_global_config_value() {
 
     # Default to whatever's in group_vars/all.yml:
     if [[ -z $CONFIG_VALUE ]]; then
-        CONFIG_VALUE=$("$GET_CONFIG_VALUE_SCRIPT" -c "$UTILS_DIR/../coriolis_ansible/group_vars/all.yml" -n "$NAME")
+        CONFIG_VALUE=$("$GET_CONFIG_VALUE_SCRIPT" -c "$ALL_VARS_FILE" -n "$NAME")
     fi
 
     echo $CONFIG_VALUE

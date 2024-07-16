@@ -30,7 +30,7 @@ def main():
     else:
         config = {}
 
-    config[name] = value
+    config[name] = yaml.safe_load(value)
 
     with open(config_file, 'w') as f:
         f.write(yaml.dump(config, default_flow_style=False))

@@ -35,7 +35,7 @@
       - "{{ step_ca_port }}:{{ step_ca_port }}"
     env:
       DOCKER_STEPCA_INIT_NAME: "CoriolisCA"
-      DOCKER_STEPCA_INIT_DNS_NAMES: "localhost,coriolis,{{ bind_address }},{{ endpoint_base_address }}"
+      DOCKER_STEPCA_INIT_DNS_NAMES: "localhost,coriolis,127.0.0.1"
       DOCKER_STEPCA_INIT_PASSWORD: "{{ step_init_password.stdout }}"
     volumes:
       - "{{ step_ca_home }}:/home/step:rw"
