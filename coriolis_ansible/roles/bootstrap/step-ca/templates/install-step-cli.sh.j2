@@ -1,0 +1,9 @@
+#!/bin/bash
+set -e
+
+STEP_VERSION={{ step_ca_version }}
+STEP_CLI_URL=https://dl.step.sm/gh-release/cli/docs-ca-install/v$STEP_VERSION/step_linux_${STEP_VERSION}_amd64.tar.gz
+
+wget --quiet -O /tmp/step.tar.gz $STEP_CLI_URL
+tar -xf /tmp/step.tar.gz -C /tmp
+cp /tmp/step_$STEP_VERSION/bin/step /usr/bin

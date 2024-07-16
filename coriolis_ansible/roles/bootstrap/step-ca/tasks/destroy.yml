@@ -1,0 +1,13 @@
+---
+- name: Remove Docker containers
+  docker_container:
+    state: absent
+    name: "{{ item }}"
+  with_items:
+    - step-ca
+
+- name: Remove Docker image
+  docker_image:
+    state: absent
+    force_absent: yes
+    name: "{{ step_ca_image }}"

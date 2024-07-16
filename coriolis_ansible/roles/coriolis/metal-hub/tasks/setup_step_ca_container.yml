@@ -19,7 +19,7 @@
       - "{{ step_ca_port }}:{{ step_ca_port }}"
     env:
       DOCKER_STEPCA_INIT_NAME: "MetalHubCA"
-      DOCKER_STEPCA_INIT_DNS_NAMES: "localhost,coriolis,{{ bind_address }}"
+      DOCKER_STEPCA_INIT_DNS_NAMES: "localhost,coriolis,{{ endpoint_base_address }},{{ bind_address }}"
       DOCKER_STEPCA_INIT_PASSWORD: "{{ step_password.stdout }}"
     volumes:
       - "{{ step_ca_home }}:/home/step:rw"

@@ -71,7 +71,7 @@
   until: result is succeeded
 
 - name: Bootstrap CA
-  shell: "step ca bootstrap -f --ca-url https://{{ bind_address }}:{{ step_ca_port }} --fingerprint $(step certificate fingerprint {{ step_ca_home }}/certs/root_ca.crt)"
+  shell: "step ca bootstrap -f --ca-url https://{{ endpoint_base_address }}:{{ step_ca_port }} --fingerprint $(step certificate fingerprint {{ step_ca_home }}/certs/root_ca.crt)"
   register: result
   retries: 10
   delay: 5

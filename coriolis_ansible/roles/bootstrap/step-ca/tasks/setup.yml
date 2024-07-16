@@ -1,0 +1,82 @@
+---
+- name: Gather Kolla deployment facts
+  kolla_deployment_facts:
+  register: kolla_deployment
+
+- name: Create step user
+  ansible.builtin.user:
+    home: "{{ step_ca_home }}"
+    name: step
+    state: present
+
+- name: Create Step config directory
+  file:
+    path: "{{ step_ca_home }}"
+    state: directory
+    owner: 1000
+    group: 1000
+
+- name: Render templates
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    backup: "{{ item.backup }}"
+    mode: "{{ item.mode }}"
+  with_items:
+    - { src: install-step-cli.sh.j2, dest: "{{ step_ca_home }}/install-step-cli.sh", backup: no, mode: 700}
+
+- include_tasks: setup_step_ca_container.yml
+
+- name: Install Step CLI
+  shell: "bash {{ step_ca_home }}/install-step-cli.sh"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+
+- name: Get step-ca certs stat
+  stat:
+    path: "{{ step_ca_home }}/certs/root_ca.crt"
+  register: spep_ca_crt_stat
+
+- name: Bootstrap CA
+  shell: "step ca bootstrap -f --ca-url https://{{ endpoint_base_address }}:{{ step_ca_port }} --fingerprint $(step certificate fingerprint {{ step_ca_home }}/certs/root_ca.crt)"
+  register: result
+  retries: 10
+  delay: 5
+  when: not spep_ca_crt_stat.stat.exists
+  until: result is succeeded
+
+- name: Get step-ca fingerprint stat
+  stat:
+    path: "{{ step_ca_home }}/fingerprint"
+  register: spep_ca_fp_stat
+
+- name: Save CA fingerint
+  shell: "step certificate fingerprint {{ step_ca_home }}/certs/root_ca.crt > {{ step_ca_home }}/fingerprint"
+  register: result
+  retries: 10
+  delay: 5
+  when: not spep_ca_fp_stat.stat.exists
+  until: result is succeeded
+
+- name: Configure Step CA
+  script: "{{ coriolis_ansible_install_dir }}/utils/configure_step_ca.py"
+  notify:
+    - "restart step-ca"
+
+- name: Check if ACME is installed
+  shell: grep -q ACME {{ step_ca_home }}/config/ca.json
+  register: has_step_ca
+
+- name: Add ACME provisioner to Step CA
+  shell: step ca provisioner add --type=ACME acme --ca-config {{ step_ca_home }}/config/ca.json
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+  when: not has_step_ca is succeeded
+  notify:
+    - "restart step-ca"
+
+- include_tasks: create_coriolis_appliance_tls_certificates.yml

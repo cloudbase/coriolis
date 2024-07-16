@@ -1,0 +1,46 @@
+---
+- name: Create service certificate folder
+  file:
+    path: "{{ coriolis_certificate_store }}"
+    state: directory
+
+- name: Get Coriolis appliance certificate stat
+  stat:
+    path: "{{ coriolis_appliance_tls_certificate }}"
+  register: appliance_cert_stat
+
+- name: Generate Coriolis appliance certificates
+  shell: "step ca certificate -f --provisioner=admin --provisioner-password-file {{ step_ca_home }}/secrets/password {{ endpoint_base_address }} {{ coriolis_appliance_tls_certificate }} {{ coriolis_appliance_tls_key }} 2> /dev/null"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+  when: not appliance_cert_stat.stat.exists
+
+- name: Get Coriolis appliance root certificate stat
+  stat:
+    path: "{{ coriolis_appliance_tls_cacert }}"
+  register: appliance_cacert_stat 
+
+- name: Download root certificate
+  shell: "step ca root -f {{ coriolis_appliance_tls_cacert }}"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+  when: not appliance_cacert_stat.stat.exists
+
+- name: Install root certificate
+  shell: step certificate install --all {{ coriolis_appliance_tls_cacert }}
+  until: result is succeeded
+  retries: 10
+  delay: 5
+  when: not appliance_cacert_stat.stat.exists
+
+- name: Combine TLS key certificate and root CA
+  shell: "cat {{ coriolis_appliance_tls_key }} {{ coriolis_appliance_tls_certificate }} {{ coriolis_appliance_tls_cacert }} > {{ coriolis_appliance_tls_combined }}"
+  register: result
+  retries: 10
+  delay: 5
+  until: result is succeeded
+  when: not appliance_cert_stat.stat.exists

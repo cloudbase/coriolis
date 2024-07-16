@@ -1,0 +1,7 @@
+---
+- name: Remove Docker container
+  docker_container:
+    state: absent
+    name: step-ca
+
+- include_tasks: setup_step_ca_container.yml

@@ -14,14 +14,14 @@
           state: directory
 
       - name: Generate Metal Hub Server certificates
-        shell: "step ca certificate -f --provisioner=admin --provisioner-password-file {{ step_ca_home }}/secrets/password {{ bind_address }} {{ coriolis_metal_hub_server_cert_path }} {{ coriolis_metal_hub_server_key_path }} 2> /dev/null"
+        shell: "step ca certificate -f --provisioner=admin --provisioner-password-file {{ step_ca_home }}/secrets/password {{ endpoint_base_address }} {{ coriolis_metal_hub_server_cert_path }} {{ coriolis_metal_hub_server_key_path }} 2> /dev/null"
         register: result
         retries: 10
         delay: 5
         until: result is succeeded
 
       - name: Generate Metal Hub Client certificates
-        shell: "step ca certificate -f --provisioner=admin --provisioner-password-file {{ step_ca_home }}/secrets/password {{ bind_address }} {{ coriolis_metal_hub_client_cert_path }} {{ coriolis_metal_hub_client_key_path }} 2> /dev/null"
+        shell: "step ca certificate -f --provisioner=admin --provisioner-password-file {{ step_ca_home }}/secrets/password {{ endpoint_base_address }} {{ coriolis_metal_hub_client_cert_path }} {{ coriolis_metal_hub_client_key_path }} 2> /dev/null"
         register: result
         retries: 10
         delay: 5

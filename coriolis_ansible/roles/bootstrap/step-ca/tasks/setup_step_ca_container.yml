@@ -1,0 +1,41 @@
+---
+- name: Get step-ca init password
+  stat:
+    path: "{{ step_ca_home }}/init_password"
+  register: spep_ca_init_pw
+
+- name: Create password for step-ca initialisation
+  shell: "/usr/bin/openssl rand -base64 32"
+  register: step_password
+  retries: 10
+  delay: 5
+  when: not spep_ca_init_pw.stat.exists
+  until: step_password is succeeded
+
+- name: "Write init password"
+  when: not spep_ca_init_pw.stat.exists
+  copy:
+    content: "{{ step_password.stdout }}"
+    dest: "{{ step_ca_home }}/init_password"
+
+- name: Read password
+  shell: cat "{{ step_ca_home }}/init_password"
+  register: step_init_password
+
+- name: Setup step-ca container
+  docker_container:
+    name: step-ca
+    image: "{{ step_ca_image }}"
+    pull: "{{ docker_pull_images }}"
+    hostname: step-ca
+    state: started
+    restart_policy: unless-stopped
+    network_mode: bridge
+    ports:
+      - "{{ step_ca_port }}:{{ step_ca_port }}"
+    env:
+      DOCKER_STEPCA_INIT_NAME: "CoriolisCA"
+      DOCKER_STEPCA_INIT_DNS_NAMES: "localhost,coriolis,{{ bind_address }},{{ endpoint_base_address }}"
+      DOCKER_STEPCA_INIT_PASSWORD: "{{ step_init_password.stdout }}"
+    volumes:
+      - "{{ step_ca_home }}:/home/step:rw"

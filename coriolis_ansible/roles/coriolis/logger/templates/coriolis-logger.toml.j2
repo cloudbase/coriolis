@@ -1,7 +1,7 @@
 [apiserver]
 bind = "{{ bind_address }}"
 port = {{ coriolis_logger_port }}
-use_tls = false
+use_tls = true
 
 # Authentication middleware to use. Available options are:
 #  * keystone
@@ -24,9 +24,9 @@ cors_origins = ["*"]
 
     # API server TLS config
     [apiserver.tls]
-    #crt = "/tmp/certificate.pem"
-    #key = "/tmp/key.pem"
-    #cacert = "/tmp/ca-cert.pem"
+    crt = "{{ coriolis_appliance_tls_certificate }}"
+    key = "{{ coriolis_appliance_tls_key }}"
+    cacert = "{{ coriolis_appliance_tls_cacert }}"
 
 [syslog]
 # Possible values: unixgram, tcp, udp

@@ -44,3 +44,8 @@ custom_repo_branch_names: {}
 # Set this variable if the ssh-agent isn't set, with the authorized Bitbucket
 # SSH private key loaded.
 # bitbucket_ssh_key_file: "/root/.ssh/id_rsa"
+
+# Certificate settings
+coriolis_certificate_store: "/etc/coriolis-certificates"
+coriolis_certtificate_fqdn:
+coriolis_certificate_extra_sans: []

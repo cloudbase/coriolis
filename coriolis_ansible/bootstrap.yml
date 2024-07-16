@@ -7,3 +7,6 @@
     - import_role:
         name: coriolis/common
         tasks_from: bootstrap
+    - import_role:
+        name: bootstrap/step-ca
+        tasks_from: deploy
