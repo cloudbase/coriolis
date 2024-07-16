@@ -69,6 +69,22 @@ class LicensingClient(object):
         return "%s/appliances/%s/%s" % (
             self._base_url, self._appliance_id, resource.strip('/'))
 
+    def _raise_response_error(self, resp):
+        error = None
+        try:
+            error = resp.json().get('error', {})
+        except (Exception, KeyboardInterrupt):
+            LOG.debug(
+                "Exception occured during error extraction from licensing "
+                "response: '%s'\nException:\n%s",
+                resp.text, utils.get_exception_details())
+        if error and all([x in error for x in ['code', 'message']]):
+            raise exception.Conflict(
+                message=error['message'],
+                code=int(error['code']))
+        else:
+            resp.raise_for_status()
+
     @utils.retry_on_error()
     def _do_req(
             self, method_name, resource, body=None,
@@ -98,21 +114,7 @@ class LicensingClient(object):
             return resp
 
         if not resp.ok:
-            # try to extract error from licensing server:
-            error = None
-            try:
-                error = resp.json().get('error', {})
-            except (Exception, KeyboardInterrupt):
-                LOG.debug(
-                    "Exception occured during error extraction from licensing "
-                    "response: '%s'\nException:\n%s",
-                    resp.text, utils.get_exception_details())
-            if error and all([x in error for x in ['code', 'message']]):
-                raise exception.Conflict(
-                    message=error['message'],
-                    code=int(error['code']))
-            else:
-                resp.raise_for_status()
+            self._raise_response_error(resp)
 
         resp_data = resp.json()
         if response_key:
@@ -221,8 +223,8 @@ class LicensingClient(object):
         if not resp.ok:
             if resp.status_code == 404:
                 if raise_on_404:
-                    resp.raise_for_status()
+                    self._raise_response_error(resp)
                 LOG.warn(
                     "Got 404 when deleting reservation '%s'", reservation_id)
             else:
-                resp.raise_for_status()
+                self._raise_response_error(resp)
