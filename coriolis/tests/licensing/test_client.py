@@ -5,6 +5,7 @@ import logging
 import os
 from unittest import mock
 
+from coriolis import exception
 from coriolis.licensing import client as licensing_module
 from coriolis.tests import test_base
 from coriolis.tests import testutils
@@ -21,6 +22,7 @@ class LicensingClientTestCase(test_base.CoriolisBaseTestCase):
         self.body = {'test_key': 'test_value'}
         self.reservation_id = "reservation_id"
         self.client._appliance_id = "appliance_id"
+        licensing_module.CONF = mock.Mock()
 
     # Helper function to setup a mock response
     def setup_mock_response(self, mock_request, ok=True,
@@ -67,7 +69,7 @@ class LicensingClientTestCase(test_base.CoriolisBaseTestCase):
             {"id": "appliance_id1"}, {"id": "appliance_id2"}
         ]
 
-        self.assertRaises(licensing_module.exception.CoriolisException,
+        self.assertRaises(exception.CoriolisException,
                           licensing_module.LicensingClient.from_env)
 
     @mock.patch.object(licensing_module.LicensingClient, 'get_appliances')
@@ -100,9 +102,53 @@ class LicensingClientTestCase(test_base.CoriolisBaseTestCase):
             "https://10.7.2.3:37667/v1/appliances/appliance_id/licences"
         )
 
+    def test_raise_response_error(self):
+        mock_response = mock.Mock()
+        mock_response.json.return_value = {'test_key': 'test_value'}
+
+        self.client._raise_response_error(mock_response)
+
+        mock_response.raise_for_status.assert_called_once()
+
+    def test_raise_response_error_conflict(self):
+        mock_response = mock.Mock()
+        mock_response.json.return_value = {
+            'error': {'code': 409, 'message': 'test_message'}}
+
+        self.assertRaises(
+            exception.Conflict,
+            self.client._raise_response_error,
+            mock_response
+        )
+
+        mock_response.raise_for_status.assert_not_called()
+
+    def test_raise_response_error_json_exception(self):
+        mock_response = mock.Mock()
+        mock_response.json.side_effect = KeyboardInterrupt()
+
+        with self.assertLogs('coriolis.licensing.client', level=logging.DEBUG):
+            self.client._raise_response_error(mock_response)
+
+        mock_response.raise_for_status.assert_called_once()
+
+        mock_response.reset_mock()
+        mock_response.json.side_effect = Exception()
+
+        with self.assertLogs('coriolis.licensing.client', level=logging.DEBUG):
+            self.client._raise_response_error(mock_response)
+
+        mock_response.raise_for_status.assert_called_once()
+
+    @mock.patch.object(licensing_module.LicensingClient,
+                       '_raise_response_error')
     @mock.patch('requests.post')
-    def test__do_req(self, mock_post):
-        mock_respone = self.setup_mock_response(
+    def test__do_req(
+        self,
+        mock_post,
+        mock_raise_response_error
+    ):
+        mock_response = self.setup_mock_response(
             mock_post, json_return_value={'test_key': 'test_value'})
 
         original_do_req = testutils.get_wrapped_function(self.client._do_req)
@@ -121,8 +167,8 @@ class LicensingClientTestCase(test_base.CoriolisBaseTestCase):
             timeout=licensing_module.CONF.default_requests_timeout,
             data=licensing_module.json.dumps(self.body)
         )
-        mock_respone.json.assert_called_once()
-        mock_respone.raise_for_status.assert_not_called()
+        mock_response.json.assert_called_once()
+        mock_raise_response_error.assert_not_called()
 
     def test__do_req_invalid_method(self):
         original_do_req = testutils.get_wrapped_function(self.client._do_req)
@@ -132,8 +178,14 @@ class LicensingClientTestCase(test_base.CoriolisBaseTestCase):
             self.resource
         )
 
+    @mock.patch.object(licensing_module.LicensingClient,
+                       '_raise_response_error')
     @mock.patch('requests.get')
-    def test__do_req_raw_response(self, mock_get):
+    def test__do_req_raw_response(
+        self,
+        mock_get,
+        mock_raise_response_error
+    ):
         mock_response = self.setup_mock_response(mock_get)
 
         original_do_req = testutils.get_wrapped_function(self.client._do_req)
@@ -149,25 +201,16 @@ class LicensingClientTestCase(test_base.CoriolisBaseTestCase):
             timeout=licensing_module.CONF.default_requests_timeout
         )
         mock_response.json.assert_not_called()
-        mock_response.raise_for_status.assert_not_called()
+        mock_raise_response_error.assert_not_called()
 
+    @mock.patch.object(licensing_module.LicensingClient,
+                       '_raise_response_error')
     @mock.patch('requests.get')
-    def test__do_req_res_not_ok_exception_extracting_error(self, mock_get):
-        self.setup_mock_response(
-            mock_get, ok=False, status_code=409,
-            side_effect=KeyboardInterrupt()
-        )
-
-        original_do_req = testutils.get_wrapped_function(self.client._do_req)
-
-        with self.assertLogs('coriolis.licensing.client', level=logging.DEBUG):
-            self.assertRaises(
-                KeyboardInterrupt,
-                original_do_req, self.client, 'GET', self.resource
-            )
-
-    @mock.patch('requests.get')
-    def test__do_req_response_not_ok_with_error(self, mock_get):
+    def test__do_req_response_not_ok(
+        self,
+        mock_get,
+        mock_raise_response_error
+    ):
         mock_response = self.setup_mock_response(
             mock_get, ok=False, status_code=409,
             json_return_value={
@@ -176,28 +219,22 @@ class LicensingClientTestCase(test_base.CoriolisBaseTestCase):
 
         original_do_req = testutils.get_wrapped_function(self.client._do_req)
 
-        self.assertRaises(
-            licensing_module.exception.Conflict,
-            original_do_req, self.client, 'GET', self.resource
-        )
-        mock_response.json.assert_called_once()
-        mock_response.raise_for_status.assert_not_called()
-
-    @mock.patch('requests.get')
-    def test_do_req_raise_for_status(self, mock_get):
-        mock_response = self.setup_mock_response(
-            mock_get, ok=False, json_return_value={})
-
-        original_do_req = testutils.get_wrapped_function(self.client._do_req)
-
         result = original_do_req(self.client, 'GET', self.resource)
-        self.assertEqual(result, mock_response.json.return_value)
 
-        mock_response.json.assert_called()
-        mock_response.raise_for_status.assert_called_once()
+        self.assertEqual(
+            result,
+            {'error': {'code': 409, 'message': 'test_message'}}
+        )
+        mock_raise_response_error.assert_called_once_with(mock_response)
 
+    @mock.patch.object(licensing_module.LicensingClient,
+                       '_raise_response_error')
     @mock.patch('requests.get')
-    def test__do_req_no_response_key(self, mock_get):
+    def test__do_req_no_response_key(
+        self,
+        mock_get,
+        mock_raise_response_error
+    ):
         mock_response = self.setup_mock_response(
             mock_get, json_return_value={'test_key': 'test_value'})
 
@@ -209,7 +246,7 @@ class LicensingClientTestCase(test_base.CoriolisBaseTestCase):
         )
 
         mock_response.json.assert_called_once()
-        mock_response.raise_for_status.assert_not_called()
+        mock_raise_response_error.assert_not_called()
 
     @mock.patch.object(licensing_module.LicensingClient, '_do_req')
     def test__get(self, mock_do_req):
@@ -379,23 +416,75 @@ class LicensingClientTestCase(test_base.CoriolisBaseTestCase):
             None, response_key='reservation'
         )
 
+    @mock.patch.object(licensing_module.LicensingClient,
+                       '_raise_response_error')
     @mock.patch.object(licensing_module.LicensingClient, '_do_req')
-    def test_delete_reservation_404_status_code(self, mock_do_req):
-        mock_response = self.setup_mock_response(
-            mock_do_req, ok=False, status_code=404)
+    def test_delete_reservation_404_status_code(
+        self,
+        mock_do_req,
+        mock_raise_response_error
+    ):
+        self.setup_mock_response(mock_do_req, ok=False, status_code=404)
 
         with self.assertLogs('coriolis.licensing.client', level=logging.WARN):
-                self.client.delete_reservation(
-                    self.reservation_id, raise_on_404=True)
+            self.client.delete_reservation(
+                self.reservation_id, raise_on_404=False)
 
         mock_do_req.assert_called_once_with(
             'delete', '/reservations/%s' % self.reservation_id,
             raw_response=True
         )
-        mock_response.raise_for_status.assert_called_once()
+        mock_raise_response_error.assert_not_called()
 
+    @mock.patch.object(licensing_module.LicensingClient,
+                       '_raise_response_error')
     @mock.patch.object(licensing_module.LicensingClient, '_do_req')
-    def test_delete_reservation(self, mock_do_req):
+    def test_delete_reservation_404_status_code_raise(
+        self,
+        mock_do_req,
+        mock_raise_response_error
+    ):
+        mock_response = self.setup_mock_response(
+            mock_do_req, ok=False, status_code=404)
+
+        with self.assertLogs('coriolis.licensing.client', level=logging.WARN):
+            self.client.delete_reservation(
+                self.reservation_id, raise_on_404=True)
+
+        mock_do_req.assert_called_once_with(
+            'delete', '/reservations/%s' % self.reservation_id,
+            raw_response=True
+        )
+        mock_raise_response_error.assert_called_once_with(mock_response)
+
+    @mock.patch.object(licensing_module.LicensingClient,
+                       '_raise_response_error')
+    @mock.patch.object(licensing_module.LicensingClient, '_do_req')
+    def test_delete_reservation_status_code_raise(
+        self,
+        mock_do_req,
+        mock_raise_response_error
+    ):
+        mock_response = self.setup_mock_response(
+            mock_do_req, ok=False, status_code=400)
+
+        self.client.delete_reservation(
+            self.reservation_id, raise_on_404=True)
+
+        mock_do_req.assert_called_once_with(
+            'delete', '/reservations/%s' % self.reservation_id,
+            raw_response=True
+        )
+        mock_raise_response_error.assert_called_once_with(mock_response)
+
+    @mock.patch.object(licensing_module.LicensingClient,
+                       '_raise_response_error')
+    @mock.patch.object(licensing_module.LicensingClient, '_do_req')
+    def test_delete_reservation(
+        self,
+        mock_do_req,
+        mock_raise_response_error
+    ):
         mock_response = self.setup_mock_response(
             mock_do_req, ok=False, status_code=200)
 
@@ -405,4 +494,4 @@ class LicensingClientTestCase(test_base.CoriolisBaseTestCase):
             'delete', '/reservations/%s' % self.reservation_id,
             raw_response=True
         )
-        mock_response.raise_for_status.assert_called_once()
+        mock_raise_response_error.assert_called_once_with(mock_response)
