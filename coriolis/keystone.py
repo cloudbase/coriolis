@@ -15,6 +15,10 @@ opts = [
                default=None,
                help='Default auth URL to be used when not specified in the'
                ' migration\'s connection info.'),
+    cfg.StrOpt('cafile',
+               default=None,
+               help='The CA file used to validate openstack service'
+               ' API endpoints.'),
     cfg.IntOpt('identity_api_version',
                min=2, max=3,
                default=2,
@@ -126,6 +130,10 @@ def create_keystone_session(ctxt, connection_info={}):
             "username": username,
             "password": password,
         }
+
+    cafile = CONF.keystone.cafile
+    if cafile and cafile != "":
+        verify = cafile
 
     if not auth:
         project_name = connection_info.get("project_name", ctxt.project_name)
