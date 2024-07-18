@@ -40,6 +40,13 @@
   # delay: 5
   when: not appliance_cacert_stat.stat.exists
 
+- name: Create certificate bundle
+  shell: "cat {{ coriolis_appliance_tls_certificate }} {{ coriolis_appliance_tls_cacert }} > {{ coriolis_appliance_tls_cert_bundle }}"
+  register: result
+  # retries: 10
+  # delay: 5
+  until: result is succeeded
+
 - name: Combine TLS key certificate and root CA
   shell: "cat {{ coriolis_appliance_tls_key }} {{ coriolis_appliance_tls_certificate }} {{ coriolis_appliance_tls_cacert }} > {{ coriolis_appliance_tls_combined }}"
   register: result

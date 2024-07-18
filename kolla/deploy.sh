@@ -31,19 +31,12 @@ CORIOLIS_APPLIANCE_CERT=$(get_global_config_value2 coriolis_appliance_tls_certif
 CORIOLIS_APPLIANCE_KEY=$(get_global_config_value2 coriolis_appliance_tls_key)
 
 mkdir -p /etc/kolla/certificates/ca/
-cp -f $CA_CERT /etc/kolla/certificates/ca/
+# The extra CA must have the .crt extension, otherwise it will be ignored
+cp -f $CA_CERT /etc/kolla/certificates/ca/coriolis.crt
 
 if [ ! -z "$EXTERNAL_FQDN" ];then
     "$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n kolla_external_fqdn -v $EXTERNAL_FQDN
 fi
-
-echo "CA cert: $CA_CERT"
-echo "Combined cert: $COMBINED_CERT"
-
-# TODO(gabriel-samfira): Make this path configurable. On RHEL based systems, the target for the
-# x509 certificate store is: /etc/pki/tls/certs
-# The openstack_cacert will need to be adjusted as well if this changes based on base OS for kolla.
-"$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n default_extra_volumes -v '["/etc/ssl/certs:/etc/ssl/certs:ro"]'
 
 # The bootstrap playbook installs the step-ca root ca in the system CA store
 "$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n openstack_cacert -v "/etc/ssl/certs/ca-certificates.crt"
@@ -51,6 +44,7 @@ echo "Combined cert: $COMBINED_CERT"
 "$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n kolla_external_fqdn_cert -v $COMBINED_CERT
 "$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n kolla_enable_tls_external -v 'yes'
 "$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n kolla_enable_tls_internal -v 'yes'
+"$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n kolla_copy_ca_into_containers -v 'yes'
 "$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n kolla_enable_tls_backend -v 'yes'
 "$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n kolla_tls_backend_cert -v "$CORIOLIS_APPLIANCE_CERT"
 "$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n kolla_tls_backend_key -v "$CORIOLIS_APPLIANCE_KEY"

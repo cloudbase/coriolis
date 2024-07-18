@@ -1,0 +1,8 @@
+#!/bin/bash
+
+. /etc/apache2/envvars
+mkdir -p ${APACHE_RUN_DIR}
+chown www-data:www-data ${APACHE_RUN_DIR}
+
+# Start Apache
+exec /usr/sbin/apache2 -D FOREGROUND

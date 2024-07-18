@@ -66,6 +66,7 @@
   with_items:
     - { src: "Dockerfile.j2",    dest: "{{ build_dir }}/coriolis-common.Dockerfile" }
     - { src: "entrypoint.sh.j2", dest: "{{ build_dir }}/coriolis-common-entrypoint.sh" }
+    - { src: "start-apache.sh.j2", dest: "{{ build_dir }}/start-apache.sh" }
   notify:
     - "build coriolis core components"
 

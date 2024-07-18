@@ -17,5 +17,7 @@
       syslog-format: rfc3164
       tag: coriolis-metal-hub
     volumes:
+      - "/etc/ssl:/etc/ssl:ro"
+      - "{{ coriolis_certificate_store }}:{{ coriolis_certificate_store }}:ro"
       - "{{ coriolis_metal_hub_config_dir }}:{{ coriolis_metal_hub_config_dir }}"
       - "{{ coriolis_log_dir }}:{{ coriolis_log_dir }}"

@@ -15,4 +15,28 @@ then
     fi
 fi
 
+CA_FOLDER="{{ coriolis_config_dir }}/ssl/ca"
+
+if [ -d "$CA_FOLDER" ] && [ ! -z "$(ls -A $CA_FOLDER)" ];then
+    if [ -e "/etc/debian_version" ]; then
+        # Tell Python to use the system CA bundle
+        export REQUESTS_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt"
+        for cert in "$CA_FOLDER"/*; do
+            file=$(basename "$cert")
+            cp $cert "/usr/local/share/ca-certificates/coriolis-ca-${file%.*}.crt"
+        done
+        update-ca-certificates
+    elif [ -e "/etc/redhat-release" ]; then
+        # Tell Python to use the system CA bundle
+        export REQUESTS_CA_BUNDLE="/etc/pki/tls/certs/ca-bundle.crt"
+        for cert in "$CA_FOLDER"/*; do
+            file=$(basename "$cert")
+            cp $cert "/etc/pki/ca-trust/source/anchors/coriolis-ca-$file"
+        done
+        update-ca-trust
+    fi
+fi
+
+
+
 exec "$@"

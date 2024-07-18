@@ -25,7 +25,9 @@ RUN chmod +x /entrypoint.sh
 COPY coriolis-core coriolis-core
 
 RUN /bin/bash -c "pip3 install git+https://github.com/cloudbase/pywinrm.git@requests#egg=pywinrm"
-RUN /bin/bash -c "pip3 install -e ./coriolis-core"
+# Install package in non-editable mode. Installing it as editable in /root will mean no other
+# user can import the code. The coriolis-api code doesn't need to run as root.
+RUN /bin/bash -c "pip3 install ./coriolis-core"
 
 COPY coriolis-replicator/replicator coriolis-core/coriolis/resources/bin/replicator
 COPY coriolis-writer/writer         coriolis-core/coriolis/resources/bin/coriolis-writer

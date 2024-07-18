@@ -1,9 +1,25 @@
 FROM {{ coriolis_common_docker_image_url }}
 
+# Required to prevent tzdata asking for a timezone:
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y apache2 \
+    apache2-bin apache2-data apache2-utils \
+    libapache2-mod-wsgi-py3
+
+RUN a2enmod wsgi || true
+
 # Mapped volume: /etc/coriolis/coriolis.conf
-{% if "api" in enable_profiling_for %}
-CMD ["/usr/local/bin/fil-profile", "-o", "{{ coriolis_profiling_dir_container }}", "run", "/usr/local/bin/coriolis-api", "--config-file={{ coriolis_config_dir }}/coriolis.conf", "--config-file={{ coriolis_config_dir }}/coriolis-api-logging.conf", "--worker-process-count", "1"]
-{% else %}
-CMD ["/usr/local/bin/coriolis-api", "--config-file={{ coriolis_config_dir }}/coriolis.conf", "--config-file={{ coriolis_config_dir }}/coriolis-api-logging.conf"]
-{% endif %}
+# {% if "api" in enable_profiling_for %}
+# CMD ["/usr/local/bin/fil-profile", "-o", "{{ coriolis_profiling_dir_container }}", "run", "/usr/local/bin/coriolis-api", "--config-file={{ coriolis_config_dir }}/coriolis.conf", "--config-file={{ coriolis_config_dir }}/coriolis-api-logging.conf", "--worker-process-count", "1"]
+# {% else %}
+# CMD ["/usr/local/bin/coriolis-api", "--config-file={{ coriolis_config_dir }}/coriolis.conf", "--config-file={{ coriolis_config_dir }}/coriolis-api-logging.conf"]
+# {% endif %}
+
+
+COPY start-apache.sh /start-apache.sh
+RUN chmod +x /start-apache.sh
+RUN rm -f /etc/apache2/sites-enabled/000-default.conf
+RUN echo "" > /etc/apache2/ports.conf
+
+CMD ["/start-apache.sh"]
 EXPOSE 7667

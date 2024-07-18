@@ -9,6 +9,8 @@
     restart_policy: unless-stopped
     network_mode: host
     volumes:
+      - "{{ coriolis_config_dir }}/coriolis-app.wsgi:/usr/local/bin/coriolis-app.wsgi"
+      - "{{ coriolis_config_dir }}/wsgi-coriolis.conf:/etc/apache2/sites-enabled/wsgi-coriolis.conf"
       - "{{ coriolis_config_dir }}:{{ coriolis_config_dir }}:ro"
       - "{{ coriolis_log_dir }}:{{ coriolis_log_dir }}"
       - "{{ coriolis_logger_socket_dir }}:{{ coriolis_logger_socket_dir }}"

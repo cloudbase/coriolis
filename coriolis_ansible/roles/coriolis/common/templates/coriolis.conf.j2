@@ -51,6 +51,7 @@ auth_url = {{ keystone_protocol }}://{{ keystone_host }}:{{ keystone_internal_po
 username = {{ coriolis_keystone_user }}
 password = {{ coriolis_keystone_password }}
 user_domain_id = default
+cafile = {{ coriolis_config_dir }}/ssl/ca/coriolis-ca.crt
 project_name = service
 project_domain_id = default
 
@@ -64,6 +65,7 @@ user_domain_id = default
 [keystone]
 identity_api_version = 3
 auth_url = {{ keystone_protocol }}://{{ keystone_host }}:{{ keystone_public_port }}/v3
+cafile = {{ coriolis_config_dir }}/ssl/ca/coriolis-ca.crt
 
 [oslo_policy]
 policy_file = {{ coriolis_policy_file }}

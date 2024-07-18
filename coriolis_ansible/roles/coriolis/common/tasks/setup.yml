@@ -39,12 +39,38 @@
     priv: "{{ coriolis_database_name }}.*:ALL"
     append_privs: "yes"
 
+- name: Create service certificate folder
+  file:
+    path: "{{ coriolis_config_dir }}/ssl"
+    state: directory
+    mode: 0711
+
+- name: Create CA certificate folder
+  file:
+    path: "{{ coriolis_config_dir }}/ssl/ca"
+    state: directory
+    mode: 0711
+
+- name: "Copying over certificates"
+  copy: 
+      src: "{{ item.src }}" 
+      dest: "{{ item.dest }}"
+  loop:
+    - src: "{{ coriolis_appliance_tls_cert_bundle }}"
+      dest: "{{ coriolis_config_dir }}/ssl/coriolis.crt"
+    - src: "{{ coriolis_appliance_tls_key }}"
+      dest: "{{ coriolis_config_dir }}/ssl/coriolis.key"
+    - src: "{{ coriolis_appliance_tls_cacert }}"
+      dest: "{{ coriolis_config_dir }}/ssl/ca/coriolis-ca.crt"
+
 - name: Render templates
   template:
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
     backup: yes
   with_items:
+    - { src: coriolis-app.wsgi.j2, dest: "{{ coriolis_config_dir }}/coriolis-app.wsgi" }
+    - { src: wsgi-coriolis.conf.j2, dest: "{{ coriolis_config_dir }}/wsgi-coriolis.conf" }
     - { src: coriolis.conf.j2, dest: "{{ coriolis_config_dir }}/coriolis.conf" }
     - { src: api-paste.ini.j2, dest: "{{ coriolis_config_dir }}/api-paste.ini" }
     - { src: policy.yml.j2,    dest: "{{ coriolis_config_dir }}/policy.yml" }

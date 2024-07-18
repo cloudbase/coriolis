@@ -1,0 +1,42 @@
+LoadModule ssl_module /usr/lib/apache2/modules/mod_ssl.so
+Listen {{bind_address}}:{{coriolis_port}}
+
+ServerSignature Off
+ServerTokens Prod
+TraceEnable off
+TimeOut 60
+KeepAliveTimeout 60
+
+ErrorLog "/var/log/coriolis/coriolis-error.log"
+<IfModule log_config_module>
+    CustomLog "/var/log/coriolis/coriolis-api.log" common
+</IfModule>
+
+<VirtualHost {{bind_address}}:{{coriolis_port}}>
+    ServerName https://{{bind_address}}:{{coriolis_port}}
+    WSGIDaemonProcess coriolis-api processes=5 threads=1 user=${APACHE_RUN_USER} group=${APACHE_RUN_GROUP} display-name=coriolis-api
+    WSGIProcessGroup coriolis-api
+    WSGIScriptAlias / /usr/local/bin/coriolis-app.wsgi
+    WSGIApplicationGroup %{GLOBAL}
+    WSGIPassAuthorization On
+    <IfVersion >= 2.4>
+      ErrorLogFormat "%{cu}t %M"
+    </IfVersion>
+    <Directory /usr/local/bin>
+        <IfVersion >= 2.4>
+            Require all granted
+        </IfVersion>
+        <IfVersion < 2.4>
+            Order allow,deny
+            Allow from all
+        </IfVersion>
+    </Directory>
+
+    ErrorLog "/var/log/coriolis/coriolis-error.log"
+    LogFormat "%{X-Forwarded-For}i %l %u %t \"%r\" %>s %b %D \"%{Referer}i\" \"%{User-Agent}i\"" logformat
+    CustomLog "/var/log/coriolis/coriolis-api.log" logformat
+
+    SSLEngine on
+    SSLCertificateFile "{{ coriolis_config_dir }}/ssl/coriolis.crt"
+    SSLCertificateKeyFile "{{ coriolis_config_dir }}/ssl/coriolis.key"
+</VirtualHost>

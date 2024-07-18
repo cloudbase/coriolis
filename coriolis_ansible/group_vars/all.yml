@@ -12,6 +12,7 @@ coriolis_certificate_extra_sans: []
 coriolis_appliance_tls_certificate: "{{coriolis_certificate_store}}/certificate.pem"
 coriolis_appliance_tls_key: "{{coriolis_certificate_store}}/key.pem"
 coriolis_appliance_tls_cacert: "{{coriolis_certificate_store}}/cacert.pem"
+coriolis_appliance_tls_cert_bundle: "{{coriolis_certificate_store}}/bundle.pem"
 coriolis_appliance_tls_combined: "{{coriolis_certificate_store}}/combined.pem"
 
 bind_address: 127.0.0.1
@@ -50,8 +51,8 @@ coriolis_common_docker_image_url: "{{ docker_registry }}/{{ docker_namespace }}/
 coriolis_debug: true
 
 coriolis_port: 7667
-coriolis_base_url: "http://{{ endpoint_base_address }}:{{ coriolis_port }}/v1"
-coriolis_web_ui_base_url: "http://{{ endpoint_base_address }}:3000"
+coriolis_base_url: "https://{{ endpoint_base_address }}:{{ coriolis_port }}/v1"
+coriolis_web_ui_base_url: "https://{{ endpoint_base_address }}:3000"
 
 coriolis_config_dir: /etc/coriolis
 coriolis_log_dir: /var/log/coriolis
@@ -70,13 +71,13 @@ coriolis_logger_socket_name: logger.socket
 coriolis_logger_socket_file: "{{ coriolis_logger_socket_dir }}/{{ coriolis_logger_socket_name }}"
 coriolis_logger_volume_name: coriolis-logger
 coriolis_logger_port: 9998
-coriolis_logger_endpoint: "http://{{ endpoint_base_address }}:{{ coriolis_logger_port }}/api/v1"
-coriolis_logger_ws_url: "ws://{{ endpoint_base_address }}:{{ coriolis_logger_port }}/api/v1/ws"
+coriolis_logger_endpoint: "https://{{ endpoint_base_address }}:{{ coriolis_logger_port }}/api/v1"
+coriolis_logger_ws_url: "wss://{{ endpoint_base_address }}:{{ coriolis_logger_port }}/api/v1/ws"
 
 coriolis_licensing_server_port: 37667
-coriolis_licensing_server_endpoint: "http://{{ endpoint_base_address }}:{{ coriolis_licensing_server_port }}/v2"
+coriolis_licensing_server_endpoint: "https://{{ endpoint_base_address }}:{{ coriolis_licensing_server_port }}/v2"
 coriolis_licensing_ui_port: 3010
-coriolis_licensing_ui_endpoint: "http://{{ endpoint_base_address }}:{{ coriolis_licensing_ui_port }}/licensing-ui"
+coriolis_licensing_ui_endpoint: "https://{{ endpoint_base_address }}:{{ coriolis_licensing_ui_port }}/licensing-ui"
 
 # We can only specify one global "[oslo_concurrency] lock_path" in
 # coriolis.conf so we will map separate directories on the host to
@@ -109,7 +110,7 @@ coriolis_console_editor_mountdirs:
   - "{{ coriolis_ansible_docker_config_file }}:{{ coriolis_ansible_docker_config_file }}:rw"
 
 coriolis_metal_hub_port: 9900
-coriolis_metal_hub_endpoint: "http://{{ endpoint_base_address }}:{{ coriolis_metal_hub_port }}/api/v1"
+coriolis_metal_hub_endpoint: "https://{{ endpoint_base_address }}:{{ coriolis_metal_hub_port }}/api/v1"
 coriolis_metal_hub_config_dir: /etc/coriolis-metal
 coriolis_metal_hub_certs_dir: "{{ coriolis_metal_hub_config_dir }}/certs"
 coriolis_metal_hub_ca_cert_path: "{{ coriolis_metal_hub_certs_dir }}/ca-pub.pem"

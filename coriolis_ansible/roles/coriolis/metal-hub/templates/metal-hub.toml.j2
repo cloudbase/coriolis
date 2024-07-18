@@ -5,14 +5,14 @@ sysinfo_polling_period = 3600
 bind = "{{ bind_address }}"
 port = {{ coriolis_metal_hub_port }}
 auth_middleware = "keystone"
+use_tls = true
 
 	[api.keystone_auth]
 	auth_uri = "{{ keystone_auth_url }}"
 
 	[api.tls]
-	certificate = "{{ coriolis_metal_hub_server_cert_path }}"
-	key = "{{ coriolis_metal_hub_server_key_path }}"
-	ca_certificate = "{{ coriolis_metal_hub_ca_cert_path }}"
+	certificate = "{{ coriolis_appliance_tls_cert_bundle }}"
+	key = "{{ coriolis_appliance_tls_key }}"
 
 [database]
 backend = "mysql"
