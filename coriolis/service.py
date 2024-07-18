@@ -4,6 +4,7 @@
 import argparse
 import os
 import platform
+import sys
 
 from oslo_concurrency import processutils
 from oslo_config import cfg
@@ -98,6 +99,15 @@ def check_locks_dir_empty():
     LOG.info(
         "Successfully checked 'lock_path' directory '%s' exists and is empty.",
         locks_dir)
+
+
+def get_application():
+    worker_count, args = get_worker_count_from_args(sys.argv)
+    CONF(args[1:], project='coriolis', version="1.0.0")
+    utils.setup_logging()
+
+    loader = wsgi.Loader(CONF)
+    return loader.load_app("coriolis-api")
 
 
 class WSGIService(service.ServiceBase):
