@@ -69,7 +69,7 @@
     dest: "{{ item.dest }}"
     backup: yes
   with_items:
-    - { src: coriolis-app.wsgi.j2, dest: "{{ coriolis_config_dir }}/coriolis-app.wsgi" }
+    - { src: coriolis-api.wsgi.j2, dest: "{{ coriolis_config_dir }}/coriolis-api.wsgi" }
     - { src: wsgi-coriolis.conf.j2, dest: "{{ coriolis_config_dir }}/wsgi-coriolis.conf" }
     - { src: coriolis.conf.j2, dest: "{{ coriolis_config_dir }}/coriolis.conf" }
     - { src: api-paste.ini.j2, dest: "{{ coriolis_config_dir }}/api-paste.ini" }

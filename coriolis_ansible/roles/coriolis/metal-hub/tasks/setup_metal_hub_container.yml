@@ -17,6 +17,9 @@
       syslog-format: rfc3164
       tag: coriolis-metal-hub
     volumes:
+      # The metal hub is a scratch image with just the hub binary inside. We need
+      # to mount the /etc/ssl directory from the host for that binary to be able to
+      # validate any servers it needs to connect to.
       - "/etc/ssl:/etc/ssl:ro"
       - "{{ coriolis_certificate_store }}:{{ coriolis_certificate_store }}:ro"
       - "{{ coriolis_metal_hub_config_dir }}:{{ coriolis_metal_hub_config_dir }}"

@@ -9,5 +9,7 @@
     restart_policy: unless-stopped
     network_mode: host
     volumes:
+      - "/etc/ssl:/etc/ssl:ro"
+      - "{{ coriolis_certificate_store }}:{{ coriolis_certificate_store }}:ro"
       - "{{ coriolis_logger_config_dir }}/coriolis-logger.toml:{{ coriolis_logger_config_dir }}/coriolis-logger.toml"
       - "{{ coriolis_logger_volume_name }}:{{ coriolis_logger_socket_dir }}"

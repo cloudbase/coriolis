@@ -24,9 +24,8 @@ cors_origins = ["*"]
 
     # API server TLS config
     [apiserver.tls]
-    crt = "{{ coriolis_appliance_tls_certificate }}"
+    crt = "{{ coriolis_appliance_tls_cert_bundle }}"
     key = "{{ coriolis_appliance_tls_key }}"
-    cacert = "{{ coriolis_appliance_tls_cacert }}"
 
 [syslog]
 # Possible values: unixgram, tcp, udp
