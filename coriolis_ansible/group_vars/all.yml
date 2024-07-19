@@ -52,7 +52,7 @@ coriolis_debug: true
 
 coriolis_port: 7667
 coriolis_base_url: "https://{{ endpoint_base_address }}:{{ coriolis_port }}/v1"
-coriolis_web_ui_base_url: "https://{{ endpoint_base_address }}:3000"
+coriolis_web_ui_base_url: "http://127.0.0.1:3000"
 
 coriolis_config_dir: /etc/coriolis
 coriolis_log_dir: /var/log/coriolis
