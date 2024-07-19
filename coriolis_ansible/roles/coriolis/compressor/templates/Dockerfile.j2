@@ -1,11 +1,14 @@
-FROM golang:1.13 AS builder
+FROM golang:alpine AS builder
 LABEL stage=builder
 
 ENV GO111MODULE=on
 ADD coriolis-compressor/ /tmp/coriolis-compressor
 WORKDIR /tmp/coriolis-compressor/cmd/coriolis-compressor/
 
-RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -a -ldflags="-w -s" -o /coriolis-compressor -mod vendor .
+RUN GOOS=linux GOARCH=amd64 go build -mod vendor \
+    -o /coriolis-compressor \
+    -tags osusergo,netgo,sqlite_omit_load_extension \
+    -ldflags "-extldflags '-static' -s -w" .
 
 FROM busybox
 COPY --from=builder /coriolis-compressor /coriolis-compressor

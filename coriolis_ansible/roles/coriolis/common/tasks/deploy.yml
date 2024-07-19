@@ -5,11 +5,18 @@
     state: directory
   with_items:
     - "{{ coriolis_config_dir }}"
-    - "{{ coriolis_log_dir }}"
     - "{{ coriolis_profiling_dir_host }}"
     - "{{ coriolis_locks_dir_host }}"
     - "{{ coriolis_conductor_locks_dir_host }}"
     - "{{ coriolis_minion_manager_locks_dir_host }}"
+
+- name: Create coriolis log directory
+  file:
+    path: "{{ coriolis_log_dir }}"
+    state: directory
+    mode: 0o775
+    group: www-data
+    owner: root
 
 - name: Create profiling subdirs
   file:

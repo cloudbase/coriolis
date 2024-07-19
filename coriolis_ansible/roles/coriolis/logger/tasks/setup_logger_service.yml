@@ -8,13 +8,14 @@
     hostname: coriolis-logger
     state: started
     network_mode: host
-    command: ["go", "build", "-a", "-ldflags=-w", "-ldflags=-s", "-o", "{{ coriolis_logger_build_dir }}/coriolis-logger", "."]
+    command: ["go", "build", "-a", "-tags", "osusergo,netgo,sqlite_omit_load_extension", "-ldflags", "-extldflags '-static' -s -w", "-o", "{{ coriolis_logger_build_dir }}/coriolis-logger", "."]
     env:
       GO111MODULE: "on"
       ENV GOOS: "linux"
       ENV GOARCH: "amd64"
       ENV CGO_ENABLED: "0"
     volumes:
+      - "{{ build_dir }}/coriolis-logger:/tmp/coriolis-logger"
       - "{{ coriolis_logger_binary_dir }}:{{ coriolis_logger_build_dir }}"
 
 - name: Render service unit file template
