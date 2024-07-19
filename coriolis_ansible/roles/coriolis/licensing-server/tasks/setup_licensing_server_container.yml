@@ -15,3 +15,9 @@
       LICENSING_HOSTNAME: "{{ ansible_hostname }}"
       LICENSING_DB_STRING: "{{ coriolis_licensing_server_database_user }}:{{ coriolis_licensing_server_database_password }}@tcp({{ bind_address }})/{{ coriolis_licensing_server_database_name }}"
       LICENSING_SERVER_PORT: "{{ coriolis_licensing_server_port | string }}"
+      LICENSING_SERVER_BIND: "{{ bind_address }}"
+      LICENSING_SERVER_TLS_CERTIFICATE: "{{ coriolis_appliance_tls_cert_bundle }}"
+      LICENSING_SERVER_TLS_KEY: "{{ coriolis_appliance_tls_key }}"
+    volumes:
+      - "/etc/ssl:/etc/ssl:ro"
+      - "{{ coriolis_certificate_store }}:{{ coriolis_certificate_store }}:ro"

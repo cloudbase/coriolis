@@ -1,14 +1,14 @@
-FROM golang:1.13 AS builder
+FROM golang:alpine AS builder
 LABEL stage=builder
 
 COPY coriolis-licensing-server/ /tmp/coriolis-licensing-server
 
 WORKDIR /tmp/coriolis-licensing-server/server
 ENV GO111MODULE=on
-RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -a -ldflags="-w -s" -o /server .
+RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -tags osusergo,netgo,sqlite_omit_load_extension -ldflags "-extldflags '-static' -s -w" -o /server .
 
 FROM busybox
 COPY --from=builder /server /server
 
 # NOTE: the afferent port is exposed in the Ansible playbook.
-ENTRYPOINT ["/bin/sh", "-c", "/server start --port $LICENSING_SERVER_PORT --database $LICENSING_DB_STRING --hostname $LICENSING_HOSTNAME"]
+ENTRYPOINT ["/bin/sh", "-c", "/server start --bind $LICENSING_SERVER_BIND --port $LICENSING_SERVER_PORT --database $LICENSING_DB_STRING --hostname $LICENSING_HOSTNAME --use-tls --certificate $LICENSING_SERVER_TLS_CERTIFICATE --key $LICENSING_SERVER_TLS_KEY"]
