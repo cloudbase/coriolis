@@ -9,6 +9,7 @@
     restart_policy: unless-stopped
     network_mode: host
     env:
+      BIND: "{{ coriolis_web_ui_bind_address }}"
       CA_FINGERPRINT: "{{ coriolis_web_step_dir }}/fingerprint"
       CORIOLIS_LICENSING_BASE_URL: "/licensing"
       MOD_JSON: "{{ coriolis_web_mod_dir }}/ui-mod.json"
