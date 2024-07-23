@@ -11,3 +11,4 @@
     volumes:
       - "{{ coriolis_config_dir }}:{{ coriolis_config_dir }}"
       - "{{ coriolis_certs_dir }}:{{ coriolis_certs_dir }}:ro"
+      - "{{ coriolis_certs_dir }}/ca/coriolis-ca.crt:/var/www/html/coriolis-ca.crt:ro"

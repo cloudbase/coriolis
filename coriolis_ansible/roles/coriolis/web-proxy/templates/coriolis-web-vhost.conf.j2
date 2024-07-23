@@ -55,3 +55,16 @@
     RewriteEngine On
     RewriteRule ^(.*)$ https://%{HTTP_HOST}$1 [R=301,L]
 </VirtualHost>
+
+<VirtualHost *:9001>
+    DocumentRoot /var/www/html
+
+    <Directory "/var/www/html">
+        Order deny,allow
+        Deny from all
+        <Files "root.crt">
+            Order allow,deny
+            Allow from all
+        </Files>
+    </Directory>
+</VirtualHost>
