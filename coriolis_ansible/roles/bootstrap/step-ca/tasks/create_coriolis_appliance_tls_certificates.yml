@@ -14,7 +14,7 @@
     san_args: "{%- if bind_address != '127.0.0.1' %} --san {{bind_address}} {%- endif%}{%- if coriolis_certtificate_fqdn %} --san {{ coriolis_certtificate_fqdn }} {%- endif %}{%- for i in coriolis_certificate_extra_sans %} --san {{ i }} {%- endfor %} --san {{ ansible_hostname }} --san localhost --san 127.0.0.1"
 
 - name: Generate Coriolis appliance certificates
-  shell: "step ca certificate -f --provisioner=admin --provisioner-password-file {{ step_ca_home }}/secrets/password {{ endpoint_base_address }} {{san_args}} {{ coriolis_appliance_tls_certificate }} {{ coriolis_appliance_tls_key }} 2> /dev/null"
+  shell: "step ca certificate -f --provisioner=admin --provisioner-password-file {{ step_ca_home }}/secrets/password {{ endpoint_base_address }} {{san_args}} {{ coriolis_appliance_tls_certificate }} {{ coriolis_appliance_tls_key }} --not-after=17520h 2> /dev/null"
   register: appliance_cert_result
   # retries: 10
   # delay: 5
@@ -23,7 +23,7 @@
 - name: Get Coriolis appliance root certificate stat
   stat:
     path: "{{ coriolis_appliance_tls_cacert }}"
-  register: appliance_cacert_stat 
+  register: appliance_cacert_stat
 
 - name: Download root certificate
   shell: "step ca root -f {{ coriolis_appliance_tls_cacert }}"
