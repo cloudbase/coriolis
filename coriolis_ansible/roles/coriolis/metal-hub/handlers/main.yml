@@ -5,8 +5,5 @@
     image_name: coriolis-metal-hub
     image_tag: "{{ coriolis_metal_hub_docker_image_tag }}"
 
-- name: "restart step-ca"
-  shell: "docker restart step-ca"
-
 - name: "restart coriolis-metal-hub"
   shell: "docker restart coriolis-metal-hub"

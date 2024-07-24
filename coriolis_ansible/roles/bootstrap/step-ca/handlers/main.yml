@@ -1,2 +1,3 @@
+---
 - name: "restart step-ca"
   shell: "docker restart step-ca"

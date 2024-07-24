@@ -71,4 +71,7 @@
   notify:
     - "restart step-ca"
 
+- name: Flush handlers
+  meta: flush_handlers
+
 - include_tasks: create_coriolis_appliance_tls_certificates.yml
