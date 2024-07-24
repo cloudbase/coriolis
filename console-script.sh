@@ -88,7 +88,7 @@ EOP
 
 # Source parent scripts:
 BASE_DIR=$(dirname "$(readlink -f "$0")")
-source "$BASE_DIR/utils/common.sh"
+source "$BASE_DIR/utils/common.sh" 2> /dev/null
 
 CORIOLIS_CONSOLE_EDITOR_CONTAINER_NAME="coriolis-console-editor"
 ADMIN_OPENRC_FILE="$(get_global_config_value kolla_admin_openrc_filepath)"
