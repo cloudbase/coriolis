@@ -17,14 +17,13 @@ import eventlet
 from oslo_config import cfg
 from oslo_log import log as logging
 import paramiko
-import requests
 from six import with_metaclass
 
 from coriolis import constants
 from coriolis import data_transfer
 from coriolis import exception
+from coriolis.providers import provider_utils
 from coriolis import utils
-
 
 CONF = cfg.CONF
 opts = [
@@ -604,7 +603,7 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
     def _init_session(self):
         if self._session:
             self._session.close()
-        sess = requests.Session()
+        sess = provider_utils.ProviderSession()
         sess.cert = (
             self._crt,
             self._key)

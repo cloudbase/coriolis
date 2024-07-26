@@ -8,6 +8,7 @@ from unittest import mock
 from oslo_utils import units
 
 from coriolis import exception
+from coriolis.providers import provider_utils
 from coriolis.providers import replicator as replicator_module
 from coriolis.tests import test_base
 from coriolis.tests import testutils
@@ -173,7 +174,7 @@ class ClientTestCase(test_base.CoriolisBaseTestCase):
 
         self.assertEqual(result, expected_uri)
 
-    @mock.patch('requests.Session')
+    @mock.patch.object(provider_utils, 'ProviderSession')
     def test__get_session(self, mock_Session):
         self.client._creds = {
             "client_cert": mock.sentinel.client_cert,
