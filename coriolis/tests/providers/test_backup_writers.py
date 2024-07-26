@@ -9,6 +9,7 @@ from unittest import mock
 
 from coriolis import exception
 from coriolis.providers import backup_writers
+from coriolis.providers import provider_utils
 from coriolis.tests import test_base
 from coriolis.tests import testutils
 
@@ -797,7 +798,7 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
             timeout=mock_conf.default_requests_timeout)
         mock_response.raise_for_status.assert_called_once()
 
-    @mock.patch('requests.Session')
+    @mock.patch.object(provider_utils, 'ProviderSession')
     def test__init_session(self, mock_session_class):
         self.writer._session = mock.Mock(return_value=None)
         self.writer._crt = self.info["client_crt"]
@@ -814,7 +815,7 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
                          (self.writer._crt, self.writer._key))
         self.assertEqual(self.writer._session.verify, self.writer._ca)
 
-    @mock.patch('requests.Session')
+    @mock.patch.object(provider_utils, 'ProviderSession')
     def test__init_session_exists(self, mock_session_class):
         self.writer._session = mock_session_class.return_value
         self.writer._crt = self.info["client_crt"]

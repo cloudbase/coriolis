@@ -10,12 +10,11 @@ import time
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import units
+import paramiko
 from sshtunnel import SSHTunnelForwarder
 
-import paramiko
-import requests
-
 from coriolis import exception
+from coriolis.providers import provider_utils
 from coriolis import utils
 
 LOG = logging.getLogger(__name__)
@@ -156,7 +155,7 @@ class Client(object):
         return diskUri
 
     def _get_session(self):
-        sess = requests.Session()
+        sess = provider_utils.ProviderSession()
         sess.cert = (
             self._creds["client_cert"],
             self._creds["client_key"])

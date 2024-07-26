@@ -1,10 +1,9 @@
 # Copyright 2018 Cloudbase Solutions Srl
 # All Rights Reserved.
-
 from oslo_log import log as logging
+import requests
 
 from coriolis import exception
-
 
 LOG = logging.getLogger(__name__)
 
@@ -133,3 +132,11 @@ def check_changed_storage_mappings(volumes_info, old_storage_mappings,
             old_disk_mappings_set != new_disk_mappings_set):
         raise exception.CoriolisException("Modifying storage mappings is "
                                           "not supported.")
+
+
+class ProviderSession(requests.Session):
+    def merge_environment_settings(
+            self, url, proxies, stream, verify, *args, **kwargs):
+        verify = self.verify
+        return super(ProviderSession, self).merge_environment_settings(
+            url, proxies, stream, verify, *args, **kwargs)
