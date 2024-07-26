@@ -56,13 +56,13 @@
     RewriteRule ^(.*)$ https://%{HTTP_HOST}$1 [R=301,L]
 </VirtualHost>
 
-<VirtualHost *:9001>
+<VirtualHost *:{{ coriolis_ca_cert_vhost_post }}>
     DocumentRoot /var/www/html
 
     <Directory "/var/www/html">
         Order deny,allow
         Deny from all
-        <Files "root.crt">
+        <Files "coriolis-ca.crt">
             Order allow,deny
             Allow from all
         </Files>

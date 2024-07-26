@@ -1,3 +1,4 @@
 ---
 coriolis_certs_dir: "{{ coriolis_config_dir }}/ssl"
 coriolis_web_proxy_docker_image_url: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-web-proxy:{{ coriolis_web_proxy_docker_image_tag }}"
+coriolis_ca_cert_vhost_post: 9001

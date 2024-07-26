@@ -5,6 +5,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y apache2 openssl
 RUN a2enmod ssl headers rewrite proxy proxy_http proxy_wstunnel
 RUN ln -s /etc/coriolis/coriolis-web-vhost.conf /etc/apache2/sites-enabled/coriolis-web-vhost.conf
+RUN echo "Listen {{ coriolis_ca_cert_vhost_post }}" >> /etc/apache2/ports.conf
 
 # NOTE: the default site will take precedence over the Coriolis vhost(s) so
 # HTTP connections on :80 will not automatically escalate to HTTPS on :443
