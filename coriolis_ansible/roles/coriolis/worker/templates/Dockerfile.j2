@@ -1,5 +1,7 @@
 FROM {{ coriolis_common_docker_image_url }}
 
+RUN pip install -e /root/coriolis-core
+
 {% for item in coriolis_providers %}
 COPY coriolis-provider-{{ item }}/ coriolis-provider-{{ item }}
 {% endfor %}
