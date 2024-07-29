@@ -42,15 +42,19 @@ def _get_trusts_auth_plugin(trust_id=None):
         CONF, TRUSTEE_CONF_GROUP, trust_id=trust_id)
 
 
-def create_trust(ctxt):
-    if ctxt.trust_id:
-        return
-
+def _get_verify_option():
     cafile = CONF.keystone.cafile
     if cafile and cafile != "":
         verify = cafile
     else:
         verify = not CONF.keystone.allow_untrusted
+
+    return verify
+
+
+def create_trust(ctxt):
+    if ctxt.trust_id:
+        return
 
     LOG.debug("Creating Keystone trust")
 
@@ -63,7 +67,7 @@ def create_trust(ctxt):
         project_name=ctxt.project_name,
         project_domain_name=ctxt.project_domain_name)
     session = ks_session.Session(
-        auth=auth, verify=verify)
+        auth=auth, verify=_get_verify_option())
 
     try:
         trustee_user_id = trusts_auth_plugin.get_user_id(session)
@@ -100,7 +104,7 @@ def delete_trust(ctxt):
 
         auth = _get_trusts_auth_plugin(ctxt.trust_id)
         session = ks_session.Session(
-            auth=auth, verify=not CONF.keystone.allow_untrusted)
+            auth=auth, verify=_get_verify_option())
         client = kc_v3.Client(session=session)
         try:
             client.trusts.delete(ctxt.trust_id)
@@ -110,11 +114,7 @@ def delete_trust(ctxt):
 
 
 def create_keystone_session(ctxt, connection_info={}):
-    allow_untrusted = connection_info.get(
-        "allow_untrusted", CONF.keystone.allow_untrusted)
     # TODO(alexpilotti): add "ca_cert" to connection_info
-    verify = not allow_untrusted
-
     username = connection_info.get("username")
     auth = None
 
@@ -136,10 +136,6 @@ def create_keystone_session(ctxt, connection_info={}):
             "username": username,
             "password": password,
         }
-
-    cafile = CONF.keystone.cafile
-    if cafile and cafile != "":
-        verify = cafile
 
     if not auth:
         project_name = connection_info.get("project_name", ctxt.project_name)
@@ -200,4 +196,4 @@ def create_keystone_session(ctxt, connection_info={}):
         loader = loading.get_plugin_loader(plugin_name)
         auth = loader.load_from_options(**plugin_args)
 
-    return ks_session.Session(auth=auth, verify=verify)
+    return ks_session.Session(auth=auth, verify=_get_verify_option())
