@@ -46,6 +46,12 @@ def create_trust(ctxt):
     if ctxt.trust_id:
         return
 
+    cafile = CONF.keystone.cafile
+    if cafile and cafile != "":
+        verify = cafile
+    else:
+        verify = not CONF.keystone.allow_untrusted
+
     LOG.debug("Creating Keystone trust")
 
     trusts_auth_plugin = _get_trusts_auth_plugin()
@@ -57,7 +63,7 @@ def create_trust(ctxt):
         project_name=ctxt.project_name,
         project_domain_name=ctxt.project_domain_name)
     session = ks_session.Session(
-        auth=auth, verify=not CONF.keystone.allow_untrusted)
+        auth=auth, verify=verify)
 
     try:
         trustee_user_id = trusts_auth_plugin.get_user_id(session)
