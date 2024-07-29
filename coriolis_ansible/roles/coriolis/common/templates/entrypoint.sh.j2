@@ -16,27 +16,35 @@ then
 fi
 
 CA_FOLDER="{{ coriolis_config_dir }}/ssl/ca"
+CERTIFI_DIR="$(python3 -c 'import certifi; import os; print(os.path.dirname(certifi.__file__))')"
+CERTIFI_CA_PATH="$(CERTIFI_DIR)/cacert.pem"
 
 if [ -d "$CA_FOLDER" ] && [ ! -z "$(ls -A $CA_FOLDER)" ];then
     if [ -e "/etc/debian_version" ]; then
-        # Tell Python to use the system CA bundle
-        export REQUESTS_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt"
+        # Copy over Coriolis CA certificates
         for cert in "$CA_FOLDER"/*; do
+            # Validate $cert before copying into CA store
+            openssl x509 -noout -in $cert
+
             file=$(basename "$cert")
             cp $cert "/usr/local/share/ca-certificates/coriolis-ca-${file%.*}.crt"
+
+            cat $cert >> $CERTIFI_CA_PATH; echo >> $CERTIFI_CA_PATH
         done
         update-ca-certificates
     elif [ -e "/etc/redhat-release" ]; then
-        # Tell Python to use the system CA bundle
-        export REQUESTS_CA_BUNDLE="/etc/pki/tls/certs/ca-bundle.crt"
+        # Copy over Coriolis CA certificates
         for cert in "$CA_FOLDER"/*; do
+            # Validate $cert before copying into CA store
+            openssl x509 -noout -in $cert
+
             file=$(basename "$cert")
             cp $cert "/etc/pki/ca-trust/source/anchors/coriolis-ca-$file"
+
+            cat $cert >> $CERTIFI_CA_PATH; echo >> $CERTIFI_CA_PATH
         done
         update-ca-trust
     fi
 fi
-
-
 
 exec "$@"
