@@ -63,6 +63,7 @@ coriolis_hyperv_share_local_dir: "{{ appliance_coriolis_opt_dir }}/hyperv-export
 coriolis_export_dir: "{{ appliance_coriolis_opt_dir }}/export"
 coriolis_profiling_dir_container: "{{ appliance_coriolis_opt_dir }}/profiling"
 coriolis_docker_image_dir: /tmp/coriolis_docker_images
+coriolis_docker_image_timeout: 300
 
 coriolis_export_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "vmware", "aws", "metal"]
 coriolis_import_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "oci", "aws", "vmware", "ovirt"]

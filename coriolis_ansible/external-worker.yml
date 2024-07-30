@@ -33,6 +33,7 @@
         archive_path: "{{ coriolis_docker_image_dir }}/{{ item.name }}-{{ item.img_tag }}.tar"
         source: local
         state: present
+        timeout: "{{ coriolis_docker_image_timeout }}"
       with_items: "{{ required_containers }}"
       register: result
       retries: 10
@@ -43,13 +44,14 @@
 - name: Install Minimum required packages on Worker VM to launch containers
   hosts: external_workers
   tasks:
-    - name: Apt install docker and pip
+    - name: Apt install docker, pip and rsync
       apt:
         update_cache: yes
         force_apt_get: yes
         name:
           - python3-pip
           - docker.io
+          - rsync
         state: present
       become: yes
 
@@ -74,10 +76,28 @@
         - "{{ coriolis_log_dir }}"
         - "{{ coriolis_docker_image_dir }}"
 
+    - name: Create service certificate folder
+      file:
+        path: "{{ coriolis_config_dir }}/ssl"
+        state: directory
+        mode: 0711
+
+    - name: Create CA certificate folder
+      file:
+        path: "{{ coriolis_config_dir }}/ssl/ca"
+        state: directory
+        mode: 0711
+
     - name: Copy coriolis conf
       copy:
         src: "{{ coriolis_config_dir }}/coriolis.conf"
         dest: "{{ coriolis_config_dir }}"
+      become: yes
+
+    - name: Copy coriolis CA certificate
+      copy:
+        src: "{{ coriolis_config_dir }}/ssl/ca/coriolis-ca.crt"
+        dest: "{{ coriolis_config_dir }}/ssl/ca/coriolis-ca.crt"
       become: yes
 
     - name: Sync the docker image files from appliance to workers
@@ -93,6 +113,7 @@
         tag: "{{ item.img_tag }}"
         load_path: "{{ coriolis_docker_image_dir }}/{{ item.name }}-{{ item.img_tag }}.tar"
         source: load
+        timeout: "{{ coriolis_docker_image_timeout }}"
       become: yes
       with_items: "{{ required_containers }}"
       register: result

@@ -3,7 +3,7 @@ set -e
 
 usage() {
     echo "USAGE: $0 <coriolis_action>"
-    echo "Valid options for <coriolis_action> are: ['bootstrap', 'build', 'deploy', 'reconfigure', 'update', 'destroy', 'push-docker-images', 'reset-licensing-db', 'dump-memory-profiling']"
+    echo "Valid options for <coriolis_action> are: ['bootstrap', 'build', 'deploy', 'deploy-workers', 'reconfigure', 'update', 'destroy', 'push-docker-images', 'reset-licensing-db', 'dump-memory-profiling']"
 }
 
 if [[ $# -ne 1 ]]; then
