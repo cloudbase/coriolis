@@ -24,11 +24,11 @@ fi
 KOLLA_CONF="/etc/kolla/globals.yml"
 KOLLA_DOCKER_IMAGES_TAG=$(get_global_config_value kolla_docker_images_tag)
 BIND_ADDRESS=$(get_global_config_value bind_address)
-EXTERNAL_FQDN=$(get_global_config_value2 coriolis_certtificate_fqdn)
-COMBINED_CERT=$(get_global_config_value2 coriolis_appliance_tls_combined)
-CA_CERT=$(get_global_config_value2 coriolis_appliance_tls_cacert)
-CORIOLIS_APPLIANCE_CERT=$(get_global_config_value2 coriolis_appliance_tls_certificate)
-CORIOLIS_APPLIANCE_KEY=$(get_global_config_value2 coriolis_appliance_tls_key)
+EXTERNAL_FQDN=$(get_global_config_value coriolis_certtificate_fqdn)
+COMBINED_CERT=$(get_global_config_value coriolis_appliance_tls_combined)
+CA_CERT=$(get_global_config_value coriolis_appliance_tls_cacert)
+CORIOLIS_APPLIANCE_CERT=$(get_global_config_value coriolis_appliance_tls_certificate)
+CORIOLIS_APPLIANCE_KEY=$(get_global_config_value coriolis_appliance_tls_key)
 
 mkdir -p /etc/kolla/certificates/ca/
 # The extra CA must have the .crt extension, otherwise it will be ignored
