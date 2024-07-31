@@ -100,9 +100,13 @@ class BaseSSHOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
                 self.conn_info['ip'], 22)
         )
 
-    def test_setup(self):
+    @mock.patch.object(base.BaseSSHOSMountTools, '_allow_ssh_env_vars')
+    @mock.patch.object(base.BaseSSHOSMountTools, '_connect')
+    def test_setup(self, mock_connect, mock_allow_ssh_vars):
         self.base_os_mount_tools.setup()
-        self.ssh.close_assert_called_once()
+        mock_allow_ssh_vars.return_value = True
+        self.ssh.close.assert_called_once_with()
+        mock_connect.assert_called_once_with()
 
     @mock.patch.object(base.utils, 'exec_ssh_cmd')
     def test__exec_cmd(self, mock_exec_ssh_cmd):

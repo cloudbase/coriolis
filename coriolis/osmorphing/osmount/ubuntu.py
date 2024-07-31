@@ -36,8 +36,3 @@ class UbuntuOSMountTools(base.BaseLinuxOSMountTools):
             "install lvm2 psmisc -y")
 
         self._exec_cmd("sudo modprobe dm-mod")
-
-    def _allow_ssh_env_vars(self):
-        self._exec_cmd('sudo sed -i -e "\$aAcceptEnv *" /etc/ssh/sshd_config')
-        utils.restart_service(self._ssh, "sshd")
-        return True

@@ -23,8 +23,3 @@ class RedHatOSMountTools(base.BaseLinuxOSMountTools):
         self._exec_cmd("sudo -E yum install -y lvm2 psmisc")
         self._exec_cmd("sudo modprobe dm-mod")
         self._exec_cmd("sudo rm -f /etc/lvm/devices/system.devices")
-
-    def _allow_ssh_env_vars(self):
-        self._exec_cmd('sudo sed -i -e "\$aAcceptEnv *" /etc/ssh/sshd_config')
-        utils.restart_service(self._ssh, "sshd")
-        return True
