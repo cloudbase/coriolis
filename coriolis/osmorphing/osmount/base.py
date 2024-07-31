@@ -17,7 +17,6 @@ from six import with_metaclass
 from coriolis import exception
 from coriolis import utils
 
-
 LOG = logging.getLogger(__name__)
 
 MAJOR_COLUMN_INDEX = 4
@@ -96,7 +95,16 @@ class BaseSSHOSMountTools(BaseOSMountTools):
             self._connect()
 
     def _allow_ssh_env_vars(self):
-        pass
+        self._exec_cmd('sudo sed -i -e "\$aAcceptEnv *" /etc/ssh/sshd_config')
+        try:
+            utils.restart_service(self._ssh, "sshd")
+        except exception.CoriolisException:
+            # Newer Ubuntu distros renamed this service to `ssh`
+            LOG.warning(
+                "Could not restart service sshd. Attempting to restart ssh "
+                "service")
+            utils.restart_service(self._ssh, 'ssh')
+        return True
 
     def _exec_cmd(self, cmd, timeout=None):
         if not timeout:
