@@ -364,6 +364,29 @@ class BaseRedHatMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             mock_get_net_ifaces_info.return_value)
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
+    def test_has_package_installed(self, mock_exec_cmd_chroot):
+        result = self.morphing_tools._has_package_installed("mock_package")
+
+        self.assertEqual(
+            True,
+            result
+        )
+        mock_exec_cmd_chroot.assert_called_once_with("rpm -q mock_package")
+
+        mock_exec_cmd_chroot.reset_mock()
+        mock_exec_cmd_chroot.side_effect = exception.CoriolisException()
+
+        with self.assertLogs(
+            'coriolis.osmorphing.redhat', level=logging.DEBUG):
+            result = self.morphing_tools._has_package_installed("mock_package")
+
+        self.assertEqual(
+            False,
+            result
+        )
+        mock_exec_cmd_chroot.assert_called_once_with("rpm -q mock_package")
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     def test__yum_install(self, mock_exec_cmd_chroot):
         self.morphing_tools._yum_install(self.package_names, self.enable_repos)
 
@@ -449,16 +472,37 @@ class BaseRedHatMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         with self.assertLogs('coriolis.osmorphing.redhat', level=logging.WARN):
             self.morphing_tools._find_yum_repos(repos_to_enable)
 
+    @mock.patch.object(redhat.BaseRedHatMorphingTools,
+                       '_has_package_installed')
     @mock.patch.object(redhat.BaseRedHatMorphingTools, '_yum_install')
     @mock.patch.object(redhat.BaseRedHatMorphingTools, '_yum_clean_all')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, 'pre_packages_install')
     def test_pre_packages_install(self, mock_pre_packages_install,
-                                  mock_yum_clean_all, mock_yum_install):
+                                  mock_yum_clean_all, mock_yum_install,
+                                  mock_has_package_installed):
+        mock_has_package_installed.return_value = False
+
         self.morphing_tools.pre_packages_install(self.package_names)
 
         mock_pre_packages_install.assert_called_once_with(self.package_names)
         mock_yum_clean_all.assert_called_once()
         mock_yum_install.assert_called_once_with(['grubby'])
+
+    @mock.patch.object(redhat.BaseRedHatMorphingTools,
+                       '_has_package_installed')
+    @mock.patch.object(redhat.BaseRedHatMorphingTools, '_yum_install')
+    @mock.patch.object(redhat.BaseRedHatMorphingTools, '_yum_clean_all')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, 'pre_packages_install')
+    def test_pre_packages_install_has_grubby(
+        self, mock_pre_packages_install, mock_yum_clean_all, mock_yum_install,
+        mock_has_package_installed):
+        mock_has_package_installed.return_value = True
+
+        self.morphing_tools.pre_packages_install(self.package_names)
+
+        mock_pre_packages_install.assert_called_once_with(self.package_names)
+        mock_yum_clean_all.assert_called_once()
+        mock_yum_install.assert_not_called()
 
     @mock.patch.object(redhat.BaseRedHatMorphingTools, '_yum_install')
     @mock.patch.object(redhat.BaseRedHatMorphingTools, '_get_repos_to_enable')
