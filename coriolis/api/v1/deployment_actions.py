@@ -1,12 +1,12 @@
 # Copyright 2024 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-from coriolis.api import wsgi as api_wsgi
-from coriolis import exception
-from coriolis.deployments import api
-from coriolis.policies import deployments as deployment_policies
-
 from webob import exc
+
+from coriolis.api import wsgi as api_wsgi
+from coriolis.deployments import api
+from coriolis import exception
+from coriolis.policies import deployments as deployment_policies
 
 
 class DeploymentActionsController(api_wsgi.Controller):

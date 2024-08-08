@@ -6,8 +6,8 @@ from coriolis.api.v1.views import replica_tasks_execution_view
 from coriolis.api.v1.views import replica_view
 from coriolis.api import wsgi as api_wsgi
 from coriolis import constants
-from coriolis import exception
 from coriolis.endpoints import api as endpoints_api
+from coriolis import exception
 from coriolis.policies import replicas as replica_policies
 from coriolis.replicas import api
 

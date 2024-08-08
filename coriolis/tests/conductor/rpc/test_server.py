@@ -17,7 +17,6 @@ from coriolis.db import api as db_api
 from coriolis.db.sqlalchemy import models
 from coriolis import exception
 from coriolis import keystone
-from coriolis.licensing import client as licensing_client
 from coriolis import schemas
 from coriolis.tests import test_base
 from coriolis.tests import testutils
@@ -135,136 +134,6 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         self._licensing_client.delete_reservation.assert_called_once_with(
             transfer_action.reservation_id
         )
-
-    def test_check_create_reservation_for_transfer(self):
-        transfer_action = mock.Mock()
-        transfer_action.instances = ['instance_1', 'instance_2']
-        transfer_type = mock.sentinel.transfer_type
-        self._licensing_client.add_reservation.return_value = {
-            'id': mock.sentinel.id
-        }
-        self.server._check_create_reservation_for_transfer(
-            transfer_action, transfer_type)
-        self._licensing_client.add_reservation.assert_called_once_with(
-            mock.sentinel.transfer_type,
-            2
-        )
-        self.assertEqual(
-            transfer_action.reservation_id,
-            mock.sentinel.id
-        )
-
-    def test_check_create_reservation_for_transfer_no_licensing_client(self):
-        transfer_action = mock.Mock()
-        transfer_type = mock.sentinel.transfer_type
-        self.server._licensing_client = None
-        with self.assertLogs(
-            'coriolis.conductor.rpc.server', level=logging.WARNING):
-            self.server._check_create_reservation_for_transfer(
-                transfer_action, transfer_type)
-
-    def test_check_reservation_for_transfer(self):
-        transfer_action = mock.Mock()
-        transfer_action.reservation_id = mock.sentinel.reservation_id
-        reservation_type = mock.sentinel.reservation_type
-        self._licensing_client.check_refresh_reservation.return_value = {
-            'id': mock.sentinel.reservation_id}
-        self.server._check_reservation_for_transfer(
-            transfer_action, reservation_type)
-        (self._licensing_client.check_refresh_reservation.
-            assert_called_once_with)(
-                mock.sentinel.reservation_id)
-
-    def test_check_reservation_for_transfer_no_licensing_client(
-        self
-    ):
-        transfer_action = mock.Mock()
-        reservation_type = mock.sentinel.reservation_type
-        self.server._licensing_client = None
-        with self.assertLogs(
-            'coriolis.conductor.rpc.server', level=logging.WARNING):
-            self.server._check_reservation_for_transfer(
-                transfer_action, reservation_type)
-
-    @mock.patch.object(server.ConductorServerEndpoint,
-                       '_check_create_reservation_for_transfer')
-    def test_check_reservation_for_transfer_no_reservation_id(
-        self,
-        mock_check_create_reservation_for_transfer
-    ):
-        transfer_action = mock.Mock()
-        transfer_action.reservation_id = None
-        reservation_type = mock.sentinel.reservation_type
-        self.server._check_reservation_for_transfer(
-            transfer_action, reservation_type)
-        self._licensing_client.check_refresh_reservation.assert_not_called()
-        mock_check_create_reservation_for_transfer.assert_called_once_with(
-            transfer_action, reservation_type
-        )
-
-    @mock.patch.object(server.ConductorServerEndpoint,
-                       '_check_create_reservation_for_transfer')
-    def test_check_reservation_for_transfer_exc_code_404(
-        self,
-        mock_check_create_reservation_for_transfer
-    ):
-        transfer_action = mock.Mock()
-        transfer_action.reservation_id = mock.sentinel.reservation_id
-        reservation_type = mock.sentinel.reservation_type
-        ex = CoriolisTestException()
-        ex.code = 404
-        self._licensing_client.check_refresh_reservation.side_effect = ex
-        self.server._check_reservation_for_transfer(
-            transfer_action, reservation_type)
-        (self._licensing_client.check_refresh_reservation
-            .assert_called_once_with)(
-                mock.sentinel.reservation_id)
-        mock_check_create_reservation_for_transfer.assert_called_once_with(
-            transfer_action, reservation_type
-        )
-
-    @mock.patch.object(server.ConductorServerEndpoint,
-                       '_check_create_reservation_for_transfer')
-    def test_check_reservation_for_transfer_exc_code_409(
-        self,
-        mock_check_create_reservation_for_transfer
-    ):
-        transfer_action = mock.Mock()
-        transfer_action.reservation_id = mock.sentinel.reservation_id
-        reservation_type = mock.sentinel.reservation_type
-        ex = CoriolisTestException()
-        ex.code = 409
-        self._licensing_client.check_refresh_reservation.side_effect = ex
-        self.server._check_reservation_for_transfer(
-            transfer_action, reservation_type)
-        (self._licensing_client.check_refresh_reservation
-            .assert_called_once_with)(
-                mock.sentinel.reservation_id)
-        mock_check_create_reservation_for_transfer.assert_called_once_with(
-            transfer_action, reservation_type
-        )
-
-    @mock.patch.object(server.ConductorServerEndpoint,
-                       '_check_create_reservation_for_transfer')
-    def test_check_reservation_for_transfer_exc_code_not_excepted(
-        self,
-        mock_check_create_reservation_for_transfer
-    ):
-        transfer_action = mock.Mock()
-        transfer_action.reservation_id = mock.sentinel.reservation_id
-        reservation_type = mock.sentinel.reservation_type
-        ex = CoriolisTestException()
-        self._licensing_client.check_refresh_reservation.side_effect = ex
-        self.assertRaises(
-            CoriolisTestException,
-            self.server._check_reservation_for_transfer,
-            transfer_action,
-            reservation_type
-        )
-        (self._licensing_client.check_refresh_reservation
-            .assert_called_once_with)(
-                mock.sentinel.reservation_id)
-        mock_check_create_reservation_for_transfer.assert_not_called()
 
     @mock.patch.object(server.ConductorServerEndpoint, "get_endpoint")
     @mock.patch.object(db_api, "delete_endpoint")
@@ -1343,7 +1212,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     )
     @mock.patch.object(
         server.ConductorServerEndpoint,
-        "_check_reservation_for_transfer"
+        "_check_reservation_for_replica"
     )
     @mock.patch.object(
         server.ConductorServerEndpoint,
@@ -1422,10 +1291,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.replica_id,
             include_task_info=True,
         )
-        mock_check_reservation.assert_called_once_with(
-            mock_replica,
-            licensing_client.RESERVATION_TYPE_REPLICA
-        )
+        mock_check_reservation.assert_called_once_with(mock_replica)
         mock_check_replica_running_executions.assert_called_once_with(
             mock.sentinel.context, mock_replica)
         mock_check_minion_pools_for_action.assert_called_once_with(
@@ -2033,7 +1899,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(server.ConductorServerEndpoint, 'get_replica')
     @mock.patch.object(db_api, 'add_replica')
     @mock.patch.object(server.ConductorServerEndpoint,
-                       '_check_create_reservation_for_transfer')
+                       '_create_reservation_for_replica')
     @mock.patch.object(server.ConductorServerEndpoint,
                        '_check_minion_pools_for_action')
     @mock.patch.object(models, 'Replica')
@@ -2045,7 +1911,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_check_endpoints,
         mock_replica,
         mock_check_minion_pools_for_action,
-        mock_check_create_reservation_for_transfer,
+        mock_create_reservation_for_replica,
         mock_add_replica,
         mock_get_replica
     ):
@@ -2054,6 +1920,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_replica.return_value = mock.Mock()
         result = self.server.create_instances_replica(
             mock.sentinel.context,
+            constants.REPLICA_SCENARIO_REPLICA,
             mock.sentinel.origin_endpoint_id,
             mock.sentinel.destination_endpoint_id,
             mock.sentinel.origin_minion_pool_id,
@@ -2111,10 +1978,8 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         )
         mock_check_minion_pools_for_action.assert_called_once_with(
             mock.sentinel.context, mock_replica.return_value)
-        mock_check_create_reservation_for_transfer.assert_called_once_with(
-            mock_replica.return_value,
-            licensing_client.RESERVATION_TYPE_REPLICA
-        )
+        mock_create_reservation_for_replica.assert_called_once_with(
+            mock_replica.return_value)
         mock_add_replica.assert_called_once_with(
             mock.sentinel.context, mock_replica.return_value)
         mock_get_replica.assert_called_once_with(
@@ -2155,24 +2020,6 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.replica_id,
             include_task_info=False,
             to_dict=False
-        )
-
-    @mock.patch.object(db_api, 'get_migrations')
-    def test_get_migrations(self, mock_get_migrations):
-        result = self.server.get_migrations(
-            mock.sentinel.context,
-            mock.sentinel.migration_id,
-            include_task_info=False
-        )
-        self.assertEqual(
-            mock_get_migrations.return_value,
-            result
-        )
-        mock_get_migrations.assert_called_once_with(
-            mock.sentinel.context,
-            mock.sentinel.migration_id,
-            include_task_info=False,
-            to_dict=True
         )
 
     @mock.patch.object(server.ConductorServerEndpoint, '_get_migration')
@@ -2374,7 +2221,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     )
     @mock.patch.object(
         server.ConductorServerEndpoint,
-        '_check_reservation_for_transfer'
+        '_check_reservation_for_replica'
     )
     @mock.patch.object(
         server.ConductorServerEndpoint,
@@ -2452,7 +2299,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock_get_endpoint,
             mock_check_valid_replica_tasks_execution,
             mock_check_replica_running_executions,
-            mock_check_reservation_for_transfer,
+            mock_check_reservation_for_replica,
             mock_get_replica,
             config,
             expected_tasks,
@@ -2515,10 +2362,8 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.replica_id,
             include_task_info=True,
         )
-        mock_check_reservation_for_transfer.assert_called_once_with(
-            mock_get_replica.return_value,
-            licensing_client.RESERVATION_TYPE_REPLICA
-        )
+        mock_check_reservation_for_replica.assert_called_once_with(
+            mock_get_replica.return_value)
         mock_check_replica_running_executions.assert_called_once_with(
             mock.sentinel.context,
             mock_get_replica.return_value
@@ -3295,289 +3140,6 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_cancel_tasks_execution.assert_not_called()
         mock_set_tasks_execution_status.assert_not_called()
 
-    @mock.patch.object(
-        server.ConductorServerEndpoint,
-        "get_endpoint"
-    )
-    @mock.patch.object(
-        server.ConductorServerEndpoint,
-        "_check_endpoints"
-    )
-    @mock.patch.object(
-        server.ConductorServerEndpoint,
-        "_get_provider_types"
-    )
-    @mock.patch.object(models, "Migration")
-    @mock.patch.object(uuid, "uuid4")
-    @mock.patch.object(models, "TasksExecution")
-    @mock.patch.object(
-        server.ConductorServerEndpoint,
-        "_check_create_reservation_for_transfer"
-    )
-    @mock.patch.object(
-        server.ConductorServerEndpoint,
-        "_check_minion_pools_for_action"
-    )
-    @mock.patch.object(
-        server.ConductorServerEndpoint,
-        "_get_instance_scripts"
-    )
-    @mock.patch.object(
-        server.ConductorServerEndpoint,
-        "_create_task"
-    )
-    @mock.patch.object(
-        server.ConductorServerEndpoint,
-        "_check_execution_tasks_sanity"
-    )
-    @mock.patch.object(
-        db_api,
-        "add_migration"
-    )
-    @mock.patch.object(
-        lockutils,
-        "lock"
-    )
-    @mock.patch.object(
-        server.ConductorServerEndpoint,
-        "_minion_manager_client"
-    )
-    @mock.patch.object(
-        server.ConductorServerEndpoint,
-        "_set_tasks_execution_status"
-    )
-    @mock.patch.object(
-        server.ConductorServerEndpoint,
-        "_begin_tasks"
-    )
-    @mock.patch.object(
-        server.ConductorServerEndpoint,
-        "get_migration"
-    )
-    @ddt.file_data("data/migrate_instances_config.yml")
-    @ddt.unpack
-    def test_migrate_instances(
-            self,
-            mock_get_migration,
-            mock_begin_tasks,
-            mock_set_tasks_execution_status,
-            mock_minion_manager_client,
-            mock_lock,
-            mock_add_migration,
-            mock_check_execution_tasks_sanity,
-            mock_create_task,
-            mock_get_instance_scripts,
-            mock_check_minion_pools_for_action,
-            mock_check_create_reservation_for_transfer,
-            mock_tasks_execution,
-            mock_uuid4,
-            mock_migration,
-            mock_get_provider_types,
-            mock_check_endpoints,
-            mock_get_endpoint,
-            config,
-            expected_tasks,
-    ):
-        has_origin_minion_pool = config.get(
-            'has_origin_minion_pool', False
-        )
-        has_destination_minion_pool = config.get(
-            'has_destination_minion_pool', False
-        )
-        has_os_morphing_pool = config.get(
-            'has_os_morphing_pool', False
-        )
-        shutdown_instances = config.get('shutdown_instances', False)
-        skip_os_morphing = config.get('skip_os_morphing', True)
-        get_optimal_flavor = config.get('get_optimal_flavor', False)
-
-        if get_optimal_flavor:
-            mock_get_provider_types.return_value = [
-                constants.PROVIDER_TYPE_INSTANCE_FLAVOR
-            ]
-
-        instances = [
-            mock.sentinel.instance_1,
-            mock.sentinel.instance_2,
-        ]
-        instance_osmorphing_minion_pool_mappings = {}
-        if has_os_morphing_pool:
-            instance_osmorphing_minion_pool_mappings = {
-                mock.sentinel.instance_1: mock.sentinel.minion_pool_1,
-                mock.sentinel.instance_2: mock.sentinel.minion_pool_2,
-            }
-
-        replication_count = 2
-
-        def create_task_side_effect(
-                instance,
-                task_type,
-                execution,
-                depends_on=None,
-                on_error=False,
-                on_error_only=False
-        ):
-            return mock.Mock(
-                id=task_type,
-                type=task_type,
-                instance=instance,
-                execution=execution,
-                depends_on=depends_on,
-                on_error=on_error,
-                on_error_only=on_error_only,
-            )
-
-        mock_create_task.side_effect = create_task_side_effect
-
-        migration = self.server.migrate_instances(
-            mock.sentinel.context,
-            mock.sentinel.origin_endpoint_id,
-            mock.sentinel.destination_endpoint_id,
-            has_origin_minion_pool
-            and mock.sentinel.origin_minion_pool_id,
-            has_destination_minion_pool
-            and mock.sentinel.destination_minion_pool_id,
-            instance_osmorphing_minion_pool_mappings,
-            mock.sentinel.source_environment,
-            mock.sentinel.destination_environment,
-            instances,
-            mock.sentinel.network_map,
-            mock.sentinel.storage_mappings,
-            replication_count,
-            shutdown_instances=shutdown_instances,
-            notes=mock.sentinel.notes,
-            skip_os_morphing=skip_os_morphing,
-            user_scripts=mock.sentinel.user_scripts,
-        )
-
-        mock_get_endpoint.assert_has_calls([
-            mock.call(
-                mock.sentinel.context,
-                mock.sentinel.origin_endpoint_id,
-            ),
-            mock.call(
-                mock.sentinel.context,
-                mock.sentinel.destination_endpoint_id,
-            ),
-        ])
-
-        mock_check_endpoints.assert_called_once_with(
-            mock.sentinel.context,
-            mock_get_endpoint.return_value,
-            mock_get_endpoint.return_value,
-        )
-
-        self.assertEqual(
-            mock_migration.return_value.last_execution_status,
-            constants.EXECUTION_STATUS_UNEXECUTED,
-        )
-        self.assertEqual(
-            mock_tasks_execution.return_value.status,
-            constants.EXECUTION_STATUS_UNEXECUTED,
-        )
-        self.assertEqual(
-            mock_tasks_execution.return_value.type,
-            constants.EXECUTION_TYPE_MIGRATION,
-        )
-
-        mock_check_create_reservation_for_transfer.assert_called_once_with(
-            mock_migration.return_value,
-            licensing_client.RESERVATION_TYPE_MIGRATION,
-        )
-
-        mock_check_minion_pools_for_action.assert_called_once_with(
-            mock.sentinel.context,
-            mock_migration.return_value,
-        )
-
-        for instance in instances:
-            mock_get_instance_scripts.assert_any_call(
-                mock.sentinel.user_scripts,
-                instance,
-            )
-            mock_create_task.assert_has_calls([
-                mock.call(
-                    instance,
-                    constants.TASK_TYPE_GET_INSTANCE_INFO,
-                    mock_tasks_execution.return_value,
-                ),
-                mock.call(
-                    instance,
-                    constants.TASK_TYPE_VALIDATE_MIGRATION_SOURCE_INPUTS,
-                    mock_tasks_execution.return_value,
-                ),
-                mock.call(
-                    instance,
-                    constants.TASK_TYPE_VALIDATE_MIGRATION_DESTINATION_INPUTS,
-                    mock_tasks_execution.return_value,
-                    depends_on=[constants.TASK_TYPE_GET_INSTANCE_INFO]
-                ),
-            ])
-
-            # tasks defined in the yaml config
-            for task in expected_tasks:
-                kwargs = {}
-                if 'on_error' in task:
-                    kwargs = {'on_error': task['on_error']}
-                if 'on_error_only' in task:
-                    kwargs = {'on_error_only': task['on_error_only']}
-                mock_create_task.assert_has_calls([
-                    mock.call(
-                        instance,
-                        task['type'],
-                        mock_tasks_execution.return_value,
-                        depends_on=task['depends_on'],
-                        **kwargs,
-                    )
-                ])
-
-        mock_check_execution_tasks_sanity.assert_called_once_with(
-            mock_tasks_execution.return_value,
-            mock_migration.return_value.info,
-        )
-
-        mock_add_migration.assert_called_once_with(
-            mock.sentinel.context,
-            mock_migration.return_value,
-        )
-
-        if any([
-            has_origin_minion_pool,
-            has_destination_minion_pool,
-            has_os_morphing_pool,
-        ]):
-            mock_lock.assert_any_call(
-                constants.MIGRATION_LOCK_NAME_FORMAT
-                % mock_migration.return_value.id,
-                external=True,
-            )
-            mock_minion_manager_client\
-                .allocate_minion_machines_for_migration\
-                .assert_called_once_with(
-                    mock.sentinel.context,
-                    mock_migration.return_value,
-                    include_transfer_minions=True,
-                    include_osmorphing_minions=not skip_os_morphing,
-                )
-            mock_set_tasks_execution_status.assert_called_once_with(
-                mock.sentinel.context,
-                mock_tasks_execution.return_value,
-                constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS
-            )
-        else:
-            mock_begin_tasks.assert_called_once_with(
-                mock.sentinel.context,
-                mock_migration.return_value,
-                mock_tasks_execution.return_value,
-            )
-
-        mock_get_migration.assert_called_once_with(
-            mock.sentinel.context,
-            mock_migration.return_value.id,
-        )
-
-        self.assertEqual(migration, mock_get_migration.return_value)
-
     @mock.patch.object(db_api, 'get_tasks_execution')
     @mock.patch.object(
         server.ConductorServerEndpoint,
@@ -3725,106 +3287,6 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             to_dict=False
         )
 
-    @mock.patch.object(db_api, 'delete_migration')
-    @mock.patch.object(server.ConductorServerEndpoint, '_get_migration')
-    def test_delete_migration(
-        self,
-        mock_get_migration,
-        mock_delete_migration
-    ):
-        migration = mock.Mock()
-        execution = mock.Mock()
-        execution.status = constants.EXECUTION_STATUS_COMPLETED
-        migration.executions = [execution]
-        mock_get_migration.return_value = migration
-
-        testutils.get_wrapped_function(self.server.delete_migration)(
-            self.server,
-            mock.sentinel.context,
-            mock.sentinel.migration_id
-        )
-
-        mock_get_migration.assert_called_once_with(
-            mock.sentinel.context,
-            mock.sentinel.migration_id
-        )
-        mock_delete_migration.assert_called_once_with(
-            mock.sentinel.context,
-            mock.sentinel.migration_id
-        )
-        mock_get_migration.reset_mock()
-        mock_delete_migration.reset_mock()
-        execution.status = constants.EXECUTION_STATUS_RUNNING
-
-        self.assertRaises(
-            exception.InvalidMigrationState,
-            testutils.get_wrapped_function(self.server.delete_migration),
-            self.server,
-            mock.sentinel.context,
-            mock.sentinel.migration_id
-        )
-
-        mock_get_migration.assert_called_once_with(
-            mock.sentinel.context,
-            mock.sentinel.migration_id
-        )
-        mock_delete_migration.assert_not_called()
-
-    @mock.patch.object(server.ConductorServerEndpoint,
-                       '_cancel_tasks_execution')
-    @mock.patch.object(lockutils, 'lock')
-    @mock.patch.object(server.ConductorServerEndpoint, '_get_migration')
-    @ddt.file_data("data/cancel_migration_config.yml")
-    @ddt.unpack
-    def test_cancel_migration(
-        self,
-        mock_get_migration,
-        mock_lock,
-        mock_cancel_tasks_execution,
-        config,
-        raises_exception
-    ):
-        migration = mock.Mock()
-        migration.executions = []
-        statuses = config.get('execution_statuses', [])
-        for status in statuses:
-            execution = mock.Mock()
-            execution.status = getattr(constants, status)
-            migration.executions.append(execution)
-        mock_get_migration.return_value = migration
-        force = config.get('force', False)
-
-        if raises_exception:
-            self.assertRaises(
-                exception.InvalidMigrationState,
-                testutils.get_wrapped_function(self.server.cancel_migration),
-                self.server,
-                mock.sentinel.context,
-                mock.sentinel.migration_id,
-                force=force
-            )
-        else:
-            testutils.get_wrapped_function(self.server.cancel_migration)(
-                self.server,
-                mock.sentinel.context,
-                mock.sentinel.migration_id,
-                force=force
-            )
-            mock_lock.assert_called_once_with(
-                constants.EXECUTION_LOCK_NAME_FORMAT % execution.id,
-                external=True
-            )
-            mock_cancel_tasks_execution.assert_called_once_with(
-                mock.sentinel.context,
-                execution,
-                force=force
-            )
-
-        mock_get_migration.assert_called_once_with(
-            mock.sentinel.context,
-            mock.sentinel.migration_id
-        )
-
     @mock.patch.object(db_api, 'get_tasks_execution')
     @mock.patch.object(
         server.ConductorServerEndpoint,
@@ -3946,7 +3408,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         )
         mock_delete_trust.assert_not_called()
         mock_get_action.assert_called_once_with(
-            context, mock_set_execution_status.return_value.action_id)
+            context, execution.action_id)
         mock_deallocate_minion_machines_for_action.assert_called_once_with(
             context, mock_get_action.return_value)
 

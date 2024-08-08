@@ -366,12 +366,13 @@ class ConductorServerEndpoint(object):
                     "reservation.")
             LOG.debug(
                 f"Reservation with ID '{reservation_id}' for transfer "
-                f"transfer action '{action_id}' was already marked as fulfilled")
+                f"transfer action '{action_id}' was already marked as "
+                f"fulfilled")
         else:
             self._licensing_client.mark_reservation_fulfilled(reservation_id)
             LOG.debug(
-                f"Successfully marked reservation with ID '{reservation_id}' for "
-                f"transfer action '{action_id}' as fulfilled")
+                f"Successfully marked reservation with ID '{reservation_id}' "
+                f"for transfer action '{action_id}' as fulfilled")
 
     def _check_reservation_for_replica(self, replica):
         scenario = replica.scenario
@@ -1324,13 +1325,6 @@ class ConductorServerEndpoint(object):
                 "Replica with ID '%s' not found." % replica_id)
         return replica
 
-    def get_migrations(self, ctxt, include_tasks,
-                       include_task_info=False):
-        return db_api.get_migrations(
-            ctxt, include_tasks,
-            include_task_info=include_task_info,
-            to_dict=True)
-
     @migration_synchronized
     def get_migration(self, ctxt, migration_id, include_task_info=False):
         return self._get_migration(
@@ -1840,398 +1834,6 @@ class ConductorServerEndpoint(object):
             ctxt, execution,
             constants.EXECUTION_STATUS_ERROR_ALLOCATING_MINIONS)
 
-    def migrate_instances(
-            self, ctxt, origin_endpoint_id, destination_endpoint_id,
-            origin_minion_pool_id, destination_minion_pool_id,
-            instance_osmorphing_minion_pool_mappings, source_environment,
-            destination_environment, instances, network_map, storage_mappings,
-            replication_count, shutdown_instances=False, notes=None,
-            skip_os_morphing=False, user_scripts=None):
-        origin_endpoint = self.get_endpoint(ctxt, origin_endpoint_id)
-        destination_endpoint = self.get_endpoint(
-            ctxt, destination_endpoint_id)
-        self._check_endpoints(ctxt, origin_endpoint, destination_endpoint)
-
-        destination_provider_types = self._get_provider_types(
-            ctxt, destination_endpoint)
-
-        migration = models.Migration()
-        migration.id = str(uuid.uuid4())
-        migration.base_id = migration.id
-        migration.origin_endpoint_id = origin_endpoint_id
-        migration.destination_endpoint_id = destination_endpoint_id
-        migration.destination_environment = destination_environment
-        migration.source_environment = source_environment
-        migration.network_map = network_map
-        migration.storage_mappings = storage_mappings
-        migration.last_execution_status = constants.EXECUTION_STATUS_UNEXECUTED
-        execution = models.TasksExecution()
-        execution.status = constants.EXECUTION_STATUS_UNEXECUTED
-        execution.number = 1
-        execution.type = constants.EXECUTION_TYPE_MIGRATION
-        migration.executions = [execution]
-        migration.instances = instances
-        migration.info = {}
-        migration.user_scripts = user_scripts or {}
-        migration.notes = notes
-        migration.shutdown_instances = shutdown_instances
-        migration.replication_count = replication_count
-        migration.origin_minion_pool_id = origin_minion_pool_id
-        migration.destination_minion_pool_id = destination_minion_pool_id
-        if instance_osmorphing_minion_pool_mappings is None:
-            instance_osmorphing_minion_pool_mappings = {}
-        migration.instance_osmorphing_minion_pool_mappings = (
-            instance_osmorphing_minion_pool_mappings)
-
-        self._create_reservation_for_replica(migration)
-
-        self._check_minion_pools_for_action(ctxt, migration)
-
-        for instance in instances:
-            migration.info[instance] = {
-                "volumes_info": [],
-                "source_environment": source_environment,
-                "target_environment": destination_environment,
-                "user_scripts": self._get_instance_scripts(
-                    user_scripts, instance),
-                # NOTE: we must explicitly set this in each VM's info
-                # to prevent the Replica disks from being cloned:
-                "clone_disks": False}
-            # TODO(aznashwan): have these passed separately to the relevant
-            # provider methods (they're currently passed directly inside
-            # dest-env by the API service when accepting the call)
-            # "network_map": network_map,
-            # "storage_mappings": storage_mappings,
-
-            get_instance_info_task = self._create_task(
-                instance,
-                constants.TASK_TYPE_GET_INSTANCE_INFO,
-                execution)
-
-            validate_migration_source_inputs_task = self._create_task(
-                instance,
-                constants.TASK_TYPE_VALIDATE_MIGRATION_SOURCE_INPUTS,
-                execution)
-
-            validate_migration_destination_inputs_task = self._create_task(
-                instance,
-                constants.TASK_TYPE_VALIDATE_MIGRATION_DESTINATION_INPUTS,
-                execution,
-                depends_on=[get_instance_info_task.id])
-
-            migration_resources_task_ids = []
-            validate_origin_minion_task = None
-            deploy_migration_source_resources_task = None
-            migration_resources_task_deps = [
-                get_instance_info_task.id,
-                validate_migration_source_inputs_task.id]
-            if migration.origin_minion_pool_id:
-                # NOTE: these values are required for the
-                # _check_execution_tasks_sanity call but
-                # will be populated later when the pool
-                # allocations actually happen:
-                migration.info[instance].update({
-                    "origin_minion_machine_id": None,
-                    "origin_minion_provider_properties": None,
-                    "origin_minion_connection_info": None})
-                validate_origin_minion_task = self._create_task(
-                    instance,
-                    constants.TASK_TYPE_VALIDATE_SOURCE_MINION_POOL_COMPATIBILITY,  # noqa: E501
-                    execution,
-                    depends_on=migration_resources_task_deps)
-                migration_resources_task_ids.append(
-                    validate_origin_minion_task.id)
-            else:
-                deploy_migration_source_resources_task = self._create_task(
-                    instance,
-                    constants.TASK_TYPE_DEPLOY_MIGRATION_SOURCE_RESOURCES,
-                    execution, depends_on=migration_resources_task_deps)
-                migration_resources_task_ids.append(
-                    deploy_migration_source_resources_task.id)
-
-            create_instance_disks_task = self._create_task(
-                instance, constants.TASK_TYPE_CREATE_INSTANCE_DISKS,
-                execution, depends_on=[
-                    validate_migration_source_inputs_task.id,
-                    validate_migration_destination_inputs_task.id])
-
-            validate_destination_minion_task = None
-            attach_destination_minion_disks_task = None
-            deploy_migration_target_resources_task = None
-            if migration.destination_minion_pool_id:
-                # NOTE: these values are required for the
-                # _check_execution_tasks_sanity call but
-                # will be populated later when the pool
-                # allocations actually happen:
-                migration.info[instance].update({
-                    "destination_minion_machine_id": None,
-                    "destination_minion_provider_properties": None,
-                    "destination_minion_connection_info": None,
-                    "destination_minion_backup_writer_connection_info": None})
-                ttyp = (
-                    constants.TASK_TYPE_VALIDATE_DESTINATION_MINION_POOL_COMPATIBILITY)  # noqa: E501
-                validate_destination_minion_task = self._create_task(
-                    instance, ttyp, execution, depends_on=[
-                        validate_migration_destination_inputs_task.id])
-
-                attach_destination_minion_disks_task = self._create_task(
-                    instance,
-                    constants.TASK_TYPE_ATTACH_VOLUMES_TO_DESTINATION_MINION,
-                    execution, depends_on=[
-                        validate_destination_minion_task.id,
-                        create_instance_disks_task.id])
-                migration_resources_task_ids.append(
-                    attach_destination_minion_disks_task.id)
-            else:
-                deploy_migration_target_resources_task = self._create_task(
-                    instance,
-                    constants.TASK_TYPE_DEPLOY_MIGRATION_TARGET_RESOURCES,
-                    execution, depends_on=[create_instance_disks_task.id])
-                migration_resources_task_ids.append(
-                    deploy_migration_target_resources_task.id)
-
-            validate_osmorphing_minion_task = None
-            if not skip_os_morphing and (
-                    instance in instance_osmorphing_minion_pool_mappings):
-                # NOTE: these values are required for the
-                # _check_execution_tasks_sanity call but
-                # will be populated later when the pool
-                # allocations actually happen:
-                migration.info[instance].update({
-                    "osmorphing_minion_machine_id": None,
-                    "osmorphing_minion_provider_properties": None,
-                    "osmorphing_minion_connection_info": None})
-                validate_osmorphing_minion_task = self._create_task(
-                    instance,
-                    constants.TASK_TYPE_VALIDATE_OSMORPHING_MINION_POOL_COMPATIBILITY,  # noqa: E501
-                    execution, depends_on=[
-                        validate_migration_destination_inputs_task.id])
-                migration_resources_task_ids.append(
-                    validate_osmorphing_minion_task.id)
-
-            last_sync_task = None
-            first_sync_task = None
-            for i in range(migration.replication_count):
-                # insert SHUTDOWN_INSTANCES task before the last sync:
-                if i == (migration.replication_count - 1) and (
-                        migration.shutdown_instances):
-                    shutdown_deps = migration_resources_task_ids
-                    if last_sync_task:
-                        shutdown_deps = [last_sync_task.id]
-                    last_sync_task = self._create_task(
-                        instance, constants.TASK_TYPE_SHUTDOWN_INSTANCE,
-                        execution, depends_on=shutdown_deps)
-
-                replication_deps = migration_resources_task_ids
-                if last_sync_task:
-                    replication_deps = [last_sync_task.id]
-
-                last_sync_task = self._create_task(
-                    instance, constants.TASK_TYPE_REPLICATE_DISKS,
-                    execution, depends_on=replication_deps)
-                if not first_sync_task:
-                    first_sync_task = last_sync_task
-
-            release_origin_minion_task = None
-            delete_source_resources_task = None
-            source_resource_cleanup_task = None
-            if migration.origin_minion_pool_id:
-                release_origin_minion_task = self._create_task(
-                    instance,
-                    constants.TASK_TYPE_RELEASE_SOURCE_MINION,  # noqa: E501
-                    execution,
-                    depends_on=[
-                        validate_origin_minion_task.id,
-                        last_sync_task.id],
-                    on_error=True)
-                source_resource_cleanup_task = release_origin_minion_task
-            else:
-                delete_source_resources_task = self._create_task(
-                    instance,
-                    constants.TASK_TYPE_DELETE_MIGRATION_SOURCE_RESOURCES,
-                    execution, depends_on=[
-                        deploy_migration_source_resources_task.id,
-                        last_sync_task.id],
-                    on_error=True)
-                source_resource_cleanup_task = delete_source_resources_task
-
-            cleanup_source_storage_task = self._create_task(
-                instance, constants.TASK_TYPE_CLEANUP_INSTANCE_SOURCE_STORAGE,
-                execution, depends_on=[
-                    first_sync_task.id,
-                    source_resource_cleanup_task.id],
-                on_error=True)
-
-            target_resources_cleanup_task = None
-            if migration.destination_minion_pool_id:
-                detach_volumes_from_destination_minion_task = (
-                    self._create_task(
-                        instance,
-                        constants.TASK_TYPE_DETACH_VOLUMES_FROM_DESTINATION_MINION,  # noqa: E501
-                        execution,
-                        depends_on=[
-                            attach_destination_minion_disks_task.id,
-                            last_sync_task.id],
-                        on_error=True))
-
-                release_destination_minion_task = self._create_task(
-                    instance,
-                    constants.TASK_TYPE_RELEASE_DESTINATION_MINION,
-                    execution, depends_on=[
-                        validate_destination_minion_task.id,
-                        detach_volumes_from_destination_minion_task.id],
-                    on_error=True)
-                target_resources_cleanup_task = release_destination_minion_task
-            else:
-                delete_destination_resources_task = self._create_task(
-                    instance,
-                    constants.TASK_TYPE_DELETE_MIGRATION_TARGET_RESOURCES,
-                    execution, depends_on=[
-                        deploy_migration_target_resources_task.id,
-                        last_sync_task.id],
-                    on_error=True)
-                target_resources_cleanup_task = (
-                    delete_destination_resources_task)
-
-            deploy_instance_task = self._create_task(
-                instance, constants.TASK_TYPE_DEPLOY_INSTANCE_RESOURCES,
-                execution, depends_on=[
-                    last_sync_task.id,
-                    target_resources_cleanup_task.id])
-
-            depends_on = [deploy_instance_task.id]
-            osmorphing_resources_cleanup_task = None
-            if not skip_os_morphing:
-                task_deploy_os_morphing_resources = None
-                task_delete_os_morphing_resources = None
-                attach_osmorphing_minion_volumes_task = None
-                last_osmorphing_resources_deployment_task = None
-                if instance in (
-                        migration.instance_osmorphing_minion_pool_mappings):
-                    osmorphing_vol_attachment_deps = [
-                        validate_osmorphing_minion_task.id]
-                    osmorphing_vol_attachment_deps.extend(depends_on)
-                    attach_osmorphing_minion_volumes_task = self._create_task(
-                        instance,
-                        constants.TASK_TYPE_ATTACH_VOLUMES_TO_OSMORPHING_MINION,  # noqa: E501
-                        execution, depends_on=osmorphing_vol_attachment_deps)
-                    last_osmorphing_resources_deployment_task = (
-                        attach_osmorphing_minion_volumes_task)
-
-                    collect_osmorphing_info_task = self._create_task(
-                        instance,
-                        constants.TASK_TYPE_COLLECT_OSMORPHING_INFO,
-                        execution,
-                        depends_on=[attach_osmorphing_minion_volumes_task.id])
-                    last_osmorphing_resources_deployment_task = (
-                        collect_osmorphing_info_task)
-                else:
-                    task_deploy_os_morphing_resources = self._create_task(
-                        instance,
-                        constants.TASK_TYPE_DEPLOY_OS_MORPHING_RESOURCES,
-                        execution, depends_on=depends_on)
-                    last_osmorphing_resources_deployment_task = (
-                        task_deploy_os_morphing_resources)
-
-                task_osmorphing = self._create_task(
-                    instance, constants.TASK_TYPE_OS_MORPHING,
-                    execution, depends_on=[
-                        last_osmorphing_resources_deployment_task.id])
-
-                depends_on = [task_osmorphing.id]
-
-                if instance in (
-                        migration.instance_osmorphing_minion_pool_mappings):
-                    detach_osmorphing_minion_volumes_task = self._create_task(
-                        instance,
-                        constants.TASK_TYPE_DETACH_VOLUMES_FROM_OSMORPHING_MINION,  # noqa: E501
-                        execution, depends_on=[
-                            attach_osmorphing_minion_volumes_task.id,
-                            task_osmorphing.id],
-                        on_error=True)
-
-                    release_osmorphing_minion_task = self._create_task(
-                        instance,
-                        constants.TASK_TYPE_RELEASE_OSMORPHING_MINION,
-                        execution, depends_on=[
-                            validate_osmorphing_minion_task.id,
-                            detach_osmorphing_minion_volumes_task.id],
-                        on_error=True)
-                    depends_on.append(release_osmorphing_minion_task.id)
-                    osmorphing_resources_cleanup_task = (
-                        release_osmorphing_minion_task)
-                else:
-                    task_delete_os_morphing_resources = (
-                        self._create_task(
-                            instance, constants.TASK_TYPE_DELETE_OS_MORPHING_RESOURCES,  # noqa: E501
-                            execution, depends_on=[
-                                task_deploy_os_morphing_resources.id,
-                                task_osmorphing.id],
-                            on_error=True))
-
-                    depends_on.append(task_delete_os_morphing_resources.id)
-                    osmorphing_resources_cleanup_task = (
-                        task_delete_os_morphing_resources)
-
-            if (constants.PROVIDER_TYPE_INSTANCE_FLAVOR in
-                    destination_provider_types):
-                get_optimal_flavor_task = self._create_task(
-                    instance, constants.TASK_TYPE_GET_OPTIMAL_FLAVOR,
-                    execution, depends_on=depends_on)
-                depends_on = [get_optimal_flavor_task.id]
-
-            finalize_deployment_task = self._create_task(
-                instance,
-                constants.TASK_TYPE_FINALIZE_INSTANCE_DEPLOYMENT,
-                execution, depends_on=depends_on)
-
-            cleanup_failed_deployment_task = self._create_task(
-                instance,
-                constants.TASK_TYPE_CLEANUP_FAILED_INSTANCE_DEPLOYMENT,
-                execution, depends_on=[
-                    deploy_instance_task.id,
-                    finalize_deployment_task.id],
-                on_error_only=True)
-
-            cleanup_deps = [
-                create_instance_disks_task.id,
-                cleanup_source_storage_task.id,
-                target_resources_cleanup_task.id,
-                cleanup_failed_deployment_task.id]
-            if osmorphing_resources_cleanup_task:
-                cleanup_deps.append(osmorphing_resources_cleanup_task.id)
-            self._create_task(
-                instance, constants.TASK_TYPE_CLEANUP_INSTANCE_TARGET_STORAGE,
-                execution, depends_on=cleanup_deps,
-                on_error_only=True)
-
-        self._check_execution_tasks_sanity(execution, migration.info)
-        db_api.add_migration(ctxt, migration)
-        LOG.info("Migration added to DB: %s", migration.id)
-
-        uses_minion_pools = any([
-            migration.origin_minion_pool_id,
-            migration.destination_minion_pool_id,
-            migration.instance_osmorphing_minion_pool_mappings])
-        if uses_minion_pools:
-            # NOTE: we lock on the migration ID to ensure the minion
-            # allocation confirmations don't come in too early:
-            with lockutils.lock(
-                    constants.MIGRATION_LOCK_NAME_FORMAT % migration.id,
-                    external=True):
-                (self._minion_manager_client
-                    .allocate_minion_machines_for_migration(
-                        ctxt, migration, include_transfer_minions=True,
-                        include_osmorphing_minions=not skip_os_morphing)
-                 )
-                self._set_tasks_execution_status(
-                    ctxt, execution,
-                    constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS)
-        else:
-            self._begin_tasks(ctxt, migration, execution)
-
-        return self.get_migration(ctxt, migration.id)
-
     def _get_migration(self, ctxt, migration_id, include_task_info=False,
                        to_dict=False):
         migration = db_api.get_migration(
@@ -2250,10 +1852,6 @@ class ConductorServerEndpoint(object):
                 "Cannot delete Migration '%s' as it is currently in "
                 "'%s' state." % (migration_id, execution.status))
         db_api.delete_migration(ctxt, migration_id)
-
-    @migration_synchronized
-    def delete_migration(self, ctxt, migration_id):
-        self._delete_migration(ctxt, migration_id)
 
     @deployment_synchronized
     def delete_deployment(self, ctxt, deployment_id):
@@ -2279,10 +1877,6 @@ class ConductorServerEndpoint(object):
                 constants.EXECUTION_LOCK_NAME_FORMAT % execution.id,
                 external=True):
             self._cancel_tasks_execution(ctxt, execution, force=force)
-
-    @migration_synchronized
-    def cancel_migration(self, ctxt, migration_id, force):
-        self._cancel_migration(ctxt, migration_id, force)
 
     @deployment_synchronized
     def cancel_deployment(self, ctxt, deployment_id, force):
@@ -2495,11 +2089,12 @@ class ConductorServerEndpoint(object):
             transfer_action = self._get_replica(
                 ctxt, execution.action_id, include_task_info=False)
 
-        if transfer_action.scenario == constants.REPLICA_SCENARIO_REPLICA and (
+        scenario = transfer_action.scenario
+        if scenario == constants.REPLICA_SCENARIO_REPLICA and (
                 execution.type == constants.EXECUTION_TYPE_REPLICA_EXECUTION):
             self._check_mark_reservation_fulfilled(
                 transfer_action, must_unfulfilled=False)
-        elif transfer_action.scenario == constants.REPLICA_SCENARIO_LIVE_MIGRATION and (
+        elif scenario == constants.REPLICA_SCENARIO_LIVE_MIGRATION and (
                 execution.type == constants.EXECUTION_TYPE_REPLICA_DEPLOY):
             self._check_mark_reservation_fulfilled(
                 transfer_action, must_unfulfilled=False)

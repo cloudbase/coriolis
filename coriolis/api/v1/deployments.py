@@ -1,18 +1,17 @@
 # Copyright 2024 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-from coriolis.api.v1 import utils as api_utils
-from coriolis.api.v1.views import deployment_view
-from coriolis.api import wsgi as api_wsgi
-from coriolis.endpoints import api as endpoints_api
-from coriolis import exception
-from coriolis.deployments import api
-from coriolis.policies import deployments as deployment_policies
-
 from oslo_config import cfg as conf
 from oslo_log import log as logging
 from webob import exc
 
+from coriolis.api.v1 import utils as api_utils
+from coriolis.api.v1.views import deployment_view
+from coriolis.api import wsgi as api_wsgi
+from coriolis.deployments import api
+from coriolis.endpoints import api as endpoints_api
+from coriolis import exception
+from coriolis.policies import deployments as deployment_policies
 
 DEPLOYMENTS_API_OPTS = [
     conf.BoolOpt("include_task_info_in_deployments_api",
@@ -70,9 +69,9 @@ class DeploymentsController(api_wsgi.Controller):
 
         if not replica_id:
             raise exc.HTTPBadRequest(
-                explanation=f"Missing 'replica_id' field from deployment "
-                            f"body. A deployment can be created strictly "
-                            f"based on an existing Replica.")
+                explanation="Missing 'replica_id' field from deployment "
+                            "body. A deployment can be created strictly "
+                            "based on an existing Replica.")
 
         clone_disks = deployment.get("clone_disks", True)
         force = deployment.get("force", False)
@@ -89,14 +88,13 @@ class DeploymentsController(api_wsgi.Controller):
             instance_osmorphing_minion_pool_mappings,
             user_scripts)
 
-
     def create(self, req, body):
         context = req.environ['coriolis.context']
         context.can(deployment_policies.get_deployments_policy_label("create"))
 
         (replica_id, force, clone_disks, skip_os_morphing,
          instance_osmorphing_minion_pool_mappings,
-          user_scripts) = self._validate_deployment_input(
+         user_scripts) = self._validate_deployment_input(
             context, body)
 
         # NOTE: destination environment for replica should have been

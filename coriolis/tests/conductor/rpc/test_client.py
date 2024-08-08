@@ -7,8 +7,8 @@ from coriolis.conductor.rpc import client
 from coriolis import constants
 from coriolis.tests import test_base
 
-
 INSTANCE_ARGS = {
+    "replica_scenario": "mock_replica_scenario",
     "origin_endpoint_id": "mock_origin_endpoint_id",
     "destination_endpoint_id": "mock_destination_endpoint_id",
     "origin_minion_pool_id": "mock_origin_minion_pool_id",
@@ -223,34 +223,6 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
         }
         self._test(self.client.delete_replica_disks, args)
 
-    def test_get_migrations(self):
-        args = {
-            "include_tasks": False,
-            "include_task_info": False,
-        }
-        self._test(self.client.get_migrations, args)
-
-    def test_get_migration(self):
-        args = {
-            "migration_id": "mock_migration_id",
-            "include_task_info": False,
-        }
-        self._test(self.client.get_migration, args)
-
-    def test_migrate_instances(self):
-        args = {
-            **INSTANCE_ARGS,
-            "replication_count": 1,
-            "shutdown_instances": False,
-            "skip_os_morphing": False
-        }
-        new_args = {
-            "notes": None,
-            "user_scripts": None
-        }
-        args.update(new_args)
-        self._test(self.client.migrate_instances, args)
-
     def test_deploy_replica_instances(self):
         args = {
             "replica_id": "mock_replica_id",
@@ -261,19 +233,6 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
             "user_scripts": None
         }
         self._test(self.client.deploy_replica_instances, args)
-
-    def test_delete_migration(self):
-        args = {
-            "migration_id": "mock_migration_id"
-        }
-        self._test(self.client.delete_migration, args)
-
-    def test_cancel_migration(self):
-        args = {
-            "migration_id": "mock_migration_id",
-            "force": "mock_force"
-        }
-        self._test(self.client.cancel_migration, args)
 
     def test_set_task_host(self):
         args = {
