@@ -32,13 +32,15 @@ class APITestCase(test_base.CoriolisBaseTestCase):
         storage_mappings = mock.sentinel.storage_mappings
 
         result = self.api.create(
-            self.ctxt, origin_endpoint_id, destination_endpoint_id,
+            self.ctxt, mock.sentinel.replica_scenario,
+            origin_endpoint_id, destination_endpoint_id,
             origin_minion_pool_id, destination_minion_pool_id,
             instance_osmorphing_minion_pool_mappings, source_environment,
             destination_environment, instances, network_map, storage_mappings)
 
         self.rpc_client.create_instances_replica.assert_called_once_with(
-            self.ctxt, origin_endpoint_id, destination_endpoint_id,
+            self.ctxt, mock.sentinel.replica_scenario,
+            origin_endpoint_id, destination_endpoint_id,
             origin_minion_pool_id, destination_minion_pool_id,
             instance_osmorphing_minion_pool_mappings, source_environment,
             destination_environment, instances, network_map, storage_mappings,

@@ -200,7 +200,7 @@ class ReplicaControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
         mock_body = {}
-        mock_validate_create_body.return_value = (mock.sentinel.value,) * 12
+        mock_validate_create_body.return_value = (mock.sentinel.value,) * 13
 
         result = self.replicas.create(mock_req, mock_body)
 

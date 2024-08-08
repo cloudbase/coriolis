@@ -15,7 +15,6 @@ from sqlalchemy import orm
 from sqlalchemy.sql import null
 
 from coriolis.db.sqlalchemy import models
-from coriolis import constants
 from coriolis import exception
 from coriolis import utils
 
@@ -548,7 +547,7 @@ def get_migrations(context,
         q = q.options(orm.undefer('info'))
 
     if replica_migrations_only:
-        q.filter(models.Migration.replica_id != None)
+        q.filter(models.Migration.replica_id is not None)
 
     args = {}
     if is_user_context(context):

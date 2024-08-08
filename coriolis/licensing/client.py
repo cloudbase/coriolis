@@ -44,7 +44,7 @@ class LicensingClient(object):
                 "instantiate licensing client.")
             return None
         allow_untrusted = os.environ.get(
-            "LICENSING_SERVER_ALLOW_UNTRUSTED", None) != None
+            "LICENSING_SERVER_ALLOW_UNTRUSTED", None) is not None
         client = cls(
             base_url, appliance_id=None, allow_untrusted=allow_untrusted)
         appliance_ids = client.get_appliances()

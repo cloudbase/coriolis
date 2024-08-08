@@ -9,7 +9,6 @@ from coriolis import constants
 from coriolis import events
 from coriolis import rpc
 
-
 VERSION = "1.0"
 LOG = logging.getLogger(__name__)
 
@@ -206,17 +205,6 @@ class ConductorClient(rpc.BaseRPCClient):
         return self._call(
             ctxt, 'delete_replica_disks', replica_id=replica_id)
 
-    def get_migrations(self, ctxt, include_tasks=False,
-                       include_task_info=False):
-        return self._call(
-            ctxt, 'get_migrations', include_tasks=include_tasks,
-            include_task_info=include_task_info)
-
-    def get_migration(self, ctxt, migration_id, include_task_info=False):
-        return self._call(
-            ctxt, 'get_migration', migration_id=migration_id,
-            include_task_info=include_task_info)
-
     def get_deployments(self, ctxt, include_tasks=False,
                         include_task_info=False):
         return self._call(
@@ -227,34 +215,6 @@ class ConductorClient(rpc.BaseRPCClient):
         return self._call(
             ctxt, 'get_deployment', deployment_id=deployment_id,
             include_task_info=include_task_info)
-
-    def migrate_instances(self, ctxt, origin_endpoint_id,
-                          destination_endpoint_id, origin_minion_pool_id,
-                          destination_minion_pool_id,
-                          instance_osmorphing_minion_pool_mappings,
-                          source_environment, destination_environment,
-                          instances, network_map, storage_mappings,
-                          replication_count, shutdown_instances=False,
-                          notes=None, skip_os_morphing=False,
-                          user_scripts=None):
-        return self._call(
-            ctxt, 'migrate_instances',
-            origin_endpoint_id=origin_endpoint_id,
-            destination_endpoint_id=destination_endpoint_id,
-            origin_minion_pool_id=origin_minion_pool_id,
-            destination_minion_pool_id=destination_minion_pool_id,
-            instance_osmorphing_minion_pool_mappings=(
-                instance_osmorphing_minion_pool_mappings),
-            destination_environment=destination_environment,
-            instances=instances,
-            notes=notes,
-            replication_count=replication_count,
-            shutdown_instances=shutdown_instances,
-            skip_os_morphing=skip_os_morphing,
-            network_map=network_map,
-            storage_mappings=storage_mappings,
-            source_environment=source_environment,
-            user_scripts=user_scripts)
 
     def deploy_replica_instances(
             self, ctxt, replica_id,
@@ -268,21 +228,14 @@ class ConductorClient(rpc.BaseRPCClient):
             skip_os_morphing=skip_os_morphing,
             user_scripts=user_scripts)
 
-    def delete_migration(self, ctxt, migration_id):
-        self._call(
-            ctxt, 'delete_migration', migration_id=migration_id)
-
-    def cancel_migration(self, ctxt, migration_id, force):
-        self._call(
-            ctxt, 'cancel_migration', migration_id=migration_id, force=force)
-
     def delete_deployment(self, ctxt, deployment_id):
         self._call(
             ctxt, 'delete_deployment', deployment_id=deployment_id)
 
     def cancel_deployment(self, ctxt, deployment_id, force):
         self._call(
-            ctxt, 'cancel_deployment', deployment_id=deployment_id, force=force)
+            ctxt, 'cancel_deployment', deployment_id=deployment_id,
+            force=force)
 
     def set_task_host(self, ctxt, task_id, host):
         self._call(
