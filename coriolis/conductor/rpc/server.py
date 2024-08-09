@@ -3205,11 +3205,6 @@ class ConductorServerEndpoint(object):
             else:
                 self._cancel_tasks_execution(ctxt, execution)
 
-            # NOTE: if this was a migration, make sure to delete
-            # its associated reservation.
-            if execution.type == constants.EXECUTION_TYPE_MIGRATION:
-                self._check_delete_reservation_for_transfer(action)
-
     @task_synchronized
     def add_task_event(self, ctxt, task_id, level, message):
         LOG.info("Adding event for task '%s': %s", task_id, message)
