@@ -196,4 +196,9 @@ def create_keystone_session(ctxt, connection_info={}):
         loader = loading.get_plugin_loader(plugin_name)
         auth = loader.load_from_options(**plugin_args)
 
-    return ks_session.Session(auth=auth, verify=_get_verify_option())
+    verify = _get_verify_option()
+    if connection_info.get('allow_untrusted') is not None:
+        verify = not connection_info.get('allow_untrusted')
+    LOG.debug(f"SSL verify is set to: {verify}")
+
+    return ks_session.Session(auth=auth, verify=verify)
