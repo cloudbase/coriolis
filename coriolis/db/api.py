@@ -1399,11 +1399,11 @@ def get_minion_pool(
         include_events=False, include_progress_updates=False):
     q = _soft_delete_aware_query(context, models.MinionPool)
     if include_machines:
-        q = q.options(orm.joinedload('minion_machines'))
+        q = q.options(orm.selectinload('minion_machines'))
     if include_events:
-        q = q.options(orm.joinedload('events'))
+        q = q.options(orm.selectinload('events'))
     if include_progress_updates:
-        q = q.options(orm.joinedload('progress_updates'))
+        q = q.options(orm.selectinload('progress_updates'))
     if is_user_context(context):
         q = q.filter(
             models.MinionPool.project_id == context.project_id)
