@@ -65,6 +65,15 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
         # TODO(alexpilotti): add networking support
         pass
 
+    def get_installed_packages(self):
+        cmd = 'rpm -qa --qf "%{NAME}\\n"'
+        try:
+            self.installed_packages = self._exec_cmd_chroot(
+                cmd).decode('utf-8').splitlines()
+        except exception.CoriolisException:
+            LOG.warning("Failed to get installed packages")
+            LOG.trace(utils.get_exception_details())
+
     def get_update_grub2_command(self):
         location = self._get_grub2_cfg_location()
         return "grub2-mkconfig -o %s" % location

@@ -79,6 +79,10 @@ class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
                 cls.__name__))
 
     @abc.abstractmethod
+    def get_installed_packages(self, package_name):
+        pass
+
+    @abc.abstractmethod
     def set_net_config(self, nics_info, dhcp):
         pass
 
@@ -121,6 +125,7 @@ class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
 class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
 
     _packages = {}
+    installed_packages = []
 
     def __init__(self, conn, os_root_dir, os_root_dev, hypervisor,
                  event_manager, detected_os_info, osmorphing_parameters,

@@ -209,15 +209,14 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
                                                     mac_addresses)
         self._add_net_udev_rules(net_ifaces_info)
 
-    def _has_package_installed(self, package_name):
-        cmd = 'rpm -q %s' % ("".join(package_name))
+    def get_installed_packages(self):
+        cmd = 'rpm -qa --qf "%{NAME}\\n"'
         try:
-            self._exec_cmd_chroot(cmd)
-            return True
+            self.installed_packages = self._exec_cmd_chroot(
+                cmd).decode('utf-8').splitlines()
         except exception.CoriolisException:
-            LOG.warning(f"Package ${package_name} is not installed")
+            LOG.warning("Failed to get installed packages")
             LOG.trace(utils.get_exception_details())
-            return False
 
     def _yum_install(self, package_names, enable_repos=[]):
         try:
@@ -295,7 +294,7 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         super(BaseRedHatMorphingTools, self).pre_packages_install(
             package_names)
         self._yum_clean_all()
-        if not self._has_package_installed('grubby'):
+        if 'grubby' not in self.installed_packages:
             self._yum_install(['grubby'])
         else:
             LOG.debug("Skipping package 'grubby' as it's already installed")

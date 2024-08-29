@@ -610,6 +610,9 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
     def get_packages(self):
         return [], []
 
+    def get_installed_packages(self):
+        pass
+
     def pre_packages_install(self, package_names):
         pass
 
