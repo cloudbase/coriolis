@@ -239,6 +239,11 @@ def morph_image(origin_provider, destination_provider, connection_info,
         LOG.info("Post packages uninstall")
         export_os_morphing_tools.post_packages_uninstall(packages_remove)
 
+    LOG.info("Checking for packages already installed")
+    import_os_morphing_tools.get_installed_packages()
+    packages_add = list(
+        set(packages_add) - set(import_os_morphing_tools.installed_packages))
+
     LOG.info("Pre packages install")
     import_os_morphing_tools.pre_packages_install(packages_add)
 

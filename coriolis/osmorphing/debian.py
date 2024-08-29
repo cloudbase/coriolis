@@ -122,6 +122,14 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
             cfg_name = "%s/coriolis_netplan.yaml" % netplan_base
             self._write_file_sudo(cfg_name, new_cfg)
 
+    def get_installed_packages(self):
+        cmd = "dpkg-query -f '${binary:Package}\\n' -W"
+        try:
+            self.installed_packages = self._exec_cmd_chroot(
+                cmd).decode('utf-8').splitlines()
+        except exception.CoriolisException:
+            pass
+
     def pre_packages_install(self, package_names):
         super(BaseDebianMorphingTools, self).pre_packages_install(
             package_names)

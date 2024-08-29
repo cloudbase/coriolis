@@ -14,6 +14,9 @@ class BaseCoreOSMorphingTools(base.BaseLinuxOSMorphingTools):
             return True
         return False
 
+    def get_installed_package(self):
+        pass
+
     def disable_predictable_nic_names(self):
         pass
 
