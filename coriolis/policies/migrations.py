@@ -44,7 +44,7 @@ MIGRATIONS_POLICY_DEFAULT_RULES = [
         "Show details for a migration",
         [
             {
-                "path": "/migration/{migration_id}",
+                "path": "/migrations/{migration_id}",
                 "method": "GET"
             }
         ]
@@ -57,7 +57,7 @@ MIGRATIONS_POLICY_DEFAULT_RULES = [
         "Cancel a running Migration",
         [
             {
-                "path": "/migrations/{migration_id}/actions/",
+                "path": "/migrations/{migration_id}/actions",
                 "method": "POST"
             }
         ]
@@ -68,7 +68,7 @@ MIGRATIONS_POLICY_DEFAULT_RULES = [
         "Delete Migration",
         [
             {
-                "path": "/migration/{migration_id}",
+                "path": "/migrations/{migration_id}",
                 "method": "DELETE"
             }
         ]

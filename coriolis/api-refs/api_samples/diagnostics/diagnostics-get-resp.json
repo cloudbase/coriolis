@@ -59,7 +59,35 @@
                         ]
                     }
                 }
-            ]
+            ],
+            "licensing_status": {
+                "appliance_id": "123e4567-e89b-12d3-a456-426614176000",
+                "earliest_licence_expiry_time": "2024-09-07T13:09:21Z",
+                "latest_licence_expiry_time": "2024-09-07T13:09:21Z",
+                "current_performed_migrations": 0,
+                "current_performed_replicas": 0,
+                "lifetime_performed_migrations": 2,
+                "lifetime_performed_replicas": 1,
+                "current_available_migrations": 10,
+                "current_available_replicas": 10,
+                "lifetime_available_migrations": 10,
+                "lifetime_available_replicas": 10
+            },
+            "licences": [
+                {
+                    "id": "e7b8a9f0-4d3b-4a6a-8c1d-2f8e4d9a9b1f",
+                    "appliance_id": "123e4567-e89b-12d3-a456-476614174000",
+                    "issue_date": "2024-09-03T09:53:44Z",
+                    "licence_version": "v2",
+                    "migrations": 10,
+                    "replicas": 10,
+                    "period_start": "2024-09-03T09:54:21Z",
+                    "period_duration": 20,
+                    "period_end": "2024-09-07T13:09:21Z",
+                    "application_date": "2024-09-03T09:53:56Z"
+                }
+            ],
+            "reservations": []
         },
         {
             "application": "coriolis-replica-cron",

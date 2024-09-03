@@ -14,6 +14,7 @@
         "os_type": "linux",
         "platform": "source",
         "environment_options": {
+            "data_transfer_mechanism": "HTTPS",
             "list_all_destination_networks": false,
             "migr_worker_use_config_drive": false,
             "migr_image": "bionic",

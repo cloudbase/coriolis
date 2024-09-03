@@ -413,7 +413,7 @@ Replica Actions
 Delete Replica Disks
 ====================
 
-.. rest_method:: POST replicas/{replica_id}/actions
+.. rest_method:: POST /replicas/{replica_id}/actions
 
 Deletes a replicas disks on the destination environment.
 
@@ -456,7 +456,7 @@ Replica Execution Actions
 Cancel Replica Execution
 ========================
 
-.. rest_method:: POST /replicas/{replica_id}/executions/{execution_id}
+.. rest_method:: POST /replicas/{replica_id}/executions/{execution_id}/actions
 
 Cancels an ongoing replica execution.
 
@@ -490,7 +490,7 @@ There is no response to a successful replicas execution cancellation.
 
 Delete Replica Execution
 ========================
-.. rest_method:: DELETE replicas/{replica_id}/executions/{replica_tasks_execution_id}
+.. rest_method:: DELETE /replicas/{replica_id}/executions/{execution_id}
 
 Deletes an replica execution.
 
@@ -509,7 +509,7 @@ Request
 .. rest_parameters:: parameters.yaml
 
     - replica_id : replica_id_path
-    - replica_tasks_execution_id : replica_tasks_execution_id_path
+    - execution_id : execution_id_path
 
 Response
 --------

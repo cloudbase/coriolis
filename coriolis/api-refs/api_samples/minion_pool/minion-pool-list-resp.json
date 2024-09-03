@@ -6,6 +6,7 @@
             "notes": "",
             "endpoint_id": "8e9b6b0b-ef3b-4127-ac32-a18a30e67749",
             "environment_options": {
+                "data_transfer_mechanism": "HTTPS",
                 "list_all_destination_networks": false,
                 "migr_worker_use_config_drive": false,
                 "migr_image": "bionic",

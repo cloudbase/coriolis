@@ -7,6 +7,7 @@
     "instances": ["ubuntu-xenial", "windows2012r2"],
     "storage_mappings": {},
     "destination_environment": {
+      "migr_flavor_name": "m1.small",
       "storage_mappings": {
         "lvmdriver-1": "lvm-1"
       },

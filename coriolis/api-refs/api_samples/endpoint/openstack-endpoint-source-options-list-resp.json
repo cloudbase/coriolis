@@ -5,11 +5,13 @@
             "values": [
                 {
                     "name": "ws2008",
-                    "id": "5051a788-f133-4a84-af64-fd35e4c36f24"
+                    "id": "5051a788-f133-4a84-af64-fd35e4c36f24",
+                    "os_type": "windows"
                 },
                 {
                     "name": "debian8",
-                    "id": "f298bc1b-a631-47cc-beef-ffd13e572226"
+                    "id": "f298bc1b-a631-47cc-beef-ffd13e572226",
+                    "os_type": "linux"
                 }
             ],
             "config_default": null

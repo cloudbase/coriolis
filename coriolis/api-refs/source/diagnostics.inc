@@ -29,7 +29,10 @@ Response
   - os_info : diagnostic_os_info
   - hostname : diagnostic_hostname
   - ip_addresses : diagnostic_ip_addresses
+  - licensing_status : diagnostic_licensing_status
   - packages : diagnostic_packages
+  - licences : diagnostic_licences
+  - reservations : diagnostic_reservations
 
 **Example of a Diagnostics List**
 

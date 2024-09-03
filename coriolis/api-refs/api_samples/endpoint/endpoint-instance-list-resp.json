@@ -9,7 +9,8 @@
       "id": "3ba07383-6726-4bf8-82d5-d5ce871519bc",
       "flavor_name": "m1.small",
       "os_type": "linux",
-      "firmware_type": "BIOS"
+      "firmware_type": "BIOS",
+      "secure_boot": false
     },
     {
       "num_cpu": 4,
@@ -20,7 +21,8 @@
       "id": "e93f6d38-9240-4dec-b738-61ca225aba6a",
       "flavor_name": "windows2012",
       "os_type": "windows",
-      "firmware_type": "EFI"
+      "firmware_type": "EFI",
+      "secure_boot": false
     }
   ]
 }

@@ -6,8 +6,8 @@
         "deleted": "0",
         "id": "07c3343b-970d-437a-b670-e88e78dab3fc",
         "host": "coriolis-worker-ONbgH1NV",
-        "binary": "coriolis-worker",
-        "topic": "coriolis_worker",
+        "binary": "coriolis-worker-test",
+        "topic": "coriolis_worker-test",
         "enabled": false,
         "status": "UP",
         "providers": {
