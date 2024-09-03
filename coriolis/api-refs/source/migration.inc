@@ -259,7 +259,7 @@ Response
 
 Delete Migration
 ================
-.. rest_method:: DELETE migrations/{migration_id}
+.. rest_method:: DELETE /migrations/{migration_id}
 
 Deletes an non-running migration.
 

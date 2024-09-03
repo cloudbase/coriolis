@@ -8,6 +8,7 @@
     "user_id": "7cf9b4745d514517b3eae440438136bc",
     "project_id": "ffc16db2011e41f28152897c279b6bcc",
     "destination_environment": {
+      "migr_flavor_name": "m1.small",
       "storage_mappings": {
         "lvmdriver-1": "lvm-1"
       },

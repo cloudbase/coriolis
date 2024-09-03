@@ -36,6 +36,7 @@
       "controllers": []
     },
     "os_type": "linux",
-    "firmware_type": "BIOS"
+    "firmware_type": "BIOS",
+    "secure_boot": false
   }
 }

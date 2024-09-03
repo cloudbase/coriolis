@@ -8,6 +8,7 @@
     "user_id": "7cf9b4745d514517b3eae440438136bc",
     "project_id": "ffc16db2011e41f28152897c279b6bcc",
     "destination_environment": {
+        "migr_flavor_name": "m1.small",
         "storage_mappings": {
           "lvmdriver-1": "lvm-1"
         },
@@ -19,7 +20,10 @@
         },
         "migr_network": "provider-net",
         "port_reuse_policy": "keep_mac",
-        "set_dhcp": true
+        "set_dhcp": true,
+        "network_map": {
+          "private": "provider-net"
+        }
     },
     "type": "migration",
     "instances": ["ubuntu-xenial", "windows2012r2"],
@@ -28,7 +32,9 @@
     "origin_endpoint_id": "b59051a2-bbf3-4fb7-a1eb-539db55339dc",
     "destination_endpoint_id": "6258fa20-5d1f-44fa-ae12-c94122263fa3",
     "transfer_result": null,
-    "network_map": {},
+    "network_map": {
+      "private": "provider-net"
+    },
     "storage_mappings": {},
     "source_environment": {},
     "id": "1e31443d-5eb1-403f-9f15-c67a2c372bc3",

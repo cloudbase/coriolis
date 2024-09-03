@@ -149,6 +149,18 @@ diagnostic_ip_addresses:
   in: body
   type: object
   required: true
+diagnostic_licences:
+  description: |
+    The list of licenses installed on the Coriolis appliance.
+  in: body
+  type: object
+  required: true
+diagnostic_licensing_status:
+  description: |
+    The licensing status of the Coriolis appliance.
+  in: body
+  type: object
+  required: true
 diagnostic_os_info:
   description: |
     The Coriolis appliance's host OS information.
@@ -161,6 +173,12 @@ diagnostic_packages:
   in: body
   type: array
   required: true
+diagnostic_reservations:
+  description: |
+    The list of reservations made by the Coriolis appliance.
+  in: body
+  type: object
+  required: false
 diagnostics_array:
   description: |
     Array of diagnostics objects.
@@ -317,6 +335,12 @@ instance_osmorphing_minion_pool_mappings:
   in: body
   type: object
   required: true
+instance_secure_boot:
+  description: |
+    Whether the machine has UEFI Secure Boot enabled or not.
+  in: body
+  type: boolean
+  required: false
 maximum_minions:
   description: |
     Maximum number of minion machines allowed to be allocated for the minion pool.
@@ -638,6 +662,12 @@ network_name:
     The name of a network.
   type: string
   in: body
+  required: true
+network_port_security_enabled:
+  description: |
+    Boolean value representing whether the port security is enabled or not for the listed network.
+  in: body
+  type: boolean
   required: true
 networks_array:
   description: |

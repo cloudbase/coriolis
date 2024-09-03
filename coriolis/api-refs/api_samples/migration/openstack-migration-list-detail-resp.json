@@ -9,6 +9,7 @@
       "user_id": "7cf9b4745d514517b3eae440438136bc",
       "project_id": "ffc16db2011e41f28152897c279b6bcc",
       "destination_environment": {
+        "migr_flavor_name": "m1.small",
         "network_map": {
           "VM Network": "0e83bf34-9cc7-4580-9189-a9d9c3c7abb8"
         },
@@ -25,7 +26,16 @@
               "destination": "lvmdriver-1"
             }
           ]
-        }
+        },
+        "keypair_name": "new-key",
+        "delete_disks_on_vm_termination": false,
+        "migr_image_map": {
+          "linux": "ubuntu-xenial-img",
+          "windows": "63d8f1a4-3192-4edc-b113-0d099b4bc458"
+        },
+        "migr_network": "provider-net",
+        "port_reuse_policy": "keep_mac",
+        "set_dhcp": true
       },
       "type": "migration",
       "instances": [

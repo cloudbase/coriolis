@@ -47,6 +47,18 @@
             "config_default": "m1.small"
         },
         {
+            "name": "migr_worker_availability_zone",
+            "values": [
+                {
+                    "name": "internal"
+                },
+                {
+                    "id": "nova"
+                }
+            ],
+            "config_default": null
+        },
+        {
             "name": "migr_worker_volume_type",
             "values": [
                 "coriolis-tier",

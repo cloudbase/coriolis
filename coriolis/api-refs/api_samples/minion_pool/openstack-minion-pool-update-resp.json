@@ -22,7 +22,7 @@
             "migr_worker_use_fip": true,
             "migr_worker_boot_from_volume": false,
             "migr_fip_pool_name": "b2f0b98e-03a1-4f13-92aa-ece55f34ebf8/038a72ea-1413-493b-82da-4c75a9077fbf",
-            "data_transfer_mechanism": "SSH"
+            "data_transfer_mechanism": "HTTPS"
         },
         "status": "DEALLOCATED",
         "shared_resources": null,

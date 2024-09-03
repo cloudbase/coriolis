@@ -45,7 +45,7 @@ ENDPOINTS_POLICY_DEFAULT_RULES = [
         "Show details for endpoint",
         [
             {
-                "path": "/endpoint/{endpoint_id}",
+                "path": "/endpoints/{endpoint_id}",
                 "method": "GET"
             }
         ]
@@ -57,7 +57,7 @@ ENDPOINTS_POLICY_DEFAULT_RULES = [
         "Update details for endpoint",
         [
             {
-                "path": "/endpoint/{endpoint_id}",
+                "path": "/endpoints/{endpoint_id}",
                 "method": "PUT"
             }
         ]
@@ -68,7 +68,7 @@ ENDPOINTS_POLICY_DEFAULT_RULES = [
         "Delete endpoint",
         [
             {
-                "path": "/endpoint/{endpoint_id}",
+                "path": "/endpoints/{endpoint_id}",
                 "method": "DELETE"
             }
         ]
@@ -79,7 +79,7 @@ ENDPOINTS_POLICY_DEFAULT_RULES = [
         "Validate endpoint connection info",
         [
             {
-                "path": "/endpoint/{endpoint_id}/action",
+                "path": "/endpoints/{endpoint_id}/actions",
                 "method": "POST"
             }
         ]
@@ -90,7 +90,7 @@ ENDPOINTS_POLICY_DEFAULT_RULES = [
         "List instances available for migration/replication",
         [
             {
-                "path": "/endpoint/{endpoint_id}/instances",
+                "path": "/endpoints/{endpoint_id}/instances",
                 "method": "GET"
             }
         ]
@@ -101,7 +101,7 @@ ENDPOINTS_POLICY_DEFAULT_RULES = [
         "Get details for given instance available for migration/replication",
         [
             {
-                "path": "/endpoint/{endpoint_id}/instances/{instance_name}",
+                "path": "/endpoints/{endpoint_id}/instances/{instance_name}",
                 "method": "GET"
             }
         ]
@@ -112,7 +112,7 @@ ENDPOINTS_POLICY_DEFAULT_RULES = [
         "List networks available on the given endpoint",
         [
             {
-                "path": "/endpoint/{endpoint_id}/networks",
+                "path": "/endpoints/{endpoint_id}/networks",
                 "method": "GET"
             }
         ]
@@ -123,7 +123,7 @@ ENDPOINTS_POLICY_DEFAULT_RULES = [
         "List storage types available on the given endpoint",
         [
             {
-                "path": "/endpoint/{endpoint_id}/storage",
+                "path": "/endpoints/{endpoint_id}/storage",
                 "method": "GET"
             }
         ]
@@ -134,7 +134,7 @@ ENDPOINTS_POLICY_DEFAULT_RULES = [
         "List available destination options for endpoint",
         [
             {
-                "path": "/endpoint/{endpoint_id}/destination-options",
+                "path": "/endpoints/{endpoint_id}/destination-options",
                 "method": "GET"
             }
         ]
@@ -145,7 +145,7 @@ ENDPOINTS_POLICY_DEFAULT_RULES = [
         "List available source options for endpoint",
         [
             {
-                "path": "/endpoint/{endpoint_id}/source-options",
+                "path": "/endpoints/{endpoint_id}/source-options",
                 "method": "GET"
             }
         ]
@@ -156,7 +156,7 @@ ENDPOINTS_POLICY_DEFAULT_RULES = [
         "List available source minion pool options for endpoint",
         [
             {
-                "path": "/endpoint/{endpoint_id}/source-minion-pool-options",
+                "path": "/endpoints/{endpoint_id}/source-minion-pool-options",
                 "method": "GET"
             }
         ]
@@ -168,7 +168,7 @@ ENDPOINTS_POLICY_DEFAULT_RULES = [
         [
             {
                 "path": (
-                    "/endpoint/{endpoint_id}/destination-minion-pool-options"),
+                    "/endpoints/{endpoint_id}/destination-minion-pool-options"), # noqa
                 "method": "GET"
             }
         ]

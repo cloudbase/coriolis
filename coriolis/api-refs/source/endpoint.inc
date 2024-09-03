@@ -98,7 +98,7 @@ Response
 Create Endpoint
 ===============
 
-.. rest_method:: POST /endpoints/
+.. rest_method:: POST /endpoints
 
 Creates a cloud endpoint.
 
@@ -204,7 +204,7 @@ Response
 Delete Endpoint
 ===============
 
-.. rest_method:: DELETE endpoints/{endpoint_id}
+.. rest_method:: DELETE /endpoints/{endpoint_id}
 
 Deletes an endpoint.
 
@@ -268,6 +268,7 @@ Response
   - os_type : instance_os_type
   - flavor_name : instance_flavor
   - firmware_type : instance_firmware_type
+  - secure_boot : instance_secure_boot
 
 **Example Instance List on Openstack Endpoint**
   .. literalinclude:: ../api_samples/endpoint/endpoint-instance-list-resp.json
@@ -316,6 +317,7 @@ Response
   - flavor_name : instance_flavor
   - devices : instance_devices
   - firmware_type : instance_firmware_type
+  - secure_boot : instance_secure_boot
 
 **Example Instance Show On Openstack Endpoint**
 
@@ -433,6 +435,7 @@ Response
   - networks : networks_array
   - name : network_name
   - id : network_id
+  - port_security_enabled : network_port_security_enabled
 
 **Example Get Endpoint Networks**
 
@@ -443,7 +446,7 @@ Response
 Get Endpoint Storage
 ====================
 
-.. rest_method:: GET endpoints/{endpoint_id}/storage
+.. rest_method:: GET /endpoints/{endpoint_id}/storage
 
 Lists all available storage backends on a given destination endpoint.
 
