@@ -3771,8 +3771,6 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_delete_migration.assert_not_called()
 
     @mock.patch.object(server.ConductorServerEndpoint,
-                       '_check_delete_reservation_for_transfer')
-    @mock.patch.object(server.ConductorServerEndpoint,
                        '_cancel_tasks_execution')
     @mock.patch.object(lockutils, 'lock')
     @mock.patch.object(server.ConductorServerEndpoint, '_get_migration')
@@ -3783,7 +3781,6 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_get_migration,
         mock_lock,
         mock_cancel_tasks_execution,
-        mock_check_delete_reservation_for_transfer,
         config,
         raises_exception
     ):
@@ -3822,8 +3819,6 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
                 execution,
                 force=force
             )
-            mock_check_delete_reservation_for_transfer.assert_called_once_with(
-                migration)
 
         mock_get_migration.assert_called_once_with(
             mock.sentinel.context,
@@ -5018,6 +5013,9 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(server.ConductorServerEndpoint,
                        "_advance_execution_state")
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       "_check_delete_reservation_for_transfer")
+    @mock.patch.object(db_api, "get_action")
     @mock.patch.object(db_api, "get_tasks_execution")
     @mock.patch.object(db_api, "set_task_status")
     @mock.patch.object(db_api, "get_task")
@@ -5028,6 +5026,8 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_get_task,
         mock_set_task_status,
         mock_get_tasks_execution,
+        mock_get_action,
+        mock_check_delete_reservation,
         mock_advance_execution_state,
         task_status,
         expected_final_status,
@@ -5037,6 +5037,9 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         task.status = getattr(constants, task_status)
         expected_final_status = getattr(constants, expected_final_status)
         mock_get_task.return_value = task
+        mock_execution = mock.MagicMock()
+        mock_execution.type = constants.EXECUTION_TYPE_MIGRATION
+        mock_get_tasks_execution.return_value = mock_execution
 
         testutils.get_wrapped_function(self.server.confirm_task_cancellation)(
             self.server,
@@ -5054,6 +5057,11 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         if expected_advance_execution_state_call:
             mock_get_tasks_execution.assert_called_once_with(
                 mock.sentinel.context, task.execution_id)
+            mock_get_action.assert_called_once_with(
+                mock.sentinel.context, mock_execution.action_id,
+                include_task_info=False)
+            mock_check_delete_reservation.assert_called_once_with(
+                mock_get_action.return_value)
             mock_advance_execution_state.assert_called_once_with(
                 mock.sentinel.context,
                 mock_get_tasks_execution.return_value,
