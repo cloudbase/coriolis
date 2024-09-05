@@ -2156,7 +2156,6 @@ class ConductorServerEndpoint(object):
                 constants.EXECUTION_LOCK_NAME_FORMAT % execution.id,
                 external=True):
             self._cancel_tasks_execution(ctxt, execution, force=force)
-        self._check_delete_reservation_for_transfer(migration)
 
     def _cancel_tasks_execution(
             self, ctxt, execution, requery=True, force=False):
@@ -3301,6 +3300,10 @@ class ConductorServerEndpoint(object):
                 "confirmation of its cancellation.",
                 task.id, task.status, final_status)
             execution = db_api.get_tasks_execution(ctxt, task.execution_id)
+            if execution.type == constants.EXECUTION_TYPE_MIGRATION:
+                action = db_api.get_action(
+                    ctxt, execution.action_id, include_task_info=False)
+                self._check_delete_reservation_for_transfer(action)
             self._advance_execution_state(ctxt, execution, requery=False)
 
     @parent_tasks_execution_synchronized
