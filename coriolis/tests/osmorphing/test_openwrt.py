@@ -9,6 +9,9 @@ class MockOpenWRTMorphingTools(openwrt.BaseOpenWRTMorphingTools):
     def __init__(self):
         pass
 
+    def get_installed_packages(self):
+        pass
+
     def install_packages(self, packages):
         pass
 

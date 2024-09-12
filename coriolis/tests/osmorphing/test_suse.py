@@ -76,6 +76,35 @@ class BaseSUSEMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
 
         self.assertFalse(result)
 
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
+    def test_get_installed_packages(self, mock_exec_cmd_chroot):
+        mock_exec_cmd_chroot.return_value = \
+            "package1\npackage2".encode('utf-8')
+
+        self.morphing_tools.get_installed_packages()
+
+        self.assertEqual(
+            self.morphing_tools.installed_packages,
+            ['package1', 'package2']
+        )
+        mock_exec_cmd_chroot.assert_called_once_with(
+            'rpm -qa --qf "%{NAME}\\n"')
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
+    def test_get_installed_packages_none(self, mock_exec_cmd_chroot):
+        mock_exec_cmd_chroot.side_effect = exception.CoriolisException()
+
+        with self.assertLogs(
+            'coriolis.osmorphing.suse', level=logging.DEBUG):
+            self.morphing_tools.get_installed_packages()
+
+        self.assertEqual(
+            self.morphing_tools.installed_packages,
+            []
+        )
+        mock_exec_cmd_chroot.assert_called_once_with(
+            'rpm -qa --qf "%{NAME}\\n"')
+
     @mock.patch.object(
         suse.BaseSUSEMorphingTools, '_get_grub2_cfg_location'
     )
