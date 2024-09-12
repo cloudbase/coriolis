@@ -110,6 +110,9 @@ class TestLinuxOSMorphingTools(base.BaseLinuxOSMorphingTools):
     def check_os_supported(self):
         pass
 
+    def get_installed_packages(self):
+        pass
+
     def install_packages(self):
         pass
 

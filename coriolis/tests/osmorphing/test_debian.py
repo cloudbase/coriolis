@@ -211,6 +211,33 @@ class BaseDebianMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_write_file_sudo.assert_not_called()
         mock_exec_cmd_chroot.assert_not_called()
 
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
+    def test_get_installed_packages(self, mock_exec_cmd_chroot):
+        mock_exec_cmd_chroot.return_value = \
+            "package1\npackage2".encode('utf-8')
+
+        self.morpher.get_installed_packages()
+
+        self.assertEqual(
+            self.morpher.installed_packages,
+            ['package1', 'package2']
+        )
+        mock_exec_cmd_chroot.assert_called_once_with(
+            "dpkg-query -f '${binary:Package}\\n' -W")
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
+    def test_get_installed_packages_none(self, mock_exec_cmd_chroot):
+        mock_exec_cmd_chroot.side_effect = exception.CoriolisException()
+
+        self.morpher.get_installed_packages()
+
+        self.assertEqual(
+            self.morpher.installed_packages,
+            []
+        )
+        mock_exec_cmd_chroot.assert_called_once_with(
+            "dpkg-query -f '${binary:Package}\\n' -W")
+
     @mock.patch.object(base.BaseLinuxOSMorphingTools, 'pre_packages_install')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_exec_cmd_chroot')
     def test_pre_packages_install(self, mock_exec_cmd_chroot,

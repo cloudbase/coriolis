@@ -153,6 +153,8 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
         self.assertIsNone(result)
 
     class MockOSMorphingToolsClass:
+        installed_packages = []
+
         def __init__(self, *args, **kwargs):
             pass
 
@@ -172,6 +174,9 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
             pass
 
         def pre_packages_install(self, packages_add):
+            pass
+
+        def get_installed_packages(self):
             pass
 
         def set_net_config(self, nics_info, dhcp):
