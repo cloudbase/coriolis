@@ -603,6 +603,32 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         self.assertEqual(result, ['/dev/sda1', '/dev/sda2'])
 
     @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')
+    @mock.patch.object(base.utils, 'test_ssh_path')
+    def test__get_mounted_devices_not_found(self, mock_test_ssh_path,
+                                            mock_exec_cmd):
+        mock_exec_cmd.side_effect = [
+            b"/dev/sda1 on / type ext4 (rw,relatime,errors=remount-ro)\n",
+            b"/dev/sda1",
+            b""
+        ]
+        mock_test_ssh_path.return_value = False
+
+        with self.assertLogs('coriolis.osmorphing.osmount.base',
+                             level=logging.WARN):
+            result = self.base_os_mount_tools._get_mounted_devices()
+            self.assertEqual(result, [])
+
+        mock_exec_cmd.assert_has_calls([
+            mock.call("cat /proc/mounts"),
+            mock.call("readlink -en /dev/sda1"),
+            mock.call("ls -al /dev | grep ^b")
+        ])
+
+        mock_test_ssh_path.assert_called_once_with(
+            self.base_os_mount_tools._ssh, "/dev/sda1"
+        )
+
+    @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')
     def test__get_mount_destinations(self, mock_exec_cmd):
         mock_exec_cmd.return_value = (
             b"/dev/sda1 / ext4 rw,relatime 0 0\n"
