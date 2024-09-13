@@ -384,6 +384,10 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
             colls = line.split()
             if colls[0].startswith("/dev"):
                 dev_name = self._get_symlink_target(colls[0])
+                if not utils.test_ssh_path(self._ssh, dev_name):
+                    LOG.warn(
+                        "Device name %s not found, skipping mount.", dev_name)
+                    continue
                 ret.append(dev_name)
                 mounted_device_numbers.append(
                     self._exec_cmd(dev_nmb_cmd % dev_name).decode().rstrip())
