@@ -17,7 +17,6 @@ from coriolis.osmorphing import base
 from coriolis.osmorphing.osdetect import windows as windows_osdetect
 from coriolis import utils
 
-
 LOG = logging.getLogger(__name__)
 
 WINDOWS_CLIENT_IDENTIFIER = windows_osdetect.WINDOWS_CLIENT_IDENTIFIER
@@ -562,23 +561,39 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
 
         return ips_info
 
-    def _check_ips_info(self, nics_info, ips_info):
-        source_ip_addresses = set()
+    def _get_static_nics_info(self, nics_info, ips_info):
+        static_nics_info = []
         reg_ip_addresses = set()
-        for nic in nics_info:
-            source_ip_addresses.update(nic.get('ip_addresses', []))
 
         for ip_info in ips_info:
             if ip_info.get('ip_address'):
                 reg_ip_addresses.add(ip_info['ip_address'])
 
-        diff = source_ip_addresses - reg_ip_addresses
-        if diff:
-            raise exception.OSMorphingException(
-                "The following IP(s): %s found on the source VM's NICs were "
-                "not found in the registry. Please check whether the static "
-                "IP configurations on the source machine are properly set up "
-                "and retry the migration." % diff)
+        for nic in nics_info:
+            static_nic = copy.deepcopy(nic)
+            nic_ips = nic.get('ip_addresses', [])
+            if not nic_ips:
+                LOG.warning(
+                    f"Skipping NIC ('{nic.get('mac_address')}'). It has no "
+                    f"detected IP addresses")
+                continue
+            diff = set(nic_ips) - reg_ip_addresses
+            if diff:
+                LOG.warning(
+                    f"The IP addresses {list(diff)} found on the source "
+                    f"VM's NIC were not found in the registry. These IPs will "
+                    f"be skipped in the static IP configuration process")
+                ip_matches = list(reg_ip_addresses.intersection(set(nic_ips)))
+                if not ip_matches:
+                    LOG.warning(
+                        f"Couldn't find any static IP configuration that "
+                        f"matches the addresses {list(nic_ips)} of the source "
+                        f"NIC ({nic.get('mac_address')}). Skipping")
+                    continue
+                static_nic['ip_addresses'] = ip_matches
+            static_nics_info.append(static_nic)
+
+        return static_nics_info
 
     def _write_static_ip_script(self, base_dir, nics_info, ips_info):
         scripts_dir = self._get_cbslinit_scripts_dir(base_dir)
@@ -601,9 +616,16 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
         try:
             cbslinit_base_dir = self._get_cbslinit_base_dir()
             ips_info = self._compile_static_ip_conf_from_registry(key_name)
-            self._check_ips_info(nics_info, ips_info)
-            self._write_static_ip_script(
-                cbslinit_base_dir, nics_info, ips_info)
+            LOG.debug(f"Registry static IP configuration: {ips_info}")
+            static_nics_info = self._get_static_nics_info(nics_info, ips_info)
+            LOG.debug(f"Detected static NICS info: {static_nics_info}")
+            if static_nics_info:
+                self._write_static_ip_script(
+                    cbslinit_base_dir, static_nics_info, ips_info)
+            else:
+                LOG.warning(
+                    "No static IP configuration found on the source VM. "
+                    "Static IP configuration will be skipped.")
         finally:
             self._unload_registry_hive("HKLM\\%s" % key_name)
 
