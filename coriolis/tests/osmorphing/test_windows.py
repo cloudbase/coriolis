@@ -735,27 +735,36 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
                       interfaces_reg_path),
         ])
 
-    def test_check_ips_info(self):
+    def test__get_static_nics_info(self):
+        static_ipv4 = "10.0.0.16"
+        static_ipv6 = "fe80::728a:688:1a92:baec"
+        dynamic_ipv4 = "10.0.1.16"
+        dynamic_ipv6 = "fe81::728a:688:1a92:baec"
+        # detected static IPs
+        ips_info = [{"ip_address": static_ipv4},
+                    {"ip_address": static_ipv6}]
         nics_info = [
-            {'ip_addresses': [mock.sentinel.ip_address]}
-        ]
-        ips_info = [
-            {'ip_address': mock.sentinel.ip_address}
-        ]
-        self.morphing_tools._check_ips_info(nics_info, ips_info)
+            # no IP addresses on NIC
+            {"ip_addresses": [], "mac_address": "00:50:56:92:91:42"},
+            # dynamic ipv6 IP
+            {"ip_addresses": [static_ipv4, dynamic_ipv6],
+             "mac_address": "00:50:56:92:91:43"},
+            # both IPs dynamic
+            {"ip_addresses": [dynamic_ipv4, dynamic_ipv6],
+             "mac_address": "00:50:56:92:91:44"},
+            # dynamic ipv4 IP
+            {"ip_addresses": [dynamic_ipv4, static_ipv6],
+             "mac_address": "00:50:56:92:91:45"}]
 
-    def test_check_ips_info_different_ips(self):
-        nics_info = [
-            {'ip_addresses': [
-                mock.sentinel.ip_address, mock.sentinel.ip_address2]}
-        ]
-        ips_info = [
-            {'ip_address': mock.sentinel.ip_address}
-        ]
+        expected_result = [
+            {"mac_address": "00:50:56:92:91:43",
+             "ip_addresses": ["10.0.0.16"]},
+            {"mac_address": "00:50:56:92:91:45",
+             "ip_addresses": ["fe80::728a:688:1a92:baec"]}]
 
-        self.assertRaises(exception.OSMorphingException,
-                          self.morphing_tools._check_ips_info,
-                          nics_info, ips_info)
+        self.assertEqual(
+            self.morphing_tools._get_static_nics_info(nics_info, ips_info),
+            expected_result)
 
     @mock.patch.object(windows.utils, 'write_winrm_file')
     def test__write_static_ip_script(self, mock_write_winrm_file):
@@ -787,6 +796,8 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         windows.BaseWindowsMorphingTools, '_write_static_ip_script'
     )
     @mock.patch.object(
+        windows.BaseWindowsMorphingTools, '_get_static_nics_info')
+    @mock.patch.object(
         windows.BaseWindowsMorphingTools, '_unload_registry_hive'
     )
     @mock.patch.object(
@@ -795,6 +806,7 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(windows.uuid, 'uuid4')
     def test_set_net_config(self, mock_uuid4, mock_load_registry_hive,
                             mock_unload_registry_hive,
+                            mock_get_static_nics_info,
                             mock_write_static_ip_script,
                             mock_compile_static_ip_conf_from_registry):
         dhcp = False
@@ -813,10 +825,54 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             "%sWindows\\System32\\config\\SYSTEM" % self.os_root_dir)
         mock_compile_static_ip_conf_from_registry.assert_called_once_with(
             str(mock_uuid4.return_value))
+        mock_get_static_nics_info.assert_called_once_with(nics_info, ips_info)
         mock_write_static_ip_script.assert_called_once_with(
             "C:\\Cloudbase-Init",
-            nics_info,
+            mock_get_static_nics_info.return_value,
             mock_compile_static_ip_conf_from_registry.return_value)
+        mock_unload_registry_hive.assert_called_once_with(
+            "HKLM\\%s" % mock_uuid4.return_value)
+
+    @mock.patch.object(
+        windows.BaseWindowsMorphingTools,
+        '_compile_static_ip_conf_from_registry'
+    )
+    @mock.patch.object(
+        windows.BaseWindowsMorphingTools, '_write_static_ip_script'
+    )
+    @mock.patch.object(
+        windows.BaseWindowsMorphingTools, '_get_static_nics_info')
+    @mock.patch.object(
+        windows.BaseWindowsMorphingTools, '_unload_registry_hive'
+    )
+    @mock.patch.object(
+        windows.BaseWindowsMorphingTools, '_load_registry_hive'
+    )
+    @mock.patch.object(windows.uuid, 'uuid4')
+    def test_set_net_config_no_static_info(
+            self, mock_uuid4, mock_load_registry_hive,
+            mock_unload_registry_hive, mock_get_static_nics_info,
+            mock_write_static_ip_script,
+            mock_compile_static_ip_conf_from_registry):
+        dhcp = False
+        nics_info = [
+            {'ip_addresses': ["10.1.10.10"]}
+        ]
+        ips_info = [
+            {'ip_address': "10.1.10.10"}
+        ]
+        mock_compile_static_ip_conf_from_registry.return_value = ips_info
+        mock_get_static_nics_info.return_value = []
+
+        self.morphing_tools.set_net_config(nics_info, dhcp=dhcp)
+
+        mock_load_registry_hive.assert_called_once_with(
+            "HKLM\\%s" % mock_uuid4.return_value,
+            "%sWindows\\System32\\config\\SYSTEM" % self.os_root_dir)
+        mock_compile_static_ip_conf_from_registry.assert_called_once_with(
+            str(mock_uuid4.return_value))
+        mock_get_static_nics_info.assert_called_once_with(nics_info, ips_info)
+        mock_write_static_ip_script.assert_not_called()
         mock_unload_registry_hive.assert_called_once_with(
             "HKLM\\%s" % mock_uuid4.return_value)
 
@@ -836,7 +892,8 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(
         windows.BaseWindowsMorphingTools, '_load_registry_hive'
     )
-    @mock.patch.object(windows.BaseWindowsMorphingTools, '_check_ips_info')
+    @mock.patch.object(windows.BaseWindowsMorphingTools,
+                       '_get_static_nics_info')
     def test_set_net_config_with_dhcp(
             self, mock_check_ips_info, mock_load_registry_hive,
             mock_unload_registry_hive, mock_write_static_ip_script,
