@@ -128,7 +128,7 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
             self.installed_packages = self._exec_cmd_chroot(
                 cmd).decode('utf-8').splitlines()
         except exception.CoriolisException:
-            pass
+            self.installed_packages = []
 
     def pre_packages_install(self, package_names):
         super(BaseDebianMorphingTools, self).pre_packages_install(
