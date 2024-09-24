@@ -217,6 +217,7 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         except exception.CoriolisException:
             LOG.warning("Failed to get installed packages")
             LOG.trace(utils.get_exception_details())
+            self.installed_packages = []
 
     def _yum_install(self, package_names, enable_repos=[]):
         try:

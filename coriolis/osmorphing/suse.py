@@ -73,6 +73,7 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
         except exception.CoriolisException:
             LOG.warning("Failed to get installed packages")
             LOG.trace(utils.get_exception_details())
+            self.installed_packages = []
 
     def get_update_grub2_command(self):
         location = self._get_grub2_cfg_location()
