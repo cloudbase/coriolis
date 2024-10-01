@@ -275,6 +275,9 @@ use_floating_ip = False
 # will be merged and/or override the defaults provided here for that transfer.
 # default_custom_boot_volume_image_metadata = hw_qemu_guest_agent: yes, ...
 
+# Disk bus to be used for migrated VM's volumes. Accepted values are: virtio, scsi, ide, usb
+disk_bus = virtio
+
 # What mechanism to use when sending disk data from the Coriolis installation
 # to the temporary VMs on the target OpenStack to be written to their
 # respective disk. The HTTPS-based transfer mechanism (TCP/5566) is faster but
