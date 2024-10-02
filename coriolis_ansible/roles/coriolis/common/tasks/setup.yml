@@ -52,8 +52,8 @@
     mode: 0711
 
 - name: "Copying over certificates"
-  copy: 
-      src: "{{ item.src }}" 
+  copy:
+      src: "{{ item.src }}"
       dest: "{{ item.dest }}"
   loop:
     - src: "{{ coriolis_appliance_tls_cert_bundle }}"
@@ -72,6 +72,7 @@
     - { src: coriolis-api.wsgi.j2, dest: "{{ coriolis_config_dir }}/coriolis-api.wsgi" }
     - { src: wsgi-coriolis.conf.j2, dest: "{{ coriolis_config_dir }}/wsgi-coriolis.conf" }
     - { src: coriolis.conf.j2, dest: "{{ coriolis_config_dir }}/coriolis.conf" }
+    - { src: vixdisklib.conf.j2, dest: "{{ coriolis_vmware_vix_disklib_config_path }}" }
     - { src: api-paste.ini.j2, dest: "{{ coriolis_config_dir }}/api-paste.ini" }
     - { src: policy.yml.j2,    dest: "{{ coriolis_config_dir }}/policy.yml" }
     - { src: log-rotate.conf.j2, dest: "{{ coriolis_config_dir }}/coriolis-api-logging.conf" }
