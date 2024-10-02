@@ -7,7 +7,6 @@
     - "{{ coriolis_export_dir }}"
     - "{{ coriolis_vmware_vix_disklib_dir }}"
     - "{{ coriolis_hyperv_share_local_dir }}"
-    - "{{ appliance_coriolis_opt_tmp_dir }}"
 
 - name: Download VMware vixDiskLib
   get_url:

@@ -15,6 +15,5 @@
       - "{{ coriolis_logger_socket_dir }}:{{ coriolis_logger_socket_dir }}"
       - "{{ coriolis_export_dir }}:{{ coriolis_export_dir }}:rw"
       - "{{ coriolis_vmware_vix_disklib_dir }}:{{ coriolis_vmware_vix_disklib_dir }}:ro"
-      - "{{ appliance_coriolis_opt_tmp_dir }}:/tmp:rw"
       - "{{ coriolis_hyperv_share_local_dir }}:{{ coriolis_hyperv_share_local_dir }}:rw"
       - "{{ coriolis_profiling_dir_host }}/worker:{{ coriolis_profiling_dir_container }}"

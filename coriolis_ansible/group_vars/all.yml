@@ -58,7 +58,6 @@ coriolis_web_ui_base_url: "http://{{ coriolis_web_ui_bind_address }}:3000"
 coriolis_config_dir: /etc/coriolis
 coriolis_log_dir: /var/log/coriolis
 appliance_coriolis_opt_dir: /opt/coriolis
-appliance_coriolis_opt_tmp_dir: "{{ appliance_coriolis_opt_dir }}/tmp"
 coriolis_vmware_vix_disklib_dir: "{{ appliance_coriolis_opt_dir }}/vmware-vix-disklib"
 coriolis_hyperv_share_local_dir: "{{ appliance_coriolis_opt_dir }}/hyperv-exports"
 coriolis_export_dir: "{{ appliance_coriolis_opt_dir }}/export"
