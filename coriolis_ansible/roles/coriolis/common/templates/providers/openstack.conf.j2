@@ -37,13 +37,19 @@ allow_untrusted_swift = False
 # Default is 'swift_backups'
 replica_export_mechanism = swift_backups
 
-## Options for 'replica_export_mechanism = swift_backups'
+## Options for 'replica_export_mechanism = swift_backups/ceph_backups'
 
-# The name of the Swift container in which to store the Cinder backups.
+# The name of the container in which to store the Cinder backups.
 # If pre-existing, the container will be reused. If it doesn't exist, a new one
 # will be created.
+# If 'replica_export_mechanism' is set to 'swift_backups', this is name of the
+# Swift container in which to store the Cinder backups. If pre-existing the
+# container will be reused. If it doesn't exist, a new one will be created.
+# If 'replica_export_mechanism' is set to 'ceph_backups', this must be set to
+# the name of the Ceph pool the backups are stored on. (the 'backup_ceph_pool'
+# Cinder configuration option)
 # Default is 'coriolis'
-volume_backups_container = coriolis
+default_volume_backups_container = coriolis
 
 ## Options for 'replica_export_mechanism = ceph_backups/snapshots'
 
