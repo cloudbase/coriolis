@@ -1351,7 +1351,7 @@ class ConductorServerEndpoint(object):
         if [m.id for m in migrations if m.executions[0].status in (
                 constants.ACTIVE_EXECUTION_STATUSES)]:
             raise exception.InvalidReplicaState(
-                "Replica '%s' is currently being migrated" % replica_id)
+                "Transfer '%s' is currently being deployed" % replica_id)
 
     @staticmethod
     def _check_running_executions(action):
