@@ -911,9 +911,9 @@ class ConductorServerEndpoint(object):
     @replica_synchronized
     def execute_replica_tasks(self, ctxt, replica_id, shutdown_instances):
         replica = self._get_replica(ctxt, replica_id, include_task_info=True)
-        self._check_reservation_for_replica(replica)
         self._check_replica_running_executions(ctxt, replica)
         self._check_minion_pools_for_action(ctxt, replica)
+        self._check_reservation_for_replica(replica)
 
         execution = models.TasksExecution()
         execution.id = str(uuid.uuid4())
@@ -1396,7 +1396,6 @@ class ConductorServerEndpoint(object):
             instance_osmorphing_minion_pool_mappings=None,
             skip_os_morphing=False, user_scripts=None):
         replica = self._get_replica(ctxt, replica_id, include_task_info=True)
-        self._check_reservation_for_replica(replica)
         self._check_replica_running_executions(ctxt, replica)
         self._check_valid_replica_tasks_execution(replica, force)
         user_scripts = user_scripts or replica.user_scripts
@@ -1445,6 +1444,7 @@ class ConductorServerEndpoint(object):
             migration.instance_osmorphing_minion_pool_mappings.update(
                 instance_osmorphing_minion_pool_mappings)
         self._check_minion_pools_for_action(ctxt, migration)
+        self._check_reservation_for_replica(replica)
 
         execution = models.TasksExecution()
         migration.executions = [execution]
