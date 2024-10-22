@@ -523,3 +523,11 @@ class OSMorphingWinRMOperationTimeout(OSMorphingOperationTimeout):
         " or the command execution time exceeds the timeout set. Try extending"
         " the timeout by editing the 'default_osmorphing_operation_timeout' "
         "in Coriolis' static configuration file.")
+
+
+class MigrationLicenceFulfilledException(Invalid):
+    message = (
+        "The Live Migration operation with ID '%(action_id)s' (licensing "
+        "reservation '%(reservation_id)s') has already been fulfilled on "
+        "%(fulfilled_at)s. Please create a new Live Migration operation to "
+        "create a new licensing reservation.")
