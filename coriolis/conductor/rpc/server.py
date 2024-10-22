@@ -402,13 +402,9 @@ class ConductorServerEndpoint(object):
                 fulfilled_at = reservation.get("fulfilled_at", None)
                 if scenario == constants.REPLICA_SCENARIO_LIVE_MIGRATION and (
                         fulfilled_at):
-                    raise exception.LicensingException(
-                        message=f"The Live Migration operation with ID "
-                                f"'{replica.id}' (licensing reservation "
-                                f"'{reservation_id}' has already been "
-                                f"fulfilled on {fulfilled_at}. Please "
-                                f"create a new Live Migration operation "
-                                f"to create a new licensing reservation.")
+                    raise exception.MigrationLicenceFulfilledException(
+                        action_id=replica.id, reservation_id=reservation_id,
+                        fulfilled_at=fulfilled_at)
 
                 replica.reservation_id = (
                     self._licensing_client.check_refresh_reservation(
