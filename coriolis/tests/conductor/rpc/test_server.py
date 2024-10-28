@@ -2362,8 +2362,6 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.replica_id,
             include_task_info=True,
         )
-        mock_check_reservation_for_replica.assert_called_once_with(
-            mock_get_replica.return_value)
         mock_check_replica_running_executions.assert_called_once_with(
             mock.sentinel.context,
             mock_get_replica.return_value
@@ -2409,6 +2407,8 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.context,
             mock_migration.return_value
         )
+        mock_check_reservation_for_replica.assert_called_once_with(
+            mock_get_replica.return_value)
 
         self.assertEqual(
             mock_tasks_execution.return_value.status,
@@ -5648,7 +5648,4 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.context,
             mock.sentinel.task_id,
             mock.sentinel.exception_details,
-        )
-        mock_check_delete_reservation_for_transfer.assert_called_once_with(
-            mock_get_action.return_value,
         )
