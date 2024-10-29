@@ -29,7 +29,7 @@ class ReplicaTasksExecutionControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_req = mock.Mock()
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
-        replica_id = mock.sentinel.replica_id
+        replica_id = mock.sentinel.transfer_id
         id = mock.sentinel.id
 
         result = self.replica_api.show(mock_req, replica_id, id)
@@ -55,7 +55,7 @@ class ReplicaTasksExecutionControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_req = mock.Mock()
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
-        replica_id = mock.sentinel.replica_id
+        replica_id = mock.sentinel.transfer_id
         id = mock.sentinel.id
         mock_get_execution.return_value = None
 
@@ -83,7 +83,7 @@ class ReplicaTasksExecutionControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_req = mock.Mock()
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
-        replica_id = mock.sentinel.replica_id
+        replica_id = mock.sentinel.transfer_id
 
         result = self.replica_api.index(mock_req, replica_id)
 
@@ -109,7 +109,7 @@ class ReplicaTasksExecutionControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_req = mock.Mock()
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
-        replica_id = mock.sentinel.replica_id
+        replica_id = mock.sentinel.transfer_id
 
         result = self.replica_api.detail(mock_req, replica_id)
 
@@ -135,7 +135,7 @@ class ReplicaTasksExecutionControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_req = mock.Mock()
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
-        replica_id = mock.sentinel.replica_id
+        replica_id = mock.sentinel.transfer_id
         execution = {"shutdown_instances": True}
         mock_body = {"execution": execution}
 
@@ -162,7 +162,7 @@ class ReplicaTasksExecutionControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_req = mock.Mock()
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
-        replica_id = mock.sentinel.replica_id
+        replica_id = mock.sentinel.transfer_id
         mock_body = {}
 
         result = self.replica_api.create(mock_req, replica_id, mock_body)
@@ -186,7 +186,7 @@ class ReplicaTasksExecutionControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_req = mock.Mock()
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
-        replica_id = mock.sentinel.replica_id
+        replica_id = mock.sentinel.transfer_id
         id = mock.sentinel.id
 
         self.assertRaises(
@@ -209,7 +209,7 @@ class ReplicaTasksExecutionControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_req = mock.Mock()
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
-        replica_id = mock.sentinel.replica_id
+        replica_id = mock.sentinel.transfer_id
         id = mock.sentinel.id
         mock_delete.side_effect = exception.NotFound()
 

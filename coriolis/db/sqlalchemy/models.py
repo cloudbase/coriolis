@@ -323,23 +323,23 @@ class BaseTransferAction(BASE, models.TimestampMixin, models.ModelBase,
         return result
 
 
-class Replica(BaseTransferAction):
-    __tablename__ = 'replica'
+class Transfer(BaseTransferAction):
+    __tablename__ = 'transfer'
 
     id = sqlalchemy.Column(
         sqlalchemy.String(36),
         sqlalchemy.ForeignKey(
             'base_transfer_action.base_id'), primary_key=True)
     scenario = sqlalchemy.Column(
-        sqlalchemy.String(255),
+        sqlalchemy.String(255), nullable=False,
         default=constants.REPLICA_SCENARIO_REPLICA)
 
     __mapper_args__ = {
-        'polymorphic_identity': 'replica',
+        'polymorphic_identity': 'transfer',
     }
 
     def to_dict(self, include_task_info=True, include_executions=True):
-        base = super(Replica, self).to_dict(
+        base = super(Transfer, self).to_dict(
             include_task_info=include_task_info,
             include_executions=include_executions)
         base.update({
@@ -348,40 +348,36 @@ class Replica(BaseTransferAction):
         return base
 
 
-class Migration(BaseTransferAction):
-    __tablename__ = 'migration'
+class Deployment(BaseTransferAction):
+    __tablename__ = 'deployment'
 
     id = sqlalchemy.Column(
         sqlalchemy.String(36),
         sqlalchemy.ForeignKey(
             'base_transfer_action.base_id'), primary_key=True)
-    replica_id = sqlalchemy.Column(
+    transfer_id = sqlalchemy.Column(
         sqlalchemy.String(36),
-        sqlalchemy.ForeignKey('replica.id'), nullable=True)
-    replica = orm.relationship(
-        Replica, backref=orm.backref("migrations"), foreign_keys=[replica_id])
+        sqlalchemy.ForeignKey('transfer.id'), nullable=False)
+    transfer = orm.relationship(
+        Transfer, backref=orm.backref("deployments"),
+        foreign_keys=[transfer_id])
     shutdown_instances = sqlalchemy.Column(
         sqlalchemy.Boolean, nullable=False, default=False)
-    replication_count = sqlalchemy.Column(
-        sqlalchemy.Integer, nullable=False, default=2)
 
     __mapper_args__ = {
-        'polymorphic_identity': 'migration',
+        'polymorphic_identity': 'deployment',
     }
 
     def to_dict(self, include_task_info=True, include_tasks=True):
-        base = super(Migration, self).to_dict(
+        base = super(Deployment, self).to_dict(
             include_task_info=include_task_info,
             include_executions=include_tasks)
-        replica_scenario_type = None
-        if self.replica:
-            replica_scenario_type = self.replica.scenario
+
         base.update({
             "id": self.id,
-            "replica_id": self.replica_id,
-            "replica_scenario_type": replica_scenario_type,
+            "transfer_id": self.transfer_id,
+            "transfer_scenario_type": self.transfer.scenario,
             "shutdown_instances": self.shutdown_instances,
-            "replication_count": self.replication_count,
         })
         return base
 
@@ -667,18 +663,18 @@ class Endpoint(BASE, models.TimestampMixin, models.ModelBase,
         secondary="endpoint_region_mapping")
 
 
-class ReplicaSchedule(BASE, models.TimestampMixin, models.ModelBase,
-                      models.SoftDeleteMixin):
-    __tablename__ = "replica_schedules"
+class TransferSchedule(BASE, models.TimestampMixin, models.ModelBase,
+                       models.SoftDeleteMixin):
+    __tablename__ = "transfer_schedules"
 
     id = sqlalchemy.Column(sqlalchemy.String(36),
                            default=lambda: str(uuid.uuid4()),
                            primary_key=True)
-    replica_id = sqlalchemy.Column(
+    transfer_id = sqlalchemy.Column(
         sqlalchemy.String(36),
-        sqlalchemy.ForeignKey('replica.id'), nullable=False)
-    replica = orm.relationship(
-        Replica, backref=orm.backref("schedules"), foreign_keys=[replica_id])
+        sqlalchemy.ForeignKey('transfer.id'), nullable=False)
+    transfer = orm.relationship(
+        Transfer, backref=orm.backref("schedules"), foreign_keys=[transfer_id])
     schedule = sqlalchemy.Column(types.Json, nullable=False)
     expiration_date = sqlalchemy.Column(
         sqlalchemy.types.DateTime, nullable=True)
