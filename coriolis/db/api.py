@@ -98,26 +98,26 @@ def _update_sqlalchemy_object_fields(
         "of type '%s': %s" % (type(obj), values_to_update.keys()))
 
 
-def _get_replica_schedules_filter(context, replica_id=None,
-                                  schedule_id=None, expired=True):
+def _get_transfer_schedules_filter(context, transfer_id=None,
+                                   schedule_id=None, expired=True):
     now = timeutils.utcnow()
-    q = _soft_delete_aware_query(context, models.ReplicaSchedule)
-    q = q.join(models.Replica)
+    q = _soft_delete_aware_query(context, models.TransferSchedule)
+    q = q.join(models.Transfer)
     sched_filter = q.filter()
     if is_user_context(context):
         sched_filter = sched_filter.filter(
-            models.Replica.project_id == context.project_id)
+            models.Transfer.project_id == context.project_id)
 
-    if replica_id:
+    if transfer_id:
         sched_filter = sched_filter.filter(
-            models.Replica.id == replica_id)
+            models.Transfer.id == transfer_id)
     if schedule_id:
         sched_filter = sched_filter.filter(
-            models.ReplicaSchedule.id == schedule_id)
+            models.TransferSchedule.id == schedule_id)
     if not expired:
         sched_filter = sched_filter.filter(
-            or_(models.ReplicaSchedule.expiration_date == null(),
-                models.ReplicaSchedule.expiration_date > now))
+            or_(models.TransferSchedule.expiration_date == null(),
+                models.TransferSchedule.expiration_date > now))
     return sched_filter
 
 
@@ -274,37 +274,37 @@ def delete_endpoint(context, endpoint_id):
 
 
 @enginefacade.reader
-def get_replica_tasks_executions(context, replica_id, include_tasks=False,
-                                 include_task_info=False, to_dict=False):
+def get_transfer_tasks_executions(context, transfer_id, include_tasks=False,
+                                  include_task_info=False, to_dict=False):
     q = _soft_delete_aware_query(context, models.TasksExecution)
-    q = q.join(models.Replica)
+    q = q.join(models.Transfer)
     if include_task_info:
         q = q.options(orm.joinedload('action').undefer('info'))
     if include_tasks:
         q = _get_tasks_with_details_options(q)
     if is_user_context(context):
-        q = q.filter(models.Replica.project_id == context.project_id)
+        q = q.filter(models.Transfer.project_id == context.project_id)
 
     db_result = q.filter(
-        models.Replica.id == replica_id).all()
+        models.Transfer.id == transfer_id).all()
     if to_dict:
         return [e.to_dict() for e in db_result]
     return db_result
 
 
 @enginefacade.reader
-def get_replica_tasks_execution(context, replica_id, execution_id,
-                                include_task_info=False, to_dict=False):
+def get_transfer_tasks_execution(context, transfer_id, execution_id,
+                                 include_task_info=False, to_dict=False):
     q = _soft_delete_aware_query(context, models.TasksExecution).join(
-        models.Replica)
+        models.Transfer)
     if include_task_info:
         q = q.options(orm.joinedload('action').undefer('info'))
     q = _get_tasks_with_details_options(q)
     if is_user_context(context):
-        q = q.filter(models.Replica.project_id == context.project_id)
+        q = q.filter(models.Transfer.project_id == context.project_id)
 
     db_result = q.filter(
-        models.Replica.id == replica_id,
+        models.Transfer.id == transfer_id,
         models.TasksExecution.id == execution_id).first()
     if to_dict and db_result is not None:
         return db_result.to_dict()
@@ -312,7 +312,7 @@ def get_replica_tasks_execution(context, replica_id, execution_id,
 
 
 @enginefacade.writer
-def add_replica_tasks_execution(context, execution):
+def add_transfer_tasks_execution(context, execution):
     if is_user_context(context):
         if execution.action.project_id != context.project_id:
             raise exception.NotAuthorized()
@@ -330,12 +330,12 @@ def add_replica_tasks_execution(context, execution):
 
 
 @enginefacade.writer
-def delete_replica_tasks_execution(context, execution_id):
+def delete_transfer_tasks_execution(context, execution_id):
     q = _soft_delete_aware_query(context, models.TasksExecution).filter(
         models.TasksExecution.id == execution_id)
     if is_user_context(context):
-        if not q.join(models.Replica).filter(
-                models.Replica.project_id == context.project_id).first():
+        if not q.join(models.Transfer).filter(
+                models.Transfer.project_id == context.project_id).first():
             raise exception.NotAuthorized()
     count = q.soft_delete()
     if count == 0:
@@ -343,28 +343,28 @@ def delete_replica_tasks_execution(context, execution_id):
 
 
 @enginefacade.reader
-def get_replica_schedules(context, replica_id=None, expired=True):
-    sched_filter = _get_replica_schedules_filter(
-        context, replica_id=replica_id, expired=expired)
+def get_transfer_schedules(context, transfer_id=None, expired=True):
+    sched_filter = _get_transfer_schedules_filter(
+        context, transfer_id=transfer_id, expired=expired)
     return sched_filter.all()
 
 
 @enginefacade.reader
-def get_replica_schedule(context, replica_id, schedule_id, expired=True):
-    sched_filter = _get_replica_schedules_filter(
-        context, replica_id=replica_id, schedule_id=schedule_id,
+def get_transfer_schedule(context, transfer_id, schedule_id, expired=True):
+    sched_filter = _get_transfer_schedules_filter(
+        context, transfer_id=transfer_id, schedule_id=schedule_id,
         expired=expired)
     return sched_filter.first()
 
 
 @enginefacade.writer
-def update_replica_schedule(context, replica_id, schedule_id,
-                            updated_values, pre_update_callable=None,
-                            post_update_callable=None):
+def update_transfer_schedule(context, transfer_id, schedule_id,
+                             updated_values, pre_update_callable=None,
+                             post_update_callable=None):
     # NOTE(gsamfira): we need to refactor the DB layer a bit to allow
     # two-phase transactions or at least allow running these functions
     # inside a single transaction block.
-    schedule = get_replica_schedule(context, replica_id, schedule_id)
+    schedule = get_transfer_schedule(context, transfer_id, schedule_id)
     if pre_update_callable:
         pre_update_callable(schedule=schedule)
     for val in ["schedule", "expiration_date", "enabled", "shutdown_instance"]:
@@ -378,23 +378,23 @@ def update_replica_schedule(context, replica_id, schedule_id,
 
 
 @enginefacade.writer
-def delete_replica_schedule(context, replica_id,
-                            schedule_id, pre_delete_callable=None,
-                            post_delete_callable=None):
+def delete_transfer_schedule(context, transfer_id,
+                             schedule_id, pre_delete_callable=None,
+                             post_delete_callable=None):
     # NOTE(gsamfira): we need to refactor the DB layer a bit to allow
     # two-phase transactions or at least allow running these functions
     # inside a single transaction block.
 
-    q = _soft_delete_aware_query(context, models.ReplicaSchedule).filter(
-        models.ReplicaSchedule.id == schedule_id,
-        models.ReplicaSchedule.replica_id == replica_id)
+    q = _soft_delete_aware_query(context, models.TransferSchedule).filter(
+        models.TransferSchedule.id == schedule_id,
+        models.TransferSchedule.transfer_id == transfer_id)
     schedule = q.first()
     if not schedule:
         raise exception.NotFound(
             "No such schedule")
     if is_user_context(context):
-        if not q.join(models.Replica).filter(
-                models.Replica.project_id == context.project_id).first():
+        if not q.join(models.Transfer).filter(
+                models.Transfer.project_id == context.project_id).first():
             raise exception.NotAuthorized()
     if pre_delete_callable:
         pre_delete_callable(context, schedule)
@@ -406,39 +406,39 @@ def delete_replica_schedule(context, replica_id,
 
 
 @enginefacade.writer
-def add_replica_schedule(context, schedule, post_create_callable=None):
+def add_transfer_schedule(context, schedule, post_create_callable=None):
     # NOTE(gsamfira): we need to refactor the DB layer a bit to allow
     # two-phase transactions or at least allow running these functions
     # inside a single transaction block.
 
-    if schedule.replica.project_id != context.project_id:
+    if schedule.transfer.project_id != context.project_id:
         raise exception.NotAuthorized()
     _session(context).add(schedule)
     if post_create_callable:
         post_create_callable(context, schedule)
 
 
-def _get_replica_with_tasks_executions_options(q):
-    return q.options(orm.joinedload(models.Replica.executions))
+def _get_transfer_with_tasks_executions_options(q):
+    return q.options(orm.joinedload(models.Transfer.executions))
 
 
 @enginefacade.reader
-def get_replicas(context,
-                 replica_scenario=None,
-                 include_tasks_executions=False,
-                 include_task_info=False,
-                 to_dict=False):
-    q = _soft_delete_aware_query(context, models.Replica)
+def get_transfers(context,
+                  transfer_scenario=None,
+                  include_tasks_executions=False,
+                  include_task_info=False,
+                  to_dict=False):
+    q = _soft_delete_aware_query(context, models.Transfer)
     if include_tasks_executions:
-        q = _get_replica_with_tasks_executions_options(q)
+        q = _get_transfer_with_tasks_executions_options(q)
     if include_task_info:
         q = q.options(orm.undefer('info'))
     q = q.filter()
-    if replica_scenario:
-        q.filter(models.Replica.scenario == replica_scenario)
+    if transfer_scenario:
+        q.filter(models.Transfer.scenario == transfer_scenario)
     if is_user_context(context):
         q = q.filter(
-            models.Replica.project_id == context.project_id)
+            models.Transfer.project_id == context.project_id)
     db_result = q.all()
     if to_dict:
         return [
@@ -450,55 +450,55 @@ def get_replicas(context,
 
 
 @enginefacade.reader
-def get_replica(context, replica_id,
-                replica_scenario=None,
-                include_task_info=False,
-                to_dict=False):
-    q = _soft_delete_aware_query(context, models.Replica)
-    q = _get_replica_with_tasks_executions_options(q)
+def get_transfer(context, transfer_id,
+                 transfer_scenario=None,
+                 include_task_info=False,
+                 to_dict=False):
+    q = _soft_delete_aware_query(context, models.Transfer)
+    q = _get_transfer_with_tasks_executions_options(q)
     if include_task_info:
         q = q.options(orm.undefer('info'))
-    if replica_scenario:
+    if transfer_scenario:
         q = q.filter(
-            models.Replica.scenario == replica_scenario)
+            models.Transfer.scenario == transfer_scenario)
     if is_user_context(context):
         q = q.filter(
-            models.Replica.project_id == context.project_id)
+            models.Transfer.project_id == context.project_id)
 
-    replica = q.filter(
-        models.Replica.id == replica_id).first()
-    if to_dict and replica is not None:
-        return replica.to_dict(include_task_info=include_task_info)
+    transfer = q.filter(
+        models.Transfer.id == transfer_id).first()
+    if to_dict and transfer is not None:
+        return transfer.to_dict(include_task_info=include_task_info)
 
-    return replica
+    return transfer
 
 
 @enginefacade.reader
-def get_endpoint_replicas_count(
-        context, endpoint_id, replica_scenario=None):
+def get_endpoint_transfers_count(
+        context, endpoint_id, transfer_scenario=None):
 
     scenario_filter_kwargs = {}
-    if replica_scenario:
-        scenario_filter_kwargs = {"scenario": replica_scenario}
+    if transfer_scenario:
+        scenario_filter_kwargs = {"scenario": transfer_scenario}
 
     origin_args = {'origin_endpoint_id': endpoint_id}
     origin_args.update(scenario_filter_kwargs)
     q_origin_count = _soft_delete_aware_query(
-        context, models.Replica).filter_by(**origin_args).count()
+        context, models.Transfer).filter_by(**origin_args).count()
 
     destination_args = {'destination_endpoint_id': endpoint_id}
     destination_args.update(scenario_filter_kwargs)
     q_destination_count = _soft_delete_aware_query(
-        context, models.Replica).filter_by(**destination_args).count()
+        context, models.Transfer).filter_by(**destination_args).count()
 
     return q_origin_count + q_destination_count
 
 
 @enginefacade.writer
-def add_replica(context, replica):
-    replica.user_id = context.user
-    replica.project_id = context.project_id
-    _session(context).add(replica)
+def add_transfer(context, transfer):
+    transfer.user_id = context.user
+    transfer.project_id = context.project_id
+    _session(context).add(transfer)
 
 
 @enginefacade.writer
@@ -516,38 +516,34 @@ def _delete_transfer_action(context, cls, id):
 
 
 @enginefacade.writer
-def delete_replica(context, replica_id):
-    _delete_transfer_action(context, models.Replica, replica_id)
+def delete_transfer(context, transfer_id):
+    _delete_transfer_action(context, models.Transfer, transfer_id)
 
 
 @enginefacade.reader
-def get_replica_migrations(context, replica_id):
-    q = _soft_delete_aware_query(context, models.Migration)
-    q = q.join("replica")
+def get_transfer_deployments(context, transfer_id):
+    q = _soft_delete_aware_query(context, models.Deployment)
+    q = q.join("transfer")
     q = q.options(orm.joinedload("executions"))
     if is_user_context(context):
         q = q.filter(
-            models.Migration.project_id == context.project_id)
+            models.Deployment.project_id == context.project_id)
     return q.filter(
-        models.Replica.id == replica_id).all()
+        models.Transfer.id == transfer_id).all()
 
 
 @enginefacade.reader
-def get_migrations(context,
-                   include_tasks=False,
-                   include_task_info=False,
-                   to_dict=False,
-                   replica_migrations_only=False):
-    q = _soft_delete_aware_query(context, models.Migration)
+def get_deployments(context,
+                    include_tasks=False,
+                    include_task_info=False,
+                    to_dict=False):
+    q = _soft_delete_aware_query(context, models.Deployment)
     if include_tasks:
-        q = _get_migration_task_query_options(q)
+        q = _get_deployment_task_query_options(q)
     else:
         q = q.options(orm.joinedload("executions"))
     if include_task_info:
         q = q.options(orm.undefer('info'))
-
-    if replica_migrations_only:
-        q.filter(models.Migration.replica_id is not None)
 
     args = {}
     if is_user_context(context):
@@ -569,7 +565,7 @@ def _get_tasks_with_details_options(query):
                 joinedload("events"))
 
 
-def _get_migration_task_query_options(query):
+def _get_deployment_task_query_options(query):
     return query.options(
         orm.joinedload("executions").
         joinedload("tasks").
@@ -582,13 +578,13 @@ def _get_migration_task_query_options(query):
 
 
 @enginefacade.reader
-def get_migration(context, migration_id, include_task_info=False,
-                  to_dict=False):
-    q = _soft_delete_aware_query(context, models.Migration)
-    q = _get_migration_task_query_options(q)
+def get_deployment(context, deployment_id, include_task_info=False,
+                   to_dict=False):
+    q = _soft_delete_aware_query(context, models.Deployment)
+    q = _get_deployment_task_query_options(q)
     if include_task_info:
         q = q.options(orm.undefer('info'))
-    args = {"id": migration_id}
+    args = {"id": deployment_id}
     if is_user_context(context):
         args["project_id"] = context.project_id
     db_result = q.filter_by(**args).first()
@@ -599,15 +595,15 @@ def get_migration(context, migration_id, include_task_info=False,
 
 
 @enginefacade.writer
-def add_migration(context, migration):
-    migration.user_id = context.user
-    migration.project_id = context.project_id
-    _session(context).add(migration)
+def add_deployment(context, deployment):
+    deployment.user_id = context.user
+    deployment.project_id = context.project_id
+    _session(context).add(deployment)
 
 
 @enginefacade.writer
-def delete_migration(context, migration_id):
-    _delete_transfer_action(context, models.Migration, migration_id)
+def delete_deployment(context, deployment_id):
+    _delete_transfer_action(context, models.Deployment, deployment_id)
 
 
 @enginefacade.writer
@@ -941,10 +937,10 @@ def update_task_progress_update(
 
 
 @enginefacade.writer
-def update_replica(context, replica_id, updated_values):
-    replica = get_replica(context, replica_id)
-    if not replica:
-        raise exception.NotFound("Replica not found")
+def update_transfer(context, transfer_id, updated_values):
+    transfer = get_transfer(context, transfer_id)
+    if not transfer:
+        raise exception.NotFound("Transfer not found")
 
     mapped_info_fields = {
         'destination_environment': 'target_environment'}
@@ -957,11 +953,11 @@ def update_replica(context, replica_id, updated_values):
     for field in updateable_fields:
         if mapped_info_fields.get(field, field) in updated_values:
             LOG.debug(
-                "Updating the '%s' field of Replica '%s' to: '%s'",
-                field, replica_id, updated_values[
+                "Updating the '%s' field of Transfer '%s' to: '%s'",
+                field, transfer_id, updated_values[
                     mapped_info_fields.get(field, field)])
             setattr(
-                replica, field,
+                transfer, field,
                 updated_values[mapped_info_fields.get(field, field)])
 
     non_updateable_fields = set(
@@ -970,12 +966,12 @@ def update_replica(context, replica_id, updated_values):
             for field in updateable_fields})
     if non_updateable_fields:
         LOG.warn(
-            "The following Replica fields can NOT be updated: %s",
+            "The following Transfer fields can NOT be updated: %s",
             non_updateable_fields)
 
     # the oslo_db library uses this method for both the `created_at` and
     # `updated_at` fields
-    setattr(replica, 'updated_at', timeutils.utcnow())
+    setattr(transfer, 'updated_at', timeutils.utcnow())
 
 
 @enginefacade.writer

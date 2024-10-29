@@ -37,7 +37,7 @@ class ReplicaTasksExecutionActionsControllerTestCase(
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
         id = mock.sentinel.id
-        replica_id = mock.sentinel.replica_id
+        replica_id = mock.sentinel.transfer_id
         body = config["body"]
         if exception_raised:
             mock_cancel.side_effect = getattr(exception, exception_raised)(
