@@ -33,7 +33,7 @@ class ReplicaScheduleControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
         id = mock.sentinel.id
-        replica_id = mock.sentinel.replica_id
+        replica_id = mock.sentinel.transfer_id
 
         result = self.replica_schedules.show(mock_req, replica_id, id)
 
@@ -58,7 +58,7 @@ class ReplicaScheduleControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
         id = mock.sentinel.id
-        replica_id = mock.sentinel.replica_id
+        replica_id = mock.sentinel.transfer_id
         mock_get_schedule.return_value = None
 
         self.assertRaises(
@@ -84,7 +84,7 @@ class ReplicaScheduleControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_req = mock.Mock()
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
-        replica_id = mock.sentinel.replica_id
+        replica_id = mock.sentinel.transfer_id
         mock_req.GET = {"show_expired": "False"}
 
         result = self.replica_schedules.index(mock_req, replica_id)
@@ -338,7 +338,7 @@ class ReplicaScheduleControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_req = mock.Mock()
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
-        replica_id = mock.sentinel.replica_id
+        replica_id = mock.sentinel.transfer_id
         body = mock.sentinel.body
         schedule = mock.sentinel.schedule
         exp_date = mock.sentinel.exp_date
@@ -368,7 +368,7 @@ class ReplicaScheduleControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_req = mock.Mock()
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
-        replica_id = mock.sentinel.replica_id
+        replica_id = mock.sentinel.transfer_id
         body = mock.sentinel.body
         mock_validate_create_body.side_effect = Exception("err")
 
@@ -397,7 +397,7 @@ class ReplicaScheduleControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_req = mock.Mock()
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
-        replica_id = mock.sentinel.replica_id
+        replica_id = mock.sentinel.transfer_id
         id = mock.sentinel.id
         body = mock.sentinel.body
 
@@ -425,7 +425,7 @@ class ReplicaScheduleControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_req = mock.Mock()
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
-        replica_id = mock.sentinel.replica_id
+        replica_id = mock.sentinel.transfer_id
         id = mock.sentinel.id
         body = mock.sentinel.body
         mock_validate_update_body.side_effect = Exception("err")
@@ -451,7 +451,7 @@ class ReplicaScheduleControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_req = mock.Mock()
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
-        replica_id = mock.sentinel.replica_id
+        replica_id = mock.sentinel.transfer_id
         id = mock.sentinel.id
 
         self.assertRaises(

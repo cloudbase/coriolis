@@ -487,7 +487,7 @@ class ConductorServerEndpoint(object):
 
     @endpoint_synchronized
     def delete_endpoint(self, ctxt, endpoint_id):
-        q_replicas_count = db_api.get_endpoint_replicas_count(
+        q_replicas_count = db_api.get_endpoint_transfers_count(
             ctxt, endpoint_id)
         if q_replicas_count != 0:
             raise exception.NotAuthorized("%s replicas would be orphaned!" %
@@ -1102,7 +1102,7 @@ class ConductorServerEndpoint(object):
                 ctxt, replica.id, instance, replica.info[instance])
 
         # add new execution to DB:
-        db_api.add_replica_tasks_execution(ctxt, execution)
+        db_api.add_transfer_tasks_execution(ctxt, execution)
         LOG.info("Replica tasks execution added to DB: %s", execution.id)
 
         uses_minion_pools = any([
@@ -1124,7 +1124,7 @@ class ConductorServerEndpoint(object):
     def get_replica_tasks_executions(self, ctxt, replica_id,
                                      include_tasks=False,
                                      include_task_info=False):
-        return db_api.get_replica_tasks_executions(
+        return db_api.get_transfer_tasks_executions(
             ctxt, replica_id, include_tasks,
             include_task_info=include_task_info, to_dict=True)
 
@@ -1144,7 +1144,7 @@ class ConductorServerEndpoint(object):
                 "Cannot delete execution '%s' for Replica '%s' as it is "
                 "currently in '%s' state." % (
                     execution_id, replica_id, execution.status))
-        db_api.delete_replica_tasks_execution(ctxt, execution_id)
+        db_api.delete_transfer_tasks_execution(ctxt, execution_id)
 
     @tasks_execution_synchronized
     def cancel_replica_tasks_execution(self, ctxt, replica_id, execution_id,
@@ -1165,7 +1165,7 @@ class ConductorServerEndpoint(object):
 
     def _get_replica_tasks_execution(self, ctxt, replica_id, execution_id,
                                      include_task_info=False, to_dict=False):
-        execution = db_api.get_replica_tasks_execution(
+        execution = db_api.get_transfer_tasks_execution(
             ctxt, replica_id, execution_id,
             include_task_info=include_task_info, to_dict=to_dict)
         if not execution:
@@ -1176,7 +1176,7 @@ class ConductorServerEndpoint(object):
 
     def get_replicas(self, ctxt, include_tasks_executions=False,
                      include_task_info=False):
-        return db_api.get_replicas(
+        return db_api.get_transfers(
             ctxt, include_tasks_executions,
             include_task_info=include_task_info, to_dict=True)
 
@@ -1191,7 +1191,7 @@ class ConductorServerEndpoint(object):
         replica = self._get_replica(ctxt, replica_id)
         self._check_replica_running_executions(ctxt, replica)
         self._check_delete_reservation_for_transfer(replica)
-        db_api.delete_replica(ctxt, replica_id)
+        db_api.delete_transfer(ctxt, replica_id)
 
     @replica_synchronized
     def delete_replica_disks(self, ctxt, replica_id):
@@ -1238,7 +1238,7 @@ class ConductorServerEndpoint(object):
         for instance in replica.instances:
             db_api.update_transfer_action_info_for_instance(
                 ctxt, replica.id, instance, replica.info[instance])
-        db_api.add_replica_tasks_execution(ctxt, execution)
+        db_api.add_transfer_tasks_execution(ctxt, execution)
         LOG.info("Replica tasks execution created: %s", execution.id)
 
         self._begin_tasks(ctxt, replica, execution)
@@ -1281,7 +1281,7 @@ class ConductorServerEndpoint(object):
             ctxt, destination_endpoint_id)
         self._check_endpoints(ctxt, origin_endpoint, destination_endpoint)
 
-        replica = models.Replica()
+        replica = models.Transfer()
         replica.id = str(uuid.uuid4())
         replica.base_id = replica.id
         replica.scenario = replica_scenario
@@ -1307,13 +1307,13 @@ class ConductorServerEndpoint(object):
 
         self._create_reservation_for_replica(replica)
 
-        db_api.add_replica(ctxt, replica)
+        db_api.add_transfer(ctxt, replica)
         LOG.info("Replica created: %s", replica.id)
         return self.get_replica(ctxt, replica.id)
 
     def _get_replica(self, ctxt, replica_id, include_task_info=False,
                      to_dict=False):
-        replica = db_api.get_replica(
+        replica = db_api.get_transfer(
             ctxt, replica_id, include_task_info=include_task_info,
             to_dict=to_dict)
         if not replica:
@@ -1329,10 +1329,9 @@ class ConductorServerEndpoint(object):
 
     def get_deployments(self, ctxt, include_tasks,
                         include_task_info=False):
-        return db_api.get_migrations(
+        return db_api.get_deployments(
             ctxt, include_tasks,
             include_task_info=include_task_info,
-            replica_migrations_only=True,
             to_dict=True)
 
     @deployment_synchronized
@@ -1343,7 +1342,7 @@ class ConductorServerEndpoint(object):
 
     @staticmethod
     def _check_running_replica_migrations(ctxt, replica_id):
-        migrations = db_api.get_replica_migrations(ctxt, replica_id)
+        migrations = db_api.get_transfer_deployments(ctxt, replica_id)
         if [m.id for m in migrations if m.executions[0].status in (
                 constants.ACTIVE_EXECUTION_STATUSES)]:
             raise exception.InvalidReplicaState(
@@ -1411,7 +1410,7 @@ class ConductorServerEndpoint(object):
 
         instances = replica.instances
 
-        migration = models.Migration()
+        migration = models.Deployment()
         migration.id = str(uuid.uuid4())
         migration.base_id = migration.id
         migration.origin_endpoint_id = replica.origin_endpoint_id
@@ -1612,7 +1611,7 @@ class ConductorServerEndpoint(object):
                     on_error=True)
 
         self._check_execution_tasks_sanity(execution, migration.info)
-        db_api.add_migration(ctxt, migration)
+        db_api.add_deployment(ctxt, migration)
         LOG.info("Migration created: %s", migration.id)
 
         if not skip_os_morphing and (
@@ -1755,7 +1754,7 @@ class ConductorServerEndpoint(object):
         self._update_task_info_for_minion_allocations(
             ctxt, replica, minion_machine_allocations)
 
-        last_replica_execution = db_api.get_replica_tasks_execution(
+        last_replica_execution = db_api.get_transfer_tasks_execution(
             ctxt, replica.id, last_replica_execution.id)
         self._begin_tasks(
             ctxt, replica, last_replica_execution)
@@ -1832,7 +1831,7 @@ class ConductorServerEndpoint(object):
 
     def _get_migration(self, ctxt, migration_id, include_task_info=False,
                        to_dict=False):
-        migration = db_api.get_migration(
+        migration = db_api.get_deployment(
             ctxt, migration_id, include_task_info=include_task_info,
             to_dict=to_dict)
         if not migration:
@@ -1847,7 +1846,7 @@ class ConductorServerEndpoint(object):
             raise exception.InvalidMigrationState(
                 "Cannot delete Migration '%s' as it is currently in "
                 "'%s' state." % (migration_id, execution.status))
-        db_api.delete_migration(ctxt, migration_id)
+        db_api.delete_deployment(ctxt, migration_id)
 
     @deployment_synchronized
     def delete_deployment(self, ctxt, deployment_id):
@@ -2078,7 +2077,7 @@ class ConductorServerEndpoint(object):
         transfer_id = transfer_action.base_id
         if transfer_action.type == constants.TRANSFER_ACTION_TYPE_MIGRATION:
             deployment = self._get_migration(ctxt, transfer_id)
-            transfer_id = deployment.replica_id
+            transfer_id = deployment.transfer_id
             transfer_action = self._get_replica(
                 ctxt, transfer_id, include_task_info=False)
         else:
@@ -2633,8 +2632,8 @@ class ConductorServerEndpoint(object):
 
     def _update_volumes_info_for_migration_parent_replica(
             self, ctxt, migration_id, instance, updated_task_info):
-        migration = db_api.get_migration(ctxt, migration_id)
-        replica_id = migration.replica_id
+        migration = db_api.get_deployment(ctxt, migration_id)
+        replica_id = migration.transfer_id
 
         with lockutils.lock(
                 constants.REPLICA_LOCK_NAME_FORMAT % replica_id,
@@ -2751,7 +2750,7 @@ class ConductorServerEndpoint(object):
                     # NOTE: considering all the instances of the Replica get
                     # the same params, it doesn't matter which instance's
                     # update task finishes last:
-                    db_api.update_replica(
+                    db_api.update_transfer(
                         ctxt, execution.action_id, task_info)
 
         elif task_type in (
@@ -3242,7 +3241,7 @@ class ConductorServerEndpoint(object):
 
     def _get_replica_schedule(self, ctxt, replica_id,
                               schedule_id, expired=True):
-        schedule = db_api.get_replica_schedule(
+        schedule = db_api.get_transfer_schedule(
             ctxt, replica_id, schedule_id, expired=expired)
         if not schedule:
             raise exception.NotFound(
@@ -3255,17 +3254,17 @@ class ConductorServerEndpoint(object):
                                 shutdown_instance):
         keystone.create_trust(ctxt)
         replica = self._get_replica(ctxt, replica_id)
-        replica_schedule = models.ReplicaSchedule()
+        replica_schedule = models.TransferSchedule()
         replica_schedule.id = str(uuid.uuid4())
-        replica_schedule.replica = replica
-        replica_schedule.replica_id = replica_id
+        replica_schedule.transfer = replica
+        replica_schedule.transfer_id = replica_id
         replica_schedule.schedule = schedule
         replica_schedule.expiration_date = exp_date
         replica_schedule.enabled = enabled
         replica_schedule.shutdown_instance = shutdown_instance
         replica_schedule.trust_id = ctxt.trust_id
 
-        db_api.add_replica_schedule(
+        db_api.add_transfer_schedule(
             ctxt, replica_schedule,
             lambda ctxt, sched: self._replica_cron_client.register(
                 ctxt, sched))
@@ -3275,7 +3274,7 @@ class ConductorServerEndpoint(object):
     @schedule_synchronized
     def update_replica_schedule(self, ctxt, replica_id, schedule_id,
                                 updated_values):
-        db_api.update_replica_schedule(
+        db_api.update_transfer_schedule(
             ctxt, replica_id, schedule_id, updated_values, None,
             lambda ctxt, sched: self._replica_cron_client.register(
                 ctxt, sched))
@@ -3300,15 +3299,15 @@ class ConductorServerEndpoint(object):
                 'Replica Schedule cannot be deleted while the Replica is in '
                 '%s state. Please wait for the Replica execution to finish' %
                 (replica_status))
-        db_api.delete_replica_schedule(
+        db_api.delete_transfer_schedule(
             ctxt, replica_id, schedule_id, None,
             lambda ctxt, sched: self._cleanup_schedule_resources(
                 ctxt, sched))
 
     @replica_synchronized
     def get_replica_schedules(self, ctxt, replica_id=None, expired=True):
-        return db_api.get_replica_schedules(
-            ctxt, replica_id=replica_id, expired=expired)
+        return db_api.get_transfer_schedules(
+            ctxt, transfer_id=replica_id, expired=expired)
 
     @schedule_synchronized
     def get_replica_schedule(self, ctxt, replica_id,
@@ -3326,7 +3325,7 @@ class ConductorServerEndpoint(object):
             "instance_osmorphing_minion_pool_mappings"]
         if any([mpf in updated_properties for mpf in minion_pool_fields]):
             # NOTE: this is just a dummy Replica model to use for validation:
-            dummy = models.Replica()
+            dummy = models.Transfer()
             dummy.id = replica.id
             dummy.instances = replica.instances
             dummy.origin_endpoint_id = replica.origin_endpoint_id
@@ -3409,7 +3408,7 @@ class ConductorServerEndpoint(object):
             db_api.update_transfer_action_info_for_instance(
                 ctxt, replica.id, instance, replica.info[instance])
 
-        db_api.add_replica_tasks_execution(ctxt, execution)
+        db_api.add_transfer_tasks_execution(ctxt, execution)
         LOG.debug("Execution for Replica update tasks created: %s",
                   execution.id)
 

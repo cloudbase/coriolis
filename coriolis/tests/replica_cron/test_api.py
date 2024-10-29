@@ -16,7 +16,7 @@ class APITestCase(test_base.CoriolisBaseTestCase):
         self.rpc_client = mock.MagicMock()
         self.api._rpc_client = self.rpc_client
         self.ctxt = mock.sentinel.ctxt
-        self.replica_id = mock.sentinel.replica_id
+        self.replica_id = mock.sentinel.transfer_id
         self.schedule_id = mock.sentinel.schedule_id
 
     def test_create(self):

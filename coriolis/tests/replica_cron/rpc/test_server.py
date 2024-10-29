@@ -27,10 +27,10 @@ class TriggerReplicaTestCase(test_base.CoriolisBaseTestCase):
         result = server._trigger_replica(
             mock.sentinel.ctxt,
             mock_conductor_client,
-            mock.sentinel.replica_id, False)
+            mock.sentinel.transfer_id, False)
 
         mock_conductor_client.execute_replica_tasks.assert_called_once_with(
-            mock.sentinel.ctxt, mock.sentinel.replica_id, False)
+            mock.sentinel.ctxt, mock.sentinel.transfer_id, False)
 
         self.assertEqual(
             result, 'Execution %s for Replica %s' % (
