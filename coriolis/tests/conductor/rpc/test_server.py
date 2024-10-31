@@ -1095,11 +1095,11 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_replica.instances = [mock.sentinel.instance]
         mock_replica.info = {}
         delete_replica_disks = testutils.get_wrapped_function(
-            self.server.delete_replica_disks
+            self.server.delete_transfer_disks
         )
 
         self.assertRaises(
-            exception.InvalidReplicaState,
+            exception.InvalidTransferState,
             delete_replica_disks,
             self.server,
             mock.sentinel.context,
@@ -1246,7 +1246,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
 
         def call_execute_replica_tasks():
             return testutils\
-                .get_wrapped_function(self.server.execute_replica_tasks)(
+                .get_wrapped_function(self.server.execute_transfer_tasks)(
                     self.server,
                     mock.sentinel.context,
                     mock.sentinel.transfer_id,
@@ -1315,7 +1315,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock_create_task.assert_has_calls([
                 mock.call(
                     instance,
-                    constants.TASK_TYPE_VALIDATE_REPLICA_SOURCE_INPUTS,
+                    constants.TASK_TYPE_VALIDATE_TRANSFER_SOURCE_INPUTS,
                     mock_tasks_execution.return_value),
                 mock.call(
                     instance,
@@ -1323,7 +1323,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
                     mock_tasks_execution.return_value),
                 mock.call(
                     instance,
-                    constants.TASK_TYPE_VALIDATE_REPLICA_DESTINATION_INPUTS,
+                    constants.TASK_TYPE_VALIDATE_TRANSFER_DESTINATION_INPUTS,
                     mock_tasks_execution.return_value,
                     depends_on=[constants.TASK_TYPE_GET_INSTANCE_INFO]),
             ])
@@ -1362,7 +1362,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
 
         if any([has_origin_minion_pool, has_target_minion_pool]):
             mock_minion_manager_client\
-                .allocate_minion_machines_for_replica.assert_called_once_with(
+                .allocate_minion_machines_for_transfer.assert_called_once_with(
                     mock.sentinel.context,
                     mock_replica,
                 )
@@ -1388,7 +1388,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             constants.EXECUTION_STATUS_UNEXECUTED)
         self.assertEqual(
             mock_tasks_execution.return_value.type,
-            constants.EXECUTION_TYPE_REPLICA_EXECUTION)
+            constants.EXECUTION_TYPE_TRANSFER_EXECUTION)
         self.assertEqual(
             result, mock_get_replica_tasks_execution.return_value)
 
@@ -1398,7 +1398,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_get_transfer_tasks_executions
     ):
         result = testutils.get_wrapped_function(
-            self.server.get_replica_tasks_executions)(
+            self.server.get_transfer_tasks_executions)(
             self.server,
             mock.sentinel.context,
             mock.sentinel.transfer_id,
@@ -1424,7 +1424,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_get_transfer_tasks_execution
     ):
         result = testutils.get_wrapped_function(
-            self.server.get_replica_tasks_execution)(
+            self.server.get_transfer_tasks_execution)(
             self.server,
             mock.sentinel.context,
             mock.sentinel.transfer_id,
@@ -1456,7 +1456,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     ):
         def call_delete_replica_tasks_execution():
             return testutils.get_wrapped_function(
-                self.server.delete_replica_tasks_execution)(
+                self.server.delete_transfer_tasks_execution)(
                 self.server,
                 mock.sentinel.context,
                 mock.sentinel.transfer_id,
@@ -1476,7 +1476,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             constants.EXECUTION_STATUS_RUNNING)
 
         self.assertRaises(
-            exception.InvalidMigrationState,
+            exception.InvalidDeploymentState,
             call_delete_replica_tasks_execution)
 
     @mock.patch.object(server.ConductorServerEndpoint,
@@ -1491,7 +1491,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_get_replica_tasks_execution.return_value.status = constants\
             .EXECUTION_STATUS_RUNNING
         testutils.get_wrapped_function(
-            self.server.cancel_replica_tasks_execution)(
+            self.server.cancel_transfer_tasks_execution)(
             self.server,
             mock.sentinel.context,
             mock.sentinel.transfer_id,
@@ -1512,7 +1512,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_get_replica_tasks_execution.return_value.status = constants\
             .EXECUTION_STATUS_CANCELLING
         testutils.get_wrapped_function(
-            self.server.cancel_replica_tasks_execution)(
+            self.server.cancel_transfer_tasks_execution)(
             self.server,
             mock.sentinel.context,
             mock.sentinel.transfer_id,
@@ -1538,9 +1538,9 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock_get_replica_tasks_execution
     ):
         self.assertRaises(
-            exception.InvalidReplicaState,
+            exception.InvalidTransferState,
             testutils.get_wrapped_function(
-                self.server.cancel_replica_tasks_execution),
+                self.server.cancel_transfer_tasks_execution),
             self.server,
             mock.sentinel.context,
             mock.sentinel.transfer_id,
@@ -1565,9 +1565,9 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_get_replica_tasks_execution.return_value.status = constants\
             .EXECUTION_STATUS_CANCELLING
         self.assertRaises(
-            exception.InvalidReplicaState,
+            exception.InvalidTransferState,
             testutils.get_wrapped_function(
-                self.server.cancel_replica_tasks_execution),
+                self.server.cancel_transfer_tasks_execution),
             self.server,
             mock.sentinel.context,
             mock.sentinel.transfer_id,
@@ -1585,7 +1585,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             self,
             mock_get_transfer_tasks_execution
     ):
-        result = self.server._get_replica_tasks_execution(
+        result = self.server._get_transfer_tasks_execution(
             mock.sentinel.context,
             mock.sentinel.transfer_id,
             mock.sentinel.execution_id,
@@ -1611,7 +1611,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_get_transfer_tasks_execution.return_value = None
         self.assertRaises(
             exception.NotFound,
-            self.server._get_replica_tasks_execution,
+            self.server._get_transfer_tasks_execution,
             mock.sentinel.context,
             mock.sentinel.transfer_id,
             mock.sentinel.execution_id,
@@ -1628,7 +1628,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(db_api, 'get_transfers')
     def test_get_replicas(self, mock_get_transfers):
-        result = self.server.get_replicas(
+        result = self.server.get_transfers(
             mock.sentinel.context,
             include_tasks_executions=False,
             include_task_info=False
@@ -1647,7 +1647,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(server.ConductorServerEndpoint, '_get_replica')
     def test_get_replica(self, mock_get_replica):
-        result = testutils.get_wrapped_function(self.server.get_replica)(
+        result = testutils.get_wrapped_function(self.server.get_transfer)(
             self.server,
             mock.sentinel.context,
             mock.sentinel.transfer_id,
@@ -1678,7 +1678,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_check_delete_reservation_for_transfer,
         mock_delete_transfer,
     ):
-        testutils.get_wrapped_function(self.server.delete_replica)(
+        testutils.get_wrapped_function(self.server.delete_transfer)(
             self.server,
             mock.sentinel.context,
             mock.sentinel.transfer_id
@@ -1737,7 +1737,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     ):
         def call_delete_replica_disks():
             return testutils.get_wrapped_function(
-                self.server.delete_replica_disks)(
+                self.server.delete_transfer_disks)(
                 self.server,
                 mock.sentinel.context,
                 mock.sentinel.transfer_id,  # type: ignore
@@ -1788,7 +1788,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         )
         self.assertEqual(
             mock_tasks_execution.return_value.type,
-            constants.EXECUTION_TYPE_REPLICA_DISKS_DELETE
+            constants.EXECUTION_TYPE_TRANSFER_DISKS_DELETE
         )
 
         for instance in instances:
@@ -1797,16 +1797,16 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock_create_task.assert_has_calls([
                 mock.call(
                     instance,
-                    constants.TASK_TYPE_DELETE_REPLICA_SOURCE_DISK_SNAPSHOTS,
+                    constants.TASK_TYPE_DELETE_TRANSFER_SOURCE_DISK_SNAPSHOTS,
                     mock_tasks_execution.return_value,
                 ),
                 mock.call(
                     instance,
-                    constants.TASK_TYPE_DELETE_REPLICA_DISKS,
+                    constants.TASK_TYPE_DELETE_TRANSFER_DISKS,
                     mock_tasks_execution.return_value,
                     depends_on=[
                         constants
-                        .TASK_TYPE_DELETE_REPLICA_SOURCE_DISK_SNAPSHOTS
+                        .TASK_TYPE_DELETE_TRANSFER_SOURCE_DISK_SNAPSHOTS
                     ],
                 ),
             ])
@@ -1848,7 +1848,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         instances[1].get.return_value = None
 
         self.assertRaises(
-            exception.InvalidReplicaState,
+            exception.InvalidTransferState,
             call_delete_replica_disks
         )
 
@@ -1858,7 +1858,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_replica.info = {}
 
         self.assertRaises(
-            exception.InvalidReplicaState,
+            exception.InvalidTransferState,
             call_delete_replica_disks
         )
 
@@ -1918,9 +1918,9 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_get_endpoint.side_effect = mock.sentinel.origin_endpoint_id, \
             mock.sentinel.destination_endpoint_id
         mock_transfer.return_value = mock.Mock()
-        result = self.server.create_instances_replica(
+        result = self.server.create_instances_transfer(
             mock.sentinel.context,
-            constants.REPLICA_SCENARIO_REPLICA,
+            constants.TRANSFER_SCENARIO_REPLICA,
             mock.sentinel.origin_endpoint_id,
             mock.sentinel.destination_endpoint_id,
             mock.sentinel.origin_minion_pool_id,
@@ -1987,7 +1987,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(db_api, 'get_transfer')
     def test__get_replica(self, mock_get_replica):
-        result = self.server._get_replica(
+        result = self.server._get_transfer(
             mock.sentinel.context,
             mock.sentinel.transfer_id,
             include_task_info=False,
@@ -2009,7 +2009,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_get_transfer.return_value = None
         self.assertRaises(
             exception.NotFound,
-            self.server._get_replica,
+            self.server._get_transfer,
             mock.sentinel.context,
             mock.sentinel.transfer_id,
             include_task_info=False,
@@ -2056,7 +2056,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             constants.EXECUTION_STATUS_ERROR
         migrations = [migration_1, migration_2]
         mock_get_transfer_deployments.return_value = migrations
-        self.server._check_running_replica_migrations(
+        self.server._check_running_transfer_deployments(
             mock.sentinel.context,
             mock.sentinel.transfer_id,
         )
@@ -2080,8 +2080,8 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         migrations = [migration_1, migration_2]
         mock_get_transfer_deployments.return_value = migrations
         self.assertRaises(
-            exception.InvalidReplicaState,
-            self.server._check_running_replica_migrations,
+            exception.InvalidTransferState,
+            self.server._check_running_transfer_deployments,
             mock.sentinel.context,
             mock.sentinel.transfer_id,
         )
@@ -2122,7 +2122,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_check_running_replica_migrations
     ):
         replica = mock.Mock()
-        self.server._check_replica_running_executions(
+        self.server._check_transfer_running_executions(
             mock.sentinel.context,
             replica
         )
@@ -2136,18 +2136,18 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     def test_check_valid_replica_tasks_execution(self):
         execution1 = mock.Mock(
             number=1,
-            type=constants.EXECUTION_TYPE_REPLICA_EXECUTION,
+            type=constants.EXECUTION_TYPE_TRANSFER_EXECUTION,
             status=constants.EXECUTION_STATUS_COMPLETED,
         )
         execution2 = mock.Mock(
             number=2,
-            type=constants.EXECUTION_TYPE_REPLICA_EXECUTION,
+            type=constants.EXECUTION_TYPE_TRANSFER_EXECUTION,
             status=constants.EXECUTION_STATUS_COMPLETED,
         )
         mock_replica = mock.Mock(
             executions=[execution1, execution2]
         )
-        self.server._check_valid_replica_tasks_execution(
+        self.server._check_valid_transfer_tasks_execution(
             mock_replica
         )
 
@@ -2156,14 +2156,14 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         execution2.status = constants.EXECUTION_STATUS_UNEXECUTED
 
         self.assertRaises(
-            exception.InvalidReplicaState,
-            self.server._check_valid_replica_tasks_execution,
+            exception.InvalidTransferState,
+            self.server._check_valid_transfer_tasks_execution,
             mock_replica
         )
 
         # doesn't raise exception if all executions are incomplete
         # and is forced
-        self.server._check_valid_replica_tasks_execution(
+        self.server._check_valid_transfer_tasks_execution(
             mock_replica,
             True
         )
@@ -2172,15 +2172,15 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         execution1.status = constants.EXECUTION_STATUS_COMPLETED
         execution2.status = constants.EXECUTION_STATUS_UNEXECUTED
 
-        self.server._check_valid_replica_tasks_execution(
+        self.server._check_valid_transfer_tasks_execution(
             mock_replica
         )
 
         mock_replica.executions = []
 
         self.assertRaises(
-            exception.InvalidReplicaState,
-            self.server._check_valid_replica_tasks_execution,
+            exception.InvalidTransferState,
+            self.server._check_valid_transfer_tasks_execution,
             mock_replica
         )
 
@@ -2335,7 +2335,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         )
 
         def call_deploy_replica_instance():
-            return self.server.deploy_replica_instances(
+            return self.server.deploy_transfer_instances(
                 mock.sentinel.context,
                 mock.sentinel.transfer_id,
                 clone_disks=clone_disks,
@@ -2348,7 +2348,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
 
         # One of the instances has no volumes info
         self.assertRaises(
-            exception.InvalidReplicaState,
+            exception.InvalidTransferState,
             call_deploy_replica_instance,
         )
 
@@ -2416,7 +2416,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         )
         self.assertEqual(
             mock_tasks_execution.return_value.type,
-            constants.EXECUTION_TYPE_REPLICA_DEPLOY
+            constants.EXECUTION_TYPE_TRANSFER_DEPLOY
         )
 
         for instance in mock_get_replica.return_value.instances:
@@ -2426,7 +2426,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             )
             mock_create_task.assert_any_call(
                 instance,
-                constants.TASK_TYPE_VALIDATE_REPLICA_DEPLOYMENT_INPUTS,
+                constants.TASK_TYPE_VALIDATE_DEPLOYMENT_INPUTS,
                 mock_tasks_execution.return_value,
             )
 
@@ -2464,7 +2464,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
                 external=True,
             )
             mock_minion_manager_client\
-                .allocate_minion_machines_for_migration\
+                .allocate_minion_machines_for_deployment\
                 .assert_called_once_with(
                     mock.sentinel.context,
                     mock_deployment.return_value,
@@ -2748,7 +2748,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         execution3 = mock.Mock(id=mock.sentinel.execution_id3, number=2)
         replica.executions = [execution1, execution2, execution3]
         mock_get_replica.return_value = replica
-        result = self.server._get_last_execution_for_replica(
+        result = self.server._get_last_execution_for_transfer(
             mock.sentinel.context,
             replica,
             requery=False
@@ -2760,8 +2760,8 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_get_replica.assert_not_called()
         replica.executions = None
         self.assertRaises(
-            exception.InvalidReplicaState,
-            self.server._get_last_execution_for_replica,
+            exception.InvalidTransferState,
+            self.server._get_last_execution_for_transfer,
             mock.sentinel.context,
             replica,
             requery=True
@@ -2780,7 +2780,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         execution2 = mock.Mock(id=mock.sentinel.execution_id2)
         migration.executions = [execution1]
         mock_get_migration.return_value = migration
-        result = self.server._get_execution_for_migration(
+        result = self.server._get_execution_for_deployment(
             mock.sentinel.context,
             migration,
             requery=False
@@ -2792,8 +2792,8 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_get_migration.assert_not_called()
         migration.executions = [execution1, execution2]
         self.assertRaises(
-            exception.InvalidMigrationState,
-            self.server._get_execution_for_migration,
+            exception.InvalidDeploymentState,
+            self.server._get_execution_for_deployment,
             mock.sentinel.context,
             migration,
             requery=True
@@ -2802,8 +2802,8 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.context, mock.sentinel.id)
         migration.executions = []
         self.assertRaises(
-            exception.InvalidMigrationState,
-            self.server._get_execution_for_migration,
+            exception.InvalidDeploymentState,
+            self.server._get_execution_for_deployment,
             mock.sentinel.context,
             migration,
             requery=False
@@ -2828,7 +2828,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS
 
         testutils.get_wrapped_function(
-            self.server.confirm_replica_minions_allocation)(
+            self.server.confirm_transfer_minions_allocation)(
                 self.server,
                 mock.sentinel.context,
                 mock.sentinel.transfer_id,
@@ -2880,9 +2880,9 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             constants.EXECUTION_STATUS_CANCELED
 
         self.assertRaises(
-            exception.InvalidReplicaState,
+            exception.InvalidTransferState,
             testutils.get_wrapped_function(
-                self.server.confirm_replica_minions_allocation),
+                self.server.confirm_transfer_minions_allocation),
             self.server,
             mock.sentinel.context,
             mock.sentinel.transfer_id,
@@ -2917,7 +2917,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS
 
         testutils.get_wrapped_function(
-            self.server.report_replica_minions_allocation_error)(
+            self.server.report_transfer_minions_allocation_error)(
                 self.server,
                 mock.sentinel.context,
                 mock.sentinel.transfer_id,
@@ -2962,9 +2962,9 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             constants.EXECUTION_STATUS_CANCELED
 
         self.assertRaises(
-            exception.InvalidReplicaState,
+            exception.InvalidTransferState,
             testutils.get_wrapped_function(
-                self.server.report_replica_minions_allocation_error),
+                self.server.report_transfer_minions_allocation_error),
             self.server,
             mock.sentinel.context,
             mock.sentinel.transfer_id,
@@ -2996,7 +2996,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS
 
         testutils.get_wrapped_function(
-            self.server.confirm_migration_minions_allocation)(
+            self.server.confirm_deployment_minions_allocation)(
                 self.server,
                 mock.sentinel.context,
                 mock.sentinel.transfer_id,
@@ -3041,9 +3041,9 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             constants.EXECUTION_STATUS_CANCELED
 
         self.assertRaises(
-            exception.InvalidMigrationState,
+            exception.InvalidDeploymentState,
             testutils.get_wrapped_function(
-                self.server.confirm_migration_minions_allocation),
+                self.server.confirm_deployment_minions_allocation),
             self.server,
             mock.sentinel.context,
             mock.sentinel.transfer_id,
@@ -3078,7 +3078,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS
 
         testutils.get_wrapped_function(
-            self.server.report_migration_minions_allocation_error)(
+            self.server.report_deployment_minions_allocation_error)(
                 self.server,
                 mock.sentinel.context,
                 mock.sentinel.transfer_id,
@@ -3123,9 +3123,9 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             constants.EXECUTION_STATUS_CANCELED
 
         self.assertRaises(
-            exception.InvalidMigrationState,
+            exception.InvalidDeploymentState,
             testutils.get_wrapped_function(
-                self.server.report_migration_minions_allocation_error),
+                self.server.report_deployment_minions_allocation_error),
             self.server,
             mock.sentinel.context,
             mock.sentinel.transfer_id,
@@ -3251,7 +3251,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         self,
         mock_get_deployment
     ):
-        result = self.server._get_migration(
+        result = self.server._get_deployment(
             mock.sentinel.context,
             mock.sentinel.migration_id,
             include_task_info=False,
@@ -3273,7 +3273,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
 
         self.assertRaises(
             exception.NotFound,
-            self.server._get_migration,
+            self.server._get_deployment,
             mock.sentinel.context,
             mock.sentinel.migration_id,
             include_task_info=False,
@@ -4001,7 +4001,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         self,
         mock_update_transfer_action_info_for_instance
     ):
-        self.server._update_replica_volumes_info(
+        self.server._update_transfer_volumes_info(
             mock.sentinel.context,
             mock.sentinel.transfer_id,
             mock.sentinel.instance,
@@ -4028,7 +4028,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         deployment = mock.Mock()
         mock_get_deployment.return_value = deployment
 
-        self.server._update_volumes_info_for_migration_parent_replica(
+        self.server._update_volumes_info_for_deployment_parent_transfer(
             mock.sentinel.context,
             mock.sentinel.migration_id,
             mock.sentinel.instance,
@@ -4040,7 +4040,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.migration_id
         )
         mock_lock.assert_called_once_with(
-            constants.REPLICA_LOCK_NAME_FORMAT %
+            constants.TRANSFER_LOCK_NAME_FORMAT %
             mock_get_deployment.return_value.transfer_id,
             external=True
         )
@@ -4079,7 +4079,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     ):
         # TASK_TYPE_RESTORE_REPLICA_DISK_SNAPSHOTS
         task = mock.Mock(
-            task_type=constants.TASK_TYPE_RESTORE_REPLICA_DISK_SNAPSHOTS,
+            task_type=constants.TASK_TYPE_RESTORE_TRANSFER_DISK_SNAPSHOTS,
             instance=mock.sentinel.instance,
         )
         execution = mock.Mock(
@@ -4119,7 +4119,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
 
         # TASK_TYPE_DELETE_REPLICA_TARGET_DISK_SNAPSHOTS
         task.task_type = constants\
-            .TASK_TYPE_DELETE_REPLICA_TARGET_DISK_SNAPSHOTS
+            .TASK_TYPE_DELETE_TRANSFER_TARGET_DISK_SNAPSHOTS
         call_handle_post_task_actions()
         # no clone_disks, reset volumes_info
         mock_update_volumes_info_for_migration_parent_replica\
@@ -4189,8 +4189,8 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         # TASK_TYPE_UPDATE_SOURCE_REPLICA
         # TASK_TYPE_UPDATE_DESTINATION_REPLICA
         types = [
-            constants.TASK_TYPE_UPDATE_SOURCE_REPLICA,
-            constants.TASK_TYPE_UPDATE_DESTINATION_REPLICA,
+            constants.TASK_TYPE_UPDATE_SOURCE_TRANSFER,
+            constants.TASK_TYPE_UPDATE_DESTINATION_TRANSFER,
         ]
         execution.tasks = [
             mock.Mock(
@@ -4210,7 +4210,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             )
 
         # execution has active tasks
-        task.type = constants.TASK_TYPE_UPDATE_DESTINATION_REPLICA
+        task.type = constants.TASK_TYPE_UPDATE_DESTINATION_TRANSFER
         call_handle_post_task_actions()
         mock_update_transfer.assert_not_called()
 
@@ -4371,7 +4371,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
 
         mock_get_tasks_execution.return_value = mock.Mock(
             id=mock.sentinel.execution_id,
-            type=constants.EXECUTION_TYPE_MIGRATION,
+            type=constants.EXECUTION_TYPE_DEPLOYMENT,
             action_id=mock.sentinel.action_id,
             tasks=[
                 mock.Mock(
@@ -4500,7 +4500,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         expected_final_status = getattr(constants, expected_final_status)
         mock_get_task.return_value = task
         mock_execution = mock.MagicMock()
-        mock_execution.type = constants.EXECUTION_TYPE_MIGRATION
+        mock_execution.type = constants.EXECUTION_TYPE_DEPLOYMENT
         mock_get_tasks_execution.return_value = mock_execution
 
         testutils.get_wrapped_function(self.server.confirm_task_cancellation)(
@@ -4572,7 +4572,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     ):
         task_status = config['task_status']
         mock_get_tasks_execution.return_value = mock.Mock(
-            type=constants.EXECUTION_TYPE_MIGRATION,
+            type=constants.EXECUTION_TYPE_DEPLOYMENT,
             action_id=mock.sentinel.action_id,
             tasks=[
                 mock.Mock(
@@ -4737,7 +4737,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         self,
         mock_get_transfer_schedule
     ):
-        result = self.server._get_replica_schedule(
+        result = self.server._get_transfer_schedule(
             mock.sentinel.context,
             mock.sentinel.transfer_id,
             mock.sentinel.schedule_id,
@@ -4760,7 +4760,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
 
         self.assertRaises(
             exception.NotFound,
-            self.server._get_replica_schedule,
+            self.server._get_transfer_schedule,
             mock.sentinel.context,
             mock.sentinel.transfer_id,
             mock.sentinel.schedule_id,
@@ -4792,7 +4792,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         context.trust_id = mock.sentinel.trust_id
         mock_transfer_schedule.return_value = transfer_schedule
 
-        result = self.server.create_replica_schedule(
+        result = self.server.create_transfer_schedule(
             context,
             mock.sentinel.transfer_id,
             mock.sentinel.schedule,
@@ -4850,7 +4850,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_get_replica_schedule
     ):
         result = testutils.get_wrapped_function(
-            self.server.update_replica_schedule)(
+            self.server.update_transfer_schedule)(
                 self.server,
                 mock.sentinel.context,
                 mock.sentinel.transfer_id,
@@ -4928,7 +4928,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         replica.last_execution_status = constants.EXECUTION_STATUS_COMPLETED
         mock_get_replica.return_value = replica
 
-        testutils.get_wrapped_function(self.server.delete_replica_schedule)(
+        testutils.get_wrapped_function(self.server.delete_transfer_schedule)(
             self.server,
             mock.sentinel.context,
             mock.sentinel.transfer_id,
@@ -4952,9 +4952,9 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         replica.last_execution_status = constants.EXECUTION_STATUS_RUNNING
 
         self.assertRaises(
-            exception.InvalidReplicaState,
+            exception.InvalidTransferState,
             testutils.get_wrapped_function(
-                self.server.delete_replica_schedule),
+                self.server.delete_transfer_schedule),
             self.server,
             mock.sentinel.context,
             mock.sentinel.transfer_id,
@@ -4970,7 +4970,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(db_api, "get_transfer_schedules")
     def test_get_replica_schedules(self, mock_get_transfer_schedules):
         result = testutils.get_wrapped_function(
-            self.server.get_replica_schedules)(
+            self.server.get_transfer_schedules)(
                 self.server,
                 mock.sentinel.context,
                 replica_id=None,
@@ -4990,7 +4990,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(db_api, "get_transfer_schedule")
     def test_get_replica_schedule(self, mock_get_transfer_schedule):
         result = testutils.get_wrapped_function(
-            self.server.get_replica_schedule)(
+            self.server.get_transfer_schedule)(
                 self.server,
                 mock.sentinel.context,
                 mock.sentinel.transfer_id,
@@ -5058,7 +5058,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_TasksExecution.return_value = execution
         updated_properties = config.get("updated_properties", {})
 
-        result = testutils.get_wrapped_function(self.server.update_replica)(
+        result = testutils.get_wrapped_function(self.server.update_transfer)(
             self.server,
             mock.sentinel.context,
             mock.sentinel.transfer_id,
@@ -5126,11 +5126,11 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
                     execution))
                 create_task_calls.append(mock.call(
                     instance,
-                    constants.TASK_TYPE_UPDATE_SOURCE_REPLICA,
+                    constants.TASK_TYPE_UPDATE_SOURCE_TRANSFER,
                     execution))
                 create_task_calls.append(mock.call(
                     instance,
-                    constants.TASK_TYPE_UPDATE_DESTINATION_REPLICA,
+                    constants.TASK_TYPE_UPDATE_DESTINATION_TRANSFER,
                     execution,
                     depends_on=mock.ANY))
                 update_transfer_action_info_for_instance_calls.append(
@@ -5594,7 +5594,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock_conf_conductor,
     ):
         execution = mock.Mock(
-            type=constants.EXECUTION_TYPE_REPLICA_UPDATE,
+            type=constants.EXECUTION_TYPE_TRANSFER_UPDATE,
             action_id=mock.sentinel.action_id,
             tasks=[
                 mock.Mock(
@@ -5643,7 +5643,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
 
         # migration execution
         mock_check_delete_reservation_for_transfer.assert_not_called()
-        execution.type = constants.EXECUTION_TYPE_MIGRATION
+        execution.type = constants.EXECUTION_TYPE_DEPLOYMENT
         self.server.set_task_error(
             mock.sentinel.context,
             mock.sentinel.task_id,

@@ -27,8 +27,8 @@ CONF.register_opts(REPLICA_API_OPTS, 'api')
 LOG = logging.getLogger(__name__)
 
 SUPPORTED_REPLICA_SCENARIOS = [
-    constants.REPLICA_SCENARIO_REPLICA,
-    constants.REPLICA_SCENARIO_LIVE_MIGRATION]
+    constants.TRANSFER_SCENARIO_REPLICA,
+    constants.TRANSFER_SCENARIO_LIVE_MIGRATION]
 
 
 class ReplicaController(api_wsgi.Controller):
@@ -79,7 +79,7 @@ class ReplicaController(api_wsgi.Controller):
                                 f"'{scenario}', must be one of: "
                                 f"{SUPPORTED_REPLICA_SCENARIOS}")
         else:
-            scenario = constants.REPLICA_SCENARIO_REPLICA
+            scenario = constants.TRANSFER_SCENARIO_REPLICA
             LOG.warn(
                 "No Replica 'scenario' field set in Replica body, "
                 f"defaulting to: '{scenario}'")

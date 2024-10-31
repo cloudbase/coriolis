@@ -270,7 +270,7 @@ class DeleteReplicaDisksTaskTestCase(test_base.CoriolisBaseTestCase):
         destination = mock.MagicMock()
         task_info = mock.MagicMock()
         task_info.get.side_effect = [task_info['volumes_info']]
-        prov_fun = mock_get_provider.return_value.delete_replica_disks
+        prov_fun = mock_get_provider.return_value.delete_transfer_disks
         expected_result = {"volumes_info": []}
 
         result = self.task_runner._run(

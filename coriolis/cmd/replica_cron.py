@@ -6,7 +6,7 @@ import sys
 from oslo_config import cfg
 
 from coriolis import constants
-from coriolis.replica_cron.rpc import server as rpc_server
+from coriolis.transfer_cron.rpc import server as rpc_server
 from coriolis import service
 from coriolis import utils
 
@@ -19,7 +19,7 @@ def main():
     utils.setup_logging()
 
     server = service.MessagingService(
-        constants.REPLICA_CRON_MAIN_MESSAGING_TOPIC,
+        constants.TRANSFER_CRON_MAIN_MESSAGING_TOPIC,
         [rpc_server.ReplicaCronServerEndpoint()],
         rpc_server.VERSION, worker_count=1)
     launcher = service.service.launch(

@@ -3,7 +3,7 @@
 
 from unittest import mock
 
-from coriolis.replica_cron import api as replicas_cron_module
+from coriolis.transfer_cron import api as replicas_cron_module
 from coriolis.tests import test_base
 
 
