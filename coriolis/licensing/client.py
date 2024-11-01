@@ -44,7 +44,7 @@ class LicensingClient(object):
                 "instantiate licensing client.")
             return None
         allow_untrusted = os.environ.get(
-            "LICENSING_SERVER_ALLOW_UNTRUSTED", False)
+            "LICENSING_SERVER_ALLOW_UNTRUSTED", None) is not None
         client = cls(
             base_url, appliance_id=None, allow_untrusted=allow_untrusted)
         appliance_ids = client.get_appliances()
@@ -212,6 +212,12 @@ class LicensingClient(object):
         """ Checks the reservation with the given ID.  """
         return self._post(
             "/reservations/%s/refresh" % reservation_id, None,
+            response_key="reservation")
+
+    def mark_reservation_fulfilled(self, reservation_id):
+        """ Marks the given reservation as fulfilled. """
+        return self._post(
+            "/reservations/%s/fulfill" % reservation_id, None,
             response_key="reservation")
 
     def delete_reservation(self, reservation_id, raise_on_404=False):

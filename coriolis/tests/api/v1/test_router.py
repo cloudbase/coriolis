@@ -3,6 +3,8 @@
 
 from unittest import mock
 
+from coriolis.api.v1 import deployment_actions
+from coriolis.api.v1 import deployments
 from coriolis.api.v1 import diagnostics
 from coriolis.api.v1 import endpoint_actions
 from coriolis.api.v1 import endpoint_destination_minion_pool_options
@@ -13,8 +15,6 @@ from coriolis.api.v1 import endpoint_source_minion_pool_options
 from coriolis.api.v1 import endpoint_source_options
 from coriolis.api.v1 import endpoint_storage
 from coriolis.api.v1 import endpoints
-from coriolis.api.v1 import migration_actions
-from coriolis.api.v1 import migrations
 from coriolis.api.v1 import minion_pool_actions
 from coriolis.api.v1 import minion_pools
 from coriolis.api.v1 import provider_schemas
@@ -37,14 +37,14 @@ class APIRouterTestCase(test_base.CoriolisBaseTestCase):
         super(APIRouterTestCase, self).setUp()
         self.router = router.APIRouter()
 
+    @mock.patch.object(deployments, 'create_resource')
+    @mock.patch.object(deployment_actions, 'create_resource')
     @mock.patch.object(diagnostics, 'create_resource')
     @mock.patch.object(replica_schedules, 'create_resource')
     @mock.patch.object(replica_tasks_execution_actions, 'create_resource')
     @mock.patch.object(replica_tasks_executions, 'create_resource')
     @mock.patch.object(replica_actions, 'create_resource')
     @mock.patch.object(replicas, 'create_resource')
-    @mock.patch.object(migration_actions, 'create_resource')
-    @mock.patch.object(migrations, 'create_resource')
     @mock.patch.object(provider_schemas, 'create_resource')
     @mock.patch.object(endpoint_source_options, 'create_resource')
     @mock.patch.object(endpoint_destination_options, 'create_resource')
@@ -78,14 +78,14 @@ class APIRouterTestCase(test_base.CoriolisBaseTestCase):
         mock_endpoint_destination_options_create_resource,
         mock_endpoint_source_options_create_resource,
         mock_provider_schemas_create_resource,
-        mock_migrations_create_resource,
-        mock_migration_actions_create_resource,
         mock_replicas_create_resource,
         mock_replica_actions_create_resource,
         mock_replica_tasks_executions_create_resource,
         mock_replica_tasks_execution_actions_create_resource,
         mock_replica_schedules_create_resource,
         mock_diagnostics_create_resource,
+        mock_deployment_actions_create_resource,
+        mock_deployments_create_resource
     ):
         ext_mgr = mock.sentinel.ext_mgr
         mapper = mock.Mock()
@@ -161,12 +161,6 @@ class APIRouterTestCase(test_base.CoriolisBaseTestCase):
                 controller=mock_provider_schemas_create_resource.return_value,
             ),
             mock.call(
-                'migration', 'migrations',
-                controller=mock_migrations_create_resource.return_value,
-                collection={'detail': 'GET'},
-                member={'action': 'POST'}
-            ),
-            mock.call(
                 'replica', 'replicas',
                 controller=mock_replicas_create_resource.return_value,
                 collection={'detail': 'GET'},
@@ -192,6 +186,12 @@ class APIRouterTestCase(test_base.CoriolisBaseTestCase):
                 'diagnostics', 'diagnostics',
                 controller=mock_diagnostics_create_resource.return_value,
             ),
+            mock.call(
+                'deployment', 'deployments',
+                controller=mock_deployments_create_resource.return_value,
+                collection={'detail': 'GET'},
+                member={'action': 'POST'}
+            ),
         ]
 
         connect_calls = [
@@ -212,14 +212,6 @@ class APIRouterTestCase(test_base.CoriolisBaseTestCase):
                 conditions={'method': 'POST'}
             ),
             mock.call(
-                'migration_actions',
-                '/{project_id}/migrations/{id}/actions',
-                controller=
-                mock_migration_actions_create_resource.return_value,
-                action='action',
-                conditions={'method': 'POST'}
-            ),
-            mock.call(
                 'replica_actions',
                 '/{project_id}/replicas/{id}/actions',
                 controller=mock_replica_actions_create_resource.return_value,
@@ -235,10 +227,17 @@ class APIRouterTestCase(test_base.CoriolisBaseTestCase):
                 action='action',
                 conditions={'method': 'POST'}
             ),
+            mock.call(
+                'deployment_actions', '/{project_id}/deployments/{id}/actions',
+                controller=(
+                    mock_deployment_actions_create_resource.return_value),
+                action='action',
+                conditions={"method": "POST"}
+            ),
         ]
 
         self.router._setup_routes(mapper, ext_mgr)
 
         mapper.redirect.assert_called_once_with("", "/")
-        mapper.resource.assert_has_calls(resource_calls)
-        mapper.connect.assert_has_calls(connect_calls)
+        mapper.resource.assert_has_calls(resource_calls, any_order=True)
+        mapper.connect.assert_has_calls(connect_calls, any_order=True)

@@ -358,7 +358,7 @@ class DeleteReplicaDisksTask(base.TaskRunner):
         volumes_info = _get_volumes_info(task_info)
         target_environment = task_info['target_environment']
 
-        volumes_info = provider.delete_replica_disks(
+        volumes_info = provider.delete_transfer_disks(
             ctxt, connection_info, target_environment, volumes_info)
         if volumes_info:
             LOG.warn(

@@ -19,6 +19,7 @@
         storage_mappings: "mock_storage_mappings"
   exception_raised: False
   expected_result:
+    - replica
     - mock_origin_endpoint_id
     - mock_destination_endpoint_id
     - mock_source_environment
@@ -52,5 +53,5 @@
         user_scripts: "mock_user_scripts"
         storage_mappings: "mock_storage_mappings"
   exception_raised: "One or more instance OSMorphing pool mappings were"
-  expected_result: 
+  expected_result:
 

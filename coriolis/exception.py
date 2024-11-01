@@ -137,6 +137,12 @@ class Conflict(CoriolisException):
     safe = True
 
 
+class LicensingException(Conflict):
+    message = _("Licensing exception occurred")
+    code = 409
+    safe = True
+
+
 class AdminRequired(NotAuthorized):
     message = _("User does not have admin privileges")
 
@@ -229,12 +235,16 @@ class InvalidActionTasksExecutionState(Invalid):
     message = _("Invalid tasks execution state: %(reason)s")
 
 
-class InvalidMigrationState(Invalid):
-    message = _("Invalid migration state: %(reason)s")
+class InvalidDeploymentState(Invalid):
+    message = _("Invalid deployment state: %(reason)s")
 
 
-class InvalidReplicaState(Invalid):
-    message = _("Invalid replica state: %(reason)s")
+class InvalidTasksExecutionState(Invalid):
+    message = _("Invalid tasks execution state: %(reason)s")
+
+
+class InvalidTransferState(Invalid):
+    message = _("Invalid transfer state: %(reason)s")
 
 
 class InvalidInstanceState(Invalid):
@@ -517,3 +527,11 @@ class OSMorphingWinRMOperationTimeout(OSMorphingOperationTimeout):
         " or the command execution time exceeds the timeout set. Try extending"
         " the timeout by editing the 'default_osmorphing_operation_timeout' "
         "in Coriolis' static configuration file.")
+
+
+class MigrationLicenceFulfilledException(Invalid):
+    message = (
+        "The Live Migration operation with ID '%(action_id)s' (licensing "
+        "reservation '%(reservation_id)s') has already been fulfilled on "
+        "%(fulfilled_at)s. Please create a new Live Migration operation to "
+        "create a new licensing reservation.")

@@ -5,7 +5,7 @@ from coriolis.api.v1.views import replica_schedule_view
 from coriolis.api import wsgi as api_wsgi
 from coriolis import exception
 from coriolis.policies import replica_schedules as schedules_policies
-from coriolis.replica_cron import api
+from coriolis.transfer_cron import api
 from coriolis import schemas
 
 import jsonschema

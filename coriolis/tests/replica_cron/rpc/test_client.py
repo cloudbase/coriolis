@@ -3,7 +3,7 @@
 
 from unittest import mock
 
-from coriolis.replica_cron.rpc import client as rpc_client
+from coriolis.transfer_cron.rpc import client as rpc_client
 from coriolis.tests import test_base
 
 
@@ -12,7 +12,7 @@ class ReplicaCronClientTestCase(test_base.CoriolisBaseTestCase):
 
     def setUp(self):
         super(ReplicaCronClientTestCase, self).setUp()
-        self.client = rpc_client.ReplicaCronClient()
+        self.client = rpc_client.TransferCronClient()
         self.ctxt = mock.MagicMock()
 
     def test_register(self):

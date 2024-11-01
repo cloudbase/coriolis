@@ -6,7 +6,7 @@ from unittest import mock
 
 from coriolis.cmd import replica_cron
 from coriolis import constants
-from coriolis.replica_cron.rpc import server as rpc_server
+from coriolis.transfer_cron.rpc import server as rpc_server
 from coriolis import service
 from coriolis.tests import test_base
 from coriolis import utils
@@ -37,7 +37,7 @@ class ReplicaCronTestCase(test_base.CoriolisBaseTestCase):
         mock_setup_logging.assert_called_once()
         mock_ReplicaCronServerEndpoint.assert_called_once()
         mock_MessagingService.assert_called_once_with(
-            constants.REPLICA_CRON_MAIN_MESSAGING_TOPIC,
+            constants.TRANSFER_CRON_MAIN_MESSAGING_TOPIC,
             [mock_ReplicaCronServerEndpoint.return_value],
             rpc_server.VERSION,
             worker_count=1)

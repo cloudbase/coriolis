@@ -19,12 +19,12 @@ VERSION = "1.0"
 
 def _trigger_replica(ctxt, conductor_client, replica_id, shutdown_instance):
     try:
-        execution = conductor_client.execute_replica_tasks(
+        execution = conductor_client.execute_transfer_tasks(
             ctxt, replica_id, shutdown_instance)
         result_msg = 'Execution %s for Replica %s' % (
             execution.get('id'), execution.get('action_id'))
         return result_msg
-    except (exception.InvalidReplicaState,
+    except (exception.InvalidTransferState,
             exception.InvalidActionTasksExecutionState):
         LOG.info("A replica or migration already running")
 

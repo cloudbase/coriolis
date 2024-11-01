@@ -4,6 +4,8 @@
 from oslo_log import log as logging
 
 from coriolis import api
+from coriolis.api.v1 import deployment_actions
+from coriolis.api.v1 import deployments
 from coriolis.api.v1 import diagnostics
 from coriolis.api.v1 import endpoint_actions
 from coriolis.api.v1 import endpoint_destination_minion_pool_options
@@ -14,8 +16,6 @@ from coriolis.api.v1 import endpoint_source_minion_pool_options
 from coriolis.api.v1 import endpoint_source_options
 from coriolis.api.v1 import endpoint_storage
 from coriolis.api.v1 import endpoints
-from coriolis.api.v1 import migration_actions
-from coriolis.api.v1 import migrations
 from coriolis.api.v1 import minion_pool_actions
 from coriolis.api.v1 import minion_pools
 from coriolis.api.v1 import provider_schemas
@@ -139,18 +139,18 @@ class APIRouter(api.APIRouter):
                         'providers/{platform_name}/schemas/{provider_type}',
                         controller=self.resources['provider_schemas'])
 
-        self.resources['migrations'] = migrations.create_resource()
-        mapper.resource('migration', 'migrations',
-                        controller=self.resources['migrations'],
+        self.resources['deployments'] = deployments.create_resource()
+        mapper.resource('deployment', 'deployments',
+                        controller=self.resources['deployments'],
                         collection={'detail': 'GET'},
                         member={'action': 'POST'})
 
-        migration_actions_resource = migration_actions.create_resource()
-        self.resources['migration_actions'] = migration_actions_resource
-        migration_path = '/{project_id}/migrations/{id}'
-        mapper.connect('migration_actions',
-                       migration_path + '/actions',
-                       controller=self.resources['migration_actions'],
+        deployments_actions_resource = deployment_actions.create_resource()
+        self.resources['deployment_actions'] = deployments_actions_resource
+        deployment_path = '/{project_id}/deployments/{id}'
+        mapper.connect('deployment_actions',
+                       deployment_path + '/actions',
+                       controller=self.resources['deployment_actions'],
                        action='action',
                        conditions={'method': 'POST'})
 

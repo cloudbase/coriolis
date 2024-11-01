@@ -465,7 +465,7 @@ class BaseConfirmMinionAllocationForActionTaskTestCase(
             mock_get_action_label):
         mock_get_minion_machine.return_value = self.minion_machine
         mock_confirm_allocation.side_effect = [
-            exception.InvalidReplicaState(reason='Invalid state')]
+            exception.InvalidTransferState(reason='Invalid state')]
 
         self.assertRaises(
             exception.MinionMachineAllocationFailure,

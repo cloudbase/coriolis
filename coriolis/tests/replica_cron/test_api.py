@@ -3,7 +3,7 @@
 
 from unittest import mock
 
-from coriolis.replica_cron import api as replicas_cron_module
+from coriolis.transfer_cron import api as replicas_cron_module
 from coriolis.tests import test_base
 
 
@@ -16,7 +16,7 @@ class APITestCase(test_base.CoriolisBaseTestCase):
         self.rpc_client = mock.MagicMock()
         self.api._rpc_client = self.rpc_client
         self.ctxt = mock.sentinel.ctxt
-        self.replica_id = mock.sentinel.replica_id
+        self.replica_id = mock.sentinel.transfer_id
         self.schedule_id = mock.sentinel.schedule_id
 
     def test_create(self):

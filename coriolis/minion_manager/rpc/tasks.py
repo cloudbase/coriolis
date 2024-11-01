@@ -379,8 +379,8 @@ class _BaseConfirmMinionAllocationForActionTask(
             raise exception.MinionMachineAllocationFailure(
                 msg) from ex
         except (
-                exception.InvalidMigrationState,
-                exception.InvalidReplicaState) as ex:
+                exception.InvalidDeploymentState,
+                exception.InvalidTransferState) as ex:
             msg = (
                 "The Conductor has refused minion machine allocations for "
                 "%s with ID '%s' as it is purportedly in an invalid state "

@@ -9,7 +9,7 @@ import ddt
 
 from coriolis.conductor.rpc import client as rpc_client
 from coriolis import exception
-from coriolis.replica_cron.rpc import server
+from coriolis.transfer_cron.rpc import server
 from coriolis.tests import test_base
 
 
@@ -27,10 +27,10 @@ class TriggerReplicaTestCase(test_base.CoriolisBaseTestCase):
         result = server._trigger_replica(
             mock.sentinel.ctxt,
             mock_conductor_client,
-            mock.sentinel.replica_id, False)
+            mock.sentinel.transfer_id, False)
 
         mock_conductor_client.execute_replica_tasks.assert_called_once_with(
-            mock.sentinel.ctxt, mock.sentinel.replica_id, False)
+            mock.sentinel.ctxt, mock.sentinel.transfer_id, False)
 
         self.assertEqual(
             result, 'Execution %s for Replica %s' % (
@@ -40,7 +40,7 @@ class TriggerReplicaTestCase(test_base.CoriolisBaseTestCase):
         mock_conductor_client = mock.MagicMock()
 
         mock_conductor_client.execute_replica_tasks.side_effect = (
-            exception.InvalidReplicaState(reason='test_reason'))
+            exception.InvalidTransferState(reason='test_reason'))
 
         with self.assertLogs('coriolis.replica_cron.rpc.server',
                              level=logging.INFO):
