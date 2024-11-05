@@ -254,7 +254,7 @@ class FileBackupWriter(BaseBackupWriter):
 
 
 class SSHBackupWriterImpl(BaseBackupWriterImpl):
-    def __init__(self, path, disk_id, compress_transfer=None,
+    def __init__(self, path, disk_id, compress_transfer=False,
                  encoder_count=3):
         self._msg_id = None
         self._stdin = None

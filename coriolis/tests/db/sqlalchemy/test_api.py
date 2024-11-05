@@ -15,6 +15,10 @@ from coriolis.tests import test_base
 class DatabaseSqlalchemyApiTestCase(test_base.CoriolisBaseTestCase):
     """Test suite for the Coriolis Database Sqlalchemy api."""
 
+    def tearDown(self):
+        api._facade = None
+        super(DatabaseSqlalchemyApiTestCase, self).tearDown()
+
     @mock.patch.object(db_session, 'EngineFacade')
     def test_get_facade_none(self, mock_EngineFacade):
         cfg.CONF.database.connection = mock.sentinel.connection
