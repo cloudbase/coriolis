@@ -8,6 +8,7 @@ jsonschema
 # so we limit its version here.
 kombu==4.6.10
 PyMySQL
+netifaces
 oslo.cache
 oslo.concurrency
 oslo.config

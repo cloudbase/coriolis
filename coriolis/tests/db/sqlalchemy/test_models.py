@@ -324,10 +324,10 @@ class ReplicaTestCase(test_base.CoriolisBaseTestCase):
     """Test suite for the Coriolis Database Sqlalchemy Replica."""
 
     def test_to_dict(self):
-        replica = models.Replica()
-        replica.id = mock.sentinel.id
+        transfer = models.Transfer()
+        transfer.id = mock.sentinel.id
 
-        result = replica.to_dict()
+        result = transfer.to_dict()
 
         self.assertEqual(
             mock.sentinel.id,
@@ -335,23 +335,24 @@ class ReplicaTestCase(test_base.CoriolisBaseTestCase):
         )
 
 
-class MigrationTestCase(test_base.CoriolisBaseTestCase):
-    """Test suite for the Coriolis Database Sqlalchemy Migration."""
+class DeploymentTestCase(test_base.CoriolisBaseTestCase):
+    """Test suite for the Coriolis Database Sqlalchemy Deployment."""
 
     def test_to_dict(self):
-        migration = models.Migration()
-        migration.id = mock.sentinel.id
-        migration.replica_id = mock.sentinel.replica_id
-        migration.shutdown_instances = mock.sentinel.shutdown_instances
-        migration.replication_count = mock.sentinel.replication_count
+        transfer = mock.MagicMock(id=mock.sentinel.transfer_id)
+        deployment = models.Deployment()
+        deployment.id = mock.sentinel.id
+        deployment.transfer_id = transfer.id
+        deployment.transfer = transfer
+        deployment.shutdown_instances = mock.sentinel.shutdown_instances
         expected_result = {
             "id": mock.sentinel.id,
-            "replica_id": mock.sentinel.replica_id,
+            "transfer_id": mock.sentinel.transfer_id,
             "shutdown_instances": mock.sentinel.shutdown_instances,
-            "replication_count": mock.sentinel.replication_count,
+            "transfer_scenario_type": transfer.scenario,
         }
 
-        result = migration.to_dict()
+        result = deployment.to_dict()
 
         assert all(item in result.items() for item in expected_result.items())
 

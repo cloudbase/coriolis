@@ -435,7 +435,7 @@ def get_transfers(context,
         q = q.options(orm.undefer('info'))
     q = q.filter()
     if transfer_scenario:
-        q.filter(models.Transfer.scenario == transfer_scenario)
+        q = q.filter(models.Transfer.scenario == transfer_scenario)
     if is_user_context(context):
         q = q.filter(
             models.Transfer.project_id == context.project_id)
