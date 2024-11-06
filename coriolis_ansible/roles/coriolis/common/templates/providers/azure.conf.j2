@@ -12,10 +12,10 @@ export_location = westus
 # the number of disks. If not given, Coriolis will select the first worker
 # size available which can accomodate attaching all the disks for the
 # particular VM being migrated/replicated.
-export_worker_size = Standard_D1_v2
+export_worker_size = Standard_B2s
 
 # Params of the Azure image to use for the temporary VM:
-export_worker_image = version: latest, publisher: Canonical, offer: UbuntuServer, sku: 18.04-LTS
+export_worker_image = version: latest, publisher: Canonical, offer: ubuntu-24_04-lts, sku: server
 
 # Options for controlling the API versions used for each Azure API provider.
 # Only takes effect for source Azure[Stack] platforms. Separate options
@@ -29,10 +29,10 @@ export_worker_image = version: latest, publisher: Canonical, offer: UbuntuServer
 # Format must be of the form 'YYYY-MM-DD[-preview]'.
 # export_arm_resource_api_version = 2016-09-01
 # export_arm_subscription_api_version = 2016-09-01
-# export_arm_compute_api_version = 2016-03-30
-# export_arm_network_api_version = 2015-06-15
-# export_arm_storage_api_version = 2016-05-01
-# export_blob_storage_api_version = 2015-04-05
+export_arm_compute_api_version = 2018-06-01
+export_arm_network_api_version = 2018-08-01
+export_arm_storage_api_version = 2018-02-01
+export_blob_storage_api_version = 2020-06-12
 
 ### Import parameters:
 
@@ -65,8 +65,8 @@ disk_storage_backing_type = managed_disks
 # default_vm_size = Standard_A1
 
 # The images to use for temporary worker VMs:
-linux_migr_image = version: latest, publisher: Canonical, offer: UbuntuServer, sku: 18.04-LTS
-windows_migr_image = version: latest, publisher: MicrosoftWindowsServer, offer: WindowsServer, sku: 2016-Datacenter-Server-Core
+linux_migr_image = version: latest, publisher: Canonical, offer: ubuntu-24_04-lts, sku: server
+windows_migr_image = version: latest, publisher: MicrosoftWindowsServer, offer: WindowsServer, sku: 2019-Datacenter
 
 # Default migration worker size. This will be used if no worker_size is set in
 # the target_environment. If none is provided, Coriolis will list all available
@@ -74,7 +74,7 @@ windows_migr_image = version: latest, publisher: MicrosoftWindowsServer, offer: 
 # the number of disks. If not given, Coriolis will select the first worker
 # size available which can accomodate attaching all the disks for the
 # particular VM being migrated/replicated.
-default_worker_size = Standard_D1_v2
+default_worker_size = Standard_B2s
 
 # Whether or not to set any IP addresses read from source VM NIC configurations
 # to destination NICs on Azure. This requires that the network/subnet mappings
@@ -94,10 +94,10 @@ preserve_nic_ips = True
 # Format must be of the form 'YYYY-MM-DD[-preview]'.
 # arm_resource_api_version = 2016-09-01
 # arm_subscription_api_version = 2016-09-01
-# arm_compute_api_version = 2016-03-30
-# arm_network_api_version = 2015-06-15
-# arm_storage_api_version = 2016-05-01
-# blob_storage_api_version = 2015-04-05
+arm_compute_api_version = 2018-06-01
+arm_network_api_version = 2018-08-01
+arm_storage_api_version = 2018-02-01
+blob_storage_api_version = 2020-06-12
 
 # Cloudbase-init Zip URLs for each supported Windows architecture:
 cloudbaseinit_x86_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x86.zip
