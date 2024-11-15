@@ -18,10 +18,10 @@ from coriolis import exception
 from coriolis import keystone
 from coriolis.licensing import client as licensing_client
 from coriolis.minion_manager.rpc import client as rpc_minion_manager_client
-from coriolis.replica_cron.rpc import client as rpc_cron_client
 from coriolis.scheduler.rpc import client as rpc_scheduler_client
 from coriolis import schemas
 from coriolis.tasks import factory as tasks_factory
+from coriolis.transfer_cron.rpc import client as rpc_cron_client
 from coriolis import utils
 from coriolis.worker.rpc import client as rpc_worker_client
 
@@ -46,9 +46,9 @@ TASK_DEADLOCK_ERROR_MESSAGE = (
     "Please review the Conductor logs and contact support for assistance.")
 
 SCENARIO_TYPE_TO_LICENSING_RESERVATION_MAP = {
-    constants.REPLICA_SCENARIO_REPLICA:
+    constants.TRANSFER_SCENARIO_REPLICA:
         licensing_client.RESERVATION_TYPE_REPLICA,
-    constants.REPLICA_SCENARIO_LIVE_MIGRATION:
+    constants.TRANSFER_SCENARIO_LIVE_MIGRATION:
         licensing_client.RESERVATION_TYPE_MIGRATION
 }
 
@@ -65,26 +65,26 @@ def endpoint_synchronized(func):
     return wrapper
 
 
-def replica_synchronized(func):
+def transfer_synchronized(func):
     @functools.wraps(func)
-    def wrapper(self, ctxt, replica_id, *args, **kwargs):
+    def wrapper(self, ctxt, transfer_id, *args, **kwargs):
         @lockutils.synchronized(
-            constants.REPLICA_LOCK_NAME_FORMAT % replica_id,
+            constants.TRANSFER_LOCK_NAME_FORMAT % transfer_id,
             external=True)
         def inner():
-            return func(self, ctxt, replica_id, *args, **kwargs)
+            return func(self, ctxt, transfer_id, *args, **kwargs)
         return inner()
     return wrapper
 
 
 def schedule_synchronized(func):
     @functools.wraps(func)
-    def wrapper(self, ctxt, replica_id, schedule_id, *args, **kwargs):
+    def wrapper(self, ctxt, transfer_id, schedule_id, *args, **kwargs):
         @lockutils.synchronized(
             constants.SCHEDULE_LOCK_NAME_FORMAT % schedule_id,
             external=True)
         def inner():
-            return func(self, ctxt, replica_id, schedule_id, *args, **kwargs)
+            return func(self, ctxt, transfer_id, schedule_id, *args, **kwargs)
         return inner()
     return wrapper
 
@@ -118,18 +118,6 @@ def parent_tasks_execution_synchronized(func):
     return wrapper
 
 
-def migration_synchronized(func):
-    @functools.wraps(func)
-    def wrapper(self, ctxt, migration_id, *args, **kwargs):
-        @lockutils.synchronized(
-            constants.MIGRATION_LOCK_NAME_FORMAT % migration_id,
-            external=True)
-        def inner():
-            return func(self, ctxt, migration_id, *args, **kwargs)
-        return inner()
-    return wrapper
-
-
 def deployment_synchronized(func):
     @functools.wraps(func)
     def wrapper(self, ctxt, deployment_id, *args, **kwargs):
@@ -144,12 +132,12 @@ def deployment_synchronized(func):
 
 def tasks_execution_synchronized(func):
     @functools.wraps(func)
-    def wrapper(self, ctxt, replica_id, execution_id, *args, **kwargs):
+    def wrapper(self, ctxt, transfer_id, execution_id, *args, **kwargs):
         @lockutils.synchronized(
             constants.EXECUTION_LOCK_NAME_FORMAT % execution_id,
             external=True)
         def inner():
-            return func(self, ctxt, replica_id, execution_id, *args, **kwargs)
+            return func(self, ctxt, transfer_id, execution_id, *args, **kwargs)
         return inner()
     return wrapper
 
@@ -183,7 +171,7 @@ class ConductorServerEndpoint(object):
         self._licensing_client = licensing_client.LicensingClient.from_env()
         self._worker_client_instance = None
         self._scheduler_client_instance = None
-        self._replica_cron_client_instance = None
+        self._transfer_cron_client_instance = None
         self._minion_manager_client_instance = None
 
     # NOTE(aznashwan): it is unsafe to fork processes with pre-instantiated
@@ -206,11 +194,11 @@ class ConductorServerEndpoint(object):
         return self._scheduler_client_instance
 
     @property
-    def _replica_cron_client(self):
-        if not self._replica_cron_client_instance:
-            self._replica_cron_client_instance = (
-                rpc_cron_client.ReplicaCronClient())
-        return self._replica_cron_client_instance
+    def _transfer_cron_client(self):
+        if not self._transfer_cron_client_instance:
+            self._transfer_cron_client_instance = (
+                rpc_cron_client.TransferCronClient())
+        return self._transfer_cron_client_instance
 
     @property
     def _minion_manager_client(self):
@@ -222,7 +210,7 @@ class ConductorServerEndpoint(object):
     def get_all_diagnostics(self, ctxt):
         client_objects = {
             "conductor": self,
-            "replica_cron": self._replica_cron_client,
+            "transfer_cron": self._transfer_cron_client,
             "minion_manager": self._minion_manager_client,
             "scheduler": self._scheduler_client}
 
@@ -297,22 +285,22 @@ class ConductorServerEndpoint(object):
                     "action with ID '%s'. Skipping. Exception\n%s",
                     reservation_id, action_id, utils.get_exception_details())
 
-    def _create_reservation_for_replica(self, replica):
-        action_id = replica.base_id
-        scenario = replica.scenario
+    def _create_reservation_for_transfer(self, transfer):
+        action_id = transfer.base_id
+        scenario = transfer.scenario
         reservation_type = SCENARIO_TYPE_TO_LICENSING_RESERVATION_MAP.get(
             scenario, None)
         if not reservation_type:
             raise exception.LicensingException(
-                message="Could not determine reservation type for replica "
-                        f"'{action_id}' with scenario '{replica.scenario}'.")
+                message="Could not determine reservation type for transfer "
+                        f"'{action_id}' with scenario '{transfer.scenario}'.")
         if not self._licensing_client:
             LOG.warn(
                 "Licensing client not instantiated. Skipping creation of "
                 "reservation for transfer action '%s'", action_id)
             return
 
-        ninstances = len(replica.instances)
+        ninstances = len(transfer.instances)
         LOG.debug(
             "Attempting to create '%s' reservation for %d instances for "
             "transfer action with ID '%s'.",
@@ -323,7 +311,7 @@ class ConductorServerEndpoint(object):
         LOG.info(
             f"Sucessfully created licensing reservation for transfer "
             f"with ID '{action_id}' with properties: {reservation}")
-        replica.reservation_id = reservation['id']
+        transfer.reservation_id = reservation['id']
 
         return reservation
 
@@ -374,23 +362,24 @@ class ConductorServerEndpoint(object):
                 f"Successfully marked reservation with ID '{reservation_id}' "
                 f"for transfer action '{action_id}' as fulfilled")
 
-    def _check_reservation_for_replica(self, replica):
-        scenario = replica.scenario
+    def _check_reservation_for_transfer(self, transfer):
+        scenario = transfer.scenario
         reservation_type = SCENARIO_TYPE_TO_LICENSING_RESERVATION_MAP.get(
             scenario, None)
         if not reservation_type:
             raise exception.LicensingException(
-                message="Could not determine reservation type for replica "
-                        f"'{replica.id}' with scenario '{replica.scenario}'.")
+                message="Could not determine reservation type for transfer "
+                        f"'{transfer.id}' with scenario "
+                        f"'{transfer.scenario}'.")
 
-        action_id = replica.base_id
+        action_id = transfer.base_id
         if not self._licensing_client:
             LOG.warn(
                 "Licensing client not instantiated. Skipping checking of "
                 "reservation for transfer action '%s'", action_id)
             return
 
-        reservation_id = replica.reservation_id
+        reservation_id = transfer.reservation_id
         if reservation_id:
             LOG.debug(
                 "Attempting to check reservation with ID '%s' for transfer "
@@ -400,13 +389,13 @@ class ConductorServerEndpoint(object):
                     reservation_id)
 
                 fulfilled_at = reservation.get("fulfilled_at", None)
-                if scenario == constants.REPLICA_SCENARIO_LIVE_MIGRATION and (
+                if scenario == constants.TRANSFER_SCENARIO_LIVE_MIGRATION and (
                         fulfilled_at):
                     raise exception.MigrationLicenceFulfilledException(
-                        action_id=replica.id, reservation_id=reservation_id,
+                        action_id=transfer.id, reservation_id=reservation_id,
                         fulfilled_at=fulfilled_at)
 
-                replica.reservation_id = (
+                transfer.reservation_id = (
                     self._licensing_client.check_refresh_reservation(
                         reservation_id)['id'])
             except Exception as ex:
@@ -427,14 +416,14 @@ class ConductorServerEndpoint(object):
                             "reservation. Trace was: %s",
                             reservation_id, action_id,
                             utils.get_exception_details())
-                    self._create_reservation_for_replica(replica)
+                    self._create_reservation_for_transfer(transfer)
                 else:
                     raise ex
         else:
             LOG.info(
                 f"Transfer action '{action_id}' has no reservation ID set, "
                 f"attempting to create a new one for it")
-            self._create_reservation_for_replica(replica)
+            self._create_reservation_for_transfer(transfer)
 
     def create_endpoint(self, ctxt, name, endpoint_type, description,
                         connection_info, mapped_regions=None):
@@ -487,11 +476,11 @@ class ConductorServerEndpoint(object):
 
     @endpoint_synchronized
     def delete_endpoint(self, ctxt, endpoint_id):
-        q_replicas_count = db_api.get_endpoint_transfers_count(
+        q_transfers_count = db_api.get_endpoint_transfers_count(
             ctxt, endpoint_id)
-        if q_replicas_count != 0:
-            raise exception.NotAuthorized("%s replicas would be orphaned!" %
-                                          q_replicas_count)
+        if q_transfers_count != 0:
+            raise exception.NotAuthorized("%s transfers would be orphaned!" %
+                                          q_transfers_count)
         db_api.delete_endpoint(ctxt, endpoint_id)
 
     def get_endpoint_instances(self, ctxt, endpoint_id, source_environment,
@@ -904,39 +893,40 @@ class ConductorServerEndpoint(object):
             "for ordering or state conflicts.",
             execution.id, execution.type)
 
-    @replica_synchronized
-    def execute_replica_tasks(self, ctxt, replica_id, shutdown_instances):
-        replica = self._get_replica(ctxt, replica_id, include_task_info=True)
-        self._check_replica_running_executions(ctxt, replica)
-        self._check_minion_pools_for_action(ctxt, replica)
-        self._check_reservation_for_replica(replica)
+    @transfer_synchronized
+    def execute_transfer_tasks(self, ctxt, transfer_id, shutdown_instances):
+        transfer = self._get_transfer(
+            ctxt, transfer_id, include_task_info=True)
+        self._check_transfer_running_executions(ctxt, transfer)
+        self._check_minion_pools_for_action(ctxt, transfer)
+        self._check_reservation_for_transfer(transfer)
 
         execution = models.TasksExecution()
         execution.id = str(uuid.uuid4())
-        execution.action = replica
+        execution.action = transfer
         execution.status = constants.EXECUTION_STATUS_UNEXECUTED
-        execution.type = constants.EXECUTION_TYPE_REPLICA_EXECUTION
+        execution.type = constants.EXECUTION_TYPE_TRANSFER_EXECUTION
 
         # TODO(aznashwan): have these passed separately to the relevant
         # provider methods. They're currently passed directly inside
         # dest-env by the API service when accepting the call, but we
-        # re-overwrite them here in case of Replica updates.
-        dest_env = copy.deepcopy(replica.destination_environment)
-        dest_env['network_map'] = replica.network_map
-        dest_env['storage_mappings'] = replica.storage_mappings
+        # re-overwrite them here in case of Transfer updates.
+        dest_env = copy.deepcopy(transfer.destination_environment)
+        dest_env['network_map'] = transfer.network_map
+        dest_env['storage_mappings'] = transfer.storage_mappings
 
         for instance in execution.action.instances:
             # NOTE: we default/convert the volumes info to an empty list
             # to preserve backwards-compatibility with older versions
             # of Coriolis dating before the scheduling overhaul (PR##114)
-            if instance not in replica.info:
-                replica.info[instance] = {'volumes_info': []}
-            elif replica.info[instance].get('volumes_info') is None:
-                replica.info[instance]['volumes_info'] = []
+            if instance not in transfer.info:
+                transfer.info[instance] = {'volumes_info': []}
+            elif transfer.info[instance].get('volumes_info') is None:
+                transfer.info[instance]['volumes_info'] = []
             # NOTE: we update all of the param values before triggering an
             # execution to ensure that the latest parameters are used:
-            replica.info[instance].update({
-                "source_environment": replica.source_environment,
+            transfer.info[instance].update({
+                "source_environment": transfer.source_environment,
                 "target_environment": dest_env})
             # TODO(aznashwan): have these passed separately to the relevant
             # provider methods (they're currently passed directly inside
@@ -944,9 +934,9 @@ class ConductorServerEndpoint(object):
             # "network_map": network_map,
             # "storage_mappings": storage_mappings,
 
-            validate_replica_source_inputs_task = self._create_task(
+            validate_transfer_source_inputs_task = self._create_task(
                 instance,
-                constants.TASK_TYPE_VALIDATE_REPLICA_SOURCE_INPUTS,
+                constants.TASK_TYPE_VALIDATE_TRANSFER_SOURCE_INPUTS,
                 execution)
 
             get_instance_info_task = self._create_task(
@@ -954,20 +944,20 @@ class ConductorServerEndpoint(object):
                 constants.TASK_TYPE_GET_INSTANCE_INFO,
                 execution)
 
-            validate_replica_destination_inputs_task = self._create_task(
+            validate_transfer_destination_inputs_task = self._create_task(
                 instance,
-                constants.TASK_TYPE_VALIDATE_REPLICA_DESTINATION_INPUTS,
+                constants.TASK_TYPE_VALIDATE_TRANSFER_DESTINATION_INPUTS,
                 execution,
                 depends_on=[get_instance_info_task.id])
 
             disk_deployment_depends_on = []
             validate_origin_minion_task = None
-            if replica.origin_minion_pool_id:
+            if transfer.origin_minion_pool_id:
                 # NOTE: these values are required for the
                 # _check_execution_tasks_sanity call but
                 # will be populated later when the pool
                 # allocations actually happen:
-                replica.info[instance].update({
+                transfer.info[instance].update({
                     "origin_minion_machine_id": None,
                     "origin_minion_provider_properties": None,
                     "origin_minion_connection_info": None})
@@ -977,20 +967,20 @@ class ConductorServerEndpoint(object):
                     execution,
                     depends_on=[
                         get_instance_info_task.id,
-                        validate_replica_source_inputs_task.id])
+                        validate_transfer_source_inputs_task.id])
                 disk_deployment_depends_on.append(
                     validate_origin_minion_task.id)
             else:
                 disk_deployment_depends_on.append(
-                    validate_replica_source_inputs_task.id)
+                    validate_transfer_source_inputs_task.id)
 
             validate_destination_minion_task = None
-            if replica.destination_minion_pool_id:
+            if transfer.destination_minion_pool_id:
                 # NOTE: these values are required for the
                 # _check_execution_tasks_sanity call but
                 # will be populated later when the pool
                 # allocations actually happen:
-                replica.info[instance].update({
+                transfer.info[instance].update({
                     "destination_minion_machine_id": None,
                     "destination_minion_provider_properties": None,
                     "destination_minion_connection_info": None,
@@ -1000,42 +990,42 @@ class ConductorServerEndpoint(object):
                     constants.TASK_TYPE_VALIDATE_DESTINATION_MINION_POOL_COMPATIBILITY,  # noqa: E501
                     execution,
                     depends_on=[
-                        validate_replica_destination_inputs_task.id])
+                        validate_transfer_destination_inputs_task.id])
                 disk_deployment_depends_on.append(
                     validate_destination_minion_task.id)
             else:
                 disk_deployment_depends_on.append(
-                    validate_replica_destination_inputs_task.id)
+                    validate_transfer_destination_inputs_task.id)
 
-            deploy_replica_disks_task = self._create_task(
-                instance, constants.TASK_TYPE_DEPLOY_REPLICA_DISKS,
+            deploy_transfer_disks_task = self._create_task(
+                instance, constants.TASK_TYPE_DEPLOY_TRANSFER_DISKS,
                 execution, depends_on=disk_deployment_depends_on)
 
             shutdown_deps = []
-            deploy_replica_source_resources_task = None
-            if not replica.origin_minion_pool_id:
-                deploy_replica_source_resources_task = self._create_task(
+            deploy_transfer_source_resources_task = None
+            if not transfer.origin_minion_pool_id:
+                deploy_transfer_source_resources_task = self._create_task(
                     instance,
-                    constants.TASK_TYPE_DEPLOY_REPLICA_SOURCE_RESOURCES,
+                    constants.TASK_TYPE_DEPLOY_TRANSFER_SOURCE_RESOURCES,
                     execution, depends_on=[
-                        deploy_replica_disks_task.id])
-                shutdown_deps.append(deploy_replica_source_resources_task)
+                        deploy_transfer_disks_task.id])
+                shutdown_deps.append(deploy_transfer_source_resources_task)
 
             attach_destination_minion_disks_task = None
-            deploy_replica_target_resources_task = None
-            if replica.destination_minion_pool_id:
+            deploy_transfer_target_resources_task = None
+            if transfer.destination_minion_pool_id:
                 ttyp = constants.TASK_TYPE_ATTACH_VOLUMES_TO_DESTINATION_MINION
                 attach_destination_minion_disks_task = self._create_task(
                     instance, ttyp, execution, depends_on=[
-                        deploy_replica_disks_task.id])
+                        deploy_transfer_disks_task.id])
                 shutdown_deps.append(attach_destination_minion_disks_task)
             else:
-                deploy_replica_target_resources_task = self._create_task(
+                deploy_transfer_target_resources_task = self._create_task(
                     instance,
-                    constants.TASK_TYPE_DEPLOY_REPLICA_TARGET_RESOURCES,
+                    constants.TASK_TYPE_DEPLOY_TRANSFER_TARGET_RESOURCES,
                     execution, depends_on=[
-                        deploy_replica_disks_task.id])
-                shutdown_deps.append(deploy_replica_target_resources_task)
+                        deploy_transfer_disks_task.id])
+                shutdown_deps.append(deploy_transfer_target_resources_task)
 
             depends_on = [t.id for t in shutdown_deps]
             if shutdown_instances:
@@ -1048,7 +1038,7 @@ class ConductorServerEndpoint(object):
                 instance, constants.TASK_TYPE_REPLICATE_DISKS,
                 execution, depends_on=depends_on)
 
-            if replica.origin_minion_pool_id:
+            if transfer.origin_minion_pool_id:
                 self._create_task(
                     instance,
                     constants.TASK_TYPE_RELEASE_SOURCE_MINION,
@@ -1060,14 +1050,14 @@ class ConductorServerEndpoint(object):
             else:
                 self._create_task(
                     instance,
-                    constants.TASK_TYPE_DELETE_REPLICA_SOURCE_RESOURCES,
+                    constants.TASK_TYPE_DELETE_TRANSFER_SOURCE_RESOURCES,
                     execution,
                     depends_on=[
-                        deploy_replica_source_resources_task.id,
+                        deploy_transfer_source_resources_task.id,
                         replicate_disks_task.id],
                     on_error=True)
 
-            if replica.destination_minion_pool_id:
+            if transfer.destination_minion_pool_id:
                 detach_volumes_from_minion_task = self._create_task(
                     instance,
                     constants.TASK_TYPE_DETACH_VOLUMES_FROM_DESTINATION_MINION,
@@ -1088,162 +1078,165 @@ class ConductorServerEndpoint(object):
             else:
                 self._create_task(
                     instance,
-                    constants.TASK_TYPE_DELETE_REPLICA_TARGET_RESOURCES,
+                    constants.TASK_TYPE_DELETE_TRANSFER_TARGET_RESOURCES,
                     execution, depends_on=[
-                        deploy_replica_target_resources_task.id,
+                        deploy_transfer_target_resources_task.id,
                         replicate_disks_task.id],
                     on_error=True)
 
-        self._check_execution_tasks_sanity(execution, replica.info)
+        self._check_execution_tasks_sanity(execution, transfer.info)
 
-        # update the action info for all of the Replicas:
+        # update the action info for all of the Transfers:
         for instance in execution.action.instances:
             db_api.update_transfer_action_info_for_instance(
-                ctxt, replica.id, instance, replica.info[instance])
+                ctxt, transfer.id, instance, transfer.info[instance])
 
         # add new execution to DB:
         db_api.add_transfer_tasks_execution(ctxt, execution)
-        LOG.info("Replica tasks execution added to DB: %s", execution.id)
+        LOG.info("Transfer tasks execution added to DB: %s", execution.id)
 
         uses_minion_pools = any([
-            replica.origin_minion_pool_id,
-            replica.destination_minion_pool_id])
+            transfer.origin_minion_pool_id,
+            transfer.destination_minion_pool_id])
         if uses_minion_pools:
-            self._minion_manager_client.allocate_minion_machines_for_replica(
-                ctxt, replica)
+            self._minion_manager_client.allocate_minion_machines_for_transfer(
+                ctxt, transfer)
             self._set_tasks_execution_status(
                 ctxt, execution,
                 constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS)
         else:
-            self._begin_tasks(ctxt, replica, execution)
+            self._begin_tasks(ctxt, transfer, execution)
 
-        return self.get_replica_tasks_execution(
-            ctxt, replica_id, execution.id)
+        return self.get_transfer_tasks_execution(
+            ctxt, transfer_id, execution.id)
 
-    @replica_synchronized
-    def get_replica_tasks_executions(self, ctxt, replica_id,
-                                     include_tasks=False,
-                                     include_task_info=False):
+    @transfer_synchronized
+    def get_transfer_tasks_executions(self, ctxt, transfer_id,
+                                      include_tasks=False,
+                                      include_task_info=False):
         return db_api.get_transfer_tasks_executions(
-            ctxt, replica_id, include_tasks,
+            ctxt, transfer_id, include_tasks,
             include_task_info=include_task_info, to_dict=True)
 
     @tasks_execution_synchronized
-    def get_replica_tasks_execution(self, ctxt, replica_id, execution_id,
-                                    include_task_info=False):
-        return self._get_replica_tasks_execution(
-            ctxt, replica_id, execution_id,
+    def get_transfer_tasks_execution(self, ctxt, transfer_id, execution_id,
+                                     include_task_info=False):
+        return self._get_transfer_tasks_execution(
+            ctxt, transfer_id, execution_id,
             include_task_info=include_task_info, to_dict=True)
 
     @tasks_execution_synchronized
-    def delete_replica_tasks_execution(self, ctxt, replica_id, execution_id):
-        execution = self._get_replica_tasks_execution(
-            ctxt, replica_id, execution_id)
+    def delete_transfer_tasks_execution(self, ctxt, transfer_id, execution_id):
+        execution = self._get_transfer_tasks_execution(
+            ctxt, transfer_id, execution_id)
         if execution.status in constants.ACTIVE_EXECUTION_STATUSES:
-            raise exception.InvalidMigrationState(
-                "Cannot delete execution '%s' for Replica '%s' as it is "
+            raise exception.InvalidActionTasksExecutionState(
+                "Cannot delete execution '%s' for Transfer '%s' as it is "
                 "currently in '%s' state." % (
-                    execution_id, replica_id, execution.status))
+                    execution_id, transfer_id, execution.status))
         db_api.delete_transfer_tasks_execution(ctxt, execution_id)
 
     @tasks_execution_synchronized
-    def cancel_replica_tasks_execution(self, ctxt, replica_id, execution_id,
-                                       force):
-        execution = self._get_replica_tasks_execution(
-            ctxt, replica_id, execution_id)
+    def cancel_transfer_tasks_execution(self, ctxt, transfer_id, execution_id,
+                                        force):
+        execution = self._get_transfer_tasks_execution(
+            ctxt, transfer_id, execution_id)
         if execution.status not in constants.ACTIVE_EXECUTION_STATUSES:
-            raise exception.InvalidReplicaState(
-                "Replica '%s' has no running execution to cancel." % (
-                    replica_id))
+            raise exception.InvalidTransferState(
+                "Transfer '%s' has no running execution to cancel." % (
+                    transfer_id))
         if execution.status == constants.EXECUTION_STATUS_CANCELLING and (
                 not force):
-            raise exception.InvalidReplicaState(
-                "Replica '%s' is already being cancelled. Please use the "
+            raise exception.InvalidTransferState(
+                "Transfer '%s' is already being cancelled. Please use the "
                 "force option if you'd like to force-cancel it." % (
-                    replica_id))
+                    transfer_id))
         self._cancel_tasks_execution(ctxt, execution, force=force)
 
-    def _get_replica_tasks_execution(self, ctxt, replica_id, execution_id,
-                                     include_task_info=False, to_dict=False):
+    @staticmethod
+    def _get_transfer_tasks_execution(ctxt, transfer_id, execution_id,
+                                      include_task_info=False, to_dict=False):
         execution = db_api.get_transfer_tasks_execution(
-            ctxt, replica_id, execution_id,
+            ctxt, transfer_id, execution_id,
             include_task_info=include_task_info, to_dict=to_dict)
         if not execution:
             raise exception.NotFound(
-                "Execution with ID '%s' for Replica '%s' not found." % (
-                    execution_id, replica_id))
+                "Execution with ID '%s' for Transfer '%s' not found." % (
+                    execution_id, transfer_id))
         return execution
 
-    def get_replicas(self, ctxt, include_tasks_executions=False,
-                     include_task_info=False):
+    @staticmethod
+    def get_transfers(ctxt, include_tasks_executions=False,
+                      include_task_info=False):
         return db_api.get_transfers(
             ctxt, include_tasks_executions,
             include_task_info=include_task_info, to_dict=True)
 
-    @replica_synchronized
-    def get_replica(self, ctxt, replica_id, include_task_info=False):
-        return self._get_replica(
-            ctxt, replica_id,
+    @transfer_synchronized
+    def get_transfer(self, ctxt, transfer_id, include_task_info=False):
+        return self._get_transfer(
+            ctxt, transfer_id,
             include_task_info=include_task_info, to_dict=True)
 
-    @replica_synchronized
-    def delete_replica(self, ctxt, replica_id):
-        replica = self._get_replica(ctxt, replica_id)
-        self._check_replica_running_executions(ctxt, replica)
-        self._check_delete_reservation_for_transfer(replica)
-        db_api.delete_transfer(ctxt, replica_id)
+    @transfer_synchronized
+    def delete_transfer(self, ctxt, transfer_id):
+        transfer = self._get_transfer(ctxt, transfer_id)
+        self._check_transfer_running_executions(ctxt, transfer)
+        self._check_delete_reservation_for_transfer(transfer)
+        db_api.delete_transfer(ctxt, transfer_id)
 
-    @replica_synchronized
-    def delete_replica_disks(self, ctxt, replica_id):
-        replica = self._get_replica(ctxt, replica_id, include_task_info=True)
-        self._check_replica_running_executions(ctxt, replica)
+    @transfer_synchronized
+    def delete_transfer_disks(self, ctxt, transfer_id):
+        transfer = self._get_transfer(
+            ctxt, transfer_id, include_task_info=True)
+        self._check_transfer_running_executions(ctxt, transfer)
 
         execution = models.TasksExecution()
         execution.id = str(uuid.uuid4())
         execution.status = constants.EXECUTION_STATUS_UNEXECUTED
-        execution.action = replica
-        execution.type = constants.EXECUTION_TYPE_REPLICA_DISKS_DELETE
+        execution.action = transfer
+        execution.type = constants.EXECUTION_TYPE_TRANSFER_DISKS_DELETE
 
         has_tasks = False
-        for instance in replica.instances:
-            if (instance in replica.info and (
-                    replica.info[instance].get('volumes_info'))):
+        for instance in transfer.instances:
+            if (instance in transfer.info and (
+                    transfer.info[instance].get('volumes_info'))):
                 source_del_task = self._create_task(
                     instance,
-                    constants.TASK_TYPE_DELETE_REPLICA_SOURCE_DISK_SNAPSHOTS,
+                    constants.TASK_TYPE_DELETE_TRANSFER_SOURCE_DISK_SNAPSHOTS,
                     execution)
                 self._create_task(
-                    instance, constants.TASK_TYPE_DELETE_REPLICA_DISKS,
+                    instance, constants.TASK_TYPE_DELETE_TRANSFER_DISKS,
                     execution, depends_on=[source_del_task.id])
                 has_tasks = True
 
         if not has_tasks:
-            raise exception.InvalidReplicaState(
-                "Replica '%s' does not have volumes information for any "
-                "instances. Ensure that the replica has been executed "
-                "successfully priorly" % replica_id)
+            raise exception.InvalidTransferState(
+                "Transfer '%s' does not have volumes information for any "
+                "instances. Ensure that the transfer has been executed "
+                "successfully priorly" % transfer_id)
 
         # ensure we're passing the updated target-env options on the
-        # parent Replica itself in case of a Replica update:
-        dest_env = copy.deepcopy(replica.destination_environment)
-        dest_env['network_map'] = replica.network_map
-        dest_env['storage_mappings'] = replica.storage_mappings
-        for instance in replica.instances:
-            replica.info[instance].update({
+        # parent Transfer itself in case of a Transfer update:
+        dest_env = copy.deepcopy(transfer.destination_environment)
+        dest_env['network_map'] = transfer.network_map
+        dest_env['storage_mappings'] = transfer.storage_mappings
+        for instance in transfer.instances:
+            transfer.info[instance].update({
                 "target_environment": dest_env})
 
-        self._check_execution_tasks_sanity(execution, replica.info)
+        self._check_execution_tasks_sanity(execution, transfer.info)
 
-        # update the action info for all of the Replicas' instances:
-        for instance in replica.instances:
+        # update the action info for all of the Transfers' instances:
+        for instance in transfer.instances:
             db_api.update_transfer_action_info_for_instance(
-                ctxt, replica.id, instance, replica.info[instance])
+                ctxt, transfer.id, instance, transfer.info[instance])
         db_api.add_transfer_tasks_execution(ctxt, execution)
-        LOG.info("Replica tasks execution created: %s", execution.id)
+        LOG.info("Transfer tasks execution created: %s", execution.id)
 
-        self._begin_tasks(ctxt, replica, execution)
-        return self.get_replica_tasks_execution(
-            ctxt, replica_id, execution.id)
+        self._begin_tasks(ctxt, transfer, execution)
+        return self.get_transfer_tasks_execution(
+            ctxt, transfer_id, execution.id)
 
     @staticmethod
     def _check_endpoints(ctxt, origin_endpoint, destination_endpoint):
@@ -1258,77 +1251,71 @@ class ConductorServerEndpoint(object):
                 destination_endpoint.connection_info)):
             raise exception.SameDestination()
 
-    def create_instances_replica(self, ctxt, replica_scenario,
-                                 origin_endpoint_id,
-                                 destination_endpoint_id,
-                                 origin_minion_pool_id,
-                                 destination_minion_pool_id,
-                                 instance_osmorphing_minion_pool_mappings,
-                                 source_environment,
-                                 destination_environment, instances,
-                                 network_map, storage_mappings, notes=None,
-                                 user_scripts=None):
+    def create_instances_transfer(self, ctxt, transfer_scenario,
+                                  origin_endpoint_id,
+                                  destination_endpoint_id,
+                                  origin_minion_pool_id,
+                                  destination_minion_pool_id,
+                                  instance_osmorphing_minion_pool_mappings,
+                                  source_environment,
+                                  destination_environment, instances,
+                                  network_map, storage_mappings, notes=None,
+                                  user_scripts=None):
         supported_scenarios = [
-            constants.REPLICA_SCENARIO_REPLICA,
-            constants.REPLICA_SCENARIO_LIVE_MIGRATION]
-        if replica_scenario not in supported_scenarios:
+            constants.TRANSFER_SCENARIO_REPLICA,
+            constants.TRANSFER_SCENARIO_LIVE_MIGRATION]
+        if transfer_scenario not in supported_scenarios:
             raise exception.InvalidInput(
-                message=f"Unsupported Replica scenario '{replica_scenario}'. "
-                        f"Must be one of: {supported_scenarios}")
+                message=f"Unsupported Transfer scenario '{transfer_scenario}'."
+                        f" Must be one of: {supported_scenarios}")
 
         origin_endpoint = self.get_endpoint(ctxt, origin_endpoint_id)
         destination_endpoint = self.get_endpoint(
             ctxt, destination_endpoint_id)
         self._check_endpoints(ctxt, origin_endpoint, destination_endpoint)
 
-        replica = models.Transfer()
-        replica.id = str(uuid.uuid4())
-        replica.base_id = replica.id
-        replica.scenario = replica_scenario
-        replica.origin_endpoint_id = origin_endpoint_id
-        replica.origin_minion_pool_id = origin_minion_pool_id
-        replica.destination_endpoint_id = destination_endpoint_id
-        replica.destination_minion_pool_id = destination_minion_pool_id
-        replica.destination_environment = destination_environment
-        replica.source_environment = source_environment
-        replica.last_execution_status = constants.EXECUTION_STATUS_UNEXECUTED
-        replica.instances = instances
-        replica.executions = []
-        replica.info = {instance: {
+        transfer = models.Transfer()
+        transfer.id = str(uuid.uuid4())
+        transfer.base_id = transfer.id
+        transfer.scenario = transfer_scenario
+        transfer.origin_endpoint_id = origin_endpoint_id
+        transfer.origin_minion_pool_id = origin_minion_pool_id
+        transfer.destination_endpoint_id = destination_endpoint_id
+        transfer.destination_minion_pool_id = destination_minion_pool_id
+        transfer.destination_environment = destination_environment
+        transfer.source_environment = source_environment
+        transfer.last_execution_status = constants.EXECUTION_STATUS_UNEXECUTED
+        transfer.instances = instances
+        transfer.executions = []
+        transfer.info = {instance: {
             'volumes_info': []} for instance in instances}
-        replica.notes = notes
-        replica.network_map = network_map
-        replica.storage_mappings = storage_mappings
-        replica.instance_osmorphing_minion_pool_mappings = (
+        transfer.notes = notes
+        transfer.network_map = network_map
+        transfer.storage_mappings = storage_mappings
+        transfer.instance_osmorphing_minion_pool_mappings = (
             instance_osmorphing_minion_pool_mappings)
-        replica.user_scripts = user_scripts or {}
+        transfer.user_scripts = user_scripts or {}
 
-        self._check_minion_pools_for_action(ctxt, replica)
+        self._check_minion_pools_for_action(ctxt, transfer)
 
-        self._create_reservation_for_replica(replica)
+        self._create_reservation_for_transfer(transfer)
 
-        db_api.add_transfer(ctxt, replica)
-        LOG.info("Replica created: %s", replica.id)
-        return self.get_replica(ctxt, replica.id)
+        db_api.add_transfer(ctxt, transfer)
+        LOG.info("Transfer created: %s", transfer.id)
+        return self.get_transfer(ctxt, transfer.id)
 
-    def _get_replica(self, ctxt, replica_id, include_task_info=False,
-                     to_dict=False):
-        replica = db_api.get_transfer(
-            ctxt, replica_id, include_task_info=include_task_info,
+    def _get_transfer(self, ctxt, transfer_id, include_task_info=False,
+                      to_dict=False):
+        transfer = db_api.get_transfer(
+            ctxt, transfer_id, include_task_info=include_task_info,
             to_dict=to_dict)
-        if not replica:
+        if not transfer:
             raise exception.NotFound(
-                "Replica with ID '%s' not found." % replica_id)
-        return replica
+                "Transfer with ID '%s' not found." % transfer_id)
+        return transfer
 
-    @migration_synchronized
-    def get_migration(self, ctxt, migration_id, include_task_info=False):
-        return self._get_migration(
-            ctxt, migration_id, include_task_info=include_task_info,
-            to_dict=True)
-
-    def get_deployments(self, ctxt, include_tasks,
-                        include_task_info=False):
+    @staticmethod
+    def get_deployments(ctxt, include_tasks, include_task_info=False):
         return db_api.get_deployments(
             ctxt, include_tasks,
             include_task_info=include_task_info,
@@ -1336,17 +1323,17 @@ class ConductorServerEndpoint(object):
 
     @deployment_synchronized
     def get_deployment(self, ctxt, deployment_id, include_task_info=False):
-        return self._get_migration(
+        return self._get_deployment(
             ctxt, deployment_id, include_task_info=include_task_info,
             to_dict=True)
 
     @staticmethod
-    def _check_running_replica_migrations(ctxt, replica_id):
-        migrations = db_api.get_transfer_deployments(ctxt, replica_id)
-        if [m.id for m in migrations if m.executions[0].status in (
+    def _check_running_transfer_deployments(ctxt, transfer_id):
+        deployments = db_api.get_transfer_deployments(ctxt, transfer_id)
+        if [m.id for m in deployments if m.executions[0].status in (
                 constants.ACTIVE_EXECUTION_STATUSES)]:
-            raise exception.InvalidReplicaState(
-                "Transfer '%s' is currently being deployed" % replica_id)
+            raise exception.InvalidTransferState(
+                "Transfer '%s' is currently being deployed" % transfer_id)
 
     @staticmethod
     def _check_running_executions(action):
@@ -1358,25 +1345,25 @@ class ConductorServerEndpoint(object):
                 "Another tasks execution is in progress: %s" % (
                     running_executions))
 
-    def _check_replica_running_executions(self, ctxt, replica):
-        self._check_running_executions(replica)
-        self._check_running_replica_migrations(ctxt, replica.id)
+    def _check_transfer_running_executions(self, ctxt, transfer):
+        self._check_running_executions(transfer)
+        self._check_running_transfer_deployments(ctxt, transfer.id)
 
     @staticmethod
-    def _check_valid_replica_tasks_execution(replica, force=False):
+    def _check_valid_transfer_tasks_execution(transfer, force=False):
         sorted_executions = sorted(
-            replica.executions, key=lambda e: e.number, reverse=True)
+            transfer.executions, key=lambda e: e.number, reverse=True)
         if not sorted_executions:
-            raise exception.InvalidReplicaState(
-                "The Replica has never been executed.")
+            raise exception.InvalidTransferState(
+                "The Transfer has never been executed.")
 
         if not [e for e in sorted_executions
-                if e.type == constants.EXECUTION_TYPE_REPLICA_EXECUTION and (
+                if e.type == constants.EXECUTION_TYPE_TRANSFER_EXECUTION and (
                     e.status == constants.EXECUTION_STATUS_COMPLETED)]:
             if not force:
-                raise exception.InvalidReplicaState(
-                    "A replica must have been executed successfully at least "
-                    "once in order to be migrated")
+                raise exception.InvalidTransferState(
+                    "A transfer must have been executed successfully at least "
+                    "once in order to be deployed")
 
     def _get_provider_types(self, ctxt, endpoint):
         provider_types = self.get_available_providers(ctxt).get(endpoint.type)
@@ -1385,84 +1372,85 @@ class ConductorServerEndpoint(object):
                 "No provider found for: %s" % endpoint.type)
         return provider_types["types"]
 
-    @replica_synchronized
-    def deploy_replica_instances(
-            self, ctxt, replica_id, clone_disks, force,
+    @transfer_synchronized
+    def deploy_transfer_instances(
+            self, ctxt, transfer_id, clone_disks, force,
             instance_osmorphing_minion_pool_mappings=None,
             skip_os_morphing=False, user_scripts=None):
-        replica = self._get_replica(ctxt, replica_id, include_task_info=True)
-        self._check_replica_running_executions(ctxt, replica)
-        self._check_valid_replica_tasks_execution(replica, force)
-        user_scripts = user_scripts or replica.user_scripts
+        transfer = self._get_transfer(
+            ctxt, transfer_id, include_task_info=True)
+        self._check_transfer_running_executions(ctxt, transfer)
+        self._check_valid_transfer_tasks_execution(transfer, force)
+        user_scripts = user_scripts or transfer.user_scripts
 
         destination_endpoint = self.get_endpoint(
-            ctxt, replica.destination_endpoint_id)
+            ctxt, transfer.destination_endpoint_id)
         destination_provider_types = self._get_provider_types(
             ctxt, destination_endpoint)
 
-        for instance, info in replica.info.items():
+        for instance, info in transfer.info.items():
             if not info.get("volumes_info"):
-                raise exception.InvalidReplicaState(
-                    "The replica doesn't contain volumes information for "
-                    "instance: %s. If replicated disks are deleted, the "
-                    "replica needs to be executed anew before a migration can "
-                    "occur" % instance)
+                raise exception.InvalidTransferState(
+                    "The transfer doesn't contain volumes information for "
+                    "instance: %s. If transferred disks are deleted, the "
+                    "transfer needs to be executed anew before a deployment"
+                    " can occur" % instance)
 
-        instances = replica.instances
+        instances = transfer.instances
 
-        migration = models.Deployment()
-        migration.id = str(uuid.uuid4())
-        migration.base_id = migration.id
-        migration.origin_endpoint_id = replica.origin_endpoint_id
-        migration.destination_endpoint_id = replica.destination_endpoint_id
+        deployment = models.Deployment()
+        deployment.id = str(uuid.uuid4())
+        deployment.base_id = deployment.id
+        deployment.origin_endpoint_id = transfer.origin_endpoint_id
+        deployment.destination_endpoint_id = transfer.destination_endpoint_id
         # TODO(aznashwan): have these passed separately to the relevant
         # provider methods instead of through the dest-env:
-        dest_env = copy.deepcopy(replica.destination_environment)
-        dest_env['network_map'] = replica.network_map
-        dest_env['storage_mappings'] = replica.storage_mappings
-        migration.destination_environment = dest_env
-        migration.source_environment = replica.source_environment
-        migration.network_map = replica.network_map
-        migration.storage_mappings = replica.storage_mappings
-        migration.instances = instances
-        migration.replica = replica
-        migration.info = replica.info
-        migration.notes = replica.notes
-        migration.user_scripts = user_scripts
-        # NOTE: Migrations-from-Replica have no use for the source/target
-        # pools of the parent Replica so these can be omitted:
-        migration.origin_minion_pool_id = None
-        migration.destination_minion_pool_id = None
-        migration.instance_osmorphing_minion_pool_mappings = (
-            replica.instance_osmorphing_minion_pool_mappings)
+        dest_env = copy.deepcopy(transfer.destination_environment)
+        dest_env['network_map'] = transfer.network_map
+        dest_env['storage_mappings'] = transfer.storage_mappings
+        deployment.destination_environment = dest_env
+        deployment.source_environment = transfer.source_environment
+        deployment.network_map = transfer.network_map
+        deployment.storage_mappings = transfer.storage_mappings
+        deployment.instances = instances
+        deployment.transfer = transfer
+        deployment.info = transfer.info
+        deployment.notes = transfer.notes
+        deployment.user_scripts = user_scripts
+        # NOTE: Deployments have no use for the source/target
+        # pools of the parent Transfer so these can be omitted:
+        deployment.origin_minion_pool_id = None
+        deployment.destination_minion_pool_id = None
+        deployment.instance_osmorphing_minion_pool_mappings = (
+            transfer.instance_osmorphing_minion_pool_mappings)
         if instance_osmorphing_minion_pool_mappings:
-            migration.instance_osmorphing_minion_pool_mappings.update(
+            deployment.instance_osmorphing_minion_pool_mappings.update(
                 instance_osmorphing_minion_pool_mappings)
-        self._check_minion_pools_for_action(ctxt, migration)
-        self._check_reservation_for_replica(replica)
+        self._check_minion_pools_for_action(ctxt, deployment)
+        self._check_reservation_for_transfer(transfer)
 
         execution = models.TasksExecution()
-        migration.executions = [execution]
+        deployment.executions = [execution]
         execution.status = constants.EXECUTION_STATUS_UNEXECUTED
         execution.number = 1
-        execution.type = constants.EXECUTION_TYPE_REPLICA_DEPLOY
+        execution.type = constants.EXECUTION_TYPE_DEPLOYMENT
 
         for instance in instances:
-            migration.info[instance]["clone_disks"] = clone_disks
+            deployment.info[instance]["clone_disks"] = clone_disks
             scripts = self._get_instance_scripts(user_scripts, instance)
-            migration.info[instance]["user_scripts"] = scripts
+            deployment.info[instance]["user_scripts"] = scripts
 
             # NOTE: we default/convert the volumes info to an empty list
             # to preserve backwards-compatibility with older versions
             # of Coriolis dating before the scheduling overhaul (PR##114)
-            if instance not in migration.info:
-                migration.info[instance] = {'volumes_info': []}
+            if instance not in deployment.info:
+                deployment.info[instance] = {'volumes_info': []}
             # NOTE: we update all of the param values before triggering an
-            # execution to ensure that the params on the Replica are used
-            # in case there was a failed Replica update (where the new values
+            # execution to ensure that the params on the Transfer are used
+            # in case there was a failed Transfer update (where the new values
             # could be in the `.info` field instead of the old ones)
-            migration.info[instance].update({
-                "source_environment": migration.source_environment,
+            deployment.info[instance].update({
+                "source_environment": deployment.source_environment,
                 "target_environment": dest_env})
             # TODO(aznashwan): have these passed separately to the relevant
             # provider methods (they're currently passed directly inside
@@ -1470,20 +1458,20 @@ class ConductorServerEndpoint(object):
             # "network_map": network_map,
             # "storage_mappings": storage_mappings,
 
-            validate_replica_deployment_inputs_task = self._create_task(
+            validate_transfer_deployment_inputs_task = self._create_task(
                 instance,
-                constants.TASK_TYPE_VALIDATE_REPLICA_DEPLOYMENT_INPUTS,
+                constants.TASK_TYPE_VALIDATE_DEPLOYMENT_INPUTS,
                 execution)
 
             validate_osmorphing_minion_task = None
-            last_validation_task = validate_replica_deployment_inputs_task
+            last_validation_task = validate_transfer_deployment_inputs_task
             if not skip_os_morphing and instance in (
-                    migration.instance_osmorphing_minion_pool_mappings):
+                    deployment.instance_osmorphing_minion_pool_mappings):
                 # NOTE: these values are required for the
                 # _check_execution_tasks_sanity call but
                 # will be populated later when the pool
                 # allocations actually happen:
-                migration.info[instance].update({
+                deployment.info[instance].update({
                     "osmorphing_minion_machine_id": None,
                     "osmorphing_minion_provider_properties": None,
                     "osmorphing_minion_connection_info": None})
@@ -1491,27 +1479,27 @@ class ConductorServerEndpoint(object):
                     instance,
                     constants.TASK_TYPE_VALIDATE_OSMORPHING_MINION_POOL_COMPATIBILITY,  # noqa: E501
                     execution, depends_on=[
-                        validate_replica_deployment_inputs_task.id])
+                        validate_transfer_deployment_inputs_task.id])
                 last_validation_task = validate_osmorphing_minion_task
 
             create_snapshot_task = self._create_task(
-                instance, constants.TASK_TYPE_CREATE_REPLICA_DISK_SNAPSHOTS,
+                instance, constants.TASK_TYPE_CREATE_TRANSFER_DISK_SNAPSHOTS,
                 execution, depends_on=[
                     last_validation_task.id])
 
-            deploy_replica_task = self._create_task(
+            deploy_transfer_task = self._create_task(
                 instance,
-                constants.TASK_TYPE_DEPLOY_REPLICA_INSTANCE_RESOURCES,
+                constants.TASK_TYPE_DEPLOY_INSTANCE_RESOURCES,
                 execution,
                 depends_on=[create_snapshot_task.id])
 
-            depends_on = [deploy_replica_task.id]
+            depends_on = [deploy_transfer_task.id]
             if not skip_os_morphing:
                 task_deploy_os_morphing_resources = None
                 attach_osmorphing_minion_volumes_task = None
                 last_osmorphing_resources_deployment_task = None
                 if instance in (
-                        migration.instance_osmorphing_minion_pool_mappings):
+                        deployment.instance_osmorphing_minion_pool_mappings):
                     osmorphing_vol_attachment_deps = [
                         validate_osmorphing_minion_task.id]
                     osmorphing_vol_attachment_deps.extend(depends_on)
@@ -1545,7 +1533,7 @@ class ConductorServerEndpoint(object):
                 depends_on = [task_osmorphing.id]
 
                 if instance in (
-                        migration.instance_osmorphing_minion_pool_mappings):
+                        deployment.instance_osmorphing_minion_pool_mappings):
                     detach_osmorphing_minion_volumes_task = self._create_task(
                         instance,
                         constants.TASK_TYPE_DETACH_VOLUMES_FROM_OSMORPHING_MINION,  # noqa: E501
@@ -1581,13 +1569,13 @@ class ConductorServerEndpoint(object):
 
             finalize_deployment_task = self._create_task(
                 instance,
-                constants.TASK_TYPE_FINALIZE_REPLICA_INSTANCE_DEPLOYMENT,
+                constants.TASK_TYPE_FINALIZE_INSTANCE_DEPLOYMENT,
                 execution,
                 depends_on=depends_on)
 
             self._create_task(
                 instance,
-                constants.TASK_TYPE_DELETE_REPLICA_TARGET_DISK_SNAPSHOTS,
+                constants.TASK_TYPE_DELETE_TRANSFER_TARGET_DISK_SNAPSHOTS,
                 execution, depends_on=[
                     create_snapshot_task.id,
                     finalize_deployment_task.id],
@@ -1595,43 +1583,43 @@ class ConductorServerEndpoint(object):
 
             cleanup_deployment_task = self._create_task(
                 instance,
-                constants.TASK_TYPE_CLEANUP_FAILED_REPLICA_INSTANCE_DEPLOYMENT,
+                constants.TASK_TYPE_CLEANUP_FAILED_INSTANCE_DEPLOYMENT,
                 execution,
                 depends_on=[
-                    deploy_replica_task.id,
+                    deploy_transfer_task.id,
                     finalize_deployment_task.id],
                 on_error_only=True)
 
             if not clone_disks:
                 self._create_task(
                     instance,
-                    constants.TASK_TYPE_RESTORE_REPLICA_DISK_SNAPSHOTS,
+                    constants.TASK_TYPE_RESTORE_TRANSFER_DISK_SNAPSHOTS,
                     execution,
                     depends_on=[cleanup_deployment_task.id],
                     on_error=True)
 
-        self._check_execution_tasks_sanity(execution, migration.info)
-        db_api.add_deployment(ctxt, migration)
-        LOG.info("Migration created: %s", migration.id)
+        self._check_execution_tasks_sanity(execution, deployment.info)
+        db_api.add_deployment(ctxt, deployment)
+        LOG.info("Deployment created: %s", deployment.id)
 
         if not skip_os_morphing and (
-                migration.instance_osmorphing_minion_pool_mappings):
-            # NOTE: we lock on the migration ID to ensure the minion
+                deployment.instance_osmorphing_minion_pool_mappings):
+            # NOTE: we lock on the deployment ID to ensure the minion
             # allocation confirmations don't come in too early:
             with lockutils.lock(
-                    constants.MIGRATION_LOCK_NAME_FORMAT % migration.id,
+                    constants.DEPLOYMENT_LOCK_NAME_FORMAT % deployment.id,
                     external=True):
                 (self._minion_manager_client
-                     .allocate_minion_machines_for_migration(
-                         ctxt, migration, include_transfer_minions=False,
+                     .allocate_minion_machines_for_deployment(
+                         ctxt, deployment, include_transfer_minions=False,
                          include_osmorphing_minions=True))
                 self._set_tasks_execution_status(
                     ctxt, execution,
                     constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS)
         else:
-            self._begin_tasks(ctxt, migration, execution)
+            self._begin_tasks(ctxt, deployment, execution)
 
-        return self.get_migration(ctxt, migration.id)
+        return self.get_deployment(ctxt, deployment.id)
 
     def _get_instance_scripts(self, user_scripts, instance):
         user_scripts = user_scripts or {}
@@ -1710,162 +1698,164 @@ class ConductorServerEndpoint(object):
             db_api.update_transfer_action_info_for_instance(
                 ctxt, action.id, instance, action.info[instance])
 
-    def _get_last_execution_for_replica(self, ctxt, replica, requery=False):
+    def _get_last_execution_for_transfer(self, ctxt, transfer, requery=False):
         if requery:
-            replica = self._get_replica(ctxt, replica.id)
-        last_replica_execution = None
-        if not replica.executions:
-            raise exception.InvalidReplicaState(
-                "Replica with ID '%s' has no existing Replica "
-                "executions." % (replica.id))
-        last_replica_execution = sorted(
-            replica.executions, key=lambda e: e.number)[-1]
-        return last_replica_execution
+            transfer = self._get_transfer(ctxt, transfer.id)
+        last_transfer_execution = None
+        if not transfer.executions:
+            raise exception.InvalidTransferState(
+                "Transfer with ID '%s' has no existing Trasnfer "
+                "executions." % transfer.id)
+        last_transfer_execution = sorted(
+            transfer.executions, key=lambda e: e.number)[-1]
+        return last_transfer_execution
 
-    def _get_execution_for_migration(self, ctxt, migration, requery=False):
+    def _get_execution_for_deployment(self, ctxt, deployment, requery=False):
         if requery:
-            migration = self._get_migration(ctxt, migration.id)
+            deployment = self._get_deployment(ctxt, deployment.id)
 
-        if not migration.executions:
-            raise exception.InvalidMigrationState(
-                "Migration with ID '%s' has no existing executions." % (
-                    migration.id))
-        if len(migration.executions) > 1:
-            raise exception.InvalidMigrationState(
-                "Migration with ID '%s' has more than one execution:"
-                " %s" % (migration.id, [e.id for e in migration.executions]))
-        return migration.executions[0]
+        if not deployment.executions:
+            raise exception.InvalidDeploymentState(
+                "Deployment with ID '%s' has no existing executions." % (
+                    deployment.id))
+        if len(deployment.executions) > 1:
+            raise exception.InvalidDeploymentState(
+                "Deployment with ID '%s' has more than one execution:"
+                " %s" % (deployment.id, [e.id for e in deployment.executions]))
+        return deployment.executions[0]
 
-    @replica_synchronized
-    def confirm_replica_minions_allocation(
-            self, ctxt, replica_id, minion_machine_allocations):
-        replica = self._get_replica(ctxt, replica_id, include_task_info=True)
+    @transfer_synchronized
+    def confirm_transfer_minions_allocation(
+            self, ctxt, transfer_id, minion_machine_allocations):
+        transfer = self._get_transfer(
+            ctxt, transfer_id, include_task_info=True)
 
         awaiting_minions_status = (
             constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS)
-        if replica.last_execution_status != awaiting_minions_status:
-            raise exception.InvalidReplicaState(
-                "Replica is in '%s' status instead of the expected '%s' to "
+        if transfer.last_execution_status != awaiting_minions_status:
+            raise exception.InvalidTransferState(
+                "Transfer is in '%s' status instead of the expected '%s' to "
                 "have minion machines allocated for it." % (
-                    replica.last_execution_status, awaiting_minions_status))
+                    transfer.last_execution_status, awaiting_minions_status))
 
-        last_replica_execution = self._get_last_execution_for_replica(
-            ctxt, replica, requery=False)
+        last_transfer_execution = self._get_last_execution_for_transfer(
+            ctxt, transfer, requery=False)
         self._update_task_info_for_minion_allocations(
-            ctxt, replica, minion_machine_allocations)
+            ctxt, transfer, minion_machine_allocations)
 
-        last_replica_execution = db_api.get_transfer_tasks_execution(
-            ctxt, replica.id, last_replica_execution.id)
+        last_transfer_execution = db_api.get_transfer_tasks_execution(
+            ctxt, transfer.id, last_transfer_execution.id)
         self._begin_tasks(
-            ctxt, replica, last_replica_execution)
+            ctxt, transfer, last_transfer_execution)
 
-    @replica_synchronized
-    def report_replica_minions_allocation_error(
-            self, ctxt, replica_id, minion_allocation_error_details):
-        replica = self._get_replica(ctxt, replica_id)
+    @transfer_synchronized
+    def report_transfer_minions_allocation_error(
+            self, ctxt, transfer_id, minion_allocation_error_details):
+        transfer = self._get_transfer(ctxt, transfer_id)
         awaiting_minions_status = (
             constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS)
-        if replica.last_execution_status != awaiting_minions_status:
-            raise exception.InvalidReplicaState(
-                "Replica is in '%s' status instead of the expected '%s' to "
+        if transfer.last_execution_status != awaiting_minions_status:
+            raise exception.InvalidTransferState(
+                "Transfer is in '%s' status instead of the expected '%s' to "
                 "have minion machines allocations fail for it." % (
-                    replica.last_execution_status, awaiting_minions_status))
+                    transfer.last_execution_status, awaiting_minions_status))
 
-        last_replica_execution = self._get_last_execution_for_replica(
-            ctxt, replica, requery=False)
+        last_transfer_execution = self._get_last_execution_for_transfer(
+            ctxt, transfer, requery=False)
         LOG.warn(
-            "Error occured while allocating minion machines for Replica '%s'. "
-            "Cancelling the current Replica Execution ('%s'). Error was: %s",
-            replica_id, last_replica_execution.id,
+            "Error occurred while allocating minion machines for Transfer "
+            "'%s'. Cancelling the current Transfer Execution ('%s'). "
+            "Error was: %s",
+            transfer_id, last_transfer_execution.id,
             minion_allocation_error_details)
         self._cancel_tasks_execution(
-            ctxt, last_replica_execution, requery=True)
+            ctxt, last_transfer_execution, requery=True)
         self._set_tasks_execution_status(
-            ctxt, last_replica_execution,
+            ctxt, last_transfer_execution,
             constants.EXECUTION_STATUS_ERROR_ALLOCATING_MINIONS)
 
-    @migration_synchronized
-    def confirm_migration_minions_allocation(
-            self, ctxt, migration_id, minion_machine_allocations):
-        migration = self._get_migration(
-            ctxt, migration_id, include_task_info=True)
+    @deployment_synchronized
+    def confirm_deployment_minions_allocation(
+            self, ctxt, deployment_id, minion_machine_allocations):
+        deployment = self._get_deployment(
+            ctxt, deployment_id, include_task_info=True)
 
         awaiting_minions_status = (
             constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS)
-        if migration.last_execution_status != awaiting_minions_status:
-            raise exception.InvalidMigrationState(
-                "Migration is in '%s' status instead of the expected '%s' to "
+        if deployment.last_execution_status != awaiting_minions_status:
+            raise exception.InvalidDeploymentState(
+                "Deployment is in '%s' status instead of the expected '%s' to "
                 "have minion machines allocated for it." % (
-                    migration.last_execution_status, awaiting_minions_status))
+                    deployment.last_execution_status, awaiting_minions_status))
 
-        execution = self._get_execution_for_migration(
-            ctxt, migration, requery=False)
+        execution = self._get_execution_for_deployment(
+            ctxt, deployment, requery=False)
         self._update_task_info_for_minion_allocations(
-            ctxt, migration, minion_machine_allocations)
-        self._begin_tasks(ctxt, migration, execution)
+            ctxt, deployment, minion_machine_allocations)
+        self._begin_tasks(ctxt, deployment, execution)
 
-    @migration_synchronized
-    def report_migration_minions_allocation_error(
-            self, ctxt, migration_id, minion_allocation_error_details):
-        migration = self._get_migration(ctxt, migration_id)
+    @deployment_synchronized
+    def report_deployment_minions_allocation_error(
+            self, ctxt, deployment_id, minion_allocation_error_details):
+        deployment = self._get_deployment(ctxt, deployment_id)
         awaiting_minions_status = (
             constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS)
-        if migration.last_execution_status != awaiting_minions_status:
-            raise exception.InvalidMigrationState(
-                "Migration is in '%s' status instead of the expected '%s' to "
+        if deployment.last_execution_status != awaiting_minions_status:
+            raise exception.InvalidDeploymentState(
+                "Deployment is in '%s' status instead of the expected '%s' to "
                 "have minion machines allocations fail for it." % (
-                    migration.last_execution_status, awaiting_minions_status))
+                    deployment.last_execution_status, awaiting_minions_status))
 
-        execution = self._get_execution_for_migration(
-            ctxt, migration, requery=False)
+        execution = self._get_execution_for_deployment(
+            ctxt, deployment, requery=False)
         LOG.warn(
             "Error occured while allocating minion machines for "
-            "Migration '%s'. Cancelling the current Execution ('%s'). "
+            "Deployment '%s'. Cancelling the current Execution ('%s'). "
             "Error was: %s",
-            migration_id, execution.id, minion_allocation_error_details)
+            deployment_id, execution.id, minion_allocation_error_details)
         self._cancel_tasks_execution(
             ctxt, execution, requery=True)
         self._set_tasks_execution_status(
             ctxt, execution,
             constants.EXECUTION_STATUS_ERROR_ALLOCATING_MINIONS)
 
-    def _get_migration(self, ctxt, migration_id, include_task_info=False,
-                       to_dict=False):
-        migration = db_api.get_deployment(
-            ctxt, migration_id, include_task_info=include_task_info,
+    def _get_deployment(self, ctxt, deployment_id, include_task_info=False,
+                        to_dict=False):
+        deployment = db_api.get_deployment(
+            ctxt, deployment_id, include_task_info=include_task_info,
             to_dict=to_dict)
-        if not migration:
+        if not deployment:
             raise exception.NotFound(
-                "Migration with ID '%s' not found." % migration_id)
-        return migration
+                "Deployment with ID '%s' not found." % deployment_id)
+        return deployment
 
-    def _delete_migration(self, ctxt, migration_id):
-        migration = self._get_migration(ctxt, migration_id)
-        execution = migration.executions[0]
+    def _delete_deployment(self, ctxt, deployment_id):
+        deployment = self._get_deployment(ctxt, deployment_id)
+        execution = deployment.executions[0]
         if execution.status in constants.ACTIVE_EXECUTION_STATUSES:
-            raise exception.InvalidMigrationState(
-                "Cannot delete Migration '%s' as it is currently in "
-                "'%s' state." % (migration_id, execution.status))
-        db_api.delete_deployment(ctxt, migration_id)
+            raise exception.InvalidDeploymentState(
+                "Cannot delete Deployment '%s' as it is currently in "
+                "'%s' state." % (deployment_id, execution.status))
+        db_api.delete_deployment(ctxt, deployment_id)
 
     @deployment_synchronized
     def delete_deployment(self, ctxt, deployment_id):
-        self._delete_migration(ctxt, deployment_id)
+        self._delete_deployment(ctxt, deployment_id)
 
-    def _cancel_migration(self, ctxt, migration_id, force):
-        migration = self._get_migration(ctxt, migration_id)
-        if len(migration.executions) != 1:
-            raise exception.InvalidMigrationState(
-                "Migration '%s' has in improper number of tasks "
-                "executions: %d" % (migration_id, len(migration.executions)))
-        execution = migration.executions[0]
+    def _cancel_deployment(self, ctxt, deployment_id, force):
+        deployment = self._get_deployment(ctxt, deployment_id)
+        if len(deployment.executions) != 1:
+            raise exception.InvalidDeploymentState(
+                "Deployment '%s' has in improper number of tasks "
+                "executions: %d" % (deployment_id, len(deployment.executions)))
+        execution = deployment.executions[0]
         if execution.status not in constants.ACTIVE_EXECUTION_STATUSES:
-            raise exception.InvalidMigrationState(
-                "Migration '%s' is not currently running" % migration_id)
+            raise exception.InvalidDeploymentState(
+                "Deployment '%s' is not currently running" % deployment_id)
         if execution.status == constants.EXECUTION_STATUS_CANCELLING and (
                 not force):
-            raise exception.InvalidMigrationState(
-                "Migration '%s' is already being cancelled. Please use the "
+            raise exception.InvalidDeploymentState(
+                "Deployment '%s' is already being cancelled. Please use the "
                 "force option if you'd like to force-cancel it.")
 
         with lockutils.lock(
@@ -1875,7 +1865,7 @@ class ConductorServerEndpoint(object):
 
     @deployment_synchronized
     def cancel_deployment(self, ctxt, deployment_id, force):
-        self._cancel_migration(ctxt, deployment_id, force)
+        self._cancel_deployment(ctxt, deployment_id, force)
 
     def _cancel_tasks_execution(
             self, ctxt, execution, requery=True, force=False):
@@ -2052,50 +2042,50 @@ class ConductorServerEndpoint(object):
         """ Updates the reservation fulfillment status for the parent
         transfer action of the given execution based on its type.
 
-        Replica transfers are marked as fulfilled as soon as a Replica
+        Replica transfers are marked as fulfilled as soon as a Transfer
         Execution is successfully completed.
         Live migration transfers are marked as fulfilled as soon as they
         are deployed for the first (and only) time.
         """
         if execution.type not in (
-                constants.EXECUTION_TYPE_REPLICA_EXECUTION,
-                constants.EXECUTION_TYPE_REPLICA_DEPLOY):
+                constants.EXECUTION_TYPE_TRANSFER_EXECUTION,
+                constants.EXECUTION_TYPE_DEPLOYMENT):
             LOG.debug(
                 f"Skipping setting reservation fulfillment for execution "
                 f"'{execution.id}' of type '{execution.type}'.")
             return
 
         if execution.type not in (
-                constants.EXECUTION_TYPE_REPLICA_EXECUTION,
-                constants.EXECUTION_TYPE_REPLICA_DEPLOY):
+                constants.EXECUTION_TYPE_TRANSFER_EXECUTION,
+                constants.EXECUTION_TYPE_DEPLOYMENT):
             LOG.debug(
-                f"Skipping setting replica fulfillment for execution "
+                f"Skipping setting transfer fulfillment for execution "
                 f"'{execution.id}' of type '{execution.type}'.")
             return
 
         transfer_action = execution.action
         transfer_id = transfer_action.base_id
-        if transfer_action.type == constants.TRANSFER_ACTION_TYPE_MIGRATION:
-            deployment = self._get_migration(ctxt, transfer_id)
+        if transfer_action.type == constants.TRANSFER_ACTION_TYPE_DEPLOYMENT:
+            deployment = self._get_deployment(ctxt, transfer_id)
             transfer_id = deployment.transfer_id
-            transfer_action = self._get_replica(
+            transfer_action = self._get_transfer(
                 ctxt, transfer_id, include_task_info=False)
         else:
-            transfer_action = self._get_replica(
+            transfer_action = self._get_transfer(
                 ctxt, execution.action_id, include_task_info=False)
 
         scenario = transfer_action.scenario
-        if scenario == constants.REPLICA_SCENARIO_REPLICA and (
-                execution.type == constants.EXECUTION_TYPE_REPLICA_EXECUTION):
+        if scenario == constants.TRANSFER_SCENARIO_REPLICA and (
+                execution.type == constants.EXECUTION_TYPE_TRANSFER_EXECUTION):
             self._check_mark_reservation_fulfilled(
                 transfer_action, must_unfulfilled=False)
-        elif scenario == constants.REPLICA_SCENARIO_LIVE_MIGRATION and (
-                execution.type == constants.EXECUTION_TYPE_REPLICA_DEPLOY):
+        elif scenario == constants.TRANSFER_SCENARIO_LIVE_MIGRATION and (
+                execution.type == constants.EXECUTION_TYPE_DEPLOYMENT):
             self._check_mark_reservation_fulfilled(
                 transfer_action, must_unfulfilled=False)
         else:
             LOG.debug(
-                f"Skipping setting replica fulfillment for execution "
+                f"Skipping setting transfer fulfillment for execution "
                 f"'{execution.id}' of type '{execution.type}' on parent"
                 f"action {transfer_id} of scenario type "
                 f"{transfer_action.scenario}.")
@@ -2368,7 +2358,7 @@ class ConductorServerEndpoint(object):
                     requery=not requery) == (
                         constants.EXECUTION_STATUS_DEADLOCKED):
                 LOG.error(
-                    "Execution '%s' deadlocked even before Replica state "
+                    "Execution '%s' deadlocked even before Transfer state "
                     "advancement . Cleanup has been perfomed. Returning.",
                     execution.id)
             return []
@@ -2597,9 +2587,9 @@ class ConductorServerEndpoint(object):
                     ctxt, execution, task_statuses=task_statuses) == (
                         constants.EXECUTION_STATUS_DEADLOCKED):
                 LOG.error(
-                    "Execution '%s' deadlocked after Replica state advancement"
-                    ". Cleanup has been perfomed. Returning early.",
-                    execution.id)
+                    "Execution '%s' deadlocked after Transfer state "
+                    "advancement. Cleanup has been performed. "
+                    "Returning early.", execution.id)
                 return []
             LOG.debug(
                 "No new tasks were started for execution '%s'", execution.id)
@@ -2623,26 +2613,27 @@ class ConductorServerEndpoint(object):
 
         return started_tasks
 
-    def _update_replica_volumes_info(self, ctxt, replica_id, instance,
-                                     updated_task_info):
-        """ WARN: the lock for the Replica must be pre-acquired. """
+    @staticmethod
+    def _update_transfer_volumes_info(ctxt, transfer_id, instance,
+                                      updated_task_info):
+        """ WARN: the lock for the Transfer must be pre-acquired. """
         db_api.update_transfer_action_info_for_instance(
-            ctxt, replica_id, instance,
+            ctxt, transfer_id, instance,
             updated_task_info)
 
-    def _update_volumes_info_for_migration_parent_replica(
-            self, ctxt, migration_id, instance, updated_task_info):
-        migration = db_api.get_deployment(ctxt, migration_id)
-        replica_id = migration.transfer_id
+    def _update_volumes_info_for_deployment_parent_transfer(
+            self, ctxt, deployment_id, instance, updated_task_info):
+        deployment = db_api.get_deployment(ctxt, deployment_id)
+        transfer_id = deployment.transfer_id
 
         with lockutils.lock(
-                constants.REPLICA_LOCK_NAME_FORMAT % replica_id,
+                constants.TRANSFER_LOCK_NAME_FORMAT % transfer_id,
                 external=True):
             LOG.debug(
-                "Updating volume_info in replica due to snapshot "
-                "restore during migration. replica id: %s", replica_id)
-            self._update_replica_volumes_info(
-                ctxt, replica_id, instance, updated_task_info)
+                "Updating volume_info in transfer due to snapshot "
+                "restore during deployment. transfer id: %s", transfer_id)
+            self._update_transfer_volumes_info(
+                ctxt, transfer_id, instance, updated_task_info)
 
     def _handle_post_task_actions(self, ctxt, task, execution, task_info):
         task_type = task.task_type
@@ -2657,11 +2648,11 @@ class ConductorServerEndpoint(object):
                     break
             return still_running
 
-        if task_type == constants.TASK_TYPE_RESTORE_REPLICA_DISK_SNAPSHOTS:
+        if task_type == constants.TASK_TYPE_RESTORE_TRANSFER_DISK_SNAPSHOTS:
 
             # When restoring a snapshot in some import providers (OpenStack),
             # a new volume_id is generated. This needs to be updated in the
-            # Replica instance as well.
+            # Transfer instance as well.
             volumes_info = task_info.get('volumes_info')
             if not volumes_info:
                 LOG.warn(
@@ -2675,30 +2666,28 @@ class ConductorServerEndpoint(object):
                     task.instance, execution.action_id, task.id, task_type,
                     utils.sanitize_task_info(
                         {'volumes_info': volumes_info}))
-                self._update_volumes_info_for_migration_parent_replica(
+                self._update_volumes_info_for_deployment_parent_transfer(
                     ctxt, execution.action_id, task.instance,
                     {"volumes_info": volumes_info})
 
         elif task_type == (
-                constants.TASK_TYPE_DELETE_REPLICA_TARGET_DISK_SNAPSHOTS):
+                constants.TASK_TYPE_DELETE_TRANSFER_TARGET_DISK_SNAPSHOTS):
 
             if not task_info.get("clone_disks"):
-                # The migration completed. If the replica is executed again,
-                # new volumes need to be deployed in place of the migrated
+                # The deployment completed. If the transfer is executed again,
+                # new volumes need to be created in place of the deployed
                 # ones.
                 LOG.info(
-                    "Unsetting 'volumes_info' for instance '%s' in Replica "
-                    "'%s' after completion of Replica task '%s' (type '%s') "
-                    "with clone_disks=False.",
+                    "Unsetting 'volumes_info' for instance '%s' in Transfer "
+                    "'%s' after completion of Transfer task '%s' "
+                    "(type '%s') with clone_disks=False.",
                     task.instance, execution.action_id, task.id,
                     task_type)
-                self._update_volumes_info_for_migration_parent_replica(
+                self._update_volumes_info_for_deployment_parent_transfer(
                     ctxt, execution.action_id, task.instance,
                     {"volumes_info": []})
 
-        elif task_type in (
-                constants.TASK_TYPE_FINALIZE_REPLICA_INSTANCE_DEPLOYMENT,
-                constants.TASK_TYPE_FINALIZE_INSTANCE_DEPLOYMENT):
+        elif task_type == constants.TASK_TYPE_FINALIZE_INSTANCE_DEPLOYMENT:
             # set 'transfer_result' in the 'base_transfer_action'
             # table if the task returned a result.
             if "transfer_result" in task_info:
@@ -2724,30 +2713,30 @@ class ConductorServerEndpoint(object):
                     "No 'transfer_result' was returned for task type '%s' "
                     "for transfer action '%s'", task_type, execution.action_id)
         elif task_type in (
-                constants.TASK_TYPE_UPDATE_SOURCE_REPLICA,
-                constants.TASK_TYPE_UPDATE_DESTINATION_REPLICA):
+                constants.TASK_TYPE_UPDATE_SOURCE_TRANSFER,
+                constants.TASK_TYPE_UPDATE_DESTINATION_TRANSFER):
             # NOTE: remember to update the `volumes_info`:
             # NOTE: considering this method is only called with a lock on the
-            # `execution.action_id` (in a Replica update tasks' case that's the
-            # ID of the Replica itself) we can safely call
-            # `_update_replica_volumes_info` below:
-            self._update_replica_volumes_info(
+            # `execution.action_id` (in a Transfer update tasks' case that's
+            # the ID of the Transfer itself) we can safely call
+            # `_update_transfer_volumes_info` below:
+            self._update_transfer_volumes_info(
                 ctxt, execution.action_id, task.instance,
                 {"volumes_info": task_info.get("volumes_info", [])})
 
-            if task_type == constants.TASK_TYPE_UPDATE_DESTINATION_REPLICA:
+            if task_type == constants.TASK_TYPE_UPDATE_DESTINATION_TRANSFER:
                 # check if this was the last task in the update execution:
                 still_running = _check_other_tasks_running(execution, task)
                 if not still_running:
                     # it means this was the last update task in the Execution
-                    # and we may safely update the params of the Replica
+                    # and we may safely update the params of the Transfer
                     # as they are in the DB:
                     LOG.info(
-                        "All tasks of the '%s' Replica update procedure have "
+                        "All tasks of the '%s' Transfer update procedure have "
                         "completed successfully.  Setting the updated "
-                        "parameter values on the parent Replica itself.",
+                        "parameter values on the parent Transfer itself.",
                         execution.action_id)
-                    # NOTE: considering all the instances of the Replica get
+                    # NOTE: considering all the instances of the Transfer get
                     # the same params, it doesn't matter which instance's
                     # update task finishes last:
                     db_api.update_transfer(
@@ -3077,10 +3066,6 @@ class ConductorServerEndpoint(object):
                 "confirmation of its cancellation.",
                 task.id, task.status, final_status)
             execution = db_api.get_tasks_execution(ctxt, task.execution_id)
-            if execution.type == constants.EXECUTION_TYPE_MIGRATION:
-                action = db_api.get_action(
-                    ctxt, execution.action_id, include_task_info=False)
-                self._check_delete_reservation_for_transfer(action)
             self._advance_execution_state(ctxt, execution, requery=False)
 
     @parent_tasks_execution_synchronized
@@ -3183,7 +3168,7 @@ class ConductorServerEndpoint(object):
                             "connection info. Original error was: %s" % (
                                 exception_details)))
                     LOG.warn(
-                        "All subtasks for Migration '%s' have been cancelled "
+                        "All subtasks for Deployment '%s' have been cancelled "
                         "to allow for OSMorphing debugging. The connection "
                         "info for the worker VM is: %s",
                         action_id, action.info.get(task.instance, {}).get(
@@ -3239,97 +3224,98 @@ class ConductorServerEndpoint(object):
             ctxt, task_id, progress_update_index, new_current_step,
             new_total_steps=new_total_steps, new_message=new_message)
 
-    def _get_replica_schedule(self, ctxt, replica_id,
-                              schedule_id, expired=True):
+    @staticmethod
+    def _get_transfer_schedule(ctxt, transfer_id, schedule_id, expired=True):
         schedule = db_api.get_transfer_schedule(
-            ctxt, replica_id, schedule_id, expired=expired)
+            ctxt, transfer_id, schedule_id, expired=expired)
         if not schedule:
             raise exception.NotFound(
-                "Schedule with ID '%s' for Replica '%s' not found." % (
-                    schedule_id, replica_id))
+                "Schedule with ID '%s' for Transfer '%s' not found." % (
+                    schedule_id, transfer_id))
         return schedule
 
-    def create_replica_schedule(self, ctxt, replica_id,
-                                schedule, enabled, exp_date,
-                                shutdown_instance):
+    def create_transfer_schedule(self, ctxt, transfer_id,
+                                 schedule, enabled, exp_date,
+                                 shutdown_instance):
         keystone.create_trust(ctxt)
-        replica = self._get_replica(ctxt, replica_id)
-        replica_schedule = models.TransferSchedule()
-        replica_schedule.id = str(uuid.uuid4())
-        replica_schedule.transfer = replica
-        replica_schedule.transfer_id = replica_id
-        replica_schedule.schedule = schedule
-        replica_schedule.expiration_date = exp_date
-        replica_schedule.enabled = enabled
-        replica_schedule.shutdown_instance = shutdown_instance
-        replica_schedule.trust_id = ctxt.trust_id
+        transfer = self._get_transfer(ctxt, transfer_id)
+        transfer_schedule = models.TransferSchedule()
+        transfer_schedule.id = str(uuid.uuid4())
+        transfer_schedule.transfer = transfer
+        transfer_schedule.transfer_id = transfer_id
+        transfer_schedule.schedule = schedule
+        transfer_schedule.expiration_date = exp_date
+        transfer_schedule.enabled = enabled
+        transfer_schedule.shutdown_instance = shutdown_instance
+        transfer_schedule.trust_id = ctxt.trust_id
 
         db_api.add_transfer_schedule(
-            ctxt, replica_schedule,
-            lambda ctxt, sched: self._replica_cron_client.register(
+            ctxt, transfer_schedule,
+            lambda ctxt, sched: self._transfer_cron_client.register(
                 ctxt, sched))
-        return self.get_replica_schedule(
-            ctxt, replica_id, replica_schedule.id)
+        return self.get_transfer_schedule(
+            ctxt, transfer_id, transfer_schedule.id)
 
     @schedule_synchronized
-    def update_replica_schedule(self, ctxt, replica_id, schedule_id,
-                                updated_values):
+    def update_transfer_schedule(self, ctxt, transfer_id, schedule_id,
+                                 updated_values):
         db_api.update_transfer_schedule(
-            ctxt, replica_id, schedule_id, updated_values, None,
-            lambda ctxt, sched: self._replica_cron_client.register(
+            ctxt, transfer_id, schedule_id, updated_values, None,
+            lambda ctxt, sched: self._transfer_cron_client.register(
                 ctxt, sched))
-        return self._get_replica_schedule(ctxt, replica_id, schedule_id)
+        return self._get_transfer_schedule(ctxt, transfer_id, schedule_id)
 
     def _cleanup_schedule_resources(self, ctxt, schedule):
-        self._replica_cron_client.unregister(ctxt, schedule)
+        self._transfer_cron_client.unregister(ctxt, schedule)
         if schedule.trust_id:
             tmp_trust = context.get_admin_context(
                 trust_id=schedule.trust_id)
             keystone.delete_trust(tmp_trust)
 
     @schedule_synchronized
-    def delete_replica_schedule(self, ctxt, replica_id, schedule_id):
-        replica = self._get_replica(ctxt, replica_id)
-        replica_status = replica.last_execution_status
+    def delete_transfer_schedule(self, ctxt, transfer_id, schedule_id):
+        transfer = self._get_transfer(ctxt, transfer_id)
+        transfer_status = transfer.last_execution_status
         valid_statuses = list(itertools.chain(
             constants.FINALIZED_EXECUTION_STATUSES,
             [constants.EXECUTION_STATUS_UNEXECUTED]))
-        if replica_status not in valid_statuses:
-            raise exception.InvalidReplicaState(
-                'Replica Schedule cannot be deleted while the Replica is in '
-                '%s state. Please wait for the Replica execution to finish' %
-                (replica_status))
+        if transfer_status not in valid_statuses:
+            raise exception.InvalidTransferState(
+                'Transfer Schedule cannot be deleted while the Transfer is in '
+                '%s state. Please wait for the Transfer execution to finish' %
+                (transfer_status))
         db_api.delete_transfer_schedule(
-            ctxt, replica_id, schedule_id, None,
+            ctxt, transfer_id, schedule_id, None,
             lambda ctxt, sched: self._cleanup_schedule_resources(
                 ctxt, sched))
 
-    @replica_synchronized
-    def get_replica_schedules(self, ctxt, replica_id=None, expired=True):
+    @transfer_synchronized
+    def get_transfer_schedules(self, ctxt, transfer_id=None, expired=True):
         return db_api.get_transfer_schedules(
-            ctxt, transfer_id=replica_id, expired=expired)
+            ctxt, transfer_id=transfer_id, expired=expired)
 
     @schedule_synchronized
-    def get_replica_schedule(self, ctxt, replica_id,
-                             schedule_id, expired=True):
-        return self._get_replica_schedule(
-            ctxt, replica_id, schedule_id, expired=expired)
+    def get_transfer_schedule(self, ctxt, transfer_id,
+                              schedule_id, expired=True):
+        return self._get_transfer_schedule(
+            ctxt, transfer_id, schedule_id, expired=expired)
 
-    @replica_synchronized
-    def update_replica(
-            self, ctxt, replica_id, updated_properties):
-        replica = self._get_replica(ctxt, replica_id, include_task_info=True)
+    @transfer_synchronized
+    def update_transfer(
+            self, ctxt, transfer_id, updated_properties):
+        transfer = self._get_transfer(
+            ctxt, transfer_id, include_task_info=True)
 
         minion_pool_fields = [
             "origin_minion_pool_id", "destination_minion_pool_id",
             "instance_osmorphing_minion_pool_mappings"]
         if any([mpf in updated_properties for mpf in minion_pool_fields]):
-            # NOTE: this is just a dummy Replica model to use for validation:
+            # NOTE: this is just a dummy Transfer model to use for validation:
             dummy = models.Transfer()
-            dummy.id = replica.id
-            dummy.instances = replica.instances
-            dummy.origin_endpoint_id = replica.origin_endpoint_id
-            dummy.destination_endpoint_id = replica.destination_endpoint_id
+            dummy.id = transfer.id
+            dummy.instances = transfer.instances
+            dummy.origin_endpoint_id = transfer.origin_endpoint_id
+            dummy.destination_endpoint_id = transfer.destination_endpoint_id
             dummy.origin_minion_pool_id = updated_properties.get(
                 'origin_minion_pool_id')
             dummy.destination_minion_pool_id = updated_properties.get(
@@ -3339,33 +3325,33 @@ class ConductorServerEndpoint(object):
                     'instance_osmorphing_minion_pool_mappings'))
             self._check_minion_pools_for_action(ctxt, dummy)
 
-        self._check_replica_running_executions(ctxt, replica)
-        self._check_valid_replica_tasks_execution(replica, force=True)
+        self._check_transfer_running_executions(ctxt, transfer)
+        self._check_valid_transfer_tasks_execution(transfer, force=True)
         if updated_properties.get('user_scripts'):
-            replica.user_scripts = updated_properties['user_scripts']
+            transfer.user_scripts = updated_properties['user_scripts']
         execution = models.TasksExecution()
         execution.id = str(uuid.uuid4())
         execution.status = constants.EXECUTION_STATUS_UNEXECUTED
-        execution.action = replica
-        execution.type = constants.EXECUTION_TYPE_REPLICA_UPDATE
+        execution.action = transfer
+        execution.type = constants.EXECUTION_TYPE_TRANSFER_UPDATE
 
-        for instance in replica.instances:
+        for instance in transfer.instances:
             LOG.debug(
-                "Pre-replica-update task_info for instance '%s' of Replica "
-                "'%s': %s", instance, replica_id,
+                "Pre-transfer-update task_info for instance '%s' of Transfer "
+                "'%s': %s", instance, transfer_id,
                 utils.sanitize_task_info(
-                    replica.info[instance]))
+                    transfer.info[instance]))
 
             # NOTE: "circular assignment" would lead to a `None` value
             # so we must operate on a copy:
-            inst_info_copy = copy.deepcopy(replica.info[instance])
+            inst_info_copy = copy.deepcopy(transfer.info[instance])
 
             # NOTE: we update the various values in the task info itself
             # As a result, the values within the task_info will be the updated
             # values which will be checked. The old values will be sent to the
             # tasks through the origin/destination parameters for them to be
             # compared to the new ones.
-            # The actual values on the Replica object itself will be set
+            # The actual values on the Transfer object itself will be set
             # during _handle_post_task_actions once the final destination-side
             # update task will be completed.
             inst_info_copy.update({
@@ -3377,45 +3363,45 @@ class ConductorServerEndpoint(object):
             if "destination_environment" in updated_properties:
                 inst_info_copy["target_environment"] = updated_properties[
                     "destination_environment"]
-            replica.info[instance] = inst_info_copy
+            transfer.info[instance] = inst_info_copy
 
             LOG.debug(
-                "Updated task_info for instance '%s' of Replica "
+                "Updated task_info for instance '%s' of Transfer "
                 "'%s' which will be verified during update procedure: %s",
-                instance, replica_id, utils.sanitize_task_info(
-                    replica.info[instance]))
+                instance, transfer_id, utils.sanitize_task_info(
+                    transfer.info[instance]))
 
             get_instance_info_task = self._create_task(
                 instance, constants.TASK_TYPE_GET_INSTANCE_INFO,
                 execution)
-            update_source_replica_task = self._create_task(
-                instance, constants.TASK_TYPE_UPDATE_SOURCE_REPLICA,
+            update_source_transfer_task = self._create_task(
+                instance, constants.TASK_TYPE_UPDATE_SOURCE_TRANSFER,
                 execution)
             self._create_task(
-                instance, constants.TASK_TYPE_UPDATE_DESTINATION_REPLICA,
+                instance, constants.TASK_TYPE_UPDATE_DESTINATION_TRANSFER,
                 execution,
                 depends_on=[
                     get_instance_info_task.id,
                     # NOTE: the dest-side update task must be done after
                     # the source-side one as both can potentially modify
                     # the 'volumes_info' together:
-                    update_source_replica_task.id])
+                    update_source_transfer_task.id])
 
-        self._check_execution_tasks_sanity(execution, replica.info)
+        self._check_execution_tasks_sanity(execution, transfer.info)
 
-        # update the action info for all of the instances in the Replica:
+        # update the action info for all of the instances in the Transfer:
         for instance in execution.action.instances:
             db_api.update_transfer_action_info_for_instance(
-                ctxt, replica.id, instance, replica.info[instance])
+                ctxt, transfer.id, instance, transfer.info[instance])
 
         db_api.add_transfer_tasks_execution(ctxt, execution)
-        LOG.debug("Execution for Replica update tasks created: %s",
+        LOG.debug("Execution for Transfer update tasks created: %s",
                   execution.id)
 
-        self._begin_tasks(ctxt, replica, execution)
+        self._begin_tasks(ctxt, transfer, execution)
 
-        return self.get_replica_tasks_execution(
-            ctxt, replica_id, execution.id)
+        return self.get_transfer_tasks_execution(
+            ctxt, transfer_id, execution.id)
 
     def get_diagnostics(self, ctxt):
         diagnostics = utils.get_diagnostics_info()

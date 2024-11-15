@@ -9,11 +9,11 @@ from coriolis import rpc
 VERSION = "1.0"
 
 
-class ReplicaCronClient(rpc.BaseRPCClient):
-    def __init__(self, topic=constants.REPLICA_CRON_MAIN_MESSAGING_TOPIC):
+class TransferCronClient(rpc.BaseRPCClient):
+    def __init__(self, topic=constants.TRANSFER_CRON_MAIN_MESSAGING_TOPIC):
         target = messaging.Target(
             topic=topic, version=VERSION)
-        super(ReplicaCronClient, self).__init__(target)
+        super(TransferCronClient, self).__init__(target)
 
     def register(self, ctxt, schedule):
         self._call(ctxt, 'register', schedule=schedule)

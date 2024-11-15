@@ -10,22 +10,22 @@ class API(object):
 
     def create(self, ctxt, replica_id, schedule, enabled,
                exp_date, shutdown_instance):
-        return self._rpc_client.create_replica_schedule(
+        return self._rpc_client.create_transfer_schedule(
             ctxt, replica_id, schedule, enabled, exp_date,
             shutdown_instance)
 
     def get_schedules(self, ctxt, replica_id, expired=True):
-        return self._rpc_client.get_replica_schedules(
+        return self._rpc_client.get_transfer_schedules(
             ctxt, replica_id, expired=expired)
 
     def get_schedule(self, ctxt, replica_id, schedule_id, expired=True):
-        return self._rpc_client.get_replica_schedule(
+        return self._rpc_client.get_transfer_schedule(
             ctxt, replica_id, schedule_id, expired=expired)
 
     def update(self, ctxt, replica_id, schedule_id, update_values):
-        return self._rpc_client.update_replica_schedule(
+        return self._rpc_client.update_transfer_schedule(
             ctxt, replica_id, schedule_id, update_values)
 
     def delete(self, ctxt, replica_id, schedule_id):
-        self._rpc_client.delete_replica_schedule(
+        self._rpc_client.delete_transfer_schedule(
             ctxt, replica_id, schedule_id)

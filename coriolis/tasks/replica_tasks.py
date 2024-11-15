@@ -93,13 +93,13 @@ class GetInstanceInfoTask(base.TaskRunner):
     def get_required_provider_types(cls):
         return {
             constants.PROVIDER_PLATFORM_SOURCE: [
-                constants.PROVIDER_TYPE_REPLICA_EXPORT]
+                constants.PROVIDER_TYPE_TRANSFER_EXPORT]
         }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
         provider = providers_factory.get_provider(
-            origin["type"], constants.PROVIDER_TYPE_REPLICA_EXPORT,
+            origin["type"], constants.PROVIDER_TYPE_TRANSFER_EXPORT,
             event_handler)
         connection_info = base.get_connection_info(ctxt, origin)
 
@@ -134,13 +134,13 @@ class ShutdownInstanceTask(base.TaskRunner):
     def get_required_provider_types(cls):
         return {
             constants.PROVIDER_PLATFORM_SOURCE: [
-                constants.PROVIDER_TYPE_REPLICA_EXPORT]
+                constants.PROVIDER_TYPE_TRANSFER_EXPORT]
         }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
         provider = providers_factory.get_provider(
-            origin["type"], constants.PROVIDER_TYPE_REPLICA_EXPORT,
+            origin["type"], constants.PROVIDER_TYPE_TRANSFER_EXPORT,
             event_handler)
         connection_info = base.get_connection_info(ctxt, origin)
 
@@ -175,13 +175,13 @@ class ReplicateDisksTask(base.TaskRunner):
     def get_required_provider_types(cls):
         return {
             constants.PROVIDER_PLATFORM_SOURCE: [
-                constants.PROVIDER_TYPE_REPLICA_EXPORT]
+                constants.PROVIDER_TYPE_TRANSFER_EXPORT]
         }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
         provider = providers_factory.get_provider(
-            origin["type"], constants.PROVIDER_TYPE_REPLICA_EXPORT,
+            origin["type"], constants.PROVIDER_TYPE_TRANSFER_EXPORT,
             event_handler)
         connection_info = base.get_connection_info(ctxt, origin)
         export_info = task_info["export_info"]
@@ -245,7 +245,7 @@ class DeployReplicaDisksTask(base.TaskRunner):
     def get_required_provider_types(cls):
         return {
             constants.PROVIDER_PLATFORM_DESTINATION: [
-                constants.PROVIDER_TYPE_REPLICA_IMPORT]
+                constants.PROVIDER_TYPE_TRANSFER_IMPORT]
         }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
@@ -254,7 +254,7 @@ class DeployReplicaDisksTask(base.TaskRunner):
         export_info = task_info["export_info"]
 
         provider = providers_factory.get_provider(
-            destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            destination["type"], constants.PROVIDER_TYPE_TRANSFER_IMPORT,
             event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
 
@@ -291,7 +291,7 @@ class DeleteReplicaSourceDiskSnapshotsTask(base.TaskRunner):
     def get_required_provider_types(cls):
         return {
             constants.PROVIDER_PLATFORM_SOURCE: [
-                constants.PROVIDER_TYPE_REPLICA_EXPORT]
+                constants.PROVIDER_TYPE_TRANSFER_EXPORT]
         }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
@@ -305,7 +305,7 @@ class DeleteReplicaSourceDiskSnapshotsTask(base.TaskRunner):
             return {'volumes_info': []}
 
         provider = providers_factory.get_provider(
-            origin['type'], constants.PROVIDER_TYPE_REPLICA_EXPORT,
+            origin['type'], constants.PROVIDER_TYPE_TRANSFER_EXPORT,
             event_handler)
         connection_info = base.get_connection_info(ctxt, origin)
         source_environment = task_info['source_environment']
@@ -337,7 +337,7 @@ class DeleteReplicaDisksTask(base.TaskRunner):
     def get_required_provider_types(cls):
         return {
             constants.PROVIDER_PLATFORM_DESTINATION: [
-                constants.PROVIDER_TYPE_REPLICA_IMPORT]
+                constants.PROVIDER_TYPE_TRANSFER_IMPORT]
         }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
@@ -351,7 +351,7 @@ class DeleteReplicaDisksTask(base.TaskRunner):
             return {'volumes_info': []}
 
         provider = providers_factory.get_provider(
-            destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            destination["type"], constants.PROVIDER_TYPE_TRANSFER_IMPORT,
             event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
 
@@ -389,13 +389,13 @@ class DeployReplicaSourceResourcesTask(base.TaskRunner):
     def get_required_provider_types(cls):
         return {
             constants.PROVIDER_PLATFORM_SOURCE: [
-                constants.PROVIDER_TYPE_REPLICA_EXPORT]
+                constants.PROVIDER_TYPE_TRANSFER_EXPORT]
         }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
         provider = providers_factory.get_provider(
-            origin["type"], constants.PROVIDER_TYPE_REPLICA_EXPORT,
+            origin["type"], constants.PROVIDER_TYPE_TRANSFER_EXPORT,
             event_handler)
         connection_info = base.get_connection_info(ctxt, origin)
 
@@ -460,13 +460,13 @@ class DeleteReplicaSourceResourcesTask(base.TaskRunner):
     def get_required_provider_types(cls):
         return {
             constants.PROVIDER_PLATFORM_SOURCE: [
-                constants.PROVIDER_TYPE_REPLICA_EXPORT]
+                constants.PROVIDER_TYPE_TRANSFER_EXPORT]
         }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
         provider = providers_factory.get_provider(
-            origin["type"], constants.PROVIDER_TYPE_REPLICA_EXPORT,
+            origin["type"], constants.PROVIDER_TYPE_TRANSFER_EXPORT,
             event_handler)
         connection_info = base.get_connection_info(ctxt, origin)
 
@@ -504,7 +504,7 @@ class DeployReplicaTargetResourcesTask(base.TaskRunner):
     def get_required_provider_types(cls):
         return {
             constants.PROVIDER_PLATFORM_DESTINATION: [
-                constants.PROVIDER_TYPE_REPLICA_IMPORT]
+                constants.PROVIDER_TYPE_TRANSFER_IMPORT]
         }
 
     def _validate_connection_info(self, migr_connection_info):
@@ -535,7 +535,7 @@ class DeployReplicaTargetResourcesTask(base.TaskRunner):
         export_info = task_info['export_info']
 
         provider = providers_factory.get_provider(
-            destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            destination["type"], constants.PROVIDER_TYPE_TRANSFER_IMPORT,
             event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
 
@@ -603,13 +603,13 @@ class DeleteReplicaTargetResourcesTask(base.TaskRunner):
     def get_required_provider_types(cls):
         return {
             constants.PROVIDER_PLATFORM_DESTINATION: [
-                constants.PROVIDER_TYPE_REPLICA_IMPORT]
+                constants.PROVIDER_TYPE_TRANSFER_IMPORT]
         }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
         provider = providers_factory.get_provider(
-            destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            destination["type"], constants.PROVIDER_TYPE_TRANSFER_IMPORT,
             event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
 
@@ -644,7 +644,7 @@ class DeployReplicaInstanceResourcesTask(base.TaskRunner):
     def get_required_provider_types(cls):
         return {
             constants.PROVIDER_PLATFORM_DESTINATION: [
-                constants.PROVIDER_TYPE_REPLICA_IMPORT]
+                constants.PROVIDER_TYPE_TRANSFER_IMPORT]
         }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
@@ -653,7 +653,7 @@ class DeployReplicaInstanceResourcesTask(base.TaskRunner):
         export_info = task_info["export_info"]
 
         provider = providers_factory.get_provider(
-            destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            destination["type"], constants.PROVIDER_TYPE_TRANSFER_IMPORT,
             event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
 
@@ -688,13 +688,13 @@ class FinalizeReplicaInstanceDeploymentTask(base.TaskRunner):
     def get_required_provider_types(cls):
         return {
             constants.PROVIDER_PLATFORM_DESTINATION: [
-                constants.PROVIDER_TYPE_REPLICA_IMPORT]
+                constants.PROVIDER_TYPE_TRANSFER_IMPORT]
         }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
         provider = providers_factory.get_provider(
-            destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            destination["type"], constants.PROVIDER_TYPE_TRANSFER_IMPORT,
             event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
         target_environment = task_info["target_environment"]
@@ -730,13 +730,13 @@ class CleanupFailedReplicaInstanceDeploymentTask(base.TaskRunner):
     def get_required_provider_types(cls):
         return {
             constants.PROVIDER_PLATFORM_DESTINATION: [
-                constants.PROVIDER_TYPE_REPLICA_IMPORT]
+                constants.PROVIDER_TYPE_TRANSFER_IMPORT]
         }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
         provider = providers_factory.get_provider(
-            destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            destination["type"], constants.PROVIDER_TYPE_TRANSFER_IMPORT,
             event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
         target_environment = task_info["target_environment"]
@@ -768,13 +768,13 @@ class CreateReplicaDiskSnapshotsTask(base.TaskRunner):
     def get_required_provider_types(cls):
         return {
             constants.PROVIDER_PLATFORM_DESTINATION: [
-                constants.PROVIDER_TYPE_REPLICA_IMPORT]
+                constants.PROVIDER_TYPE_TRANSFER_IMPORT]
         }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
         provider = providers_factory.get_provider(
-            destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            destination["type"], constants.PROVIDER_TYPE_TRANSFER_IMPORT,
             event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
         export_info = task_info['export_info']
@@ -812,14 +812,14 @@ class DeleteReplicaTargetDiskSnapshotsTask(base.TaskRunner):
     def get_required_provider_types(cls):
         return {
             constants.PROVIDER_PLATFORM_DESTINATION: [
-                constants.PROVIDER_TYPE_REPLICA_IMPORT]
+                constants.PROVIDER_TYPE_TRANSFER_IMPORT]
         }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
         export_info = task_info['export_info']
         provider = providers_factory.get_provider(
-            destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            destination["type"], constants.PROVIDER_TYPE_TRANSFER_IMPORT,
             event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
 
@@ -856,13 +856,13 @@ class RestoreReplicaDiskSnapshotsTask(base.TaskRunner):
     def get_required_provider_types(cls):
         return {
             constants.PROVIDER_PLATFORM_DESTINATION: [
-                constants.PROVIDER_TYPE_REPLICA_IMPORT]
+                constants.PROVIDER_TYPE_TRANSFER_IMPORT]
         }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
         provider = providers_factory.get_provider(
-            destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            destination["type"], constants.PROVIDER_TYPE_TRANSFER_IMPORT,
             event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
         export_info = task_info['export_info']
@@ -900,7 +900,7 @@ class ValidateReplicaExecutionSourceInputsTask(base.TaskRunner):
     def get_required_provider_types(cls):
         return {
             constants.PROVIDER_PLATFORM_SOURCE: [
-                constants.PROVIDER_TYPE_VALIDATE_REPLICA_EXPORT]
+                constants.PROVIDER_TYPE_VALIDATE_TRANSFER_EXPORT]
         }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
@@ -908,7 +908,7 @@ class ValidateReplicaExecutionSourceInputsTask(base.TaskRunner):
         event_manager = events.EventManager(event_handler)
         origin_type = origin["type"]
         source_provider = providers_factory.get_provider(
-            origin_type, constants.PROVIDER_TYPE_VALIDATE_REPLICA_EXPORT,
+            origin_type, constants.PROVIDER_TYPE_VALIDATE_TRANSFER_EXPORT,
             event_handler, raise_if_not_found=False)
         origin_connection_info = base.get_connection_info(ctxt, origin)
         if not source_provider:
@@ -941,7 +941,7 @@ class ValidateReplicaExecutionDestinationInputsTask(base.TaskRunner):
     def get_required_provider_types(cls):
         return {
             constants.PROVIDER_PLATFORM_DESTINATION: [
-                constants.PROVIDER_TYPE_VALIDATE_REPLICA_IMPORT]
+                constants.PROVIDER_TYPE_VALIDATE_TRANSFER_IMPORT]
         }
 
     def _validate_provider_replica_import_input(
@@ -960,7 +960,7 @@ class ValidateReplicaExecutionDestinationInputsTask(base.TaskRunner):
             ctxt, destination)
         destination_provider = providers_factory.get_provider(
             destination_type,
-            constants.PROVIDER_TYPE_VALIDATE_REPLICA_IMPORT, event_handler,
+            constants.PROVIDER_TYPE_VALIDATE_TRANSFER_IMPORT, event_handler,
             raise_if_not_found=False)
         if not destination_provider:
             event_manager.progress_update(
@@ -1001,7 +1001,7 @@ class ValidateReplicaDeploymentParametersTask(base.TaskRunner):
     def get_required_provider_types(cls):
         return {
             constants.PROVIDER_PLATFORM_DESTINATION: [
-                constants.PROVIDER_TYPE_VALIDATE_REPLICA_IMPORT]
+                constants.PROVIDER_TYPE_VALIDATE_TRANSFER_IMPORT]
         }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
@@ -1018,7 +1018,7 @@ class ValidateReplicaDeploymentParametersTask(base.TaskRunner):
         # validate destination params:
         destination_provider = providers_factory.get_provider(
             destination_type,
-            constants.PROVIDER_TYPE_VALIDATE_REPLICA_IMPORT, event_handler,
+            constants.PROVIDER_TYPE_VALIDATE_TRANSFER_IMPORT, event_handler,
             raise_if_not_found=False)
         if not destination_provider:
             event_manager.progress_update(
@@ -1054,7 +1054,7 @@ class UpdateSourceReplicaTask(base.TaskRunner):
     def get_required_provider_types(cls):
         return {
             constants.PROVIDER_PLATFORM_SOURCE: [
-                constants.PROVIDER_TYPE_SOURCE_REPLICA_UPDATE]
+                constants.PROVIDER_TYPE_SOURCE_TRANSFER_UPDATE]
         }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
@@ -1075,7 +1075,7 @@ class UpdateSourceReplicaTask(base.TaskRunner):
                 'source_environment': old_source_env}
 
         source_provider = providers_factory.get_provider(
-            origin["type"], constants.PROVIDER_TYPE_SOURCE_REPLICA_UPDATE,
+            origin["type"], constants.PROVIDER_TYPE_SOURCE_TRANSFER_UPDATE,
             event_handler, raise_if_not_found=False)
         if not source_provider:
             raise exception.InvalidActionTasksExecutionState(
@@ -1122,7 +1122,7 @@ class UpdateDestinationReplicaTask(base.TaskRunner):
     def get_required_provider_types(cls):
         return {
             constants.PROVIDER_PLATFORM_DESTINATION: [
-                constants.PROVIDER_TYPE_DESTINATION_REPLICA_UPDATE]
+                constants.PROVIDER_TYPE_DESTINATION_TRANSFER_UPDATE]
         }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
@@ -1144,7 +1144,7 @@ class UpdateDestinationReplicaTask(base.TaskRunner):
 
         destination_provider = providers_factory.get_provider(
             destination["type"],
-            constants.PROVIDER_TYPE_DESTINATION_REPLICA_UPDATE,
+            constants.PROVIDER_TYPE_DESTINATION_TRANSFER_UPDATE,
             event_handler, raise_if_not_found=False)
         if not destination_provider:
             raise exception.InvalidActionTasksExecutionState(

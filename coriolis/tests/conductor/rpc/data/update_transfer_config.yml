@@ -1,5 +1,5 @@
 - config:
-    replica:
+    transfer:
       instances: ['mock_instance_1', 'mock_instance_2']
       info:
         mock_instance_1: {}
@@ -15,10 +15,10 @@
       destination_environment:
         network_map: "mock_network_map"
   has_updated_values: True
-  has_replica_instance: True
+  has_transfer_instance: True
 
 - config:
-    replica: {}
+    transfer: {}
     updated_properties:
       origin_minion_pool_id: "mock_origin_minion_pool_id"
       destination_minion_pool_id: "mock_destination_minion_pool_id"
@@ -29,10 +29,10 @@
       destination_environment:
         network_map: "mock_network_map"
   has_updated_values: True
-  has_replica_instance: False
+  has_transfer_instance: False
 
 - config:
-    replica: {}
+    transfer: {}
     updated_properties: {}
   has_updated_values: False
-  has_replica_instance: False
+  has_transfer_instance: False

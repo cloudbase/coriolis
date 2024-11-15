@@ -191,7 +191,7 @@ class ReportMinionAllocationFailureForMigrationTask(
 
     def _report_machine_allocation_failure(
             self, context, action_id, failure_str):
-        self._conductor_client.report_migration_minions_allocation_error(
+        self._conductor_client.report_deployment_minions_allocation_error(
             context, action_id, failure_str)
 
 
@@ -205,7 +205,7 @@ class ReportMinionAllocationFailureForReplicaTask(
 
     def _report_machine_allocation_failure(
             self, context, action_id, failure_str):
-        self._conductor_client.report_replica_minions_allocation_error(
+        self._conductor_client.report_transfer_minions_allocation_error(
             context, action_id, failure_str)
 
 
@@ -379,8 +379,8 @@ class _BaseConfirmMinionAllocationForActionTask(
             raise exception.MinionMachineAllocationFailure(
                 msg) from ex
         except (
-                exception.InvalidMigrationState,
-                exception.InvalidReplicaState) as ex:
+                exception.InvalidDeploymentState,
+                exception.InvalidTransferState) as ex:
             msg = (
                 "The Conductor has refused minion machine allocations for "
                 "%s with ID '%s' as it is purportedly in an invalid state "
@@ -410,7 +410,7 @@ class ConfirmMinionAllocationForMigrationTask(
 
     def _confirm_machine_allocation_for_action(
             self, context, action_id, machine_allocations):
-        self._conductor_client.confirm_migration_minions_allocation(
+        self._conductor_client.confirm_deployment_minions_allocation(
             context, action_id, machine_allocations)
 
 
@@ -427,7 +427,7 @@ class ConfirmMinionAllocationForReplicaTask(
 
     def _confirm_machine_allocation_for_action(
             self, context, action_id, machine_allocations):
-        self._conductor_client.confirm_replica_minions_allocation(
+        self._conductor_client.confirm_transfer_minions_allocation(
             context, action_id, machine_allocations)
 
 

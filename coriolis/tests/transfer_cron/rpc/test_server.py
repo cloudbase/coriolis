@@ -9,8 +9,8 @@ import ddt
 
 from coriolis.conductor.rpc import client as rpc_client
 from coriolis import exception
-from coriolis.replica_cron.rpc import server
 from coriolis.tests import test_base
+from coriolis.transfer_cron.rpc import server
 
 
 class TriggerReplicaTestCase(test_base.CoriolisBaseTestCase):
@@ -19,7 +19,7 @@ class TriggerReplicaTestCase(test_base.CoriolisBaseTestCase):
     def test__trigger_replica(self):
         mock_conductor_client = mock.MagicMock()
 
-        mock_conductor_client.execute_replica_tasks.return_value = {
+        mock_conductor_client.execute_transfer_tasks.return_value = {
             'id': mock.sentinel.id,
             'action_id': mock.sentinel.action_id
         }
@@ -29,20 +29,20 @@ class TriggerReplicaTestCase(test_base.CoriolisBaseTestCase):
             mock_conductor_client,
             mock.sentinel.transfer_id, False)
 
-        mock_conductor_client.execute_replica_tasks.assert_called_once_with(
+        mock_conductor_client.execute_transfer_tasks.assert_called_once_with(
             mock.sentinel.ctxt, mock.sentinel.transfer_id, False)
 
         self.assertEqual(
             result, 'Execution %s for Replica %s' % (
                 mock.sentinel.id, mock.sentinel.action_id))
 
-    def test__trigger_replica_invalid_replica_state(self):
+    def test__trigger_transfer_invalid_replica_state(self):
         mock_conductor_client = mock.MagicMock()
 
-        mock_conductor_client.execute_replica_tasks.side_effect = (
-            exception.InvalidReplicaState(reason='test_reason'))
+        mock_conductor_client.execute_transfer_tasks.side_effect = (
+            exception.InvalidTransferState(reason='test_reason'))
 
-        with self.assertLogs('coriolis.replica_cron.rpc.server',
+        with self.assertLogs('coriolis.transfer_cron.rpc.server',
                              level=logging.INFO):
             server._trigger_replica(
                 mock.sentinel.ctxt,
@@ -131,7 +131,7 @@ class ReplicaCronServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             'shutdown_instance': 'test_schedule_shutdown_instance'
         }
 
-        with self.assertLogs('coriolis.replica_cron.rpc.server',
+        with self.assertLogs('coriolis.transfer_cron.rpc.server',
                              level=logging.INFO):
             self.server._register_schedule(test_schedule)
 
@@ -170,7 +170,7 @@ class ReplicaCronServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         ]
         mock_register_schedule.side_effect = Exception('test_exception')
 
-        with self.assertLogs('coriolis.replica_cron.rpc.server',
+        with self.assertLogs('coriolis.transfer_cron.rpc.server',
                              level=logging.ERROR):
                 self.server._init_cron()
 
@@ -180,14 +180,14 @@ class ReplicaCronServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock.call({'id': 'schedule2'}, date=mock.ANY),
         ])
 
-    @mock.patch.object(rpc_client.ConductorClient, 'get_replica_schedules')
-    def test__get_all_schedules(self, mock_get_replica_schedules):
+    @mock.patch.object(rpc_client.ConductorClient, 'get_transfer_schedules')
+    def test__get_all_schedules(self, mock_get_transfer_schedules):
         result = self.server._get_all_schedules()
 
-        mock_get_replica_schedules.assert_called_once_with(
+        mock_get_transfer_schedules.assert_called_once_with(
             self.server._admin_ctx, expired=False)
 
-        self.assertEqual(result, mock_get_replica_schedules.return_value)
+        self.assertEqual(result, mock_get_transfer_schedules.return_value)
 
     @mock.patch.object(server.ReplicaCronServerEndpoint, '_register_schedule')
     @mock.patch.object(server.timeutils, 'utcnow')

@@ -515,7 +515,7 @@ class MinionManagerServerEndpoint(object):
         try:
             self._run_machine_allocation_subflow_for_action(
                 ctxt, replica,
-                constants.TRANSFER_ACTION_TYPE_REPLICA,
+                constants.TRANSFER_ACTION_TYPE_TRANSFER,
                 include_transfer_minions=True,
                 include_osmorphing_minions=False)
         except Exception as ex:
@@ -529,8 +529,9 @@ class MinionManagerServerEndpoint(object):
                 [constants.MINION_MACHINE_STATUS_UNINITIALIZED])
             self.deallocate_minion_machines_for_action(
                 ctxt, replica['id'])
-            self._rpc_conductor_client.report_replica_minions_allocation_error(
-                ctxt, replica['id'], str(ex))
+            (self._rpc_conductor_client
+                .report_transfer_minions_allocation_error(
+                    ctxt, replica['id'], str(ex)))
             raise
 
     def allocate_minion_machines_for_migration(
@@ -539,7 +540,7 @@ class MinionManagerServerEndpoint(object):
         try:
             self._run_machine_allocation_subflow_for_action(
                 ctxt, migration,
-                constants.TRANSFER_ACTION_TYPE_MIGRATION,
+                constants.TRANSFER_ACTION_TYPE_DEPLOYMENT,
                 include_transfer_minions=include_transfer_minions,
                 include_osmorphing_minions=include_osmorphing_minions)
         except Exception as ex:
@@ -554,7 +555,7 @@ class MinionManagerServerEndpoint(object):
             self.deallocate_minion_machines_for_action(
                 ctxt, migration['id'])
             (self._rpc_conductor_client
-                .report_migration_minions_allocation_error(
+                .report_deployment_minions_allocation_error(
                     ctxt, migration['id'], str(ex)))
             raise
 
@@ -779,7 +780,7 @@ class MinionManagerServerEndpoint(object):
         machine_action_allocation_subflow_name_format = None
         allocation_failure_reporting_task_class = None
         allocation_confirmation_reporting_task_class = None
-        if action_type == constants.TRANSFER_ACTION_TYPE_MIGRATION:
+        if action_type == constants.TRANSFER_ACTION_TYPE_DEPLOYMENT:
             allocation_flow_name_format = (
                 (minion_mgr_tasks.
                     MINION_POOL_MIGRATION_ALLOCATION_FLOW_NAME_FORMAT))
@@ -793,7 +794,7 @@ class MinionManagerServerEndpoint(object):
             machine_action_allocation_subflow_name_format = (
                 (minion_mgr_tasks.
                     MINION_POOL_ALLOCATE_MACHINES_FOR_MIGRATION_SUBFLOW_NAME_FORMAT))  # noqa: E501
-        elif action_type == constants.TRANSFER_ACTION_TYPE_REPLICA:
+        elif action_type == constants.TRANSFER_ACTION_TYPE_TRANSFER:
             allocation_flow_name_format = (
                 (minion_mgr_tasks.
                     MINION_POOL_REPLICA_ALLOCATION_FLOW_NAME_FORMAT))

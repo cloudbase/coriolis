@@ -332,7 +332,7 @@ class Transfer(BaseTransferAction):
             'base_transfer_action.base_id'), primary_key=True)
     scenario = sqlalchemy.Column(
         sqlalchemy.String(255), nullable=False,
-        default=constants.REPLICA_SCENARIO_REPLICA)
+        default=constants.TRANSFER_SCENARIO_REPLICA)
 
     __mapper_args__ = {
         'polymorphic_identity': 'transfer',

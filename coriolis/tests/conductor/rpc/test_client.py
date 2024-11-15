@@ -8,7 +8,7 @@ from coriolis import constants
 from coriolis.tests import test_base
 
 INSTANCE_ARGS = {
-    "replica_scenario": "mock_replica_scenario",
+    "transfer_scenario": "mock_transfer_scenario",
     "origin_endpoint_id": "mock_origin_endpoint_id",
     "destination_endpoint_id": "mock_destination_endpoint_id",
     "origin_minion_pool_id": "mock_origin_minion_pool_id",
@@ -149,44 +149,44 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
         }
         self._test(self.client.get_provider_schemas, args)
 
-    def test_execute_replica_tasks(self):
+    def test_execute_transfer_tasks(self):
         args = {
-            "replica_id": "mock_replica_id",
+            "transfer_id": "mock_transfer_id",
             "shutdown_instances": False
         }
-        self._test(self.client.execute_replica_tasks, args)
+        self._test(self.client.execute_transfer_tasks, args)
 
-    def test_get_replica_tasks_executions(self):
+    def test_get_transfer_tasks_executions(self):
         args = {
-            "replica_id": "mock_replica_id",
+            "transfer_id": "mock_transfer_id",
             "include_tasks": False
         }
-        self._test(self.client.get_replica_tasks_executions, args)
+        self._test(self.client.get_transfer_tasks_executions, args)
 
-    def test_get_replica_tasks_execution(self):
+    def test_get_transfer_tasks_execution(self):
         args = {
-            "replica_id": "mock_replica_id",
+            "transfer_id": "mock_transfer_id",
             "execution_id": "mock_execution_id",
             "include_task_info": False
         }
-        self._test(self.client.get_replica_tasks_execution, args)
+        self._test(self.client.get_transfer_tasks_execution, args)
 
-    def test_delete_replica_tasks_execution(self):
+    def test_delete_transfer_tasks_execution(self):
         args = {
-            "replica_id": "mock_replica_id",
+            "transfer_id": "mock_transfer_id",
             "execution_id": "mock_execution_id"
         }
-        self._test(self.client.delete_replica_tasks_execution, args)
+        self._test(self.client.delete_transfer_tasks_execution, args)
 
-    def test_cancel_replica_tasks_execution(self):
+    def test_cancel_transfer_tasks_execution(self):
         args = {
-            "replica_id": "mock_replica_id",
+            "transfer_id": "mock_transfer_id",
             "execution_id": "mock_execution_id",
             "force": "mock_force"
         }
-        self._test(self.client.cancel_replica_tasks_execution, args)
+        self._test(self.client.cancel_transfer_tasks_execution, args)
 
-    def test_create_instances_replica(self):
+    def test_create_instances_transfer(self):
         args = {
             **INSTANCE_ARGS,
         }
@@ -195,44 +195,44 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
             "user_scripts": None
         }
         args.update(new_args)
-        self._test(self.client.create_instances_replica, args)
+        self._test(self.client.create_instances_transfer, args)
 
-    def test_get_replicas(self):
+    def test_get_transfers(self):
         args = {
             "include_tasks_executions": False,
             "include_task_info": False,
         }
-        self._test(self.client.get_replicas, args)
+        self._test(self.client.get_transfers, args)
 
-    def test_get_replica(self):
+    def test_get_transfer(self):
         args = {
-            "replica_id": "mock_replica_id",
+            "transfer_id": "mock_transfer_id",
             "include_task_info": False,
         }
-        self._test(self.client.get_replica, args)
+        self._test(self.client.get_transfer, args)
 
-    def test_delete_replica(self):
+    def test_delete_transfer(self):
         args = {
-            "replica_id": "mock_replica_id",
+            "transfer_id": "mock_transfer_id",
         }
-        self._test(self.client.delete_replica, args)
+        self._test(self.client.delete_transfer, args)
 
-    def test_delete_replica_disks(self):
+    def test_delete_transfer_disks(self):
         args = {
-            "replica_id": "mock_replica_id"
+            "transfer_id": "mock_transfer_id"
         }
-        self._test(self.client.delete_replica_disks, args)
+        self._test(self.client.delete_transfer_disks, args)
 
-    def test_deploy_replica_instances(self):
+    def test_deploy_transfer_instances(self):
         args = {
-            "replica_id": "mock_replica_id",
+            "transfer_id": "mock_transfer_id",
             "instance_osmorphing_minion_pool_mappings": None,
             "clone_disks": False,
             "force": False,
             "skip_os_morphing": False,
             "user_scripts": None
         }
-        self._test(self.client.deploy_replica_instances, args)
+        self._test(self.client.deploy_transfer_instances, args)
 
     def test_set_task_host(self):
         args = {
@@ -288,52 +288,52 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
         self._test(self.client.update_task_progress_update, args,
                    rpc_op='_cast')
 
-    def test_create_replica_schedule(self):
+    def test_create_transfer_schedule(self):
         args = {
-            "replica_id": "mock_replica_id",
+            "transfer_id": "mock_transfer_id",
             "schedule": "mock_schedule",
             "enabled": "mock_enabled",
             "exp_date": "mock_exp_date",
             "shutdown_instance": "mock_shutdown_instance"
         }
-        self._test(self.client.create_replica_schedule, args)
+        self._test(self.client.create_transfer_schedule, args)
 
-    def test_update_replica_schedule(self):
+    def test_update_transfer_schedule(self):
         args = {
-            "replica_id": "mock_replica_id",
+            "transfer_id": "mock_transfer_id",
             "schedule_id": "mock_schedule_id",
             "updated_values": "mock_updated_values"
         }
-        self._test(self.client.update_replica_schedule, args)
+        self._test(self.client.update_transfer_schedule, args)
 
-    def test_delete_replica_schedule(self):
+    def test_delete_transfer_schedule(self):
         args = {
-            "replica_id": "mock_replica_id",
+            "transfer_id": "mock_transfer_id",
             "schedule_id": "mock_schedule_id"
         }
-        self._test(self.client.delete_replica_schedule, args)
+        self._test(self.client.delete_transfer_schedule, args)
 
-    def test_get_replica_schedules(self):
+    def test_get_transfer_schedules(self):
         args = {
-            "replica_id": None,
+            "transfer_id": None,
             "expired": True
         }
-        self._test(self.client.get_replica_schedules, args)
+        self._test(self.client.get_transfer_schedules, args)
 
-    def test_get_replica_schedule(self):
+    def test_get_transfer_schedule(self):
         args = {
-            "replica_id": "mock_replica_id",
+            "transfer_id": "mock_transfer_id",
             "schedule_id": "mock_schedule_id",
             "expired": True
         }
-        self._test(self.client.get_replica_schedule, args)
+        self._test(self.client.get_transfer_schedule, args)
 
-    def test_update_replica(self):
+    def test_update_transfer(self):
         args = {
-            "replica_id": "mock_replica_id",
+            "transfer_id": "mock_transfer_id",
             "updated_properties": "mock_updated_properties"
         }
-        self._test(self.client.update_replica, args)
+        self._test(self.client.update_transfer, args)
 
     def test_get_diagnostics(self):
         self._test(self.client.get_diagnostics, args={})
@@ -419,35 +419,36 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
         }
         self._test(self.client.delete_service, args)
 
-    def test_confirm_replica_minions_allocation(self):
+    def test_confirm_transfer_minions_allocation(self):
         args = {
-            "replica_id": "mock_replica_id",
+            "transfer_id": "mock_transfer_id",
             "minion_machine_allocations": "mock_minion_machine_allocations"
         }
-        self._test(self.client.confirm_replica_minions_allocation, args)
+        self._test(self.client.confirm_transfer_minions_allocation, args)
 
-    def test_report_replica_minions_allocation_error(self):
+    def test_report_transfer_minions_allocation_error(self):
         args = {
-            "replica_id": "mock_replica_id",
+            "transfer_id": "mock_transfer_id",
             "minion_allocation_error_details":
                 "mock_minion_allocation_error_details"
         }
-        self._test(self.client.report_replica_minions_allocation_error, args)
+        self._test(self.client.report_transfer_minions_allocation_error, args)
 
-    def test_confirm_migration_minions_allocation(self):
+    def test_confirm_deployment_minions_allocation(self):
         args = {
-            "migration_id": "mock_migration_id",
+            "deployment_id": "mock_deployment_id",
             "minion_machine_allocations": "mock_minion_machine_allocations"
         }
-        self._test(self.client.confirm_migration_minions_allocation, args)
+        self._test(self.client.confirm_deployment_minions_allocation, args)
 
-    def test_report_migration_minions_allocation_error(self):
+    def test_report_deployment_minions_allocation_error(self):
         args = {
-            "migration_id": "mock_migration_id",
+            "deployment_id": "mock_deployment_id",
             "minion_allocation_error_details":
                 "mock_minion_allocation_error_details"
         }
-        self._test(self.client.report_migration_minions_allocation_error, args)
+        self._test(
+            self.client.report_deployment_minions_allocation_error, args)
 
     def test_add_task_progress_update(self):
         args = {

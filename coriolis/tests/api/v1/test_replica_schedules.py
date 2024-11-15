@@ -10,9 +10,9 @@ from webob import exc
 from coriolis.api.v1 import replica_schedules
 from coriolis.api.v1.views import replica_schedule_view
 from coriolis import exception
-from coriolis.replica_cron import api
 from coriolis import schemas
 from coriolis.tests import test_base
+from coriolis.transfer_cron import api
 
 
 class ReplicaScheduleControllerTestCase(test_base.CoriolisBaseTestCase):

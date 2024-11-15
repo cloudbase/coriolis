@@ -22,8 +22,8 @@ PROVIDER_TYPE_MAP = {
     # classical disk-export-based migrations to Replica-based ones:
     # constants.PROVIDER_TYPE_EXPORT: base.BaseExportProvider,
     # constants.PROVIDER_TYPE_IMPORT: base.BaseImportProvider,
-    constants.PROVIDER_TYPE_REPLICA_EXPORT: base.BaseReplicaExportProvider,
-    constants.PROVIDER_TYPE_REPLICA_IMPORT: base.BaseReplicaImportProvider,
+    constants.PROVIDER_TYPE_TRANSFER_EXPORT: base.BaseReplicaExportProvider,
+    constants.PROVIDER_TYPE_TRANSFER_IMPORT: base.BaseReplicaImportProvider,
     constants.PROVIDER_TYPE_ENDPOINT: base.BaseEndpointProvider,
     constants.PROVIDER_TYPE_DESTINATION_ENDPOINT_OPTIONS:
         base.BaseEndpointDestinationOptionsProvider,
@@ -38,15 +38,15 @@ PROVIDER_TYPE_MAP = {
     constants.PROVIDER_TYPE_SETUP_LIBS: base.BaseProviderSetupExtraLibsMixin,
     constants.PROVIDER_TYPE_VALIDATE_MIGRATION_EXPORT: (
         base.BaseMigrationExportValidationProvider),
-    constants.PROVIDER_TYPE_VALIDATE_REPLICA_EXPORT: (
+    constants.PROVIDER_TYPE_VALIDATE_TRANSFER_EXPORT: (
         base.BaseReplicaExportValidationProvider),
     constants.PROVIDER_TYPE_VALIDATE_MIGRATION_IMPORT: (
         base.BaseMigrationImportValidationProvider),
-    constants.PROVIDER_TYPE_VALIDATE_REPLICA_IMPORT: (
+    constants.PROVIDER_TYPE_VALIDATE_TRANSFER_IMPORT: (
         base.BaseReplicaImportValidationProvider),
-    constants.PROVIDER_TYPE_SOURCE_REPLICA_UPDATE: (
+    constants.PROVIDER_TYPE_SOURCE_TRANSFER_UPDATE: (
         base.BaseUpdateSourceReplicaProvider),
-    constants.PROVIDER_TYPE_DESTINATION_REPLICA_UPDATE: (
+    constants.PROVIDER_TYPE_DESTINATION_TRANSFER_UPDATE: (
         base.BaseUpdateDestinationReplicaProvider),
     constants.PROVIDER_TYPE_SOURCE_ENDPOINT_OPTIONS: (
         base.BaseEndpointSourceOptionsProvider),
@@ -81,7 +81,7 @@ def get_provider(
         parent = PROVIDER_TYPE_MAP.get(provider_type)
         if not parent:
             continue
-        if (cls.platform == platform_name and issubclass(cls, parent)):
+        if cls.platform == platform_name and issubclass(cls, parent):
             return cls(event_handler)
 
     if raise_if_not_found:

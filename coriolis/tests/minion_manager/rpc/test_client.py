@@ -125,8 +125,9 @@ class MinionManagerClientTestCase(test_base.CoriolisRPCClientTestCase):
     def test_allocate_minion_machines_for_replica(self):
         args = {"replica": "test_replica"}
         self._test(
-            self.client.allocate_minion_machines_for_replica, args,
+            self.client.allocate_minion_machines_for_transfer, args,
             rpc_op='_cast',
+            server_fun_name='allocate_minion_machines_for_replica'
         )
 
     def test_allocate_minion_machines_for_migration(self):
@@ -136,8 +137,9 @@ class MinionManagerClientTestCase(test_base.CoriolisRPCClientTestCase):
             "include_osmorphing_minions": True
         }
         self._test(
-            self.client.allocate_minion_machines_for_migration, args,
+            self.client.allocate_minion_machines_for_deployment, args,
             rpc_op='_cast',
+            server_fun_name='allocate_minion_machines_for_migration'
         )
 
     def test_deallocate_minion_machine(self):

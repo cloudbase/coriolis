@@ -75,7 +75,7 @@ class GetInstanceInfoTaskTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.destiantion, task_info, mock.sentinel.event_handler)
         self.assertEqual(result, expected_result)
         mock_get_provider.assert_called_once_with(
-            origin['type'], constants.PROVIDER_TYPE_REPLICA_EXPORT,
+            origin['type'], constants.PROVIDER_TYPE_TRANSFER_EXPORT,
             mock.sentinel.event_handler)
         mock_get_conn_info.assert_called_once_with(mock.sentinel.ctxt, origin)
         prov_fun.assert_called_once_with(
@@ -103,7 +103,7 @@ class ShutdownInstanceTaskTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.destiantion, task_info, mock.sentinel.event_handler)
         self.assertEqual(result, {})
         mock_get_provider.assert_called_once_with(
-            origin['type'], constants.PROVIDER_TYPE_REPLICA_EXPORT,
+            origin['type'], constants.PROVIDER_TYPE_TRANSFER_EXPORT,
             mock.sentinel.event_handler)
         mock_get_conn_info.assert_called_once_with(mock.sentinel.ctxt, origin)
         prov_fun.assert_called_once_with(
@@ -157,7 +157,7 @@ class ReplicateDisksTaskTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.destiantion, task_info, mock.sentinel.event_handler)
         self.assertEqual(result, expected_result)
         mock_get_provider.assert_called_once_with(
-            origin['type'], constants.PROVIDER_TYPE_REPLICA_EXPORT,
+            origin['type'], constants.PROVIDER_TYPE_TRANSFER_EXPORT,
             mock.sentinel.event_handler)
         mock_get_conn_info.assert_called_once_with(mock.sentinel.ctxt, origin)
         mock_get_vol_info.assert_called_once_with(task_info)
@@ -196,7 +196,7 @@ class DeployReplicaDisksTaskTestCase(test_base.CoriolisBaseTestCase):
             destination, task_info, mock.sentinel.event_handler)
         self.assertEqual(result, expected_result)
         mock_get_provider.assert_called_once_with(
-            destination['type'], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            destination['type'], constants.PROVIDER_TYPE_TRANSFER_IMPORT,
             mock.sentinel.event_handler)
         mock_get_conn_info.assert_called_once_with(
             mock.sentinel.ctxt, destination)
@@ -235,7 +235,7 @@ class DeleteReplicaSourceDiskSnapshotsTaskTestCase(
             mock.sentinel.destination, task_info, mock.sentinel.event_handler)
         self.assertEqual(result, expected_result)
         mock_get_provider.assert_called_once_with(
-            origin['type'], constants.PROVIDER_TYPE_REPLICA_EXPORT,
+            origin['type'], constants.PROVIDER_TYPE_TRANSFER_EXPORT,
             mock.sentinel.event_handler)
         mock_get_conn_info.assert_called_once_with(
             mock.sentinel.ctxt, origin)
@@ -278,7 +278,7 @@ class DeleteReplicaDisksTaskTestCase(test_base.CoriolisBaseTestCase):
             destination, task_info, mock.sentinel.event_handler)
         self.assertEqual(result, expected_result)
         mock_get_provider.assert_called_once_with(
-            destination['type'], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            destination['type'], constants.PROVIDER_TYPE_TRANSFER_IMPORT,
             mock.sentinel.event_handler)
         mock_get_conn_info.assert_called_once_with(
             mock.sentinel.ctxt, destination)
@@ -346,7 +346,7 @@ class DeployReplicaSourceResourcesTaskTestCase(test_base.CoriolisBaseTestCase):
 
         self.assertEqual(_get_result(), expected_result)
         mock_get_provider.assert_called_once_with(
-            origin['type'], constants.PROVIDER_TYPE_REPLICA_EXPORT,
+            origin['type'], constants.PROVIDER_TYPE_TRANSFER_EXPORT,
             mock.sentinel.event_handler)
         mock_get_conn_info.assert_called_once_with(
             mock.sentinel.ctxt, origin)
@@ -377,7 +377,7 @@ class DeleteReplicaSourceResourcesTaskTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.destination, task_info, mock.sentinel.event_handler)
         self.assertEqual(result, expected_result)
         mock_get_provider.assert_called_once_with(
-            origin['type'], constants.PROVIDER_TYPE_REPLICA_EXPORT,
+            origin['type'], constants.PROVIDER_TYPE_TRANSFER_EXPORT,
             mock.sentinel.event_handler)
         mock_get_conn_info.assert_called_once_with(
             mock.sentinel.ctxt, origin)
@@ -400,7 +400,7 @@ class DeleteReplicaSourceResourcesTaskTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.destination, task_info, mock.sentinel.event_handler)
         self.assertEqual(result, expected_result)
         mock_get_provider.assert_called_once_with(
-            origin['type'], constants.PROVIDER_TYPE_REPLICA_EXPORT,
+            origin['type'], constants.PROVIDER_TYPE_TRANSFER_EXPORT,
             mock.sentinel.event_handler)
         mock_get_conn_info.assert_called_once_with(
             mock.sentinel.ctxt, origin)
@@ -469,7 +469,7 @@ class DeployReplicaTargetResourcesTaskTestCase(test_base.CoriolisBaseTestCase):
             destination, task_info, mock.sentinel.event_handler)
         self.assertEqual(result, expected_result)
         mock_get_provider.assert_called_once_with(
-            destination['type'], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            destination['type'], constants.PROVIDER_TYPE_TRANSFER_IMPORT,
             mock.sentinel.event_handler)
         mock_get_conn_info.assert_called_once_with(
             mock.sentinel.ctxt, destination)
@@ -511,7 +511,7 @@ class DeleteReplicaTargetResourcesTaskTestCase(test_base.CoriolisBaseTestCase):
             destination, task_info, mock.sentinel.event_handler)
         self.assertEqual(result, expected_result)
         mock_get_provider.assert_called_once_with(
-            destination['type'], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            destination['type'], constants.PROVIDER_TYPE_TRANSFER_IMPORT,
             mock.sentinel.event_handler)
         mock_get_conn_info.assert_called_once_with(
             mock.sentinel.ctxt, destination)
@@ -548,7 +548,7 @@ class DeployReplicaInstanceResourcesTaskTestCase(
             destination, task_info, mock.sentinel.event_handler)
         self.assertEqual(result, expected_result)
         mock_get_provider.assert_called_once_with(
-            destination['type'], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            destination['type'], constants.PROVIDER_TYPE_TRANSFER_IMPORT,
             mock.sentinel.event_handler)
         mock_get_conn_info.assert_called_once_with(
             mock.sentinel.ctxt, destination)
@@ -581,7 +581,7 @@ class FinalizeReplicaInstanceDeploymentTaskTestCase(
             destination, task_info, mock.sentinel.event_handler)
         self.assertEqual(result, expected_result)
         mock_get_provider.assert_called_once_with(
-            destination['type'], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            destination['type'], constants.PROVIDER_TYPE_TRANSFER_IMPORT,
             mock.sentinel.event_handler)
         mock_get_conn_info.assert_called_once_with(
             mock.sentinel.ctxt, destination)
@@ -608,7 +608,7 @@ class FinalizeReplicaInstanceDeploymentTaskTestCase(
                 mock.sentinel.event_handler)
         self.assertEqual(result, expected_result)
         mock_get_provider.assert_called_once_with(
-            destination['type'], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            destination['type'], constants.PROVIDER_TYPE_TRANSFER_IMPORT,
             mock.sentinel.event_handler)
         mock_get_conn_info.assert_called_once_with(
             mock.sentinel.ctxt, destination)
@@ -640,7 +640,7 @@ class CleanupFailedReplicaInstanceDeploymentTaskTestCase(
             destination, task_info, mock.sentinel.event_handler)
         self.assertEqual(result, expected_result)
         mock_get_provider.assert_called_once_with(
-            destination['type'], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            destination['type'], constants.PROVIDER_TYPE_TRANSFER_IMPORT,
             mock.sentinel.event_handler)
         mock_get_conn_info.assert_called_once_with(
             mock.sentinel.ctxt, destination)
@@ -676,7 +676,7 @@ class CreateReplicaDiskSnapshotsTaskTestCase(test_base.CoriolisBaseTestCase):
             destination, task_info, mock.sentinel.event_handler)
         self.assertEqual(result, expected_result)
         mock_get_provider.assert_called_once_with(
-            destination['type'], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            destination['type'], constants.PROVIDER_TYPE_TRANSFER_IMPORT,
             mock.sentinel.event_handler)
         mock_get_conn_info.assert_called_once_with(
             mock.sentinel.ctxt, destination)
@@ -719,7 +719,7 @@ class DeleteReplicaTargetDiskSnapshotsTaskTestCase(
             destination, task_info, mock.sentinel.event_handler)
         self.assertEqual(result, expected_result)
         mock_get_provider.assert_called_once_with(
-            destination['type'], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            destination['type'], constants.PROVIDER_TYPE_TRANSFER_IMPORT,
             mock.sentinel.event_handler)
         mock_get_conn_info.assert_called_once_with(
             mock.sentinel.ctxt, destination)
@@ -761,7 +761,7 @@ class RestoreReplicaDiskSnapshotsTaskTestCase(test_base.CoriolisBaseTestCase):
             destination, task_info, mock.sentinel.event_handler)
         self.assertEqual(result, expected_result)
         mock_get_provider.assert_called_once_with(
-            destination['type'], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            destination['type'], constants.PROVIDER_TYPE_TRANSFER_IMPORT,
             mock.sentinel.event_handler)
         mock_get_conn_info.assert_called_once_with(
             mock.sentinel.ctxt, destination)
@@ -799,7 +799,7 @@ class ValidateReplicaExecutionSourceInputsTaskTestCase(
         self.assertEqual(result, {})
         mock_event_manager.assert_called_once_with(mock.sentinel.event_handler)
         mock_get_provider.assert_called_once_with(
-            origin['type'], constants.PROVIDER_TYPE_VALIDATE_REPLICA_EXPORT,
+            origin['type'], constants.PROVIDER_TYPE_VALIDATE_TRANSFER_EXPORT,
             mock.sentinel.event_handler, raise_if_not_found=False)
         mock_get_conn_info.assert_called_once_with(mock.sentinel.ctxt, origin)
         prov_fun.assert_called_once_with(
@@ -824,7 +824,7 @@ class ValidateReplicaExecutionSourceInputsTaskTestCase(
         self.assertEqual(result, {})
         mock_event_manager.assert_called_once_with(mock.sentinel.event_handler)
         mock_get_provider.assert_called_once_with(
-            origin['type'], constants.PROVIDER_TYPE_VALIDATE_REPLICA_EXPORT,
+            origin['type'], constants.PROVIDER_TYPE_VALIDATE_TRANSFER_EXPORT,
             mock.sentinel.event_handler, raise_if_not_found=False)
         mock_get_conn_info.assert_called_once_with(mock.sentinel.ctxt, origin)
         prov_fun.assert_not_called()
@@ -869,7 +869,7 @@ class ValidateReplicaExecutionDestinationInputsTaskTestCase(
         self.assertEqual(result, {})
         mock_get_provider.assert_called_once_with(
             destination['type'],
-            constants.PROVIDER_TYPE_VALIDATE_REPLICA_IMPORT, None,
+            constants.PROVIDER_TYPE_VALIDATE_TRANSFER_IMPORT, None,
             raise_if_not_found=False)
         mock_get_conn_info.assert_called_once_with(
             mock.sentinel.ctxt, destination)
@@ -896,7 +896,7 @@ class ValidateReplicaExecutionDestinationInputsTaskTestCase(
         self.assertEqual(result, {})
         mock_get_provider.assert_called_once_with(
             destination['type'],
-            constants.PROVIDER_TYPE_VALIDATE_REPLICA_IMPORT, None,
+            constants.PROVIDER_TYPE_VALIDATE_TRANSFER_IMPORT, None,
             raise_if_not_found=False)
         mock_get_conn_info.assert_called_once_with(
             mock.sentinel.ctxt, destination)
@@ -920,7 +920,7 @@ class ValidateReplicaExecutionDestinationInputsTaskTestCase(
             destination, task_info, None)
         mock_get_provider.assert_called_once_with(
             destination['type'],
-            constants.PROVIDER_TYPE_VALIDATE_REPLICA_IMPORT, None,
+            constants.PROVIDER_TYPE_VALIDATE_TRANSFER_IMPORT, None,
             raise_if_not_found=False)
         mock_get_conn_info.assert_called_once_with(
             mock.sentinel.ctxt, destination)
@@ -960,7 +960,7 @@ class ValidateReplicaDeploymentParametersTaskTestCase(
             task_info['export_info'], schemas.CORIOLIS_VM_EXPORT_INFO_SCHEMA)
         mock_get_provider.assert_called_once_with(
             destination['type'],
-            constants.PROVIDER_TYPE_VALIDATE_REPLICA_IMPORT,
+            constants.PROVIDER_TYPE_VALIDATE_TRANSFER_IMPORT,
             mock.sentinel.event_handler, raise_if_not_found=False)
         prov_fun.assert_called_once_with(
             mock.sentinel.ctxt, mock_get_conn_info.return_value,
@@ -991,7 +991,7 @@ class ValidateReplicaDeploymentParametersTaskTestCase(
             task_info['export_info'], schemas.CORIOLIS_VM_EXPORT_INFO_SCHEMA)
         mock_get_provider.assert_called_once_with(
             destination['type'],
-            constants.PROVIDER_TYPE_VALIDATE_REPLICA_IMPORT,
+            constants.PROVIDER_TYPE_VALIDATE_TRANSFER_IMPORT,
             mock.sentinel.event_handler, raise_if_not_found=False)
         prov_fun.assert_not_called()
 
@@ -1058,7 +1058,7 @@ class UpdateSourceReplicaTaskTestCase(test_base.CoriolisBaseTestCase):
 
         mock_event_manager.assert_called_once_with(mock.sentinel.event_handler)
         mock_get_provider.assert_called_once_with(
-            origin['type'], constants.PROVIDER_TYPE_SOURCE_REPLICA_UPDATE,
+            origin['type'], constants.PROVIDER_TYPE_SOURCE_TRANSFER_UPDATE,
             mock.sentinel.event_handler, raise_if_not_found=False)
         mock_get_conn_info.assert_not_called()
         mock_validate_value.assert_not_called()
@@ -1092,7 +1092,7 @@ class UpdateSourceReplicaTaskTestCase(test_base.CoriolisBaseTestCase):
 
         mock_event_manager.assert_called_once_with(mock.sentinel.event_handler)
         mock_get_provider.assert_called_once_with(
-            origin['type'], constants.PROVIDER_TYPE_SOURCE_REPLICA_UPDATE,
+            origin['type'], constants.PROVIDER_TYPE_SOURCE_TRANSFER_UPDATE,
             mock.sentinel.event_handler, raise_if_not_found=False)
         mock_get_conn_info.assert_called_once_with(mock.sentinel.ctxt, origin)
         mock_validate_value.assert_not_called()
@@ -1127,7 +1127,7 @@ class UpdateSourceReplicaTaskTestCase(test_base.CoriolisBaseTestCase):
 
         mock_event_manager.assert_called_once_with(mock.sentinel.event_handler)
         mock_get_provider.assert_called_once_with(
-            origin['type'], constants.PROVIDER_TYPE_SOURCE_REPLICA_UPDATE,
+            origin['type'], constants.PROVIDER_TYPE_SOURCE_TRANSFER_UPDATE,
             mock.sentinel.event_handler, raise_if_not_found=False)
         mock_get_conn_info.assert_called_once_with(mock.sentinel.ctxt, origin)
         mock_validate_value.assert_called_once_with(
@@ -1201,7 +1201,7 @@ class UpdateDestinationReplicaTaskTestCase(test_base.CoriolisBaseTestCase):
         mock_event_manager.assert_called_once_with(mock.sentinel.event_handler)
         mock_get_provider.assert_called_once_with(
             destination['type'],
-            constants.PROVIDER_TYPE_DESTINATION_REPLICA_UPDATE,
+            constants.PROVIDER_TYPE_DESTINATION_TRANSFER_UPDATE,
             mock.sentinel.event_handler, raise_if_not_found=False)
         mock_get_conn_info.assert_not_called()
         mock_validate_value.assert_not_called()
@@ -1237,7 +1237,7 @@ class UpdateDestinationReplicaTaskTestCase(test_base.CoriolisBaseTestCase):
         mock_event_manager.assert_called_once_with(mock.sentinel.event_handler)
         mock_get_provider.assert_called_once_with(
             destination['type'],
-            constants.PROVIDER_TYPE_DESTINATION_REPLICA_UPDATE,
+            constants.PROVIDER_TYPE_DESTINATION_TRANSFER_UPDATE,
             mock.sentinel.event_handler, raise_if_not_found=False)
         mock_get_conn_info.assert_called_once_with(
             mock.sentinel.ctxt, destination)
@@ -1276,7 +1276,7 @@ class UpdateDestinationReplicaTaskTestCase(test_base.CoriolisBaseTestCase):
         mock_event_manager.assert_called_once_with(mock.sentinel.event_handler)
         mock_get_provider.assert_called_once_with(
             destination['type'],
-            constants.PROVIDER_TYPE_DESTINATION_REPLICA_UPDATE,
+            constants.PROVIDER_TYPE_DESTINATION_TRANSFER_UPDATE,
             mock.sentinel.event_handler, raise_if_not_found=False)
         mock_get_conn_info.assert_called_once_with(
             mock.sentinel.ctxt, destination)

@@ -233,15 +233,15 @@ class ReportMinionAllocationFailureForMigrationTaskTestCase(
         )
 
     @mock.patch.object(
-        ConductorClient, 'report_migration_minions_allocation_error'
+        ConductorClient, 'report_deployment_minions_allocation_error'
     )
     def test__report_machine_allocation_failure(
-            self, mock_report_migration_minions_allocation_error):
+            self, mock_report_depl_minions_alloation_error):
         result = self.task._report_machine_allocation_failure(
             mock.sentinel.context, self.action_id, mock.sentinel.failure_str)
         self.assertIsNone(result)
 
-        mock_report_migration_minions_allocation_error.assert_called_once_with(
+        mock_report_depl_minions_alloation_error.assert_called_once_with(
             mock.sentinel.context, self.action_id, mock.sentinel.failure_str
         )
 
@@ -263,15 +263,15 @@ class ReportMinionAllocationFailureForReplicaTaskTestCase(
         )
 
     @mock.patch.object(
-        ConductorClient, 'report_replica_minions_allocation_error'
+        ConductorClient, 'report_transfer_minions_allocation_error'
     )
     def test__report_machine_allocation_failure(
-            self, mock_report_replica_minions_allocation_error):
+            self, mock_report_transfer_minions_allocation_error):
         result = self.task._report_machine_allocation_failure(
             mock.sentinel.context, self.action_id, mock.sentinel.failure_str)
 
         self.assertIsNone(result)
-        mock_report_replica_minions_allocation_error.assert_called_once_with(
+        mock_report_transfer_minions_allocation_error.assert_called_once_with(
             mock.sentinel.context, self.action_id, mock.sentinel.failure_str
         )
 
@@ -465,7 +465,7 @@ class BaseConfirmMinionAllocationForActionTaskTestCase(
             mock_get_action_label):
         mock_get_minion_machine.return_value = self.minion_machine
         mock_confirm_allocation.side_effect = [
-            exception.InvalidReplicaState(reason='Invalid state')]
+            exception.InvalidTransferState(reason='Invalid state')]
 
         self.assertRaises(
             exception.MinionMachineAllocationFailure,
@@ -500,16 +500,16 @@ class ConfirmMinionAllocationForMigrationTaskTestCase(
         )
 
     @mock.patch.object(
-        ConductorClient, 'confirm_migration_minions_allocation'
+        ConductorClient, 'confirm_deployment_minions_allocation'
     )
     def test__confirm_machine_allocation_for_action(
-            self, mock_confirm_migration_minions_allocation):
+            self, mock_confirm_deployment_minions_allocation):
         result = self.task._confirm_machine_allocation_for_action(
             mock.sentinel.context, self.action_id,
             mock.sentinel.machine_allocations)
 
         self.assertIsNone(result)
-        mock_confirm_migration_minions_allocation.assert_called_once_with(
+        mock_confirm_deployment_minions_allocation.assert_called_once_with(
             mock.sentinel.context, self.action_id,
             mock.sentinel.machine_allocations)
 
@@ -538,16 +538,16 @@ class ConfirmMinionAllocationForReplicaTaskTestCase(
         )
 
     @mock.patch.object(
-        ConductorClient, 'confirm_replica_minions_allocation'
+        ConductorClient, 'confirm_transfer_minions_allocation'
     )
     def test__confirm_machine_allocation_for_action(
-            self, mock_confirm_replica_minions_allocation):
+            self, mock_confirm_transfer_minions_allocation):
         result = self.task._confirm_machine_allocation_for_action(
             mock.sentinel.context, mock.sentinel.action_id,
             mock.sentinel.machine_allocations)
 
         self.assertIsNone(result)
-        mock_confirm_replica_minions_allocation.assert_called_once_with(
+        mock_confirm_transfer_minions_allocation.assert_called_once_with(
             mock.sentinel.context, mock.sentinel.action_id,
             mock.sentinel.machine_allocations)
 

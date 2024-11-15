@@ -34,20 +34,20 @@ class OSMorphingTask(base.TaskRunner):
     def get_required_provider_types(cls):
         return {
             constants.PROVIDER_PLATFORM_SOURCE: [
-                constants.PROVIDER_TYPE_REPLICA_EXPORT],
+                constants.PROVIDER_TYPE_TRANSFER_EXPORT],
             constants.PROVIDER_PLATFORM_DESTINATION: [
-                constants.PROVIDER_TYPE_REPLICA_IMPORT],
+                constants.PROVIDER_TYPE_TRANSFER_IMPORT],
         }
 
     def _run(self, ctxt, instance, origin, destination, task_info,
              event_handler):
 
         origin_provider = providers_factory.get_provider(
-            origin["type"], constants.PROVIDER_TYPE_REPLICA_EXPORT,
+            origin["type"], constants.PROVIDER_TYPE_TRANSFER_EXPORT,
             event_handler)
 
         destination_provider = providers_factory.get_provider(
-            destination["type"], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            destination["type"], constants.PROVIDER_TYPE_TRANSFER_IMPORT,
             event_handler)
 
         osmorphing_connection_info = base.unmarshal_migr_conn_info(
