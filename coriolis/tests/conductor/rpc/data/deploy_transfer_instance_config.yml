@@ -1,0 +1,182 @@
+- config:
+    skip_os_morphing: False
+    has_os_morphing_minion: True
+  expected_tasks:
+    - type: 'VALIDATE_OSMORPHING_MINION_POOL_COMPATIBILITY'
+      depends_on: ['VALIDATE_DEPLOYMENT_INPUTS']
+    - type: 'CREATE_TRANSFER_DISK_SNAPSHOTS'
+      depends_on: ['VALIDATE_OSMORPHING_MINION_POOL_COMPATIBILITY']
+    - type: 'DEPLOY_INSTANCE_RESOURCES'
+      depends_on: ['CREATE_TRANSFER_DISK_SNAPSHOTS']
+    - type: 'ATTACH_VOLUMES_TO_OSMORPHING_MINION'
+      depends_on: ['VALIDATE_OSMORPHING_MINION_POOL_COMPATIBILITY', 'DEPLOY_INSTANCE_RESOURCES']
+    - type: 'COLLECT_OS_MORPHING_INFO'
+      depends_on: ['ATTACH_VOLUMES_TO_OSMORPHING_MINION']
+    - type: 'OS_MORPHING'
+      depends_on: ['COLLECT_OS_MORPHING_INFO']
+    - type: 'DETACH_VOLUMES_FROM_OSMORPHING_MINION'
+      depends_on: ['ATTACH_VOLUMES_TO_OSMORPHING_MINION', 'OS_MORPHING']
+      on_error: True
+    - type: 'RELEASE_OSMORPHING_MINION'
+      depends_on: ['VALIDATE_OSMORPHING_MINION_POOL_COMPATIBILITY', 'DETACH_VOLUMES_FROM_OSMORPHING_MINION']
+      on_error: True
+    - type: 'FINALIZE_INSTANCE_DEPLOYMENT'
+      depends_on: ['OS_MORPHING', 'RELEASE_OSMORPHING_MINION']
+    - type: 'DELETE_TRANSFER_TARGET_DISK_SNAPSHOTS'
+      depends_on: ['CREATE_TRANSFER_DISK_SNAPSHOTS', 'FINALIZE_INSTANCE_DEPLOYMENT']
+      on_error: False
+    - type: 'CLEANUP_FAILED_INSTANCE_DEPLOYMENT'
+      depends_on: ['DEPLOY_INSTANCE_RESOURCES', 'FINALIZE_INSTANCE_DEPLOYMENT']
+      on_error_only: True
+    - type: 'RESTORE_TRANSFER_DISK_SNAPSHOTS'
+      depends_on: ['CLEANUP_FAILED_INSTANCE_DEPLOYMENT']
+      on_error: True
+
+- config:
+    skip_os_morphing: False
+    has_os_morphing_minion: False
+  expected_tasks:
+    - type: 'CREATE_TRANSFER_DISK_SNAPSHOTS'
+      depends_on: ['VALIDATE_DEPLOYMENT_INPUTS']
+    - type: 'DEPLOY_INSTANCE_RESOURCES'
+      depends_on: ['CREATE_TRANSFER_DISK_SNAPSHOTS']
+    - type: 'DEPLOY_OS_MORPHING_RESOURCES'
+      depends_on: ['DEPLOY_INSTANCE_RESOURCES']
+    - type: 'OS_MORPHING'
+      depends_on: ['DEPLOY_OS_MORPHING_RESOURCES']
+    - type: 'DELETE_OS_MORPHING_RESOURCES'
+      depends_on: ['DEPLOY_OS_MORPHING_RESOURCES', 'OS_MORPHING']
+      on_error: True
+    - type: 'FINALIZE_INSTANCE_DEPLOYMENT'
+      depends_on: ['OS_MORPHING', 'DELETE_OS_MORPHING_RESOURCES']
+    - type: 'DELETE_TRANSFER_TARGET_DISK_SNAPSHOTS'
+      depends_on: ['CREATE_TRANSFER_DISK_SNAPSHOTS', 'FINALIZE_INSTANCE_DEPLOYMENT']
+      on_error: False
+    - type: 'CLEANUP_FAILED_INSTANCE_DEPLOYMENT'
+      depends_on: ['DEPLOY_INSTANCE_RESOURCES', 'FINALIZE_INSTANCE_DEPLOYMENT']
+      on_error_only: True
+    - type: 'RESTORE_TRANSFER_DISK_SNAPSHOTS'
+      depends_on: ['CLEANUP_FAILED_INSTANCE_DEPLOYMENT']
+      on_error: True
+
+- config:
+    skip_os_morphing: True
+  expected_tasks:
+    - type: 'CREATE_TRANSFER_DISK_SNAPSHOTS'
+      depends_on: ['VALIDATE_DEPLOYMENT_INPUTS']
+    - type: 'DEPLOY_INSTANCE_RESOURCES'
+      depends_on: ['CREATE_TRANSFER_DISK_SNAPSHOTS']
+    - type: 'FINALIZE_INSTANCE_DEPLOYMENT'
+      depends_on: ['DEPLOY_INSTANCE_RESOURCES']
+    - type: 'DELETE_TRANSFER_TARGET_DISK_SNAPSHOTS'
+      depends_on: ['CREATE_TRANSFER_DISK_SNAPSHOTS', 'FINALIZE_INSTANCE_DEPLOYMENT']
+      on_error: False
+    - type: 'CLEANUP_FAILED_INSTANCE_DEPLOYMENT'
+      depends_on: ['DEPLOY_INSTANCE_RESOURCES', 'FINALIZE_INSTANCE_DEPLOYMENT']
+      on_error_only: True
+    - type: 'RESTORE_TRANSFER_DISK_SNAPSHOTS'
+      depends_on: ['CLEANUP_FAILED_INSTANCE_DEPLOYMENT']
+      on_error: True
+
+- config:
+    skip_os_morphing: True
+    get_optimal_flavor: True
+  expected_tasks:
+    - type: 'CREATE_TRANSFER_DISK_SNAPSHOTS'
+      depends_on: ['VALIDATE_DEPLOYMENT_INPUTS']
+    - type: 'DEPLOY_INSTANCE_RESOURCES'
+      depends_on: ['CREATE_TRANSFER_DISK_SNAPSHOTS']
+    - type: 'GET_OPTIMAL_FLAVOR'
+      depends_on: ['DEPLOY_INSTANCE_RESOURCES']
+    - type: 'FINALIZE_INSTANCE_DEPLOYMENT'
+      depends_on: ['GET_OPTIMAL_FLAVOR']
+    - type: 'DELETE_TRANSFER_TARGET_DISK_SNAPSHOTS'
+      depends_on: ['CREATE_TRANSFER_DISK_SNAPSHOTS', 'FINALIZE_INSTANCE_DEPLOYMENT']
+      on_error: False
+    - type: 'CLEANUP_FAILED_INSTANCE_DEPLOYMENT'
+      depends_on: ['DEPLOY_INSTANCE_RESOURCES', 'FINALIZE_INSTANCE_DEPLOYMENT']
+      on_error_only: True
+    - type: 'RESTORE_TRANSFER_DISK_SNAPSHOTS'
+      depends_on: ['CLEANUP_FAILED_INSTANCE_DEPLOYMENT']
+      on_error: True
+
+- config:
+    skip_os_morphing: True
+    clone_disks: True
+  expected_tasks:
+    - type: 'CREATE_TRANSFER_DISK_SNAPSHOTS'
+      depends_on: ['VALIDATE_DEPLOYMENT_INPUTS']
+    - type: 'DEPLOY_INSTANCE_RESOURCES'
+      depends_on: ['CREATE_TRANSFER_DISK_SNAPSHOTS']
+    - type: 'FINALIZE_INSTANCE_DEPLOYMENT'
+      depends_on: ['DEPLOY_INSTANCE_RESOURCES']
+    - type: 'DELETE_TRANSFER_TARGET_DISK_SNAPSHOTS'
+      depends_on: ['CREATE_TRANSFER_DISK_SNAPSHOTS', 'FINALIZE_INSTANCE_DEPLOYMENT']
+      on_error: True
+    - type: 'CLEANUP_FAILED_INSTANCE_DEPLOYMENT'
+      depends_on: ['DEPLOY_INSTANCE_RESOURCES', 'FINALIZE_INSTANCE_DEPLOYMENT']
+      on_error_only: True
+
+- config:
+    get_optimal_flavor: True
+    skip_os_morphing: False
+  expected_tasks:
+    - type: CREATE_TRANSFER_DISK_SNAPSHOTS
+      depends_on: ['VALIDATE_DEPLOYMENT_INPUTS']
+    - type: DEPLOY_INSTANCE_RESOURCES
+      depends_on: ['CREATE_TRANSFER_DISK_SNAPSHOTS']
+    - type: DEPLOY_OS_MORPHING_RESOURCES
+      depends_on: ['DEPLOY_INSTANCE_RESOURCES']
+    - type: OS_MORPHING
+      depends_on: ['DEPLOY_OS_MORPHING_RESOURCES']
+    - type: DELETE_OS_MORPHING_RESOURCES
+      depends_on: ['DEPLOY_OS_MORPHING_RESOURCES', 'OS_MORPHING']
+      on_error: True
+    - type: GET_OPTIMAL_FLAVOR
+      depends_on: ['OS_MORPHING', 'DELETE_OS_MORPHING_RESOURCES']
+    - type: FINALIZE_INSTANCE_DEPLOYMENT
+      depends_on: ['GET_OPTIMAL_FLAVOR']
+    - type: DELETE_TRANSFER_TARGET_DISK_SNAPSHOTS
+      depends_on: ['CREATE_TRANSFER_DISK_SNAPSHOTS', 'FINALIZE_INSTANCE_DEPLOYMENT']
+      on_error: False
+    - type: CLEANUP_FAILED_INSTANCE_DEPLOYMENT
+      depends_on: ['DEPLOY_INSTANCE_RESOURCES', 'FINALIZE_INSTANCE_DEPLOYMENT']
+      on_error_only: True
+    - type: RESTORE_TRANSFER_DISK_SNAPSHOTS
+      depends_on: ['CLEANUP_FAILED_INSTANCE_DEPLOYMENT']
+      on_error: True
+
+- config:
+    get_optimal_flavor: True
+    skip_os_morphing: False
+    has_os_morphing_minion: True
+  expected_tasks:
+    - type: VALIDATE_OSMORPHING_MINION_POOL_COMPATIBILITY
+      depends_on: ['VALIDATE_DEPLOYMENT_INPUTS']
+    - type: DEPLOY_INSTANCE_RESOURCES
+      depends_on: ['CREATE_TRANSFER_DISK_SNAPSHOTS']
+    - type: ATTACH_VOLUMES_TO_OSMORPHING_MINION
+      depends_on: ['VALIDATE_OSMORPHING_MINION_POOL_COMPATIBILITY', 'DEPLOY_INSTANCE_RESOURCES']
+    - type: COLLECT_OS_MORPHING_INFO
+      depends_on: ['ATTACH_VOLUMES_TO_OSMORPHING_MINION']
+    - type: OS_MORPHING
+      depends_on: ['COLLECT_OS_MORPHING_INFO']
+    - type: DETACH_VOLUMES_FROM_OSMORPHING_MINION
+      depends_on: ['ATTACH_VOLUMES_TO_OSMORPHING_MINION', 'OS_MORPHING']
+      on_error: True
+    - type: RELEASE_OSMORPHING_MINION
+      depends_on: ['VALIDATE_OSMORPHING_MINION_POOL_COMPATIBILITY', 'DETACH_VOLUMES_FROM_OSMORPHING_MINION']
+      on_error: True
+    - type: GET_OPTIMAL_FLAVOR
+      depends_on: ['OS_MORPHING', 'RELEASE_OSMORPHING_MINION']
+    - type: FINALIZE_INSTANCE_DEPLOYMENT
+      depends_on: ['GET_OPTIMAL_FLAVOR']
+    - type: DELETE_TRANSFER_TARGET_DISK_SNAPSHOTS
+      depends_on: ['CREATE_TRANSFER_DISK_SNAPSHOTS', 'FINALIZE_INSTANCE_DEPLOYMENT']
+      on_error: False
+    - type: CLEANUP_FAILED_INSTANCE_DEPLOYMENT
+      depends_on: ['DEPLOY_INSTANCE_RESOURCES', 'FINALIZE_INSTANCE_DEPLOYMENT']
+      on_error_only: True
+    - type: RESTORE_TRANSFER_DISK_SNAPSHOTS
+      depends_on: ['CLEANUP_FAILED_INSTANCE_DEPLOYMENT']
+      on_error: True

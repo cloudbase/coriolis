@@ -235,12 +235,12 @@ class InvalidActionTasksExecutionState(Invalid):
     message = _("Invalid tasks execution state: %(reason)s")
 
 
-class InvalidMigrationState(Invalid):
-    message = _("Invalid migration state: %(reason)s")
+class InvalidDeploymentState(Invalid):
+    message = _("Invalid deployment state: %(reason)s")
 
 
-class InvalidReplicaState(Invalid):
-    message = _("Invalid replica state: %(reason)s")
+class InvalidTransferState(Invalid):
+    message = _("Invalid transfer state: %(reason)s")
 
 
 class InvalidInstanceState(Invalid):

@@ -957,7 +957,7 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
 
         mock_get_provider.assert_called_once_with(
             mock.sentinel.source_platform_name,
-            constants.PROVIDER_TYPE_REPLICA_EXPORT,
+            constants.PROVIDER_TYPE_TRANSFER_EXPORT,
             None,
         )
         mock_validate.assert_called_once_with(
@@ -1140,11 +1140,11 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             "connection_info_schema"
         ),
         (
-            constants.PROVIDER_TYPE_REPLICA_IMPORT,
+            constants.PROVIDER_TYPE_TRANSFER_IMPORT,
             "destination_environment_schema",
         ),
         (
-            constants.PROVIDER_TYPE_REPLICA_EXPORT,
+            constants.PROVIDER_TYPE_TRANSFER_EXPORT,
             "source_environment_schema"
         ),
         (

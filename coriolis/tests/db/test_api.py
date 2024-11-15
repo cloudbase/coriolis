@@ -6,7 +6,7 @@ import uuid
 
 import ddt
 from oslo_utils import timeutils
-import sqlalchemy.orm
+import sqlalchemy
 
 from coriolis import constants
 from coriolis.db import api
@@ -50,7 +50,7 @@ def create_valid_tasks_execution():
     valid_tasks_execution = models.TasksExecution()
     valid_tasks_execution.id = str(uuid.uuid4())
     valid_tasks_execution.status = DEFAULT_EXECUTION_STATUS
-    valid_tasks_execution.type = constants.EXECUTION_TYPE_REPLICA_EXECUTION
+    valid_tasks_execution.type = constants.EXECUTION_TYPE_TRANSFER_EXECUTION
     valid_tasks_execution.number = 1
 
     valid_task = models.Task()
@@ -59,7 +59,7 @@ def create_valid_tasks_execution():
     valid_task.instance = DEFAULT_INSTANCE
     valid_task.status = constants.TASK_STATUS_RUNNING
     valid_task.task_type = (
-        constants.TASK_TYPE_VALIDATE_REPLICA_SOURCE_INPUTS)
+        constants.TASK_TYPE_VALIDATE_TRANSFER_SOURCE_INPUTS)
     valid_task.index = 1
     valid_task.on_error = False
 
@@ -109,7 +109,7 @@ class BaseDBAPITestCase(test_base.CoriolisBaseTestCase):
         valid_transfer.user_id = project_id
         valid_transfer.project_id = project_id
         valid_transfer.base_id = valid_transfer.id
-        valid_transfer.scenario = constants.REPLICA_SCENARIO_REPLICA
+        valid_transfer.scenario = constants.TRANSFER_SCENARIO_REPLICA
         valid_transfer.last_execution_status = DEFAULT_EXECUTION_STATUS
         valid_transfer.executions = []
         valid_transfer.instances = [DEFAULT_INSTANCE]
@@ -514,7 +514,7 @@ class TransferTasksExecutionDBAPITestCase(BaseDBAPITestCase):
         new_tasks_execution.id = str(uuid.uuid4())
         new_tasks_execution.action = action
         new_tasks_execution.status = constants.EXECUTION_STATUS_UNEXECUTED
-        new_tasks_execution.type = constants.EXECUTION_TYPE_REPLICA_EXECUTION
+        new_tasks_execution.type = constants.EXECUTION_TYPE_TRANSFER_EXECUTION
         new_tasks_execution.number = 0
 
         return new_tasks_execution
@@ -859,7 +859,7 @@ class TransfersDBAPITestCase(BaseDBAPITestCase):
             'transfer')
 
     @staticmethod
-    def _create_dummy_transfer(scenario=constants.REPLICA_SCENARIO_REPLICA,
+    def _create_dummy_transfer(scenario=constants.TRANSFER_SCENARIO_REPLICA,
                                origin_endpoint_id=str(uuid.uuid4()),
                                destination_endpoint_id=str(uuid.uuid4()),
                                project_id=DEFAULT_PROJECT_ID):
@@ -903,7 +903,7 @@ class TransfersDBAPITestCase(BaseDBAPITestCase):
         self.assertTrue(hasattr(result[0], 'info'))
 
     def test_get_transfers_transfer_scenario(self):
-        scenario = constants.REPLICA_SCENARIO_REPLICA
+        scenario = constants.TRANSFER_SCENARIO_REPLICA
         result = api.get_transfers(self.context, transfer_scenario=scenario)
         self.assertTrue(all([res.scenario == scenario for res in result]))
 
@@ -925,7 +925,7 @@ class TransfersDBAPITestCase(BaseDBAPITestCase):
     def test_get_transfer_by_scenario(self):
         result = api.get_transfer(
             self.context, self.valid_transfer.id,
-            transfer_scenario=constants.REPLICA_SCENARIO_REPLICA)
+            transfer_scenario=constants.TRANSFER_SCENARIO_REPLICA)
         self.assertEqual(result, self.valid_transfer)
 
     def test_get_transfer_out_of_user_scope(self):
@@ -947,7 +947,7 @@ class TransfersDBAPITestCase(BaseDBAPITestCase):
             origin_endpoint_id=origin_endpoint_id,
             destination_endpoint_id=dest_endpoint_id)
         dummy_transfer_migration = self._create_dummy_transfer(
-            scenario=constants.REPLICA_SCENARIO_LIVE_MIGRATION,
+            scenario=constants.TRANSFER_SCENARIO_LIVE_MIGRATION,
             origin_endpoint_id=origin_endpoint_id,
             destination_endpoint_id=dest_endpoint_id)
         self.session.add(dummy_transfer_replica)
@@ -959,7 +959,7 @@ class TransfersDBAPITestCase(BaseDBAPITestCase):
 
         result = api.get_endpoint_transfers_count(
             self.context, origin_endpoint_id,
-            transfer_scenario=constants.REPLICA_SCENARIO_REPLICA)
+            transfer_scenario=constants.TRANSFER_SCENARIO_REPLICA)
         self.assertEqual(result, 1)
 
     def test_add_transfer(self):

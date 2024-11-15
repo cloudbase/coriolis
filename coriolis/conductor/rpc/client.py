@@ -128,49 +128,49 @@ class ConductorClient(rpc.BaseRPCClient):
             platform_name=platform_name,
             provider_type=provider_type)
 
-    def execute_replica_tasks(self, ctxt, replica_id,
-                              shutdown_instances=False):
+    def execute_transfer_tasks(self, ctxt, transfer_id,
+                               shutdown_instances=False):
         return self._call(
-            ctxt, 'execute_replica_tasks', replica_id=replica_id,
+            ctxt, 'execute_transfer_tasks', transfer_id=transfer_id,
             shutdown_instances=shutdown_instances)
 
-    def get_replica_tasks_executions(self, ctxt, replica_id,
-                                     include_tasks=False):
+    def get_transfer_tasks_executions(self, ctxt, transfer_id,
+                                      include_tasks=False):
         return self._call(
-            ctxt, 'get_replica_tasks_executions',
-            replica_id=replica_id,
+            ctxt, 'get_transfer_tasks_executions',
+            transfer_id=transfer_id,
             include_tasks=include_tasks)
 
-    def get_replica_tasks_execution(self, ctxt, replica_id, execution_id,
-                                    include_task_info=False):
+    def get_transfer_tasks_execution(self, ctxt, transfer_id, execution_id,
+                                     include_task_info=False):
         return self._call(
-            ctxt, 'get_replica_tasks_execution', replica_id=replica_id,
+            ctxt, 'get_transfer_tasks_execution', transfer_id=transfer_id,
             execution_id=execution_id, include_task_info=include_task_info)
 
-    def delete_replica_tasks_execution(self, ctxt, replica_id, execution_id):
+    def delete_transfer_tasks_execution(self, ctxt, transfer_id, execution_id):
         return self._call(
-            ctxt, 'delete_replica_tasks_execution', replica_id=replica_id,
+            ctxt, 'delete_transfer_tasks_execution', transfer_id=transfer_id,
             execution_id=execution_id)
 
-    def cancel_replica_tasks_execution(self, ctxt, replica_id, execution_id,
-                                       force):
+    def cancel_transfer_tasks_execution(self, ctxt, transfer_id, execution_id,
+                                        force):
         return self._call(
-            ctxt, 'cancel_replica_tasks_execution', replica_id=replica_id,
+            ctxt, 'cancel_transfer_tasks_execution', transfer_id=transfer_id,
             execution_id=execution_id, force=force)
 
-    def create_instances_replica(self, ctxt,
-                                 replica_scenario,
-                                 origin_endpoint_id,
-                                 destination_endpoint_id,
-                                 origin_minion_pool_id,
-                                 destination_minion_pool_id,
-                                 instance_osmorphing_minion_pool_mappings,
-                                 source_environment, destination_environment,
-                                 instances, network_map, storage_mappings,
-                                 notes=None, user_scripts=None):
+    def create_instances_transfer(self, ctxt,
+                                  transfer_scenario,
+                                  origin_endpoint_id,
+                                  destination_endpoint_id,
+                                  origin_minion_pool_id,
+                                  destination_minion_pool_id,
+                                  instance_osmorphing_minion_pool_mappings,
+                                  source_environment, destination_environment,
+                                  instances, network_map, storage_mappings,
+                                  notes=None, user_scripts=None):
         return self._call(
-            ctxt, 'create_instances_replica',
-            replica_scenario=replica_scenario,
+            ctxt, 'create_instances_transfer',
+            transfer_scenario=transfer_scenario,
             origin_endpoint_id=origin_endpoint_id,
             destination_endpoint_id=destination_endpoint_id,
             origin_minion_pool_id=origin_minion_pool_id,
@@ -185,25 +185,25 @@ class ConductorClient(rpc.BaseRPCClient):
             source_environment=source_environment,
             user_scripts=user_scripts)
 
-    def get_replicas(self, ctxt, include_tasks_executions=False,
-                     include_task_info=False):
+    def get_transfers(self, ctxt, include_tasks_executions=False,
+                      include_task_info=False):
         return self._call(
-            ctxt, 'get_replicas',
+            ctxt, 'get_transfers',
             include_tasks_executions=include_tasks_executions,
             include_task_info=include_task_info)
 
-    def get_replica(self, ctxt, replica_id, include_task_info=False):
+    def get_transfer(self, ctxt, transfer_id, include_task_info=False):
         return self._call(
-            ctxt, 'get_replica', replica_id=replica_id,
+            ctxt, 'get_transfer', transfer_id=transfer_id,
             include_task_info=include_task_info)
 
-    def delete_replica(self, ctxt, replica_id):
+    def delete_transfer(self, ctxt, transfer_id):
         self._call(
-            ctxt, 'delete_replica', replica_id=replica_id)
+            ctxt, 'delete_transfer', transfer_id=transfer_id)
 
-    def delete_replica_disks(self, ctxt, replica_id):
+    def delete_transfer_disks(self, ctxt, transfer_id):
         return self._call(
-            ctxt, 'delete_replica_disks', replica_id=replica_id)
+            ctxt, 'delete_transfer_disks', transfer_id=transfer_id)
 
     def get_deployments(self, ctxt, include_tasks=False,
                         include_task_info=False):
@@ -216,12 +216,12 @@ class ConductorClient(rpc.BaseRPCClient):
             ctxt, 'get_deployment', deployment_id=deployment_id,
             include_task_info=include_task_info)
 
-    def deploy_replica_instances(
-            self, ctxt, replica_id,
+    def deploy_transfer_instances(
+            self, ctxt, transfer_id,
             instance_osmorphing_minion_pool_mappings=None, clone_disks=False,
             force=False, skip_os_morphing=False, user_scripts=None):
         return self._call(
-            ctxt, 'deploy_replica_instances', replica_id=replica_id,
+            ctxt, 'deploy_transfer_instances', transfer_id=transfer_id,
             instance_osmorphing_minion_pool_mappings=(
                 instance_osmorphing_minion_pool_mappings),
             clone_disks=clone_disks, force=force,
@@ -283,48 +283,48 @@ class ConductorClient(rpc.BaseRPCClient):
             new_current_step=new_current_step,
             new_total_steps=new_total_steps, new_message=new_message)
 
-    def create_replica_schedule(self, ctxt, replica_id,
-                                schedule, enabled, exp_date,
-                                shutdown_instance):
+    def create_transfer_schedule(self, ctxt, transfer_id,
+                                 schedule, enabled, exp_date,
+                                 shutdown_instance):
         return self._call(
-            ctxt, 'create_replica_schedule',
-            replica_id=replica_id,
+            ctxt, 'create_transfer_schedule',
+            transfer_id=transfer_id,
             schedule=schedule,
             enabled=enabled,
             exp_date=exp_date,
             shutdown_instance=shutdown_instance)
 
-    def update_replica_schedule(self, ctxt, replica_id, schedule_id,
-                                updated_values):
+    def update_transfer_schedule(self, ctxt, transfer_id, schedule_id,
+                                 updated_values):
         return self._call(
-            ctxt, 'update_replica_schedule',
-            replica_id=replica_id,
+            ctxt, 'update_transfer_schedule',
+            transfer_id=transfer_id,
             schedule_id=schedule_id,
             updated_values=updated_values)
 
-    def delete_replica_schedule(self, ctxt, replica_id, schedule_id):
+    def delete_transfer_schedule(self, ctxt, transfer_id, schedule_id):
         return self._call(
-            ctxt, 'delete_replica_schedule',
-            replica_id=replica_id,
+            ctxt, 'delete_transfer_schedule',
+            transfer_id=transfer_id,
             schedule_id=schedule_id)
 
-    def get_replica_schedules(self, ctxt, replica_id=None, expired=True):
+    def get_transfer_schedules(self, ctxt, transfer_id=None, expired=True):
         return self._call(
-            ctxt, 'get_replica_schedules',
-            replica_id=replica_id, expired=expired)
+            ctxt, 'get_transfer_schedules',
+            transfer_id=transfer_id, expired=expired)
 
-    def get_replica_schedule(self, ctxt, replica_id,
-                             schedule_id, expired=True):
+    def get_transfer_schedule(self, ctxt, transfer_id,
+                              schedule_id, expired=True):
         return self._call(
-            ctxt, 'get_replica_schedule',
-            replica_id=replica_id,
+            ctxt, 'get_transfer_schedule',
+            transfer_id=transfer_id,
             schedule_id=schedule_id,
             expired=expired)
 
-    def update_replica(self, ctxt, replica_id, updated_properties):
+    def update_transfer(self, ctxt, transfer_id, updated_properties):
         return self._call(
-            ctxt, 'update_replica',
-            replica_id=replica_id,
+            ctxt, 'update_transfer',
+            transfer_id=transfer_id,
             updated_properties=updated_properties)
 
     def get_diagnostics(self, ctxt):
@@ -391,31 +391,32 @@ class ConductorClient(rpc.BaseRPCClient):
         return self._call(
             ctxt, 'delete_service', service_id=service_id)
 
-    def confirm_replica_minions_allocation(
-            self, ctxt, replica_id, minion_machine_allocations):
+    def confirm_transfer_minions_allocation(
+            self, ctxt, transfer_id, minion_machine_allocations):
         self._call(
-            ctxt, 'confirm_replica_minions_allocation', replica_id=replica_id,
+            ctxt, 'confirm_transfer_minions_allocation',
+            transfer_id=transfer_id,
             minion_machine_allocations=minion_machine_allocations)
 
-    def report_replica_minions_allocation_error(
-            self, ctxt, replica_id, minion_allocation_error_details):
+    def report_transfer_minions_allocation_error(
+            self, ctxt, transfer_id, minion_allocation_error_details):
         self._call(
-            ctxt, 'report_replica_minions_allocation_error',
-            replica_id=replica_id,
+            ctxt, 'report_transfer_minions_allocation_error',
+            transfer_id=transfer_id,
             minion_allocation_error_details=minion_allocation_error_details)
 
-    def confirm_migration_minions_allocation(
-            self, ctxt, migration_id, minion_machine_allocations):
+    def confirm_deployment_minions_allocation(
+            self, ctxt, deployment_id, minion_machine_allocations):
         self._call(
-            ctxt, 'confirm_migration_minions_allocation',
-            migration_id=migration_id,
+            ctxt, 'confirm_deployment_minions_allocation',
+            deployment_id=deployment_id,
             minion_machine_allocations=minion_machine_allocations)
 
-    def report_migration_minions_allocation_error(
-            self, ctxt, migration_id, minion_allocation_error_details):
+    def report_deployment_minions_allocation_error(
+            self, ctxt, deployment_id, minion_allocation_error_details):
         self._call(
-            ctxt, 'report_migration_minions_allocation_error',
-            migration_id=migration_id,
+            ctxt, 'report_deployment_minions_allocation_error',
+            deployment_id=deployment_id,
             minion_allocation_error_details=minion_allocation_error_details)
 
 

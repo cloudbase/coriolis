@@ -35,10 +35,10 @@ class OSMorphingTaskTestCase(test_base.CoriolisBaseTestCase):
         destination = mock.MagicMock()
         expected_calls = [
             mock.call.mock_get_provider(
-                origin['type'], constants.PROVIDER_TYPE_REPLICA_EXPORT,
+                origin['type'], constants.PROVIDER_TYPE_TRANSFER_EXPORT,
                 mock.sentinel.event_handler),
             mock.call.mock_get_provider(
-                destination['type'], constants.PROVIDER_TYPE_REPLICA_IMPORT,
+                destination['type'], constants.PROVIDER_TYPE_TRANSFER_IMPORT,
                 mock.sentinel.event_handler),
         ]
 

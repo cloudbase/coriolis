@@ -67,12 +67,12 @@ class MinionManagerClient(rpc.BaseRPCClient):
             ctxt, 'validate_minion_pool_selections_for_action',
             action=action)
 
-    def allocate_minion_machines_for_replica(
+    def allocate_minion_machines_for_transfer(
             self, ctxt, replica):
         return self._cast(
             ctxt, 'allocate_minion_machines_for_replica', replica=replica)
 
-    def allocate_minion_machines_for_migration(
+    def allocate_minion_machines_for_deployment(
             self, ctxt, migration, include_transfer_minions=True,
             include_osmorphing_minions=True):
         return self._cast(

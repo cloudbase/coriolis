@@ -8,8 +8,8 @@ from oslo_log import log as logging
 from coriolis import constants
 from coriolis.db import api as db_api
 from coriolis import exception
-from coriolis.replica_cron.rpc import client as rpc_cron_client
 from coriolis.scheduler.rpc import client as rpc_scheduler_client
+from coriolis.transfer_cron.rpc import client as rpc_cron_client
 from coriolis.worker.rpc import client as rpc_worker_client
 
 
@@ -21,8 +21,8 @@ RPC_TOPIC_TO_CLIENT_CLASS_MAP = {
     constants.WORKER_MAIN_MESSAGING_TOPIC: rpc_worker_client.WorkerClient,
     constants.SCHEDULER_MAIN_MESSAGING_TOPIC: (
         rpc_scheduler_client.SchedulerClient),
-    constants.REPLICA_CRON_MAIN_MESSAGING_TOPIC: (
-        rpc_cron_client.ReplicaCronClient)
+    constants.TRANSFER_CRON_MAIN_MESSAGING_TOPIC: (
+        rpc_cron_client.TransferCronClient)
 }
 
 

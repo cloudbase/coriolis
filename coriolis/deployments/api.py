@@ -12,7 +12,7 @@ class API(object):
                                  instance_osmorphing_minion_pool_mappings,
                                  clone_disks=False, force=False,
                                  skip_os_morphing=False, user_scripts=None):
-        return self._rpc_client.deploy_replica_instances(
+        return self._rpc_client.deploy_transfer_instances(
             ctxt, replica_id, instance_osmorphing_minion_pool_mappings=(
                 instance_osmorphing_minion_pool_mappings),
             clone_disks=clone_disks, force=force,
