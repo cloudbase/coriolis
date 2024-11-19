@@ -68,16 +68,16 @@ class MinionManagerClient(rpc.BaseRPCClient):
             action=action)
 
     def allocate_minion_machines_for_transfer(
-            self, ctxt, replica):
+            self, ctxt, transfer):
         return self._cast(
-            ctxt, 'allocate_minion_machines_for_replica', replica=replica)
+            ctxt, 'allocate_minion_machines_for_transfer', transfer=transfer)
 
     def allocate_minion_machines_for_deployment(
-            self, ctxt, migration, include_transfer_minions=True,
+            self, ctxt, deployment, include_transfer_minions=True,
             include_osmorphing_minions=True):
         return self._cast(
-            ctxt, 'allocate_minion_machines_for_migration',
-            migration=migration,
+            ctxt, 'allocate_minion_machines_for_deployment',
+            deployment=deployment,
             include_transfer_minions=include_transfer_minions,
             include_osmorphing_minions=include_osmorphing_minions)
 

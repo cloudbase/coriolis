@@ -54,7 +54,7 @@ DEPLOYMENTS_POLICY_DEFAULT_RULES = [
     policy.DocumentedRuleDefault(
         get_deployments_policy_label('cancel'),
         DEPLOYMENTS_POLICY_DEFAULT_RULE,
-        "Cancel a running Migration",
+        "Cancel a running Deployment",
         [
             {
                 "path": "/deployments/{deployment_id}/actions/",
@@ -65,7 +65,7 @@ DEPLOYMENTS_POLICY_DEFAULT_RULES = [
     policy.DocumentedRuleDefault(
         get_deployments_policy_label('delete'),
         DEPLOYMENTS_POLICY_DEFAULT_RULE,
-        "Delete Migration",
+        "Delete Deployment",
         [
             {
                 "path": "/deployment/{deployment_id}",

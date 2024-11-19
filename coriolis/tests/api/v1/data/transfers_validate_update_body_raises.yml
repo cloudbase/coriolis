@@ -1,0 +1,13 @@
+
+- body:
+    transfer:
+      origin_endpoint_id: "mock_origin_endpoint_id"
+
+- body:
+    transfer:
+      destination_endpoint_id: "mock_destination_endpoint_id"
+
+- body:
+    transfer:
+      instances: "instances"
+

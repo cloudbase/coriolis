@@ -1,0 +1,56 @@
+{
+  "$schema": "http://cloudbase.it/coriolis/schemas/transfer_schedule_schema#",
+  "type": "object",
+  "properties": {
+    "schedule": {
+      "type": "object",
+      "properties": {
+        "minute": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 59
+        },
+        "hour": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 23
+        },
+        "dom": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 31
+        },
+        "month": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 12
+        },
+        "dow": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 6
+        }
+      }
+    },
+    "expiration_date": {
+      "oneOf": [
+        {
+          "type": "string",
+          "format": "date-time",
+          "description": "Expiration date for this schedule."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "enabled": {
+      "type": "boolean",
+      "description": "Schedule is enabled."
+    },
+    "shutdown_instance": {
+      "type": "boolean",
+      "description": "Shutdown instance before creating a snapshot."
+    }
+  }
+}

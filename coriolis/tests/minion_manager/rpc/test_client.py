@@ -122,24 +122,24 @@ class MinionManagerClientTestCase(test_base.CoriolisRPCClientTestCase):
             self.client.validate_minion_pool_selections_for_action, args
         )
 
-    def test_allocate_minion_machines_for_replica(self):
-        args = {"replica": "test_replica"}
+    def test_allocate_minion_machines_for_transfer(self):
+        args = {"transfer": "test_transfer"}
         self._test(
             self.client.allocate_minion_machines_for_transfer, args,
             rpc_op='_cast',
-            server_fun_name='allocate_minion_machines_for_replica'
+            server_fun_name='allocate_minion_machines_for_transfer'
         )
 
-    def test_allocate_minion_machines_for_migration(self):
+    def test_allocate_minion_machines_for_deployment(self):
         args = {
-            "migration": "test_migration",
+            "deployment": "test_deployment",
             "include_transfer_minions": True,
             "include_osmorphing_minions": True
         }
         self._test(
             self.client.allocate_minion_machines_for_deployment, args,
             rpc_op='_cast',
-            server_fun_name='allocate_minion_machines_for_migration'
+            server_fun_name='allocate_minion_machines_for_deployment'
         )
 
     def test_deallocate_minion_machine(self):

@@ -17,11 +17,11 @@ LOG = logging.getLogger(__name__)
 VERSION = "1.0"
 
 
-def _trigger_replica(ctxt, conductor_client, replica_id, shutdown_instance):
+def _trigger_transfer(ctxt, conductor_client, transfer_id, shutdown_instance):
     try:
         execution = conductor_client.execute_transfer_tasks(
-            ctxt, replica_id, shutdown_instance)
-        result_msg = 'Execution %s for Replica %s' % (
+            ctxt, transfer_id, shutdown_instance)
+        result_msg = 'Execution %s for Transfer %s' % (
             execution.get('id'), execution.get('action_id'))
         return result_msg
     except (exception.InvalidTransferState,
@@ -29,7 +29,7 @@ def _trigger_replica(ctxt, conductor_client, replica_id, shutdown_instance):
         LOG.info("A replica or migration already running")
 
 
-class ReplicaCronServerEndpoint(object):
+class TransferCronServerEndpoint(object):
 
     def __init__(self):
         self._rpc_client = rpc_client.ConductorClient()
@@ -61,8 +61,8 @@ class ReplicaCronServerEndpoint(object):
         job = cron.CronJob(
             sched["id"], description, sched["schedule"],
             sched["enabled"], sched["expiration_date"],
-            None, None, _trigger_replica, trust_ctxt,
-            self._rpc_client, schedule["replica_id"],
+            None, None, _trigger_transfer, trust_ctxt,
+            self._rpc_client, schedule["transfer_id"],
             schedule["shutdown_instance"])
         self._cron.register(job)
 
