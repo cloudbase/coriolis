@@ -13,10 +13,10 @@ from coriolis.tests import test_base
 from coriolis.transfer_cron.rpc import server
 
 
-class TriggerReplicaTestCase(test_base.CoriolisBaseTestCase):
-    """Test suite for the Coriolis _trigger_replica function."""
+class TriggerTransferTestCase(test_base.CoriolisBaseTestCase):
+    """Test suite for the Coriolis _trigger_transfer function."""
 
-    def test__trigger_replica(self):
+    def test__trigger_transfer(self):
         mock_conductor_client = mock.MagicMock()
 
         mock_conductor_client.execute_transfer_tasks.return_value = {
@@ -24,7 +24,7 @@ class TriggerReplicaTestCase(test_base.CoriolisBaseTestCase):
             'action_id': mock.sentinel.action_id
         }
 
-        result = server._trigger_replica(
+        result = server._trigger_transfer(
             mock.sentinel.ctxt,
             mock_conductor_client,
             mock.sentinel.transfer_id, False)
@@ -33,10 +33,10 @@ class TriggerReplicaTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.ctxt, mock.sentinel.transfer_id, False)
 
         self.assertEqual(
-            result, 'Execution %s for Replica %s' % (
+            result, 'Execution %s for Transfer %s' % (
                 mock.sentinel.id, mock.sentinel.action_id))
 
-    def test__trigger_transfer_invalid_replica_state(self):
+    def test__trigger_transfer_invalid_transfer_state(self):
         mock_conductor_client = mock.MagicMock()
 
         mock_conductor_client.execute_transfer_tasks.side_effect = (
@@ -44,20 +44,20 @@ class TriggerReplicaTestCase(test_base.CoriolisBaseTestCase):
 
         with self.assertLogs('coriolis.transfer_cron.rpc.server',
                              level=logging.INFO):
-            server._trigger_replica(
+            server._trigger_transfer(
                 mock.sentinel.ctxt,
                 mock_conductor_client,
                 mock.sentinel.action_id, False)
 
 
 @ddt.ddt
-class ReplicaCronServerEndpointTestCase(test_base.CoriolisBaseTestCase):
-    """Test suite for the Coriolis ReplicaCronServerEndpoint class."""
+class TransferCronServerEndpointTestCase(test_base.CoriolisBaseTestCase):
+    """Test suite for the Coriolis TransferCronServerEndpoint class."""
 
-    @mock.patch.object(server.ReplicaCronServerEndpoint, '_init_cron')
+    @mock.patch.object(server.TransferCronServerEndpoint, '_init_cron')
     def setUp(self, _):
-        super(ReplicaCronServerEndpointTestCase, self).setUp()
-        self.server = server.ReplicaCronServerEndpoint()
+        super(TransferCronServerEndpointTestCase, self).setUp()
+        self.server = server.TransferCronServerEndpoint()
 
     @ddt.data(
         {
@@ -75,16 +75,16 @@ class ReplicaCronServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         result = self.server._deserialize_schedule(data['input'])
         self.assertEqual(result, data['expected'])
 
-    @mock.patch.object(server.ReplicaCronServerEndpoint,
+    @mock.patch.object(server.TransferCronServerEndpoint,
                        '_deserialize_schedule')
-    @mock.patch.object(server, '_trigger_replica')
+    @mock.patch.object(server, '_trigger_transfer')
     @mock.patch.object(server.timeutils, 'utcnow')
     @mock.patch.object(server.context, 'get_admin_context')
     @mock.patch.object(server.cron, 'CronJob')
     @mock.patch.object(server.cron.Cron, 'register')
     def test__register_schedule(self, mock_register, mock_cron_job,
                                 mock_get_admin_context, mock_utcnow,
-                                mock_trigger_replica,
+                                mock_trigger_transfer,
                                 mock_deserialize_schedule):
         mock_get_admin_context.return_value = 'test_admin_context'
         mock_utcnow.return_value = datetime.datetime(2022, 1, 1)
@@ -96,7 +96,7 @@ class ReplicaCronServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         }
         test_schedule = {
             'trust_id': 'test_schedule_trust_id',
-            'replica_id': 'test_schedule_replica_id',
+            'transfer_id': 'test_schedule_transfer_id',
             'shutdown_instance': 'test_schedule_shutdown_instance'
         }
 
@@ -108,12 +108,12 @@ class ReplicaCronServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_cron_job.assert_called_once_with(
             'test_id', 'Scheduled job for test_id', 'test_schedule',
             True, datetime.datetime(2022, 12, 31), None, None,
-            mock_trigger_replica, 'test_admin_context',
-            self.server._rpc_client, 'test_schedule_replica_id',
+            mock_trigger_transfer, 'test_admin_context',
+            self.server._rpc_client, 'test_schedule_transfer_id',
             'test_schedule_shutdown_instance')
         mock_register.assert_called_once()
 
-    @mock.patch.object(server.ReplicaCronServerEndpoint,
+    @mock.patch.object(server.TransferCronServerEndpoint,
                        '_deserialize_schedule')
     @mock.patch.object(server.timeutils, 'utcnow')
     def test__register_schedule_expired(self, mock_utcnow,
@@ -127,7 +127,7 @@ class ReplicaCronServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         }
         test_schedule = {
             'trust_id': 'test_schedule_trust_id',
-            'replica_id': 'test_schedule_replica_id',
+            'transfer_id': 'test_schedule_transfer_id',
             'shutdown_instance': 'test_schedule_shutdown_instance'
         }
 
@@ -138,8 +138,8 @@ class ReplicaCronServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_deserialize_schedule.assert_called_once_with(test_schedule)
 
     @mock.patch.object(server.timeutils, 'utcnow')
-    @mock.patch.object(server.ReplicaCronServerEndpoint, '_get_all_schedules')
-    @mock.patch.object(server.ReplicaCronServerEndpoint, '_register_schedule')
+    @mock.patch.object(server.TransferCronServerEndpoint, '_get_all_schedules')
+    @mock.patch.object(server.TransferCronServerEndpoint, '_register_schedule')
     @mock.patch.object(server.cron.Cron, 'start')
     def test__init_cron(self, mock_cron_start, mock_register_schedule,
                         mock_get_all_schedules, mock_utcnow):
@@ -160,8 +160,8 @@ class ReplicaCronServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         ])
         mock_cron_start.assert_called_once()
 
-    @mock.patch.object(server.ReplicaCronServerEndpoint, '_get_all_schedules')
-    @mock.patch.object(server.ReplicaCronServerEndpoint, '_register_schedule')
+    @mock.patch.object(server.TransferCronServerEndpoint, '_get_all_schedules')
+    @mock.patch.object(server.TransferCronServerEndpoint, '_register_schedule')
     def test__init_cron_with_exception(self, mock_register_schedule,
                                        mock_get_all_schedules):
         mock_get_all_schedules.return_value = [
@@ -189,7 +189,7 @@ class ReplicaCronServerEndpointTestCase(test_base.CoriolisBaseTestCase):
 
         self.assertEqual(result, mock_get_transfer_schedules.return_value)
 
-    @mock.patch.object(server.ReplicaCronServerEndpoint, '_register_schedule')
+    @mock.patch.object(server.TransferCronServerEndpoint, '_register_schedule')
     @mock.patch.object(server.timeutils, 'utcnow')
     def test_register(self, mock_utcnow, mock_register_schedule):
         mock_utcnow.return_value = datetime.datetime(2022, 1, 1)

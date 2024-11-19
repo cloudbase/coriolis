@@ -67,7 +67,7 @@ class MinionManagerServerEndpoint(object):
         self._scheduler_client_instance = None
         self._worker_client_instance = None
         self._conductor_client_instance = None
-        self._replica_cron_client_instance = None
+        self._transfer_cron_client_instance = None
         self._minion_manager_client_instance = None
         try:
             self._cron = cron.Cron()
@@ -510,53 +510,53 @@ class MinionManagerServerEndpoint(object):
             "Successfully validated minion pool selections for action '%s' "
             "with properties: %s", action['id'], action)
 
-    def allocate_minion_machines_for_replica(
-            self, ctxt, replica):
+    def allocate_minion_machines_for_transfer(
+            self, ctxt, transfer):
         try:
             self._run_machine_allocation_subflow_for_action(
-                ctxt, replica,
+                ctxt, transfer,
                 constants.TRANSFER_ACTION_TYPE_TRANSFER,
                 include_transfer_minions=True,
                 include_osmorphing_minions=False)
         except Exception as ex:
             LOG.warn(
                 "Error occurred while allocating minion machines for "
-                "Replica with ID '%s'. Removing all allocations. "
+                "Transfer with ID '%s'. Removing all allocations. "
                 "Error was: %s" % (
-                    replica['id'], utils.get_exception_details()))
+                    transfer['id'], utils.get_exception_details()))
             self._cleanup_machines_with_statuses_for_action(
-                ctxt, replica['id'],
+                ctxt, transfer['id'],
                 [constants.MINION_MACHINE_STATUS_UNINITIALIZED])
             self.deallocate_minion_machines_for_action(
-                ctxt, replica['id'])
+                ctxt, transfer['id'])
             (self._rpc_conductor_client
                 .report_transfer_minions_allocation_error(
-                    ctxt, replica['id'], str(ex)))
+                    ctxt, transfer['id'], str(ex)))
             raise
 
-    def allocate_minion_machines_for_migration(
-            self, ctxt, migration, include_transfer_minions=True,
+    def allocate_minion_machines_for_deployment(
+            self, ctxt, deployment, include_transfer_minions=True,
             include_osmorphing_minions=True):
         try:
             self._run_machine_allocation_subflow_for_action(
-                ctxt, migration,
+                ctxt, deployment,
                 constants.TRANSFER_ACTION_TYPE_DEPLOYMENT,
                 include_transfer_minions=include_transfer_minions,
                 include_osmorphing_minions=include_osmorphing_minions)
         except Exception as ex:
             LOG.warn(
                 "Error occurred while allocating minion machines for "
-                "Migration with ID '%s'. Removing all allocations. "
+                "Deployment with ID '%s'. Removing all allocations. "
                 "Error was: %s" % (
-                    migration['id'], utils.get_exception_details()))
+                    deployment['id'], utils.get_exception_details()))
             self._cleanup_machines_with_statuses_for_action(
-                ctxt, migration['id'],
+                ctxt, deployment['id'],
                 [constants.MINION_MACHINE_STATUS_UNINITIALIZED])
             self.deallocate_minion_machines_for_action(
-                ctxt, migration['id'])
+                ctxt, deployment['id'])
             (self._rpc_conductor_client
                 .report_deployment_minions_allocation_error(
-                    ctxt, migration['id'], str(ex)))
+                    ctxt, deployment['id'], str(ex)))
             raise
 
     def _make_minion_machine_allocation_subflow_for_action(

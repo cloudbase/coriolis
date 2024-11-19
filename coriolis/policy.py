@@ -13,13 +13,12 @@ from coriolis.policies import deployments
 from coriolis.policies import diagnostics
 from coriolis.policies import endpoints
 from coriolis.policies import general
-from coriolis.policies import migrations
 from coriolis.policies import minion_pools
 from coriolis.policies import regions
-from coriolis.policies import replica_schedules
-from coriolis.policies import replica_tasks_executions
-from coriolis.policies import replicas
 from coriolis.policies import services
+from coriolis.policies import transfer_schedules
+from coriolis.policies import transfer_tasks_executions
+from coriolis.policies import transfers
 from coriolis import utils
 
 
@@ -29,8 +28,8 @@ CONF = conf.CONF
 _ENFORCER = None
 
 DEFAULT_POLICIES_MODULES = [
-    base, deployments, endpoints, general, migrations, replicas,
-    replica_schedules, replica_tasks_executions, diagnostics, regions,
+    base, deployments, endpoints, general, transfers,
+    transfer_schedules, transfer_tasks_executions, diagnostics, regions,
     services, minion_pools]
 
 

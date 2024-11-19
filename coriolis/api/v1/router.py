@@ -21,12 +21,12 @@ from coriolis.api.v1 import minion_pools
 from coriolis.api.v1 import provider_schemas
 from coriolis.api.v1 import providers
 from coriolis.api.v1 import regions
-from coriolis.api.v1 import replica_actions
-from coriolis.api.v1 import replica_schedules
-from coriolis.api.v1 import replica_tasks_execution_actions
-from coriolis.api.v1 import replica_tasks_executions
-from coriolis.api.v1 import replicas
 from coriolis.api.v1 import services
+from coriolis.api.v1 import transfer_actions
+from coriolis.api.v1 import transfer_schedules
+from coriolis.api.v1 import transfer_tasks_execution_actions
+from coriolis.api.v1 import transfer_tasks_executions
+from coriolis.api.v1 import transfers
 
 LOG = logging.getLogger(__name__)
 
@@ -154,44 +154,46 @@ class APIRouter(api.APIRouter):
                        action='action',
                        conditions={'method': 'POST'})
 
-        self.resources['replicas'] = replicas.create_resource()
-        mapper.resource('replica', 'replicas',
-                        controller=self.resources['replicas'],
+        self.resources['transfers'] = transfers.create_resource()
+        mapper.resource('transfer', 'transfers',
+                        controller=self.resources['transfers'],
                         collection={'detail': 'GET'},
                         member={'action': 'POST'})
 
-        replica_actions_resource = replica_actions.create_resource()
-        self.resources['replica_actions'] = replica_actions_resource
-        migration_path = '/{project_id}/replicas/{id}'
-        mapper.connect('replica_actions',
+        transfer_actions_resource = transfer_actions.create_resource()
+        self.resources['transfer_actions'] = transfer_actions_resource
+        migration_path = '/{project_id}/transfers/{id}'
+        mapper.connect('transfer_actions',
                        migration_path + '/actions',
-                       controller=self.resources['replica_actions'],
+                       controller=self.resources['transfer_actions'],
                        action='action',
                        conditions={'method': 'POST'})
 
-        self.resources['replica_tasks_executions'] = \
-            replica_tasks_executions.create_resource()
-        mapper.resource('execution', 'replicas/{replica_id}/executions',
-                        controller=self.resources['replica_tasks_executions'],
+        self.resources['transfer_tasks_executions'] = \
+            transfer_tasks_executions.create_resource()
+        mapper.resource('execution', 'transfers/{transfer_id}/executions',
+                        controller=self.resources['transfer_tasks_executions'],
                         collection={'detail': 'GET'},
                         member={'action': 'POST'})
 
-        replica_tasks_execution_actions_resource = \
-            replica_tasks_execution_actions.create_resource()
-        self.resources['replica_tasks_execution_actions'] = \
-            replica_tasks_execution_actions_resource
-        migration_path = '/{project_id}/replicas/{replica_id}/executions/{id}'
-        mapper.connect('replica_tasks_execution_actions',
+        transfer_tasks_execution_actions_resource = \
+            transfer_tasks_execution_actions.create_resource()
+        self.resources['transfer_tasks_execution_actions'] = \
+            transfer_tasks_execution_actions_resource
+        migration_path = ('/{project_id}/transfers/{transfer_id}/'
+                          'executions/{id}')
+        mapper.connect('transfer_tasks_execution_actions',
                        migration_path + '/actions',
                        controller=self.resources[
-                           'replica_tasks_execution_actions'],
+                           'transfer_tasks_execution_actions'],
                        action='action',
                        conditions={'method': 'POST'})
 
-        sched = replica_schedules.create_resource()
-        self.resources['replica_schedules'] = sched
-        mapper.resource('replica_schedule', 'replicas/{replica_id}/schedules',
-                        controller=self.resources['replica_schedules'],
+        sched = transfer_schedules.create_resource()
+        self.resources['transfer_schedules'] = sched
+        mapper.resource('transfer_schedule',
+                        'transfers/{transfer_id}/schedules',
+                        controller=self.resources['transfer_schedules'],
                         collection={'index': 'GET'},
                         member={'action': 'POST'})
 

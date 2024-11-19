@@ -65,13 +65,13 @@ class DeploymentsController(api_wsgi.Controller):
     def _validate_deployment_input(self, context, body):
         deployment = body["deployment"]
 
-        replica_id = deployment.get("replica_id", "")
+        transfer_id = deployment.get("transfer_id", "")
 
-        if not replica_id:
+        if not transfer_id:
             raise exc.HTTPBadRequest(
-                explanation="Missing 'replica_id' field from deployment "
+                explanation="Missing 'transfer_id' field from deployment "
                             "body. A deployment can be created strictly "
-                            "based on an existing Replica.")
+                            "based on an existing Transfer.")
 
         clone_disks = deployment.get("clone_disks", True)
         force = deployment.get("force", False)
@@ -84,7 +84,7 @@ class DeploymentsController(api_wsgi.Controller):
             user_scripts, deployment.get("instances", []))
 
         return (
-            replica_id, force, clone_disks, skip_os_morphing,
+            transfer_id, force, clone_disks, skip_os_morphing,
             instance_osmorphing_minion_pool_mappings,
             user_scripts)
 
@@ -92,15 +92,15 @@ class DeploymentsController(api_wsgi.Controller):
         context = req.environ['coriolis.context']
         context.can(deployment_policies.get_deployments_policy_label("create"))
 
-        (replica_id, force, clone_disks, skip_os_morphing,
+        (transfer_id, force, clone_disks, skip_os_morphing,
          instance_osmorphing_minion_pool_mappings,
          user_scripts) = self._validate_deployment_input(
             context, body)
 
-        # NOTE: destination environment for replica should have been
+        # NOTE: destination environment for transfer should have been
         # validated upon its creation.
-        deployment = self._deployment_api.deploy_replica_instances(
-            context, replica_id, instance_osmorphing_minion_pool_mappings,
+        deployment = self._deployment_api.deploy_transfer_instances(
+            context, transfer_id, instance_osmorphing_minion_pool_mappings,
             clone_disks, force, skip_os_morphing,
             user_scripts=user_scripts)
 

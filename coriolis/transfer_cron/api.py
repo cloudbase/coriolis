@@ -8,24 +8,24 @@ class API(object):
     def __init__(self):
         self._rpc_client = rpc_client.ConductorClient()
 
-    def create(self, ctxt, replica_id, schedule, enabled,
+    def create(self, ctxt, transfer_id, schedule, enabled,
                exp_date, shutdown_instance):
         return self._rpc_client.create_transfer_schedule(
-            ctxt, replica_id, schedule, enabled, exp_date,
+            ctxt, transfer_id, schedule, enabled, exp_date,
             shutdown_instance)
 
-    def get_schedules(self, ctxt, replica_id, expired=True):
+    def get_schedules(self, ctxt, transfer_id, expired=True):
         return self._rpc_client.get_transfer_schedules(
-            ctxt, replica_id, expired=expired)
+            ctxt, transfer_id, expired=expired)
 
-    def get_schedule(self, ctxt, replica_id, schedule_id, expired=True):
+    def get_schedule(self, ctxt, transfer_id, schedule_id, expired=True):
         return self._rpc_client.get_transfer_schedule(
-            ctxt, replica_id, schedule_id, expired=expired)
+            ctxt, transfer_id, schedule_id, expired=expired)
 
-    def update(self, ctxt, replica_id, schedule_id, update_values):
+    def update(self, ctxt, transfer_id, schedule_id, update_values):
         return self._rpc_client.update_transfer_schedule(
-            ctxt, replica_id, schedule_id, update_values)
+            ctxt, transfer_id, schedule_id, update_values)
 
-    def delete(self, ctxt, replica_id, schedule_id):
+    def delete(self, ctxt, transfer_id, schedule_id):
         self._rpc_client.delete_transfer_schedule(
-            ctxt, replica_id, schedule_id)
+            ctxt, transfer_id, schedule_id)

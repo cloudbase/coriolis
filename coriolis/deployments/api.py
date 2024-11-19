@@ -8,12 +8,12 @@ class API(object):
     def __init__(self):
         self._rpc_client = rpc_client.ConductorClient()
 
-    def deploy_replica_instances(self, ctxt, replica_id,
-                                 instance_osmorphing_minion_pool_mappings,
-                                 clone_disks=False, force=False,
-                                 skip_os_morphing=False, user_scripts=None):
+    def deploy_transfer_instances(self, ctxt, transfer_id,
+                                  instance_osmorphing_minion_pool_mappings,
+                                  clone_disks=False, force=False,
+                                  skip_os_morphing=False, user_scripts=None):
         return self._rpc_client.deploy_transfer_instances(
-            ctxt, replica_id, instance_osmorphing_minion_pool_mappings=(
+            ctxt, transfer_id, instance_osmorphing_minion_pool_mappings=(
                 instance_osmorphing_minion_pool_mappings),
             clone_disks=clone_disks, force=force,
             skip_os_morphing=skip_os_morphing,

@@ -20,13 +20,13 @@ from coriolis.api.v1 import minion_pools
 from coriolis.api.v1 import provider_schemas
 from coriolis.api.v1 import providers
 from coriolis.api.v1 import regions
-from coriolis.api.v1 import replica_actions
-from coriolis.api.v1 import replica_schedules
-from coriolis.api.v1 import replica_tasks_execution_actions
-from coriolis.api.v1 import replica_tasks_executions
-from coriolis.api.v1 import replicas
 from coriolis.api.v1 import router
 from coriolis.api.v1 import services
+from coriolis.api.v1 import transfer_actions
+from coriolis.api.v1 import transfer_schedules
+from coriolis.api.v1 import transfer_tasks_execution_actions
+from coriolis.api.v1 import transfer_tasks_executions
+from coriolis.api.v1 import transfers
 from coriolis.tests import test_base
 
 
@@ -40,11 +40,11 @@ class APIRouterTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(deployments, 'create_resource')
     @mock.patch.object(deployment_actions, 'create_resource')
     @mock.patch.object(diagnostics, 'create_resource')
-    @mock.patch.object(replica_schedules, 'create_resource')
-    @mock.patch.object(replica_tasks_execution_actions, 'create_resource')
-    @mock.patch.object(replica_tasks_executions, 'create_resource')
-    @mock.patch.object(replica_actions, 'create_resource')
-    @mock.patch.object(replicas, 'create_resource')
+    @mock.patch.object(transfer_schedules, 'create_resource')
+    @mock.patch.object(transfer_tasks_execution_actions, 'create_resource')
+    @mock.patch.object(transfer_tasks_executions, 'create_resource')
+    @mock.patch.object(transfer_actions, 'create_resource')
+    @mock.patch.object(transfers, 'create_resource')
     @mock.patch.object(provider_schemas, 'create_resource')
     @mock.patch.object(endpoint_source_options, 'create_resource')
     @mock.patch.object(endpoint_destination_options, 'create_resource')
@@ -78,11 +78,11 @@ class APIRouterTestCase(test_base.CoriolisBaseTestCase):
         mock_endpoint_destination_options_create_resource,
         mock_endpoint_source_options_create_resource,
         mock_provider_schemas_create_resource,
-        mock_replicas_create_resource,
-        mock_replica_actions_create_resource,
-        mock_replica_tasks_executions_create_resource,
-        mock_replica_tasks_execution_actions_create_resource,
-        mock_replica_schedules_create_resource,
+        mock_transfers_create_resource,
+        mock_transfer_actions_create_resource,
+        mock_transfer_tasks_executions_create_resource,
+        mock_transfer_tasks_execution_actions_create_resource,
+        mock_transfer_schedules_create_resource,
         mock_diagnostics_create_resource,
         mock_deployment_actions_create_resource,
         mock_deployments_create_resource
@@ -161,24 +161,24 @@ class APIRouterTestCase(test_base.CoriolisBaseTestCase):
                 controller=mock_provider_schemas_create_resource.return_value,
             ),
             mock.call(
-                'replica', 'replicas',
-                controller=mock_replicas_create_resource.return_value,
+                'transfer', 'transfers',
+                controller=mock_transfers_create_resource.return_value,
                 collection={'detail': 'GET'},
                 member={'action': 'POST'}
             ),
             mock.call(
                 'execution',
-                'replicas/{replica_id}/executions',
+                'transfers/{transfer_id}/executions',
                 controller=
-                mock_replica_tasks_executions_create_resource.return_value,
+                mock_transfer_tasks_executions_create_resource.return_value,
                 collection={'detail': 'GET'},
                 member={'action': 'POST'}
             ),
             mock.call(
-                'replica_schedule',
-                'replicas/{replica_id}/schedules',
+                'transfer_schedule',
+                'transfers/{transfer_id}/schedules',
                 controller=
-                mock_replica_schedules_create_resource.return_value,
+                mock_transfer_schedules_create_resource.return_value,
                 collection={'index': 'GET'},
                 member={'action': 'POST'}
             ),
@@ -212,17 +212,18 @@ class APIRouterTestCase(test_base.CoriolisBaseTestCase):
                 conditions={'method': 'POST'}
             ),
             mock.call(
-                'replica_actions',
-                '/{project_id}/replicas/{id}/actions',
-                controller=mock_replica_actions_create_resource.return_value,
+                'transfer_actions',
+                '/{project_id}/transfers/{id}/actions',
+                controller=mock_transfer_actions_create_resource.return_value,
                 action='action',
                 conditions={'method': 'POST'}
             ),
             mock.call(
-                'replica_tasks_execution_actions',
-                '/{project_id}/replicas/{replica_id}/executions/{id}/actions',
+                'transfer_tasks_execution_actions',
+                '/{project_id}/transfers/{transfer_id}/'
+                'executions/{id}/actions',
                 controller=
-                mock_replica_tasks_execution_actions_create_resource.
+                mock_transfer_tasks_execution_actions_create_resource.
                 return_value,
                 action='action',
                 conditions={'method': 'POST'}
