@@ -6,7 +6,7 @@
   with_items:
     - coriolis-api
     - coriolis-conductor
-    - coriolis-replica-cron
+    - coriolis-transfer-cron
     - coriolis-worker
     - coriolis-web
     - coriolis-scheduler

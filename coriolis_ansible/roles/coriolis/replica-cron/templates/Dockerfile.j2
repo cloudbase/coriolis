@@ -1,8 +1,0 @@
-FROM {{ coriolis_common_docker_image_url }}
-
-# Mapped volume: /etc/coriolis/coriolis.conf
-{% if "replica-cron" in enable_profiling_for %}
-CMD ["/usr/local/bin/fil-profile", "-o", "{{ coriolis_profiling_dir_container }}", "run", "/usr/local/bin/coriolis-replica-cron", "--config-file={{ coriolis_config_dir }}/coriolis.conf", "--config-file={{ coriolis_config_dir }}/coriolis-replica-cron-logging.conf"]
-{% else %}
-CMD ["/bin/bash", "-c", "coriolis-replica-cron", "--config-file={{ coriolis_config_dir }}/coriolis.conf"]
-{% endif %}

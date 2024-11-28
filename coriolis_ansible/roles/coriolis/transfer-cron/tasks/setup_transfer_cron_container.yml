@@ -1,10 +1,10 @@
 ---
-- name: Setup coriolis-replica-cron container
+- name: Setup coriolis-transfer-cron container
   docker_container:
-    name: coriolis-replica-cron
-    image: "{{ coriolis_replica_cron_docker_image_url }}"
+    name: coriolis-transfer-cron
+    image: "{{ coriolis_transfer_cron_docker_image_url }}"
     pull: "{{ docker_pull_images }}"
-    hostname: coriolis-replica-cron
+    hostname: coriolis-transfer-cron
     state: started
     restart_policy: unless-stopped
     network_mode: host
@@ -12,4 +12,4 @@
       - "{{ coriolis_config_dir }}:{{ coriolis_config_dir }}:ro"
       - "{{ coriolis_log_dir }}:{{ coriolis_log_dir }}"
       - "{{ coriolis_logger_socket_dir }}:{{ coriolis_logger_socket_dir }}"
-      - "{{ coriolis_profiling_dir_host }}/replica-cron:{{ coriolis_profiling_dir_container }}"
+      - "{{ coriolis_profiling_dir_host }}/transfer-cron:{{ coriolis_profiling_dir_container }}"

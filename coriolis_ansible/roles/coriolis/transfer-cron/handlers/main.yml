@@ -1,11 +1,11 @@
 ---
-- name: "build coriolis-replica-cron"
+- name: "build coriolis-transfer-cron"
   listen: "build coriolis core components"
   include_tasks: "{{ playbook_dir }}/roles/common/docker/tasks/build_image.yml"
   vars:
-    image_name: coriolis-replica-cron
+    image_name: coriolis-transfer-cron
     image_tag: "{{ coriolis_logger_docker_image_tag }}"
 
-- name: "restart coriolis-replica-cron"
+- name: "restart coriolis-transfer-cron"
   listen: "restart coriolis core components"
-  shell: "docker restart coriolis-replica-cron"
+  shell: "docker restart coriolis-transfer-cron"

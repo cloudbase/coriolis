@@ -39,7 +39,7 @@ coriolis_compressor_docker_image_tag:       "{{ default_coriolis_docker_images_t
 coriolis_licensing_server_docker_image_tag: "{{ default_coriolis_docker_images_tag }}"
 coriolis_licensing_ui_docker_image_tag:     "{{ default_coriolis_docker_images_tag }}"
 coriolis_metal_hub_docker_image_tag:        "{{ default_coriolis_docker_images_tag }}"
-coriolis_replica_cron_docker_image_tag:     "{{ default_coriolis_docker_images_tag }}"
+coriolis_transfer_cron_docker_image_tag:    "{{ default_coriolis_docker_images_tag }}"
 coriolis_minion_manager_docker_image_tag:   "{{ default_coriolis_docker_images_tag }}"
 coriolis_worker_docker_image_tag:           "{{ default_coriolis_docker_images_tag }}"
 coriolis_web_proxy_docker_image_tag:        "{{ default_coriolis_docker_images_tag }}"

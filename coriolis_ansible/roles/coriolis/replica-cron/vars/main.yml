@@ -1,2 +1,0 @@
----
-coriolis_replica_cron_docker_image_url: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-replica-cron:{{ coriolis_replica_cron_docker_image_tag }}"

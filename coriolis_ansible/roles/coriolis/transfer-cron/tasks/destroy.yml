@@ -2,10 +2,10 @@
 - name: Remove Docker container
   docker_container:
     state: absent
-    name: coriolis-replica-cron
+    name: coriolis-transfer-cron
 
 - name: Remove Docker image
   docker_image:
     state: absent
     force_absent: yes
-    name: "{{ coriolis_replica_cron_docker_image_url }}"
+    name: "{{ coriolis_transfer_cron_docker_image_url }}"

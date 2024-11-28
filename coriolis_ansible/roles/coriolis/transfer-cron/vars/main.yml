@@ -1,0 +1,2 @@
+---
+coriolis_transfer_cron_docker_image_url: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-transfer-cron:{{ coriolis_transfer_cron_docker_image_tag }}"

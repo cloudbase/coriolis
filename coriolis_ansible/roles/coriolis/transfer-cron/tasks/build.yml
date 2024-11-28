@@ -7,17 +7,17 @@
 - name: Render template
   template:
     src: Dockerfile.j2
-    dest: "{{ build_dir }}/coriolis-replica-cron.Dockerfile"
+    dest: "{{ build_dir }}/coriolis-transfer-cron.Dockerfile"
   notify:
-    - "build coriolis-replica-cron"
+    - "build coriolis-transfer-cron"
 
 - name: "Get Docker image stat"
   docker_image_info:
-    name: "{{ coriolis_replica_cron_docker_image_url }}"
+    name: "{{ coriolis_transfer_cron_docker_image_url }}"
   register: docker_image_info
 
 - name: "Trigger Docker image build"
   command: /bin/true
   notify:
-    - "build coriolis-replica-cron"
+    - "build coriolis-transfer-cron"
   when: docker_image_info.images | length == 0

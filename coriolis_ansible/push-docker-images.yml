@@ -18,7 +18,7 @@
         - {name: "coriolis-common", tag: "{{ coriolis_common_docker_image_tag }}"}
         - {name: "coriolis-api", tag: "{{ coriolis_api_docker_image_tag }}"}
         - {name: "coriolis-conductor", tag: "{{ coriolis_conductor_docker_image_tag }}"}
-        - {name: "coriolis-replica-cron", tag: "{{ coriolis_replica_cron_docker_image_tag }}"}
+        - {name: "coriolis-transfer-cron", tag: "{{ coriolis_transfer_cron_docker_image_tag }}"}
         - {name: "coriolis-worker", tag: "{{ coriolis_worker_docker_image_tag }}"}
         - {name: "coriolis-scheduler", tag: "{{ coriolis_scheduler_docker_image_tag }}"}
         - {name: "coriolis-minion-manager", tag: "{{ coriolis_minion_manager_docker_image_tag }}"}

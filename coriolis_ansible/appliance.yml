@@ -24,7 +24,7 @@
         name: coriolis/conductor
 
     - import_role:
-        name: coriolis/replica-cron
+        name: coriolis/transfer-cron
 
     - import_role:
         name: coriolis/scheduler

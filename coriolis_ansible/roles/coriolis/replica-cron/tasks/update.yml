@@ -1,7 +1,0 @@
----
-- name: Remove Docker container
-  docker_container:
-    state: absent
-    name: coriolis-replica-cron
-
-- include_tasks: setup_replica_cron_container.yml
