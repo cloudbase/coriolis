@@ -74,6 +74,28 @@ def _check_ensure_volumes_info_ordering(export_info, volumes_info):
     return ordered_volumes_info
 
 
+def _preserve_old_export_info_nic_ips(old_export_info, new_export_info):
+    def _get_nic(nics_info, nic_id):
+        for nic_info in nics_info:
+            if nic_info['id'] == nic_id:
+                return nic_info
+
+    old_nics_info = old_export_info.get('devices', {}).get('nics', [])
+    new_nics_info = new_export_info.get('devices', {}).get('nics', [])
+
+    for new_info in new_nics_info:
+        old_info = _get_nic(old_nics_info, new_info['id'])
+        if old_info:
+            old_ips = old_info.get('ip_addresses', [])
+            new_ips = new_info.get('ip_addresses', [])
+            if not new_ips:
+                new_info['ip_addresses'] = old_ips
+
+
+def _update_export_info(old_export_info, result_export_info):
+    _preserve_old_export_info_nic_ips(old_export_info, result_export_info)
+
+
 class GetInstanceInfoTask(base.TaskRunner):
     """ Task which gathers the export info for a VM.  """
 
@@ -104,12 +126,14 @@ class GetInstanceInfoTask(base.TaskRunner):
         connection_info = base.get_connection_info(ctxt, origin)
 
         source_environment = task_info['source_environment']
+        old_export_info = task_info.get('export_info', {})
         export_info = provider.get_replica_instance_info(
             ctxt, connection_info, source_environment, instance)
 
         # Validate the output
         schemas.validate_value(
             export_info, schemas.CORIOLIS_VM_EXPORT_INFO_SCHEMA)
+        _update_export_info(old_export_info, export_info)
 
         return {
             'export_info': export_info}

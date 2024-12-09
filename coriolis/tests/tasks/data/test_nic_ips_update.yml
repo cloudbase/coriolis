@@ -1,0 +1,61 @@
+# Provider receives first IP address
+- old_export_info:
+    devices:
+      nics: []
+  new_export_info:
+    devices:
+      nics:
+        - id: 1
+          ip_addresses: ['10.0.0.1']
+  expected_export_info:
+    devices:
+      nics:
+        - id: 1
+          ip_addresses: ['10.0.0.1']
+
+# Export NIC changes
+- old_export_info:
+    devices:
+      nics:
+        - id: 1
+          ip_addresses: ['10.0.0.1']
+  new_export_info:
+    devices:
+      nics:
+        - id: 2
+          ip_addresses: []
+  expected_export_info:
+    devices:
+      nics:
+        - id: 2
+          ip_addresses: []
+
+# Export NIC doesn't report IP address (result keeps old one)
+- old_export_info:
+    devices:
+      nics:
+        - id: 1
+          ip_addresses: ['10.0.0.1']
+  new_export_info:
+    devices:
+      nics:
+        - id: 1
+          ip_addresses: []
+  expected_export_info:
+    devices:
+      nics:
+        - id: 1
+          ip_addresses: ['10.0.0.1']
+
+# No NICs get reported
+- old_export_info:
+    devices:
+      nics:
+        - id: 1
+          ip_addresses: ['10.0.0.1']
+  new_export_info:
+    devices:
+      nics: []
+  expected_export_info:
+    devices:
+      nics: []
