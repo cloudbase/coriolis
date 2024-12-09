@@ -53,6 +53,14 @@ class ReplicaTasksTestCase(test_base.CoriolisBaseTestCase):
             mock_sanitize.has_calls(expected_calls)
             self.assertEqual(result, expected_result)
 
+    @ddt.file_data("data/test_nic_ips_update.yml")
+    @ddt.unpack
+    def test__preserve_old_export_info_nic_ips(
+            self, old_export_info, new_export_info, expected_export_info):
+        replica_tasks._preserve_old_export_info_nic_ips(
+            old_export_info, new_export_info)
+        self.assertEqual(new_export_info, expected_export_info)
+
 
 class GetInstanceInfoTaskTestCase(test_base.CoriolisBaseTestCase):
 
