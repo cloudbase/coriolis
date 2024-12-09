@@ -1,16 +1,16 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-import os
-import yaml
-
 from io import StringIO
+import os
+
+from oslo_log import log as logging
+import yaml
 
 from coriolis import exception
 from coriolis.osmorphing import base
 from coriolis.osmorphing.osdetect import debian as debian_osdetect
 from coriolis import utils
-
 
 DEBIAN_DISTRO_IDENTIFIER = debian_osdetect.DEBIAN_DISTRO_IDENTIFIER
 
@@ -24,8 +24,12 @@ auto %(device_name)s
 iface %(device_name)s inet dhcp
 """
 
+LOG = logging.getLogger(__name__)
+
 
 class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
+
+    netplan_base = "etc/netplan"
 
     @classmethod
     def check_os_supported(cls, detected_os_info):
@@ -96,8 +100,73 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
             }
         return yaml.dump(cfg, default_flow_style=False)
 
+    def _preserve_static_netplan_configuration(self, nics_info):
+        ips_info = {}
+        for nic in nics_info:
+            mac_address = nic.get('mac_address')
+            if not mac_address:
+                LOG.warning(
+                    f"No MAC address found for NIC with ID '{nic.get('id')}. "
+                    f"This NIC will be skipped from static IP configuration")
+                continue
+
+            nic_ips = nic.get('ip_addresses', [])
+            if not nic_ips:
+                LOG.warning(
+                    f"Skipping NIC ('{mac_address}'). It has no detected IP "
+                    f"addresses")
+                continue
+            for nic_ip in nic_ips:
+                ips_info[nic_ip] = mac_address
+        if not ips_info:
+            LOG.warning("No IP information found for instance. Skipping "
+                        "static configuration")
+            return
+
+        for netfile in self._list_dir(self.netplan_base):
+            config_changed = False
+            if netfile.endswith('.yaml') or netfile.endswith('.yml'):
+                pth = f"{self.netplan_base}/{netfile}"
+                contents = self._read_file_sudo(pth).decode()
+                config = yaml.load(contents, Loader=yaml.SafeLoader)
+                ethernets = config.get('network', {}).get('ethernets', {})
+                for eth_name, eth_config in ethernets.items():
+                    ips = eth_config.get('addresses', [])
+                    for eth_ip in ips:
+                        # NOTE(dvincze): addresses can also be objects, where
+                        # netplan can set IP label and lifetime.
+                        if isinstance(eth_ip, dict):
+                            eth_ip_keys = list(eth_ip.keys())
+                            if not eth_ip_keys:
+                                LOG.warning(
+                                    "Found empty IP address object entry. "
+                                    "Skipping")
+                                continue
+                            eth_ip = eth_ip_keys[0]
+
+                        addr = eth_ip.split('/')[0]
+                        if ips_info.get(addr):
+                            LOG.debug(
+                                f"Found IP match for NIC {eth_name} for "
+                                f"'{addr}'")
+                            mac_addr = ips_info[addr]
+                            if not eth_config.get('match'):
+                                eth_config['match'] = dict()
+                            LOG.debug(f"Setting '{mac_addr}' MAC address "
+                                      f"match field for NIC '{eth_name}'")
+                            eth_config['match']['macaddress'] = mac_addr
+                            eth_config['set-name'] = eth_name
+                            config_changed = True
+
+                if config_changed:
+                    self._exec_cmd_chroot(f'cp {pth} {pth}.bak')
+                    new_config = yaml.dump(config, Dumper=yaml.SafeDumper)
+                    self._write_file_sudo(pth, new_config)
+
     def set_net_config(self, nics_info, dhcp):
         if not dhcp:
+            if self._test_path(self.netplan_base):
+                self._preserve_static_netplan_configuration(nics_info)
             return
 
         self.disable_predictable_nic_names()
@@ -109,17 +178,16 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
                     "cp %s %s.bak" % (ifaces_file, ifaces_file))
             self._write_file_sudo(ifaces_file, contents)
 
-        netplan_base = "etc/netplan"
-        if self._test_path(netplan_base):
-            curr_files = self._list_dir(netplan_base)
+        if self._test_path(self.netplan_base):
+            curr_files = self._list_dir(self.netplan_base)
             for cnf in curr_files:
                 if cnf.endswith(".yaml") or cnf.endswith(".yml"):
-                    pth = "%s/%s" % (netplan_base, cnf)
+                    pth = "%s/%s" % (self.netplan_base, cnf)
                     self._exec_cmd_chroot(
                         "mv %s %s.bak" % (pth, pth)
                     )
             new_cfg = self._compose_netplan_cfg(nics_info)
-            cfg_name = "%s/coriolis_netplan.yaml" % netplan_base
+            cfg_name = "%s/coriolis_netplan.yaml" % self.netplan_base
             self._write_file_sudo(cfg_name, new_cfg)
 
     def get_installed_packages(self):

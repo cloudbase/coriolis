@@ -1,7 +1,9 @@
 # Copyright 2024 Cloudbase Solutions Srl
 # All Rights Reserved.
-
+import copy
 from unittest import mock
+
+import yaml
 
 from coriolis import exception
 from coriolis.osmorphing import base
@@ -157,6 +159,48 @@ class BaseDebianMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
 
         self.assertEqual(result, expected_result)
 
+    @mock.patch.object(debian.BaseDebianMorphingTools, '_list_dir')
+    @mock.patch.object(debian.BaseDebianMorphingTools, '_read_file_sudo')
+    @mock.patch.object(debian.BaseDebianMorphingTools, '_exec_cmd_chroot')
+    @mock.patch.object(debian.BaseDebianMorphingTools, '_write_file_sudo')
+    def test__preserve_static_netplan_configuration(
+            self, mock_write_file_sudo, mock_exec_cmd_chroot,
+            mock_read_file_sudo, mock_list_dir):
+        ipv4 = "10.8.254.57"
+        ipv6 = "fe80::250:56ff:feba:f3aa"
+        mac = "00:50:56:ba:f3:aa"
+        eth0_config = {
+            "addresses": [{f"{ipv4}/24": {"limit": 0, "label": "maas"}},
+                          f"{ipv6}/64",
+                          {}]}
+        static_netplan_config = {
+            "network": {
+                "ethernets": {
+                    "eth0": eth0_config
+                }
+            }
+        }
+        nics_info = [
+            {"id": 1, "mac_address": "mac1", "ip_addresses": []},
+            {"id": 2, "mac_address": ""},
+            {"id": 3, "mac_address": mac, "ip_addresses": [ipv4, ipv6]}
+        ]
+        mock_list_dir.return_value = ["static.yml"]
+        mock_read_file_sudo.return_value = yaml.dump(
+            static_netplan_config, Dumper=yaml.SafeDumper).encode()
+        expected_eth0 = copy.deepcopy(eth0_config)
+        expected_eth0['match'] = {"macaddress": mac}
+        expected_eth0['set-name'] = 'eth0'
+        expected_netplan = {"network": {"ethernets": {"eth0": expected_eth0}}}
+
+        self.morpher._preserve_static_netplan_configuration(nics_info)
+
+        mock_write_file_sudo.assert_called_once_with(
+            "etc/netplan/static.yml",
+            yaml.dump(expected_netplan, Dumper=yaml.SafeDumper))
+        mock_exec_cmd_chroot.assert_called_once_with(
+            "cp etc/netplan/static.yml etc/netplan/static.yml.bak")
+
     @mock.patch.object(debian.BaseDebianMorphingTools, '_write_file_sudo')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_exec_cmd_chroot')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_test_path')
@@ -202,11 +246,11 @@ class BaseDebianMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             self, mock_disable_predictable_nic_names, mock_list_dir,
             mock_test_path, mock_exec_cmd_chroot, mock_write_file_sudo):
         dhcp = False
+        mock_test_path.return_value = True
 
         self.morpher.set_net_config(self.nics_info, dhcp)
 
         mock_disable_predictable_nic_names.assert_not_called()
-        mock_test_path.assert_not_called()
         mock_list_dir.assert_not_called()
         mock_write_file_sudo.assert_not_called()
         mock_exec_cmd_chroot.assert_not_called()
