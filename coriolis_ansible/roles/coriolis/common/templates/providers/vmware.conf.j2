@@ -133,6 +133,11 @@ vixdisklib_config_location = {{ coriolis_vmware_vix_disklib_config_path }}
 # default resource pool for the selected 'migr_minion_cluster' will be used.
 # migr_minion_resource_pool = Resources
 
+# User-hosted URL for the Windows VMWare Tools executable. This option should only be
+# used when Internet access for the Windows Worker is restricted or limited, or if the
+# official URL is not accessible.
+# windows_vmware_tools_url =
+
 # What mechanism to use when sending disk data from the Coriolis installation
 # to the temporary VMs on the target VMWare to be written to their
 # respective disk. The HTTPS-based transfer mechanism (TCP/5566) is faster but
