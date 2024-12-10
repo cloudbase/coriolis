@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -eux -o pipefail
+
 if [ -e "/dev/log" ]
 then
     rm -rf /dev/log
