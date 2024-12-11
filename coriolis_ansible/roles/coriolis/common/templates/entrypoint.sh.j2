@@ -9,7 +9,7 @@ fi
 
 ln -s "{{ coriolis_logger_socket_file }}" /dev/log
 
-if [ "x$RUN_DBSYNC" != "x" ] && [ "x$RUN_DBSYNC" = "xyes" ]
+if [ "x${RUN_DBSYNC:-''}" != "x" ] && [ "x${RUN_DBSYNC:-''}" = "xyes" ]
 then
     if [ -x "/usr/local/bin/coriolis-dbsync" ]
     then
@@ -19,7 +19,7 @@ fi
 
 CA_FOLDER="{{ coriolis_config_dir }}/ssl/ca"
 CERTIFI_DIR="$(python3 -c 'import certifi; import os; print(os.path.dirname(certifi.__file__))')"
-CERTIFI_CA_PATH="$(CERTIFI_DIR)/cacert.pem"
+CERTIFI_CA_PATH="$CERTIFI_DIR/cacert.pem"
 
 if [ -d "$CA_FOLDER" ] && [ ! -z "$(ls -A $CA_FOLDER)" ];then
     if [ -e "/etc/debian_version" ]; then
