@@ -344,11 +344,9 @@ class DeploymentTestCase(test_base.CoriolisBaseTestCase):
         deployment.id = mock.sentinel.id
         deployment.transfer_id = transfer.id
         deployment.transfer = transfer
-        deployment.shutdown_instances = mock.sentinel.shutdown_instances
         expected_result = {
             "id": mock.sentinel.id,
             "transfer_id": mock.sentinel.transfer_id,
-            "shutdown_instances": mock.sentinel.shutdown_instances,
             "transfer_scenario_type": transfer.scenario,
         }
 
