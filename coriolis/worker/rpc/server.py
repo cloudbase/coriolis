@@ -7,6 +7,7 @@ import os
 import shutil
 import signal
 import sys
+import time
 
 import eventlet
 from oslo_config import cfg
@@ -143,6 +144,7 @@ class WorkerServerEndpoint(object):
             except queue.Empty:
                 if not p.is_alive():
                     break
+            time.sleep(.2)
 
     def _get_custom_ld_path(self, original_ld_path, extra_library_paths):
         if not isinstance(extra_library_paths, list):
@@ -210,6 +212,7 @@ class WorkerServerEndpoint(object):
                     except BaseException:
                         pass
                 break
+            time.sleep(.2)
         return result
 
     def _exec_task_process(
