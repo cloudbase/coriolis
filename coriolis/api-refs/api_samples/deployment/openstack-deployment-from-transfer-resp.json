@@ -1,5 +1,5 @@
 {
-  "migration": {
+  "deployment": {
     "created_at": "2019-07-11T13:01:03.000000",
     "updated_at": null,
     "deleted_at": null,
@@ -22,8 +22,10 @@
       "port_reuse_policy": "keep_mac",
       "set_dhcp": true
     },
-    "type": "migration",
-    "instances": ["ubuntu-xenial"],
+    "type": "deployment",
+    "instances": [
+      "ubuntu-xenial"
+    ],
     "reservation_id": null,
     "notes": null,
     "origin_endpoint_id": "5a276274-f964-4c07-aec4-01a7971d9eea",
@@ -33,14 +35,16 @@
     "storage_mappings": {},
     "source_environment": {},
     "id": "480a4ba6-db63-43cb-a91b-4ef65665cd26",
-    "replica_id": "78f89897-fca0-465c-bf0c-b23b36dfd619",
-    "status": "RUNNING",
+    "transfer_id": "78f89897-fca0-465c-bf0c-b23b36dfd619",
     "last_execution_status": "UNEXECUTED",
     "origin_minion_pool_id": null,
     "destination_minion_pool_id": "a5e00fd3-42ac-4570-898b-5bbee0ff4acb",
-    "instance_osmorphing_minion_pool_mappings": {"instance1": "morphing_pool"},
+    "instance_osmorphing_minion_pool_mappings": {
+      "instance1": "morphing_pool"
+    },
+    "user_scripts": {},
+    "transfer_scenario_type": "replica",
     "shutdown_instances": false,
-    "replication_count": 2,
     "tasks": [
       {
         "created_at": "2019-07-11T13:01:03.000000",
@@ -53,7 +57,7 @@
         "host": null,
         "process_id": null,
         "status": "PENDING",
-        "task_type": "VALIDATE_REPLICA_DEPLOYMENT_INPUTS",
+        "task_type": "VALIDATE_DEPLOYMENT_INPUTS",
         "exception_details": null,
         "depends_on": null,
         "on_error": false,
@@ -91,7 +95,7 @@
         "host": null,
         "process_id": null,
         "status": "PENDING",
-        "task_type": "CREATE_REPLICA_DISK_SNAPSHOTS",
+        "task_type": "CREATE_TRANSFER_DISK_SNAPSHOTS",
         "exception_details": null,
         "depends_on": [
           "9a1cfa58-553f-41ba-ac98-e79d2072051a",
@@ -112,7 +116,7 @@
         "host": null,
         "process_id": null,
         "status": "PENDING",
-        "task_type": "DEPLOY_REPLICA_INSTANCE",
+        "task_type": "DEPLOY_INSTANCE_RESOURCES",
         "exception_details": null,
         "depends_on": [
           "2466c7c1-a228-48a0-a805-38903accec46"
@@ -192,7 +196,7 @@
         "host": null,
         "process_id": null,
         "status": "PENDING",
-        "task_type": "FINALIZE_REPLICA_INSTANCE_DEPLOYMENT",
+        "task_type": "FINALIZE_INSTANCE_DEPLOYMENT",
         "exception_details": null,
         "depends_on": [
           "8892d1cf-0120-4e3f-9563-c0ee8cb278e8"
@@ -212,7 +216,7 @@
         "host": null,
         "process_id": null,
         "status": "PENDING",
-        "task_type": "DELETE_REPLICA_DISK_SNAPSHOTS",
+        "task_type": "DELETE_TRANSFER_TARGET_DISK_SNAPSHOTS",
         "exception_details": null,
         "depends_on": [
           "86048ea8-9520-4797-877b-66934e1723ac"

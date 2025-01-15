@@ -1,8 +1,10 @@
 {
-  "replica": {
+  "transfer": {
     "network_map": {},
     "origin_endpoint_id": "5a276274-f964-4c07-aec4-01a7971d9eea",
-    "instances": ["ubuntu-xenial"],
+    "instances": [
+      "ubuntu-xenial"
+    ],
     "storage_mappings": {},
     "destination_environment": {
       "network_map": {
@@ -14,8 +16,8 @@
       "keypair_name": "new-key",
       "delete_disks_on_vm_termination": false,
       "migr_image_map": {
-          "linux": "ubuntu-xenial-img",
-          "windows": "63d8f1a4-3192-4edc-b113-0d099b4bc458"
+        "linux": "ubuntu-xenial-img",
+        "windows": "63d8f1a4-3192-4edc-b113-0d099b4bc458"
       },
       "migr_network": "provider-net",
       "port_reuse_policy": "keep_mac",
@@ -24,7 +26,15 @@
     "destination_endpoint_id": "6258fa20-5d1f-44fa-ae12-c94122263fa3",
     "origin_minion_pool_id": null,
     "destination_minion_pool_id": "a9b5a0b5-18f6-422e-a014-1659f8a257a4",
-    "instance_osmorphing_minion_pool_mappings": {"ubuntu-xenial": "a9b5a0b5-18f6-422e-a014-1659f8a257a4"},
-    "user_scripts": {"instances": {"ubuntu-xenial": "echo 'anything you need'"}}
+    "instance_osmorphing_minion_pool_mappings": {
+      "ubuntu-xenial": "a9b5a0b5-18f6-422e-a014-1659f8a257a4"
+    },
+    "user_scripts": {
+      "instances": {
+        "ubuntu-xenial": "echo 'anything you need'"
+      }
+    },
+    "id": "aedffcd0-804c-4c5a-913c-8b99ec1ae80a",
+    "scenario": "replica"
   }
 }
