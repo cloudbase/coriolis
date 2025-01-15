@@ -8,9 +8,9 @@ This is a reference for the Coriolis API.
 
 .. include:: diagnostics.inc
 .. include:: endpoint.inc
-.. include:: migration.inc
+.. include:: deployment.inc
 .. include:: minion_pool.inc
 .. include:: provider.inc
 .. include:: region.inc
-.. include:: replica.inc
+.. include:: transfer.inc
 .. include:: service.inc

@@ -23,7 +23,9 @@
       "type": "openstack",
       "name": "Endpoint Name Example",
       "description": "Example Endpoint Description",
-      "mapped_regions": ["public"]
+      "mapped_regions": [
+        "public"
+      ]
     },
     {
       "created_at": "2019-07-09T07:04:13.000000",

@@ -42,6 +42,8 @@
     "type": "openstack",
     "name": "Endpoint Name Example",
     "description": "Example Endpoint Description",
-    "mapped_regions": ["public"]
+    "mapped_regions": [
+      "public"
+    ]
   }
 }
