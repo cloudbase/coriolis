@@ -1,5 +1,5 @@
 {
-  "migrations": [
+  "deployments": [
     {
       "created_at": "2019-08-20T12:32:31.000000",
       "updated_at": "2019-08-20T12:32:42.000000",
@@ -37,7 +37,8 @@
         "port_reuse_policy": "keep_mac",
         "set_dhcp": true
       },
-      "type": "migration",
+      "type": "deployment",
+      "executions": [],
       "instances": [
         "CI/openwrt"
       ],
@@ -65,14 +66,17 @@
       },
       "source_environment": {},
       "id": "65bd70e4-c4ab-4f60-9d78-779c0b58c2ab",
-      "replica_id": null,
-      "status": "ERROR",
+      "transfer_id": "0460aa4d-6b16-4c98-bd56-27ee186e4a22",
       "last_execution_status": "COMPLETED",
       "origin_minion_pool_id": null,
       "destination_minion_pool_id": "a5e00fd3-42ac-4570-898b-5bbee0ff4acb",
       "instance_osmorphing_minion_pool_mappings": {},
-      "shutdown_instances": false,
-      "replication_count": 2
+      "user_scripts": {
+        "global": {},
+        "instances": {}
+      },
+      "transfer_scenario_type": "replica",
+      "shutdown_instances": false
     },
     {
       "created_at": "2019-08-22T08:29:33.000000",
@@ -107,7 +111,7 @@
         },
         "migr_network": "private"
       },
-      "type": "migration",
+      "type": "deployment",
       "instances": [
         "CI/openwrt"
       ],
@@ -124,6 +128,7 @@
           "name": "openwrt",
           "id": "00ea28b8-4760-4890-bd79-227b7327a209",
           "flavor_name": "ds1G",
+          "secure_boot": false,
           "devices": {
             "nics": [
               {
@@ -175,10 +180,13 @@
       "source_environment": {
         "vixdisklib_compatibility_version": "6.0"
       },
+      "user_scripts": {
+        "global": {},
+        "instances": {}
+      },
       "id": "9566af98-2c89-4969-ad73-a416e8a8a5ce",
-      "replica_id": "96d71f92-1cbd-48cb-98aa-06ce8cbf89cf",
-      "status": "COMPLETED",
-      "replication_count": 2
+      "transfer_id": "0460aa4d-6b16-4c98-bd56-27ee186e4a22",
+      "transfer_scenario_type": "replica"
     }
   ]
 }

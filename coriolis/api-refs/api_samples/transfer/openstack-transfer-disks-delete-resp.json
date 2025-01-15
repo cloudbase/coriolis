@@ -20,7 +20,7 @@
         "host": null,
         "process_id": null,
         "status": "PENDING",
-        "task_type": "DELETE_REPLICA_DISKS",
+        "task_type": "DELETE_TRANSFER_DISKS",
         "exception_details": null,
         "depends_on": null,
         "on_error": false,
@@ -46,14 +46,14 @@
         "keypair_name": "new-key",
         "delete_disks_on_vm_termination": false,
         "migr_image_map": {
-            "linux": "ubuntu-xenial-img",
-            "windows": "63d8f1a4-3192-4edc-b113-0d099b4bc458"
+          "linux": "ubuntu-xenial-img",
+          "windows": "63d8f1a4-3192-4edc-b113-0d099b4bc458"
         },
         "migr_network": "provider-net",
         "port_reuse_policy": "keep_mac",
         "set_dhcp": true
       },
-      "type": "replica",
+      "type": "transfer",
       "instances": [
         "ubuntu-xenial"
       ],

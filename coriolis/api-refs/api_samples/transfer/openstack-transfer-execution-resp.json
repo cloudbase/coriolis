@@ -8,7 +8,7 @@
     "action_id": "78f89897-fca0-465c-bf0c-b23b36dfd619",
     "status": "RUNNING",
     "number": 2,
-    "type": "replica_execution",
+    "type": "transfer_execution",
     "tasks": [
       {
         "created_at": "2019-07-11T10:01:43.000000",
@@ -21,7 +21,7 @@
         "host": null,
         "process_id": null,
         "status": "PENDING",
-        "task_type": "VALIDATE_REPLICA_INPUTS",
+        "task_type": "VALIDATE_TRANSFER_INPUTS",
         "exception_details": null,
         "depends_on": null,
         "on_error": false,
@@ -59,7 +59,7 @@
         "host": null,
         "process_id": null,
         "status": "PENDING",
-        "task_type": "DEPLOY_REPLICA_DISKS",
+        "task_type": "DEPLOY_TRANSFER__DISKS",
         "exception_details": null,
         "depends_on": [
           "0a7f3d43-7486-49e7-a606-6411694a8178"
@@ -79,7 +79,7 @@
         "host": null,
         "process_id": null,
         "status": "PENDING",
-        "task_type": "DEPLOY_REPLICA_SOURCE_RESOURCES",
+        "task_type": "DEPLOY_TRANSFER_SOURCE_RESOURCES",
         "exception_details": null,
         "depends_on": [
           "e82de183-da6d-4115-83a1-9bd445a32d57"
@@ -99,7 +99,7 @@
         "host": null,
         "process_id": null,
         "status": "PENDING",
-        "task_type": "DEPLOY_REPLICA_TARGET_RESOURCES",
+        "task_type": "DEPLOY_TRANSFER_TARGET_RESOURCES",
         "exception_details": null,
         "depends_on": [
           "e82de183-da6d-4115-83a1-9bd445a32d57"
@@ -140,7 +140,7 @@
         "host": null,
         "process_id": null,
         "status": "PENDING",
-        "task_type": "DELETE_REPLICA_SOURCE_RESOURCES",
+        "task_type": "DELETE_TRANSFER_SOURCE_RESOURCES",
         "exception_details": null,
         "depends_on": [
           "96de030b-3a12-45a5-a306-3a18e938040b"
@@ -160,7 +160,7 @@
         "host": null,
         "process_id": null,
         "status": "PENDING",
-        "task_type": "DELETE_REPLICA_TARGET_RESOURCES",
+        "task_type": "DELETE_TRANSFER_TARGET_RESOURCES",
         "exception_details": null,
         "depends_on": [
           "96de030b-3a12-45a5-a306-3a18e938040b"
@@ -188,14 +188,14 @@
         "keypair_name": "new-key",
         "delete_disks_on_vm_termination": false,
         "migr_image_map": {
-            "linux": "ubuntu-xenial-img",
-            "windows": "63d8f1a4-3192-4edc-b113-0d099b4bc458"
+          "linux": "ubuntu-xenial-img",
+          "windows": "63d8f1a4-3192-4edc-b113-0d099b4bc458"
         },
         "migr_network": "provider-net",
         "port_reuse_policy": "keep_mac",
         "set_dhcp": true
       },
-      "type": "replica",
+      "type": "transfer",
       "instances": [
         "ubuntu-xenial"
       ],
@@ -207,7 +207,8 @@
       "network_map": {},
       "storage_mappings": {},
       "source_environment": {},
-      "id": "78f89897-fca0-465c-bf0c-b23b36dfd619"
+      "id": "78f89897-fca0-465c-bf0c-b23b36dfd619",
+      "scenario": "replica"
     }
   }
 }

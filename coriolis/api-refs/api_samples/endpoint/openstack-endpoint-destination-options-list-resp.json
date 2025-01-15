@@ -10,12 +10,17 @@
     },
     {
       "name": "migr_fip_pool_name",
-      "values": ["public"],
+      "values": [
+        "public"
+      ],
       "config_default": "public"
     },
     {
       "name": "security_groups",
-      "values": ["default""def-grp"],
+      "values": [
+        "default",
+        "def-grp"
+      ],
       "config_default": []
     },
     {

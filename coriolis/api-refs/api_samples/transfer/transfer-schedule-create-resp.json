@@ -5,7 +5,7 @@
     "deleted_at": null,
     "deleted": "0",
     "id": "e5bf8e7d-4653-4994-bb2a-467a1df475b1",
-    "replica_id": "0460aa4d-6b16-4c98-bd56-27ee186e4a22",
+    "transfer_id": "0460aa4d-6b16-4c98-bd56-27ee186e4a22",
     "schedule": {
       "month": 7,
       "hour": 20,

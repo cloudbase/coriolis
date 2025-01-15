@@ -54,6 +54,8 @@
     "type": "openstack",
     "name": "Updated Name",
     "description": "Updated description",
-    "mapped_regions": ["public"]
+    "mapped_regions": [
+      "public"
+    ]
   }
 }

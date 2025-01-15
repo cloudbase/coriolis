@@ -20,7 +20,7 @@
         "host": "coriolis-worker",
         "process_id": 55,
         "status": "COMPLETED",
-        "task_type": "VALIDATE_REPLICA_INPUTS",
+        "task_type": "VALIDATE_TRANSFER_INPUTS",
         "exception_details": null,
         "depends_on": null,
         "on_error": false,
@@ -46,7 +46,7 @@
             "current_step": 3,
             "total_steps": null,
             "message": "Checking shape name"
-          },
+          }
         ],
         "events": []
       },
@@ -104,7 +104,7 @@
         "host": "coriolis-worker",
         "process_id": 65,
         "status": "COMPLETED",
-        "task_type": "DEPLOY_REPLICA_DISKS",
+        "task_type": "DEPLOY_TRANSFER_DISKS",
         "exception_details": null,
         "depends_on": [
           "ac0b4373-8b03-453b-b231-51c526039ae8"
@@ -124,7 +124,7 @@
         "host": "coriolis-worker",
         "process_id": 71,
         "status": "COMPLETED",
-        "task_type": "DEPLOY_REPLICA_SOURCE_RESOURCES",
+        "task_type": "DEPLOY_TRANSFER_SOURCE_RESOURCES",
         "exception_details": null,
         "depends_on": [
           "32a87325-7aea-47f1-847f-a33da53f4dff"
@@ -144,7 +144,7 @@
         "host": "coriolis-worker",
         "process_id": 70,
         "status": "ERROR",
-        "task_type": "DEPLOY_REPLICA_TARGET_RESOURCES",
+        "task_type": "DEPLOY_TRANSFER_TARGET_RESOURCES",
         "exception_details": "You have reached your service limit of 1 in this Availability Domain for VM.Standard2.1. Please try launching the instance in a different Availability Domain or Region, or try using a different shape. If you have reached all Service limits, please contact Oracle support to request a limit increase.",
         "depends_on": [
           "32a87325-7aea-47f1-847f-a33da53f4dff"
@@ -208,7 +208,7 @@
         "host": "coriolis-worker",
         "process_id": 80,
         "status": "COMPLETED",
-        "task_type": "DELETE_REPLICA_SOURCE_RESOURCES",
+        "task_type": "DELETE_TRANSFER_SOURCE_RESOURCES",
         "exception_details": null,
         "depends_on": [
           "1d307621-52b1-4c45-a8c7-fbd6d69f469d"
@@ -228,7 +228,7 @@
         "host": "coriolis-worker",
         "process_id": 81,
         "status": "COMPLETED",
-        "task_type": "DELETE_REPLICA_TARGET_RESOURCES",
+        "task_type": "DELETE_TRANSFER_TARGET_RESOURCES",
         "exception_details": null,
         "depends_on": [
           "1d307621-52b1-4c45-a8c7-fbd6d69f469d"
@@ -256,15 +256,17 @@
         "keypair_name": "new-key",
         "delete_disks_on_vm_termination": false,
         "migr_image_map": {
-            "linux": "ubuntu-xenial-img",
-            "windows": "63d8f1a4-3192-4edc-b113-0d099b4bc458"
+          "linux": "ubuntu-xenial-img",
+          "windows": "63d8f1a4-3192-4edc-b113-0d099b4bc458"
         },
         "migr_network": "provider-net",
         "port_reuse_policy": "keep_mac",
         "set_dhcp": true
       },
       "type": "replica",
-      "instances": ["ubuntu-xenial"],
+      "instances": [
+        "ubuntu-xenial"
+      ],
       "reservation_id": null,
       "notes": null,
       "origin_endpoint_id": "5a276274-f964-4c07-aec4-01a7971d9eea",
