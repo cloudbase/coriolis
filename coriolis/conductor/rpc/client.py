@@ -216,12 +216,27 @@ class ConductorClient(rpc.BaseRPCClient):
             ctxt, 'get_deployment', deployment_id=deployment_id,
             include_task_info=include_task_info)
 
+    def confirm_deployer_completed(
+            self, ctxt, deployment_id, skip_os_morphing=False, force=False,
+            clone_disks=True, user_scripts=None):
+        return self._cast(
+            ctxt, 'confirm_deployer_completed', deployment_id=deployment_id,
+            skip_os_morphing=skip_os_morphing, force=force,
+            clone_disks=clone_disks, user_scripts=user_scripts)
+
+    def report_deployer_failure(
+            self, ctxt, deployemnt_id, deployer_error_details):
+        return self._cast(
+            ctxt, 'report_deployer_failure', deployment_id=deployemnt_id,
+            deployer_error_details=deployer_error_details)
+
     def deploy_transfer_instances(
-            self, ctxt, transfer_id,
+            self, ctxt, transfer_id, force, wait_for_execution=None,
             instance_osmorphing_minion_pool_mappings=None, clone_disks=False,
-            force=False, skip_os_morphing=False, user_scripts=None):
+            skip_os_morphing=False, user_scripts=None):
         return self._call(
             ctxt, 'deploy_transfer_instances', transfer_id=transfer_id,
+            wait_for_execution=wait_for_execution,
             instance_osmorphing_minion_pool_mappings=(
                 instance_osmorphing_minion_pool_mappings),
             clone_disks=clone_disks, force=force,
