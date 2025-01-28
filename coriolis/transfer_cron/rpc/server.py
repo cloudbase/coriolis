@@ -17,10 +17,12 @@ LOG = logging.getLogger(__name__)
 VERSION = "1.0"
 
 
-def _trigger_transfer(ctxt, conductor_client, transfer_id, shutdown_instance):
+def _trigger_transfer(ctxt, conductor_client, transfer_id, shutdown_instance,
+                      auto_deploy):
     try:
         execution = conductor_client.execute_transfer_tasks(
-            ctxt, transfer_id, shutdown_instance)
+            ctxt, transfer_id, shutdown_instance=shutdown_instance,
+            auto_deploy=auto_deploy)
         result_msg = 'Execution %s for Transfer %s' % (
             execution.get('id'), execution.get('action_id'))
         return result_msg
@@ -63,7 +65,7 @@ class TransferCronServerEndpoint(object):
             sched["enabled"], sched["expiration_date"],
             None, None, _trigger_transfer, trust_ctxt,
             self._rpc_client, schedule["transfer_id"],
-            schedule["shutdown_instance"])
+            schedule["shutdown_instance"], schedule["auto_deploy"])
         self._cron.register(job)
 
     def _init_cron(self):
