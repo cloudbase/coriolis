@@ -949,7 +949,8 @@ def update_transfer(context, transfer_id, updated_values):
         "source_environment", "destination_environment", "notes",
         "network_map", "storage_mappings",
         "origin_minion_pool_id", "destination_minion_pool_id",
-        "instance_osmorphing_minion_pool_mappings"]
+        "instance_osmorphing_minion_pool_mappings", "clone_disks",
+        "skip_os_morphing"]
     for field in updateable_fields:
         if mapped_info_fields.get(field, field) in updated_values:
             LOG.debug(

@@ -13,14 +13,16 @@ class API(object):
                origin_minion_pool_id, destination_minion_pool_id,
                instance_osmorphing_minion_pool_mappings,
                source_environment, destination_environment, instances,
-               network_map, storage_mappings, notes=None, user_scripts=None):
+               network_map, storage_mappings, notes=None, user_scripts=None,
+               clone_disks=True, skip_os_morphing=False):
         return self._rpc_client.create_instances_transfer(
             ctxt, transfer_scenario,
             origin_endpoint_id, destination_endpoint_id,
             origin_minion_pool_id, destination_minion_pool_id,
             instance_osmorphing_minion_pool_mappings,
             source_environment, destination_environment, instances,
-            network_map, storage_mappings, notes, user_scripts)
+            network_map, storage_mappings, notes, user_scripts, clone_disks,
+            skip_os_morphing)
 
     def update(self, ctxt, transfer_id, updated_properties):
         return self._rpc_client.update_transfer(
