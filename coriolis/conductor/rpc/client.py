@@ -167,7 +167,8 @@ class ConductorClient(rpc.BaseRPCClient):
                                   instance_osmorphing_minion_pool_mappings,
                                   source_environment, destination_environment,
                                   instances, network_map, storage_mappings,
-                                  notes=None, user_scripts=None):
+                                  notes=None, user_scripts=None,
+                                  clone_disks=True, skip_os_morphing=False):
         return self._call(
             ctxt, 'create_instances_transfer',
             transfer_scenario=transfer_scenario,
@@ -183,7 +184,9 @@ class ConductorClient(rpc.BaseRPCClient):
             network_map=network_map,
             storage_mappings=storage_mappings,
             source_environment=source_environment,
-            user_scripts=user_scripts)
+            user_scripts=user_scripts,
+            clone_disks=clone_disks,
+            skip_os_morphing=skip_os_morphing)
 
     def get_transfers(self, ctxt, include_tasks_executions=False,
                       include_task_info=False):

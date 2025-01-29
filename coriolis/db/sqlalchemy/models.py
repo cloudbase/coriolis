@@ -281,6 +281,10 @@ class BaseTransferAction(BASE, models.TimestampMixin, models.ModelBase,
     instance_osmorphing_minion_pool_mappings = sqlalchemy.Column(
         types.Json, nullable=False, default=lambda: {})
     user_scripts = sqlalchemy.Column(types.Json, nullable=True)
+    clone_disks = sqlalchemy.Column(
+        sqlalchemy.Boolean, nullable=False, default=True)
+    skip_os_morphing = sqlalchemy.Column(
+        sqlalchemy.Boolean, nullable=False, default=False)
 
     __mapper_args__ = {
         'polymorphic_identity': 'base_transfer_action',
@@ -314,6 +318,8 @@ class BaseTransferAction(BASE, models.TimestampMixin, models.ModelBase,
             "instance_osmorphing_minion_pool_mappings":
                 self.instance_osmorphing_minion_pool_mappings,
             "user_scripts": self.user_scripts,
+            "clone_disks": self.clone_disks,
+            "skip_os_morphing": self.skip_os_morphing,
         }
         if include_executions:
             for ex in self.executions:

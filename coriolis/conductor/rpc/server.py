@@ -1109,8 +1109,16 @@ class ConductorServerEndpoint(object):
             self._begin_tasks(ctxt, transfer, execution)
 
         if auto_deploy:
+            deployment_options = {
+                "clone_disks": transfer.clone_disks,
+                "instance_osmorphing_minion_pool_mappings": (
+                    transfer.instance_osmorphing_minion_pool_mappings),
+                "skip_os_morphing": transfer.skip_os_morphing,
+                "user_scripts": transfer.user_scripts,
+                "force": False,
+            }
             self._worker_client.execute_auto_deployment(
-                ctxt, transfer.id, execution.id)
+                ctxt, transfer.id, execution.id, **deployment_options)
 
         return self.get_transfer_tasks_execution(
             ctxt, transfer_id, execution.id)
@@ -1265,7 +1273,8 @@ class ConductorServerEndpoint(object):
                                   source_environment,
                                   destination_environment, instances,
                                   network_map, storage_mappings, notes=None,
-                                  user_scripts=None):
+                                  user_scripts=None, clone_disks=True,
+                                  skip_os_morphing=False):
         supported_scenarios = [
             constants.TRANSFER_SCENARIO_REPLICA,
             constants.TRANSFER_SCENARIO_LIVE_MIGRATION]
@@ -1300,6 +1309,8 @@ class ConductorServerEndpoint(object):
         transfer.instance_osmorphing_minion_pool_mappings = (
             instance_osmorphing_minion_pool_mappings)
         transfer.user_scripts = user_scripts or {}
+        transfer.clone_disks = clone_disks
+        transfer.skip_os_morphing = skip_os_morphing
 
         self._check_minion_pools_for_action(ctxt, transfer)
 
