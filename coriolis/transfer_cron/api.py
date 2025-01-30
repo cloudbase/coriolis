@@ -9,10 +9,10 @@ class API(object):
         self._rpc_client = rpc_client.ConductorClient()
 
     def create(self, ctxt, transfer_id, schedule, enabled,
-               exp_date, shutdown_instance):
+               exp_date, shutdown_instance, auto_deploy):
         return self._rpc_client.create_transfer_schedule(
             ctxt, transfer_id, schedule, enabled, exp_date,
-            shutdown_instance)
+            shutdown_instance, auto_deploy)
 
     def get_schedules(self, ctxt, transfer_id, expired=True):
         return self._rpc_client.get_transfer_schedules(

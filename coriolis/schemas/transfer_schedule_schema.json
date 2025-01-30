@@ -51,6 +51,10 @@
     "shutdown_instance": {
       "type": "boolean",
       "description": "Shutdown instance before creating a snapshot."
+    },
+    "auto_deploy": {
+      "type": "boolean",
+      "description": "Deploy transfer automatically after the execution finishes."
     }
   }
 }

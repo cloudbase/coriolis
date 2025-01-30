@@ -3297,7 +3297,7 @@ class ConductorServerEndpoint(object):
 
     def create_transfer_schedule(self, ctxt, transfer_id,
                                  schedule, enabled, exp_date,
-                                 shutdown_instance):
+                                 shutdown_instance, auto_deploy):
         keystone.create_trust(ctxt)
         transfer = self._get_transfer(ctxt, transfer_id)
         transfer_schedule = models.TransferSchedule()
@@ -3308,6 +3308,7 @@ class ConductorServerEndpoint(object):
         transfer_schedule.expiration_date = exp_date
         transfer_schedule.enabled = enabled
         transfer_schedule.shutdown_instance = shutdown_instance
+        transfer_schedule.auto_deploy = auto_deploy
         transfer_schedule.trust_id = ctxt.trust_id
 
         db_api.add_transfer_schedule(
