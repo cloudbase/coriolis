@@ -75,7 +75,8 @@ class TransferScheduleController(api_wsgi.Controller):
         if exp is not None:
             exp = self._validate_expiration_date(exp)
         shutdown = body.get("shutdown_instance", False)
-        return (schedule, enabled, exp, shutdown)
+        auto_deploy = body.get('auto_deploy', False)
+        return schedule, enabled, exp, shutdown, auto_deploy
 
     def _validate_update_body(self, update_body):
         body = {}
@@ -89,6 +90,9 @@ class TransferScheduleController(api_wsgi.Controller):
         shutdown = update_body.get("shutdown_instance")
         if shutdown is not None:
             body["shutdown_instance"] = shutdown
+        auto_deploy = update_body.get('auto_deploy')
+        if auto_deploy is not None:
+            body['auto_deploy'] = auto_deploy
         schemas.validate_value(
             body, schemas.SCHEDULE_API_BODY_SCHEMA,
             format_checker=jsonschema.FormatChecker())
@@ -107,13 +111,14 @@ class TransferScheduleController(api_wsgi.Controller):
 
         LOG.debug("Got request: %r %r %r" % (req, transfer_id, body))
         try:
-            schedule, enabled, exp_date, shutdown = self._validate_create_body(
-                body)
+            schedule, enabled, exp_date, shutdown, auto_deploy = (
+                self._validate_create_body(body))
         except Exception as err:
             raise exception.InvalidInput(err)
 
         return transfer_schedule_view.single(self._schedule_api.create(
-            context, transfer_id, schedule, enabled, exp_date, shutdown))
+            context, transfer_id, schedule, enabled, exp_date, shutdown,
+            auto_deploy))
 
     def update(self, req, transfer_id, id, body):
         context = req.environ["coriolis.context"]

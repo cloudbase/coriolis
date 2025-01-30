@@ -303,14 +303,15 @@ class ConductorClient(rpc.BaseRPCClient):
 
     def create_transfer_schedule(self, ctxt, transfer_id,
                                  schedule, enabled, exp_date,
-                                 shutdown_instance):
+                                 shutdown_instance, auto_deploy):
         return self._call(
             ctxt, 'create_transfer_schedule',
             transfer_id=transfer_id,
             schedule=schedule,
             enabled=enabled,
             exp_date=exp_date,
-            shutdown_instance=shutdown_instance)
+            shutdown_instance=shutdown_instance,
+            auto_deploy=auto_deploy)
 
     def update_transfer_schedule(self, ctxt, transfer_id, schedule_id,
                                  updated_values):

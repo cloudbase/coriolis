@@ -685,4 +685,6 @@ class TransferSchedule(BASE, models.TimestampMixin, models.ModelBase,
         sqlalchemy.Boolean, nullable=False, default=lambda: False)
     shutdown_instance = sqlalchemy.Column(
         sqlalchemy.Boolean, nullable=False, default=False)
+    auto_deploy = sqlalchemy.Column(
+        sqlalchemy.Boolean, nullable=False, default=False)
     trust_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)
