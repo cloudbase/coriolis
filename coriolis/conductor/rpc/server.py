@@ -1616,7 +1616,7 @@ class ConductorServerEndpoint(object):
             self, ctxt, deployment_id, deployer_error_details):
         deployment = self._get_deployment(ctxt, deployment_id)
         error_status = constants.EXECUTION_STATUS_ERROR
-        expected_status = constants.EXECUTION_STATUS_UNEXECUTED
+        expected_status = constants.EXECUTION_STATUS_PENDING
         if deployment.last_execution_status != expected_status:
             raise exception.InvalidDeploymentState(
                 f"Deployment is in '{deployment.last_execution_status}' "
@@ -1659,8 +1659,7 @@ class ConductorServerEndpoint(object):
         deployment.info = {}
         deployment.notes = transfer.notes
         deployment.user_scripts = user_scripts
-        deployment.last_execution_status = (
-            constants.EXECUTION_STATUS_UNEXECUTED)
+        deployment.last_execution_status = constants.EXECUTION_STATUS_PENDING
         # NOTE: Deployments have no use for the source/target
         # pools of the parent Transfer so these can be omitted:
         deployment.origin_minion_pool_id = None
