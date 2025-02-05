@@ -1111,8 +1111,6 @@ class ConductorServerEndpoint(object):
         if auto_deploy:
             deployment_options = {
                 "clone_disks": transfer.clone_disks,
-                "instance_osmorphing_minion_pool_mappings": (
-                    transfer.instance_osmorphing_minion_pool_mappings),
                 "skip_os_morphing": transfer.skip_os_morphing,
                 "user_scripts": transfer.user_scripts,
                 "force": False,
