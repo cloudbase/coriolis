@@ -367,7 +367,10 @@ def update_transfer_schedule(context, transfer_id, schedule_id,
     schedule = get_transfer_schedule(context, transfer_id, schedule_id)
     if pre_update_callable:
         pre_update_callable(schedule=schedule)
-    for val in ["schedule", "expiration_date", "enabled", "shutdown_instance"]:
+    updateable_attributes = [
+        "schedule", "expiration_date", "enabled", "shutdown_instance",
+        "auto_deploy"]
+    for val in updateable_attributes:
         if val in updated_values:
             setattr(schedule, val, updated_values[val])
     if post_update_callable:
