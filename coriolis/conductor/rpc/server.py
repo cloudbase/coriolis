@@ -1390,7 +1390,8 @@ class ConductorServerEndpoint(object):
     def _execute_deployment(
             self, ctxt, deployment, skip_os_morphing, force, clone_disks,
             user_scripts):
-        transfer = deployment.transfer
+        transfer = self._get_transfer(
+            ctxt, deployment.transfer_id, include_task_info=True)
         self._check_transfer_running_executions(ctxt, transfer)
         self._check_valid_transfer_tasks_execution(transfer, force)
         for instance, info in transfer.info.items():
