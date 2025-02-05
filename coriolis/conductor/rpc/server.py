@@ -1411,7 +1411,7 @@ class ConductorServerEndpoint(object):
             ctxt, destination_endpoint)
 
         execution = models.TasksExecution()
-        deployment.executions = [execution]
+        execution.action = deployment
         execution.status = constants.EXECUTION_STATUS_UNEXECUTED
         execution.number = 1
         execution.type = constants.EXECUTION_TYPE_DEPLOYMENT
