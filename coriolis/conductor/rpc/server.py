@@ -1344,10 +1344,11 @@ class ConductorServerEndpoint(object):
     @staticmethod
     def _check_running_transfer_deployments(ctxt, transfer_id):
         deployments = db_api.get_transfer_deployments(ctxt, transfer_id)
-        if [m.id for m in deployments if m.executions[0].status in (
-                constants.ACTIVE_EXECUTION_STATUSES)]:
-            raise exception.InvalidTransferState(
-                "Transfer '%s' is currently being deployed" % transfer_id)
+        for d in deployments:
+            if d.executions and d.executions[0].status in (
+                    constants.ACTIVE_EXECUTION_STATUSES):
+                raise exception.InvalidTransferState(
+                    "Transfer '%s' is currently being deployed" % transfer_id)
 
     @staticmethod
     def _check_running_executions(action):
