@@ -1605,29 +1605,47 @@ class ConductorServerEndpoint(object):
             clone_disks=True, user_scripts=None):
         if user_scripts is None:
             user_scripts = {}
-        deployment = self._get_deployment(
-            ctxt, deployment_id, include_task_info=True)
-        self._execute_deployment(
-            ctxt, deployment, skip_os_morphing, force, clone_disks,
-            user_scripts)
+        try:
+            deployment = self._get_deployment(
+                ctxt, deployment_id, include_task_info=True)
+            self._execute_deployment(
+                ctxt, deployment, skip_os_morphing, force, clone_disks,
+                user_scripts)
+        except BaseException:
+            LOG.error(
+                f"Something went wrong while attempting to launch pending "
+                f"deployment '{deployment_id}. Error was: "
+                f"{utils.get_exception_details()}")
+            db_api.set_action_last_execution_status(
+                ctxt, deployment_id, constants.EXECUTION_STATUS_ERROR)
+            raise
 
     @deployment_synchronized
     def report_deployer_failure(
             self, ctxt, deployment_id, deployer_error_details):
-        deployment = self._get_deployment(ctxt, deployment_id)
         error_status = constants.EXECUTION_STATUS_ERROR
         expected_status = constants.EXECUTION_STATUS_PENDING
-        if deployment.last_execution_status != expected_status:
-            raise exception.InvalidDeploymentState(
-                f"Deployment is in '{deployment.last_execution_status}' "
-                f"status instead of the expected '{expected_status}' to have "
-                f"deployers fail for it.")
-        LOG.warn(
-            f"Error occurred while waiting for deployer to finish. Setting "
-            f"{error_status} to Deployment '{deployment_id}'. Error was: "
-            f"{deployer_error_details}")
-        db_api.set_action_last_execution_status(
-            ctxt, deployment.id, error_status)
+        try:
+            deployment = self._get_deployment(ctxt, deployment_id)
+
+            if deployment.last_execution_status != expected_status:
+                raise exception.InvalidDeploymentState(
+                    f"Deployment is in '{deployment.last_execution_status}' "
+                    f"status instead of the expected '{expected_status}' to "
+                    "have deployers fail for it.")
+            LOG.warn(
+                "Error occurred while waiting for deployer to finish. Setting "
+                f"'{error_status}' status to Deployment '{deployment_id}'. "
+                f"Error was: {deployer_error_details}")
+        except BaseException:
+            LOG.error(
+                f"Something went wrong while attempting to report deployer "
+                f"error for deployment {deployment_id}. Error was: "
+                f"{utils.get_exception_details()}")
+            raise
+        finally:
+            db_api.set_action_last_execution_status(
+                ctxt, deployment_id, error_status)
 
     @transfer_synchronized
     def deploy_transfer_instances(
