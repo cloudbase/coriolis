@@ -14,6 +14,7 @@ from coriolis import constants
 from coriolis import context
 from coriolis.db import api as db_api
 from coriolis.db.sqlalchemy import models
+from coriolis.deployer_manager.rpc import client as rpc_deployer_manager_client
 from coriolis import exception
 from coriolis import keystone
 from coriolis.licensing import client as licensing_client
@@ -173,6 +174,7 @@ class ConductorServerEndpoint(object):
         self._scheduler_client_instance = None
         self._transfer_cron_client_instance = None
         self._minion_manager_client_instance = None
+        self._deployer_manager_client_instance = None
 
     # NOTE(aznashwan): it is unsafe to fork processes with pre-instantiated
     # oslo_messaging clients as the underlying eventlet thread queues will
@@ -206,6 +208,13 @@ class ConductorServerEndpoint(object):
             self._minion_manager_client_instance = (
                 rpc_minion_manager_client.MinionManagerClient())
         return self._minion_manager_client_instance
+
+    @property
+    def _deployer_manager_client(self):
+        if not self._deployer_manager_client_instance:
+            self._deployer_manager_client_instance = (
+                rpc_deployer_manager_client.DeployerManagerClient())
+        return self._deployer_manager_client_instance
 
     def get_all_diagnostics(self, ctxt):
         client_objects = {
@@ -697,11 +706,12 @@ class ConductorServerEndpoint(object):
 
     def _begin_tasks(
             self, ctxt, action, execution, task_info_override=None,
-            scheduling_retry_count=5, scheduling_retry_period=2):
+            scheduling_retry_count=5, scheduling_retry_period=2,
+            delete_trust_id=True):
         """ Starts all non-error-only tasks which have no depencies. """
         if not ctxt.trust_id:
             keystone.create_trust(ctxt)
-            ctxt.delete_trust_id = True
+            ctxt.delete_trust_id = delete_trust_id
 
         task_info = action.info
         if task_info_override is not None:
@@ -1106,7 +1116,8 @@ class ConductorServerEndpoint(object):
                 ctxt, execution,
                 constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS)
         else:
-            self._begin_tasks(ctxt, transfer, execution)
+            self._begin_tasks(
+                ctxt, transfer, execution, delete_trust_id=not auto_deploy)
 
         if auto_deploy:
             deployment_options = {
@@ -1115,7 +1126,7 @@ class ConductorServerEndpoint(object):
                 "user_scripts": transfer.user_scripts,
                 "force": False,
             }
-            self._worker_client.execute_auto_deployment(
+            self._deployer_manager_client.execute_auto_deployment(
                 ctxt, transfer.id, execution.id, **deployment_options)
 
         return self.get_transfer_tasks_execution(
@@ -1387,11 +1398,13 @@ class ConductorServerEndpoint(object):
                 "No provider found for: %s" % endpoint.type)
         return provider_types["types"]
 
-    def _execute_deployment(
-            self, ctxt, deployment, skip_os_morphing, force, clone_disks,
-            user_scripts):
+    def _execute_deployment(self, ctxt, deployment, force):
         transfer = self._get_transfer(
             ctxt, deployment.transfer_id, include_task_info=True)
+        skip_os_morphing = deployment.skip_os_morphing
+        clone_disks = deployment.clone_disks
+        user_scripts = deployment.user_scripts
+
         self._check_transfer_running_executions(ctxt, transfer)
         self._check_valid_transfer_tasks_execution(transfer, force)
         for instance, info in transfer.info.items():
@@ -1601,16 +1614,11 @@ class ConductorServerEndpoint(object):
 
     @deployment_synchronized
     def confirm_deployer_completed(
-            self, ctxt, deployment_id, skip_os_morphing=False, force=False,
-            clone_disks=True, user_scripts=None):
-        if user_scripts is None:
-            user_scripts = {}
+            self, ctxt, deployment_id, force=False):
         try:
             deployment = self._get_deployment(
                 ctxt, deployment_id, include_task_info=True)
-            self._execute_deployment(
-                ctxt, deployment, skip_os_morphing, force, clone_disks,
-                user_scripts)
+            self._execute_deployment(ctxt, deployment, force)
         except BaseException:
             LOG.error(
                 f"Something went wrong while attempting to launch pending "
@@ -1650,11 +1658,13 @@ class ConductorServerEndpoint(object):
     @transfer_synchronized
     def deploy_transfer_instances(
             self, ctxt, transfer_id, force=False, wait_for_execution=None,
-            clone_disks=True, instance_osmorphing_minion_pool_mappings=None,
-            skip_os_morphing=False, user_scripts=None):
+            clone_disks=None, instance_osmorphing_minion_pool_mappings=None,
+            skip_os_morphing=False, user_scripts=None, trust_id=None):
         transfer = self._get_transfer(
             ctxt, transfer_id, include_task_info=True)
         user_scripts = user_scripts or transfer.user_scripts
+        clone_disks = clone_disks or transfer.clone_disks
+        skip_os_morphing = skip_os_morphing or transfer.skip_os_morphing
 
         instances = transfer.instances
 
@@ -1677,6 +1687,10 @@ class ConductorServerEndpoint(object):
         deployment.info = {}
         deployment.notes = transfer.notes
         deployment.user_scripts = user_scripts
+        deployment.clone_disks = clone_disks
+        deployment.skip_os_morphing = skip_os_morphing
+        deployment.deployer_id = wait_for_execution
+        deployment.trust_id = trust_id
         deployment.last_execution_status = constants.EXECUTION_STATUS_PENDING
         # NOTE: Deployments have no use for the source/target
         # pools of the parent Transfer so these can be omitted:
@@ -1688,14 +1702,11 @@ class ConductorServerEndpoint(object):
             deployment.instance_osmorphing_minion_pool_mappings.update(
                 instance_osmorphing_minion_pool_mappings)
 
-
         db_api.add_deployment(ctxt, deployment)
         LOG.info("Deployment created: %s", deployment.id)
 
         if not wait_for_execution:
-            self._execute_deployment(
-                ctxt, deployment, skip_os_morphing, force, clone_disks,
-                user_scripts)
+            self._execute_deployment(ctxt, deployment, force)
 
         return self.get_deployment(ctxt, deployment.id)
 

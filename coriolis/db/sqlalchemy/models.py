@@ -367,6 +367,8 @@ class Deployment(BaseTransferAction):
     transfer = orm.relationship(
         Transfer, backref=orm.backref("deployments"),
         foreign_keys=[transfer_id])
+    deployer_id = sqlalchemy.Column(sqlalchemy.String(36), nullable=True)
+    trust_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=True)
 
     __mapper_args__ = {
         'polymorphic_identity': 'deployment',
@@ -381,6 +383,8 @@ class Deployment(BaseTransferAction):
             "id": self.id,
             "transfer_id": self.transfer_id,
             "transfer_scenario_type": self.transfer.scenario,
+            "deployer_id": self.deployer_id,
+            "trust_id": self.trust_id,
         })
         return base
 
