@@ -26,4 +26,5 @@
         - {name: "coriolis-web", tag: "{{ coriolis_web_docker_image_tag }}"}
         - {name: "coriolis-web-proxy", tag: "{{ coriolis_web_proxy_docker_image_tag }}"}
         - {name: "coriolis-console-editor", tag: "{{ coriolis_console_editor_docker_image_tag }}"}
+        - {name: "coriolis-deployer-manager", tag: "{{ coriolis_deployer_manager_docker_image_tag }}"}
 #       - {name: "coriolis-licensing-server", tag: "{{ coriolis_licensing_server_docker_image_tag }}"}

@@ -1,0 +1,11 @@
+---
+- name: Remove Docker container
+  docker_container:
+    state: absent
+    name: coriolis-deployer-manager
+
+- name: Remove Docker image
+  docker_image:
+    state: absent
+    force_absent: yes
+    name: "{{ coriolis_deployer_manager_docker_image_url }}"

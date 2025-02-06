@@ -11,6 +11,7 @@
     - coriolis-web
     - coriolis-scheduler
     - coriolis-minion-manager
+    - coriolis-deployer-manager
     - coriolis-logger
     - influxdb
 

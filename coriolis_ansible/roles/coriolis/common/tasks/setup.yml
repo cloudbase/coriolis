@@ -82,6 +82,7 @@
     - { src: log-rotate.conf.j2, dest: "{{ coriolis_config_dir }}/coriolis-scheduler-logging.conf" }
     - { src: log-rotate.conf.j2, dest: "{{ coriolis_config_dir }}/coriolis-transfer-cron-logging.conf" }
     - { src: log-rotate.conf.j2, dest: "{{ coriolis_config_dir }}/coriolis-minion-manager-logging.conf" }
+    - { src: log-rotate.conf.j2, dest: "{{ coriolis_config_dir }}/coriolis-deployer-manager-logging.conf"}
   vars:
     coriolis_providers: "{{ coriolis_export_providers | union(coriolis_import_providers) }}"
   notify:

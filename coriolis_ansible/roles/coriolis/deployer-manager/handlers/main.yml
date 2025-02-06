@@ -1,0 +1,11 @@
+---
+- name: "build coriolis-deployer-manager"
+  listen: "build coriolis core components"
+  include_tasks: "{{ playbook_dir }}/roles/common/docker/tasks/build_image.yml"
+  vars:
+    image_name: coriolis-deployer-manager
+    image_tag: "{{ coriolis_deployer_manager_docker_image_tag }}"
+
+- name: "restart coriolis-deployer-manager"
+  listen: "restart coriolis core components"
+  shell: "docker restart coriolis-deployer-manager"

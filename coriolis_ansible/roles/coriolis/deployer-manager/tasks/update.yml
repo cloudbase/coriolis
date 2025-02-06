@@ -1,0 +1,7 @@
+---
+- name: Remove docker container
+  docker_container:
+    state: absent
+    name: coriolis-deployer-manager
+
+- include_tasks: setup_deployer_manager_container.yml

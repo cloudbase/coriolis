@@ -1,0 +1,15 @@
+---
+- name: Setup coriolis-deployer-manager container
+  docker_container:
+    name: coriolis-deployer-manager
+    image: "{{ coriolis_deployer_manager_docker_image_url }}"
+    pull: "{{ docker_pull_images }}"
+    hostname: coriolis-deployer-manager
+    state: started
+    restart_policy: unless-stopped
+    network_mode: host
+    volumes:
+      - "{{ coriolis_config_dir }}:{{ coriolis_config_dir }}:ro"
+      - "{{ coriolis_log_dir }}:{{ coriolis_log_dir }}"
+      - "{{ coriolis_logger_socket_dir }}:{{ coriolis_logger_socket_dir }}"
+      - "{{ coriolis_profiling_dir_host }}/deployer-manager:{{ coriolis_profiling_dir_container }}"

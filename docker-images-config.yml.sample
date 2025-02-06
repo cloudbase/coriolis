@@ -29,6 +29,7 @@ coriolis_conductor_docker_image_tag:        "{{ default_coriolis_docker_images_t
 coriolis_scheduler_docker_image_tag:        "{{ default_coriolis_docker_images_tag }}"
 coriolis_logger_docker_image_tag:           "{{ default_coriolis_docker_images_tag }}"
 coriolis_compressor_docker_image_tag:       "{{ default_coriolis_docker_images_tag }}"
+coriolis_deployer_amanger_docker_image_tag: "{{ default_coriolis_docker_images_tag }}"
 coriolis_licensing_server_docker_image_tag: "{{ default_coriolis_docker_images_tag }}"
 coriolis_licensing_ui_docker_image_tag:     "{{ default_coriolis_docker_images_tag }}"
 coriolis_transfer_cron_docker_image_tag:    "{{ default_coriolis_docker_images_tag }}"
