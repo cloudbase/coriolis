@@ -1659,12 +1659,16 @@ class ConductorServerEndpoint(object):
     def deploy_transfer_instances(
             self, ctxt, transfer_id, force=False, wait_for_execution=None,
             clone_disks=None, instance_osmorphing_minion_pool_mappings=None,
-            skip_os_morphing=False, user_scripts=None, trust_id=None):
+            skip_os_morphing=None, user_scripts=None, trust_id=None):
         transfer = self._get_transfer(
             ctxt, transfer_id, include_task_info=True)
-        user_scripts = user_scripts or transfer.user_scripts
-        clone_disks = clone_disks or transfer.clone_disks
-        skip_os_morphing = skip_os_morphing or transfer.skip_os_morphing
+
+        if user_scripts is None:
+            user_scripts = transfer.user_scripts
+        if clone_disks is None:
+            clone_disks = transfer.clone_disks
+        if skip_os_morphing is None:
+            skip_os_morphing = transfer.skip_os_morphing
 
         instances = transfer.instances
 
