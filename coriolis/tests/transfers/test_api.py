@@ -44,7 +44,7 @@ class APITestCase(test_base.CoriolisBaseTestCase):
             origin_minion_pool_id, destination_minion_pool_id,
             instance_osmorphing_minion_pool_mappings, source_environment,
             destination_environment, instances, network_map, storage_mappings,
-            None, None)
+            None, None, True, False)
         self.assertEqual(
             result, self.rpc_client.create_instances_transfer.return_value)
 

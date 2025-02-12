@@ -26,6 +26,8 @@
       instance_osmorphing_minion_pool_mappings:
         mock_instance_1: "mock_updated_pool_1"
         mock_instance_2: "mock_updated_pool_2"
+      clone_disks: true
+      skip_os_morphing: true
   expected_result:
     source_environment:
       mock_updated_source_key: 'mock_updated_source_value'
@@ -45,6 +47,8 @@
     instance_osmorphing_minion_pool_mappings:
       mock_instance_1: "mock_updated_pool_1"
       mock_instance_2: "mock_updated_pool_2"
+    clone_disks: true
+    skip_os_morphing: true
 
 - config:
     transfer:
@@ -61,6 +65,7 @@
       instance_osmorphing_minion_pool_mappings:
         mock_instance_1: "mock_pool_1"
         mock_instance_2: "mock_pool_2"
+      clone_disks: true
     updated_values: {}
   expected_result:
     source_environment:
@@ -73,6 +78,8 @@
     network_map:
       mock_network_key: 'mock_network_value'
     notes: "mock_notes"
+    clone_disks: true
+    skip_os_morphing: false
 
 - config:
     transfer:
@@ -85,10 +92,12 @@
       instance_osmorphing_minion_pool_mappings:
         mock_instance_1: "mock_pool_1"
         mock_instance_2: "mock_pool_2"
+      skip_os_morphing: true
     updated_values: {}
   expected_result:
     source_environment: {}
     destination_environment: {}
     network_map: {}
     notes: "mock_notes"
-
+    skip_os_morphing: true
+    clone_disks: false

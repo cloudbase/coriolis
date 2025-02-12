@@ -21,12 +21,13 @@ class APITestCase(test_base.CoriolisBaseTestCase):
 
     def test_create(self):
         shutdown_instances = mock.sentinel.shutdown_instances
+        auto_deploy = mock.sentinel.auto_deploy
 
         result = self.api.create(self.ctxt, self.transfer_id,
-                                 shutdown_instances)
+                                 shutdown_instances, auto_deploy)
 
         self.rpc_client.execute_transfer_tasks.assert_called_once_with(
-            self.ctxt, self.transfer_id, shutdown_instances)
+            self.ctxt, self.transfer_id, shutdown_instances, auto_deploy)
         self.assertEqual(result,
                          self.rpc_client.execute_transfer_tasks.return_value)
 

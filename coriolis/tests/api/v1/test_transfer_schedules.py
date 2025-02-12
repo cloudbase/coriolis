@@ -181,13 +181,15 @@ class TransferScheduleControllerTestCase(test_base.CoriolisBaseTestCase):
             "schedule": schedule,
             "enabled": False,
             "expiration_date": date,
-            "shutdown_instance": True
+            "shutdown_instance": True,
+            "auto_deploy": False,
         }
         expected_result = (
             mock_validate_schedule.return_value,
             False,
             mock_validate_expiration_date.return_value,
-            True
+            True,
+            False
         )
 
         result = self.transfer_schedules._validate_create_body(mock_body)
@@ -221,13 +223,15 @@ class TransferScheduleControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_body = {
             "schedule": schedule,
             "enabled": False,
-            "shutdown_instance": True
+            "shutdown_instance": True,
+            "auto_deploy": False,
         }
         expected_result = (
             mock_validate_schedule.return_value,
             False,
             None,
-            True
+            True,
+            False
         )
 
         result = self.transfer_schedules._validate_create_body(mock_body)
@@ -275,13 +279,15 @@ class TransferScheduleControllerTestCase(test_base.CoriolisBaseTestCase):
             "schedule": schedule,
             "enabled": False,
             "expiration_date": date,
-            "shutdown_instance": True
+            "shutdown_instance": True,
+            "auto_deploy": True,
         }
         expected_result = {
             "schedule": mock_validate_schedule.return_value,
             "enabled": False,
             "expiration_date": mock_validate_expiration_date.return_value,
-            "shutdown_instance": True
+            "shutdown_instance": True,
+            "auto_deploy": True,
         }
 
         result = self.transfer_schedules._validate_update_body(
@@ -348,7 +354,7 @@ class TransferScheduleControllerTestCase(test_base.CoriolisBaseTestCase):
         schedule = mock.sentinel.schedule
         exp_date = mock.sentinel.exp_date
         mock_validate_create_body.return_value = (
-            schedule, False, exp_date, True)
+            schedule, False, exp_date, True, False)
 
         result = self.transfer_schedules.create(mock_req, transfer_id, body)
 
@@ -361,7 +367,7 @@ class TransferScheduleControllerTestCase(test_base.CoriolisBaseTestCase):
             "migration:transfer_schedules:create")
         mock_validate_create_body.assert_called_once_with(body)
         mock_create.assert_called_once_with(
-            mock_context, transfer_id, schedule, False, exp_date, True)
+            mock_context, transfer_id, schedule, False, exp_date, True, False)
         mock_single.assert_called_once_with(mock_create.return_value)
 
     @mock.patch.object(transfer_schedules.TransferScheduleController,
