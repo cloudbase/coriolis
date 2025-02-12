@@ -136,7 +136,7 @@ class TransferTasksExecutionControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
         transfer_id = mock.sentinel.transfer_id
-        execution = {"shutdown_instances": True}
+        execution = {"shutdown_instances": True, "auto_deploy": True}
         mock_body = {"execution": execution}
 
         result = self.transfer_api.create(mock_req, transfer_id, mock_body)
@@ -149,7 +149,7 @@ class TransferTasksExecutionControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_context.can.assert_called_once_with(
             "migration:transfer_executions:create")
         mock_create.assert_called_once_with(
-            mock_context, transfer_id, True)
+            mock_context, transfer_id, True, True)
         mock_single.assert_called_once_with(mock_create.return_value)
 
     @mock.patch.object(transfer_tasks_execution_view, 'single')
@@ -175,7 +175,7 @@ class TransferTasksExecutionControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_context.can.assert_called_once_with(
             "migration:transfer_executions:create")
         mock_create.assert_called_once_with(
-            mock_context, transfer_id, False)
+            mock_context, transfer_id, False, False)
         mock_single.assert_called_once_with(mock_create.return_value)
 
     @mock.patch.object(api.API, 'delete')

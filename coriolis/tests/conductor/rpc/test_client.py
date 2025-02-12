@@ -152,7 +152,8 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
     def test_execute_transfer_tasks(self):
         args = {
             "transfer_id": "mock_transfer_id",
-            "shutdown_instances": False
+            "shutdown_instances": False,
+            "auto_deploy": False,
         }
         self._test(self.client.execute_transfer_tasks, args)
 
@@ -192,7 +193,9 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
         }
         new_args = {
             "notes": None,
-            "user_scripts": None
+            "user_scripts": None,
+            "clone_disks": True,
+            "skip_os_morphing": False,
         }
         args.update(new_args)
         self._test(self.client.create_instances_transfer, args)
@@ -230,7 +233,9 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
             "clone_disks": False,
             "force": False,
             "skip_os_morphing": False,
-            "user_scripts": None
+            "user_scripts": None,
+            "wait_for_execution": None,
+            "trust_id": None,
         }
         self._test(self.client.deploy_transfer_instances, args)
 
@@ -294,7 +299,8 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
             "schedule": "mock_schedule",
             "enabled": "mock_enabled",
             "exp_date": "mock_exp_date",
-            "shutdown_instance": "mock_shutdown_instance"
+            "shutdown_instance": "mock_shutdown_instance",
+            "auto_deploy": False,
         }
         self._test(self.client.create_transfer_schedule, args)
 
