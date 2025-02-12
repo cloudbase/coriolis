@@ -233,8 +233,8 @@ class ConductorClient(rpc.BaseRPCClient):
 
     def deploy_transfer_instances(
             self, ctxt, transfer_id, force, wait_for_execution=None,
-            instance_osmorphing_minion_pool_mappings=None, clone_disks=False,
-            skip_os_morphing=False, user_scripts=None, trust_id=None):
+            instance_osmorphing_minion_pool_mappings=None, clone_disks=None,
+            skip_os_morphing=None, user_scripts=None, trust_id=None):
         return self._call(
             ctxt, 'deploy_transfer_instances', transfer_id=transfer_id,
             wait_for_execution=wait_for_execution,
