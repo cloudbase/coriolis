@@ -2,7 +2,7 @@
 
 
 # Options and prompt definitions:
-OPTIONS=("Show Appliance Stats" "Show UI Login Details" "Edit/Inspect Coriolis Configuration" "Edit/Inspect Network Settings" "Edit/Inspect Proxy Settings" "Expose Coriolis Services Endpoints" "Add Certificate to Coriolis Worker" "Restore to default Coriolis Worker certificate chain" "Restart Coriolis Services")
+OPTIONS=("Show Appliance Stats" "Show UI Login Details" "Edit/Inspect Coriolis Configuration" "Edit/Inspect Network Settings" "Edit/Inspect Proxy Settings" "Expose Coriolis Services Endpoints" "Add Certificate to Coriolis Worker" "Restore to default Coriolis Worker certificate chain" "Change Coriolis API certificate chain" "Restore Coriolis API certificate chain" "Restart Coriolis Services")
 
 WELCOME_PROMPT=$(cat <<EOP
 Welcome to the Coriolis Appliance Interactive User Console!
@@ -86,6 +86,18 @@ will be removed, and might need to be re-added.\n\n
 EOP
 )
 
+
+ADD_CERTIFICATE_TO_API_PROMPT=$(cat <<EOP
+This option will change Coriolis API and UI server certificate with a custom defined one downloaded from an URL.
+Appliance FQDN hostname will be changed to comply with server certificate, API's will be exposed.\n\n
+EOP
+)
+
+RESTORE_API_CERTIFICATE_CHAIN=$(cat <<EOP
+This option will restore the Coriolis API and UI server certificate to the internal self-signed certificate.\n\n
+EOP
+)
+
 # Source parent scripts:
 BASE_DIR=$(dirname "$(readlink -f "$0")")
 source "$BASE_DIR/utils/common.sh" 2> /dev/null
@@ -102,6 +114,12 @@ CONSOLE_SCRIPT_LOG_FILE="$LOGDIR/coriolis-console-script.log"
 LANDSCAPE_SYSINFO_FILE_PATH=/etc/update-motd.d/50-landscape-sysinfo
 TMP_WORKER_CERTIFICATE_PATH=/etc/coriolis/tmp-worker-cert.pem
 DOCKER_CONTAINERS_FOLDER="/var/lib/docker/containers"
+CORIOLIS_CERT_FOLDER=$(get_global_config_value coriolis_certificate_store)
+API_CA_PATH=$(get_global_config_value coriolis_appliance_tls_cacert)
+API_CERT_PATH=$(get_global_config_value coriolis_appliance_tls_certificate)
+API_KEY_PATH=$(get_global_config_value coriolis_appliance_tls_key)
+METAL_HUB_CERTS_PATH=$(get_global_config_value coriolis_metal_hub_certs_dir)
+OLD_HOSTNAME="/etc/coriolis/hostname.bak"
 
 # Logs all given args to the $CONSOLE_SCRIPT_LOG_FILE
 function log-console-message {
@@ -114,12 +132,18 @@ function run-logged-command {
     ERRSWP=`mktemp`
     log-console-message "### [$(date --iso-8601=seconds)] START COMMAND: \t$@"
     out=`bash -c "$@" 2> "$ERRSWP"`
+    local exit_code=$?
     err=`cat $ERRSWP`
     rm $ERRSWP
     log-console-message "stdout:\n$out"
     log-console-message "stderr:\n$err\n"
     log-console-message "### [$(date --iso-8601=seconds)] END COMMAND: \t$@"
     echo "$out"
+    # Explicitly return 1 if the command failed
+    if [[ $exit_code -ne 0 ]]; then
+        log-console-message "ERROR: Command failed with exit code $exit_code"
+        return 1
+    fi
 }
 
 # Returns the names of all currently-defined Coriolis containers. (including currently stopped ones)
@@ -159,7 +183,9 @@ function print-status {
 # Prints UI login details:
 function print-ui-details {
     IP=`get-main-ip-address`
+    FQDN_APPLIANCE_NAME=$(hostname)
     echo
+    printf "URL = https://$FQDN_APPLIANCE_NAME\n"
     printf "URL = https://$IP\n"
     cat /etc/kolla/admin-openrc.sh | grep -E "(USERNAME|PASSWORD)" | sed -e 's/export OS_//g' -e 's/=/ = /g'
     echo
@@ -195,6 +221,93 @@ function prompt-for-confirmation-word {
             break
         fi
     done
+}
+
+#Ask to confirm input
+confirm_input() {
+    PROMPT="$1"
+    local input
+
+    while true; do
+        read -rp "$PROMPT" input
+        read -rp "You entered: '$input'. Confirm? (yes/no/cancel): " choice
+        case "$choice" in
+            [Yy]* ) echo "$input"; return 0;;
+            [Nn]* ) echo "";;
+            [Cc]* ) echo "";return 1;;
+            * ) echo "";;
+        esac
+    done
+}
+
+#Download URL to file
+download_url_to_file() {
+    URL="$1"
+    LOCAL_FILE="$2"
+    echo "Downloading file from URL: $URL to path: $LOCAL_FILE"
+    run-logged-command "wget -q --no-check-certificate -O $LOCAL_FILE $URL"
+    if ! [ $? -eq 0 ]; then
+        echo "ERROR: Failed to download file from URL: $URL "
+        return 1
+    fi
+}
+#Generic certificate check
+function check_certificate() {
+    CHECK="$1"
+    echo "Checking certificate file $CHECK."
+    run-logged-command "openssl x509 -noout -in $CHECK"
+    if ! [ $? -eq 0 ]; then
+        echo "ERROR: The provided certificate does not contain a valid PEM certificate!"
+        return 1
+    fi
+}
+
+#Generic certificate key file check
+function check_certificate_key() {
+    CHECK="$1"
+    echo "Checking certificate file $CHECK."
+    run-logged-command "openssl pkey --check --noout --in $CHECK"
+    if ! [ $? -eq 0 ]; then
+        echo "ERROR: The provided certificate keys is not valid!"
+        return 1
+    fi
+}
+
+#Validate certificate against hostname
+function validate_certificate_fqdn() {
+    CRT="$1"
+    NME="$2"
+    CHECK=$(run-logged-command "openssl x509 -noout -in $CRT -checkhost $NME")
+    if [ $? -eq 0 ]; then
+        if [[ $CHECK =~ "NOT" ]]; then
+            echo "ERROR: Failed to verify certificate $CRT against hostname $NME."
+            return 1
+        else
+            return 0
+        fi
+    fi
+}
+
+#Backup file in same path
+function backup_file {
+    S_FILE="$1"
+    D_FILE="$2"
+    log-console-message "Backup file $S_FILE to $D_FILE"
+    if [ -f $S_FILE ]; then
+        run-logged-command "cp $S_FILE $D_FILE"
+    else echo "File: $S_FILE does not exist."
+    fi
+}
+
+#Restore file in same path
+function restore_file {
+    S_FILE="$1"
+    D_FILE="$2"
+    log-console-message "Attempting restore of file $S_FILE to $D_FILE"
+    if [ -f $S_FILE ]; then
+        run-logged-command "cp $S_FILE $D_FILE"
+    else echo "File: $S_FILE does not exist."
+    fi
 }
 
 # Asks for user confirmation and restart all Coriolis containers. (inclusing currently stopped ones)
@@ -319,6 +432,146 @@ function add-proxy {
     fi
 }
 
+function change-api-certificate {
+    printf "$ADD_CERTIFICATE_TO_API_PROMPT"
+
+    local cert_setup=1
+    local ca_setup=1
+    local key_setup=1
+    local hostname_setup=1
+    echo "Creating backup files."
+    for f in $(ls $CORIOLIS_CERT_FOLDER/*.pem) ; do backup_file "$f" "$f.bak" ; done
+    for f in $(ls $METAL_HUB_CERTS_PATH/*.pem) ; do backup_file "$f" "$f.bak" ; done
+    run-logged-command "echo $(hostname) > $OLD_HOSTNAME"
+
+    while true; do
+        cert=$(confirm_input "Enter URL for Server Certificate: ")
+        if [ $? -eq 0 ]; then
+            if download_url_to_file "$cert" "$API_CERT_PATH"; then
+                echo "Download succeeded."
+                if check_certificate "$API_CERT_PATH"; then
+                    echo "Server Certificate $API_CERT_PATH is valid."
+                    cert_setup=0
+                    break
+                fi
+            fi
+        else
+            break
+        fi
+    done
+
+    while true; do
+        ca=$(confirm_input "Enter URL for Root CA Certificate: ")
+        if [ $? -eq 0 ]; then
+            if download_url_to_file "$ca" "$API_CA_PATH"; then
+                echo "Download succeeded."
+                if check_certificate "$API_CA_PATH"; then
+                    echo "Root CA certificate $API_CA_PATH is valid."
+                    ca_setup=0
+                    break
+                fi
+            fi
+        else
+            break
+        fi
+    done
+
+    while true; do
+        cert_key=$(confirm_input "Enter URL for Certificate Key: ")
+        if [ $? -eq 0 ]; then
+            if download_url_to_file "$cert_key" "$API_KEY_PATH"; then
+                echo "Download succeeded."
+                if check_certificate_key "$API_KEY_PATH"; then
+                    echo "Certificate Key $API_KEY_PATH is valid."
+                    key_setup=0
+                    break
+                fi
+            fi
+        else
+            break
+        fi
+    done
+
+    while true; do
+        FQDN_NAME=$(confirm_input "Please enter the full FQDN hostname for Coriolis Appliance for which the certificate is valid for: ")
+        if [ $? -eq 0 ]; then
+            echo "Validating new hostname."
+            if validate_certificate_fqdn "$API_CERT_PATH" "$FQDN_NAME"; then
+                echo "The provided certificate is valid for hostname $FQDN_NAME."
+                run-logged-command "hostnamectl set-hostname $FQDN_NAME"
+                if [ $? -eq 0 ]; then
+                    echo "Hostname $FQDN_NAME is set."
+                    hostname_setup=0
+                    break
+                else
+                    echo "ERROR: The new hostname $FQDN_NAME is not valid. Please enter a valid hostname."
+                    hostname_setup=1
+                fi
+            fi
+        else
+            break
+        fi
+    done
+
+    if [[ $cert_setup = 1 || $ca_setup = 1 || $key_setup = 1 || $hostname_setup = 1 ]]; then
+    echo "Certificate setup incomplete. Will restore backup files."
+        for f in $(ls $CORIOLIS_CERT_FOLDER/*.bak); do restore_file "$f" "${f%.*}"; done
+        for f in $(ls $METAL_HUB_CERTS_PATH/*.bak); do restore_file "$f" "${f%.*}"; done
+        if [ -f $OLD_HOSTNAME ]; then
+            run-logged-command "hostnamectl set-hostname $(cat $OLD_HOSTNAME)"
+        else
+            echo "Keep existing hostname $(hostname) ."
+        fi
+    else
+        echo "Creating certificate bundle files."
+        run-logged-command "cat $API_CERT_PATH $API_CA_PATH > $(get_global_config_value coriolis_appliance_tls_cert_bundle)"
+        run-logged-command "cat $API_KEY_PATH $API_CERT_PATH $API_CA_PATH > $(get_global_config_value coriolis_appliance_tls_combined)"
+
+        echo "Create mark file for using custom certififcates."
+        run-logged-command "touch $(get_global_config_value coriolis_appliance_custom_cert)"
+
+        echo "Setting Coriolis Metal Hub Certificate chain."
+        run-logged-command "cp $API_CA_PATH $(get_global_config_value coriolis_metal_hub_ca_cert_path)"
+        run-logged-command "cp $API_CERT_PATH $(get_global_config_value coriolis_metal_hub_client_cert_path)"
+        run-logged-command "cp $API_CERT_PATH $(get_global_config_value coriolis_metal_hub_server_cert_path)"
+        run-logged-command "cp $API_KEY_PATH $(get_global_config_value coriolis_metal_hub_server_key_path)"
+        run-logged-command "cp $API_KEY_PATH $(get_global_config_value coriolis_metal_hub_client_key_path)"
+        CONTINUE_EXPOSE=`prompt-for-confirmation-word "New certificate setup complete. Coriolis Appliance needs to be exposed for the changes to take effect."`
+        if [ "$CONTINUE_EXPOSE" = "0" ]; then
+            echo "Coriolis services not exposed yet."
+        return
+        fi
+        expose-coriolis-services
+    fi
+}
+
+function restore-certificate-chain-api {
+
+    printf "$RESTORE_API_CERTIFICATE_CHAIN"
+    CONFIRMED=`prompt-for-confirmation-word "Confirm reverting server certificate to self-signed"`
+    if [ "$CONFIRMED" = "1" ]; then
+        echo "Removing custom certificates setup."
+        if [ -f $CORIOLIS_CERT_FOLDER/custom ]; then
+            run-logged-command "rm $CORIOLIS_CERT_FOLDER/custom"
+            for f in $CORIOLIS_CERT_FOLDER/*.bak ; do restore_file "$f" "${f%.*}"; done
+            for f in $METAL_HUB_CERTS_PATH/*.bak ; do restore_file "$f" "${f%.*}"; done
+        fi
+    fi
+    printf "Resetting hostname."
+    if [ -f $OLD_HOSTNAME ]; then
+        run-logged-command "hostnamectl set-hostname $(cat $OLD_HOSTNAME)"
+    else
+        echo "Keep existing hostname $(hostname) ."
+    fi
+
+    CONTINUE_EXPOSE=`prompt-for-confirmation-word "Custom certificate setup removed. Coriolis Appliance might need to be exposed for the changes to take effect  "`
+    if [ "$CONTINUE_EXPOSE" = "0" ]; then
+        echo "Coriolis services not exposed yet."
+        return
+    fi
+    expose-coriolis-services
+}
+
 function interact {
     echo "$OPTIONS_PROMPT"
     PS3="Select option: "
@@ -359,6 +612,14 @@ function interact {
                 "Restore to default Coriolis Worker certificate chain")
                         restore-certificate-chain
                         confirm-restart-coriolis-containers
+            break
+                        ;;
+                "Change Coriolis API certificate chain")
+                        change-api-certificate
+            break
+                        ;;
+                "Restore Coriolis API certificate chain")
+                        restore-certificate-chain-api
             break
                         ;;
                 "Restart Coriolis Services")

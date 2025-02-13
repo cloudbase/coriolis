@@ -3,6 +3,8 @@
 import argparse
 import netifaces
 import os
+import re
+import socket
 import sys
 import subprocess
 import yaml
@@ -12,6 +14,8 @@ BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 
 KOLLA_CFG = "/etc/kolla/globals.yml"
 KOLLA_INVENTORY_FILE = os.path.join(BASE_DIR, "kolla/coriolis")
+APPLIANCE_INVENTORY_FILE = os.path.join(BASE_DIR,
+                                        "coriolis_ansible/inventory/appliance")
 CORIOLIS_CFG = os.path.join(BASE_DIR, "config.yml")
 CORIOLIS_ANSIBLE_BIN = os.path.join(BASE_DIR, "coriolis-ansible")
 
@@ -38,7 +42,47 @@ def get_interface(ip):
     return None
 
 
-def update_kolla_cfg(interface, ip):
+def edit_inventory_file_section(inventory_file, section, new_host_name=None,
+                                 new_ansible_connection=None,
+                                 new_ansible_python_interpreter=None):
+    section_re = r'^\[(.*)\]$'
+    separator = " " * 8
+    with open(inventory_file) as fd:
+        lines = fd.read().splitlines()
+
+    host_line_idx = None
+    for i, line in enumerate(lines):
+        if line.startswith("#"):
+            continue
+        m = re.match(section_re, line.strip())
+        if m and m[1] == section:
+            host_line_idx = i + 1
+            break
+
+    if host_line_idx is None:
+        raise Exception(f"Section {section} not found in {inventory_file}")
+
+    host_line = lines[host_line_idx]
+    host_name, ansible_connection, ansible_interpreter = host_line.split()
+
+    if new_host_name:
+        host_name = new_host_name
+    if new_ansible_connection:
+        conn_key, conn_value = ansible_connection.split('=')
+        ansible_connection = f'{conn_key}={new_ansible_connection}'
+    if new_ansible_python_interpreter:
+        interpreter_key, _ = ansible_interpreter.split('=')
+        ansible_interpreter = (
+            f'{interpreter_key}={new_ansible_python_interpreter}')
+
+    lines[host_line_idx] = separator.join(
+        [host_name, ansible_connection, ansible_interpreter])
+
+    with open(inventory_file, 'w') as fd:
+        fd.write('\n'.join(lines))
+
+
+def update_kolla_cfg(interface, ip, fqdn):
     print("Updating Kolla config")
 
     with open(KOLLA_CFG, "r") as f:
@@ -46,21 +90,34 @@ def update_kolla_cfg(interface, ip):
 
     config["network_interface"] = interface
     config["kolla_internal_vip_address"] = ip
+    config["kolla_internal_fqdn"] = fqdn
+    config["kolla_external_fqdn"] = fqdn
 
     with open(KOLLA_CFG, 'w') as f:
         f.write(yaml.safe_dump(config, default_flow_style=False))
 
 
-def update_coriolis_cfg(ip):
+def update_coriolis_cfg(ip, fqdn):
     print("Updating Coriolis config")
 
     with open(CORIOLIS_CFG, "r") as f:
         config = yaml.safe_load(f)
 
     config["bind_address"] = ip
+    config["coriolis_certtificate_fqdn"] = fqdn
 
     with open(CORIOLIS_CFG, 'w') as f:
         f.write(yaml.safe_dump(config, default_flow_style=False))
+
+
+def update_appliance_inventory(fqdn):
+    print("Updating Coriolis Appliance inventory file")
+
+    edit_inventory_file_section(
+        inventory_file=APPLIANCE_INVENTORY_FILE,
+        section="appliance",
+        new_host_name=fqdn)
+
 
 def remove_container(container):
     print("Removing docker container %s" % container)
@@ -102,13 +159,15 @@ if __name__ == '__main__':
         sys.exit(1)
 
     interface = get_interface(ip)
+    fqdn = socket.gethostname()
     if interface is None:
         print("IP address %s is not configured on this system" % ip)
         sys.exit(2)
 
     try:
-        update_kolla_cfg(interface, ip)
-        update_coriolis_cfg(ip)
+        update_kolla_cfg(interface, ip, fqdn)
+        update_coriolis_cfg(ip, fqdn)
+        update_appliance_inventory(fqdn)
         expose()
     except Exception as err:
         print("Failed to expose Coriolis appliance: %s" % err)

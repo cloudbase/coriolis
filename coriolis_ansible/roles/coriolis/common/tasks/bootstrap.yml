@@ -6,7 +6,7 @@
   blockinfile:
     dest: /etc/hosts
     marker: "# {mark} ANSIBLE GENERATED HOSTS"
-    block: "{{ bind_address }}    {{ ansible_hostname }}"
+    block: "{{ bind_address }}    {{ inventory_hostname }} {{ ansible_hostname }}"
 
 - name: Check whether cloud-init is installed, and ensure manage_etc_hosts is disabled
   block:

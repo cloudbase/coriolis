@@ -9,7 +9,7 @@
     database_port: "{{ kolla_deployment.result.db_port }}"
     database_login_user: "{{ kolla_deployment.result.db_user_name }}"
     database_login_password: "{{ kolla_deployment.result.db_user_password }}"
-    keystone_auth_url: "{{ kolla_deployment.result.keystone_protocol }}://{{ kolla_deployment.result.listen_address }}:{{ kolla_deployment.result.keystone_public_port }}/v3"
+    keystone_auth_url: "{{ kolla_deployment.result.keystone_protocol }}://{{ inventory_hostname }}:{{ kolla_deployment.result.keystone_public_port }}/v3"
 
 - name: Create database
   mysql_db:
@@ -66,8 +66,13 @@
     path: "{{ coriolis_metal_hub_certs_dir }}"
   register: cert_stat
 
+- name: Check custom certificate mark file exists
+  stat:
+    path: "{{ coriolis_appliance_custom_cert }}"
+  register: custom_cert_mark
+
 - include: generate_metal_hub_certificates.yml
-  when: not cert_stat.stat.exists
+  when: not cert_stat.stat.exists and not custom_cert_mark.stat.exists
 
 - name: Create Keystone service
   os_keystone_service:

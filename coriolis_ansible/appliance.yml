@@ -1,7 +1,7 @@
 ---
 - name: Apply roles for the Coriolis appliance
   any_errors_fatal: true
-  gather_facts: false
+  gather_facts: true
   hosts:
     - appliance
   tasks:
@@ -55,7 +55,7 @@
 
 - name: Apply roles for the Coriolis appliance validation
   any_errors_fatal: true
-  gather_facts: false
+  gather_facts: true
   hosts:
     - appliance
   tasks:
@@ -64,7 +64,7 @@
 
 - name: Apply roles for the Coriolis Licensing UI
   any_errors_fatal: true
-  gather_facts: false
+  gather_facts: true
   hosts:
     - licensing_ui
   tasks:

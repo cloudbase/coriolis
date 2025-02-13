@@ -14,6 +14,7 @@ coriolis_appliance_tls_key: "{{coriolis_certificate_store}}/key.pem"
 coriolis_appliance_tls_cacert: "{{coriolis_certificate_store}}/cacert.pem"
 coriolis_appliance_tls_cert_bundle: "{{coriolis_certificate_store}}/bundle.pem"
 coriolis_appliance_tls_combined: "{{coriolis_certificate_store}}/combined.pem"
+coriolis_appliance_custom_cert: "{{coriolis_certificate_store}}/custom"
 
 bind_address: 127.0.0.1
 endpoint_base_address: "{{ coriolis_certtificate_fqdn | default(bind_address, true) }}"
@@ -114,6 +115,8 @@ coriolis_console_editor_mountdirs:
   - "{{ coriolis_ansible_main_config_file }}:{{ coriolis_ansible_main_config_file }}:rw"
   - "{{ coriolis_ansible_docker_config_file }}:{{ coriolis_ansible_docker_config_file }}:rw"
   - "{{ coriolis_config_dir }}/coriolis.release:{{ coriolis_config_dir }}/coriolis.release:ro"
+  - "{{ coriolis_certificate_store }}:{{ coriolis_certificate_store }}:rw"
+  - "{{ coriolis_metal_hub_config_dir }}:{{ coriolis_metal_hub_config_dir }}:rw"
 
 coriolis_metal_hub_port: 9900
 coriolis_metal_hub_endpoint: "https://{{ endpoint_base_address }}:{{ coriolis_metal_hub_port }}/api/v1"

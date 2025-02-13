@@ -74,4 +74,10 @@
 - name: Flush handlers
   meta: flush_handlers
 
+- name: Check custom certificate mark file exists
+  stat:
+    path: "{{ coriolis_appliance_custom_cert }}"
+  register: custom_cert_mark
+
 - include_tasks: create_coriolis_appliance_tls_certificates.yml
+  when: not custom_cert_mark.stat.exists

@@ -12,7 +12,7 @@
     memcached_host: "{{ kolla_deployment.result.listen_address }}"
     database_host: "{{ kolla_deployment.result.listen_address }}"
     keystone_protocol: "{{ kolla_deployment.result.keystone_protocol }}"
-    keystone_host: "{{ kolla_deployment.result.listen_address }}"
+    keystone_host: "{{ inventory_hostname }}"
     keystone_public_port: "{{ kolla_deployment.result.keystone_public_port }}"
     keystone_internal_port: "{{ kolla_deployment.result.keystone_internal_port }}"
     keystone_project_name: "{{ kolla_deployment.result.keystone_project_name }}"
