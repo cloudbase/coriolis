@@ -144,7 +144,6 @@ class WorkerServerEndpoint(object):
             except queue.Empty:
                 if not p.is_alive():
                     break
-            time.sleep(.2)
 
     def _get_custom_ld_path(self, original_ld_path, extra_library_paths):
         if not isinstance(extra_library_paths, list):
