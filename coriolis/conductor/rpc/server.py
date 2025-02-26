@@ -1352,11 +1352,12 @@ class ConductorServerEndpoint(object):
             ctxt, deployment_id, include_task_info=include_task_info,
             to_dict=True)
 
-    @staticmethod
-    def _check_running_transfer_deployments(ctxt, transfer_id):
+    def _check_running_transfer_deployments(self, ctxt, transfer_id):
         deployments = db_api.get_transfer_deployments(ctxt, transfer_id)
         for d in deployments:
-            if d.executions and d.executions[0].status in (
+            execution = self._get_execution_for_deployment(
+                ctxt, d, raise_on_executions_empty=False)
+            if execution and execution.status in (
                     constants.ACTIVE_EXECUTION_STATUSES):
                 raise exception.InvalidTransferState(
                     "Transfer '%s' is currently being deployed" % transfer_id)
@@ -1803,14 +1804,17 @@ class ConductorServerEndpoint(object):
             transfer.executions, key=lambda e: e.number)[-1]
         return last_transfer_execution
 
-    def _get_execution_for_deployment(self, ctxt, deployment, requery=False):
+    def _get_execution_for_deployment(self, ctxt, deployment, requery=False,
+                                      raise_on_executions_empty=True):
         if requery:
             deployment = self._get_deployment(ctxt, deployment.id)
 
         if not deployment.executions:
-            raise exception.InvalidDeploymentState(
-                "Deployment with ID '%s' has no existing executions." % (
-                    deployment.id))
+            if raise_on_executions_empty:
+                raise exception.InvalidDeploymentState(
+                    "Deployment with ID '%s' has no existing executions." % (
+                        deployment.id))
+            return None
         if len(deployment.executions) > 1:
             raise exception.InvalidDeploymentState(
                 "Deployment with ID '%s' has more than one execution:"
@@ -1924,11 +1928,13 @@ class ConductorServerEndpoint(object):
 
     def _delete_deployment(self, ctxt, deployment_id):
         deployment = self._get_deployment(ctxt, deployment_id)
-        execution = deployment.executions[0]
-        if execution.status in constants.ACTIVE_EXECUTION_STATUSES:
-            raise exception.InvalidDeploymentState(
-                "Cannot delete Deployment '%s' as it is currently in "
-                "'%s' state." % (deployment_id, execution.status))
+        execution = self._get_execution_for_deployment(
+            ctxt, deployment, raise_on_executions_empty=False)
+        if execution:
+            if execution.status in constants.ACTIVE_EXECUTION_STATUSES:
+                raise exception.InvalidDeploymentState(
+                    "Cannot delete Deployment '%s' as it is currently in "
+                    "'%s' state." % (deployment_id, execution.status))
         db_api.delete_deployment(ctxt, deployment_id)
 
     @deployment_synchronized
@@ -1941,15 +1947,17 @@ class ConductorServerEndpoint(object):
             raise exception.InvalidDeploymentState(
                 "Deployment '%s' has in improper number of tasks "
                 "executions: %d" % (deployment_id, len(deployment.executions)))
-        execution = deployment.executions[0]
-        if execution.status not in constants.ACTIVE_EXECUTION_STATUSES:
-            raise exception.InvalidDeploymentState(
-                "Deployment '%s' is not currently running" % deployment_id)
-        if execution.status == constants.EXECUTION_STATUS_CANCELLING and (
-                not force):
-            raise exception.InvalidDeploymentState(
-                "Deployment '%s' is already being cancelled. Please use the "
-                "force option if you'd like to force-cancel it.")
+        execution = self._get_execution_for_deployment(
+            ctxt, deployment, raise_on_executions_empty=False)
+        if execution:
+            if execution.status not in constants.ACTIVE_EXECUTION_STATUSES:
+                raise exception.InvalidDeploymentState(
+                    "Deployment '%s' is not currently running" % deployment_id)
+            if execution.status == constants.EXECUTION_STATUS_CANCELLING and (
+                    not force):
+                raise exception.InvalidDeploymentState(
+                    "Deployment '%s' is already being cancelled. Please use "
+                    "the force option if you'd like to force-cancel it.")
 
         with lockutils.lock(
                 constants.EXECUTION_LOCK_NAME_FORMAT % execution.id,
