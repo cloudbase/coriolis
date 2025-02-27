@@ -1670,6 +1670,9 @@ class ConductorServerEndpoint(object):
             clone_disks = transfer.clone_disks
         if skip_os_morphing is None:
             skip_os_morphing = transfer.skip_os_morphing
+        init_status = constants.EXECUTION_STATUS_UNEXECUTED
+        if wait_for_execution:
+            init_status = constants.EXECUTION_STATUS_PENDING
 
         instances = transfer.instances
 
@@ -1696,7 +1699,7 @@ class ConductorServerEndpoint(object):
         deployment.skip_os_morphing = skip_os_morphing
         deployment.deployer_id = wait_for_execution
         deployment.trust_id = trust_id
-        deployment.last_execution_status = constants.EXECUTION_STATUS_PENDING
+        deployment.last_execution_status = init_status
         # NOTE: Deployments have no use for the source/target
         # pools of the parent Transfer so these can be omitted:
         deployment.origin_minion_pool_id = None
