@@ -83,9 +83,10 @@ class DeployerManagerServerEndpoint:
                         f"Deployer with ID '{deployer_id}' is in invalid "
                         f"state '{ex_status}'. Deployment cannot occur.")
         except BaseException as ex:
-            LOG.debug(
+            LOG.error(
                 f"Reporting deployer failure for deployment "
-                f"'{deployment_id}'.")
+                f"'{deployment_id}'. Error was: "
+                f"{utils.get_exception_details()}")
             self._rpc_conductor_client.report_deployer_failure(
                 self._admin_ctx, deployment_id, str(ex))
 
