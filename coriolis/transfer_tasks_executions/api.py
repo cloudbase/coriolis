@@ -8,9 +8,9 @@ class API(object):
     def __init__(self):
         self._rpc_client = rpc_client.ConductorClient()
 
-    def create(self, ctxt, transfer_id, shutdown_instances):
+    def create(self, ctxt, transfer_id, shutdown_instances, auto_deploy):
         return self._rpc_client.execute_transfer_tasks(
-            ctxt, transfer_id, shutdown_instances)
+            ctxt, transfer_id, shutdown_instances, auto_deploy)
 
     def delete(self, ctxt, transfer_id, execution_id):
         self._rpc_client.delete_transfer_tasks_execution(

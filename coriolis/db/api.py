@@ -367,7 +367,10 @@ def update_transfer_schedule(context, transfer_id, schedule_id,
     schedule = get_transfer_schedule(context, transfer_id, schedule_id)
     if pre_update_callable:
         pre_update_callable(schedule=schedule)
-    for val in ["schedule", "expiration_date", "enabled", "shutdown_instance"]:
+    updateable_attributes = [
+        "schedule", "expiration_date", "enabled", "shutdown_instance",
+        "auto_deploy"]
+    for val in updateable_attributes:
         if val in updated_values:
             setattr(schedule, val, updated_values[val])
     if post_update_callable:
@@ -949,7 +952,8 @@ def update_transfer(context, transfer_id, updated_values):
         "source_environment", "destination_environment", "notes",
         "network_map", "storage_mappings",
         "origin_minion_pool_id", "destination_minion_pool_id",
-        "instance_osmorphing_minion_pool_mappings"]
+        "instance_osmorphing_minion_pool_mappings", "clone_disks",
+        "skip_os_morphing"]
     for field in updateable_fields:
         if mapped_info_fields.get(field, field) in updated_values:
             LOG.debug(

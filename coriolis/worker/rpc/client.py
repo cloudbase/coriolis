@@ -186,3 +186,9 @@ class WorkerClient(rpc.BaseRPCClient):
         return self._call(
             ctxt, 'validate_endpoint_destination_minion_pool_options',
             platform_name=platform_name, pool_environment=pool_environment)
+
+    def execute_auto_deployment(
+            self, ctxt, transfer_id, deployer_execution, **kwargs):
+        self._cast(
+            ctxt, 'execute_auto_deployment', transfer_id=transfer_id,
+            deployer_execution=deployer_execution, **kwargs)

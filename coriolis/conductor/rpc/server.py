@@ -14,6 +14,7 @@ from coriolis import constants
 from coriolis import context
 from coriolis.db import api as db_api
 from coriolis.db.sqlalchemy import models
+from coriolis.deployer_manager.rpc import client as rpc_deployer_manager_client
 from coriolis import exception
 from coriolis import keystone
 from coriolis.licensing import client as licensing_client
@@ -173,6 +174,7 @@ class ConductorServerEndpoint(object):
         self._scheduler_client_instance = None
         self._transfer_cron_client_instance = None
         self._minion_manager_client_instance = None
+        self._deployer_manager_client_instance = None
 
     # NOTE(aznashwan): it is unsafe to fork processes with pre-instantiated
     # oslo_messaging clients as the underlying eventlet thread queues will
@@ -206,6 +208,13 @@ class ConductorServerEndpoint(object):
             self._minion_manager_client_instance = (
                 rpc_minion_manager_client.MinionManagerClient())
         return self._minion_manager_client_instance
+
+    @property
+    def _deployer_manager_client(self):
+        if not self._deployer_manager_client_instance:
+            self._deployer_manager_client_instance = (
+                rpc_deployer_manager_client.DeployerManagerClient())
+        return self._deployer_manager_client_instance
 
     def get_all_diagnostics(self, ctxt):
         client_objects = {
@@ -697,11 +706,12 @@ class ConductorServerEndpoint(object):
 
     def _begin_tasks(
             self, ctxt, action, execution, task_info_override=None,
-            scheduling_retry_count=5, scheduling_retry_period=2):
+            scheduling_retry_count=5, scheduling_retry_period=2,
+            delete_trust_id=True):
         """ Starts all non-error-only tasks which have no depencies. """
         if not ctxt.trust_id:
             keystone.create_trust(ctxt)
-            ctxt.delete_trust_id = True
+            ctxt.delete_trust_id = delete_trust_id
 
         task_info = action.info
         if task_info_override is not None:
@@ -894,7 +904,8 @@ class ConductorServerEndpoint(object):
             execution.id, execution.type)
 
     @transfer_synchronized
-    def execute_transfer_tasks(self, ctxt, transfer_id, shutdown_instances):
+    def execute_transfer_tasks(self, ctxt, transfer_id, shutdown_instances,
+                               auto_deploy=False):
         transfer = self._get_transfer(
             ctxt, transfer_id, include_task_info=True)
         self._check_transfer_running_executions(ctxt, transfer)
@@ -1105,7 +1116,18 @@ class ConductorServerEndpoint(object):
                 ctxt, execution,
                 constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS)
         else:
-            self._begin_tasks(ctxt, transfer, execution)
+            self._begin_tasks(
+                ctxt, transfer, execution, delete_trust_id=not auto_deploy)
+
+        if auto_deploy:
+            deployment_options = {
+                "clone_disks": transfer.clone_disks,
+                "skip_os_morphing": transfer.skip_os_morphing,
+                "user_scripts": transfer.user_scripts,
+                "force": False,
+            }
+            self._deployer_manager_client.execute_auto_deployment(
+                ctxt, transfer.id, execution.id, **deployment_options)
 
         return self.get_transfer_tasks_execution(
             ctxt, transfer_id, execution.id)
@@ -1260,7 +1282,8 @@ class ConductorServerEndpoint(object):
                                   source_environment,
                                   destination_environment, instances,
                                   network_map, storage_mappings, notes=None,
-                                  user_scripts=None):
+                                  user_scripts=None, clone_disks=True,
+                                  skip_os_morphing=False):
         supported_scenarios = [
             constants.TRANSFER_SCENARIO_REPLICA,
             constants.TRANSFER_SCENARIO_LIVE_MIGRATION]
@@ -1295,6 +1318,8 @@ class ConductorServerEndpoint(object):
         transfer.instance_osmorphing_minion_pool_mappings = (
             instance_osmorphing_minion_pool_mappings)
         transfer.user_scripts = user_scripts or {}
+        transfer.clone_disks = clone_disks
+        transfer.skip_os_morphing = skip_os_morphing
 
         self._check_minion_pools_for_action(ctxt, transfer)
 
@@ -1327,13 +1352,15 @@ class ConductorServerEndpoint(object):
             ctxt, deployment_id, include_task_info=include_task_info,
             to_dict=True)
 
-    @staticmethod
-    def _check_running_transfer_deployments(ctxt, transfer_id):
+    def _check_running_transfer_deployments(self, ctxt, transfer_id):
         deployments = db_api.get_transfer_deployments(ctxt, transfer_id)
-        if [m.id for m in deployments if m.executions[0].status in (
-                constants.ACTIVE_EXECUTION_STATUSES)]:
-            raise exception.InvalidTransferState(
-                "Transfer '%s' is currently being deployed" % transfer_id)
+        for d in deployments:
+            execution = self._get_execution_for_deployment(
+                ctxt, d, raise_on_executions_empty=False)
+            if execution and execution.status in (
+                    constants.ACTIVE_EXECUTION_STATUSES):
+                raise exception.InvalidTransferState(
+                    "Transfer '%s' is currently being deployed" % transfer_id)
 
     @staticmethod
     def _check_running_executions(action):
@@ -1372,70 +1399,41 @@ class ConductorServerEndpoint(object):
                 "No provider found for: %s" % endpoint.type)
         return provider_types["types"]
 
-    @transfer_synchronized
-    def deploy_transfer_instances(
-            self, ctxt, transfer_id, clone_disks, force,
-            instance_osmorphing_minion_pool_mappings=None,
-            skip_os_morphing=False, user_scripts=None):
-        transfer = self._get_transfer(
-            ctxt, transfer_id, include_task_info=True)
-        self._check_transfer_running_executions(ctxt, transfer)
-        self._check_valid_transfer_tasks_execution(transfer, force)
-        user_scripts = user_scripts or transfer.user_scripts
+    def _execute_deployment(self, ctxt, deployment, force):
+        with lockutils.lock(
+                constants.TRANSFER_LOCK_NAME_FORMAT % deployment.transfer_id):
+            transfer = self._get_transfer(
+                ctxt, deployment.transfer_id, include_task_info=True)
+
+            self._check_transfer_running_executions(ctxt, transfer)
+            self._check_valid_transfer_tasks_execution(transfer, force)
+            for instance, info in transfer.info.items():
+                if not info.get("volumes_info"):
+                    raise exception.InvalidTransferState(
+                        "The transfer doesn't contain volumes information "
+                        f"for instance: {instance}. If transferred disks are "
+                        "deleted, the transfer needs to be executed anew "
+                        "before a deployment can occur")
+            deployment.info = transfer.info
+            self._check_reservation_for_transfer(transfer)
+
+        self._check_minion_pools_for_action(ctxt, deployment)
+        skip_os_morphing = deployment.skip_os_morphing
+        clone_disks = deployment.clone_disks
+        user_scripts = deployment.user_scripts
 
         destination_endpoint = self.get_endpoint(
-            ctxt, transfer.destination_endpoint_id)
+            ctxt, deployment.destination_endpoint_id)
         destination_provider_types = self._get_provider_types(
             ctxt, destination_endpoint)
 
-        for instance, info in transfer.info.items():
-            if not info.get("volumes_info"):
-                raise exception.InvalidTransferState(
-                    "The transfer doesn't contain volumes information for "
-                    "instance: %s. If transferred disks are deleted, the "
-                    "transfer needs to be executed anew before a deployment"
-                    " can occur" % instance)
-
-        instances = transfer.instances
-
-        deployment = models.Deployment()
-        deployment.id = str(uuid.uuid4())
-        deployment.base_id = deployment.id
-        deployment.origin_endpoint_id = transfer.origin_endpoint_id
-        deployment.destination_endpoint_id = transfer.destination_endpoint_id
-        # TODO(aznashwan): have these passed separately to the relevant
-        # provider methods instead of through the dest-env:
-        dest_env = copy.deepcopy(transfer.destination_environment)
-        dest_env['network_map'] = transfer.network_map
-        dest_env['storage_mappings'] = transfer.storage_mappings
-        deployment.destination_environment = dest_env
-        deployment.source_environment = transfer.source_environment
-        deployment.network_map = transfer.network_map
-        deployment.storage_mappings = transfer.storage_mappings
-        deployment.instances = instances
-        deployment.transfer = transfer
-        deployment.info = transfer.info
-        deployment.notes = transfer.notes
-        deployment.user_scripts = user_scripts
-        # NOTE: Deployments have no use for the source/target
-        # pools of the parent Transfer so these can be omitted:
-        deployment.origin_minion_pool_id = None
-        deployment.destination_minion_pool_id = None
-        deployment.instance_osmorphing_minion_pool_mappings = (
-            transfer.instance_osmorphing_minion_pool_mappings)
-        if instance_osmorphing_minion_pool_mappings:
-            deployment.instance_osmorphing_minion_pool_mappings.update(
-                instance_osmorphing_minion_pool_mappings)
-        self._check_minion_pools_for_action(ctxt, deployment)
-        self._check_reservation_for_transfer(transfer)
-
         execution = models.TasksExecution()
-        deployment.executions = [execution]
+        execution.action = deployment
         execution.status = constants.EXECUTION_STATUS_UNEXECUTED
         execution.number = 1
         execution.type = constants.EXECUTION_TYPE_DEPLOYMENT
 
-        for instance in instances:
+        for instance in deployment.instances:
             deployment.info[instance]["clone_disks"] = clone_disks
             scripts = self._get_instance_scripts(user_scripts, instance)
             deployment.info[instance]["user_scripts"] = scripts
@@ -1451,7 +1449,7 @@ class ConductorServerEndpoint(object):
             # could be in the `.info` field instead of the old ones)
             deployment.info[instance].update({
                 "source_environment": deployment.source_environment,
-                "target_environment": dest_env})
+                "target_environment": deployment.destination_environment})
             # TODO(aznashwan): have these passed separately to the relevant
             # provider methods (they're currently passed directly inside
             # dest-env by the API service when accepting the call)
@@ -1599,8 +1597,7 @@ class ConductorServerEndpoint(object):
                     on_error=True)
 
         self._check_execution_tasks_sanity(execution, deployment.info)
-        db_api.add_deployment(ctxt, deployment)
-        LOG.info("Deployment created: %s", deployment.id)
+        db_api.add_transfer_tasks_execution(ctxt, execution)
 
         if not skip_os_morphing and (
                 deployment.instance_osmorphing_minion_pool_mappings):
@@ -1618,6 +1615,109 @@ class ConductorServerEndpoint(object):
                     constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS)
         else:
             self._begin_tasks(ctxt, deployment, execution)
+
+    @deployment_synchronized
+    def confirm_deployer_completed(
+            self, ctxt, deployment_id, force=False):
+        try:
+            deployment = self._get_deployment(
+                ctxt, deployment_id, include_task_info=True)
+            self._execute_deployment(ctxt, deployment, force)
+        except BaseException:
+            LOG.error(
+                f"Something went wrong while attempting to launch pending "
+                f"deployment '{deployment_id}. Error was: "
+                f"{utils.get_exception_details()}")
+            db_api.set_action_last_execution_status(
+                ctxt, deployment_id, constants.EXECUTION_STATUS_ERROR)
+            raise
+
+    @deployment_synchronized
+    def report_deployer_failure(
+            self, ctxt, deployment_id, deployer_error_details):
+        error_status = constants.EXECUTION_STATUS_ERROR
+        expected_status = constants.EXECUTION_STATUS_PENDING
+        try:
+            deployment = self._get_deployment(ctxt, deployment_id)
+
+            if deployment.last_execution_status != expected_status:
+                raise exception.InvalidDeploymentState(
+                    f"Deployment is in '{deployment.last_execution_status}' "
+                    f"status instead of the expected '{expected_status}' to "
+                    "have deployers fail for it.")
+            LOG.warn(
+                "Error occurred while waiting for deployer to finish. Setting "
+                f"'{error_status}' status to Deployment '{deployment_id}'. "
+                f"Error was: {deployer_error_details}")
+        except BaseException:
+            LOG.error(
+                f"Something went wrong while attempting to report deployer "
+                f"error for deployment {deployment_id}. Error was: "
+                f"{utils.get_exception_details()}")
+            raise
+        finally:
+            db_api.set_action_last_execution_status(
+                ctxt, deployment_id, error_status)
+
+    @transfer_synchronized
+    def deploy_transfer_instances(
+            self, ctxt, transfer_id, force=False, wait_for_execution=None,
+            clone_disks=None, instance_osmorphing_minion_pool_mappings=None,
+            skip_os_morphing=None, user_scripts=None, trust_id=None):
+        transfer = self._get_transfer(
+            ctxt, transfer_id, include_task_info=True)
+
+        if user_scripts is None:
+            user_scripts = transfer.user_scripts
+        if clone_disks is None:
+            clone_disks = transfer.clone_disks
+        if skip_os_morphing is None:
+            skip_os_morphing = transfer.skip_os_morphing
+        init_status = constants.EXECUTION_STATUS_UNEXECUTED
+        if wait_for_execution:
+            init_status = constants.EXECUTION_STATUS_PENDING
+
+        instances = transfer.instances
+
+        deployment = models.Deployment()
+        deployment.id = str(uuid.uuid4())
+        deployment.base_id = deployment.id
+        deployment.origin_endpoint_id = transfer.origin_endpoint_id
+        deployment.destination_endpoint_id = transfer.destination_endpoint_id
+        # TODO(aznashwan): have these passed separately to the relevant
+        # provider methods instead of through the dest-env:
+        dest_env = copy.deepcopy(transfer.destination_environment)
+        dest_env['network_map'] = transfer.network_map
+        dest_env['storage_mappings'] = transfer.storage_mappings
+        deployment.destination_environment = dest_env
+        deployment.source_environment = transfer.source_environment
+        deployment.network_map = transfer.network_map
+        deployment.storage_mappings = transfer.storage_mappings
+        deployment.instances = instances
+        deployment.transfer = transfer
+        deployment.info = {}
+        deployment.notes = transfer.notes
+        deployment.user_scripts = user_scripts
+        deployment.clone_disks = clone_disks
+        deployment.skip_os_morphing = skip_os_morphing
+        deployment.deployer_id = wait_for_execution
+        deployment.trust_id = trust_id
+        deployment.last_execution_status = init_status
+        # NOTE: Deployments have no use for the source/target
+        # pools of the parent Transfer so these can be omitted:
+        deployment.origin_minion_pool_id = None
+        deployment.destination_minion_pool_id = None
+        deployment.instance_osmorphing_minion_pool_mappings = (
+            transfer.instance_osmorphing_minion_pool_mappings)
+        if instance_osmorphing_minion_pool_mappings:
+            deployment.instance_osmorphing_minion_pool_mappings.update(
+                instance_osmorphing_minion_pool_mappings)
+
+        db_api.add_deployment(ctxt, deployment)
+        LOG.info("Deployment created: %s", deployment.id)
+
+        if not wait_for_execution:
+            self._execute_deployment(ctxt, deployment, force)
 
         return self.get_deployment(ctxt, deployment.id)
 
@@ -1710,14 +1810,17 @@ class ConductorServerEndpoint(object):
             transfer.executions, key=lambda e: e.number)[-1]
         return last_transfer_execution
 
-    def _get_execution_for_deployment(self, ctxt, deployment, requery=False):
+    def _get_execution_for_deployment(self, ctxt, deployment, requery=False,
+                                      raise_on_executions_empty=True):
         if requery:
             deployment = self._get_deployment(ctxt, deployment.id)
 
         if not deployment.executions:
-            raise exception.InvalidDeploymentState(
-                "Deployment with ID '%s' has no existing executions." % (
-                    deployment.id))
+            if raise_on_executions_empty:
+                raise exception.InvalidDeploymentState(
+                    "Deployment with ID '%s' has no existing executions." % (
+                        deployment.id))
+            return None
         if len(deployment.executions) > 1:
             raise exception.InvalidDeploymentState(
                 "Deployment with ID '%s' has more than one execution:"
@@ -1831,11 +1934,13 @@ class ConductorServerEndpoint(object):
 
     def _delete_deployment(self, ctxt, deployment_id):
         deployment = self._get_deployment(ctxt, deployment_id)
-        execution = deployment.executions[0]
-        if execution.status in constants.ACTIVE_EXECUTION_STATUSES:
-            raise exception.InvalidDeploymentState(
-                "Cannot delete Deployment '%s' as it is currently in "
-                "'%s' state." % (deployment_id, execution.status))
+        execution = self._get_execution_for_deployment(
+            ctxt, deployment, raise_on_executions_empty=False)
+        if execution:
+            if execution.status in constants.ACTIVE_EXECUTION_STATUSES:
+                raise exception.InvalidDeploymentState(
+                    "Cannot delete Deployment '%s' as it is currently in "
+                    "'%s' state." % (deployment_id, execution.status))
         db_api.delete_deployment(ctxt, deployment_id)
 
     @deployment_synchronized
@@ -1848,15 +1953,17 @@ class ConductorServerEndpoint(object):
             raise exception.InvalidDeploymentState(
                 "Deployment '%s' has in improper number of tasks "
                 "executions: %d" % (deployment_id, len(deployment.executions)))
-        execution = deployment.executions[0]
-        if execution.status not in constants.ACTIVE_EXECUTION_STATUSES:
-            raise exception.InvalidDeploymentState(
-                "Deployment '%s' is not currently running" % deployment_id)
-        if execution.status == constants.EXECUTION_STATUS_CANCELLING and (
-                not force):
-            raise exception.InvalidDeploymentState(
-                "Deployment '%s' is already being cancelled. Please use the "
-                "force option if you'd like to force-cancel it.")
+        execution = self._get_execution_for_deployment(
+            ctxt, deployment, raise_on_executions_empty=False)
+        if execution:
+            if execution.status not in constants.ACTIVE_EXECUTION_STATUSES:
+                raise exception.InvalidDeploymentState(
+                    "Deployment '%s' is not currently running" % deployment_id)
+            if execution.status == constants.EXECUTION_STATUS_CANCELLING and (
+                    not force):
+                raise exception.InvalidDeploymentState(
+                    "Deployment '%s' is already being cancelled. Please use "
+                    "the force option if you'd like to force-cancel it.")
 
         with lockutils.lock(
                 constants.EXECUTION_LOCK_NAME_FORMAT % execution.id,
@@ -3236,7 +3343,7 @@ class ConductorServerEndpoint(object):
 
     def create_transfer_schedule(self, ctxt, transfer_id,
                                  schedule, enabled, exp_date,
-                                 shutdown_instance):
+                                 shutdown_instance, auto_deploy):
         keystone.create_trust(ctxt)
         transfer = self._get_transfer(ctxt, transfer_id)
         transfer_schedule = models.TransferSchedule()
@@ -3247,6 +3354,7 @@ class ConductorServerEndpoint(object):
         transfer_schedule.expiration_date = exp_date
         transfer_schedule.enabled = enabled
         transfer_schedule.shutdown_instance = shutdown_instance
+        transfer_schedule.auto_deploy = auto_deploy
         transfer_schedule.trust_id = ctxt.trust_id
 
         db_api.add_transfer_schedule(

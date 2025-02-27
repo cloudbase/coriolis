@@ -136,11 +136,15 @@ class TransferController(api_wsgi.Controller):
 
         destination_environment['storage_mappings'] = storage_mappings
 
+        clone_disks = transfer.get('clone_disks', True)
+        skip_os_morphing = transfer.get('skip_os_morphing', False)
+
         return (scenario, origin_endpoint_id, destination_endpoint_id,
                 source_environment, destination_environment, instances,
                 network_map, storage_mappings, notes,
                 origin_minion_pool_id, destination_minion_pool_id,
-                instance_osmorphing_minion_pool_mappings, user_scripts)
+                instance_osmorphing_minion_pool_mappings, user_scripts,
+                clone_disks, skip_os_morphing)
 
     def create(self, req, body):
         context = req.environ["coriolis.context"]
@@ -150,7 +154,8 @@ class TransferController(api_wsgi.Controller):
          source_environment, destination_environment, instances, network_map,
          storage_mappings, notes, origin_minion_pool_id,
          destination_minion_pool_id,
-         instance_osmorphing_minion_pool_mappings, user_scripts) = (
+         instance_osmorphing_minion_pool_mappings, user_scripts, clone_disks,
+         skip_os_morphing) = (
             self._validate_create_body(context, body))
 
         return transfer_view.single(self._transfer_api.create(
@@ -158,7 +163,8 @@ class TransferController(api_wsgi.Controller):
             origin_minion_pool_id, destination_minion_pool_id,
             instance_osmorphing_minion_pool_mappings, source_environment,
             destination_environment, instances, network_map,
-            storage_mappings, notes, user_scripts))
+            storage_mappings, notes, user_scripts, clone_disks,
+            skip_os_morphing))
 
     def delete(self, req, id):
         context = req.environ["coriolis.context"]
@@ -281,6 +287,13 @@ class TransferController(api_wsgi.Controller):
             final_values['notes'] = updated_values.get('notes', '')
         else:
             final_values['notes'] = transfer.get('notes', '')
+
+        bool_opts = ['clone_disks', 'skip_os_morphing']
+        for opt in bool_opts:
+            if opt in updated_values:
+                final_values[opt] = updated_values.get(opt)
+            else:
+                final_values[opt] = transfer.get(opt, False)
 
         # NOTE: until the provider plugin interface is updated
         # to have separate 'network_map' and 'storage_mappings' fields,

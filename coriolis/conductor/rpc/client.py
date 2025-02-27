@@ -129,10 +129,10 @@ class ConductorClient(rpc.BaseRPCClient):
             provider_type=provider_type)
 
     def execute_transfer_tasks(self, ctxt, transfer_id,
-                               shutdown_instances=False):
+                               shutdown_instances=False, auto_deploy=False):
         return self._call(
             ctxt, 'execute_transfer_tasks', transfer_id=transfer_id,
-            shutdown_instances=shutdown_instances)
+            shutdown_instances=shutdown_instances, auto_deploy=auto_deploy)
 
     def get_transfer_tasks_executions(self, ctxt, transfer_id,
                                       include_tasks=False):
@@ -167,7 +167,8 @@ class ConductorClient(rpc.BaseRPCClient):
                                   instance_osmorphing_minion_pool_mappings,
                                   source_environment, destination_environment,
                                   instances, network_map, storage_mappings,
-                                  notes=None, user_scripts=None):
+                                  notes=None, user_scripts=None,
+                                  clone_disks=True, skip_os_morphing=False):
         return self._call(
             ctxt, 'create_instances_transfer',
             transfer_scenario=transfer_scenario,
@@ -183,7 +184,9 @@ class ConductorClient(rpc.BaseRPCClient):
             network_map=network_map,
             storage_mappings=storage_mappings,
             source_environment=source_environment,
-            user_scripts=user_scripts)
+            user_scripts=user_scripts,
+            clone_disks=clone_disks,
+            skip_os_morphing=skip_os_morphing)
 
     def get_transfers(self, ctxt, include_tasks_executions=False,
                       include_task_info=False):
@@ -216,17 +219,30 @@ class ConductorClient(rpc.BaseRPCClient):
             ctxt, 'get_deployment', deployment_id=deployment_id,
             include_task_info=include_task_info)
 
+    def confirm_deployer_completed(
+            self, ctxt, deployment_id, force=False):
+        return self._cast(
+            ctxt, 'confirm_deployer_completed', deployment_id=deployment_id,
+            force=force)
+
+    def report_deployer_failure(
+            self, ctxt, deployemnt_id, deployer_error_details):
+        return self._cast(
+            ctxt, 'report_deployer_failure', deployment_id=deployemnt_id,
+            deployer_error_details=deployer_error_details)
+
     def deploy_transfer_instances(
-            self, ctxt, transfer_id,
-            instance_osmorphing_minion_pool_mappings=None, clone_disks=False,
-            force=False, skip_os_morphing=False, user_scripts=None):
+            self, ctxt, transfer_id, force, wait_for_execution=None,
+            instance_osmorphing_minion_pool_mappings=None, clone_disks=None,
+            skip_os_morphing=None, user_scripts=None, trust_id=None):
         return self._call(
             ctxt, 'deploy_transfer_instances', transfer_id=transfer_id,
+            wait_for_execution=wait_for_execution,
             instance_osmorphing_minion_pool_mappings=(
                 instance_osmorphing_minion_pool_mappings),
             clone_disks=clone_disks, force=force,
             skip_os_morphing=skip_os_morphing,
-            user_scripts=user_scripts)
+            user_scripts=user_scripts, trust_id=trust_id)
 
     def delete_deployment(self, ctxt, deployment_id):
         self._call(
@@ -285,14 +301,15 @@ class ConductorClient(rpc.BaseRPCClient):
 
     def create_transfer_schedule(self, ctxt, transfer_id,
                                  schedule, enabled, exp_date,
-                                 shutdown_instance):
+                                 shutdown_instance, auto_deploy):
         return self._call(
             ctxt, 'create_transfer_schedule',
             transfer_id=transfer_id,
             schedule=schedule,
             enabled=enabled,
             exp_date=exp_date,
-            shutdown_instance=shutdown_instance)
+            shutdown_instance=shutdown_instance,
+            auto_deploy=auto_deploy)
 
     def update_transfer_schedule(self, ctxt, transfer_id, schedule_id,
                                  updated_values):

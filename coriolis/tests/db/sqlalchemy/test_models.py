@@ -281,6 +281,8 @@ class BaseTransferActionTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.instance_osmorphing_minion_pool_mappings
         transfer.user_scripts = mock.sentinel.user_scripts
         transfer.info = mock.sentinel.info
+        transfer.clone_disks = True
+        transfer.skip_os_morphing = False
         expected_result = {
             "base_id": mock.sentinel.base_id,
             "user_id": mock.sentinel.user_id,
@@ -309,7 +311,9 @@ class BaseTransferActionTestCase(test_base.CoriolisBaseTestCase):
             "instance_osmorphing_minion_pool_mappings":
                 mock.sentinel.instance_osmorphing_minion_pool_mappings,
             "user_scripts": mock.sentinel.user_scripts,
-            "info": mock.sentinel.info
+            "info": mock.sentinel.info,
+            "clone_disks": True,
+            "skip_os_morphing": False,
         }
 
         result = transfer.to_dict()

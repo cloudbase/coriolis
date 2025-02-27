@@ -201,7 +201,7 @@ class TransferControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
         mock_body = {}
-        mock_validate_create_body.return_value = (mock.sentinel.value,) * 13
+        mock_validate_create_body.return_value = (mock.sentinel.value,) * 15
 
         result = self.transfers.create(mock_req, mock_body)
 

@@ -53,10 +53,11 @@ class TransferTasksExecutionController(api_wsgi.Controller):
 
         execution_body = body.get("execution", {})
         shutdown_instances = execution_body.get("shutdown_instances", False)
+        auto_deploy = execution_body.get("auto_deploy", False)
 
         return transfer_tasks_execution_view.single(
             self._transfer_tasks_execution_api.create(
-                context, transfer_id, shutdown_instances))
+                context, transfer_id, shutdown_instances, auto_deploy))
 
     def delete(self, req, transfer_id, id):
         context = req.environ["coriolis.context"]

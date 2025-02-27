@@ -17,6 +17,8 @@
         network_map: "mock_network_map"
         user_scripts: "mock_user_scripts"
         storage_mappings: "mock_storage_mappings"
+        clone_disks: true
+        skip_os_morphing: true
   exception_raised: False
   expected_result:
     - replica
@@ -33,6 +35,8 @@
     - mock_destination_minion_pool_id
     - {'mock_instance_1': 'mock_pool', 'mock_instance_2': 'mock_pool'}
     - mock_user_scripts
+    - true
+    - true
 
 - config:
     body:

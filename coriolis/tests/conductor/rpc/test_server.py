@@ -1376,6 +1376,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
                 mock.sentinel.context,
                 mock_transfer,
                 mock_tasks_execution.return_value,
+                delete_trust_id=True
             )
 
         mock_get_transfer_tasks_execution.assert_called_once_with(
@@ -2215,283 +2216,109 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_get_available_providers.assert_called_once_with(
             mock.sentinel.context)
 
-    @mock.patch.object(
-        server.ConductorServerEndpoint,
-        '_get_transfer'
-    )
-    @mock.patch.object(
-        server.ConductorServerEndpoint,
-        '_check_reservation_for_transfer'
-    )
-    @mock.patch.object(
-        server.ConductorServerEndpoint,
-        '_check_transfer_running_executions'
-    )
-    @mock.patch.object(
-        server.ConductorServerEndpoint,
-        '_check_valid_transfer_tasks_execution'
-    )
-    @mock.patch.object(
-        server.ConductorServerEndpoint,
-        'get_endpoint'
-    )
-    @mock.patch.object(
-        server.ConductorServerEndpoint,
-        '_get_provider_types'
-    )
-    @mock.patch.object(models, "Deployment")
-    @mock.patch.object(uuid, "uuid4", return_value="deployment_id")
-    @mock.patch.object(copy, "deepcopy")
-    @mock.patch.object(
-        server.ConductorServerEndpoint,
-        '_check_minion_pools_for_action'
-    )
-    @mock.patch.object(models, "TasksExecution")
-    @mock.patch.object(
-        server.ConductorServerEndpoint,
-        '_get_instance_scripts'
-    )
-    @mock.patch.object(
-        server.ConductorServerEndpoint,
-        '_create_task'
-    )
-    @mock.patch.object(
-        server.ConductorServerEndpoint,
-        '_check_execution_tasks_sanity'
-    )
+    @mock.patch.object(models, 'Deployment')
     @mock.patch.object(db_api, 'add_deployment')
-    @mock.patch.object(lockutils, 'lock')
-    @mock.patch.object(
-        server.ConductorServerEndpoint,
-        "_minion_manager_client"
-    )
-    @mock.patch.object(
-        server.ConductorServerEndpoint,
-        "_set_tasks_execution_status"
-    )
-    @mock.patch.object(
-        server.ConductorServerEndpoint,
-        "_begin_tasks"
-    )
-    @mock.patch.object(
-        server.ConductorServerEndpoint,
-        "get_deployment"
-    )
-    @ddt.file_data("data/deploy_transfer_instance_config.yml")
-    @ddt.unpack
-    def test_deploy_transfer_instance(
-            self,
-            mock_get_deployment,
-            mock_begin_tasks,
-            mock_set_tasks_execution_status,
-            mock_minion_manager_client,
-            mock_lock,
-            mock_add_deployment,
-            mock_check_execution_tasks_sanity,
-            mock_create_task,
-            mock_get_instance_scripts,
-            mock_tasks_execution,
-            mock_check_minion_pools_for_action,
-            mock_deepcopy,
-            mock_uuid4,
-            mock_deployment,
-            mock_get_provider_types,
-            mock_get_endpoint,
-            mock_check_valid_transfer_tasks_execution,
-            mock_check_transfer_running_executions,
-            mock_check_reservation_for_transfer,
-            mock_get_transfer,
-            config,
-            expected_tasks,
-    ):
-        skip_os_morphing = config.get('skip_os_morphing', False)
-        has_os_morphing_minion = config.get('has_os_morphing_minion', False)
-        get_optimal_flavor = config.get('get_optimal_flavor', False)
-        clone_disks = config.get('clone_disks', False)
+    @mock.patch.object(server.ConductorServerEndpoint, '_get_transfer')
+    @mock.patch.object(server.ConductorServerEndpoint, '_execute_deployment')
+    @mock.patch.object(server.ConductorServerEndpoint, 'get_deployment')
+    def test_deploy_transfer_instances(
+            self, mock_get_deployment, mock_execute_deployment,
+            mock_get_transfer, mock_add_deployment, mock_deployment_model):
+        transfer_mock = mock.MagicMock()
+        transfer_mock.instance_osmorphing_minion_pool_mappings = {
+            mock.sentinel.instance1: mock.sentinel.pool1}
+        transfer_mock.user_scripts = {}
+        transfer_mock.clone_disks = False
+        transfer_mock.skip_os_morphing = True
+        transfer_mock.instances = [mock.sentinel.instance1]
+        mock_get_transfer.return_value = transfer_mock
+        osm_pool_mappings = {mock.sentinel.instance1: mock.sentinel.pool2}
+        deployment = mock_deployment_model.return_value
 
-        if get_optimal_flavor:
-            mock_get_provider_types.return_value = [
-                constants.PROVIDER_TYPE_INSTANCE_FLAVOR
-            ]
-
-        instance_osmorphing_minion_pool_mappings = None
-        if not skip_os_morphing and has_os_morphing_minion:
-            instance_osmorphing_minion_pool_mappings = {
-                mock.sentinel.instance1: mock.sentinel.pool1,
-                mock.sentinel.instance2: mock.sentinel.pool2,
-            }
-
-        mock_get_transfer.return_value = mock.Mock(
-            instances=[mock.sentinel.instance1, mock.sentinel.instance2],
-            info={
-                mock.sentinel.instance1: {
-                    'volumes_info': mock.sentinel.volumes_info1
-                },
-                mock.sentinel.instance2: {
-                    'volumes_info': {}
-                },
-            },
-            instance_osmorphing_minion_pool_mappings={}
-        )
-
-        def call_deploy_transfer_instance():
-            return self.server.deploy_transfer_instances(
-                mock.sentinel.context,
+        result = testutils.get_wrapped_function(
+            self.server.deploy_transfer_instances)(
+                self.server,
+                mock.sentinel.ctxt,
                 mock.sentinel.transfer_id,
-                clone_disks=clone_disks,
                 force=False,
-                instance_osmorphing_minion_pool_mappings=(
-                    instance_osmorphing_minion_pool_mappings),
-                skip_os_morphing=skip_os_morphing,
+                clone_disks=True,
+                instance_osmorphing_minion_pool_mappings=osm_pool_mappings,
+                skip_os_morphing=False,
                 user_scripts=mock.sentinel.user_scripts,
-            )
+                wait_for_execution=None,
+                trust_id=None)
 
-        # One of the instances has no volumes info
-        self.assertRaises(
-            exception.InvalidTransferState,
-            call_deploy_transfer_instance,
-        )
-
-        mock_get_endpoint.assert_called_once_with(
-            mock.sentinel.context,
-            mock_get_transfer.return_value.destination_endpoint_id
-        )
-
+        self.assertEqual(mock_get_deployment.return_value, result)
+        self.assertEqual(mock.sentinel.user_scripts, deployment.user_scripts)
+        self.assertEqual(True, deployment.clone_disks)
+        self.assertEqual(False, deployment.skip_os_morphing)
+        self.assertEqual(
+            mock.sentinel.pool2,
+            deployment.instance_osmorphing_minion_pool_mappings[
+                mock.sentinel.instance1])
+        self.assertTrue(
+            transfer_mock.destination_environment is not
+            deployment.destination_environment)
         mock_get_transfer.assert_called_once_with(
-            mock.sentinel.context,
-            mock.sentinel.transfer_id,
-            include_task_info=True,
-        )
-        mock_check_transfer_running_executions.assert_called_once_with(
-            mock.sentinel.context,
-            mock_get_transfer.return_value
-        )
-        mock_check_valid_transfer_tasks_execution.assert_called_once_with(
-            mock_get_transfer.return_value,
-            False
-        )
-        mock_get_provider_types.assert_called_once_with(
-            mock.sentinel.context,
-            mock_get_endpoint.return_value
-        )
-
-        # add the missing volumes info
-        mock_get_transfer.return_value.info[mock.sentinel.instance2] = {
-            'volumes_info': mock.sentinel.volumes_info2
-        }
-
-        def create_task_side_effect(
-                instance,
-                task_type,
-                execution,
-                depends_on=None,
-                on_error=False,
-                on_error_only=False
-        ):
-            return mock.Mock(
-                id=task_type,
-                type=task_type,
-                instance=instance,
-                execution=execution,
-                depends_on=depends_on,
-                on_error=on_error,
-                on_error_only=on_error_only,
-            )
-
-        mock_create_task.side_effect = create_task_side_effect
-
-        # no longer raises exception
-        deployment = call_deploy_transfer_instance()
-
-        mock_check_minion_pools_for_action.assert_called_once_with(
-            mock.sentinel.context,
-            mock_deployment.return_value
-        )
-        mock_check_reservation_for_transfer.assert_called_once_with(
-            mock_get_transfer.return_value)
-
-        self.assertEqual(
-            mock_tasks_execution.return_value.status,
-            constants.EXECUTION_STATUS_UNEXECUTED
-        )
-        self.assertEqual(
-            mock_tasks_execution.return_value.type,
-            constants.EXECUTION_TYPE_DEPLOYMENT
-        )
-
-        for instance in mock_get_transfer.return_value.instances:
-            mock_get_instance_scripts.assert_any_call(
-                mock.sentinel.user_scripts,
-                instance,
-            )
-            mock_create_task.assert_any_call(
-                instance,
-                constants.TASK_TYPE_VALIDATE_DEPLOYMENT_INPUTS,
-                mock_tasks_execution.return_value,
-            )
-
-            # tasks defined in the yaml config
-            for task in expected_tasks:
-                kwargs = {}
-                if 'on_error' in task:
-                    kwargs = {'on_error': task['on_error']}
-                if 'on_error_only' in task:
-                    kwargs = {'on_error_only': task['on_error_only']}
-                mock_create_task.assert_has_calls([
-                    mock.call(
-                        instance,
-                        task['type'],
-                        mock_tasks_execution.return_value,
-                        depends_on=task['depends_on'],
-                        **kwargs,
-                    )
-                ])
-
-        mock_check_execution_tasks_sanity.assert_called_once_with(
-            mock_tasks_execution.return_value,
-            mock_deployment.return_value.info,
-        )
-
+            mock.sentinel.ctxt, mock.sentinel.transfer_id,
+            include_task_info=True)
         mock_add_deployment.assert_called_once_with(
-            mock.sentinel.context,
-            mock_deployment.return_value,
-        )
-
-        if not skip_os_morphing and has_os_morphing_minion:
-            mock_lock.assert_any_call(
-                constants.DEPLOYMENT_LOCK_NAME_FORMAT
-                % mock_deployment.return_value.id,
-                external=True,
-            )
-            mock_minion_manager_client\
-                .allocate_minion_machines_for_deployment\
-                .assert_called_once_with(
-                    mock.sentinel.context,
-                    mock_deployment.return_value,
-                    include_transfer_minions=False,
-                    include_osmorphing_minions=True
-                )
-            mock_set_tasks_execution_status.assert_called_once_with(
-                mock.sentinel.context,
-                mock_tasks_execution.return_value,
-                constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS
-            )
-        else:
-            mock_begin_tasks.assert_called_once_with(
-                mock.sentinel.context,
-                mock_deployment.return_value,
-                mock_tasks_execution.return_value,
-            )
-
+            mock.sentinel.ctxt, deployment)
+        mock_execute_deployment.assert_called_once_with(
+            mock.sentinel.ctxt, deployment, False)
         mock_get_deployment.assert_called_once_with(
-            mock.sentinel.context,
-            mock_deployment.return_value.id,
-        )
+            mock.sentinel.ctxt, deployment.id)
 
+    @mock.patch.object(models, 'Deployment')
+    @mock.patch.object(db_api, 'add_deployment')
+    @mock.patch.object(server.ConductorServerEndpoint, '_get_transfer')
+    @mock.patch.object(server.ConductorServerEndpoint, '_execute_deployment')
+    @mock.patch.object(server.ConductorServerEndpoint, 'get_deployment')
+    def test_deploy_transfer_instances_wait_for_execution(
+            self, mock_get_deployment, mock_execute_deployment,
+            mock_get_transfer, mock_add_deployment, mock_deployment_model):
+        transfer_mock = mock.MagicMock()
+        transfer_mock.instance_osmorphing_minion_pool_mappings = {
+            mock.sentinel.instance1: mock.sentinel.pool1}
+        transfer_mock.user_scripts = {}
+        transfer_mock.clone_disks = False
+        transfer_mock.skip_os_morphing = True
+        transfer_mock.instances = [mock.sentinel.instance1]
+        mock_get_transfer.return_value = transfer_mock
+        deployment = mock_deployment_model.return_value
+
+        result = testutils.get_wrapped_function(
+            self.server.deploy_transfer_instances)(
+                self.server,
+                mock.sentinel.ctxt,
+                mock.sentinel.transfer_id,
+                force=False,
+                clone_disks=None,
+                instance_osmorphing_minion_pool_mappings=None,
+                skip_os_morphing=None,
+                user_scripts=None,
+                wait_for_execution=mock.sentinel.wait_for_execution,
+                trust_id=mock.sentinel.trust_id)
+
+        self.assertEqual(mock_get_deployment.return_value, result)
+        self.assertEqual(transfer_mock.user_scripts, deployment.user_scripts)
+        self.assertEqual(transfer_mock.clone_disks, deployment.clone_disks)
         self.assertEqual(
-            deployment,
-            mock_get_deployment.return_value
-        )
+            transfer_mock.skip_os_morphing, deployment.skip_os_morphing)
+        self.assertEqual(
+            transfer_mock.instance_osmorphing_minion_pool_mappings,
+            deployment.instance_osmorphing_minion_pool_mappings)
+        self.assertTrue(
+            transfer_mock.destination_environment is not
+            deployment.destination_environment)
+        mock_get_transfer.assert_called_once_with(
+            mock.sentinel.ctxt, mock.sentinel.transfer_id,
+            include_task_info=True)
+        mock_add_deployment.assert_called_once_with(
+            mock.sentinel.ctxt, deployment)
+        mock_execute_deployment.assert_not_called()
+        mock_get_deployment.assert_called_once_with(
+            mock.sentinel.ctxt, deployment.id)
 
     def test_get_instance_scripts(
         self
@@ -4781,7 +4608,8 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.schedule,
             mock.sentinel.enabled,
             mock.sentinel.exp_date,
-            mock.sentinel.shutdown_instance
+            mock.sentinel.shutdown_instance,
+            mock.sentinel.auto_deploy
         )
 
         self.assertEqual(
@@ -4796,6 +4624,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
                 transfer_schedule.expiration_date,
                 transfer_schedule.enabled,
                 transfer_schedule.shutdown_instance,
+                transfer_schedule.auto_deploy,
                 transfer_schedule.trust_id
             ),
             (
@@ -4805,6 +4634,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
                 mock.sentinel.exp_date,
                 mock.sentinel.enabled,
                 mock.sentinel.shutdown_instance,
+                mock.sentinel.auto_deploy,
                 mock.sentinel.trust_id
             )
         )

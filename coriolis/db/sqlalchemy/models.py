@@ -281,6 +281,10 @@ class BaseTransferAction(BASE, models.TimestampMixin, models.ModelBase,
     instance_osmorphing_minion_pool_mappings = sqlalchemy.Column(
         types.Json, nullable=False, default=lambda: {})
     user_scripts = sqlalchemy.Column(types.Json, nullable=True)
+    clone_disks = sqlalchemy.Column(
+        sqlalchemy.Boolean, nullable=False, default=True)
+    skip_os_morphing = sqlalchemy.Column(
+        sqlalchemy.Boolean, nullable=False, default=False)
 
     __mapper_args__ = {
         'polymorphic_identity': 'base_transfer_action',
@@ -314,6 +318,8 @@ class BaseTransferAction(BASE, models.TimestampMixin, models.ModelBase,
             "instance_osmorphing_minion_pool_mappings":
                 self.instance_osmorphing_minion_pool_mappings,
             "user_scripts": self.user_scripts,
+            "clone_disks": self.clone_disks,
+            "skip_os_morphing": self.skip_os_morphing,
         }
         if include_executions:
             for ex in self.executions:
@@ -361,6 +367,8 @@ class Deployment(BaseTransferAction):
     transfer = orm.relationship(
         Transfer, backref=orm.backref("deployments"),
         foreign_keys=[transfer_id])
+    deployer_id = sqlalchemy.Column(sqlalchemy.String(36), nullable=True)
+    trust_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=True)
 
     __mapper_args__ = {
         'polymorphic_identity': 'deployment',
@@ -375,6 +383,8 @@ class Deployment(BaseTransferAction):
             "id": self.id,
             "transfer_id": self.transfer_id,
             "transfer_scenario_type": self.transfer.scenario,
+            "deployer_id": self.deployer_id,
+            "trust_id": self.trust_id,
         })
         return base
 
@@ -678,5 +688,7 @@ class TransferSchedule(BASE, models.TimestampMixin, models.ModelBase,
     enabled = sqlalchemy.Column(
         sqlalchemy.Boolean, nullable=False, default=lambda: False)
     shutdown_instance = sqlalchemy.Column(
+        sqlalchemy.Boolean, nullable=False, default=False)
+    auto_deploy = sqlalchemy.Column(
         sqlalchemy.Boolean, nullable=False, default=False)
     trust_id = sqlalchemy.Column(sqlalchemy.String(255), nullable=False)

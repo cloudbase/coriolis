@@ -24,14 +24,15 @@ class APITestCase(test_base.CoriolisBaseTestCase):
         enabled = mock.sentinel.enabled
         exp_date = mock.sentinel.exp_date
         shutdown_instance = mock.sentinel.shutdown_instance
+        auto_deploy = mock.sentinel.auto_deploy
 
         result = self.api.create(
             self.ctxt, self.transfer_id, schedule, enabled, exp_date,
-            shutdown_instance)
+            shutdown_instance, auto_deploy)
 
         self.rpc_client.create_transfer_schedule.assert_called_once_with(
             self.ctxt, self.transfer_id, schedule, enabled, exp_date,
-            shutdown_instance)
+            shutdown_instance, auto_deploy)
         self.assertEqual(result,
                          self.rpc_client.create_transfer_schedule.return_value)
 

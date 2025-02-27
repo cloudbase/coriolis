@@ -27,10 +27,11 @@ class TriggerTransferTestCase(test_base.CoriolisBaseTestCase):
         result = server._trigger_transfer(
             mock.sentinel.ctxt,
             mock_conductor_client,
-            mock.sentinel.transfer_id, False)
+            mock.sentinel.transfer_id, False, False)
 
         mock_conductor_client.execute_transfer_tasks.assert_called_once_with(
-            mock.sentinel.ctxt, mock.sentinel.transfer_id, False)
+            mock.sentinel.ctxt, mock.sentinel.transfer_id,
+            shutdown_instance=False, auto_deploy=False)
 
         self.assertEqual(
             result, 'Execution %s for Transfer %s' % (
@@ -47,7 +48,7 @@ class TriggerTransferTestCase(test_base.CoriolisBaseTestCase):
             server._trigger_transfer(
                 mock.sentinel.ctxt,
                 mock_conductor_client,
-                mock.sentinel.action_id, False)
+                mock.sentinel.action_id, False, False)
 
 
 @ddt.ddt
@@ -97,7 +98,8 @@ class TransferCronServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         test_schedule = {
             'trust_id': 'test_schedule_trust_id',
             'transfer_id': 'test_schedule_transfer_id',
-            'shutdown_instance': 'test_schedule_shutdown_instance'
+            'shutdown_instance': False,
+            'auto_deploy': False,
         }
 
         self.server._register_schedule(test_schedule)
@@ -110,7 +112,7 @@ class TransferCronServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             True, datetime.datetime(2022, 12, 31), None, None,
             mock_trigger_transfer, 'test_admin_context',
             self.server._rpc_client, 'test_schedule_transfer_id',
-            'test_schedule_shutdown_instance')
+            False, False)
         mock_register.assert_called_once()
 
     @mock.patch.object(server.TransferCronServerEndpoint,
