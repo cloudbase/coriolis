@@ -599,8 +599,9 @@ def get_deployment(context, deployment_id, include_task_info=False,
 
 @enginefacade.writer
 def add_deployment(context, deployment):
-    deployment.user_id = context.user
-    deployment.project_id = context.project_id
+    deployment.user_id = context.user or deployment.transfer.user_id
+    deployment.project_id = (
+        context.project_id or deployment.transfer.project_id)
     _session(context).add(deployment)
 
 
