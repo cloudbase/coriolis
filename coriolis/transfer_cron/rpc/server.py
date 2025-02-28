@@ -21,7 +21,7 @@ def _trigger_transfer(ctxt, conductor_client, transfer_id, shutdown_instance,
                       auto_deploy):
     try:
         execution = conductor_client.execute_transfer_tasks(
-            ctxt, transfer_id, shutdown_instance=shutdown_instance,
+            ctxt, transfer_id, shutdown_instances=shutdown_instance,
             auto_deploy=auto_deploy)
         result_msg = 'Execution %s for Transfer %s' % (
             execution.get('id'), execution.get('action_id'))

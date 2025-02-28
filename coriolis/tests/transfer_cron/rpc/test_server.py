@@ -31,7 +31,7 @@ class TriggerTransferTestCase(test_base.CoriolisBaseTestCase):
 
         mock_conductor_client.execute_transfer_tasks.assert_called_once_with(
             mock.sentinel.ctxt, mock.sentinel.transfer_id,
-            shutdown_instance=False, auto_deploy=False)
+            shutdown_instances=False, auto_deploy=False)
 
         self.assertEqual(
             result, 'Execution %s for Transfer %s' % (
