@@ -2216,6 +2216,8 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_get_available_providers.assert_called_once_with(
             mock.sentinel.context)
 
+    @mock.patch.object(server.ConductorServerEndpoint,
+                       '_validate_deployment_inputs')
     @mock.patch.object(models, 'Deployment')
     @mock.patch.object(db_api, 'add_deployment')
     @mock.patch.object(server.ConductorServerEndpoint, '_get_transfer')
@@ -2223,7 +2225,8 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(server.ConductorServerEndpoint, 'get_deployment')
     def test_deploy_transfer_instances(
             self, mock_get_deployment, mock_execute_deployment,
-            mock_get_transfer, mock_add_deployment, mock_deployment_model):
+            mock_get_transfer, mock_add_deployment, mock_deployment_model,
+            mock_validate_deployment_inputs):
         transfer_mock = mock.MagicMock()
         transfer_mock.instance_osmorphing_minion_pool_mappings = {
             mock.sentinel.instance1: mock.sentinel.pool1}
@@ -2234,13 +2237,14 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_get_transfer.return_value = transfer_mock
         osm_pool_mappings = {mock.sentinel.instance1: mock.sentinel.pool2}
         deployment = mock_deployment_model.return_value
+        force = False
 
         result = testutils.get_wrapped_function(
             self.server.deploy_transfer_instances)(
                 self.server,
                 mock.sentinel.ctxt,
                 mock.sentinel.transfer_id,
-                force=False,
+                force=force,
                 clone_disks=True,
                 instance_osmorphing_minion_pool_mappings=osm_pool_mappings,
                 skip_os_morphing=False,
@@ -2268,6 +2272,8 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.ctxt, deployment, False)
         mock_get_deployment.assert_called_once_with(
             mock.sentinel.ctxt, deployment.id)
+        mock_validate_deployment_inputs.assert_called_once_with(
+            mock.sentinel.ctxt, deployment, transfer_mock, force)
 
     @mock.patch.object(models, 'Deployment')
     @mock.patch.object(db_api, 'add_deployment')

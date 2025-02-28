@@ -1399,13 +1399,7 @@ class ConductorServerEndpoint(object):
                 "No provider found for: %s" % endpoint.type)
         return provider_types["types"]
 
-    def _execute_deployment(self, ctxt, deployment, force):
-        transfer = self._get_transfer(
-            ctxt, deployment.transfer_id, include_task_info=True)
-        skip_os_morphing = deployment.skip_os_morphing
-        clone_disks = deployment.clone_disks
-        user_scripts = deployment.user_scripts
-
+    def _validate_deployment_inputs(self, ctxt, deployment, transfer, force):
         self._check_transfer_running_executions(ctxt, transfer)
         self._check_valid_transfer_tasks_execution(transfer, force)
         for instance, info in transfer.info.items():
@@ -1415,10 +1409,19 @@ class ConductorServerEndpoint(object):
                     f"for instance: {instance}. If transferred disks are "
                     "deleted, the transfer needs to be executed anew "
                     "before a deployment can occur")
-        deployment.info = transfer.info
         self._check_minion_pools_for_action(ctxt, deployment)
         self._check_reservation_for_transfer(transfer)
 
+    def _execute_deployment(self, ctxt, deployment, force):
+        transfer = self._get_transfer(
+            ctxt, deployment.transfer_id, include_task_info=True)
+        skip_os_morphing = deployment.skip_os_morphing
+        clone_disks = deployment.clone_disks
+        user_scripts = deployment.user_scripts
+
+        if deployment.deployer_id:
+            self._validate_deployment_inputs(ctxt, deployment, transfer, force)
+        deployment.info = transfer.info
         destination_endpoint = self.get_endpoint(
             ctxt, transfer.destination_endpoint_id)
         destination_provider_types = self._get_provider_types(
@@ -1709,6 +1712,8 @@ class ConductorServerEndpoint(object):
         if instance_osmorphing_minion_pool_mappings:
             deployment.instance_osmorphing_minion_pool_mappings.update(
                 instance_osmorphing_minion_pool_mappings)
+        if not wait_for_execution:
+            self._validate_deployment_inputs(ctxt, deployment, transfer, force)
 
         db_api.add_deployment(ctxt, deployment)
         LOG.info("Deployment created: %s", deployment.id)
