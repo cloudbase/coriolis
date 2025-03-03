@@ -117,6 +117,14 @@ def _get_host_os_info():
     return info
 
 
+def _get_release_tag():
+    release_tag = "latest"
+    if os.path.isfile("/etc/coriolis/coriolis.release"):
+        with open("/etc/coriolis/coriolis.release") as fd:
+            release_tag = fd.read().split('\n')[0]
+    return release_tag
+
+
 def get_diagnostics_info():
     # TODO(gsamfira): decide if we want any other kind of
     # diagnostics.
@@ -127,6 +135,7 @@ def get_diagnostics_info():
         "os_info": _get_host_os_info(),
         "hostname": get_hostname(),
         "ip_addresses": _get_local_ips(),
+        "release_tag": _get_release_tag(),
     }
 
 
