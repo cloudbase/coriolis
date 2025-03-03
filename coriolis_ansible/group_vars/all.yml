@@ -112,6 +112,7 @@ coriolis_console_editor_mountdirs:
   - "{{ coriolis_log_dir }}:{{ coriolis_log_dir }}:rw"
   - "{{ coriolis_ansible_main_config_file }}:{{ coriolis_ansible_main_config_file }}:rw"
   - "{{ coriolis_ansible_docker_config_file }}:{{ coriolis_ansible_docker_config_file }}:rw"
+  - "{{ coriolis_config_dir }}/coriolis.release:{{ coriolis_config_dir }}/coriolis.release:ro"
 
 coriolis_metal_hub_port: 9900
 coriolis_metal_hub_endpoint: "https://{{ endpoint_base_address }}:{{ coriolis_metal_hub_port }}/api/v1"

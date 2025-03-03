@@ -72,6 +72,7 @@
     - { src: coriolis-api.wsgi.j2, dest: "{{ coriolis_config_dir }}/coriolis-api.wsgi" }
     - { src: wsgi-coriolis.conf.j2, dest: "{{ coriolis_config_dir }}/wsgi-coriolis.conf" }
     - { src: coriolis.conf.j2, dest: "{{ coriolis_config_dir }}/coriolis.conf" }
+    - { src: coriolis.release.j2, dest: "{{ coriolis_config_dir }}/coriolis.release" }
     - { src: vixdisklib.conf.j2, dest: "{{ coriolis_vmware_vix_disklib_config_path }}" }
     - { src: api-paste.ini.j2, dest: "{{ coriolis_config_dir }}/api-paste.ini" }
     - { src: policy.yml.j2,    dest: "{{ coriolis_config_dir }}/policy.yml" }
