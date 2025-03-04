@@ -3380,7 +3380,13 @@ class ConductorServerEndpoint(object):
         if schedule.trust_id:
             tmp_trust = context.get_admin_context(
                 trust_id=schedule.trust_id)
-            keystone.delete_trust(tmp_trust)
+            try:
+                keystone.delete_trust(tmp_trust)
+            except Exception:
+                LOG.warning(
+                    f"Failed to delete schedule's trust_id. Trust might "
+                    f"already be deleted. Error was: "
+                    f"{utils.get_exception_details()}")
 
     @schedule_synchronized
     def delete_transfer_schedule(self, ctxt, transfer_id, schedule_id):
