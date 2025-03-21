@@ -299,10 +299,12 @@ function validate_certificate_fqdn() {
 function backup_file {
     S_FILE="$1"
     D_FILE="$2"
-    log-console-message "Backup file $S_FILE to $D_FILE"
-    if [ -f $S_FILE ]; then
-        run-logged-command "cp $S_FILE $D_FILE"
-    else echo "File: $S_FILE does not exist."
+    if [ -f "$S_FILE" ]; then
+        if [ ! -f "$D_FILE" ]; then
+            run-logged-command "cp $S_FILE $D_FILE"
+        fi
+    else
+        echo "File: $S_FILE does not exist."
     fi
 }
 
