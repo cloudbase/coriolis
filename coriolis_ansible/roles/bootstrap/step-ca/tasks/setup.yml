@@ -81,3 +81,18 @@
 
 - include_tasks: create_coriolis_appliance_tls_certificates.yml
   when: not custom_cert_mark.stat.exists
+
+- name: "Ensure kolla ca-certificate dir"
+  file:
+    path: /etc/kolla/certificates/ca
+    state: directory
+    mode: 0755
+
+# The extra CA must have the .crt extension, otherwise it will be ignored
+- name: "Copying over ca-certificate to kolla config dir"
+  copy:
+      src: "{{ item.src }}"
+      dest: "{{ item.dest }}"
+  loop:
+    - src: "{{ coriolis_appliance_tls_cacert }}"
+      dest: "/etc/kolla/certificates/ca/coriolis-ca.crt"

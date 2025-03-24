@@ -30,15 +30,12 @@ CA_CERT=$(get_global_config_value coriolis_appliance_tls_cacert)
 CORIOLIS_APPLIANCE_CERT=$(get_global_config_value coriolis_appliance_tls_certificate)
 CORIOLIS_APPLIANCE_KEY=$(get_global_config_value coriolis_appliance_tls_key)
 
-mkdir -p /etc/kolla/certificates/ca/
-# The extra CA must have the .crt extension, otherwise it will be ignored
-cp -f $CA_CERT /etc/kolla/certificates/ca/coriolis.crt
-
 if [ ! -z "$EXTERNAL_FQDN" ];then
     "$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n kolla_external_fqdn -v $EXTERNAL_FQDN
 fi
 
 # The bootstrap playbook installs the step-ca root ca in the system CA store
+"$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n kolla_admin_openrc_cacert -v "/etc/coriolis/ssl/ca/coriolis-ca.crt"
 "$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n openstack_cacert -v "/etc/ssl/certs/ca-certificates.crt"
 "$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n kolla_internal_fqdn_cert -v $COMBINED_CERT
 "$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n kolla_external_fqdn_cert -v $COMBINED_CERT
