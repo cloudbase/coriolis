@@ -270,7 +270,12 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         installed_repos = []
         for file in repofiles:
             path = os.path.join(reposdir_path, file)
-            content = self._read_file(path).decode()
+            try:
+                content = self._read_file_sudo(path).decode()
+            except Exception as e:
+                LOG.warning(
+                    "Could not read yum repository file %s: %s", path, e)
+                continue
             for line in content.splitlines():
                 m = re.match(r'^\[(.+)\]$', line)
                 if m:
