@@ -90,8 +90,14 @@ def update_kolla_cfg(interface, ip, fqdn):
 
     config["network_interface"] = interface
     config["kolla_internal_vip_address"] = ip
-    config["kolla_internal_fqdn"] = fqdn
-    config["kolla_external_fqdn"] = fqdn
+    if fqdn == '':
+        if config["kolla_internal_fqdn"]:
+            config.pop('kolla_internal_fqdn', None)
+        if config["kolla_external_fqdn"]:
+            config.pop('kolla_external_fqdn', None)
+    else:
+        config["kolla_internal_fqdn"] = fqdn
+        config["kolla_external_fqdn"] = fqdn
 
     with open(KOLLA_CFG, 'w') as f:
         f.write(yaml.safe_dump(config, default_flow_style=False))
@@ -163,6 +169,8 @@ if __name__ == '__main__':
     if interface is None:
         print("IP address %s is not configured on this system" % ip)
         sys.exit(2)
+    if interface == 'lo':
+        fqdn = ''
 
     try:
         update_kolla_cfg(interface, ip, fqdn)

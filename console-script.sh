@@ -126,7 +126,7 @@ API_CA_PATH=$(get_global_config_value coriolis_appliance_tls_cacert)
 API_CERT_PATH=$(get_global_config_value coriolis_appliance_tls_certificate)
 API_KEY_PATH=$(get_global_config_value coriolis_appliance_tls_key)
 METAL_HUB_CERTS_PATH=$(get_global_config_value coriolis_metal_hub_certs_dir)
-OLD_HOSTNAME="/etc/coriolis/hostname.bak"
+OLD_HOSTNAME="/etc/hostname.bak"
 
 # Logs all given args to the $CONSOLE_SCRIPT_LOG_FILE
 function log-console-message {
@@ -451,7 +451,9 @@ function change-api-certificate {
     echo "Creating backup files."
     for f in $(ls $CORIOLIS_CERT_FOLDER/*.pem) ; do backup_file "$f" "$f.bak" ; done
     for f in $(ls $METAL_HUB_CERTS_PATH/*.pem) ; do backup_file "$f" "$f.bak" ; done
-    run-logged-command "echo $(hostname) > $OLD_HOSTNAME"
+    if [ ! -f "$OLD_HOSTNAME" ]; then
+        run-logged-command "echo $(hostname) > $OLD_HOSTNAME"
+    fi
 
     while true; do
         cert=$(confirm_input "Enter URL for Server Certificate: ")

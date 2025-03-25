@@ -6,10 +6,10 @@
 - name: Set Kolla deployment facts
   set_fact:
     barbican_protocol: "{{ kolla_deployment.result.barbican_protocol }}"
-    barbican_host: "{{ inventory_hostname }}"
+    barbican_host: "{{ kolla_deployment.result.listen_address }}"
     barbican_port: "{{ kolla_deployment.result.barbican_port }}"
     keystone_protocol: "{{ kolla_deployment.result.keystone_protocol }}"
-    keystone_host: "{{ inventory_hostname }}"
+    keystone_host: "{{ kolla_deployment.result.listen_address }}"
     keystone_public_port: "{{ kolla_deployment.result.keystone_public_port }}"
 
 - name: Get cert file stat
