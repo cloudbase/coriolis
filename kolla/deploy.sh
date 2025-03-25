@@ -62,8 +62,6 @@ fi
 kolla-ansible -i "$BASE_DIR/coriolis" deploy
 kolla-ansible -i "$BASE_DIR/coriolis" post-deploy
 
-run_cmd_with_retry 10 10 60 pip3 install "python-openstackclient<=6.0.0" python-barbicanclient
-
 source /etc/kolla/admin-openrc.sh
 run_cmd_with_retry 10 10 60 openstack endpoint list
 run_cmd_with_retry 10 10 60 openstack secret list
