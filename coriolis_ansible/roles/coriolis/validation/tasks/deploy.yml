@@ -2,3 +2,4 @@
 - include_tasks: deployment_check.yml
 - include_tasks: default_region_configuration.yml
 - include_tasks: default_metal_hub_endpoint_configuration.yml
+  when: coriolis_export_providers is contains("metal")

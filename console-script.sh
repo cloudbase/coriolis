@@ -125,6 +125,7 @@ CORIOLIS_CERT_FOLDER=$(get_global_config_value coriolis_certificate_store)
 API_CA_PATH=$(get_global_config_value coriolis_appliance_tls_cacert)
 API_CERT_PATH=$(get_global_config_value coriolis_appliance_tls_certificate)
 API_KEY_PATH=$(get_global_config_value coriolis_appliance_tls_key)
+METAL_ENABLED=$(get_global_config_value coriolis_export_providers | grep metal)
 METAL_HUB_CERTS_PATH=$(get_global_config_value coriolis_metal_hub_certs_dir)
 OLD_HOSTNAME="/etc/hostname.bak"
 
@@ -450,7 +451,9 @@ function change-api-certificate {
     local hostname_setup=1
     echo "Creating backup files."
     for f in $(ls $CORIOLIS_CERT_FOLDER/*.pem) ; do backup_file "$f" "$f.bak" ; done
-    for f in $(ls $METAL_HUB_CERTS_PATH/*.pem) ; do backup_file "$f" "$f.bak" ; done
+    if [ -n "$METAL_ENABLED" ]; then
+        for f in $(ls $METAL_HUB_CERTS_PATH/*.pem) ; do backup_file "$f" "$f.bak" ; done
+    fi
     if [ ! -f "$OLD_HOSTNAME" ]; then
         run-logged-command "echo $(hostname) > $OLD_HOSTNAME"
     fi
@@ -527,7 +530,9 @@ function change-api-certificate {
     if [[ $cert_setup = 1 || $ca_setup = 1 || $key_setup = 1 || $hostname_setup = 1 ]]; then
     echo "Certificate setup incomplete. Will restore backup files."
         for f in $(ls $CORIOLIS_CERT_FOLDER/*.bak); do restore_file "$f" "${f%.*}"; done
-        for f in $(ls $METAL_HUB_CERTS_PATH/*.bak); do restore_file "$f" "${f%.*}"; done
+        if [ -n "$METAL_ENABLED" ]; then
+            for f in $(ls $METAL_HUB_CERTS_PATH/*.bak); do restore_file "$f" "${f%.*}"; done
+        fi
         if [ -f $OLD_HOSTNAME ]; then
             run-logged-command "hostnamectl set-hostname $(cat $OLD_HOSTNAME)"
         else
@@ -541,12 +546,14 @@ function change-api-certificate {
         echo "Create mark file for using custom certififcates."
         run-logged-command "touch $(get_global_config_value coriolis_appliance_custom_cert)"
 
+        if [ -n "$METAL_ENABLED" ]; then
         echo "Setting Coriolis Metal Hub Certificate chain."
-        run-logged-command "cp $API_CA_PATH $(get_global_config_value coriolis_metal_hub_ca_cert_path)"
-        run-logged-command "cp $API_CERT_PATH $(get_global_config_value coriolis_metal_hub_client_cert_path)"
-        run-logged-command "cp $API_CERT_PATH $(get_global_config_value coriolis_metal_hub_server_cert_path)"
-        run-logged-command "cp $API_KEY_PATH $(get_global_config_value coriolis_metal_hub_server_key_path)"
-        run-logged-command "cp $API_KEY_PATH $(get_global_config_value coriolis_metal_hub_client_key_path)"
+            run-logged-command "cp $API_CA_PATH $(get_global_config_value coriolis_metal_hub_ca_cert_path)"
+            run-logged-command "cp $API_CERT_PATH $(get_global_config_value coriolis_metal_hub_client_cert_path)"
+            run-logged-command "cp $API_CERT_PATH $(get_global_config_value coriolis_metal_hub_server_cert_path)"
+            run-logged-command "cp $API_KEY_PATH $(get_global_config_value coriolis_metal_hub_server_key_path)"
+            run-logged-command "cp $API_KEY_PATH $(get_global_config_value coriolis_metal_hub_client_key_path)"
+        fi
         CONTINUE_EXPOSE=`prompt-for-confirmation-word "New certificate setup complete. Coriolis Appliance needs to be exposed for the changes to take effect."`
         if [ "$CONTINUE_EXPOSE" = "0" ]; then
             echo "Coriolis services not exposed yet."
@@ -565,7 +572,9 @@ function restore-certificate-chain-api {
         if [ -f $CORIOLIS_CERT_FOLDER/custom ]; then
             run-logged-command "rm $CORIOLIS_CERT_FOLDER/custom"
             for f in $CORIOLIS_CERT_FOLDER/*.bak ; do restore_file "$f" "${f%.*}"; done
-            for f in $METAL_HUB_CERTS_PATH/*.bak ; do restore_file "$f" "${f%.*}"; done
+            if [ -n "$METAL_ENABLED" ]; then
+                for f in $METAL_HUB_CERTS_PATH/*.bak ; do restore_file "$f" "${f%.*}"; done
+            fi
         fi
     fi
     printf "Resetting hostname."
