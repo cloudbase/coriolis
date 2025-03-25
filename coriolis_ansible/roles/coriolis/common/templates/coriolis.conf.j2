@@ -46,8 +46,8 @@ connection = mysql://{{ coriolis_database_user }}:{{ coriolis_database_password 
 
 [keystone_authtoken]
 auth_type = password
-auth_uri = {{ keystone_protocol }}://{{ keystone_host }}:{{ keystone_public_port }}
-auth_url = {{ keystone_protocol }}://{{ keystone_host }}:{{ keystone_internal_port }}
+auth_uri = {{ keystone_protocol }}://{{ keystone_host }}:{{ keystone_public_port }}/v3
+auth_url = {{ keystone_protocol }}://{{ keystone_host }}:{{ keystone_internal_port }}/v3
 username = {{ coriolis_keystone_user }}
 password = {{ coriolis_keystone_password }}
 user_domain_id = default
