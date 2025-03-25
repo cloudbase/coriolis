@@ -39,36 +39,6 @@
     priv: "{{ coriolis_database_name }}.*:ALL"
     append_privs: "yes"
 
-- name: Create service certificate folder
-  file:
-    path: "{{ coriolis_config_dir }}/ssl"
-    state: directory
-    mode: 0711
-
-- name: Create CA certificate folder
-  file:
-    path: "{{ coriolis_config_dir }}/ssl/ca"
-    state: directory
-    mode: 0711
-
-- name: "Copying over certificates"
-  copy:
-      src: "{{ item.src }}"
-      dest: "{{ item.dest }}"
-  loop:
-    - src: "{{ coriolis_appliance_tls_cert_bundle }}"
-      dest: "{{ coriolis_config_dir }}/ssl/coriolis.crt"
-    - src: "{{ coriolis_appliance_tls_key }}"
-      dest: "{{ coriolis_config_dir }}/ssl/coriolis.key"
-    - src: "{{ coriolis_appliance_tls_cacert }}"
-      dest: "{{ coriolis_config_dir }}/ssl/ca/coriolis-ca.crt"
-
-- name: Ensure ca is world readable
-  file:
-    path: "{{ coriolis_config_dir }}/ssl/ca/coriolis-ca.crt"
-    state: file
-    mode: 0644
-
 - name: Render templates
   template:
     src: "{{ item.src }}"
