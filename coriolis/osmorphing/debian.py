@@ -165,8 +165,8 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
 
     def set_net_config(self, nics_info, dhcp):
         if not dhcp:
-            if self._test_path(self.netplan_base):
-                self._preserve_static_netplan_configuration(nics_info)
+            LOG.info("Setting static IP configuration")
+            self._setup_network_preservation(nics_info)
             return
 
         self.disable_predictable_nic_names()
