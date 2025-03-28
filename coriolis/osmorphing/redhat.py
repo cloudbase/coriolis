@@ -81,35 +81,6 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
             "could not determine grub location."
             " boot partition not mounted?")
 
-    def _get_net_ifaces_info(self, ifcfgs_ethernet, mac_addresses):
-        net_ifaces_info = []
-
-        for ifcfg_file, ifcfg in ifcfgs_ethernet:
-            mac_address = ifcfg.get("HWADDR")
-            if not mac_address:
-                if len(ifcfgs_ethernet) == 1 and len(mac_addresses) == 1:
-                    mac_address = mac_addresses[0]
-                    LOG.info("HWADDR not defined in: %s, using migration "
-                             "configuration mac_address: %s",
-                             ifcfg_file, mac_address)
-            if not mac_address:
-                self._event_manager.warn(
-                    "HWADDR not defined, skipping: %s" % ifcfg_file)
-                continue
-            name = ifcfg.get("NAME")
-            if not name:
-                # Get the name from the config file
-                name = re.match("^.*/ifcfg-(.*)", ifcfg_file).groups()[0]
-            net_ifaces_info.append((name, mac_address))
-        return net_ifaces_info
-
-    def _add_net_udev_rules(self, net_ifaces_info):
-        udev_file = "etc/udev/rules.d/70-persistent-net.rules"
-        if not self._test_path(udev_file):
-            if net_ifaces_info:
-                content = utils.get_udev_net_rules(net_ifaces_info)
-                self._write_file_sudo(udev_file, content)
-
     def _has_systemd(self):
         try:
             self._exec_cmd_chroot("rpm -q systemd")
@@ -140,14 +111,6 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         if "GATEWAY" in network_cfg:
             del network_cfg["GATEWAY"]
             self._write_config_file(network_cfg_file, network_cfg)
-
-    def _get_ifcfgs_by_type(self, ifcfg_type):
-        ifcfgs = []
-        for ifcfg_file in self._get_net_config_files():
-            ifcfg = self._read_config_file(ifcfg_file)
-            if ifcfg.get("TYPE") == ifcfg_type:
-                ifcfgs.append((ifcfg_file, ifcfg))
-        return ifcfgs
 
     def _write_nic_configs(self, nics_info):
         for idx, _ in enumerate(nics_info):
@@ -203,11 +166,8 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
             self._write_nic_configs(nics_info)
             return
 
-        ifcfgs_ethernet = self._get_ifcfgs_by_type("Ethernet")
-        mac_addresses = [ni.get("mac_address") for ni in nics_info]
-        net_ifaces_info = self._get_net_ifaces_info(ifcfgs_ethernet,
-                                                    mac_addresses)
-        self._add_net_udev_rules(net_ifaces_info)
+        LOG.info("Setting static IP configuration")
+        self._setup_network_preservation(nics_info)
 
     def get_installed_packages(self):
         cmd = 'rpm -qa --qf "%{NAME}\\n"'
@@ -329,8 +289,3 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
     def _get_config_file_content(self, config):
         return "%s\n" % "\n".join(
             ['%s="%s"' % (k, v) for k, v in config.items()])
-
-    def _get_net_config_files(self):
-        dir_content = self._list_dir(self._NETWORK_SCRIPTS_PATH)
-        return [os.path.join(self._NETWORK_SCRIPTS_PATH, f) for f in
-                dir_content if re.match("^ifcfg-(.*)", f)]

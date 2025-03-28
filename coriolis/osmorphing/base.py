@@ -12,6 +12,7 @@ from six import with_metaclass
 import yaml
 
 from coriolis import exception
+from coriolis.osmorphing.netpreserver import factory
 from coriolis import utils
 
 GRUB2_SERIAL = "serial --word=8 --stop=1 --speed=%d --parity=%s --unit=0"
@@ -572,3 +573,41 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         self._set_grub2_cmdline(config_obj, options)
         self._apply_grub2_config(
             config_obj, execute_update_grub)
+
+    def _add_net_udev_rules(self, net_ifaces_info):
+        udev_file = "etc/udev/rules.d/70-persistent-net.rules"
+        if not self._test_path(udev_file):
+            if net_ifaces_info:
+                content = utils.get_udev_net_rules(net_ifaces_info)
+                self._write_file_sudo(udev_file, content)
+
+    def _setup_network_preservation(self, nics_info) -> None:
+        net_ifaces_info = dict()
+
+        net_preserver_class = factory.get_net_preserver(self)
+        LOG.info("Using network preserver class: %s", net_preserver_class)
+        netpreserver = net_preserver_class(self)
+        netpreserver.parse_network()
+        LOG.info("Parsed network configuration: %s",
+                 netpreserver.interface_info)
+
+        for nic in nics_info:
+            mac_address = nic.get('mac_address')
+            ip_addresses = nic.get('ip_addresses')
+            for iface, info in netpreserver.interface_info.items():
+                if mac_address:
+                    if info["mac_address"] == mac_address:
+                        net_ifaces_info[iface] = mac_address
+                    elif ip_addresses:
+                        for ip in ip_addresses:
+                            if ip in info["ip_addresses"] and mac_address:
+                                net_ifaces_info[iface] = mac_address
+                else:
+                    LOG.warning(
+                        "Could not find MAC address or IP addresses for "
+                        "interface '%s' in network configuration %s",
+                        iface, nic)
+
+        self._add_net_udev_rules(net_ifaces_info.items())
+
+        return
