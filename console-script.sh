@@ -123,6 +123,7 @@ TMP_WORKER_CERTIFICATE_PATH=/etc/coriolis/tmp-worker-cert.pem
 DOCKER_CONTAINERS_FOLDER="/var/lib/docker/containers"
 CORIOLIS_CERT_FOLDER=$(get_global_config_value coriolis_certificate_store)
 API_CA_PATH=$(get_global_config_value coriolis_appliance_tls_cacert)
+API_CUSTOM_LOCAL_CA_PATH="/usr/local/share/ca-certificates/coriolis-custom-ca.crt"
 API_CERT_PATH=$(get_global_config_value coriolis_appliance_tls_certificate)
 API_KEY_PATH=$(get_global_config_value coriolis_appliance_tls_key)
 METAL_ENABLED=$(get_global_config_value coriolis_export_providers | grep metal)
@@ -543,6 +544,10 @@ function change-api-certificate {
         run-logged-command "cat $API_CERT_PATH $API_CA_PATH > $(get_global_config_value coriolis_appliance_tls_cert_bundle)"
         run-logged-command "cat $API_KEY_PATH $API_CERT_PATH $API_CA_PATH > $(get_global_config_value coriolis_appliance_tls_combined)"
 
+        run-logged-command "cp $API_CA_PATH $API_CUSTOM_LOCAL_CA_PATH"
+        run-logged-command "chmod 644 $API_CUSTOM_LOCAL_CA_PATH"
+        run-logged-command "update-ca-certificates"
+
         echo "Create mark file for using custom certififcates."
         run-logged-command "touch $(get_global_config_value coriolis_appliance_custom_cert)"
 
@@ -574,6 +579,10 @@ function restore-certificate-chain-api {
             for f in $CORIOLIS_CERT_FOLDER/*.bak ; do restore_file "$f" "${f%.*}"; done
             if [ -n "$METAL_ENABLED" ]; then
                 for f in $METAL_HUB_CERTS_PATH/*.bak ; do restore_file "$f" "${f%.*}"; done
+            fi
+            if [ -f $API_CUSTOM_LOCAL_CA_PATH ]; then
+                run-logged-command "rm $API_CUSTOM_LOCAL_CA_PATH"
+                run-logged-command "update-ca-certificates --fresh"
             fi
         fi
     fi
