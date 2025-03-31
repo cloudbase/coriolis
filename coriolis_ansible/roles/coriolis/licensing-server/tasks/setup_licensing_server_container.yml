@@ -21,3 +21,5 @@
     volumes:
       - "/etc/ssl:/etc/ssl:ro"
       - "{{ coriolis_certificate_store }}:{{ coriolis_certificate_store }}:ro"
+  notify:
+    - "restart coriolis-licensing-server"
