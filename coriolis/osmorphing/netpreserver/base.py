@@ -11,5 +11,5 @@ class BaseNetPreserver(object):
     def check_net_preserver(self):
         pass
 
-    def parse_network(self, nics_info):
+    def parse_network(self):
         pass
