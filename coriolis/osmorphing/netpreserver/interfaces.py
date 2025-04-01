@@ -29,6 +29,7 @@ class InterfacesNetPreserver(base.BaseNetPreserver):
         def _parse_iface_file(interface_file):
             nonlocal paths
             curr_ip_address = None
+            curr_iface = None
             interfaces_contents = self.osmorphing_tool._read_file_sudo(
                 interface_file).decode()
             LOG.debug(

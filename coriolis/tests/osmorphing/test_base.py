@@ -976,3 +976,78 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         mock_set_grub2_cmdline.assert_called_once_with(
             config_obj, ['console=tty0', 'console=ttyS0'])
         mock_apply_grub2_config.assert_called_once_with(config_obj, True)
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_write_file_sudo')
+    def test__add_net_udev_rules(self, mock_write_file_sudo, mock_test_path):
+        mock_test_path.return_value = False
+        net_ifaces_info = [
+            ("eth0", "AA:BB:CC:DD:EE:FF"),
+            ("eth1", "FF:EE:DD:CC:BB:AA")
+        ]
+        content = (
+            'SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*", '
+            'ATTR{address}=="aa:bb:cc:dd:ee:ff", NAME="eth0"\n'
+            'SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*", '
+            'ATTR{address}=="ff:ee:dd:cc:bb:aa", NAME="eth1"\n'
+        )
+
+        self.os_morphing_tools._add_net_udev_rules(net_ifaces_info)
+
+        mock_write_file_sudo.assert_called_once_with(
+            "etc/udev/rules.d/70-persistent-net.rules", content
+        )
+
+    @ddt.data(
+        # (nics_info, expected_net_ifaces)
+        (
+            [
+                {"mac_address": "AA:BB:CC:DD:EE:FF",
+                 "ip_addresses": ["192.168.1.20"]},
+                {"mac_address": "00:11:22:33:44:55",
+                 "ip_addresses": ["192.168.1.11"]},
+                {"mac_address": "11:22:33:44:55:66",
+                 "ip_addresses": ["192.168.1.31"]},
+                {"mac_address": None,
+                 "ip_addresses": ["192.168.1.10"]},
+                {"mac_address": "FF:FF:FF:FF:FF:FF",
+                 "ip_addresses": ["192.168.1.10", "192.168.1.20"]}
+            ],
+            {
+                "eth0": "FF:FF:FF:FF:FF:FF",
+                "eth1": "FF:FF:FF:FF:FF:FF",
+                "eth2": "11:22:33:44:55:66"
+            }
+        ),
+    )
+    @ddt.unpack
+    def test__setup_network_preservation(self, nics_info, expected_net_ifaces):
+        class FakeNetPreserver:
+            def __init__(self, tool):
+                self.tool = tool
+                self.interface_info = {}
+
+            def parse_network(self):
+                self.interface_info = {
+                    "eth0": {"mac_address": "00:11:22:33:44:55",
+                             "ip_addresses": ["192.168.1.10"]},
+                    "eth1": {"mac_address": "AA:BB:CC:DD:EE:FF",
+                             "ip_addresses": ["192.168.1.20"]},
+                    "eth2": {"mac_address": "11:22:33:44:55:66",
+                             "ip_addresses": ["192.168.1.30"]},
+                }
+
+        with mock.patch(
+            "coriolis.osmorphing.netpreserver.factory.get_net_preserver",
+                return_value=FakeNetPreserver) as mock_get_np:
+
+            self.os_morphing_tools._add_net_udev_rules = mock.MagicMock()
+
+            self.os_morphing_tools._setup_network_preservation(nics_info)
+
+            result_net_ifaces = dict(
+                self.os_morphing_tools._add_net_udev_rules.call_args[0][0])
+
+            mock_get_np.assert_called_once_with(self.os_morphing_tools)
+            self.os_morphing_tools._add_net_udev_rules.assert_called_once()
+            self.assertEqual(result_net_ifaces, expected_net_ifaces)
