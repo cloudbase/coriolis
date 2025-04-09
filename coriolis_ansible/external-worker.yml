@@ -94,6 +94,12 @@
         dest: "{{ coriolis_config_dir }}"
       become: yes
 
+    - name: Copy coriolis logging conf
+      copy:
+        src: "{{ coriolis_config_dir }}/coriolis-worker-logging.conf"
+        dest: "{{ coriolis_config_dir }}"
+      become: yes
+
     - name: Copy coriolis CA certificate
       copy:
         src: "{{ coriolis_config_dir }}/ssl/ca/coriolis-ca.crt"
