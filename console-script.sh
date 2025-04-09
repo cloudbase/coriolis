@@ -2,7 +2,8 @@
 
 
 # Options and prompt definitions:
-OPTIONS=("Show Appliance Stats" "Show UI Login Details" "Edit/Inspect Coriolis Configuration" "Edit/Inspect Network Settings" "Edit/Inspect Proxy Settings" "Expose Coriolis Services Endpoints" "Add Certificate to Coriolis Worker" "Restore to default Coriolis Worker certificate chain" "Change Coriolis API certificate chain" "Restore Coriolis API certificate chain" "Restart Coriolis Services")
+OPTIONS=("Show Appliance Stats" "Show UI Login Details" "Edit/Inspect Coriolis Configuration" "Edit/Inspect Network Settings" "Edit/Inspect Proxy Settings" "Expose Coriolis Services Endpoints" "Add Certificate to Coriolis Worker" "Restore to default Coriolis Worker certificate chain" "Change Coriolis API certificate chain" "Restore Coriolis API certificate chain" "Deploy External Worker" "Restart Coriolis Services")
+
 
 WELCOME_PROMPT=$(cat <<EOP
 Welcome to the Coriolis Appliance Interactive User Console!
@@ -86,7 +87,6 @@ will be removed, and might need to be re-added.\n\n
 EOP
 )
 
-
 ADD_CERTIFICATE_TO_API_PROMPT=$(cat <<EOP
 This option will change Coriolis API and UI server certificate with a custom defined one downloaded from an URL.
 Appliance FQDN hostname will be changed to comply with server certificate, API's will be exposed.\n\n
@@ -95,6 +95,13 @@ EOP
 
 RESTORE_API_CERTIFICATE_CHAIN=$(cat <<EOP
 This option will restore the Coriolis API and UI server certificate to the internal self-signed certificate.\n\n
+EOP
+)
+
+DEPLOY_EXTERNAL_WORKER_PROMPT=$(cat <<EOP
+This option will deploy a Coriolis Worker service node to an external machine.
+Coriolis services need to be exposed in order to facilitate inter-node communication.
+If the appliance is already exposed and its API is reachable, skip exposing in this command wizard.\n\n
 EOP
 )
 
@@ -572,6 +579,35 @@ function restore-certificate-chain-api {
     expose-coriolis-services
 }
 
+function deploy-external-worker {
+    printf "$DEPLOY_EXTERNAL_WORKER_PROMPT"
+    CONFIRMED=`prompt-for-confirmation-word "Do you need to expose Coriolis services?"`
+    if [ "$CONFIRMED" = "1" ]; then
+        expose-coriolis-services
+    fi
+    DEFAULT_USER="root"
+
+    read -rp "Input external machine host: " EXT_HOST
+    read -rp "Input SSH username [$DEFAULT_USER]: " EXT_USER
+    EXT_USER=${EXT_USER:-$DEFAULT_USER}
+    read -s -r -p "Input SSH password: " EXT_PASS
+
+    echo -e "\nTesting SSH connection..."
+    sshpass -p "$EXT_PASS" ssh -oStrictHostKeyChecking=accept-new $EXT_USER@$EXT_HOST exit
+    if [ $? != "0" ]; then
+        echo "SSH connection to external machine failed. Please make sure that connection details are correct."
+        return
+    fi
+
+    EXT_PATH="$BASE_DIR/coriolis_ansible/inventory/external_workers"
+    cp $EXT_PATH $EXT_PATH.bak
+    echo "[external_workers]" > $EXT_PATH
+    echo -e "$EXT_HOST\tansible_connection=ssh\tansible_python_interpreter=/usr/bin/python3\tansible_ssh_user=$EXT_USER\tansible_ssh_pass=$EXT_PASS" >> $EXT_PATH
+
+    echo "Starting external worker deployment process"
+    $BASE_DIR/coriolis-ansible deploy-workers && echo "External worker successfully deployed"
+}
+
 function interact {
     echo "$OPTIONS_PROMPT"
     PS3="Select option: "
@@ -620,6 +656,10 @@ function interact {
                         ;;
                 "Restore Coriolis API certificate chain")
                         restore-certificate-chain-api
+            break
+                        ;;
+                "Deploy External Worker")
+                        deploy-external-worker
             break
                         ;;
                 "Restart Coriolis Services")
