@@ -22,6 +22,10 @@
       "type": "string",
       "description": "Human-readable identifier of the VM. It can be optionally used as an alternative to 'id' for identifying instances on platforms which also feature a non-ID naming scheme (e.g. VMWare VM paths)"
     },
+    "hostname": {
+      "type": "string",
+      "description": "Guest hostname of the VM."
+    },
     "dynamic_memory_enabled": {
       "type": "boolean",
       "description": "Indicates whether not the VM's physical memory was allocated dynamically."

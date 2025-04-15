@@ -1,0 +1,28 @@
+# No hostnames
+- old_export_info: {}
+  new_export_info: {}
+  expected_export_info:
+    hostname: ""
+
+# Hostname in old info
+- old_export_info:
+    hostname: old.host.name
+  new_export_info: {}
+  expected_export_info:
+    hostname: old.host.name
+
+# Hostname in new info only
+- old_export_info:
+    hostname: ""
+  new_export_info:
+    hostname: "new.host.name"
+  expected_export_info:
+    hostname: "new.host.name"
+
+# Hostname update from old to new
+- old_export_info:
+    hostname: "old.host.name"
+  new_export_info:
+    hostname: "new.host.name"
+  expected_export_info:
+    hostname: "new.host.name"

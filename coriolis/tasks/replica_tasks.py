@@ -92,7 +92,15 @@ def _preserve_old_export_info_nic_ips(old_export_info, new_export_info):
                 new_info['ip_addresses'] = old_ips
 
 
+def _preserve_hostname_info(old_export_info, new_export_info):
+    old_hostname = old_export_info.get("hostname", "")
+    new_hostname = new_export_info.get("hostname", "")
+    if not new_hostname:
+        new_export_info['hostname'] = old_hostname
+
+
 def _update_export_info(old_export_info, result_export_info):
+    _preserve_hostname_info(old_export_info, result_export_info)
     _preserve_old_export_info_nic_ips(old_export_info, result_export_info)
 
 
