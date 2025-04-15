@@ -61,6 +61,13 @@ class ReplicaTasksTestCase(test_base.CoriolisBaseTestCase):
             old_export_info, new_export_info)
         self.assertEqual(new_export_info, expected_export_info)
 
+    @ddt.file_data("data/test_hostname_update.yml")
+    @ddt.unpack
+    def test__preserve_hostname_info(
+            self, old_export_info, new_export_info, expected_export_info):
+        replica_tasks._preserve_hostname_info(old_export_info, new_export_info)
+        self.assertEqual(new_export_info, expected_export_info)
+
 
 class GetInstanceInfoTaskTestCase(test_base.CoriolisBaseTestCase):
 
