@@ -353,24 +353,27 @@ function add-certificate-to-worker {
     CERTIFI_DIR=$(run-logged-command "docker exec coriolis-worker python3 -c 'import certifi; import os; print(os.path.dirname(certifi.__file__))'")
     CACERT_PEM_PATH="$CERTIFI_DIR/cacert.pem"
 
-    read -p "Please enter a URL containing the certificate data: " URL
+    local cert_setup=1
+    while true; do
+        cert=$(confirm_input "Please enter a URL containing the certificate data: ")
+        if [ $? -eq 0 ]; then
+            if download_url_to_file "$cert" "$TMP_WORKER_CERTIFICATE_PATH"; then
+                echo "Download succeeded."
+                if check_certificate "$TMP_WORKER_CERTIFICATE_PATH"; then
+                    echo "Server Certificate $TMP_WORKER_CERTIFICATE_PATH is valid."
+                    cert_setup=0
+                    break
+                fi
+            fi
+        else
+            break
+        fi
+    done
 
-    echo "Downloading PEM certificate..."
-    wget -O $TMP_WORKER_CERTIFICATE_PATH $URL
-    if ! [ $? -eq 0 ]; then
-        echo "ERROR: Failed to download the certificate from URL: $URL"
-        return
+    if [[ $cert_setup = 0 ]]; then
+        run-logged-command "docker exec coriolis-worker bash -c 'if [ ! -f $CACERT_PEM_PATH.bak ]; then cp $CACERT_PEM_PATH $CACERT_PEM_PATH.bak; fi'"
+        run-logged-command "docker exec coriolis-worker bash -c 'cat $TMP_WORKER_CERTIFICATE_PATH >> $CACERT_PEM_PATH; echo >> $CACERT_PEM_PATH'"
     fi
-
-    echo "Validating downloaded PEM certificate"
-    openssl x509 -noout -in $TMP_WORKER_CERTIFICATE_PATH
-    if ! [ $? -eq 0 ]; then
-        echo "ERROR: The provided URL's contents do not contain a valid PEM certificate!"
-        return
-    fi
-
-    run-logged-command "docker exec coriolis-worker bash -c 'if [ ! -f $CACERT_PEM_PATH.bak ]; then cp $CACERT_PEM_PATH $CACERT_PEM_PATH.bak; fi'"
-    run-logged-command "docker exec coriolis-worker bash -c 'cat $TMP_WORKER_CERTIFICATE_PATH >> $CACERT_PEM_PATH; echo >> $CACERT_PEM_PATH'"
 }
 
 function restore-certificate-chain {
