@@ -45,6 +45,8 @@ fi
 "$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n kolla_enable_tls_backend -v 'yes'
 "$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n kolla_tls_backend_cert -v "$CORIOLIS_APPLIANCE_CERT"
 "$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n kolla_tls_backend_key -v "$CORIOLIS_APPLIANCE_KEY"
+"$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n rabbitmq_enable_tls -v "yes"
+"$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n rabbitmq_cacert -v "/etc/coriolis/ssl/ca/coriolis-ca.crt"
 
 
 "$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n docker_registry -v "$(get_global_config_value docker_registry)"

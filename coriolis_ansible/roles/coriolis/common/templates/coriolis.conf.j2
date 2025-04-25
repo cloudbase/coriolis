@@ -36,6 +36,12 @@ compressor_address = {{ compressor_address }}
 default_osmorphing_operation_timeout = 1800
 
 {% endif %}
+[oslo_messaging_rabbit]
+ssl = True
+ssl_key_file = {{ coriolis_config_dir }}/ssl/coriolis.key
+ssl_cert_file = {{ coriolis_config_dir }}/ssl/coriolis.crt
+ssl_ca_file = {{ coriolis_config_dir }}/ssl/ca/coriolis-ca.crt
+
 [cache]
 enabled = True
 backend = dogpile.cache.memcached

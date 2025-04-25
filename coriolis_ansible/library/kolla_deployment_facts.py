@@ -72,7 +72,7 @@ def main():
         "db_port": 3306,
         "db_user_name": "root",
         "db_user_password": passwords["database_password"],
-        "rabbitmq_port": 5672,
+        "rabbitmq_port": 5671,
         "rabbitmq_user_name": "openstack",
         "rabbitmq_user_password": passwords["rabbitmq_password"],
     }

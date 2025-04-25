@@ -82,11 +82,15 @@
 - include_tasks: create_coriolis_appliance_tls_certificates.yml
   when: not custom_cert_mark.stat.exists
 
-- name: "Ensure kolla ca-certificate dir"
+- name: "Ensure kolla and certificate dir exist"
   file:
-    path: /etc/kolla/certificates/ca
+    path: "{{ item }}"
     state: directory
     mode: 0755
+  with_items:
+    - /etc/kolla
+    - /etc/kolla/certificates
+    - /etc/kolla/certificates/ca
 
 # The extra CA must have the .crt extension, otherwise it will be ignored
 - name: "Copying over ca-certificate to kolla config dir"
@@ -96,6 +100,10 @@
   loop:
     - src: "{{ coriolis_appliance_tls_cacert }}"
       dest: "/etc/kolla/certificates/ca/coriolis-ca.crt"
+    - src: "{{ coriolis_appliance_tls_certificate }}"
+      dest: "/etc/kolla/certificates/rabbitmq-cert.pem"
+    - src: "{{ coriolis_appliance_tls_key }}"
+      dest: "/etc/kolla/certificates/rabbitmq-key.pem"
 
 - name: Create service certificate folder
   file:
