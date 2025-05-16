@@ -10,7 +10,7 @@
     backup: yes
   vars:
     keystone_protocol: "{{ kolla_deployment.result.keystone_protocol }}"
-    keystone_host: "{{ kolla_deployment.result.listen_address }}"
+    keystone_host: "{{ kolla_deployment.result.kolla_external_fqdn | default(kolla_deployment.result.listen_address, true) }}"
     keystone_public_port: "{{ kolla_deployment.result.keystone_public_port }}"
   with_items:
     - { src: influxdb.conf.j2,        dest: "{{ influxdb_config_dir }}/influxdb.conf" }

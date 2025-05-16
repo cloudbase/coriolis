@@ -82,7 +82,7 @@ def edit_inventory_file_section(inventory_file, section, new_host_name=None,
         fd.write('\n'.join(lines))
 
 
-def update_kolla_cfg(interface, ip, fqdn):
+def update_kolla_cfg(interface, ip, fqdn=None):
     print("Updating Kolla config")
 
     with open(KOLLA_CFG, "r") as f:
@@ -90,27 +90,30 @@ def update_kolla_cfg(interface, ip, fqdn):
 
     config["network_interface"] = interface
     config["kolla_internal_vip_address"] = ip
-    if fqdn == '':
-        if config["kolla_internal_fqdn"]:
-            config.pop('kolla_internal_fqdn', None)
-        if config["kolla_external_fqdn"]:
-            config.pop('kolla_external_fqdn', None)
-    else:
-        config["kolla_internal_fqdn"] = fqdn
-        config["kolla_external_fqdn"] = fqdn
+    fqdn_kolla_options = ["kolla_internal_fqdn", "kolla_external_fqdn"]
+    for opt in fqdn_kolla_options:
+        if fqdn:
+            config[opt] = fqdn
+        else:
+            config.pop(opt, None)
 
     with open(KOLLA_CFG, 'w') as f:
         f.write(yaml.safe_dump(config, default_flow_style=False))
 
 
-def update_coriolis_cfg(ip, fqdn):
+def update_coriolis_cfg(ip, fqdn=None):
     print("Updating Coriolis config")
 
     with open(CORIOLIS_CFG, "r") as f:
         config = yaml.safe_load(f)
 
     config["bind_address"] = ip
-    config["coriolis_certtificate_fqdn"] = fqdn
+    fqdn_coriolis_options = ["coriolis_certtificate_fqdn"]
+    for opt in fqdn_coriolis_options:
+        if fqdn:
+            config[opt] = fqdn
+        else:
+            config.pop(opt, None)
 
     with open(CORIOLIS_CFG, 'w') as f:
         f.write(yaml.safe_dump(config, default_flow_style=False))
@@ -165,17 +168,20 @@ if __name__ == '__main__':
         sys.exit(1)
 
     interface = get_interface(ip)
-    fqdn = socket.gethostname()
     if interface is None:
         print("IP address %s is not configured on this system" % ip)
         sys.exit(2)
-    if interface == 'lo':
-        fqdn = ''
+
+    fqdn = None
+    crt_hostname = socket.gethostname()
+    if crt_hostname != "coriolis" and interface != 'lo':
+        fqdn = crt_hostname
 
     try:
         update_kolla_cfg(interface, ip, fqdn)
         update_coriolis_cfg(ip, fqdn)
-        update_appliance_inventory(fqdn)
+        if fqdn:
+            update_appliance_inventory(fqdn)
         expose()
     except Exception as err:
         print("Failed to expose Coriolis appliance: %s" % err)

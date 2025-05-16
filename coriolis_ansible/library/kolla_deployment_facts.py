@@ -76,6 +76,9 @@ def main():
         "rabbitmq_user_name": "openstack",
         "rabbitmq_user_password": passwords["rabbitmq_password"],
     }
+    # Custom hostname / fqdn should only be used with external certificate chain
+    if "kolla_external_fqdn" in global_vars.keys():
+        return_val["result"]["kolla_external_fqdn"] = global_vars["kolla_external_fqdn"]
 
     module.exit_json(**return_val)
 

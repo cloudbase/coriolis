@@ -5,14 +5,14 @@
 
 - name: Set Kolla deployment facts
   set_fact:
-    rabbitmq_host: "{{ kolla_deployment.result.listen_address }}"
+    rabbitmq_host: "{{ kolla_deployment.result.kolla_external_fqdn | default(kolla_deployment.result.listen_address, true) }}"
     rabbitmq_port: "{{ kolla_deployment.result.rabbitmq_port }}"
     rabbitmq_user: "{{ kolla_deployment.result.rabbitmq_user_name }}"
     rabbitmq_password: "{{ kolla_deployment.result.rabbitmq_user_password }}"
     memcached_host: "{{ kolla_deployment.result.listen_address }}"
     database_host: "{{ kolla_deployment.result.listen_address }}"
     keystone_protocol: "{{ kolla_deployment.result.keystone_protocol }}"
-    keystone_host: "{{ kolla_deployment.result.listen_address }}"
+    keystone_host: "{{ kolla_deployment.result.kolla_external_fqdn | default(kolla_deployment.result.listen_address, true) }}"
     keystone_public_port: "{{ kolla_deployment.result.keystone_public_port }}"
     keystone_internal_port: "{{ kolla_deployment.result.keystone_internal_port }}"
     keystone_project_name: "{{ kolla_deployment.result.keystone_project_name }}"
