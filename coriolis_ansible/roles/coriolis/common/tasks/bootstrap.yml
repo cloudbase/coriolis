@@ -2,11 +2,16 @@
 - name: Gather facts
   setup:
 
+# More reliable than ansible_fqdn as that actually reads /etc/hosts which we are trying to tempalte
+- name: Register appliance FQDN
+  shell: hostnamectl hostname
+  register: fqdn
+
 - name: Update /etc/hosts
   blockinfile:
     dest: /etc/hosts
     marker: "# {mark} ANSIBLE GENERATED HOSTS"
-    block: "{{ bind_address }}    {{ inventory_hostname }} {{ ansible_hostname }}"
+    block: "{{ bind_address }}    {{ fqdn.stdout }} {{ ansible_hostname }}"
 
 - name: Check whether cloud-init is installed, and ensure manage_etc_hosts is disabled
   block:
