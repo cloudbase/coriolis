@@ -11,8 +11,8 @@ PyMySQL
 netifaces
 oslo.cache
 oslo.concurrency
-oslo.config
-oslo.context>=2.19.1
+oslo.config<9.8.0
+oslo.context<6.0.0
 oslo.db<=12.3.2
 oslo.i18n
 oslo.log
