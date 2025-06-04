@@ -45,21 +45,21 @@ class BaseDebianMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         self.assertFalse(result)
 
     @mock.patch('coriolis.utils.Grub2ConfigEditor')
-    @mock.patch.object(debian.BaseDebianMorphingTools, '_test_path')
+    @mock.patch.object(debian.BaseDebianMorphingTools, '_test_path_chroot')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_exec_cmd_chroot')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_write_file_sudo')
-    @mock.patch.object(debian.BaseDebianMorphingTools, '_read_file')
+    @mock.patch.object(debian.BaseDebianMorphingTools, '_read_file_sudo')
     def test_disable_predictable_nic_names(
-            self, mock_read_file, mock_write_file_sudo, mock_exec_cmd_chroot,
-            mock_test_path, mock_grub2_cfg_editor):
-        mock_test_path.return_value = True
+            self, mock_read_file_sudo, mock_write_file_sudo,
+            mock_exec_cmd_chroot, mock_test_path_chroot,
+            mock_grub2_cfg_editor):
+        mock_test_path_chroot.return_value = True
 
         self.morpher.disable_predictable_nic_names()
 
-        mock_test_path.assert_called_once_with(
-            self.os_root_dir + '/etc/default/grub')
+        mock_test_path_chroot.assert_called_once_with('etc/default/grub')
         mock_grub2_cfg_editor.assert_called_once_with(
-            mock_read_file.return_value.decode.return_value)
+            mock_read_file_sudo.return_value.decode.return_value)
         mock_grub2_cfg_editor.return_value.append_to_option.assert_has_calls(
             [
                 mock.call(
@@ -80,8 +80,7 @@ class BaseDebianMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
                      "opt_val": 0})
             ]
         )
-        mock_read_file.assert_called_once_with(
-            self.os_root_dir + '/etc/default/grub')
+        mock_read_file_sudo.assert_called_once_with('etc/default/grub')
         mock_write_file_sudo.assert_called_once_with(
             "etc/default/grub", mock_grub2_cfg_editor.return_value.dump())
         mock_exec_cmd_chroot.assert_called_once_with("/usr/sbin/update-grub")
@@ -89,17 +88,17 @@ class BaseDebianMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch('coriolis.utils.Grub2ConfigEditor')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_exec_cmd_chroot')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_write_file_sudo')
-    @mock.patch.object(debian.BaseDebianMorphingTools, '_read_file')
-    @mock.patch.object(debian.BaseDebianMorphingTools, '_test_path')
-    def test_disable_predictable_nic_names_no_test_path(
-            self, mock_test_path, mock_read_file,
+    @mock.patch.object(debian.BaseDebianMorphingTools, '_read_file_sudo')
+    @mock.patch.object(debian.BaseDebianMorphingTools, '_test_path_chroot')
+    def test_disable_predictable_nic_names_no_test_path_chroot(
+            self, mock_test_path_chroot, mock_read_file_sudo,
             mock_write_file_sudo, mock_exec_cmd_chroot, mock_grub2_cfg_editor):
 
-        mock_test_path.return_value = False
+        mock_test_path_chroot.return_value = False
 
         self.morpher.disable_predictable_nic_names()
 
-        mock_read_file.assert_not_called()
+        mock_read_file_sudo.assert_not_called()
         mock_write_file_sudo.assert_not_called()
         mock_exec_cmd_chroot.assert_not_called()
         mock_grub2_cfg_editor.assert_not_called()
