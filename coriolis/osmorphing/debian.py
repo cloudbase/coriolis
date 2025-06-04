@@ -2,7 +2,6 @@
 # All Rights Reserved.
 
 from io import StringIO
-import os
 
 from oslo_log import log as logging
 import yaml
@@ -40,12 +39,10 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
             detected_os_info['release_version'], minimum=8)
 
     def disable_predictable_nic_names(self):
-        grub_cfg = os.path.join(
-            self._os_root_dir,
-            "etc/default/grub")
-        if self._test_path(grub_cfg) is False:
+        grub_cfg = "etc/default/grub"
+        if self._test_path_chroot(grub_cfg) is False:
             return
-        contents = self._read_file(grub_cfg).decode()
+        contents = self._read_file_sudo(grub_cfg).decode()
         cfg = utils.Grub2ConfigEditor(contents)
         cfg.append_to_option(
             "GRUB_CMDLINE_LINUX_DEFAULT",
