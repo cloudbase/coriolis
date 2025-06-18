@@ -7,6 +7,12 @@ from unittest import mock
 from coriolis.osmorphing.osmount import windows
 from coriolis.tests import test_base
 
+GET_PARTITION_OUTPUT = """
+disknumber partitionnumber
+---------- ---------------
+         2               2
+         3               4"""
+
 
 class CoriolisTestException(Exception):
     pass
@@ -151,23 +157,52 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
             logmsg_fmt="Importing foreign disk with ID '%s'."
         )
 
-    def test__bring_all_disks_online(self):
-        result = self.tools._bring_all_disks_online()
+    def test__bring_disks_online(self):
+        self.tools._conn.exec_ps_command.return_value = "1\n2"
+        result = self.tools._bring_disks_online()
         self.assertIsNone(result)
 
-        self.tools._conn.exec_ps_command.assert_called_once_with(
-            "Get-Disk | Where-Object { $_.IsOffline -eq $True } | "
-            "Set-Disk -IsOffline $False"
-        )
+        self.tools._conn.exec_ps_command.assert_has_calls([
+            mock.call(
+                "(Get-Disk | Where-Object { $_.IsOffline -eq $True }).Number"),
+            mock.call("Set-Disk -IsOffline $False 1"),
+            mock.call("Set-Disk -IsOffline $False 2"),
+        ])
+
+    def test__bring_disks_online_with_exception(self):
+        self.tools._conn.exec_ps_command.side_effect = [
+            "1\n2", None, windows.exception.CoriolisException]
+        with self.assertLogs('coriolis.osmorphing.osmount.windows',
+                             level=logging.WARNING):
+            self.tools._bring_disks_online()
+
+    def test__bring_disks_online_disk_nums(self):
+        result = self.tools._bring_disks_online(disk_nums=['1', 2])
+        self.assertIsNone(result)
+
+        self.tools._conn.exec_ps_command.assert_has_calls([
+            mock.call("Set-Disk -IsOffline $False 1"),
+            mock.call("Set-Disk -IsOffline $False 2"),
+        ])
 
     def test__set_basic_disks_rw_mode(self):
+        self.tools._conn.exec_ps_command.return_value = "1\n2"
         result = self.tools._set_basic_disks_rw_mode()
         self.assertIsNone(result)
 
-        self.tools._conn.exec_ps_command.assert_called_once_with(
-            "Get-Disk | Where-Object { $_.IsReadOnly -eq $True } | "
-            "Set-Disk -IsReadOnly $False"
-        )
+        self.tools._conn.exec_ps_command.assert_has_calls([
+            mock.call("(Get-Disk | "
+                      "Where-Object { $_.IsReadOnly -eq $True }).Number"),
+            mock.call("Set-Disk -IsReadOnly $False 1"),
+            mock.call("Set-Disk -IsReadOnly $False 2"),
+        ])
+
+    def test__set_basic_disks_rw_mode_with_exception(self):
+        self.tools._conn.exec_ps_command.side_effect = [
+            "1\n2", None, windows.exception.CoriolisException]
+        with self.assertLogs('coriolis.osmorphing.osmount.windows',
+                             level=logging.WARNING):
+            self.tools._set_basic_disks_rw_mode()
 
     def test__get_system_drive(self):
         result = self.tools._get_system_drive()
@@ -217,68 +252,63 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
                              level=logging.WARNING):
             self.tools._bring_nonboot_disks_offline()
 
-    def test__rebring_disks_online(self):
-        self.tools._conn.exec_ps_command.return_value = "1\n2\n3"
-
-        result = self.tools._rebring_disks_online()
+    def test__bring_nonboot_disks_offline_disk_nums(self):
+        result = self.tools._bring_nonboot_disks_offline(disk_nums=['1', 2])
         self.assertIsNone(result)
 
         self.tools._conn.exec_ps_command.assert_has_calls([
-            mock.call(
-                "(Get-Disk | Where-Object { $_.IsBoot -eq $False }).Number"),
-            mock.call("Set-Disk -IsOffline $True 1"),
-            mock.call("Set-Disk -IsOffline $True 2"),
-            mock.call("Set-Disk -IsOffline $True 3"),
-            mock.call("Get-Disk | Where-Object { $_.IsOffline -eq $True } | "
-                      "Set-Disk -IsOffline $False")
+            mock.call('Set-Disk -IsOffline $True 1'),
+            mock.call('Set-Disk -IsOffline $True 2'),
         ])
 
-    def test__set_volumes_drive_letter(self):
-        self.tools._conn.exec_ps_command.return_value = "1\n2\n3"
+    @mock.patch.object(windows.WindowsMountTools,
+                       '_bring_nonboot_disks_offline')
+    @mock.patch.object(windows.WindowsMountTools, '_bring_disks_online')
+    def test__rebring_disks_online(self, bring_disks_online_mock,
+                                   bring_disks_offline_mock):
+        result = self.tools._rebring_disks_online()
+        self.assertIsNone(result)
+        bring_disks_offline_mock.assert_called()
+        bring_disks_online_mock.assert_called()
 
+    @mock.patch.object(windows.WindowsMountTools, '_rebring_disks_online')
+    def test__set_volumes_drive_letter(self, rebring_disks_mock):
+        self.tools._conn.exec_ps_command.return_value = GET_PARTITION_OUTPUT
         result = self.tools._set_volumes_drive_letter()
         self.assertIsNone(result)
 
         self.tools._conn.exec_ps_command.assert_has_calls([
             mock.call(
-                'Get-Partition | Where-Object { $_.Type -eq "Basic" } | '
-                'Set-Partition -NoDefaultDriveLetter $False'),
+                'Get-Partition | Where-Object { $_.Type -eq "Basic" -and '
+                '$_.NoDefaultDriveLetter -eq $True } | Select-Object -Property'
+                ' DiskNumber,PartitionNumber'),
             mock.call(
-                "(Get-Disk | Where-Object { $_.IsBoot -eq $False }).Number"),
-            mock.call("Set-Disk -IsOffline $True 1"),
-            mock.call("Set-Disk -IsOffline $True 2"),
-            mock.call("Set-Disk -IsOffline $True 3"),
-            mock.call("Get-Disk | Where-Object { $_.IsOffline -eq $True } | "
-                      "Set-Disk -IsOffline $False")
+                'Set-Partition -NoDefaultDriveLetter $False -DiskNumber 2 '
+                '-PartitionNumber 2'),
+            mock.call(
+                'Set-Partition -NoDefaultDriveLetter $False -DiskNumber 3 '
+                '-PartitionNumber 4'),
         ])
+        rebring_disks_mock.assert_called_once_with(disk_nums=['2', '3'])
 
-    def test_mount_os(self):
-        self.tools._conn.test_path.return_value = True
-        self.tools._conn.exec_ps_command.return_value = "C:\\\nD:\\\nE:\\"
-        self.tools._conn.EOL = "\n"
+    @mock.patch.object(windows.WindowsMountTools, '_get_system_drive')
+    @mock.patch.object(windows.WindowsMountTools, '_get_fs_roots')
+    @mock.patch.object(windows.WindowsMountTools, '_set_volumes_drive_letter')
+    @mock.patch.object(windows.WindowsMountTools, '_set_basic_disks_rw_mode')
+    @mock.patch.object(windows.WindowsMountTools, '_bring_disks_online')
+    def test_mount_os(self, mock_bring_disks_online, mock_set_rw_mode,
+                      mock_set_drive_letters, mock_get_fs_roots,
+                      mock_get_system_drive):
+        mock_get_fs_roots.return_value = ["C:\\", "D:\\", "E:\\"]
+        mock_get_system_drive.return_value = "C:"
+        self.tools._conn.test_path.side_effect = [True, False]
 
         result = self.tools.mount_os()
-        self.assertEqual(result, ("C:\\", None))
+        self.assertEqual(('D:\\', None), result)
 
-        self.tools._conn.exec_ps_command.assert_has_calls([
-            mock.call("Get-Disk | Where-Object { $_.IsOffline -eq $True } | "
-                      "Set-Disk -IsOffline $False"),
-            mock.call("Get-Disk | Where-Object { $_.IsReadOnly -eq $True } | "
-                      "Set-Disk -IsReadOnly $False"),
-            mock.call(
-                'Get-Partition | Where-Object { $_.Type -eq "Basic" } | '
-                'Set-Partition -NoDefaultDriveLetter $False'),
-            mock.call(
-                '(Get-Disk | Where-Object { $_.IsBoot -eq $False }).Number'),
-            mock.call("Set-Disk -IsOffline $True C:\\"),
-            mock.call("Set-Disk -IsOffline $True D:\\"),
-            mock.call("Set-Disk -IsOffline $True E:\\"),
-            mock.call("Get-Disk | Where-Object { $_.IsOffline -eq $True } | "
-                      "Set-Disk -IsOffline $False"),
-            mock.call(
-                "(get-psdrive -PSProvider FileSystem).Root"),
-            mock.call("$env:SystemDrive")
-        ])
+        mock_bring_disks_online.assert_called_once_with()
+        mock_set_rw_mode.assert_called_once_with()
+        mock_set_drive_letters.assert_called_once_with()
 
     def test_mount_os_no_root_partition(self):
         self.tools._conn.test_path.return_value = False

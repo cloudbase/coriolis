@@ -140,15 +140,31 @@ class WindowsMountTools(base.BaseOSMountTools):
             "Foreign", import_disk_script_fmt,
             logmsg_fmt="Importing foreign disk with ID '%s'.")
 
-    def _bring_all_disks_online(self):
-        self._conn.exec_ps_command(
-            "Get-Disk | Where-Object { $_.IsOffline -eq $True } | "
-            "Set-Disk -IsOffline $False")
+    def _bring_disks_online(self, disk_nums=None):
+        if disk_nums is None:
+            disk_nums = self._conn.exec_ps_command(
+                "(Get-Disk | Where-Object { $_.IsOffline -eq $True }"
+                ").Number").splitlines()
+        for disk_num in disk_nums:
+            try:
+                self._conn.exec_ps_command(
+                    f"Set-Disk -IsOffline $False {disk_num}")
+            except exception.CoriolisException:
+                LOG.warning(
+                    f"Failed setting disk {disk_num} online. Error was: "
+                    f"{utils.get_exception_details()}")
 
     def _set_basic_disks_rw_mode(self):
-        self._conn.exec_ps_command(
-            "Get-Disk | Where-Object { $_.IsReadOnly -eq $True } | "
-            "Set-Disk -IsReadOnly $False")
+        read_only_disk_nums = self._conn.exec_ps_command(
+            "(Get-Disk | Where-Object { $_.IsReadOnly -eq $True }).Number")
+        for disk_num in read_only_disk_nums.splitlines():
+            try:
+                self._conn.exec_ps_command(
+                    f"Set-Disk -IsReadOnly $False {disk_num}")
+            except exception.CoriolisException:
+                LOG.warning(
+                    f"Failed setting disk {disk_num} RW flag. Error was: "
+                    f"{utils.get_exception_details()}")
 
     def _get_system_drive(self):
         return self._conn.exec_ps_command("$env:SystemDrive")
@@ -160,10 +176,12 @@ class WindowsMountTools(base.BaseOSMountTools):
             raise exception.CoriolisException("No filesystems found")
         return drives
 
-    def _bring_nonboot_disks_offline(self):
-        nonboot_disk_nums = self._conn.exec_ps_command(
-            "(Get-Disk | Where-Object { $_.IsBoot -eq $False }).Number")
-        for disk_num in nonboot_disk_nums.splitlines():
+    def _bring_nonboot_disks_offline(self, disk_nums=None):
+        if disk_nums is None:
+            disk_nums = self._conn.exec_ps_command(
+                "(Get-Disk | Where-Object { $_.IsBoot -eq $False }"
+                ").Number").splitlines()
+        for disk_num in disk_nums:
             try:
                 self._conn.exec_ps_command(
                     "Set-Disk -IsOffline $True %s" % disk_num)
@@ -172,18 +190,35 @@ class WindowsMountTools(base.BaseOSMountTools):
                     "Failed setting disk %s offline. Error was: %s",
                     disk_num, utils.get_exception_details())
 
-    def _rebring_disks_online(self):
-        self._bring_nonboot_disks_offline()
-        self._bring_all_disks_online()
+    def _rebring_disks_online(self, disk_nums=None):
+        self._bring_nonboot_disks_offline(disk_nums=disk_nums)
+        self._bring_disks_online(disk_nums=disk_nums)
 
     def _set_volumes_drive_letter(self):
-        self._conn.exec_ps_command(
-            'Get-Partition | Where-Object { $_.Type -eq "Basic" } | '
-            'Set-Partition -NoDefaultDriveLetter $False')
-        self._rebring_disks_online()
+        disk_nums = []
+        partitions = self._conn.exec_ps_command(
+            'Get-Partition | Where-Object { $_.Type -eq "Basic" -and '
+            '$_.NoDefaultDriveLetter -eq $True } | Select-Object -Property '
+            'DiskNumber,PartitionNumber')
+        if partitions:
+            LOG.debug(f"Partitions without default drive letter: {partitions}")
+            for part in partitions.splitlines():
+                part_line = part.split()
+                if not len(part_line) > 1:
+                    LOG.debug(f"Skipping partition line: {part_line}")
+                    continue
+                disk_num, part_num = part_line[:2]
+                if not disk_num.isnumeric() or not part_num.isnumeric():
+                    LOG.debug(f"Skipping partition line: {part_line}")
+                    continue
+                self._conn.exec_ps_command(
+                    f'Set-Partition -NoDefaultDriveLetter $False -DiskNumber '
+                    f'{disk_num} -PartitionNumber {part_num}')
+                disk_nums.append(disk_num)
+            self._rebring_disks_online(disk_nums=disk_nums)
 
     def mount_os(self):
-        self._bring_all_disks_online()
+        self._bring_disks_online()
         self._set_basic_disks_rw_mode()
         self._set_volumes_drive_letter()
         fs_roots = utils.retry_on_error(sleep_seconds=5)(self._get_fs_roots)(
