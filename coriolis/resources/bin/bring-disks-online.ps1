@@ -97,8 +97,8 @@ function Invoke-Main {
     foreach($dsk in $disks) {
         Get-DiskDetails $dsk | Set-DiskOnline | Import-ForeignDisk | Out-Null
     }
-    Get-Disk | Set-Disk -IsOffline:$false
-    Get-Disk | Where-Object {$_.IsBoot -eq $false} | Set-Disk -IsReadOnly:$false
+    Get-Disk | Set-Disk -IsOffline:$false -ErrorAction 'SilentlyContinue'
+    Get-Disk | Where-Object {$_.IsBoot -eq $false} | Set-Disk -IsReadOnly:$false -ErrorAction 'SilentlyContinue'
 }
 
 Invoke-Main
