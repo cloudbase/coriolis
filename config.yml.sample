@@ -26,7 +26,7 @@ coriolis_profiling_dir_host: /opt/coriolis/profiling
 # ["api", "conductor", "worker", "scheduler", "minion-manager", "transfer-cron", "deployer-manager"]
 enable_profiling_for: []
 
-coriolis_export_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "vmware", "aws", "metal"]
+coriolis_export_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "vmware", "aws", "metal", "ovirt"]
 coriolis_import_providers: ["openstack", "azure", "oci", "aws", "vmware", "ovirt", "lxd", "proxmox", "kubevirt"]
 
 # In the case that some repo needs to be cloned on some other branch instead of
