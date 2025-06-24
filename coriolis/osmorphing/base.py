@@ -592,21 +592,36 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
                  netpreserver.interface_info)
 
         for nic in nics_info:
-            mac_address = nic.get('mac_address')
-            ip_addresses = nic.get('ip_addresses')
+            nic_mac = nic.get('mac_address')
+            nic_ips = nic.get('ip_addresses')
+            if not nic_mac:
+                LOG.warning(
+                    "Parsed NIC '%s' info does not contain MAC address"
+                    % nic.get('name'))
+                continue
+
+            matching_ifaces = dict()
             for iface, info in netpreserver.interface_info.items():
-                if mac_address:
-                    if info["mac_address"] == mac_address:
-                        net_ifaces_info[iface] = mac_address
-                    elif ip_addresses:
-                        for ip in ip_addresses:
-                            if ip in info["ip_addresses"] and mac_address:
-                                net_ifaces_info[iface] = mac_address
-                else:
-                    LOG.warning(
-                        "Could not find MAC address or IP addresses for "
-                        "interface '%s' in network configuration %s",
-                        iface, nic)
+                mac_address = info.get('mac_address')
+                ip_addresses = info.get('ip_addresses', [])
+                if mac_address and mac_address == nic_mac:
+                    LOG.info(
+                        "Found matching interface for NIC '%s' with MAC '%s'",
+                        nic.get('name'), nic_mac)
+                    matching_ifaces[iface] = nic_mac
+                    break
+                if ip_addresses and nic_ips:
+                    if set(ip_addresses) & set(nic_ips):
+                        LOG.info(
+                            "Found matching interface for NIC '%s' with MAC "
+                            "'%s'", nic.get('name'), nic_mac)
+                        matching_ifaces[iface] = nic_mac
+                        break
+            if not matching_ifaces:
+                LOG.warning(
+                    "Could not find a matching guest interface for NIC '%s' "
+                    "with MAC address '%s'", nic, nic_mac)
+            net_ifaces_info.update(matching_ifaces)
 
         self._add_net_udev_rules(net_ifaces_info.items())
 
