@@ -598,10 +598,13 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
                 if mac_address:
                     if info["mac_address"] == mac_address:
                         net_ifaces_info[iface] = mac_address
-                    elif ip_addresses:
-                        for ip in ip_addresses:
-                            if ip in info["ip_addresses"] and mac_address:
-                                net_ifaces_info[iface] = mac_address
+                elif ip_addresses:
+                    LOG.info(
+                        "Parsed NIC '%s' info does not contain MAC address",
+                        nic.get('name'))
+                    for ip in ip_addresses:
+                        if ip in info["ip_addresses"] and mac_address:
+                            net_ifaces_info[iface] = mac_address
                 else:
                     LOG.warning(
                         "Could not find MAC address or IP addresses for "
