@@ -70,7 +70,32 @@ coriolis_docker_image_dir: /tmp/coriolis_docker_images
 coriolis_docker_image_timeout: 300
 
 coriolis_export_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "vmware", "aws", "metal", "ovirt"]
-coriolis_import_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "oci", "aws", "vmware", "ovirt"]
+coriolis_import_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "oci", "aws", "vmware", "ovirt", "kubevirt", "lxd", "proxmox"]
+
+export_provider_modules:
+  openstack: "coriolis_provider_openstack.ExportProvider"
+  oracle-vm: "coriolis_provider_oracle_vm.ExportProvider"
+  opc: "coriolis_provider_opc.ExportProvider"
+  azure: "coriolis_provider_azure.ExportProvider"
+  scvmm: "coriolis_provider_scvmm.HyperVExportProvider"
+  vmware: "coriolis_provider_vmware_vsphere.ExportProvider"
+  aws: "coriolis_provider_aws.ExportProvider"
+  metal: "coriolis_provider_metal.ExportProvider"
+  ovirt: "coriolis_provider_ovirt_olvm.ExportProvider,coriolis_provider_ovirt_rhev.ExportProvider"
+
+import_provider_modules:
+  openstack: "coriolis_provider_openstack.ImportProvider,coriolis_provider_vhi.ImportProvider"
+  oracle-vm: "coriolis_provider_oracle_vm.ImportProvider"
+  opc: "coriolis_provider_opc.ImportProvider"
+  azure: "coriolis_provider_azure.ImportProvider"
+  scvmm: "coriolis_provider_scvmm.ImportProvider"
+  oci: "coriolis_provider_oci.ImportProvider,coriolis_provider_opca.ImportProvider,coriolis_provider_o3c.ImportProvider"
+  aws: "coriolis_provider_aws.ImportProvider"
+  vmware: "coriolis_provider_vmware_vsphere.ImportProvider"
+  ovirt: "coriolis_provider_ovirt_olvm.ImportProvider,coriolis_provider_ovirt_rhev.ImportProvider"
+  kubevirt: "coriolis_provider_kubevirt.ImportProvider"
+  lxd: "coriolis_provider_lxd.ImportProvider"
+  proxmox: "coriolis_provider_proxmox.ImportProvider"
 
 coriolis_logger_socket_dir: /var/run/coriolis-logger
 coriolis_logger_socket_name: logger.socket
