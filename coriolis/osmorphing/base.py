@@ -586,6 +586,9 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
 
         net_preserver_class = factory.get_net_preserver(self)
         LOG.info("Using network preserver class: %s", net_preserver_class)
+        if not net_preserver_class:
+            raise exception.CoriolisException(
+                "Could not find any valid static network configuration")
         netpreserver = net_preserver_class(self)
         netpreserver.parse_network()
         LOG.info("Parsed network configuration: %s",
@@ -598,10 +601,13 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
                 if mac_address:
                     if info["mac_address"] == mac_address:
                         net_ifaces_info[iface] = mac_address
-                    elif ip_addresses:
-                        for ip in ip_addresses:
-                            if ip in info["ip_addresses"] and mac_address:
-                                net_ifaces_info[iface] = mac_address
+                elif ip_addresses:
+                    LOG.info(
+                        "Parsed NIC '%s' info does not contain MAC address",
+                        nic.get('name'))
+                    for ip in ip_addresses:
+                        if ip in info["ip_addresses"] and mac_address:
+                            net_ifaces_info[iface] = mac_address
                 else:
                     LOG.warning(
                         "Could not find MAC address or IP addresses for "
