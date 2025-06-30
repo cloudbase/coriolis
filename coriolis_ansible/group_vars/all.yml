@@ -93,7 +93,7 @@ import_provider_modules:
   aws: "coriolis_provider_aws.ImportProvider"
   vmware: "coriolis_provider_vmware_vsphere.ImportProvider"
   ovirt: "coriolis_provider_ovirt_olvm.ImportProvider,coriolis_provider_ovirt_rhev.ImportProvider"
-  kubevirt: "coriolis_provider_kubevirt.ImportProvider"
+  kubevirt: "coriolis_provider_kubevirt.ImportProvider,coriolis_provider_harvester.ImportProvider"
   lxd: "coriolis_provider_lxd.ImportProvider"
   proxmox: "coriolis_provider_proxmox.ImportProvider"
 
