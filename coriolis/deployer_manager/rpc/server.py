@@ -34,6 +34,32 @@ class DeployerManagerServerEndpoint:
                 rpc_conductor_client.ConductorClient())
         return self._conductor_client_instance
 
+    def _wait_for_pending_deployment_status_change(self, deployment_id):
+        pending = constants.EXECUTION_STATUS_PENDING
+        LOG.info(
+            f"Waiting for deployment '{deployment_id}' to be out of "
+            f"'{pending}' status")
+        i = 0
+        max_retries = 60
+        while i < max_retries:
+            deployment = self._rpc_conductor_client.get_deployment(
+                self._admin_ctx, deployment_id)
+            deployment_status = deployment['last_execution_status']
+            if deployment_status != pending:
+                LOG.info(
+                    f"Deployment '{deployment_id}' changed into "
+                    f"'{deployment_status}' and not {pending} anymore.")
+                return
+
+            LOG.info(
+                f"Deployment '{deployment_id}' is still '{deployment_status}'")
+            i += 1
+            time.sleep(5)
+
+        raise exception.InvalidDeploymentState(
+            f"Timed out waiting for deployment '{deployment_id}' to be out of "
+            f"'{pending}' status.")
+
     def _check_deployer_status(self, deployment_id):
         active_statuses = [
             constants.EXECUTION_STATUS_UNEXECUTED,
@@ -72,8 +98,10 @@ class DeployerManagerServerEndpoint:
                 admin_ctx = context.get_admin_context(
                     trust_id=deployment['trust_id'])
                 admin_ctx.delete_trust_id = True
-                return self._rpc_conductor_client.confirm_deployer_completed(
+                self._rpc_conductor_client.confirm_deployer_completed(
                     admin_ctx, deployment['id'], force=False)
+                return self._wait_for_pending_deployment_status_change(
+                    deployment_id)
             else:
                 if ex_status in error_statuses:
                     raise exception.InvalidTransferState(
