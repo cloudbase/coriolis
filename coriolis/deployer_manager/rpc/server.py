@@ -92,6 +92,7 @@ class DeployerManagerServerEndpoint:
                 self._admin_ctx, deployment_id, str(ex))
 
     def _loop(self):
+        greenthreads = []
         while True:
             try:
                 deployments = self._rpc_conductor_client.get_deployments(
@@ -99,7 +100,12 @@ class DeployerManagerServerEndpoint:
                     include_task_info=False)
                 for d in deployments:
                     if d['last_execution_status'] == PENDING_STATUS:
-                        eventlet.spawn(self._check_deployer_status, d['id'])
+                        greenthreads.append(
+                            eventlet.spawn(
+                                self._check_deployer_status, d['id']))
+
+                for gt in greenthreads:
+                    gt.wait()
             except Exception:
                 LOG.warning(
                     f"Deployer manager failed to list pending deployments. "
