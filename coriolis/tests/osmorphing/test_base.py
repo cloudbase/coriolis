@@ -999,43 +999,136 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         )
 
     @ddt.data(
-        # (nics_info, expected_net_ifaces)
+        # (nics_info, interface_info, expected_net_ifaces)
+        (
+            [
+                {"mac_address": None,
+                 "ip_addresses": []}
+            ],
+            {
+                "eth0": {"mac_address": None,
+                         "ip_addresses": []},
+            },
+            {}
+        ),
+        (
+            [
+                {"mac_address": "00:11:22:33:44:55",
+                 "ip_addresses": ["192.168.1.10"]},
+            ],
+            {
+                "eth0": {"mac_address": None,
+                         "ip_addresses": None},
+            },
+            {}
+        ),
+        (
+            [
+                {"mac_address": "00:11:22:33:44:55",
+                 "ip_addresses": ["192.168.1.10"]},
+            ],
+            {
+                "eth0": {"mac_address": "00:11:22:33:44:55",
+                         "ip_addresses": []},
+            },
+            {
+                "eth0": "00:11:22:33:44:55"
+            }
+        ),
+        (
+            [
+                {"mac_address": "00:11:22:33:44:55",
+                 "ip_addresses": ["192.168.1.10"]},
+            ],
+            {
+                "eth0": {"mac_address": None,
+                         "ip_addresses": ["192.168.1.10"]},
+            },
+            {
+                "eth0": "00:11:22:33:44:55"
+            }
+        ),
+        (
+            [
+                {"mac_address": "00:11:22:33:44:55",
+                 "ip_addresses": ["192.168.1.10"]},
+            ],
+            {
+                "eth0": {"mac_address": None,
+                         "ip_addresses": ["192.168.1.20", "192.168.1.10"]},
+            },
+            {
+                "eth0": "00:11:22:33:44:55"
+            }
+        ),
+        (
+            [
+                {"mac_address": "00:11:22:33:44:55",
+                 "ip_addresses": ["192.168.1.20", "192.168.1.10"]},
+            ],
+            {
+                "eth0": {"mac_address": None,
+                         "ip_addresses": ["192.168.1.30", "192.168.1.10"]},
+            },
+            {
+                "eth0": "00:11:22:33:44:55"
+            }
+        ),
         (
             [
                 {"mac_address": "AA:BB:CC:DD:EE:FF",
-                 "ip_addresses": ["192.168.1.20"]},
-                {"mac_address": "00:11:22:33:44:55",
-                 "ip_addresses": ["192.168.1.11"]},
-                {"mac_address": "11:22:33:44:55:66",
-                 "ip_addresses": ["192.168.1.31"]},
-                {"mac_address": None,
-                 "ip_addresses": ["192.168.1.10"]},
-                {"mac_address": "FF:FF:FF:FF:FF:FF",
-                 "ip_addresses": ["192.168.1.10", "192.168.1.20"]}
+                 "ip_addresses": ["192.168.4.10"]},
             ],
             {
-                "eth0": "FF:FF:FF:FF:FF:FF",
-                "eth1": "FF:FF:FF:FF:FF:FF",
-                "eth2": "11:22:33:44:55:66"
+                "eth0": {"mac_address": "00:11:22:33:44:55",
+                         "ip_addresses": ["192.168.1.10"]},
+                "eth1": {"mac_address": "AA:BB:CC:DD:EE:FF",
+                         "ip_addresses": ["192.168.2.20"]},
+                "eth2": {"mac_address": "11:22:33:44:55:66",
+                         "ip_addresses": ["192.168.3.30"]},
+            },
+            {
+                "eth1": "AA:BB:CC:DD:EE:FF"
+            }
+        ),
+        (
+            [
+                {"mac_address": None,
+                 "ip_addresses": ["192.168.3.10"]},
+                {"mac_address": "AA:BB:CC:DD:EE:FF",
+                 "ip_addresses": []},
+                {"mac_address": "00:11:22:33:44:55",
+                 "ip_addresses": ["192.168.1.11"]},
+                {"mac_address": "FF:FF:FF:FF:FF:FF",
+                 "ip_addresses": ["192.168.2.10", "192.168.2.20"]},
+            ],
+            {
+                "eth3": {"mac_address": None,
+                         "ip_addresses": ["192.168.3.10"]},
+                "eth0": {"mac_address": "00:11:22:33:44:55",
+                         "ip_addresses": ["192.168.1.10"]},
+                "eth1": {"mac_address": "AA:BB:CC:DD:EE:FF",
+                         "ip_addresses": ["192.168.1.20"]},
+                "eth2": {"mac_address": "11:22:33:44:55:66",
+                         "ip_addresses": ["192.168.2.20"]},
+            },
+            {
+                "eth0": "00:11:22:33:44:55",
+                "eth1": "AA:BB:CC:DD:EE:FF",
+                "eth2": "FF:FF:FF:FF:FF:FF",
             }
         ),
     )
     @ddt.unpack
-    def test__setup_network_preservation(self, nics_info, expected_net_ifaces):
+    def test__setup_network_preservation(
+        self, nics_info, interface_info, expected_net_ifaces):
         class FakeNetPreserver:
             def __init__(self, tool):
                 self.tool = tool
                 self.interface_info = {}
 
             def parse_network(self):
-                self.interface_info = {
-                    "eth0": {"mac_address": "00:11:22:33:44:55",
-                             "ip_addresses": ["192.168.1.10"]},
-                    "eth1": {"mac_address": "AA:BB:CC:DD:EE:FF",
-                             "ip_addresses": ["192.168.1.20"]},
-                    "eth2": {"mac_address": "11:22:33:44:55:66",
-                             "ip_addresses": ["192.168.1.30"]},
-                }
+                self.interface_info = interface_info
 
         with mock.patch(
             "coriolis.osmorphing.netpreserver.factory.get_net_preserver",
@@ -1043,11 +1136,13 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
 
             self.os_morphing_tools._add_net_udev_rules = mock.MagicMock()
 
-            self.os_morphing_tools._setup_network_preservation(nics_info)
+            with self.assertLogs(
+                'coriolis.osmorphing.base', level=logging.INFO):
+                self.os_morphing_tools._setup_network_preservation(nics_info)
 
             result_net_ifaces = dict(
                 self.os_morphing_tools._add_net_udev_rules.call_args[0][0])
 
             mock_get_np.assert_called_once_with(self.os_morphing_tools)
             self.os_morphing_tools._add_net_udev_rules.assert_called_once()
-            self.assertEqual(result_net_ifaces, expected_net_ifaces)
+            self.assertEqual(expected_net_ifaces, result_net_ifaces)
