@@ -1616,13 +1616,18 @@ class ConductorServerEndpoint(object):
         else:
             self._begin_tasks(ctxt, deployment, execution)
 
-    @deployment_synchronized
     def confirm_deployer_completed(
             self, ctxt, deployment_id, force=False):
         try:
-            deployment = self._get_deployment(
-                ctxt, deployment_id, include_task_info=True)
-            self._execute_deployment(ctxt, deployment, force)
+            with lockutils.lock(
+                    constants.DEPLOYMENT_LOCK_NAME_FORMAT % deployment_id,
+                    external=True):
+                deployment = self._get_deployment(
+                    ctxt, deployment_id, include_task_info=True)
+            with lockutils.lock(
+                    constants.TRANSFER_LOCK_NAME_FORMAT %
+                    deployment.transfer_id, external=True):
+                self._execute_deployment(ctxt, deployment, force)
         except BaseException:
             LOG.error(
                 f"Something went wrong while attempting to launch pending "
