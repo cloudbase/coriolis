@@ -38,6 +38,7 @@ class DeployerManagerServerEndpoint:
         active_statuses = [
             constants.EXECUTION_STATUS_UNEXECUTED,
             constants.EXECUTION_STATUS_RUNNING,
+            constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS,
         ]
         error_statuses = [
             constants.EXECUTION_STATUS_ERROR,
