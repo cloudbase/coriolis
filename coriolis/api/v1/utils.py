@@ -117,22 +117,6 @@ def validate_user_scripts(user_scripts):
     return user_scripts
 
 
-def normalize_user_scripts(user_scripts, instances):
-    """ Removes instance user_scripts if said instance is not one of the
-        selected instances for the replica/migration """
-    if user_scripts is None:
-        user_scripts = {}
-    for instance in list(user_scripts.get('instances', {}).keys()):
-        if instance not in instances:
-            LOG.warn("Removing provided instance '%s' from user_scripts body "
-                     "because it's not included in one of the selected "
-                     "instances for this replica/migration: %s",
-                     instance, instances)
-            user_scripts['instances'].pop(instance, None)
-
-    return user_scripts
-
-
 def validate_instances_list_for_transfer(instances):
     if not instances:
         raise exception.InvalidInput(
