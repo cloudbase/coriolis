@@ -2023,6 +2023,31 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             to_dict=False
         )
 
+    def test_normalize_user_scripts(self):
+        user_scripts = {
+            'instances': {
+                "mock_instance_1": "mock_value_1",
+                "mock_instance_2": "mock_value_2"
+            }
+        }
+        instances = ["mock_instance_2", "mock_instance_3"]
+
+        expected_result = {
+            'instances': {
+                "mock_instance_2": "mock_value_2"
+            }
+        }
+
+        with self.assertLogs('coriolis.conductor.rpc.server', level='WARNING'):
+            result = self.server._normalize_user_scripts(user_scripts,
+                                                         instances)
+
+        self.assertEqual(expected_result, result)
+
+    def test_normalize_user_scripts_none(self):
+        result = self.server._normalize_user_scripts(None, None)
+        self.assertEqual({}, result)
+
     @mock.patch.object(server.ConductorServerEndpoint, '_get_deployment')
     def test_get_deployment(self, mock_get_deployment):
         result = testutils.get_wrapped_function(self.server.get_deployment)(
@@ -2217,6 +2242,8 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.context)
 
     @mock.patch.object(server.ConductorServerEndpoint,
+                       '_normalize_user_scripts')
+    @mock.patch.object(server.ConductorServerEndpoint,
                        '_validate_deployment_inputs')
     @mock.patch.object(models, 'Deployment')
     @mock.patch.object(db_api, 'add_deployment')
@@ -2226,7 +2253,10 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     def test_deploy_transfer_instances(
             self, mock_get_deployment, mock_execute_deployment,
             mock_get_transfer, mock_add_deployment, mock_deployment_model,
-            mock_validate_deployment_inputs):
+            mock_validate_deployment_inputs, mock_normalize_user_scripts):
+
+        mock_normalize_user_scripts.return_value = {'instances': {}}
+
         transfer_mock = mock.MagicMock()
         transfer_mock.instance_osmorphing_minion_pool_mappings = {
             mock.sentinel.instance1: mock.sentinel.pool1}
@@ -2253,7 +2283,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
                 trust_id=None)
 
         self.assertEqual(mock_get_deployment.return_value, result)
-        self.assertEqual(mock.sentinel.user_scripts, deployment.user_scripts)
+        self.assertEqual({'instances': {}}, deployment.user_scripts)
         self.assertEqual(True, deployment.clone_disks)
         self.assertEqual(False, deployment.skip_os_morphing)
         self.assertEqual(
@@ -2263,6 +2293,8 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         self.assertTrue(
             transfer_mock.destination_environment is not
             deployment.destination_environment)
+        mock_normalize_user_scripts.assert_called_once_with(
+            mock.sentinel.user_scripts, transfer_mock.instances)
         mock_get_transfer.assert_called_once_with(
             mock.sentinel.ctxt, mock.sentinel.transfer_id,
             include_task_info=True)

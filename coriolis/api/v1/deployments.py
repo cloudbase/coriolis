@@ -80,9 +80,6 @@ class DeploymentsController(api_wsgi.Controller):
             'instance_osmorphing_minion_pool_mappings', {})
         user_scripts = deployment.get('user_scripts', {})
         api_utils.validate_user_scripts(user_scripts)
-        user_scripts = api_utils.normalize_user_scripts(
-            user_scripts, deployment.get("instances", []))
-
         return (
             transfer_id, force, clone_disks, skip_os_morphing,
             instance_osmorphing_minion_pool_mappings,

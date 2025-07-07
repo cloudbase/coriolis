@@ -223,43 +223,6 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
             user_scripts
         )
 
-    def test_normalize_user_scripts(
-        self
-    ):
-        user_scripts = {
-            'instances': {
-                "mock_instance_1": "mock_value_1",
-                "mock_instance_2": "mock_value_2"
-            }
-        }
-        instances = ["mock_instance_2", "mock_instance_3"]
-        expected_result = {
-            'instances': {
-                "mock_instance_2": "mock_value_2"
-            }
-        }
-
-        with self.assertLogs('coriolis.api.v1.utils', level='WARN'):
-            result = utils.normalize_user_scripts(user_scripts, instances)
-
-        self.assertEqual(
-            expected_result,
-            result
-        )
-
-    def test_normalize_user_scripts_none(
-        self
-    ):
-        user_scripts = None
-        instances = None
-
-        result = utils.normalize_user_scripts(user_scripts, instances)
-
-        self.assertEqual(
-            {},
-            result
-        )
-
     @ddt.file_data('data/utils_validate_instances_list_for_transfer.yml')
     def test_validate_instances_list_for_transfer(
         self,

@@ -119,13 +119,11 @@ class TransferControllerTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(api_utils, 'validate_network_map')
     @mock.patch.object(endpoints_api.API, 'validate_target_environment')
     @mock.patch.object(api_utils, 'validate_user_scripts')
-    @mock.patch.object(api_utils, 'normalize_user_scripts')
     @mock.patch.object(api_utils, 'validate_storage_mappings')
     @ddt.file_data('data/transfers_validate_create_body.yml')
     def test_validate_create_body(
         self,
         mock_validate_storage_mappings,
-        mock_normalize_user_scripts,
         mock_validate_user_scripts,
         mock_validate_target_environment,
         mock_validate_network_map,
@@ -147,7 +145,6 @@ class TransferControllerTestCase(test_base.CoriolisBaseTestCase):
         instances = transfer.get('instances')
         storage_mappings = transfer.get('storage_mappings')
         mock_validate_instances_list_for_transfer.return_value = instances
-        mock_normalize_user_scripts.return_value = user_scripts
 
         if exception_raised:
             self.assertRaisesRegex(
@@ -178,8 +175,6 @@ class TransferControllerTestCase(test_base.CoriolisBaseTestCase):
             mock_validate_target_environment.assert_called_once_with(
                 ctxt, destination_endpoint_id, destination_environment)
             mock_validate_user_scripts.assert_called_once_with(user_scripts)
-            mock_normalize_user_scripts.assert_called_once_with(
-                user_scripts, instances)
             mock_validate_storage_mappings.assert_called_once_with(
                 storage_mappings)
 
@@ -368,7 +363,6 @@ class TransferControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_get_updated_user_scripts.assert_called_once_with(
             "mock_scripts", "mock_new_scripts")
 
-    @mock.patch.object(api_utils, 'normalize_user_scripts')
     @mock.patch.object(api_utils, 'validate_user_scripts')
     @mock.patch.object(api_utils, 'validate_storage_mappings')
     @mock.patch.object(api_utils, 'validate_network_map')
@@ -387,7 +381,6 @@ class TransferControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_validate_network_map,
         mock_validate_storage_mappings,
         mock_validate_user_scripts,
-        mock_normalize_user_scripts,
         config,
         expected_result
     ):
@@ -398,8 +391,6 @@ class TransferControllerTestCase(test_base.CoriolisBaseTestCase):
         id = mock.sentinel.id
         mock_get_transfer.return_value = transfer
         mock_get_merged_transfer_values.return_value = transfer_body
-        mock_normalize_user_scripts.return_value = transfer_body[
-            'user_scripts']
 
         result = testutils.get_wrapped_function(
             self.transfers._validate_update_body)(
@@ -429,8 +420,6 @@ class TransferControllerTestCase(test_base.CoriolisBaseTestCase):
             transfer_body['storage_mappings'])
         mock_validate_user_scripts.assert_called_once_with(
             transfer_body['user_scripts'])
-        mock_normalize_user_scripts.assert_called_once_with(
-            transfer_body['user_scripts'], transfer['instances'])
 
     @mock.patch.object(api.API, 'get_transfer')
     @ddt.file_data('data/transfers_validate_update_body_raises.yml')

@@ -1664,6 +1664,21 @@ class ConductorServerEndpoint(object):
             db_api.set_action_last_execution_status(
                 ctxt, deployment_id, error_status)
 
+    def _normalize_user_scripts(self, user_scripts, instances):
+        """ Removes instance user_scripts if said instance is not one of the
+            selected instances for the replica/migration """
+        if user_scripts is None:
+            user_scripts = {}
+        for instance in list(user_scripts.get('instances', {}).keys()):
+            if instance not in instances:
+                LOG.warn("Removing provided instance '%s' from user_scripts "
+                         "body because it's not included in one of the "
+                         "selected instances for this replica/migration: %s",
+                         instance, instances)
+                user_scripts['instances'].pop(instance, None)
+
+        return user_scripts
+
     @transfer_synchronized
     def deploy_transfer_instances(
             self, ctxt, transfer_id, force=False, wait_for_execution=None,
@@ -1683,6 +1698,7 @@ class ConductorServerEndpoint(object):
             init_status = constants.EXECUTION_STATUS_PENDING
 
         instances = transfer.instances
+        user_scripts = self._normalize_user_scripts(user_scripts, instances)
 
         deployment = models.Deployment()
         deployment.id = str(uuid.uuid4())

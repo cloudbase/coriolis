@@ -124,8 +124,6 @@ class TransferController(api_wsgi.Controller):
 
         user_scripts = transfer.get('user_scripts', {})
         api_utils.validate_user_scripts(user_scripts)
-        user_scripts = api_utils.normalize_user_scripts(
-            user_scripts, instances)
 
         # NOTE(aznashwan): we validate the destination environment for the
         # import provider before appending the 'storage_mappings' parameter
@@ -368,8 +366,6 @@ class TransferController(api_wsgi.Controller):
 
         user_scripts = merged_body['user_scripts']
         api_utils.validate_user_scripts(user_scripts)
-        merged_body['user_scripts'] = api_utils.normalize_user_scripts(
-            user_scripts, transfer.get('instances', []))
 
         return merged_body
 
