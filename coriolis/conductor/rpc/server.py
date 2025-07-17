@@ -1676,7 +1676,14 @@ class ConductorServerEndpoint(object):
                          "selected instances for this replica/migration: %s",
                          instance, instances)
                 user_scripts['instances'].pop(instance, None)
-
+                continue
+            user_scripts['instances'][instance] = (
+                user_scripts['instances'][instance].replace('\r\n', '\n').
+                replace('\n\r', '\n'))
+        linux_scripts = user_scripts.get('global', {}).get('linux')
+        if linux_scripts:
+            user_scripts['global']['linux'] = (
+                linux_scripts.replace('\r\n', '\n').replace('\n\r', '\n'))
         return user_scripts
 
     @transfer_synchronized
