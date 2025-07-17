@@ -238,8 +238,11 @@ set_dhcp = True
 # create new ports with new MAC addresses.
 port_reuse_policy = keep_mac
 
-# Dictionary with arbitrary key-value pairs to set as tags on the
-# migrated/replicated VMs.
+# Dictionary with arbitrary key-value pairs to set as the migrated/replicated
+# VM's properties.
+# instance_properties =
+
+# List of comma-separated tags to be set on the migrated/replicated VMs.
 # instance_tags =
 
 # Whether or not to preserve the fixed IPs of the migrated instances' Neutron
