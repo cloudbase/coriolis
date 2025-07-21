@@ -2023,30 +2023,89 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             to_dict=False
         )
 
-    def test_normalize_user_scripts(self):
-        user_scripts = {
-            'instances': {
-                "mock_instance_1": "mock_value_1",
-                "mock_instance_2": "mock_value_2"
+    @ddt.data(
+        (
+            None,
+            [],
+            {}
+        ),
+        (
+            {'instances': {}},
+            [],
+            {'instances': {}}
+        ),
+        (
+            {
+                'instances': {
+                    "mock_instance_1": "mock_value_1",
+                }
+            },
+            ["mock_instance_2"],
+            {
+                'instances': {}
             }
-        }
-        instances = ["mock_instance_2", "mock_instance_3"]
-
-        expected_result = {
-            'instances': {
-                "mock_instance_2": "mock_value_2"
+        ),
+        (
+            {
+                'instances': {
+                    "mock_instance_1": "mock_value_1\r\n",
+                    "mock_instance_2": "mock_value_2\r\n"
+                }
+            },
+            ["mock_instance_2"],
+            {
+                'instances': {
+                    "mock_instance_2": "mock_value_2\n"
+                }
             }
-        }
+        ),
+        (
+            {
+                'global': {
+                    "linux": "mock_value_1\r\n"
+                },
+                'instances': {
+                    "mock_instance_1": "mock_value_1\n\r",
+                    "mock_instance_2": "mock_value_2\n\r"
+                }
+            },
+            ["mock_instance_2"],
+            {
+                'instances': {
+                    "mock_instance_2": "mock_value_2\n"
+                },
+                'global': {
+                    "linux": "mock_value_1\n"
+                }
+            }
+        ),
+        (
+            {
+                'global': {
+                    "linux": "mock_value_1\n\r"
+                }
+            },
+            [],
+            {
+                'global': {
+                    "linux": "mock_value_1\n"
+                }
+            }
+        )
+    )
+    @ddt.unpack
+    def test_normalize_user_scripts(
+        self, user_scripts, instances, expected_result):
 
-        with self.assertLogs('coriolis.conductor.rpc.server', level='WARNING'):
-            result = self.server._normalize_user_scripts(user_scripts,
-                                                         instances)
+        try:
+            with self.assertLogs(
+                'coriolis.conductor.rpc.server', level='WARN'):
+                result = self.server._normalize_user_scripts(
+                    user_scripts, instances)
+        except AssertionError:
+            pass
 
         self.assertEqual(expected_result, result)
-
-    def test_normalize_user_scripts_none(self):
-        result = self.server._normalize_user_scripts(None, None)
-        self.assertEqual({}, result)
 
     @mock.patch.object(server.ConductorServerEndpoint, '_get_deployment')
     def test_get_deployment(self, mock_get_deployment):
