@@ -132,6 +132,7 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         self.conn = mock.sentinel.conn
         self.os_root_dir = '/root'
         self.chroot_path = '/root/etc/resolv.conf'
+        self.joined_chroot_path = '/root/root/etc/resolv.conf'
         self.os_root_device = mock.sentinel.os_root_device
         self.hypervisor = mock.sentinel.hypervisor
         self.event_manager = mock.MagicMock()
@@ -288,22 +289,16 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
     def test__test_path(self, mock_test_ssh_path):
         result = self.os_morphing_tools._test_path(self.chroot_path)
 
-        mocked_full_path = os.path.join(
-            self.os_morphing_tools._os_root_dir, self.chroot_path)
-
         mock_test_ssh_path.assert_called_once_with(
-            self.os_morphing_tools._ssh, mocked_full_path)
+            self.os_morphing_tools._ssh, self.joined_chroot_path)
         self.assertEqual(result, mock_test_ssh_path.return_value)
 
     @mock.patch.object(base.utils, 'read_ssh_file')
     def test__read_file(self, mock_read_ssh_file):
         result = self.os_morphing_tools._read_file(self.chroot_path)
 
-        mocked_full_path = os.path.join(
-            self.os_morphing_tools._os_root_dir, self.chroot_path)
-
         mock_read_ssh_file.assert_called_once_with(
-            self.os_morphing_tools._ssh, mocked_full_path)
+            self.os_morphing_tools._ssh, self.joined_chroot_path)
         self.assertEqual(result, mock_read_ssh_file.return_value)
 
     @mock.patch.object(base.utils, 'write_ssh_file')
@@ -311,22 +306,16 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         self.os_morphing_tools._write_file(
             self.chroot_path, mock.sentinel.content)
 
-        mocked_full_path = os.path.join(
-            self.os_morphing_tools._os_root_dir, self.chroot_path)
-
         mock_write_ssh_file.assert_called_once_with(
-            self.os_morphing_tools._ssh, mocked_full_path,
+            self.os_morphing_tools._ssh, self.joined_chroot_path,
             mock.sentinel.content)
 
     @mock.patch.object(base.utils, 'list_ssh_dir')
     def test__list_dir(self, mock_list_ssh_dir):
         result = self.os_morphing_tools._list_dir(self.chroot_path)
 
-        mocked_full_path = os.path.join(
-            self.os_morphing_tools._os_root_dir, self.chroot_path)
-
         mock_list_ssh_dir.assert_called_once_with(
-            self.os_morphing_tools._ssh, mocked_full_path)
+            self.os_morphing_tools._ssh, self.joined_chroot_path)
         self.assertEqual(result, mock_list_ssh_dir.return_value)
 
     @mock.patch.object(base.utils, 'exec_ssh_cmd')
@@ -464,10 +453,9 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         result = self.os_morphing_tools._read_config_file(
             self.chroot_path, check_exists=False)
 
-        mocked_full_path = os.path.join(
-            self.os_morphing_tools._os_root_dir, self.chroot_path)
         mock_read_ssh_ini.assert_called_once_with(
-            self.os_morphing_tools._ssh, mocked_full_path, check_exists=False)
+            self.os_morphing_tools._ssh, self.joined_chroot_path,
+            check_exists=False)
         self.assertEqual(result, mock_read_ssh_ini.return_value)
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path')
