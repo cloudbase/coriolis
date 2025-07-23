@@ -22,6 +22,7 @@ if [ ! -f /etc/kolla/passwords.yml ]; then
 fi
 
 KOLLA_CONF="/etc/kolla/globals.yml"
+KOLLA_NODE_CONF="/etc/kolla/config"
 KOLLA_DOCKER_IMAGES_TAG=$(get_global_config_value kolla_docker_images_tag)
 BIND_ADDRESS=$(get_global_config_value bind_address)
 EXTERNAL_FQDN=$(get_global_config_value coriolis_certtificate_fqdn)
@@ -30,7 +31,16 @@ CA_CERT=$(get_global_config_value coriolis_appliance_tls_cacert)
 CORIOLIS_APPLIANCE_CERT=$(get_global_config_value coriolis_appliance_tls_certificate)
 CORIOLIS_APPLIANCE_KEY=$(get_global_config_value coriolis_appliance_tls_key)
 
-if [ ! -z "$EXTERNAL_FQDN" ];then
+mkdir -p $KOLLA_NODE_CONF
+chmod 700 $KOLLA_NODE_CONF
+
+if [ -f "$BASE_DIR/../barbican-policy.yaml" ]; then
+    mkdir -p "$KOLLA_NODE_CONF/barbican"
+    chmod 700 "$KOLLA_NODE_CONF/barbican"
+    cp "$BASE_DIR/../barbican-policy.yaml" "$KOLLA_NODE_CONF/barbican/policy.yaml"
+fi
+
+if [ ! -z "$EXTERNAL_FQDN" ]; then
     "$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n kolla_external_fqdn -v $EXTERNAL_FQDN
 fi
 
