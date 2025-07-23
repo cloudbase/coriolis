@@ -253,18 +253,22 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         raise NotImplementedError()
 
     def _test_path(self, chroot_path):
+        chroot_path = chroot_path.lstrip('/')
         path = os.path.join(self._os_root_dir, chroot_path)
         return utils.test_ssh_path(self._ssh, path)
 
     def _read_file(self, chroot_path):
+        chroot_path = chroot_path.lstrip('/')
         path = os.path.join(self._os_root_dir, chroot_path)
         return utils.read_ssh_file(self._ssh, path)
 
     def _write_file(self, chroot_path, content):
+        chroot_path = chroot_path.lstrip('/')
         path = os.path.join(self._os_root_dir, chroot_path)
         utils.write_ssh_file(self._ssh, path, content)
 
     def _list_dir(self, chroot_path):
+        chroot_path = chroot_path.lstrip('/')
         path = os.path.join(self._os_root_dir, chroot_path)
         return utils.list_ssh_dir(self._ssh, path)
 
@@ -320,6 +324,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         return self._read_config_file("etc/os-release", check_exists=True)
 
     def _read_config_file(self, chroot_path, check_exists=False):
+        chroot_path = chroot_path.lstrip('/')
         full_path = os.path.join(self._os_root_dir, chroot_path)
         return utils.read_ssh_ini_config_file(
             self._ssh, full_path, check_exists=check_exists)
