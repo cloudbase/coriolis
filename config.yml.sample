@@ -34,7 +34,8 @@ coriolis_import_providers: ["openstack", "azure", "oci", "aws", "vmware", "ovirt
 # variables.
 # In both of these dicts, the key is expected to be either a provider name
 # (like in the export/import_providers lists above) or one of the following:
-# "core", "web", "licensing-server", "licensing-ui", "logger".
+# "core", "web", "licensing-server", "licensing-ui", "logger", "replicator", "python-client", "writer", "metal-hub",
+# "python-metalhubclient", "compressor".
 # Examples:
 # {openstack: cloudbase, aws: cloudengineer, etc: etc} - owner dict
 # {openstack: master, aws: branch2, etc: etc} - branch dict
