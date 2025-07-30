@@ -330,20 +330,23 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             self._ssh, full_path, check_exists=check_exists)
 
     def _copy_resolv_conf(self):
-        resolv_conf_path = os.path.join(self._os_root_dir, "etc/resolv.conf")
+        resolv_conf = "etc/resolv.conf"
+        resolv_conf_path = os.path.join(self._os_root_dir, resolv_conf)
         resolv_conf_path_old = "%s.old" % resolv_conf_path
 
-        if self._test_path(resolv_conf_path):
+        if self._test_path(resolv_conf):
             self._exec_cmd(
                 "sudo mv -f %s %s" % (resolv_conf_path, resolv_conf_path_old))
         self._exec_cmd('sudo cp -L --remove-destination /etc/resolv.conf %s' %
                        resolv_conf_path)
 
     def _restore_resolv_conf(self):
-        resolv_conf_path = os.path.join(self._os_root_dir, "etc/resolv.conf")
+        resolv_conf = "etc/resolv.conf"
+        resolv_conf_old = "%s.old" % resolv_conf
+        resolv_conf_path = os.path.join(self._os_root_dir, resolv_conf)
         resolv_conf_path_old = "%s.old" % resolv_conf_path
 
-        if self._test_path(resolv_conf_path_old):
+        if self._test_path(resolv_conf_old):
             self._exec_cmd(
                 "sudo mv -f %s %s" % (resolv_conf_path_old, resolv_conf_path))
 
