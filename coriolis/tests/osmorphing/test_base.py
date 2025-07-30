@@ -2,7 +2,6 @@
 # All Rights Reserved.
 
 import logging
-import os
 from unittest import mock
 
 import ddt
@@ -461,33 +460,35 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd')
     def test__copy_resolv_conf(self, mock_exec_cmd, mock_test_path):
-        mocked_full_path = os.path.join(
-            self.os_morphing_tools._os_root_dir, self.chroot_path)
-        resolv_conf_path_old = "%s.old" % mocked_full_path
+        mocked_resolv_conf = "etc/resolv.conf"
+        self.os_morphing_tools._os_root_dir = "/root"
+        mocked_full_path = "/root/etc/resolv.conf"
+        mocked_full_path_old = "/root/etc/resolv.conf.old"
         mock_test_path.return_value = True
 
         self.os_morphing_tools._copy_resolv_conf()
 
-        mock_test_path.assert_called_once_with(mocked_full_path)
+        mock_test_path.assert_called_once_with(mocked_resolv_conf)
         mock_exec_cmd.assert_has_calls([
             mock.call('sudo mv -f %s %s' % (
-                mocked_full_path, resolv_conf_path_old)),
+                mocked_full_path, mocked_full_path_old)),
             mock.call('sudo cp -L --remove-destination /etc/resolv.conf %s' %
                       mocked_full_path)])
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd')
     def test__restore_resolv_conf(self, mock_exec_cmd, mock_test_path):
-        mocked_full_path = os.path.join(
-            self.os_morphing_tools._os_root_dir, self.chroot_path)
-        resolv_conf_path_old = "%s.old" % mocked_full_path
+        mocked_resolv_conf_old = "etc/resolv.conf.old"
+        self.os_morphing_tools._os_root_dir = "/root"
+        mocked_full_path = "/root/etc/resolv.conf"
+        mocked_full_path_old = "/root/etc/resolv.conf.old"
         mock_test_path.return_value = True
 
         self.os_morphing_tools._restore_resolv_conf()
 
-        mock_test_path.assert_called_once_with(resolv_conf_path_old)
+        mock_test_path.assert_called_once_with(mocked_resolv_conf_old)
         mock_exec_cmd.assert_called_once_with(
-            'sudo mv -f %s %s' % (resolv_conf_path_old, mocked_full_path))
+            'sudo mv -f %s %s' % (mocked_full_path_old, mocked_full_path))
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_read_file')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_write_file')
