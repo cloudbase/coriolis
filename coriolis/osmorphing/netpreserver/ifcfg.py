@@ -51,7 +51,7 @@ class IfcfgNetPreserver(base.BaseNetPreserver):
     def _get_ifcfgs_by_type(self, ifcfg_type, network_scripts_path):
         ifcfgs = []
         for ifcfg_file in self._get_net_config_files(network_scripts_path):
-            ifcfg = self.osmorphing_tool._read_config_file(ifcfg_file)
+            ifcfg = self.osmorphing_tool._read_config_file_sudo(ifcfg_file)
             if ifcfg.get("TYPE") == ifcfg_type:
                 ifcfgs.append((ifcfg_file, ifcfg))
         return ifcfgs
