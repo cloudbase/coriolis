@@ -65,7 +65,7 @@ class NmconnectionNetPreserver(base.BaseNetPreserver):
     def _get_keyfiles_by_type(self, nmconnection_type, network_scripts_path):
         keyfiles = []
         for file in self._get_nmconnection_files(network_scripts_path):
-            keyfile = self.osmorphing_tool._read_config_file(file)
+            keyfile = self.osmorphing_tool._read_config_file_sudo(file)
             if keyfile.get("type") == nmconnection_type:
                 keyfiles.append((file, keyfile))
         return keyfiles

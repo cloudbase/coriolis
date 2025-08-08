@@ -329,6 +329,15 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         return utils.read_ssh_ini_config_file(
             self._ssh, full_path, check_exists=check_exists)
 
+    def _read_config_file_sudo(self, chroot_path, check_exists=False):
+        if self._test_path_chroot(chroot_path) is False:
+            if check_exists:
+                raise IOError("could not find %s" % chroot_path)
+            return {}
+        content = self._read_file_sudo(chroot_path).decode()
+        config = utils.parse_ini_config(content)
+        return config
+
     def _copy_resolv_conf(self):
         resolv_conf = "etc/resolv.conf"
         resolv_conf_path = os.path.join(self._os_root_dir, resolv_conf)
