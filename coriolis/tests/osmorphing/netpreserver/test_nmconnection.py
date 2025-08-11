@@ -44,20 +44,20 @@ class NmconnectionNetPreserverTestCase(test_base.CoriolisBaseTestCase):
             self.netpreserver.nmconnection_file)
         self.assertEqual(result, expected_result)
 
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_read_config_file')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_read_config_file_sudo')
     @mock.patch.object(nmconnection.NmconnectionNetPreserver,
                        '_get_nmconnection_files')
     def test_get_keyfiles_by_type(self, mock_get_nmconnection_files,
-                                  mock_read_config_file):
+                                  mock_read_config_file_sudo):
         mock_get_nmconnection_files.return_value = [mock.sentinel.nmconn_file]
-        mock_read_config_file.side_effect = [{"type": "ethernet"}]
+        mock_read_config_file_sudo.side_effect = [{"type": "ethernet"}]
 
         result = self.netpreserver._get_keyfiles_by_type(
             "ethernet", self.netpreserver.nmconnection_file)
 
         mock_get_nmconnection_files.assert_called_once_with(
             self.netpreserver.nmconnection_file)
-        mock_read_config_file.assert_called_once_with(
+        mock_read_config_file_sudo.assert_called_once_with(
             mock.sentinel.nmconn_file)
         self.assertEqual(result, [(mock.sentinel.nmconn_file,
                                    {"type": "ethernet"})])

@@ -33,17 +33,18 @@ class IfcfgNetPreserverTestCase(test_base.CoriolisBaseTestCase):
                 mock.sentinel.osmorphing_parameters,
                 mock.sentinel.operation_timeout))
 
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_read_config_file')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_read_config_file_sudo')
     @mock.patch.object(ifcfg.IfcfgNetPreserver, '_get_net_config_files')
     def test_get_ifcfgs_by_type(self, mock_get_net_config_files,
-                                mock_read_config_file):
+                                mock_read_config_file_sudo):
         mock_get_net_config_files.return_value = [mock.sentinel.ifcfg_file]
-        mock_read_config_file.side_effect = [{"TYPE": "Ethernet"}]
+        mock_read_config_file_sudo.side_effect = [{"TYPE": "Ethernet"}]
 
         result = self.netpreserver._get_ifcfgs_by_type(
             "Ethernet", self.netpreserver.network_scripts_path)
 
-        mock_read_config_file.assert_called_once_with(mock.sentinel.ifcfg_file)
+        mock_read_config_file_sudo.assert_called_once_with(
+            mock.sentinel.ifcfg_file)
         mock_get_net_config_files.assert_called_once_with(
             self.netpreserver.network_scripts_path)
 

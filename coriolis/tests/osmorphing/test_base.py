@@ -457,6 +457,45 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
             check_exists=False)
         self.assertEqual(result, mock_read_ssh_ini.return_value)
 
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path_chroot')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_read_file_sudo')
+    def test__read_config_file_sudo(
+            self, mock_read_file_sudo, mock_test_path_chroot):
+        mock_test_path_chroot.return_value = True
+        mock_read_file_sudo.return_value = b'[connection]\ntype=ethernet'
+
+        result = self.os_morphing_tools._read_config_file_sudo(
+            self.chroot_path)
+
+        mock_read_file_sudo.assert_called_once_with(self.chroot_path)
+        self.assertEqual(result, {'type': 'ethernet'})
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path_chroot')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_read_file_sudo')
+    def test__read_config_file_none(
+            self, mock_read_file_sudo, mock_test_path_chroot):
+        mock_test_path_chroot.return_value = False
+
+        result = self.os_morphing_tools._read_config_file_sudo(
+            self.chroot_path)
+
+        mock_read_file_sudo.assert_not_called()
+        self.assertEqual(result, {})
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path_chroot')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_read_file_sudo')
+    def test__read_config_file_sudo_raises(
+            self, mock_read_file_sudo, mock_test_path_chroot):
+        mock_test_path_chroot.return_value = False
+
+        self.assertRaises(
+            IOError,
+            self.os_morphing_tools._read_config_file_sudo,
+            self.chroot_path,
+            check_exists=True)
+
+        mock_read_file_sudo.assert_not_called()
+
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd')
     def test__copy_resolv_conf(self, mock_exec_cmd, mock_test_path):
