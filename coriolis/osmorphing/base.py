@@ -24,6 +24,7 @@ LOG = logging.getLogger(__name__)
 REQUIRED_DETECTED_OS_FIELDS = [
     "os_type", "distribution_name", "release_version",
     "friendly_release_name"]
+DEFAULT_CLOUD_USER = "cloud-user"
 
 
 class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
@@ -393,39 +394,79 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         except Exception as err:
             LOG.warning("Failed to set autorelabel: %r" % err)
 
-    def _configure_cloud_init_user_retention(self):
-        cloud_cfg_paths = ["/etc/cloud/cloud.cfg"]
+    def _write_cloud_init_mods_config(self, cloud_cfg):
+        cloud_config_path = "/etc/cloud/cloud.cfg.d/99_coriolis.cfg"
         cloud_cfgs_dir = "/etc/cloud/cloud.cfg.d"
-        if self._test_path(cloud_cfgs_dir):
-            for path in self._exec_cmd_chroot(
-                    'ls -1 %s' % cloud_cfgs_dir).decode().splitlines():
-                if path.endswith('.cfg'):
-                    cloud_cfg_paths.append("%s/%s" % (cloud_cfgs_dir, path))
-
+        if not self._test_path(cloud_cfgs_dir):
+            self._exec_cmd_chroot("mkdir -p /etc/cloud/cloud.cfg.d")
         self._event_manager.progress_update(
-            "Reconfiguring cloud-init to retain original user credentials")
-        for cloud_cfg_path in cloud_cfg_paths:
-            if not self._test_path(cloud_cfg_path):
-                LOG.warn("Could not find %s. Skipping reconfiguration." % (
-                    cloud_cfg_path))
-                continue
+            "Customizing cloud-init configuration")
+        new_cloud_cfg = yaml.dump(cloud_cfg, Dumper=yaml.SafeDumper)
+        self._write_file_sudo(cloud_config_path, new_cloud_cfg)
 
-            try:
-                self._exec_cmd_chroot(
-                    "cp %s %s.bak" % (cloud_cfg_path, cloud_cfg_path))
+    def _disable_installer_cloud_config(self):
+        installer_config_path = "/etc/cloud/cloud.cfg.d/99-installer.cfg"
+        if self._test_path(installer_config_path):
+            self._event_manager.progress_update(
+                "Disabling installer-generated cloud-config")
+            self._exec_cmd_chroot(
+                f"mv {installer_config_path} {installer_config_path}.bak")
 
-                cloud_cfg = yaml.load(self._read_file(cloud_cfg_path),
-                                      Loader=yaml.SafeLoader)
+    def _ensure_cloud_init_not_disabled(self):
+        disabler_file = "/etc/cloud/cloud-init.disabled"
+        system_conf_disabler = "/etc/systemd/system.conf"
+        grub_conf_disabler = "/etc/default/grub"
+        if self._test_path(disabler_file):
+            self._exec_cmd_chroot(f"rm {disabler_file}")
+        if self._test_path(system_conf_disabler):
+            self._exec_cmd_chroot(
+                "sed -i '/cloud-init=disabled/d' %s" % system_conf_disabler)
+        if self._test_path(grub_conf_disabler):
+            self._exec_cmd_chroot(
+                "sed -i '/cloud-init=disabled/d' %s" % grub_conf_disabler)
+            self._execute_update_grub()
 
-                cloud_cfg['disable_root'] = False
-                cloud_cfg['ssh_pwauth'] = True
-                cloud_cfg['users'] = None
-                new_cloud_cfg = yaml.dump(cloud_cfg)
-                self._write_file_sudo(cloud_cfg_path, new_cloud_cfg)
-            except Exception as err:
-                raise exception.CoriolisException(
-                    "Failed to reconfigure cloud-init to retain user "
-                    "credentials. Error was: %s" % str(err)) from err
+    def _reset_cloud_init_run(self):
+        self._exec_cmd_chroot("cloud-init clean --logs")
+
+    def _get_default_cloud_user(self):
+        cloud_cfg_path = 'etc/cloud/cloud.cfg'
+        if not self._test_path(cloud_cfg_path):
+            return DEFAULT_CLOUD_USER
+        cloud_cfg_content = self._read_file_sudo(cloud_cfg_path)
+        cloud_cfg = yaml.load(cloud_cfg_content, Loader=yaml.SafeLoader)
+        return cloud_cfg.get('system_info', {}).get('default_user', {}).get(
+            'name', DEFAULT_CLOUD_USER)
+
+    def _create_cloudinit_user(self):
+        cloud_user = self._get_default_cloud_user()
+        if not self._check_user_exists(cloud_user):
+            self._exec_cmd_chroot("useradd %s" % cloud_user)
+
+    def _configure_cloud_init(self):
+        cloud_cfg_mods = {}
+        if "cloud-init" not in self.get_packages()[0]:
+            return
+
+        self._disable_installer_cloud_config()
+        self._ensure_cloud_init_not_disabled()
+        self._reset_cloud_init_run()
+
+        if self._osmorphing_parameters.get('retain_user_credentials', False):
+            cloud_cfg_user_retention = {
+                'disable_root': False,
+                'ssh_pwauth': True,
+                'users': None
+            }
+            cloud_cfg_mods.update(cloud_cfg_user_retention)
+        else:
+            self._create_cloudinit_user()
+
+        if not self._osmorphing_parameters.get('set_dhcp', True):
+            disabled_network_config = {"network": {"config": "disabled"}}
+            cloud_cfg_mods.update(disabled_network_config)
+
+        self._write_cloud_init_mods_config(cloud_cfg_mods)
 
     def _test_path_chroot(self, path):
         # This method uses _exec_cmd_chroot() instead of SFTP stat()
