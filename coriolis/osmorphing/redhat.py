@@ -265,6 +265,12 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         else:
             LOG.debug("Skipping package 'grubby' as it's already installed")
 
+    def post_packages_install(self, package_names):
+        self._configure_cloud_init()
+        self._run_dracut()
+        super(BaseRedHatMorphingTools, self).post_packages_install(
+            package_names)
+
     def install_packages(self, package_names):
         enable_repos = self._get_repos_to_enable()
         self._yum_install(package_names, enable_repos)
@@ -281,6 +287,11 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
                                              check_exists=True)
         network_cfg["NOZEROCONF"] = "yes"
         self._write_config_file(network_cfg_file, network_cfg)
+
+    def _configure_cloud_init(self):
+        super(BaseRedHatMorphingTools, self)._configure_cloud_init()
+        if self._has_systemd():
+            self._enable_systemd_service("cloud-init")
 
     def _write_config_file(self, chroot_path, config_data):
         content = self._get_config_file_content(config_data)

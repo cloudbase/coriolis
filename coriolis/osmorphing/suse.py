@@ -127,6 +127,16 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
         except Exception:
             return False
 
+    def _configure_cloud_init(self):
+        super(BaseSUSEMorphingTools, self)._configure_cloud_init()
+        if self._has_systemd():
+            self._enable_systemd_service("cloud-init")
+
+    def post_packages_install(self, package_names):
+        self._configure_cloud_init()
+        self._run_dracut()
+        super(BaseSUSEMorphingTools, self).post_packages_install(package_names)
+
     def _enable_sles_module(self, module):
         available_modules = self._exec_cmd_chroot(
             "SUSEConnect --list-extensions").decode()
