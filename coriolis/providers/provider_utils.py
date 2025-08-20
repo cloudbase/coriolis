@@ -119,17 +119,17 @@ def check_changed_storage_mappings(volumes_info, old_storage_mappings,
     new_backend_mappings = new_storage_mappings.get('backend_mappings', [])
     new_disk_mappings = new_storage_mappings.get('disk_mappings', [])
 
-    old_backend_mappings_set = [
-        tuple(mapping.values()) for mapping in old_backend_mappings]
-    old_disk_mappings_set = [
-        tuple(mapping.values()) for mapping in old_disk_mappings]
-    new_backend_mappings_set = [
-        tuple(mapping.values()) for mapping in new_backend_mappings]
-    new_disk_mappings_set = [
-        tuple(mapping.values()) for mapping in new_disk_mappings]
+    old_backend_mappings_set = set([
+        tuple(mapping.values()) for mapping in old_backend_mappings])
+    old_disk_mappings_set = set([
+        tuple(mapping.values()) for mapping in old_disk_mappings])
+    new_backend_mappings_set = set([
+        tuple(mapping.values()) for mapping in new_backend_mappings])
+    new_disk_mappings_set = set([
+        tuple(mapping.values()) for mapping in new_disk_mappings])
 
-    if (old_backend_mappings_set != new_backend_mappings_set or
-            old_disk_mappings_set != new_disk_mappings_set):
+    if (not old_backend_mappings_set.issubset(new_backend_mappings_set) or
+            not old_disk_mappings_set.issubset(new_disk_mappings_set)):
         raise exception.CoriolisException("Modifying storage mappings is "
                                           "not supported.")
 
