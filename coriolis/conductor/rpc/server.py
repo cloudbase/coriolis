@@ -1191,7 +1191,7 @@ class ConductorServerEndpoint(object):
     def get_transfers(ctxt, include_tasks_executions=False,
                       include_task_info=False):
         return db_api.get_transfers(
-            ctxt, include_tasks_executions,
+            ctxt, include_tasks_executions=include_tasks_executions,
             include_task_info=include_task_info, to_dict=True)
 
     @transfer_synchronized
