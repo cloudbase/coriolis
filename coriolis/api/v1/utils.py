@@ -15,18 +15,16 @@ from coriolis import schemas
 LOG = logging.getLogger(__name__)
 
 
-def _get_show_deleted(val):
-    if val is None:
-        return val
+def get_bool_url_arg(req, arg_name, default=False):
+    val = req.GET.get(arg_name, default)
     try:
-        show_deleted = json.loads(val)
-        if type(show_deleted) is bool:
-            return show_deleted
+        parsed_val = json.loads(val)
+        if type(parsed_val) is bool:
+            return parsed_val
     except Exception as err:
         LOG.warn(
-            "failed to parse show_deleted: %s" % err)
-        pass
-    return None
+            "failed to parse %s: %s" % (arg_name, err))
+    return default
 
 
 def validate_network_map(network_map):

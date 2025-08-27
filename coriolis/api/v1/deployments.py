@@ -1,7 +1,6 @@
 # Copyright 2024 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-from oslo_config import cfg as conf
 from oslo_log import log as logging
 from webob import exc
 
@@ -13,14 +12,6 @@ from coriolis.endpoints import api as endpoints_api
 from coriolis import exception
 from coriolis.policies import deployments as deployment_policies
 
-DEPLOYMENTS_API_OPTS = [
-    conf.BoolOpt("include_task_info_in_deployments_api",
-                 default=False,
-                 help="Whether or not to expose the internal 'info' field of "
-                      "a Deployment as part of a `GET` request.")]
-
-CONF = conf.CONF
-CONF.register_opts(DEPLOYMENTS_API_OPTS, 'api')
 
 LOG = logging.getLogger(__name__)
 
@@ -34,25 +25,29 @@ class DeploymentsController(api_wsgi.Controller):
     def show(self, req, id):
         context = req.environ["coriolis.context"]
         context.can(deployment_policies.get_deployments_policy_label("show"))
+        include_task_info = api_utils.get_bool_url_arg(
+            req, "include_task_info", default=False)
         deployment = self._deployment_api.get_deployment(
             context, id,
-            include_task_info=CONF.api.include_task_info_in_deployments_api)
+            include_task_info=include_task_info)
         if not deployment:
             raise exc.HTTPNotFound()
 
         return deployment_view.single(deployment)
 
     def _list(self, req):
-        show_deleted = api_utils._get_show_deleted(
-            req.GET.get("show_deleted", None))
+        show_deleted = api_utils.get_bool_url_arg(
+            req, "show_deleted", default=False)
         context = req.environ["coriolis.context"]
         context.show_deleted = show_deleted
         context.can(deployment_policies.get_deployments_policy_label("list"))
+        include_task_info = api_utils.get_bool_url_arg(
+            req, "include_task_info", default=False)
         return deployment_view.collection(
             self._deployment_api.get_deployments(
                 context,
-                include_tasks=CONF.api.include_task_info_in_deployments_api,
-                include_task_info=CONF.api.include_task_info_in_deployments_api
+                include_tasks=include_task_info,
+                include_task_info=include_task_info
             ))
 
     def index(self, req):
