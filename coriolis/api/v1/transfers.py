@@ -11,18 +11,9 @@ from coriolis import exception
 from coriolis.policies import transfers as transfer_policies
 from coriolis.transfers import api
 
-from oslo_config import cfg as conf
 from oslo_log import log as logging
 from webob import exc
 
-TRANSFER_API_OPTS = [
-    conf.BoolOpt("include_task_info_in_transfers_api",
-                 default=False,
-                 help="Whether or not to expose the internal 'info' field of "
-                      "a Transfer as part of a `GET` request.")]
-
-CONF = conf.CONF
-CONF.register_opts(TRANSFER_API_OPTS, 'api')
 
 LOG = logging.getLogger(__name__)
 
@@ -40,21 +31,24 @@ class TransferController(api_wsgi.Controller):
     def show(self, req, id):
         context = req.environ["coriolis.context"]
         context.can(transfer_policies.get_transfers_policy_label("show"))
+        include_task_info = api_utils.get_bool_url_arg(
+            req, "include_task_info", default=False)
         transfer = self._transfer_api.get_transfer(
             context, id,
-            include_task_info=CONF.api.include_task_info_in_transfers_api)
+            include_task_info=include_task_info)
         if not transfer:
             raise exc.HTTPNotFound()
 
         return transfer_view.single(transfer)
 
     def _list(self, req):
-        show_deleted = api_utils._get_show_deleted(
-            req.GET.get("show_deleted", None))
+        show_deleted = api_utils.get_bool_url_arg(
+            req, "show_deleted", default=False)
         context = req.environ["coriolis.context"]
         context.show_deleted = show_deleted
         context.can(transfer_policies.get_transfers_policy_label("list"))
-        include_task_info = CONF.api.include_task_info_in_transfers_api
+        include_task_info = api_utils.get_bool_url_arg(
+            req, "include_task_info", default=False)
         return transfer_view.collection(
             self._transfer_api.get_transfers(
                 context,
