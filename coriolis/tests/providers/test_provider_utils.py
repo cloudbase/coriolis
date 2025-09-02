@@ -129,3 +129,131 @@ class ProviderUtilsTestCase(test_base.CoriolisBaseTestCase):
             provider_utils.check_changed_storage_mappings,
             volumes_info, old_storage_mappings,
             new_storage_mappings)
+
+    def test_check_changed_storage_mappings_adding_new_mappings_allowed(self):
+        volumes_info = [{'volume_id': '1'}]
+        old_storage_mappings = {
+            'backend_mappings': [
+                {'source': 'backend1', 'destination': 'dest1'}
+            ],
+            'disk_mappings': [
+                {'disk_id': '1', 'destination': 'dest1'}
+            ]
+        }
+        new_storage_mappings = {
+            'backend_mappings': [
+                {'source': 'backend1', 'destination': 'dest1'},
+                {'source': 'backend2', 'destination': 'dest2'}
+            ],
+            'disk_mappings': [
+                {'disk_id': '1', 'destination': 'dest1'},
+                {'disk_id': '2', 'destination': 'dest2'}
+            ]
+        }
+        self.assertIsNone(provider_utils.check_changed_storage_mappings(
+            volumes_info, old_storage_mappings, new_storage_mappings))
+
+    def test_check_changed_storage_mappings_backend_mappings_changed(self):
+        volumes_info = [{'volume_id': '1'}]
+        old_storage_mappings = {
+            'backend_mappings': [
+                {'source': 'backend1', 'destination': 'dest1'}
+            ],
+            'disk_mappings': [
+                {'disk_id': '1', 'destination': 'dest1'}
+            ]
+        }
+        new_storage_mappings = {
+            'backend_mappings': [
+                {'source': 'backend1', 'destination': 'dest2'}
+            ],
+            'disk_mappings': [
+                {'disk_id': '1', 'destination': 'dest1'}
+            ]
+        }
+        self.assertRaises(
+            exception.CoriolisException,
+            provider_utils.check_changed_storage_mappings,
+            volumes_info, old_storage_mappings,
+            new_storage_mappings)
+
+    def test_check_changed_storage_mappings_missing_backend_mapping(self):
+        volumes_info = [{'volume_id': '1'}]
+        old_storage_mappings = {
+            'backend_mappings': [
+                {'source': 'backend1', 'destination': 'dest1'},
+                {'source': 'backend2', 'destination': 'dest2'}
+            ],
+            'disk_mappings': [
+                {'disk_id': '1', 'destination': 'dest1'}
+            ]
+        }
+        new_storage_mappings = {
+            'backend_mappings': [
+                {'source': 'backend1', 'destination': 'dest1'}
+            ],
+            'disk_mappings': [
+                {'disk_id': '1', 'destination': 'dest1'}
+            ]
+        }
+        self.assertRaises(
+            exception.CoriolisException,
+            provider_utils.check_changed_storage_mappings,
+            volumes_info, old_storage_mappings,
+            new_storage_mappings)
+
+    def test_check_changed_storage_mappings_missing_disk_mapping(self):
+        volumes_info = [{'volume_id': '1'}]
+        old_storage_mappings = {
+            'backend_mappings': [
+                {'source': 'backend1', 'destination': 'dest1'}
+            ],
+            'disk_mappings': [
+                {'disk_id': '1', 'destination': 'dest1'},
+                {'disk_id': '2', 'destination': 'dest2'}
+            ]
+        }
+        new_storage_mappings = {
+            'backend_mappings': [
+                {'source': 'backend1', 'destination': 'dest1'}
+            ],
+            'disk_mappings': [
+                {'disk_id': '1', 'destination': 'dest1'}
+            ]
+        }
+        self.assertRaises(
+            exception.CoriolisException,
+            provider_utils.check_changed_storage_mappings,
+            volumes_info, old_storage_mappings,
+            new_storage_mappings)
+
+    def test_check_changed_storage_mappings_empty_old_mappings(self):
+        volumes_info = [{'volume_id': '1'}]
+        old_storage_mappings = {}
+        new_storage_mappings = {
+            'backend_mappings': [
+                {'source': 'backend1', 'destination': 'dest1'}
+            ],
+            'disk_mappings': [
+                {'disk_id': '1', 'destination': 'dest1'}
+            ]
+        }
+        self.assertIsNone(provider_utils.check_changed_storage_mappings(
+            volumes_info, old_storage_mappings, new_storage_mappings))
+
+    def test_check_changed_storage_mappings_empty_new_mappings(self):
+        volumes_info = [{'volume_id': '1'}]
+        old_storage_mappings = {
+            'backend_mappings': [
+                {'source': 'backend1', 'destination': 'dest1'}
+            ],
+            'disk_mappings': [
+                {'disk_id': '1', 'destination': 'dest1'}
+            ]
+        }
+        new_storage_mappings = {}
+        self.assertRaises(
+            exception.CoriolisException,
+            provider_utils.check_changed_storage_mappings,
+            volumes_info, old_storage_mappings,
+            new_storage_mappings)
