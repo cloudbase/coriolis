@@ -79,15 +79,6 @@ policy_file = {{ coriolis_policy_file }}
 [oslo_concurrency]
 lock_path = {{ coriolis_locks_dir_containers }}
 
-[api]
-# Whether or not to expose the internal 'info' field of
-# a Deployment as part of a `GET` request.
-include_task_info_in_deployments_api = false
-
-# Whether or not to expose the internal 'info' field of
-# a Transfer as part of a `GET` request.
-include_task_info_in_transfers_api = false
-
 [conductor]
 conductor_rpc_timeout = 60
 
