@@ -16,40 +16,51 @@ from coriolis.tests import test_base
 class UtilsTestCase(test_base.CoriolisBaseTestCase):
     """Test suite for the Coriolis Utils v1 API"""
 
-    def test_get_show_deleted(
+    def test_get_bool_url_arg_(
         self
     ):
-        val = "true"
+        mock_req = mock.Mock()
+        mock_req.GET.get.return_value = "true"
+        arg_name = "show_deleted"
 
-        result = utils._get_show_deleted(val)
+        result = utils.get_bool_url_arg(mock_req, arg_name, default=False)
 
         self.assertEqual(
             True,
             result
         )
+        mock_req.GET.get.assert_called_once_with(arg_name, False)
 
-    def test_get_show_deleted_none(
+    def test_get_bool_url_arg_false(
         self
     ):
-        result = utils._get_show_deleted(None)
+        mock_req = mock.Mock()
+        mock_req.GET.get.return_value = False
+        arg_name = "show_deleted"
+
+        result = utils.get_bool_url_arg(mock_req, arg_name, False)
 
         self.assertEqual(
-            None,
+            False,
             result
         )
+        mock_req.GET.get.assert_called_once_with(arg_name, False)
 
-    def test_get_show_deleted_invalid_json(
+    def test_get_bool_url_arg_invalid_json(
         self
     ):
-        val = "}invalid{"
+        mock_req = mock.MagicMock()
+        mock_req.GET.get.return_value = "}invalid{"
+        arg_name = "include_task_info"
 
         with self.assertLogs('coriolis.api.v1.utils', level='WARN'):
-            result = utils._get_show_deleted(val)
+            result = utils.get_bool_url_arg(mock_req, arg_name, default=False)
 
         self.assertEqual(
-            None,
+            False,
             result
         )
+        mock_req.GET.get.assert_called_once_with(arg_name, False)
 
     @mock.patch.object(schemas, 'validate_value')
     def test_validate_network_map(

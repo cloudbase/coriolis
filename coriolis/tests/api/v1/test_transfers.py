@@ -25,20 +25,20 @@ class TransferControllerTestCase(test_base.CoriolisBaseTestCase):
         super(TransferControllerTestCase, self).setUp()
         self.transfers = transfers.TransferController()
 
-    @mock.patch('coriolis.api.v1.transfers.CONF')
     @mock.patch.object(transfer_view, 'single')
     @mock.patch.object(api.API, 'get_transfer')
+    @mock.patch.object(api_utils, 'get_bool_url_arg')
     def test_show(
         self,
+        mock_get_bool_url_arg,
         mock_get_transfer,
-        mock_single,
-        mock_conf
+        mock_single
     ):
         mock_req = mock.Mock()
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
         id = mock.sentinel.id
-        mock_conf.api.include_task_info_in_transfers_api = True
+        mock_get_bool_url_arg.return_value = True
 
         result = self.transfers.show(mock_req, id)
 
@@ -48,24 +48,27 @@ class TransferControllerTestCase(test_base.CoriolisBaseTestCase):
         )
 
         mock_context.can.assert_called_once_with("migration:transfers:show")
+        mock_get_bool_url_arg.assert_called_once_with(
+            mock_req, 'include_task_info', default=False)
         mock_get_transfer.assert_called_once_with(
-            mock_context, id, include_task_info=True)
+            mock_context, id,
+            include_task_info=mock_get_bool_url_arg.return_value
+        )
         mock_single.assert_called_once_with(mock_get_transfer.return_value)
 
-    @mock.patch('coriolis.api.v1.transfers.CONF')
     @mock.patch.object(transfer_view, 'single')
     @mock.patch.object(api.API, 'get_transfer')
+    @mock.patch.object(api_utils, 'get_bool_url_arg')
     def test_show_no_transfer(
         self,
+        mock_get_bool_url_arg,
         mock_get_transfer,
         mock_single,
-        mock_conf
     ):
         mock_req = mock.Mock()
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
         id = mock.sentinel.id
-        mock_conf.api.include_task_info_in_transfers_api = True
         mock_get_transfer.return_value = None
 
         self.assertRaises(
@@ -77,23 +80,24 @@ class TransferControllerTestCase(test_base.CoriolisBaseTestCase):
 
         mock_context.can.assert_called_once_with("migration:transfers:show")
         mock_get_transfer.assert_called_once_with(
-            mock_context, id, include_task_info=True)
+            mock_context, id,
+            include_task_info=mock_get_bool_url_arg.return_value)
         mock_single.assert_not_called()
 
-    @mock.patch('coriolis.api.v1.transfers.CONF')
     @mock.patch.object(transfer_view, 'collection')
     @mock.patch.object(api.API, 'get_transfers')
-    @mock.patch.object(api_utils, '_get_show_deleted')
+    @mock.patch.object(api_utils, 'get_bool_url_arg')
     def test_list(
         self,
-        mock_get_show_deleted,
+        mock_get_bool_url_arg,
         mock_get_transfers,
         mock_collection,
-        mock_conf
     ):
         mock_req = mock.Mock()
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
+
+        mock_get_bool_url_arg.side_effect = [False, False]
 
         result = self.transfers._list(mock_req)
 
@@ -102,14 +106,17 @@ class TransferControllerTestCase(test_base.CoriolisBaseTestCase):
             result
         )
 
-        mock_get_show_deleted.assert_called_once_with(
-            mock_req.GET.get.return_value)
+        expected_calls = [
+            mock.call(mock_req, 'show_deleted', default=False),
+            mock.call(mock_req, 'include_task_info', default=False)
+        ]
+        mock_get_bool_url_arg.assert_has_calls(expected_calls)
+
         mock_context.can.assert_called_once_with("migration:transfers:list")
         mock_get_transfers.assert_called_once_with(
             mock_context,
-            include_tasks_executions=
-            mock_conf.api.include_task_info_in_transfers_api,
-            include_task_info=mock_conf.api.include_task_info_in_transfers_api
+            include_tasks_executions=False,
+            include_task_info=False
         )
         mock_collection.assert_called_once_with(
             mock_get_transfers.return_value)
