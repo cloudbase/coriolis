@@ -138,6 +138,10 @@ vixdisklib_config_location = {{ coriolis_vmware_vix_disklib_config_path }}
 # official URL is not accessible.
 # windows_vmware_tools_url =
 
+# Disk controller to be used for migrated VM's volumes. Accepted values are:
+# 'SCSI', 'IDE', 'SATA',
+disk_controller = SCSI
+
 # What mechanism to use when sending disk data from the Coriolis installation
 # to the temporary VMs on the target VMWare to be written to their
 # respective disk. The HTTPS-based transfer mechanism (TCP/5566) is faster but
