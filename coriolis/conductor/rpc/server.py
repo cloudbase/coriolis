@@ -1196,9 +1196,17 @@ class ConductorServerEndpoint(object):
 
     @transfer_synchronized
     def get_transfer(self, ctxt, transfer_id, include_task_info=False):
-        return self._get_transfer(
+        transfer = self._get_transfer(
             ctxt, transfer_id,
             include_task_info=include_task_info, to_dict=True)
+
+        if include_task_info and transfer.get('info'):
+            for instance in transfer['instances']:
+                if instance in transfer['info']:
+                    transfer['info'][instance] = utils.sanitize_task_info(
+                        transfer['info'][instance])
+
+        return transfer
 
     @transfer_synchronized
     def delete_transfer(self, ctxt, transfer_id):
