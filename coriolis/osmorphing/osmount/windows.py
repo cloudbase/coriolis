@@ -195,7 +195,6 @@ class WindowsMountTools(base.BaseOSMountTools):
         self._bring_disks_online(disk_nums=disk_nums)
 
     def _set_volumes_drive_letter(self):
-        disk_nums = []
         partitions = self._conn.exec_ps_command(
             'Get-Partition | Where-Object { $_.Type -eq "Basic" -and '
             '$_.NoDefaultDriveLetter -eq $True } | Select-Object -Property '
@@ -211,16 +210,20 @@ class WindowsMountTools(base.BaseOSMountTools):
                 if not disk_num.isnumeric() or not part_num.isnumeric():
                     LOG.debug(f"Skipping partition line: {part_line}")
                     continue
-                self._conn.exec_ps_command(
-                    f'Set-Partition -NoDefaultDriveLetter $False -DiskNumber '
-                    f'{disk_num} -PartitionNumber {part_num}')
-                disk_nums.append(disk_num)
-            self._rebring_disks_online(disk_nums=disk_nums)
+                try:
+                    self._conn.exec_ps_command(
+                        f'Set-Partition -NoDefaultDriveLetter $False '
+                        f'-DiskNumber {disk_num} -PartitionNumber {part_num}')
+                except exception.CoriolisException:
+                    LOG.warning(
+                        f"Failed setting default drive letter on partition "
+                        f"number '{part_num}' of disk number '{disk_num}'. "
+                        f"Error was: {utils.get_exception_details()}")
 
     def mount_os(self):
-        self._bring_disks_online()
         self._set_basic_disks_rw_mode()
         self._set_volumes_drive_letter()
+        self._bring_disks_online()
         fs_roots = utils.retry_on_error(sleep_seconds=5)(self._get_fs_roots)(
             fail_if_empty=True)
         system_drive = self._get_system_drive()
