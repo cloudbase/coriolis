@@ -226,6 +226,29 @@ class BaseSUSEMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
 
         self.assertFalse(result)
 
+    @mock.patch.object(suse.BaseSUSEMorphingTools, '_enable_systemd_service')
+    @mock.patch.object(suse.BaseSUSEMorphingTools, '_has_systemd')
+    def test__configure_cloud_init(
+            self, mock__has_systemd, mock__enable_systemd_service):
+        mock__has_systemd.return_value = True
+
+        self.morphing_tools._configure_cloud_init()
+
+        mock__enable_systemd_service.assert_called_once_with("cloud-init")
+
+    @mock.patch.object(suse.BaseSUSEMorphingTools, '_configure_cloud_init')
+    @mock.patch.object(suse.BaseSUSEMorphingTools, '_run_dracut')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, 'post_packages_install')
+    def test_post_packages_install(
+            self, mock_post_packages_install, mock__run_dracut,
+            mock__configure_cloud_init):
+
+        self.morphing_tools.post_packages_install(self.package_names)
+
+        mock__configure_cloud_init.assert_called_once()
+        mock__run_dracut.assert_called_once()
+        mock_post_packages_install.assert_called_once_with(self.package_names)
+
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     def test__enable_sles_module(self, mock_exec_cmd_chroot):
         mock_exec_cmd_chroot.return_value = b"module1\nmodule2\nmodule3"

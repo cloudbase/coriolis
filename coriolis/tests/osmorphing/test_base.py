@@ -568,92 +568,203 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
                              level=logging.WARNING):
             self.os_morphing_tools._set_selinux_autorelabel()
 
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_write_file_sudo')
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path')
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_read_file')
-    def test__configure_cloud_init_user_retention(
-            self, mock_read_file, mock_test_path, mock_write_file_sudo,
-            mock_exec_cmd_chroot):
-        cloud_cfg_paths = ["/etc/cloud/cloud.cfg"]
-        cloud_cfgs_dir = "/etc/cloud/cloud.cfg.d"
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, "_write_file_sudo")
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, "_exec_cmd_chroot")
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, "_test_path")
+    def test__write_cloud_init_mods_config(
+            self, mock__test_path, mock__exec_cmd_chroot,
+            mock__write_file_sudo):
+        mock__test_path.return_value = True
+        cloud_cfg = {
+            "mock_key1": {"mock_key2": "mock_value1"},
+            "mock_key3": "mock_value2"}
 
-        mock_test_path.return_value = True
-        mock_exec_cmd_chroot.return_value = b"10.cfg\n20.cfg"
-        mock_read_file.return_value = (
-            b"disable_root: true\n"
-            b"ssh_pwauth: false\nusers: ['user1', 'user2']")
-        self.os_morphing_tools._configure_cloud_init_user_retention()
+        self.os_morphing_tools._write_cloud_init_mods_config(cloud_cfg)
 
-        mock_exec_cmd_chroot.assert_has_calls([
-            mock.call('ls -1 %s' % cloud_cfgs_dir),
-            mock.call('cp %s %s.bak' % (
-                cloud_cfg_paths[0], cloud_cfg_paths[0])),
-            mock.call('cp %s/10.cfg %s/10.cfg.bak' % (
-                cloud_cfgs_dir, cloud_cfgs_dir)),
-            mock.call('cp %s/20.cfg %s/20.cfg.bak' % (
-                cloud_cfgs_dir, cloud_cfgs_dir)),
-        ])
-        mock_test_path.assert_has_calls([
-            mock.call('/etc/cloud/cloud.cfg.d'),
-            mock.call('/etc/cloud/cloud.cfg'),
-            mock.call('/etc/cloud/cloud.cfg.d/10.cfg'),
-            mock.call('/etc/cloud/cloud.cfg.d/20.cfg'),
-        ])
+        mock__exec_cmd_chroot.assert_not_called()
+        mock__write_file_sudo.assert_called_once_with(
+            "/etc/cloud/cloud.cfg.d/99_coriolis.cfg",
+            'mock_key1:\n  mock_key2: mock_value1\nmock_key3: mock_value2\n')
 
-        mock_write_file_sudo.assert_has_calls([
-            mock.call('/etc/cloud/cloud.cfg',
-                      'disable_root: false\nssh_pwauth: true\nusers: null\n'),
-            mock.call('/etc/cloud/cloud.cfg.d/10.cfg',
-                      'disable_root: false\nssh_pwauth: true\nusers: null\n'),
-            mock.call('/etc/cloud/cloud.cfg.d/20.cfg',
-                      'disable_root: false\nssh_pwauth: true\nusers: null\n'),
-        ])
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, "_write_file_sudo")
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, "_exec_cmd_chroot")
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, "_test_path")
+    def test__write_cloud_init_mods_config_no_directory(
+            self, mock__test_path, mock__exec_cmd_chroot,
+            mock__write_file_sudo):
+        mock__test_path.return_value = False
+        cloud_cfg = {}
 
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_write_file_sudo')
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path')
-    def test__configure_cloud_init_user_retention_path_not_found(
-            self, mock_test_path, mock_exec_cmd_chroot, mock_write_file_sudo):
-        mock_test_path.return_value = False
+        self.os_morphing_tools._write_cloud_init_mods_config(cloud_cfg)
 
-        with self.assertLogs('coriolis.osmorphing.base', level=logging.WARN):
-            self.os_morphing_tools._configure_cloud_init_user_retention()
+        mock__exec_cmd_chroot.assert_called_once_with(
+            "mkdir -p /etc/cloud/cloud.cfg.d")
+        mock__write_file_sudo.assert_called_once_with(
+            "/etc/cloud/cloud.cfg.d/99_coriolis.cfg",
+            '{}\n')
 
-        mock_test_path.assert_has_calls([
-            mock.call('/etc/cloud/cloud.cfg.d'),
-            mock.call('/etc/cloud/cloud.cfg'),
-        ])
-        mock_exec_cmd_chroot.assert_not_called()
-        mock_write_file_sudo.assert_not_called()
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, "_exec_cmd_chroot")
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, "_test_path")
+    def test__disable_installer_cloud_config(
+            self, mock__test_path, mock__exec_cmd_chroot):
+        mock__test_path.return_value = True
 
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_write_file_sudo')
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_read_file')
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path')
-    def test__configure_cloud_init_user_retention_exception(
-            self, mock_test_path, mock_exec_cmd_chroot, mock_read_file,
-            mock_write_file_sudo):
-        mock_test_path.return_value = True
-        mock_exec_cmd_chroot.return_value = b""
-        mock_read_file.return_value = (
-            b"disable_root: true"
-            b"nssh_pwauth: false"
-            b"users: ['user1', 'user2']")
-        mock_write_file_sudo.side_effect = Exception()
+        self.os_morphing_tools._disable_installer_cloud_config()
 
-        self.assertRaises(
-            exception.CoriolisException,
-            self.os_morphing_tools._configure_cloud_init_user_retention)
+        mock__exec_cmd_chroot.assert_called_once_with(
+            "mv /etc/cloud/cloud.cfg.d/99-installer.cfg "
+            "/etc/cloud/cloud.cfg.d/99-installer.cfg.bak")
 
-        mock_test_path.assert_has_calls([
-            mock.call('/etc/cloud/cloud.cfg.d'),
-            mock.call('/etc/cloud/cloud.cfg'),
-        ])
-        mock_exec_cmd_chroot.assert_has_calls([
-            mock.call('ls -1 /etc/cloud/cloud.cfg.d'),
-            mock.call('cp /etc/cloud/cloud.cfg /etc/cloud/cloud.cfg.bak'),
-        ])
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, "_exec_cmd_chroot")
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, "_test_path")
+    def test__disable_installer_cloud_config_no_file(
+            self, mock__test_path, mock__exec_cmd_chroot):
+        mock__test_path.return_value = False
+
+        self.os_morphing_tools._disable_installer_cloud_config()
+
+        mock__exec_cmd_chroot.assert_not_called()
+
+    @ddt.data(
+        ((False, False, False), [], False),
+        ((True, True, False), [
+            "rm /etc/cloud/cloud-init.disabled",
+            "sed -i '/cloud-init=disabled/d' /etc/systemd/system.conf",
+        ], False),
+        ((False, False, True), [
+            "sed -i '/cloud-init=disabled/d' /etc/default/grub",
+        ], True)
+    )
+    @ddt.unpack
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, "_execute_update_grub")
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, "_exec_cmd_chroot")
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, "_test_path")
+    def test__ensure_cloud_init_not_disabled(
+            self, test_path_results, expected_cmds, updates_grub,
+            mock__test_path, mock__exec_cmd_chroot, mock__execute_update_grub):
+        mock__test_path.side_effect = test_path_results
+
+        self.os_morphing_tools._ensure_cloud_init_not_disabled()
+
+        called_cmds = [
+            call.args[0] for call in mock__exec_cmd_chroot.call_args_list]
+        self.assertEqual(called_cmds, expected_cmds)
+        if updates_grub:
+            mock__execute_update_grub.assert_called_once()
+        else:
+            mock__execute_update_grub.assset_not_called()
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, "_exec_cmd_chroot")
+    def test__reset_cloud_init_run(self, mock__exec_cmd_chroot):
+        self.os_morphing_tools._reset_cloud_init_run()
+
+        mock__exec_cmd_chroot.assert_called_once_with(
+            "cloud-init clean --logs")
+
+    @ddt.data(
+        (False, None, base.DEFAULT_CLOUD_USER),
+        (True, "system_info:\n  default_user:\n    name: mock_user\n",
+         "mock_user"),
+        (True, "{}", base.DEFAULT_CLOUD_USER),
+    )
+    @ddt.unpack
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, "_read_file_sudo")
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, "_test_path")
+    def test__get_default_cloud_user(
+            self, test_path_result, file_content, expected_user,
+            mock__test_path, mock__read_file_sudo):
+        mock__test_path.return_value = test_path_result
+        mock__read_file_sudo.return_value = file_content
+
+        result = self.os_morphing_tools._get_default_cloud_user()
+
+        self.assertEqual(result, expected_user)
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, "_exec_cmd_chroot")
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, "_check_user_exists")
+    @mock.patch.object(base.BaseLinuxOSMorphingTools,
+                       "_get_default_cloud_user")
+    def test__create_cloudinit_user(
+            self, mock__get_default_cloud_user,
+            mock__check_user_exists, mock__exec_cmd_chroot):
+        mock__get_default_cloud_user.return_value = "mock_user"
+        mock__check_user_exists.return_value = False
+
+        self.os_morphing_tools._create_cloudinit_user()
+
+        mock__exec_cmd_chroot.assert_called_once_with("useradd mock_user")
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, "_exec_cmd_chroot")
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, "_check_user_exists")
+    @mock.patch.object(base.BaseLinuxOSMorphingTools,
+                       "_get_default_cloud_user")
+    def test__create_cloudinit_user_already_exists(
+            self, mock__get_default_cloud_user,
+            mock__check_user_exists, mock__exec_cmd_chroot):
+        mock__get_default_cloud_user.return_value = "mock_user"
+        mock__check_user_exists.return_value = True
+
+        self.os_morphing_tools._create_cloudinit_user()
+
+        mock__exec_cmd_chroot.assert_not_called()
+
+    @ddt.data(
+        (
+            ["vim"],
+            {},
+            False,
+            None
+        ),
+        (
+            ["cloud-init"],
+            {"retain_user_credentials": True, "set_dhcp": False},
+            False,
+            {
+                "disable_root": False,
+                "ssh_pwauth": True,
+                "users": None,
+                "network": {"config": "disabled"},
+            }
+        ),
+        (
+            ["cloud-init", "vim"],
+            {"retain_user_credentials": False, "set_dhcp": True},
+            True,
+            {}
+        ),
+    )
+    @ddt.unpack
+    @mock.patch.object(base.BaseLinuxOSMorphingTools,
+                       '_write_cloud_init_mods_config')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_create_cloudinit_user')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_reset_cloud_init_run')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools,
+                       '_ensure_cloud_init_not_disabled')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools,
+                       '_disable_installer_cloud_config')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, 'get_packages')
+    def test__configure_cloud_init(
+            self, returned_packages, osmorphing_params, creates_cloudinit_user,
+            expected_result, mock_get_packages,
+            mock__disable_installer_cloud_config,
+            mock__ensure_cloud_init_not_disabled, mock__reset_cloud_init_run,
+            mock__create_cloudinit_user, mock__write_cloud_init_mods_config):
+        mock_get_packages.return_value = returned_packages
+        self.os_morphing_tools._osmorphing_parameters = osmorphing_params
+
+        self.os_morphing_tools._configure_cloud_init()
+
+        if expected_result is not None:
+            mock__ensure_cloud_init_not_disabled.assert_called_once()
+            mock__reset_cloud_init_run.assert_called_once()
+            mock__write_cloud_init_mods_config.assert_called_once_with(
+                expected_result)
+            if creates_cloudinit_user:
+                mock__create_cloudinit_user.assert_called_once()
+            else:
+                mock__create_cloudinit_user.assert_not_called()
+        else:
+            mock__disable_installer_cloud_config.assert_not_called()
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     def test__test_path_chroot(self, mock_exec_cmd_chroot):
