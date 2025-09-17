@@ -395,10 +395,10 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             LOG.warning("Failed to set autorelabel: %r" % err)
 
     def _write_cloud_init_mods_config(self, cloud_cfg):
-        cloud_config_path = "/etc/cloud/cloud.cfg.d/99_coriolis.cfg"
         cloud_cfgs_dir = "/etc/cloud/cloud.cfg.d"
+        cloud_config_path = f"{cloud_cfgs_dir}/99_coriolis.cfg"
         if not self._test_path(cloud_cfgs_dir):
-            self._exec_cmd_chroot("mkdir -p /etc/cloud/cloud.cfg.d")
+            self._exec_cmd_chroot("mkdir -p %s" % cloud_cfgs_dir)
         self._event_manager.progress_update(
             "Customizing cloud-init configuration")
         new_cloud_cfg = yaml.dump(cloud_cfg, Dumper=yaml.SafeDumper)
