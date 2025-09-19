@@ -436,6 +436,19 @@ class BaseRedHatMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_yum_clean_all.assert_called_once()
         mock_yum_install.assert_not_called()
 
+    @mock.patch.object(redhat.BaseRedHatMorphingTools, '_configure_cloud_init')
+    @mock.patch.object(redhat.BaseRedHatMorphingTools, '_run_dracut')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, 'post_packages_install')
+    def test_post_packages_install(
+            self, mock_post_packages_install, mock__run_dracut,
+            mock__configure_cloud_init):
+
+        self.morphing_tools.post_packages_install(self.package_names)
+
+        mock__configure_cloud_init.assert_called_once()
+        mock__run_dracut.assert_called_once()
+        mock_post_packages_install.assert_called_once_with(self.package_names)
+
     @mock.patch.object(redhat.BaseRedHatMorphingTools, '_yum_install')
     @mock.patch.object(redhat.BaseRedHatMorphingTools, '_get_repos_to_enable')
     def test_install_packages(self, mock_get_repos_to_enable,
@@ -469,6 +482,17 @@ class BaseRedHatMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             "etc/sysconfig/network", check_exists=True)
         mock_write_config_file.assert_called_once_with(
             "etc/sysconfig/network", mock_read_config_file.return_value)
+
+    @mock.patch.object(redhat.BaseRedHatMorphingTools,
+                       '_enable_systemd_service')
+    @mock.patch.object(redhat.BaseRedHatMorphingTools, '_has_systemd')
+    def test__configure_cloud_init(
+            self, mock__has_systemd, mock__enable_systemd_service):
+        mock__has_systemd.return_value = True
+
+        self.morphing_tools._configure_cloud_init()
+
+        mock__enable_systemd_service.assert_called_once_with("cloud-init")
 
     @mock.patch.object(
         redhat.BaseRedHatMorphingTools, '_get_config_file_content'
