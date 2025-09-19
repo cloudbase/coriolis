@@ -272,7 +272,8 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
         bring_disks_offline_mock.assert_called()
         bring_disks_online_mock.assert_called()
 
-    def test__set_volumes_drive_letter(self):
+    @mock.patch.object(windows.WindowsMountTools, '_rebring_disks_online')
+    def test__set_volumes_drive_letter(self, rebring_disks_mock):
         self.tools._conn.exec_ps_command.return_value = GET_PARTITION_OUTPUT
         result = self.tools._set_volumes_drive_letter()
         self.assertIsNone(result)
@@ -289,13 +290,16 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
                 'Set-Partition -NoDefaultDriveLetter $False -DiskNumber 3 '
                 '-PartitionNumber 4'),
         ])
+        rebring_disks_mock.assert_called_once_with(disk_nums=['2', '3'])
 
-    def test__set_volumes_drive_letter_exception(self):
+    @mock.patch.object(windows.WindowsMountTools, '_rebring_disks_online')
+    def test__set_volumes_drive_letter_exception(self, rebring_disks_mock):
         self.tools._conn.exec_ps_command.side_effect = [
             GET_PARTITION_OUTPUT, None, exception.CoriolisException]
         with self.assertLogs(
                 'coriolis.osmorphing.osmount.windows', logging.WARNING):
             self.tools._set_volumes_drive_letter()
+        rebring_disks_mock.assert_called_once_with(disk_nums=['2'])
 
     @mock.patch.object(windows.WindowsMountTools, '_get_system_drive')
     @mock.patch.object(windows.WindowsMountTools, '_get_fs_roots')
