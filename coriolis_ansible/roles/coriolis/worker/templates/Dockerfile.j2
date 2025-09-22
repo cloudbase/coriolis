@@ -48,5 +48,5 @@ RUN ldconfig
 {% if "worker" in enable_profiling_for %}
 CMD ["/usr/local/bin/fil-profile", "-o", "{{ coriolis_profiling_dir_container}}", "run", "/usr/local/bin/coriolis-worker", "--config-file={{coriolis_config_dir }}/coriolis.conf", "--config-file={{ coriolis_config_dir}}/coriolis-worker-logging.conf", "--worker-process-count", "1"]
 {% else %}
-CMD ["/usr/local/bin/coriolis-worker", "--config-file={{ coriolis_config_dir }}/coriolis.conf", "--config-file={{ coriolis_config_dir }}/coriolis-worker-logging.conf"]
+CMD ["/usr/local/bin/coriolis-worker", "--config-file={{ coriolis_config_dir }}/coriolis.conf"]
 {% endif %}

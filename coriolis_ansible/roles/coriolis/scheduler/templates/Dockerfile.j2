@@ -4,5 +4,5 @@ FROM {{ coriolis_common_docker_image_url }}
 {% if "scheduler" in enable_profiling_for %}
 CMD ["/usr/local/bin/fil-profile", "-o", "{{ coriolis_profiling_dir_container }}", "run", "/usr/local/bin/coriolis-scheduler", "--config-file={{ coriolis_config_dir }}/coriolis.conf", "--config-file={{ coriolis_config_dir }}/coriolis-scheduler-logging.conf"]
 {% else %}
-CMD ["/usr/local/bin/coriolis-scheduler", "--config-file={{ coriolis_config_dir }}/coriolis.conf", "--config-file={{ coriolis_config_dir }}/coriolis-scheduler-logging.conf"]
+CMD ["/usr/local/bin/coriolis-scheduler", "--config-file={{ coriolis_config_dir }}/coriolis.conf"]
 {% endif %}

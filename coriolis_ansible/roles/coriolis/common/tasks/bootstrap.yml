@@ -32,3 +32,27 @@
   docker_container:
     name: kolla_toolbox
     state: absent
+
+- name: Copy Coriolis logrotate configuration.
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode }}"
+    backup: "{{ item.backup }}"
+  with_items: 
+    - { src: templates/coriolis-logrotate-conf.j2, dest: /etc/logrotate.d/coriolis-logrotate-conf, mode: '0644', backup: no}
+
+- name: Copy logrotate.timer to a new location
+  ansible.builtin.copy:
+    src: /lib/systemd/system/logrotate.timer
+    dest: /etc/systemd/system/logrotate.timer
+
+- name: Ensure logrotate.timer runs hourly.
+  ansible.builtin.lineinfile:
+    path: /etc/systemd/system/logrotate.timer
+    regex: '^OnCalendar='
+    line: OnCalendar=hourly
+    
+- name: Reload systemd logrotate.timer
+  ansible.builtin.systemd_service:
+    daemon_reload: true
