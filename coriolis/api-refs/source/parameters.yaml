@@ -72,12 +72,28 @@ transfer_tasks_execution_id_path:
   type: uuid
   required: true
 # query variables
+include_task_info:
+  description: |
+    When set to true, the response will include comprehensive task details 
+    for transfers, deployments, and executions, including task statuses,
+    progress, and execution metadata.
+  in: query
+  required: false
+  type: boolean
+  default: false
 instance_limit:
   description: |
     Returns a number of items up to a limit value.
   in: query
   required: false
   type: integer
+show_deleted:
+  description: |
+    Whether to include deleted resources in the response.
+  in: query
+  required: false
+  type: boolean
+  default: false
 # body variables
 base_id:
   description: |

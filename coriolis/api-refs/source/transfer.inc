@@ -26,6 +26,8 @@ Response
 
   - transfers : transfers_array
   - id : transfer_id
+  - include_task_info: include_task_info
+  - show_deleted : show_deleted
   - deleted : transfer_deleted
   - deleted_at : transfer_deleted_at
   - executions : transfer_empty_execution_array
@@ -85,6 +87,7 @@ Response
 
   - transfer : transfer_object
   - id : transfer_id
+  - include_task_info: include_task_info
   - deleted : transfer_deleted
   - deleted_at : transfer_deleted_at
   - executions : transfer_execution_array
