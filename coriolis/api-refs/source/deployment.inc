@@ -26,6 +26,8 @@ Response
 
   - deployments : deployments_array
   - id : deployment_id
+  - include_task_info : include_task_info
+  - show_deleted : show_deleted
   - deleted : deployment_deleted
   - deleted_at : deployment_deleted_at
   - instances : deployment_instances
@@ -88,6 +90,7 @@ Response
 
   - deployment : deployment_object
   - id : deployment_id
+  - include_task_info : include_task_info
   - deleted : deployment_deleted
   - deleted_at : deployment_deleted_at
   - instances : deployment_instances
