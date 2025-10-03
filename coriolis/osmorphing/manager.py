@@ -85,6 +85,27 @@ def get_osmorphing_tools_class_for_provider(
         "and 'osmorphing_info' %s: %s",
         type(provider), os_type, osmorphing_info, available_tools_cls)
 
+    module_classes = {}
+    for toolscls in available_tools_cls:
+        module_name = toolscls.__module__
+        if module_name not in module_classes:
+            module_classes[module_name] = []
+        module_classes[module_name].append(toolscls)
+
+    for module_name, classes in module_classes.items():
+        latest_flags = [getattr(cls, 'latest', False) for cls in classes]
+        latest_count = sum(latest_flags)
+
+        if latest_count > 1:
+            latest_classes = [
+                cls.__name__ for cls in classes if getattr(
+                    cls, 'latest', False)]
+            raise exception.InvalidOSMorphingTools(
+                "Provider class '%s' returned multiple 'latest' OSMorphing "
+                "tools from module '%s': %s. Only one class per module "
+                "can be marked as 'latest'." % (
+                    type(provider), module_name, latest_classes))
+
     osmorphing_base_class = base_osmorphing.BaseOSMorphingTools
     for toolscls in available_tools_cls:
         if not issubclass(toolscls, osmorphing_base_class):
