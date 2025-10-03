@@ -127,6 +127,8 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
 
     _packages = {}
 
+    latest = False
+
     def __init__(self, conn, os_root_dir, os_root_dev, hypervisor,
                  event_manager, detected_os_info, osmorphing_parameters,
                  operation_timeout=None):
@@ -155,6 +157,12 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             raise ValueError(
                 "Non-string version provided: %s (type %s)" % (
                     version, type(version)))
+
+        if cls.latest:
+            LOG.debug(
+                "Skipping all version checks for latest osmorphing tool "
+                "class: %s", cls.__name__)
+            return True
 
         float_regex = "([0-9]+(\\.[0-9]+)?)"
         match = re.match(float_regex, version)
