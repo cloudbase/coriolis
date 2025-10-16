@@ -127,6 +127,8 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
 
     _packages = {}
 
+    latest = False
+
     def __init__(self, conn, os_root_dir, os_root_dev, hypervisor,
                  event_manager, detected_os_info, osmorphing_parameters,
                  operation_timeout=None):
@@ -179,6 +181,12 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
                 "Version '%s' smaller than the minimum of '%s' for "
                 "release: %s", version_float, minimum, version)
             return False
+
+        if cls.latest:
+            LOG.debug(
+                "Skipping remaining version checks for latest osmorphing tool "
+                "class: %s", cls.__name__)
+            return True
 
         if maximum:
             if maximum == minimum and version_float == minimum:
