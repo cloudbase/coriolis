@@ -155,6 +155,12 @@ class BaseDebianMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
 
         self.assertEqual(result, expected_result)
 
+    @mock.patch.object(debian.BaseDebianMorphingTools, '_test_path')
+    def test__has_systemd_chroot(self, mock__test_path):
+        result = self.morpher._has_systemd_chroot()
+
+        self.assertEqual(result, mock__test_path.return_value)
+
     @mock.patch.object(debian.BaseDebianMorphingTools, '_write_file_sudo')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_exec_cmd_chroot')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_test_path')
@@ -207,6 +213,17 @@ class BaseDebianMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_disable_predictable_nic_names.assert_not_called()
         mock_write_file_sudo.assert_not_called()
 
+    @mock.patch.object(debian.BaseDebianMorphingTools,
+                       '_enable_systemd_service')
+    @mock.patch.object(debian.BaseDebianMorphingTools, '_has_systemd_chroot')
+    def test__configure_cloud_init(
+            self, mock__has_systemd_chroot, mock__enable_systemd_service):
+        mock__has_systemd_chroot.return_value = True
+
+        self.morpher._configure_cloud_init()
+
+        mock__enable_systemd_service.assert_called_once_with("cloud-init")
+
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     def test_get_installed_packages(self, mock_exec_cmd_chroot):
         mock_exec_cmd_chroot.return_value = \
@@ -258,6 +275,16 @@ class BaseDebianMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
                           self.package_names)
 
         mock_pre_packages_install.assert_called_once_with(self.package_names)
+
+    @mock.patch.object(debian.BaseDebianMorphingTools, '_configure_cloud_init')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, 'post_packages_install')
+    def test_post_packages_install(
+            self, mock_post_packages_install, mock__configure_cloud_init):
+
+        self.morpher.post_packages_install(self.package_names)
+
+        mock__configure_cloud_init.assert_called_once()
+        mock_post_packages_install.assert_called_once_with(self.package_names)
 
     @mock.patch.object(debian.BaseDebianMorphingTools, '_exec_cmd_chroot')
     def test_install_packages(self, mock_exec_cmd_chroot):
