@@ -11,6 +11,7 @@ from oslo_log import log as logging
 LOG = logging.getLogger(__name__)
 CENTOS_DISTRO_IDENTIFIER = "CentOS"
 CENTOS_STREAM_DISTRO_IDENTIFIER = "CentOS Stream"
+ALMA_IDENTIFIER = "AlmaLinux"
 
 
 class CentOSOSDetectTools(base.BaseLinuxOSDetectTools):
@@ -26,9 +27,10 @@ class CentOSOSDetectTools(base.BaseLinuxOSDetectTools):
                              release_info[0].strip())
                 if m:
                     distro, version, _, _ = m.groups()
-                    if CENTOS_DISTRO_IDENTIFIER not in distro:
+                    if (CENTOS_DISTRO_IDENTIFIER not in distro and
+                            ALMA_IDENTIFIER not in distro):
                         LOG.debug(
-                            "Distro does not appear to be a CentOS: %s",
+                            "Distro does not appear to be a CentOS or Alma: %s",
                             distro)
                         return {}
 
