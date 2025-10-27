@@ -38,9 +38,28 @@ ONBOOT=yes
 NM_CONTROLLED=no
 """
 
+NMCONNECTION_TEMPLATE = """[connection]
+id=%(device_name)s
+uuid=%(uuid)s
+type=ethernet
+interface-name=%(device_name)s
+
+[ethernet]
+
+[ipv4]
+method=auto
+
+[ipv6]
+addr-gen-mode=eui64
+method=auto
+
+[proxy]
+"""
+
 
 class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
     _NETWORK_SCRIPTS_PATH = "etc/sysconfig/network-scripts"
+    _NMCONNECTION_PATH = "etc/NetworkManager/system-connections"
     BIOS_GRUB_LOCATION = "/boot/grub2"
     UEFI_GRUB_LOCATION = "/boot/efi/EFI/redhat"
 
@@ -126,6 +145,29 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
                     "device_name": dev_name,
                 })
 
+    def _write_nmconnection_configs(self, nics_info):
+        nmconn_dir = self._NMCONNECTION_PATH
+        self._exec_cmd_chroot("mkdir -p /%s" % nmconn_dir)
+
+        for idx, _ in enumerate(nics_info):
+            dev_name = "eth%d" % idx
+            connection_uuid = str(uuid.uuid4())
+            cfg_path = "%s/%s.nmconnection" % (nmconn_dir, dev_name)
+
+            if self._test_path(cfg_path):
+                self._exec_cmd_chroot(
+                    "cp %s %s.bak" % (cfg_path, cfg_path)
+                )
+
+            self._write_file_sudo(
+                cfg_path,
+                NMCONNECTION_TEMPLATE % {
+                    "device_name": dev_name,
+                    "uuid": connection_uuid,
+                })
+
+            self._exec_cmd_chroot("chmod 600 /%s" % cfg_path)
+
     def _comment_keys_from_ifcfg_files(
             self, keys, interfaces=None, backup_file_suffix=".bak"):
         """ Comments the provided list of keys from all 'ifcfg-*' files.
@@ -160,10 +202,25 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
                 "Commented all %s references from '%s'" % (
                     keys, fullpath))
 
+    def _get_os_version(self):
+        try:
+            version_str = self._detected_os_info.get('release_version', '0')
+            major_version = int(version_str.split('.')[0])
+            return major_version
+        except (ValueError, AttributeError):
+            LOG.warning(
+                "Could not parse OS version from detected_os_info: %s",
+                self._detected_os_info)
+            return 0
+
     def set_net_config(self, nics_info, dhcp):
         if dhcp:
             self.disable_predictable_nic_names()
-            self._write_nic_configs(nics_info)
+            os_version = self._get_os_version()
+            if os_version < 9:
+                self._write_nic_configs(nics_info)
+            else:
+                self._write_nmconnection_configs(nics_info)
             return
 
         LOG.info("Setting static IP configuration")

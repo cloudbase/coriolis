@@ -22,10 +22,11 @@ class CentOSOSDetectTools(base.BaseLinuxOSDetectTools):
             release_info = self._read_file(
                 redhat_release_path).decode().splitlines()
             if release_info:
-                m = re.match(r"^(.*) release ([0-9](\.[0-9])*)( \(.*\))?.*$",
-                             release_info[0].strip())
+                m = re.match(
+                    r"^(.*) release ([0-9]+(?:\.[0-9]+)*)( \(.*\))?.*$",
+                    release_info[0].strip())
                 if m:
-                    distro, version, _, _ = m.groups()
+                    distro, version, _ = m.groups()
                     if CENTOS_DISTRO_IDENTIFIER not in distro:
                         LOG.debug(
                             "Distro does not appear to be a CentOS: %s",
