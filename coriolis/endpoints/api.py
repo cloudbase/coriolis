@@ -1,6 +1,7 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from coriolis import cache
 from coriolis.conductor.rpc import client as rpc_conductor_client
 from coriolis.minion_manager.rpc import client as rpc_minion_manager_client
 from coriolis import utils
@@ -34,6 +35,9 @@ class API(object):
     def validate_connection(self, ctxt, endpoint_id):
         return self._rpc_conductor_client.validate_endpoint_connection(
             ctxt, endpoint_id)
+
+    def invalidate_cache(self, ctxt, endpoint_id):
+        cache.invalidate()
 
     @utils.bad_request_on_error("Invalid destination environment: %s")
     def validate_target_environment(self, ctxt, endpoint_id, target_env):
