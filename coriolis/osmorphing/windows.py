@@ -26,7 +26,9 @@ SERVICE_START_AUTO = 2
 SERVICE_START_MANUAL = 3
 SERVICE_START_DISABLED = 4
 
+SERVICES_PATH_FORMAT = "HKLM:\\%s\\ControlSet001\\Services"
 SERVICE_PATH_FORMAT = "HKLM:\\%s\\ControlSet001\\Services\\%s"
+RUN_PATH_FORMAT = "HKLM:\\%s\\\Microsoft\\Windows\\CurrentVersion\\Run"
 CLOUDBASEINIT_SERVICE_NAME = "cloudbase-init"
 CLOUDBASE_INIT_DEFAULT_PLUGINS = [
     'cloudbaseinit.plugins.common.mtu.MTUPlugin',
@@ -287,6 +289,22 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
             "%(start_mode)s" %
             {"path": registry_path, "start_mode": start_mode})
 
+    def _set_services_start_mode(self, key_name, service_names, start_mode):
+        LOG.info("Setting service start mode: %(service_names)s, "
+                 "%(start_mode)s", {"service_names": service_names,
+                                    "start_mode": start_mode})
+        registry_paths = [SERVICE_PATH_FORMAT % (key_name, service)
+                          for service in service_names]
+        paths_string = ", ".join(f"'{path}'" for path in registry_paths)
+        self._conn.exec_ps_command(
+            f"""
+            $ErrorActionPreference='Stop';
+            @({paths_string}) | ForEach-Object {{
+                Set-ItemProperty -Path $_ -Name 'Start' -Value {start_mode}
+            }}
+            """,
+            ignore_stdout=True)
+
     def _create_service(self, key_name, service_name, image_path,
                         display_name, description,
                         start_mode=SERVICE_START_AUTO,
@@ -320,6 +338,17 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
              "depends_on": depends_on_ps, "service_account": service_account,
              "start_mode": start_mode},
             ignore_stdout=True)
+
+    def _delete_startup_entry(self, key_name, service_name):
+        registry_path = RUN_PATH_FORMAT % key_name
+        LOG.info("Deleting startup entry: %s", service_name)
+
+        self._conn.exec_ps_command(
+            "$ErrorActionPreference = 'Stop';"
+            "Remove-ItemProperty -Path '%(path)s' -Name '%(entry)s' -Force"
+            % {"path": registry_path, "entry": service_name},
+            ignore_stdout=True,
+        )
 
     def run_user_script(self, user_script):
         if len(user_script) == 0:
