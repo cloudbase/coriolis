@@ -25,3 +25,7 @@ def get_cache_decorator(provider):
     MEMOIZE = cache.get_memoization_decorator(
         CONF, cache_region, provider)
     return MEMOIZE
+
+
+def invalidate():
+    cache_region.invalidate()

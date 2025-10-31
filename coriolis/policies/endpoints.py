@@ -85,6 +85,17 @@ ENDPOINTS_POLICY_DEFAULT_RULES = [
         ]
     ),
     policy.DocumentedRuleDefault(
+        get_endpoints_policy_label('invalidate'),
+        ENDPOINTS_POLICY_DEFAULT_RULE,
+        "Invalidate instance list cache for endpoint",
+        [
+            {
+                "path": "/endpoints/{endpoint_id}/actions",
+                "method": "POST"
+            }
+        ]
+    ),
+    policy.DocumentedRuleDefault(
         get_endpoints_policy_label('list_instances'),
         ENDPOINTS_POLICY_DEFAULT_RULE,
         "List instances available for migration/replication",

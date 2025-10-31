@@ -31,6 +31,24 @@ class EndpointActionsController(api_wsgi.Controller):
         except exception.InvalidParameterValue as ex:
             raise exc.HTTPNotFound(explanation=ex.msg)
 
+    @api_wsgi.action('invalidate')
+    def _invalidate(self, req, id, body):
+        context = req.environ['coriolis.context']
+        context.can(
+            "%s:invalidate" % endpoint_policies.ENDPOINTS_POLICY_PREFIX)
+        try:
+            self._endpoint_api.invalidate_cache(context, id)
+            return {
+                "invalidate": {
+                    "success": True,
+                    "message": "Instance list cache invalidation triggered."
+                }
+            }
+        except exception.NotFound as ex:
+            raise exc.HTTPNotFound(explanation=ex.msg)
+        except exception.InvalidParameterValue as ex:
+            raise exc.HTTPBadRequest(explanation=ex.msg)
+
 
 def create_resource():
     return api_wsgi.Resource(EndpointActionsController())
