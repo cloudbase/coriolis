@@ -54,7 +54,7 @@ class DeployerManagerServerEndpoint:
             LOG.info(
                 f"Deployment '{deployment_id}' is still '{deployment_status}'")
             i += 1
-            time.sleep(5)
+            time.sleep(1)
 
         raise exception.InvalidDeploymentState(
             f"Timed out waiting for deployment '{deployment_id}' to be out of "
@@ -120,7 +120,6 @@ class DeployerManagerServerEndpoint:
                 self._admin_ctx, deployment_id, str(ex))
 
     def _loop(self):
-        greenthreads = []
         while True:
             try:
                 deployments = self._rpc_conductor_client.get_deployments(
@@ -128,12 +127,7 @@ class DeployerManagerServerEndpoint:
                     include_task_info=False)
                 for d in deployments:
                     if d['last_execution_status'] == PENDING_STATUS:
-                        greenthreads.append(
-                            eventlet.spawn(
-                                self._check_deployer_status, d['id']))
-
-                for gt in greenthreads:
-                    gt.wait()
+                        self._check_deployer_status(d['id'])
             except Exception:
                 LOG.warning(
                     f"Deployer manager failed to list pending deployments. "
