@@ -551,7 +551,8 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             "%sWindows\\System32\\config\\SYSTEM" % self.os_root_dir)
 
         mock_expand_archive.assert_called_once_with(
-            cloudbaseinit_zip_path, cloudbaseinit_base_dir)
+            cloudbaseinit_zip_path, cloudbaseinit_base_dir,
+            overwrite=False)
 
         self.conn.exec_ps_command.assert_called_once_with(
             "mkdir '%s' -Force" %
@@ -625,7 +626,8 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             "HKLM\\%s" % mock_uuid4.return_value,
             "%sWindows\\System32\\config\\SYSTEM" % self.os_root_dir)
         mock_expand_archive.assert_called_once_with(
-            cloudbaseinit_zip_path, cloudbaseinit_base_dir)
+            cloudbaseinit_zip_path, cloudbaseinit_base_dir,
+            overwrite=False)
         self.conn.exec_ps_command.assert_called_once_with(
             "mkdir '%s' -Force" %
             ("%s\\Log" % cloudbaseinit_base_dir),
