@@ -512,7 +512,7 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
 
             self._event_manager.progress_update("Installing cloudbase-init")
             self._expand_archive(cloudbaseinit_zip_path,
-                                 cloudbaseinit_base_dir)
+                                 cloudbaseinit_base_dir, overwrite=False)
 
             log_dir = "%s\\Log" % cloudbaseinit_base_dir
             self._conn.exec_ps_command("mkdir '%s' -Force" % log_dir,
