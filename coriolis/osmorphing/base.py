@@ -443,6 +443,9 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         if not self._check_user_exists(cloud_user):
             self._exec_cmd_chroot("useradd %s" % cloud_user)
 
+    def _has_systemd_chroot(self):
+        return self._test_path("/lib/systemd/system")
+
     def _configure_cloud_init(self):
         cloud_cfg_mods = {}
         if "cloud-init" not in self.get_packages()[0]:
@@ -467,6 +470,9 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             cloud_cfg_mods.update(disabled_network_config)
 
         self._write_cloud_init_mods_config(cloud_cfg_mods)
+
+        if self._has_systemd_chroot():
+            self._enable_systemd_service("cloud-init")
 
     def _test_path_chroot(self, path):
         # This method uses _exec_cmd_chroot() instead of SFTP stat()

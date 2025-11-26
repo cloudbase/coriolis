@@ -127,11 +127,6 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
         except Exception:
             return False
 
-    def _configure_cloud_init(self):
-        super(BaseSUSEMorphingTools, self)._configure_cloud_init()
-        if self._has_systemd():
-            self._enable_systemd_service("cloud-init")
-
     def post_packages_install(self, package_names):
         self._configure_cloud_init()
         self._run_dracut()
