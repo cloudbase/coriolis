@@ -97,9 +97,6 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
             }
         return yaml.dump(cfg, default_flow_style=False)
 
-    def _has_systemd_chroot(self):
-        return self._test_path("/lib/systemd/system")
-
     def set_net_config(self, nics_info, dhcp):
         if not dhcp:
             LOG.info("Setting static IP configuration")
@@ -126,11 +123,6 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
             new_cfg = self._compose_netplan_cfg(nics_info)
             cfg_name = "%s/coriolis_netplan.yaml" % self.netplan_base
             self._write_file_sudo(cfg_name, new_cfg)
-
-    def _configure_cloud_init(self):
-        super(BaseDebianMorphingTools, self)._configure_cloud_init()
-        if self._has_systemd_chroot():
-            self._enable_systemd_service("cloud-init")
 
     def get_installed_packages(self):
         cmd = "dpkg-query -f '${binary:Package}\\n' -W"

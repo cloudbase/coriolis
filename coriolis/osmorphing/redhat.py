@@ -288,11 +288,6 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         network_cfg["NOZEROCONF"] = "yes"
         self._write_config_file(network_cfg_file, network_cfg)
 
-    def _configure_cloud_init(self):
-        super(BaseRedHatMorphingTools, self)._configure_cloud_init()
-        if self._has_systemd():
-            self._enable_systemd_service("cloud-init")
-
     def _write_config_file(self, chroot_path, config_data):
         content = self._get_config_file_content(config_data)
         self._write_file_sudo(chroot_path, content)
