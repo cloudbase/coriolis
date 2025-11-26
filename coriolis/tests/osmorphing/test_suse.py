@@ -226,16 +226,6 @@ class BaseSUSEMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
 
         self.assertFalse(result)
 
-    @mock.patch.object(suse.BaseSUSEMorphingTools, '_enable_systemd_service')
-    @mock.patch.object(suse.BaseSUSEMorphingTools, '_has_systemd')
-    def test__configure_cloud_init(
-            self, mock__has_systemd, mock__enable_systemd_service):
-        mock__has_systemd.return_value = True
-
-        self.morphing_tools._configure_cloud_init()
-
-        mock__enable_systemd_service.assert_called_once_with("cloud-init")
-
     @mock.patch.object(suse.BaseSUSEMorphingTools, '_configure_cloud_init')
     @mock.patch.object(suse.BaseSUSEMorphingTools, '_run_dracut')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, 'post_packages_install')

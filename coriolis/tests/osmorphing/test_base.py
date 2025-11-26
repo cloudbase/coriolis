@@ -713,7 +713,8 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
             ["vim"],
             {},
             False,
-            None
+            None,
+            False
         ),
         (
             ["cloud-init"],
@@ -724,16 +725,21 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
                 "ssh_pwauth": True,
                 "users": None,
                 "network": {"config": "disabled"},
-            }
+            },
+            True
         ),
         (
             ["cloud-init", "vim"],
             {"retain_user_credentials": False, "set_dhcp": True},
             True,
-            {}
+            {},
+            False
         ),
     )
     @ddt.unpack
+    @mock.patch.object(base.BaseLinuxOSMorphingTools,
+                       '_enable_systemd_service')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_has_systemd_chroot')
     @mock.patch.object(base.BaseLinuxOSMorphingTools,
                        '_write_cloud_init_mods_config')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_create_cloudinit_user')
@@ -745,12 +751,15 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(base.BaseLinuxOSMorphingTools, 'get_packages')
     def test__configure_cloud_init(
             self, returned_packages, osmorphing_params, creates_cloudinit_user,
-            expected_result, mock_get_packages,
+            expected_result, has_systemd_chroot, mock_get_packages,
             mock__disable_installer_cloud_config,
             mock__ensure_cloud_init_not_disabled, mock__reset_cloud_init_run,
-            mock__create_cloudinit_user, mock__write_cloud_init_mods_config):
+            mock__create_cloudinit_user, mock__write_cloud_init_mods_config,
+            mock__has_systemd_chroot, mock__enable_systemd_service
+    ):
         mock_get_packages.return_value = returned_packages
         self.os_morphing_tools._osmorphing_parameters = osmorphing_params
+        mock__has_systemd_chroot.return_value = has_systemd_chroot
 
         self.os_morphing_tools._configure_cloud_init()
 
@@ -763,6 +772,11 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
                 mock__create_cloudinit_user.assert_called_once()
             else:
                 mock__create_cloudinit_user.assert_not_called()
+            if has_systemd_chroot:
+                mock__enable_systemd_service.assert_called_once_with(
+                    "cloud-init")
+            else:
+                mock__enable_systemd_service.assert_not_called()
         else:
             mock__disable_installer_cloud_config.assert_not_called()
 
