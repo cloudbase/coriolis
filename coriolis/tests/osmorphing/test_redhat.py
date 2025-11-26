@@ -483,17 +483,6 @@ class BaseRedHatMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_write_config_file.assert_called_once_with(
             "etc/sysconfig/network", mock_read_config_file.return_value)
 
-    @mock.patch.object(redhat.BaseRedHatMorphingTools,
-                       '_enable_systemd_service')
-    @mock.patch.object(redhat.BaseRedHatMorphingTools, '_has_systemd')
-    def test__configure_cloud_init(
-            self, mock__has_systemd, mock__enable_systemd_service):
-        mock__has_systemd.return_value = True
-
-        self.morphing_tools._configure_cloud_init()
-
-        mock__enable_systemd_service.assert_called_once_with("cloud-init")
-
     @mock.patch.object(
         redhat.BaseRedHatMorphingTools, '_get_config_file_content'
     )

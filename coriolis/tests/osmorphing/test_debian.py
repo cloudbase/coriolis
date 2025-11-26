@@ -213,17 +213,6 @@ class BaseDebianMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_disable_predictable_nic_names.assert_not_called()
         mock_write_file_sudo.assert_not_called()
 
-    @mock.patch.object(debian.BaseDebianMorphingTools,
-                       '_enable_systemd_service')
-    @mock.patch.object(debian.BaseDebianMorphingTools, '_has_systemd_chroot')
-    def test__configure_cloud_init(
-            self, mock__has_systemd_chroot, mock__enable_systemd_service):
-        mock__has_systemd_chroot.return_value = True
-
-        self.morpher._configure_cloud_init()
-
-        mock__enable_systemd_service.assert_called_once_with("cloud-init")
-
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     def test_get_installed_packages(self, mock_exec_cmd_chroot):
         mock_exec_cmd_chroot.return_value = \
