@@ -8,7 +8,7 @@
 #
 
 ### Options related to the OpenStack components we deploy using Kolla:
-kolla_branch: unmaintained/2023.1
+kolla_branch: 2023.1-eol
 kolla_openstack_release: 2023.1
 kolla_docker_images_tag: 2023.1
 
