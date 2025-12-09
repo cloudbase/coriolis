@@ -266,6 +266,10 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
                 else:
                     self._conn.exec_ps_command(
                         "rm -recurse -force %s" % destination)
+            else:
+                LOG.info("Skipping extraction as destination exists")
+                return
+
         self._conn.exec_ps_command(
             "if(([System.Management.Automation.PSTypeName]"
             "'System.IO.Compression.ZipFile').Type -or "
