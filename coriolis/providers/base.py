@@ -36,8 +36,11 @@ class BaseEndpointInstancesProvider(BaseEndpointProvider):
     @abc.abstractmethod
     def get_instances(self, ctxt, connection_info, source_environment,
                       limit=None, last_seen_id=None,
-                      instance_name_pattern=None):
-        """Returns a list of instances."""
+                      instance_name_pattern=None, refresh=False):
+        """Returns a list of instances.
+
+        :param refresh: If True, forces a refresh of any cached instance data.
+        """
         raise NotImplementedError()
 
     @abc.abstractmethod
