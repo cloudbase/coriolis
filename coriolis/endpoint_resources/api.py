@@ -10,10 +10,10 @@ class API(object):
 
     def get_endpoint_instances(self, ctxt, endpoint_id, source_environment,
                                marker=None, limit=None,
-                               instance_name_pattern=None):
+                               instance_name_pattern=None, refresh=False):
         return self._rpc_client.get_endpoint_instances(
             ctxt, endpoint_id, source_environment, marker,
-            limit, instance_name_pattern)
+            limit, instance_name_pattern, refresh=refresh)
 
     def get_endpoint_instance(
             self, ctxt, endpoint_id, source_environment, instance_name):
