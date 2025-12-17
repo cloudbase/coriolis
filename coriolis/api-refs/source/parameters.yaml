@@ -87,6 +87,15 @@ instance_limit:
   in: query
   required: false
   type: integer
+instance_refresh:
+  description: |
+    When set to true, forces a refresh of any cached instance data from the
+    source platform. This is useful when the instance list may have changed
+    and you want to ensure fresh data is retrieved.
+  in: query
+  required: false
+  type: boolean
+  default: false
 show_deleted:
   description: |
     Whether to include deleted resources in the response.

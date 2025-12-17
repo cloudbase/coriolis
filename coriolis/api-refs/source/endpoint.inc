@@ -251,6 +251,7 @@ Request
 .. rest_parameters:: parameters.yaml
 
    - endpoint_id : endpoint_id_path
+   - refresh : instance_refresh
 
 Response
 --------
