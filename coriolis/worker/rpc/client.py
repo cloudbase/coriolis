@@ -72,7 +72,7 @@ class WorkerClient(rpc.BaseRPCClient):
 
     def get_endpoint_instances(self, ctxt, platform_name, connection_info,
                                source_environment, marker=None, limit=None,
-                               instance_name_pattern=None):
+                               instance_name_pattern=None, refresh=False):
         return self._call(
             ctxt, 'get_endpoint_instances',
             platform_name=platform_name,
@@ -80,7 +80,8 @@ class WorkerClient(rpc.BaseRPCClient):
             source_environment=source_environment,
             marker=marker,
             limit=limit,
-            instance_name_pattern=instance_name_pattern)
+            instance_name_pattern=instance_name_pattern,
+            refresh=refresh)
 
     def get_endpoint_instance(self, ctxt, platform_name, connection_info,
                               source_environment, instance_name):

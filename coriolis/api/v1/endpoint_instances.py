@@ -2,6 +2,7 @@
 # All Rights Reserved.
 
 from coriolis.api import common
+from coriolis.api.v1 import utils as api_utils
 from coriolis.api.v1.views import endpoint_resources_view
 from coriolis.api import wsgi as api_wsgi
 from coriolis.endpoint_resources import api
@@ -24,6 +25,8 @@ class EndpointInstanceController(api_wsgi.Controller):
             endpoint_policies.ENDPOINTS_POLICY_PREFIX))
         marker, limit = common.get_paging_params(req)
         instance_name_pattern = req.GET.get("name")
+        refresh = api_utils.get_bool_url_arg(
+            req, "refresh", default=False)
 
         env = req.GET.get("env")
         if env is not None:
@@ -34,7 +37,7 @@ class EndpointInstanceController(api_wsgi.Controller):
         return endpoint_resources_view.instances_collection(
             self._instance_api.get_endpoint_instances(
                 context, endpoint_id, env, marker, limit,
-                instance_name_pattern))
+                instance_name_pattern, refresh=refresh))
 
     def show(self, req, endpoint_id, id):
         context = req.environ['coriolis.context']

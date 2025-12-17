@@ -493,7 +493,8 @@ class ConductorServerEndpoint(object):
         db_api.delete_endpoint(ctxt, endpoint_id)
 
     def get_endpoint_instances(self, ctxt, endpoint_id, source_environment,
-                               marker, limit, instance_name_pattern):
+                               marker, limit, instance_name_pattern,
+                               refresh=False):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
         worker_rpc = self._get_worker_service_rpc_for_specs(
@@ -503,7 +504,8 @@ class ConductorServerEndpoint(object):
                 endpoint.type: [constants.PROVIDER_TYPE_ENDPOINT_INSTANCES]})
         return worker_rpc.get_endpoint_instances(
             ctxt, endpoint.type, endpoint.connection_info,
-            source_environment, marker, limit, instance_name_pattern)
+            source_environment, marker, limit, instance_name_pattern,
+            refresh=refresh)
 
     def get_endpoint_instance(
             self, ctxt, endpoint_id, source_environment, instance_name):

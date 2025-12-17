@@ -334,7 +334,7 @@ class WorkerServerEndpoint(object):
 
     def get_endpoint_instances(self, ctxt, platform_name, connection_info,
                                source_environment, marker, limit,
-                               instance_name_pattern):
+                               instance_name_pattern, refresh=False):
         export_provider = providers_factory.get_provider(
             platform_name, constants.PROVIDER_TYPE_ENDPOINT_INSTANCES, None)
 
@@ -344,7 +344,7 @@ class WorkerServerEndpoint(object):
         instances_info = export_provider.get_instances(
             ctxt, secret_connection_info, source_environment,
             last_seen_id=marker, limit=limit,
-            instance_name_pattern=instance_name_pattern)
+            instance_name_pattern=instance_name_pattern, refresh=refresh)
         for instance_info in instances_info:
             schemas.validate_value(
                 instance_info, schemas.CORIOLIS_VM_INSTANCE_INFO_SCHEMA)
