@@ -303,6 +303,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.marker,
             mock.sentinel.limit,
             mock.sentinel.instance_name_pattern,
+            mock.sentinel.refresh,
         )
 
         mock_get_endpoint.assert_called_once_with(

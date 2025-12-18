@@ -26,7 +26,8 @@ class EndpointResourcesAPITestCase(test_base.CoriolisBaseTestCase):
             source_environment=mock.sentinel.source_environment,
             marker=mock.sentinel.marker,
             limit=mock.sentinel.limit,
-            instance_name_pattern=mock.sentinel.instance_name_pattern
+            instance_name_pattern=mock.sentinel.instance_name_pattern,
+            refresh=mock.sentinel.refresh
         )
         (self.endpoint_resources_api._rpc_client.
             get_endpoint_instances.assert_called_once_with)(
@@ -34,7 +35,8 @@ class EndpointResourcesAPITestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.source_environment,
             mock.sentinel.marker,
             mock.sentinel.limit,
-            mock.sentinel.instance_name_pattern
+            mock.sentinel.instance_name_pattern,
+            refresh=mock.sentinel.refresh
         )
         self.assertEqual(
             (self.endpoint_resources_api._rpc_client.
