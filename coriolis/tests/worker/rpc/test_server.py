@@ -554,6 +554,7 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.marker,
             mock.sentinel.limit,
             mock.sentinel.instance_name_pattern,
+            mock.sentinel.refresh,
         )
 
         mock_get_provider.assert_called_once_with(
@@ -571,6 +572,7 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             last_seen_id=mock.sentinel.marker,
             limit=mock.sentinel.limit,
             instance_name_pattern=mock.sentinel.instance_name_pattern,
+            refresh=mock.sentinel.refresh,
         )
 
         # values are validated for each instance returned by the provider

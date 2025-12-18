@@ -107,6 +107,7 @@ class WorkerClientTestCase(test_base.CoriolisRPCClientTestCase):
             'marker': None,
             'limit': None,
             'instance_name_pattern': None,
+            'refresh': False
         }
         self._test(self.client.get_endpoint_instances, args)
 

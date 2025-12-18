@@ -76,7 +76,8 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
             "source_environment": "mock_source_environment",
             "marker": None,
             "limit": None,
-            "instance_name_pattern": None
+            "instance_name_pattern": None,
+            "refresh": False
         }
         self._test(self.client.get_endpoint_instances, args)
 

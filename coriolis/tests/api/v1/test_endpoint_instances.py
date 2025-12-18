@@ -52,7 +52,7 @@ class EndpointInstanceControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_get_endpoint_instances.assert_called_once_with(
             mock_context, endpoint_id,
             mock_decode_base64_param.return_value,
-            marker, limit, instance_name_pattern)
+            marker, limit, instance_name_pattern, refresh=False)
         mock_instances_collection.assert_called_once_with(
             mock_get_endpoint_instances.return_value)
         self.assertEqual(
@@ -84,7 +84,7 @@ class EndpointInstanceControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_decode_base64_param.assert_not_called()
         mock_get_endpoint_instances.assert_called_once_with(
             mock_context, endpoint_id,
-            {}, None, None, None)
+            {}, None, None, None, refresh=False)
         mock_instances_collection.assert_called_once_with(
             mock_get_endpoint_instances.return_value)
         self.assertEqual(
