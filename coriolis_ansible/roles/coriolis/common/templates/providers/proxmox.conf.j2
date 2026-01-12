@@ -13,6 +13,9 @@ disks_device_model = "virtio"
 # Whether or not to skip starting migrated virtual machines on Proxmox after transferring them.
 skip_migrated_vm_start = false
 
+# Whether or not to force enable KVM hardware virtualization.
+force_enable_kvm = false
+
 # Default virtual CPU model to use for migrated VMs.
 # Note that some CPU models might not be compatible with all CPU vendors.
 # Additionally, using the 'host' model might lead to incompatibilities in
