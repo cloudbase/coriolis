@@ -166,7 +166,7 @@ def get_single_result(lis):
     return lis[0]
 
 
-def retry_on_error(max_attempts=5, sleep_seconds=0,
+def retry_on_error(max_attempts=5, sleep_seconds=1,
                    terminal_exceptions=[]):
     def _retry_on_error(func):
         @functools.wraps(func)
