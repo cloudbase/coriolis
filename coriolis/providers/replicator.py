@@ -162,7 +162,7 @@ class Client(object):
         sess.verify = self._creds["ca_cert"]
         return sess
 
-    @utils.retry_on_error()
+    @utils.retry_on_error(sleep_seconds=10)
     def get_status(self, device=None, brief=True):
         uri = "%s/api/v1/dev" % (self._base_uri)
         if device is not None:
