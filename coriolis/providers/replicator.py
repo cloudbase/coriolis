@@ -162,7 +162,7 @@ class Client(object):
         sess.verify = self._creds["ca_cert"]
         return sess
 
-    @utils.retry_on_error(sleep_seconds=10)
+    @utils.retry_on_error(sleep_seconds=5)
     def get_status(self, device=None, brief=True):
         uri = "%s/api/v1/dev" % (self._base_uri)
         if device is not None:
@@ -285,8 +285,14 @@ class Replicator(object):
         return self._ssh
 
     def init_replicator(self):
-        self._credentials = utils.retry_on_error()(
-            self._setup_replicator)(self._ssh)
+        try:
+            self._credentials = utils.retry_on_error(sleep_seconds=5)(
+                self._setup_replicator)(self._ssh)
+        except Exception:
+            LOG.warn("Failed to setup replicator, trying to reconnect ssh")
+            self._reconnect_ssh()
+            self._credentials = utils.retry_on_error(sleep_seconds=5)(
+                self._setup_replicator)(self._ssh)
         utils.retry_on_error()(
             self._init_replicator_client)(self._credentials)
         LOG.debug(
@@ -372,26 +378,29 @@ class Replicator(object):
         new_disks_status = None
         new_device_paths = None
         for i in range(retry_count):
-            new_disks_status = self._cli.get_status()
-            new_device_paths = [dev['device-path']
-                                for dev in new_disks_status]
-            LOG.debug(
-                "Polled devices while waiting for disk '%s' to attach "
-                "(try %d/%d): %s", disk_id, i + 1, retry_count,
-                new_device_paths)
+            try:
+                new_disks_status = self._cli.get_status()
+                new_device_paths = [dev['device-path']
+                                    for dev in new_disks_status]
+                LOG.debug(
+                    "Polled devices while waiting for disk '%s' to attach "
+                    "(try %d/%d): %s", disk_id, i + 1, retry_count,
+                    new_device_paths)
 
-            # check for missing/multiple new device paths:
-            missing_device_paths = (
-                set(previous_device_paths) - set(new_device_paths))
-            if missing_device_paths:
-                LOG.warn(
-                    "The following devices from the previous disk state qeury "
-                    "are no longer detected: %s", [
-                        dev for dev in previous_disks_status
-                        if dev['device-path'] in missing_device_paths])
+                # check for missing/multiple new device paths:
+                missing_device_paths = (
+                    set(previous_device_paths) - set(new_device_paths))
+                if missing_device_paths:
+                    LOG.warn(
+                        "The following devices from the previous disk state "
+                        "qeury are no longer detected: %s", [
+                            dev for dev in previous_disks_status
+                            if dev['device-path'] in missing_device_paths])
 
-            new_device_paths = set(
-                new_device_paths) - set(previous_device_paths)
+                new_device_paths = set(
+                    new_device_paths) - set(previous_device_paths)
+            except Exception:
+                LOG.debug("Failed to get new device status")
             if new_device_paths:
                 break
             else:
@@ -466,7 +475,7 @@ class Replicator(object):
             self.restart()
             self._cli._test_connection()
 
-    @utils.retry_on_error()
+    @utils.retry_on_error(sleep_seconds=5)
     def _get_ssh_client(self, args):
         """
         gets a paramiko SSH client
@@ -474,8 +483,12 @@ class Replicator(object):
         try:
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(**args)
-            return ssh
+            try:
+                ssh.connect(**args)
+                return ssh
+            except Exception:
+                ssh.close()
+                raise
         except paramiko.ssh_exception.SSHException as ex:
             raise exception.CoriolisException(
                 "Failed to setup SSH client: %s" % str(ex)) from ex
