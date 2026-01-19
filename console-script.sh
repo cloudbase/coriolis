@@ -2,7 +2,7 @@
 
 
 # Options and prompt definitions:
-OPTIONS=("Show Appliance Stats" "Show UI Login Details" "Edit/Inspect Coriolis Configuration" "Edit/Inspect Network Settings" "Edit/Inspect Proxy Settings" "Expose Coriolis Services Endpoints" "Add Certificate to Coriolis Worker" "Restore to default Coriolis Worker certificate chain" "Change Coriolis API certificate chain" "Restore Coriolis API certificate chain" "Deploy External Worker" "Restart Coriolis Services")
+OPTIONS=("Show Appliance Stats" "Show UI Login Details" "Edit/Inspect Coriolis Configuration" "Edit/Inspect Network Settings" "Edit/Inspect Proxy Settings" "Expose Coriolis Services Endpoints" "Add Certificate to Coriolis Worker" "Restore to default Coriolis Worker certificate chain" "Change Coriolis API certificate chain" "Restore Coriolis API certificate chain" "Deploy External Worker" "Restart Coriolis Services" "Upgrade Coriolis Services")
 
 
 WELCOME_PROMPT=$(cat <<EOP
@@ -631,6 +631,14 @@ function deploy-external-worker {
 
     echo "Starting external worker deployment process"
     $BASE_DIR/coriolis-ansible deploy-workers && echo "External worker successfully deployed"
+}
+
+function upgrade-coriolis-services {
+    printf '%s' "$UPGRADE_CORIOLIS_SERVICES"
+
+    coriolis_tag=$(confirm_input "Coriolis tag: ")
+
+    if [ $coriolis_tag -eq 0 ]
 }
 
 function interact {
