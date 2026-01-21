@@ -233,7 +233,13 @@ class WindowsMountTools(base.BaseOSMountTools):
 
         for fs_root in [r for r in fs_roots if not r[:-1] == system_drive]:
             if self._conn.test_path("%sWindows\\System32" % fs_root):
-                return fs_root, None
+                root_disk_id = None
+                root_disk_ids = self._get_disk_ids_from_drive_letters(
+                    [fs_root.split(':')[0]])
+                if root_disk_ids:
+                    root_disk_id = root_disk_ids[0]
+
+                return fs_root, root_disk_id
 
         raise exception.OperatingSystemNotFound("root partition not found")
 
