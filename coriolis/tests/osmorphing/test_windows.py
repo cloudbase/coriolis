@@ -302,6 +302,40 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         self.conn.exec_ps_command.assert_called_once_with(
             expected_commands, ignore_stdout=True)
 
+    def test__delete_startup_entry(self):
+        self.morphing_tools._delete_startup_entry(
+            "mock_key_name", "mock_service_name")
+
+        registry_path = ("HKLM:\\mock_key_name\\\Microsoft\\"
+                         "Windows\\CurrentVersion\\Run")
+
+        expected_commands = (
+            "$ErrorActionPreference = 'Stop';"
+            "Remove-ItemProperty -Path "
+            f"'{registry_path}' "
+            "-Name 'mock_service_name' -Force"
+        )
+
+        self.conn.exec_ps_command.assert_called_once_with(
+            expected_commands, ignore_stdout=True)
+
+    def test__delete_uninstall_entry(self):
+        self.morphing_tools._delete_uninstall_entry(
+            "mock_key_name", "mock_service_name")
+
+        registry_path = ("HKLM:\\mock_key_name\\\Microsoft\\"
+                         "Windows\\CurrentVersion\\Uninstall\\*")
+
+        expected_commands = (
+            "$ErrorActionPreference = 'Stop';"
+            f"Get-ItemProperty '{registry_path}' | "
+            "Where-Object { $_.DisplayName -like 'mock_service_name' } | "
+            "ForEach-Object { Remove-Item -Path $_.PSPath -Force }"
+        )
+
+        self.conn.exec_ps_command.assert_called_once_with(
+            expected_commands, ignore_stdout=True)
+
     @mock.patch.object(windows.utils, 'write_winrm_file')
     def test_run_user_script(self, mock_write_winrm_file):
         user_script = 'echo "Hello, World!"'
