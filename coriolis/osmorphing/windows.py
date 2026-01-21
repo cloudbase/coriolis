@@ -29,6 +29,8 @@ SERVICE_START_DISABLED = 4
 SERVICES_PATH_FORMAT = "HKLM:\\%s\\ControlSet001\\Services"
 SERVICE_PATH_FORMAT = "HKLM:\\%s\\ControlSet001\\Services\\%s"
 RUN_PATH_FORMAT = "HKLM:\\%s\\\Microsoft\\Windows\\CurrentVersion\\Run"
+UNINSTALL_PATH_FORMAT = \
+    "HKLM:\\%s\\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*"
 CLOUDBASEINIT_SERVICE_NAME = "cloudbase-init"
 CLOUDBASE_INIT_DEFAULT_PLUGINS = [
     'cloudbaseinit.plugins.common.mtu.MTUPlugin',
@@ -383,6 +385,19 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
         self._conn.exec_ps_command(
             "$ErrorActionPreference = 'Stop';"
             "Remove-ItemProperty -Path '%(path)s' -Name '%(entry)s' -Force"
+            % {"path": registry_path, "entry": service_name},
+            ignore_stdout=True,
+        )
+
+    def _delete_uninstall_entry(self, key_name, service_name):
+        registry_path = UNINSTALL_PATH_FORMAT % key_name
+        LOG.info("Deleting uninstall entry: %s", service_name)
+
+        self._conn.exec_ps_command(
+            "$ErrorActionPreference = 'Stop';"
+            "Get-ItemProperty '%(path)s' | "
+            "Where-Object { $_.DisplayName -like '%(entry)s' } | "
+            "ForEach-Object { Remove-Item -Path $_.PSPath -Force }"
             % {"path": registry_path, "entry": service_name},
             ignore_stdout=True,
         )
