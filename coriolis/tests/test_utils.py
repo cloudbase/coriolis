@@ -102,8 +102,8 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         self.assertEqual(self.mock_func.call_count, 5)
 
     def test_get_udev_net_rules(self):
-        net_ifaces_info = [("eth0", "AA:BB:CC:DD:EE:FF"),
-                           ("eth1", "FF:EE:DD:CC:BB:AA")]
+        net_ifaces_info = {"eth0": "AA:BB:CC:DD:EE:FF",
+                           "eth1": "FF:EE:DD:CC:BB:AA"}
         expected_result = (
             'SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*", '
             'ATTR{address}=="aa:bb:cc:dd:ee:ff", '
