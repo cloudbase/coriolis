@@ -296,8 +296,7 @@ class BaseRedHatMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     def test_get_installed_packages(self, mock_exec_cmd_chroot):
-        mock_exec_cmd_chroot.return_value = \
-            "package1\npackage2".encode('utf-8')
+        mock_exec_cmd_chroot.return_value = "package1\npackage2"
 
         self.morphing_tools.get_installed_packages()
 
@@ -387,7 +386,7 @@ class BaseRedHatMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_read_file_sudo')
     def test__find_yum_repos_found(self, mock_read_file_sudo, mock_list_dir):
         mock_list_dir.return_value = ['file1.repo', 'file2.repo']
-        mock_read_file_sudo.return_value = b'[repo1]\n[repo2]'
+        mock_read_file_sudo.return_value = '[repo1]\n[repo2]'
         repos_to_enable = ['repo1']
 
         result = self.morphing_tools._find_yum_repos(repos_to_enable)
@@ -404,7 +403,7 @@ class BaseRedHatMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
     def test__find_yum_repos_not_found(self, mock_read_file_sudo,
                                        mock_list_dir):
         mock_list_dir.return_value = ['file1.repo', 'file2.repo']
-        mock_read_file_sudo.return_value = b'[repo1]\n[repo2]'
+        mock_read_file_sudo.return_value = '[repo1]\n[repo2]'
         repos_to_enable = ['repo3']
 
         with self.assertLogs('coriolis.osmorphing.redhat', level=logging.WARN):

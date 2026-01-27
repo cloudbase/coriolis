@@ -68,8 +68,7 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
     def get_installed_packages(self):
         cmd = 'rpm -qa --qf "%{NAME}\\n"'
         try:
-            self.installed_packages = self._exec_cmd_chroot(
-                cmd).decode('utf-8').splitlines()
+            self.installed_packages = self._exec_cmd_chroot(cmd).splitlines()
         except exception.CoriolisException:
             LOG.warning("Failed to get installed packages")
             LOG.trace(utils.get_exception_details())
@@ -134,7 +133,7 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
 
     def _enable_sles_module(self, module):
         available_modules = self._exec_cmd_chroot(
-            "SUSEConnect --list-extensions").decode()
+            "SUSEConnect --list-extensions")
         module_match = re.search("%s.*" % module, available_modules)
         try:
             module_path = module_match.group(0)
@@ -170,8 +169,7 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
     def _get_repos(self):
         repos = {}
         repos_list = self._exec_cmd_chroot(
-            "zypper repos -u | awk -F '|' '/^\s[0-9]+/ {print $2 $7}'"
-        ).decode()
+            "zypper repos -u | awk -F '|' '/^\s[0-9]+/ {print $2 $7}'")
         for repo in repos_list.splitlines():
             alias, uri = repo.strip().split()
             repos[alias] = uri

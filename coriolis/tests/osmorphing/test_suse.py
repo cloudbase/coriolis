@@ -78,8 +78,7 @@ class BaseSUSEMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     def test_get_installed_packages(self, mock_exec_cmd_chroot):
-        mock_exec_cmd_chroot.return_value = \
-            "package1\npackage2".encode('utf-8')
+        mock_exec_cmd_chroot.return_value = "package1\npackage2"
 
         self.morphing_tools.get_installed_packages()
 
@@ -241,7 +240,7 @@ class BaseSUSEMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     def test__enable_sles_module(self, mock_exec_cmd_chroot):
-        mock_exec_cmd_chroot.return_value = b"module1\nmodule2\nmodule3"
+        mock_exec_cmd_chroot.return_value = "module1\nmodule2\nmodule3"
 
         self.morphing_tools._enable_sles_module("module2")
 
@@ -262,7 +261,7 @@ class BaseSUSEMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     def test__enable_sles_module_with_exception(self, mock_exec_cmd_chroot):
         mock_exec_cmd_chroot.side_effect = [
-            b"module output", None, None, Exception()]
+            "module output", None, None, Exception()]
 
         self.assertRaises(exception.CoriolisException,
                           self.morphing_tools._enable_sles_module,
@@ -289,7 +288,7 @@ class BaseSUSEMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     def test__get_repos(self, mock_exec_cmd_chroot):
         mock_exec_cmd_chroot.return_value = (
-            b"repo1 http://repo1.com\nrepo2 http://repo2.com")
+            "repo1 http://repo1.com\nrepo2 http://repo2.com")
 
         result = self.morphing_tools._get_repos()
 

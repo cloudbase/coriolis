@@ -462,7 +462,7 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
     def test__read_config_file_sudo(
             self, mock_read_file_sudo, mock_test_path_chroot):
         mock_test_path_chroot.return_value = True
-        mock_read_file_sudo.return_value = b'[connection]\ntype=ethernet'
+        mock_read_file_sudo.return_value = '[connection]\ntype=ethernet'
 
         result = self.os_morphing_tools._read_config_file_sudo(
             self.chroot_path)
@@ -783,7 +783,7 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     def test__test_path_chroot(self, mock_exec_cmd_chroot):
         path = "/tmp/test_path"
-        mock_exec_cmd_chroot.return_value = b"1\n"
+        mock_exec_cmd_chroot.return_value = "1\n"
 
         result = self.os_morphing_tools._test_path_chroot(path)
 
@@ -794,7 +794,7 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     def test__test_path_chroot_no_leading_slash(self, mock_exec_cmd_chroot):
         path = "tmp/test_path"
-        mock_exec_cmd_chroot.return_value = b"1\n"
+        mock_exec_cmd_chroot.return_value = "1\n"
 
         result = self.os_morphing_tools._test_path_chroot(path)
 
@@ -825,7 +825,7 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
     def test__read_grub_config_file_exists(self, mock_test_path_chroot,
                                            mock_read_file_sudo):
         config = mock.sentinel.config
-        file_contents = b'key1="value1"\n#comment\nkey2="value2"\ninvalid_line'
+        file_contents = 'key1="value1"\n#comment\nkey2="value2"\ninvalid_line'
 
         mock_test_path_chroot.return_value = True
         mock_read_file_sudo.return_value = file_contents
@@ -857,7 +857,7 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         tmp_file = "/tmp/tmp_file"
 
         mock_test_path_chroot.return_value = True
-        mock_exec_cmd_chroot.side_effect = [tmp_file.encode(), None]
+        mock_exec_cmd_chroot.side_effect = [tmp_file, None]
         mock_read_grub_config.return_value = (
             mock_exec_cmd_chroot.return_value)
 
@@ -933,7 +933,7 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         }
         cfg = 'cfg'
 
-        mock_read_file_sudo.return_value = cfg.encode()
+        mock_read_file_sudo.return_value = cfg
 
         self.os_morphing_tools.set_grub_value(option, value, config_obj)
 
@@ -956,7 +956,7 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         }
         cfg = 'cfg'
 
-        mock_read_file_sudo.return_value = cfg.encode()
+        mock_read_file_sudo.return_value = cfg
 
         self.os_morphing_tools.set_grub_value(option, value, config_obj)
 

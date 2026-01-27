@@ -59,7 +59,7 @@ class BaseDebianMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
 
         mock_test_path_chroot.assert_called_once_with('etc/default/grub')
         mock_grub2_cfg_editor.assert_called_once_with(
-            mock_read_file_sudo.return_value.decode.return_value)
+            mock_read_file_sudo.return_value)
         mock_grub2_cfg_editor.return_value.append_to_option.assert_has_calls(
             [
                 mock.call(
@@ -215,8 +215,7 @@ class BaseDebianMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     def test_get_installed_packages(self, mock_exec_cmd_chroot):
-        mock_exec_cmd_chroot.return_value = \
-            "package1\npackage2".encode('utf-8')
+        mock_exec_cmd_chroot.return_value = "package1\npackage2"
 
         self.morpher.get_installed_packages()
 

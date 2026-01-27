@@ -335,7 +335,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             if check_exists:
                 raise IOError("could not find %s" % chroot_path)
             return {}
-        content = self._read_file_sudo(chroot_path).decode()
+        content = self._read_file_sudo(chroot_path)
         config = utils.parse_ini_config(content)
         return config
 
@@ -484,7 +484,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         if path.startswith('/') is False:
             path = "/%s" % path
         exists = self._exec_cmd_chroot(
-            '[ -f "%s" ] && echo 1 || echo 0' % path).decode().rstrip('\n')
+            '[ -f "%s" ] && echo 1 || echo 0' % path).rstrip('\n')
         return exists == "1"
 
     def _read_file_sudo(self, chroot_path):
@@ -497,7 +497,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
     def _read_grub_config(self, config):
         if self._test_path_chroot(config) is False:
             raise IOError("could not find %s" % config)
-        contents = self._read_file_sudo(config).decode()
+        contents = self._read_file_sudo(config)
         ret = {}
         for line in contents.split('\n'):
             if line.startswith("#"):
@@ -512,7 +512,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         grub_conf = grub_conf or "/etc/default/grub"
         if self._test_path_chroot(grub_conf) is False:
             raise IOError("could not find %s" % grub_conf)
-        tmp_file = self._exec_cmd_chroot("mktemp").decode().rstrip('\n')
+        tmp_file = self._exec_cmd_chroot("mktemp").rstrip('\n')
         self._exec_cmd_chroot(
             "/bin/cp -fp %s %s" % (grub_conf, tmp_file))
         config_file = self._read_grub_config(tmp_file)
@@ -561,7 +561,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
                 replace_in_cfg(option, value)
         else:
             append_to_cfg(option, value)
-        cfg = self._read_file_sudo(config_obj["location"]).decode()
+        cfg = self._read_file_sudo(config_obj["location"])
         LOG.warning("TEMP CONFIG IS: %r" % cfg)
 
     def _set_grub2_cmdline(self, config_obj, options, clobber=False):

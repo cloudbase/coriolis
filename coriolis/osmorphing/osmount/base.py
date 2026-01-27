@@ -122,7 +122,7 @@ class BaseSSHOSMountTools(BaseOSMountTools):
 
 class BaseLinuxOSMountTools(BaseSSHOSMountTools):
     def _get_pvs(self):
-        out = self._exec_cmd("sudo pvdisplay -c").decode().splitlines()
+        out = self._exec_cmd("sudo pvdisplay -c").splitlines()
         LOG.debug("Output of 'pvdisplay -c' command: %s", out)
         pvs = {}
         for line in out:
@@ -150,7 +150,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         """
         vgs_cmd = (
             "sudo vgs -o vg_name,pv_name,vg_uuid, --noheadings --separator :")
-        out = self._exec_cmd(vgs_cmd).decode().splitlines()
+        out = self._exec_cmd(vgs_cmd).splitlines()
         LOG.debug("Output of %s command: %s", vgs_cmd, out)
         vgs_uuid_map = {}
         for line in out:
@@ -197,8 +197,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
 
     def _get_vgnames(self):
         vg_names = []
-        vgscan_out_lines = self._exec_cmd(
-            "sudo vgscan").decode().splitlines()
+        vgscan_out_lines = self._exec_cmd("sudo vgscan").splitlines()
         LOG.debug("Output of vgscan commnad: %s", vgscan_out_lines)
         for vgscan_out_line in vgscan_out_lines:
             m = re.match(
@@ -212,7 +211,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
     def _get_lv_paths(self):
         """ Returns list with paths of available LVM volumes. """
         lvm_paths = []
-        out = self._exec_cmd("sudo lvdisplay -c").decode().strip()
+        out = self._exec_cmd("sudo lvdisplay -c").strip()
         if out:
             LOG.debug("Decoded `lvdisplay` output data: %s", out)
             out_lines = out.splitlines()
@@ -353,7 +352,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
     def _get_symlink_target(self, symlink):
         target = symlink
         try:
-            target = self._exec_cmd('readlink -en %s' % symlink).decode()
+            target = self._exec_cmd('readlink -en %s' % symlink)
             LOG.debug("readlink %s returned: %s" % (symlink, target))
         except Exception:
             LOG.warn('Target not found for symlink: %s. Original link path '
@@ -375,8 +374,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         return dev_file_paths
 
     def _get_mounted_devices(self):
-        mounts = self._exec_cmd(
-            "cat /proc/mounts").decode().splitlines()
+        mounts = self._exec_cmd("cat /proc/mounts").splitlines()
         ret = []
         mounted_device_numbers = []
         dev_nmb_cmd = "mountpoint -x %s"
@@ -390,10 +388,9 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                     continue
                 ret.append(dev_name)
                 mounted_device_numbers.append(
-                    self._exec_cmd(dev_nmb_cmd % dev_name).decode().rstrip())
+                    self._exec_cmd(dev_nmb_cmd % dev_name).rstrip())
 
-        block_devs = self._exec_cmd(
-            "ls -al /dev | grep ^b").decode().splitlines()
+        block_devs = self._exec_cmd("ls -al /dev | grep ^b").splitlines()
         for dev_line in block_devs:
             dev = dev_line.split()
             major_minor = "%s:%s" % (
@@ -409,8 +406,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         return ret
 
     def _get_mount_destinations(self):
-        mounts = self._exec_cmd(
-            "cat /proc/mounts").decode().splitlines()
+        mounts = self._exec_cmd("cat /proc/mounts").splitlines()
         ret = set()
         for line in mounts:
             colls = line.split()
@@ -424,8 +420,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         #   where 'ln -s /dev/dm-N /dev/<VG-name>/<LV-name>'
         # Querying for the kernel device name (KNAME) should ensure we get the
         # device names we desire both for physical and logical volumes.
-        volume_devs = self._exec_cmd(
-            "lsblk -lnao KNAME").decode().splitlines()
+        volume_devs = self._exec_cmd("lsblk -lnao KNAME").splitlines()
         LOG.debug("All block devices: %s", str(volume_devs))
 
         volume_devs = ["/dev/%s" % d for d in volume_devs if
@@ -446,7 +441,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         dev_name = None
         for dev_path in devices:
             dirs = None
-            tmp_dir = self._exec_cmd('mktemp -d').decode().splitlines()[0]
+            tmp_dir = self._exec_cmd('mktemp -d').splitlines()[0]
             try:
                 self._exec_cmd('sudo mount %s %s' % (dev_path, tmp_dir))
                 # NOTE: it's possible that the device was mounted successfully
@@ -508,7 +503,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                 "being migrated.")
 
         try:
-            tmp_dir = self._exec_cmd('mktemp -d').decode().splitlines()[0]
+            tmp_dir = self._exec_cmd('mktemp -d').splitlines()[0]
             self._exec_cmd('sudo mount %s %s' % (os_root_device, tmp_dir))
             os_root_dir = tmp_dir
         except Exception as ex:
@@ -560,7 +555,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         for volume_dev in volume_devs:
             self._exec_cmd("sudo partx -v -a %s || true" % volume_dev)
             dev_paths += self._exec_cmd(
-                "sudo ls -1 %s*" % volume_dev).decode().splitlines()
+                "sudo ls -1 %s*" % volume_dev).splitlines()
         LOG.debug("All simple devices to scan: %s", dev_paths)
 
         lvm_dev_paths = []
@@ -573,7 +568,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
             self._exec_cmd("sudo vgchange -ay -S vg_uuid=%s" % vg_uuid)
             self._exec_cmd("sudo vgchange --refresh")
             dev_paths_for_group = self._exec_cmd(
-                f"sudo ls -1 /dev/{vg_props['name']}/*").decode().splitlines()
+                f"sudo ls -1 /dev/{vg_props['name']}/*").splitlines()
             lvm_dev_paths.extend(dev_paths_for_group)
         LOG.debug("All LVM vols to scan: %s", lvm_dev_paths)
 
@@ -592,8 +587,8 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                     dev_path, dev_target)
                 continue
             fs_type = self._exec_cmd(
-                "sudo blkid -o value -s TYPE %s || true" %
-                dev_path).decode().splitlines()
+                "sudo blkid -o value -s TYPE %s || true" % dev_path
+            ).splitlines()
             LOG.debug('Device %s filesystem types: %s', dev_path, fs_type)
             if fs_type and fs_type[0] in valid_filesystems:
                 if fs_type[0] == "xfs":
