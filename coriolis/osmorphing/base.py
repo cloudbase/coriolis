@@ -639,11 +639,10 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             config_obj, execute_update_grub)
 
     def _add_net_udev_rules(self, net_ifaces_info):
-        udev_file = "etc/udev/rules.d/70-persistent-net.rules"
-        if not self._test_path(udev_file):
-            if net_ifaces_info:
-                content = utils.get_udev_net_rules(net_ifaces_info)
-                self._write_file_sudo(udev_file, content)
+        coriolis_udev_rules_file = "etc/udev/rules.d/99-coriolis-net.rules"
+        if net_ifaces_info:
+            content = utils.get_udev_net_rules(net_ifaces_info)
+            self._write_file_sudo(coriolis_udev_rules_file, content)
 
     def _setup_network_preservation(self, nics_info) -> None:
         net_ifaces_info = dict()
@@ -690,6 +689,6 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
                     "with MAC address '%s'", nic, nic_mac)
             net_ifaces_info.update(matching_ifaces)
 
-        self._add_net_udev_rules(net_ifaces_info.items())
+        self._add_net_udev_rules(net_ifaces_info)
 
         return
