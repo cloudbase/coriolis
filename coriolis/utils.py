@@ -208,7 +208,7 @@ def get_udev_net_rules(net_ifaces_info):
 def parse_os_release(ssh):
     os_release_info = exec_ssh_cmd(
         ssh,
-        "[ -f '/etc/os-release' ] && cat /etc/os-release || true").decode()
+        "[ -f '/etc/os-release' ] && cat /etc/os-release || true")
     info = {}
     for line in os_release_info.splitlines():
         if "=" not in line:
@@ -222,7 +222,7 @@ def parse_os_release(ssh):
 
 
 def parse_lsb_release(ssh):
-    out = exec_ssh_cmd(ssh, "lsb_release -a || true").decode()
+    out = exec_ssh_cmd(ssh, "lsb_release -a || true")
     dist_id = re.findall('^Distributor ID:\s(.*)$', out, re.MULTILINE)
     release = re.findall('^Release:\s(.*)$', out, re.MULTILINE)
     if dist_id and release:
@@ -298,8 +298,17 @@ def write_winrm_file(conn, remote_path, content, overwrite=True):
 
 @retry_on_error()
 def list_ssh_dir(ssh, remote_path):
-    sftp = ssh.open_sftp()
-    return sftp.listdir(remote_path)
+    """List directory contents via SFTP, falling back to ls on
+    encoding errors."""
+    try:
+        sftp = ssh.open_sftp()
+        return sftp.listdir(remote_path)
+    except Exception:
+        LOG.warning(
+            "SFTP listdir failed, falling back to shell command. "
+            "Error: %s", get_exception_details())
+        output = exec_ssh_cmd(ssh, "sudo ls -1 %s" % remote_path, get_pty=True)
+        return [f for f in output.splitlines() if f.strip()]
 
 
 @retry_on_error(terminal_exceptions=[exception.MinionMachineCommandTimeout])
@@ -335,7 +344,10 @@ def exec_ssh_cmd(ssh, cmd, environment=None, get_pty=False, timeout=None):
     # Most of the commands will use pseudo-terminal which unfortunately will
     # include a '\r' to every newline. This will affect all plugins too, so
     # best we can do now is replace them.
-    return std_out.replace(b'\r\n', b'\n').replace(b'\n\r', b'\n')
+    std_out = std_out.replace(b'\r\n', b'\n').replace(b'\n\r', b'\n')
+
+    # Decode output with error handling for non-UTF-8 characters
+    return std_out.decode('utf-8', errors='replace')
 
 
 def exec_ssh_cmd_chroot(ssh, chroot_dir, cmd, environment=None, get_pty=False,
@@ -349,7 +361,7 @@ def check_fs(ssh, fs_type, dev_path):
     try:
         out = exec_ssh_cmd(
             ssh, "sudo fsck -p -t %s %s" % (fs_type, dev_path),
-            get_pty=True).decode()
+            get_pty=True)
         LOG.debug("File system checked:\n%s", out)
     except Exception:
         LOG.warn("Checking file system returned an error:\n%s" % (
@@ -360,18 +372,18 @@ def check_fs(ssh, fs_type, dev_path):
 def run_xfs_repair(ssh, dev_path):
     try:
         tmp_dir = exec_ssh_cmd(
-            ssh, "mktemp -d").decode().rstrip("\n")
+            ssh, "mktemp -d").rstrip("\n")
         LOG.debug("mounting %s on %s" % (dev_path, tmp_dir))
         mount_out = exec_ssh_cmd(
             ssh, "sudo mount %s %s" % (dev_path, tmp_dir),
-            get_pty=True).decode()
+            get_pty=True)
         LOG.debug("mount returned: %s" % mount_out)
         LOG.debug("Umounting %s" % tmp_dir)
         umount_out = exec_ssh_cmd(
-            ssh, "sudo umount %s" % tmp_dir, get_pty=True).decode()
+            ssh, "sudo umount %s" % tmp_dir, get_pty=True)
         LOG.debug("umounting returned: %s" % umount_out)
         out = exec_ssh_cmd(
-            ssh, "sudo xfs_repair %s" % dev_path, get_pty=True).decode()
+            ssh, "sudo xfs_repair %s" % dev_path, get_pty=True)
         LOG.debug("File system repaired:\n%s", out)
     except Exception as ex:
         LOG.warn("xfs_repair returned an error:\n%s", str(ex))

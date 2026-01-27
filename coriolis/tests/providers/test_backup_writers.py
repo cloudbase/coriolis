@@ -1327,7 +1327,7 @@ class HTTPBackupWriterBootstrapperTestcase(test_base.CoriolisBaseTestCase):
         mock_exec_ssh_cmd.assert_called_once_with(
             self._ssh, "sudo cat %s" % mock.sentinel.remote_path, get_pty=True)
         self.assertEqual(
-            result, mock_exec_ssh_cmd.return_value.decode.return_value)
+            result, mock_exec_ssh_cmd.return_value)
 
     @mock.patch.object(
         backup_writers.HTTPBackupWriterBootstrapper,

@@ -42,7 +42,7 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
         grub_cfg = "etc/default/grub"
         if self._test_path_chroot(grub_cfg) is False:
             return
-        contents = self._read_file_sudo(grub_cfg).decode()
+        contents = self._read_file_sudo(grub_cfg)
         cfg = utils.Grub2ConfigEditor(contents)
         cfg.append_to_option(
             "GRUB_CMDLINE_LINUX_DEFAULT",
@@ -127,8 +127,7 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
     def get_installed_packages(self):
         cmd = "dpkg-query -f '${binary:Package}\\n' -W"
         try:
-            self.installed_packages = self._exec_cmd_chroot(
-                cmd).decode('utf-8').splitlines()
+            self.installed_packages = self._exec_cmd_chroot(cmd).splitlines()
         except exception.CoriolisException:
             self.installed_packages = []
 

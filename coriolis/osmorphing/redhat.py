@@ -172,8 +172,7 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
     def get_installed_packages(self):
         cmd = 'rpm -qa --qf "%{NAME}\\n"'
         try:
-            self.installed_packages = self._exec_cmd_chroot(
-                cmd).decode('utf-8').splitlines()
+            self.installed_packages = self._exec_cmd_chroot(cmd).splitlines()
         except exception.CoriolisException:
             LOG.warning("Failed to get installed packages")
             LOG.trace(utils.get_exception_details())
@@ -231,7 +230,7 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         for file in repofiles:
             path = os.path.join(reposdir_path, file)
             try:
-                content = self._read_file_sudo(path).decode()
+                content = self._read_file_sudo(path)
             except Exception as e:
                 LOG.warning(
                     "Could not read yum repository file %s: %s", path, e)

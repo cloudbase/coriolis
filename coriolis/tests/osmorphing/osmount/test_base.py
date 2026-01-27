@@ -166,7 +166,7 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')
     def test__get_pvs(self, mock_exec_cmd):
         mock_exec_cmd.return_value = (
-            b"pv1:vg1\nimproper_line\npv2:vg1\n\npv3:vg2")
+            "pv1:vg1\nimproper_line\npv2:vg1\n\npv3:vg2")
 
         with self.assertLogs('coriolis.osmorphing.osmount.base',
                              level=logging.WARN):
@@ -179,7 +179,7 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')
     def test__get_pvs_improper_output(self, mock_exec_cmd):
-        mock_exec_cmd.return_value = b"improper_line"
+        mock_exec_cmd.return_value = "improper_line"
 
         with self.assertLogs('coriolis.osmorphing.osmount.base',
                              level=logging.WARN):
@@ -192,7 +192,7 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')
     def test__get_vgs(self, mock_exec_cmd):
         mock_exec_cmd.return_value = (
-            b"vg1:pv1:uuid1\nimproper_line\n\n\nvg2:pv3:uuid2")
+            "vg1:pv1:uuid1\nimproper_line\n\n\nvg2:pv3:uuid2")
 
         with self.assertLogs('coriolis.osmorphing.osmount.base',
                              level=logging.WARN):
@@ -214,7 +214,7 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(base.uuid, 'uuid4')
     @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')
     def test__get_vgs_duplicate_vg_names(self, mock_exec_cmd, mock_uuid4):
-        mock_exec_cmd.return_value = b"vg1:pv1:uuid1\nvg1:pv2:uuid2"
+        mock_exec_cmd.return_value = "vg1:pv1:uuid1\nvg1:pv2:uuid2"
         mock_uuid4.return_value = "random_uuid"
 
         with self.assertLogs('coriolis.osmorphing.osmount.base',
@@ -244,7 +244,7 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')
     def test__get_vgs_improper_output(self, mock_exec_cmd):
-        mock_exec_cmd.return_value = b"improper_line"
+        mock_exec_cmd.return_value = "improper_line"
 
         with self.assertLogs('coriolis.osmorphing.osmount.base',
                              level=logging.WARN):
@@ -272,8 +272,8 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')
     def test__get_vgnames(self, mock_exec_cmd):
         mock_exec_cmd.return_value = (
-            b"  Found volume group \"vg1\" using metadata type lvm2\n"
-            b"  Found volume group \"vg2\" using metadata type lvm2"
+            "  Found volume group \"vg1\" using metadata type lvm2\n"
+            "  Found volume group \"vg2\" using metadata type lvm2"
         )
 
         result = self.base_os_mount_tools._get_vgnames()
@@ -286,8 +286,8 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')
     def test__get_lv_paths(self, mock_exec_cmd):
         mock_exec_cmd.return_value = (
-            b"/dev/vg1/lv1:vg1:lv1:-wi-ao----100.00g\n"
-            b"/dev/vg2/lv2:vg2:lv2:-wi-a-----50.00g"
+            "/dev/vg1/lv1:vg1:lv1:-wi-ao----100.00g\n"
+            "/dev/vg2/lv2:vg2:lv2:-wi-a-----50.00g"
         )
 
         result = self.base_os_mount_tools._get_lv_paths()
@@ -546,7 +546,7 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')
     def test__get_symlink_target(self, mock_exec_cmd):
-        mock_exec_cmd.return_value = b"/dev/sda1"
+        mock_exec_cmd.return_value = "/dev/sda1"
 
         result = self.base_os_mount_tools._get_symlink_target(
             "/dev/sda1")
@@ -585,11 +585,11 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')
     def test__get_mounted_devices(self, mock_exec_cmd):
         mock_exec_cmd.side_effect = [
-            b"/dev/sda1 on / type ext4 (rw,relatime,errors=remount-ro)\n",
-            b"/dev/sda1",
-            b"8:1",
-            b"brw-rw---- 1 root disk 8, 1 Jan  1 00:00 sda1 sda2",
-            b""
+            "/dev/sda1 on / type ext4 (rw,relatime,errors=remount-ro)\n",
+            "/dev/sda1",
+            "8:1",
+            "brw-rw---- 1 root disk 8, 1 Jan  1 00:00 sda1 sda2",
+            ""
         ]
         result = self.base_os_mount_tools._get_mounted_devices()
 
@@ -607,9 +607,9 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
     def test__get_mounted_devices_not_found(self, mock_test_ssh_path,
                                             mock_exec_cmd):
         mock_exec_cmd.side_effect = [
-            b"/dev/sda1 on / type ext4 (rw,relatime,errors=remount-ro)\n",
-            b"/dev/sda1",
-            b""
+            "/dev/sda1 on / type ext4 (rw,relatime,errors=remount-ro)\n",
+            "/dev/sda1",
+            ""
         ]
         mock_test_ssh_path.return_value = False
 
@@ -631,9 +631,9 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')
     def test__get_mount_destinations(self, mock_exec_cmd):
         mock_exec_cmd.return_value = (
-            b"/dev/sda1 / ext4 rw,relatime 0 0\n"
-            b"/dev/sda2 /mnt ext4 rw,relatime 0 0\n"
-            b"/dev/sda3 /mnt1 ext4 rw,relatime 0 0\n"
+            "/dev/sda1 / ext4 rw,relatime 0 0\n"
+            "/dev/sda2 /mnt ext4 rw,relatime 0 0\n"
+            "/dev/sda3 /mnt1 ext4 rw,relatime 0 0\n"
         )
 
         result = self.base_os_mount_tools._get_mount_destinations()
@@ -645,7 +645,7 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')
     def test__get_volume_block_devices(self, mock_exec_cmd):
-        mock_exec_cmd.return_value = b"sda\nsda1\nsda2\nsdb\nsdb1\nsdb2"
+        mock_exec_cmd.return_value = "sda\nsda1\nsda2\nsdb\nsdb1\nsdb2"
         self.base_os_mount_tools._ignore_devices = ["/dev/sda1"]
 
         result = self.base_os_mount_tools._get_volume_block_devices()
@@ -658,7 +658,7 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')
     @mock.patch.object(base.utils, 'list_ssh_dir')
     def test__find_dev_with_contents(self, mock_list_ssh_dir, mock_exec_cmd):
-        mock_exec_cmd.return_value = b"/tmp/tmp_dir"
+        mock_exec_cmd.return_value = "/tmp/tmp_dir"
         mock_list_ssh_dir.return_value = ["etc", "bin", "sbin", "boot"]
 
         result = self.base_os_mount_tools._find_dev_with_contents(
@@ -692,7 +692,7 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(base.utils, 'list_ssh_dir')
     def test__find_dev_with_contents_one_of_files(self, mock_list_ssh_dir,
                                                   mock_exec_cmd):
-        mock_exec_cmd.return_value = b"/tmp/tmp_dir"
+        mock_exec_cmd.return_value = "/tmp/tmp_dir"
         mock_list_ssh_dir.return_value = ["etc", "bin", "sbin", "boot"]
 
         result = self.base_os_mount_tools._find_dev_with_contents(
@@ -713,7 +713,7 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(base.utils, 'list_ssh_dir')
     def test__find_dev_with_contents_missing_all_files(self, mock_list_ssh_dir,
                                                        mock_exec_cmd):
-        mock_exec_cmd.return_value = b"/tmp/tmp_dir"
+        mock_exec_cmd.return_value = "/tmp/tmp_dir"
         mock_list_ssh_dir.return_value = ["etc", "bin", "sbin", "boot"]
 
         # Append a missing file to the list of all_files
@@ -759,7 +759,7 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
     def test__find_and_mount_root(self, mock_find_dev_with_contents,
                                   mock_exec_cmd, mock_test_ssh_path):
         devices = ["/dev/sda", "/dev/sdb"]
-        mock_exec_cmd.return_value = b"/tmp/tmp_dir"
+        mock_exec_cmd.return_value = "/tmp/tmp_dir"
         mock_find_dev_with_contents.return_value = "/dev/sda"
         mock_test_ssh_path.side_effect = [True, False, True, True]
 
@@ -792,7 +792,7 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
             self, mock_find_dev_with_contents, mock_exec_cmd,
             mock_test_ssh_path):
         devices = ["/dev/sda", "/dev/sdb"]
-        mock_exec_cmd.return_value = b"/tmp/tmp_dir"
+        mock_exec_cmd.return_value = "/tmp/tmp_dir"
         mock_find_dev_with_contents.return_value = None
 
         self.assertRaises(exception.OperatingSystemNotFound,
@@ -811,7 +811,7 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
             self, mock_find_dev_with_contents, mock_exec_cmd,
             mock_test_ssh_path):
         devices = ["/dev/sda", "/dev/sdb"]
-        mock_exec_cmd.side_effect = [b"/tmp/tmp_dir", CoriolisTestException()]
+        mock_exec_cmd.side_effect = ["/tmp/tmp_dir", CoriolisTestException()]
         mock_find_dev_with_contents.return_value = "/dev/sda"
         mock_test_ssh_path.return_value = True
 
@@ -859,21 +859,21 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_get_mounted_devices.return_value = ["/dev/sda1"]
         mock_find_dev_with_contents.return_value = "/dev/sdb1"
         mock_exec_cmd.side_effect = [
-            b"",
-            b"/dev/sda1",
-            b"",
-            b"/dev/sdb1",
-            b"",
-            b"",
-            b"",
-            b"/dev/vg1/lv1",
-            b"/dev/sda1",
-            b"/dev/sdb1",
-            b"ext4",
-            b"/dev/vg1/lv1",
-            b"ext4",
-            b"/dev/vg1/random-lv",
-            b"ext4",
+            "",
+            "/dev/sda1",
+            "",
+            "/dev/sdb1",
+            "",
+            "",
+            "",
+            "/dev/vg1/lv1",
+            "/dev/sda1",
+            "/dev/sdb1",
+            "ext4",
+            "/dev/vg1/lv1",
+            "ext4",
+            "/dev/vg1/random-lv",
+            "ext4",
         ]
 
         result = self.base_os_mount_tools.mount_os()
@@ -935,20 +935,20 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         }
         mock_get_mounted_devices.return_value = ["/dev/sda1"]
         mock_exec_cmd.side_effect = [
-            b"",
-            b"xfs\n",
-            b"",
-            b"xfs\n",
-            b"",
-            b"",
-            b"",
-            b"xfs\n",
-            b"xfs\n",
-            b"xfs\n",
-            b"ext4\n",
-            b"xfs\n",
-            b"ext4\n",
-            b"xfs\n",
+            "",
+            "xfs\n",
+            "",
+            "xfs\n",
+            "",
+            "",
+            "",
+            "xfs\n",
+            "xfs\n",
+            "xfs\n",
+            "ext4\n",
+            "xfs\n",
+            "ext4\n",
+            "xfs\n",
         ]
 
         result = self.base_os_mount_tools.mount_os()
@@ -983,9 +983,9 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         root_dir = "/mnt/root_dir"
         mock_exec_cmd.side_effect = [
             None,
-            (b"/dev/sda1 /mnt/root_dir/sub_dir type ext4\n"
-             b"/dev/sda2 /mnt/root_dir/dev type ext4\n"
-             b"/dev/sda3 /mnt/root_dir type ext4\n"),
+            ("/dev/sda1 /mnt/root_dir/sub_dir type ext4\n"
+             "/dev/sda2 /mnt/root_dir/dev type ext4\n"
+             "/dev/sda3 /mnt/root_dir type ext4\n"),
             None,
             None,
             None,

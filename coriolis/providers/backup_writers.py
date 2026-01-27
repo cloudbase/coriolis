@@ -912,7 +912,7 @@ class HTTPBackupWriterBootstrapper(object):
     def _read_remote_file_sudo(self, remote_path):
         contents = utils.exec_ssh_cmd(
             self._ssh, "sudo cat %s" % remote_path, get_pty=True)
-        return contents.decode()
+        return contents
 
     def _init_writer(self, ssh, cert_paths):
         cmdline = ("%(cmd)s run -ca-cert %(ca_cert)s -key "

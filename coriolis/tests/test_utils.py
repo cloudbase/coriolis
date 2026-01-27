@@ -118,7 +118,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(utils, 'exec_ssh_cmd')
     def test_parse_os_release(self, mock_ssh_cmd):
-        mock_ssh_cmd.return_value = b'ID=ubuntu\nVERSION_ID="20.04"\n'
+        mock_ssh_cmd.return_value = 'ID=ubuntu\nVERSION_ID="20.04"\n'
 
         result = utils.parse_os_release(self.mock_ssh)
 
@@ -130,7 +130,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(utils, 'exec_ssh_cmd')
     def test_parse_os_release_no_equal(self, mock_ssh_cmd):
-        mock_ssh_cmd.return_value = b'ID=ubuntu\nVERSION_ID="20.04"\nNOEQUAL\n'
+        mock_ssh_cmd.return_value = 'ID=ubuntu\nVERSION_ID="20.04"\nNOEQUAL\n'
 
         result = utils.parse_os_release(self.mock_ssh)
 
@@ -142,7 +142,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(utils, 'exec_ssh_cmd')
     def test_parse_os_release_missing_fields(self, mock_ssh_cmd):
-        mock_ssh_cmd.return_value = b'NO_ID\nNO_VERSION_ID\n'
+        mock_ssh_cmd.return_value = 'NO_ID\nNO_VERSION_ID\n'
 
         result = utils.parse_os_release(self.mock_ssh)
 
@@ -154,7 +154,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(utils, 'exec_ssh_cmd')
     def test_parse_lsb_release(self, mock_ssh_cmd):
-        mock_ssh_cmd.return_value = b'Distributor ID: Ubuntu\nRelease: 20.04\n'
+        mock_ssh_cmd.return_value = 'Distributor ID: Ubuntu\nRelease: 20.04\n'
 
         result = utils.parse_lsb_release(self.mock_ssh)
 
@@ -165,7 +165,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(utils, 'exec_ssh_cmd')
     def test_parse_lsb_release_missing_fields(self, mock_ssh_cmd):
-        mock_ssh_cmd.return_value = b'No Distributor ID\nNo Release\n'
+        mock_ssh_cmd.return_value = 'No Distributor ID\nNo Release\n'
 
         result = utils.parse_lsb_release(self.mock_ssh)
 
@@ -330,7 +330,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         self.mock_ssh.exec_command.assert_called_once_with(
             "command", environment=None, get_pty=False, timeout=None)
 
-        self.assertEqual(result, b'output\n')
+        self.assertEqual(result, 'output\n')
 
     def test_exec_ssh_cmd_timeout_with_timeout(self):
         self.mock_stdout.read.return_value = b'output\n'
@@ -343,7 +343,9 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         self.mock_ssh.exec_command.assert_called_once_with(
             "command", environment=None, get_pty=False, timeout=10.0)
 
-        self.assertEqual(result, self.mock_stdout.read.return_value)
+        expected = self.mock_stdout.read.return_value.decode(
+            'utf-8', errors='replace')
+        self.assertEqual(result, expected)
 
     def test_exec_ssh_cmd_getpeername_value_error(self):
         self.mock_stdout.read.return_value = b'output\n'
@@ -360,7 +362,9 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         self.mock_ssh.exec_command.assert_called_once_with(
             "command", environment=None, get_pty=False, timeout=None)
 
-        self.assertEqual(output, self.mock_stdout.read.return_value)
+        expected = self.mock_stdout.read.return_value.decode(
+            'utf-8', errors='replace')
+        self.assertEqual(output, expected)
 
     def test_exec_ssh_cmd_timeout(self):
         self.mock_stdout.read.side_effect = socket.timeout
@@ -400,7 +404,9 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
             "sudo -E chroot /chroot /bin/bash -c command",
             environment=None, get_pty=False, timeout=None)
 
-        self.assertEqual(result, self.mock_stdout.read.return_value)
+        expected = self.mock_stdout.read.return_value.decode(
+            'utf-8', errors='replace')
+        self.assertEqual(result, expected)
 
     def test_check_fs(self):
         self.mock_stdout.read.return_value.replace.return_value = \
@@ -427,7 +433,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(utils, 'exec_ssh_cmd')
     def test_run_xfs_repair(self, mock_exec_ssh_cmd):
-        mock_exec_ssh_cmd.return_value = b"/tmp/tmp_dir\n"
+        mock_exec_ssh_cmd.return_value = "/tmp/tmp_dir\n"
 
         utils.run_xfs_repair(self.mock_ssh, "/dev/sda1")
 
