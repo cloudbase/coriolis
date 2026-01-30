@@ -89,6 +89,16 @@ function Get-InterfaceByMacAddress {
     return (Get-NetAdapter | Where MacAddress -eq $win_formatted_mac_address)
 }
 
+function Get-GatewayDestinationByFamily {
+    param ([string]$Address)
+
+    if ($Address -match ':') {
+        return "::/0"
+    }
+
+    return "0.0.0.0/0"
+}
+
 function Set-IPAddresses {
     [CmdletBinding()]
     Param(
@@ -102,19 +112,40 @@ function Set-IPAddresses {
         [Array]$ips_info
     )
 
-    foreach ($ip in $ip_addresses) {
-        $ip_info = $ips_info | Where ip_address -eq $ip
-        if ($ip_info.default_gateway) {
-            # Remove existing gateway before setting default gateway on the interface
-            Get-NetRoute | Where NextHop -eq $ip_info.default_gateway | Remove-NetRoute -Confirm:$false
-            New-NetIPAddress -InterfaceIndex $interfaceObj.ifIndex -IPAddress $ip_info.ip_address -PrefixLength $ip_info.prefix_length -DefaultGateway $ip_info.default_gateway
-        } else {
-            New-NetIPAddress -InterfaceIndex $interfaceObj.ifIndex -IPAddress $ip_info.ip_address -PrefixLength $ip_info.prefix_length
+    foreach ($ipInfo in $ips_info) {
+        $guestIps = $ipInfo.ip_addresses
+        $prefixes = $ipInfo.prefix_lengths
+        $gateway = $ipInfo.default_gateway
+        $dnsServers = $ipInfo.dns_addresses -split ','
+
+        $matched = @()
+
+        for ($i = 0; $i -lt $guestIps.Count; $i++) {
+            $ip = $guestIps[$i]
+
+            if ($ip_addresses -contains $ip) {
+                $matched += [PSCustomObject]@{
+                    IP = $ip
+                    Prefix = $prefixes[$i]
+                }
+            }
         }
 
-        if ($ip_info.dns_addresses) {
-            # Set DNS Addresses on the interface
-            Set-DnsClientServerAddress -InterfaceIndex $interfaceObj.ifIndex -ServerAddresses $ip_info.dns_addresses
+        if ($matched.Count -eq 0) {
+            continue
+        }
+
+        foreach ($entry in $matched) {
+            New-NetIPAddress -InterfaceIndex $interfaceObj.IfIndex -IPAddress $entry.IP -PrefixLength $entry.Prefix
+        }
+
+        if ($gateway) {
+            $destination = Get-GatewayDestinationByFamily $gateway
+            New-NetRoute -InterfaceIndex $interfaceObj.IfIndex -DestinationPrefix $destination -NextHop $gateway
+        }
+
+        if ($dnsServers) {
+            Set-DnsClientServerAddress -InterfaceIndex $interfaceObj.IfIndex -ServerAddress $dnsServers
         }
     }
 }
@@ -136,8 +167,10 @@ function Invoke-Main {
             continue
         }
 
-        # Removes existing IP configuration for the interface
-        Remove-NetIPAddress -InterfaceIndex $interface.ifIndex -Confirm:$false
+        # Removes existing IP, gateway and DNS configuration for the interface
+        Get-NetIPAddress -InterfaceIndex $interface.IfIndex -ErrorAction SilentlyContinue | Remove-NetIPAddress -Confirm:$false
+        Get-NetRoute -InterfaceIndex $interface.IfIndex -DestinationPrefix "::/0","0.0.0.0/0" -ErrorAction SilentlyContinue | Remove-NetRoute -Confirm:$false
+        Set-DnsClientServerAddress -InterfaceIndex $interface.IfIndex -ResetServerAddresses
 
         Set-IPAddresses $interface $nic.ip_addresses $ips_info
     }
@@ -562,24 +595,29 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
             enable_dhcp = self._conn.exec_ps_command(
                 "(Get-ItemProperty -Path '%s').EnableDHCP" % reg_path)
             if enable_dhcp == '0':
-                ip_address = self._conn.exec_ps_command(
-                    "(Get-ItemProperty -Path '%s').IPAddress" % reg_path)
-                subnet_mask = self._conn.exec_ps_command(
-                    "(Get-ItemProperty -Path '%s').SubnetMask" % reg_path)
-                if not (ip_address and subnet_mask):
-                    LOG.warning(
-                        "No IP Address or Subnet Mask found for interface: "
-                        "'%s'" % interface)
-                    continue
-                prefix_length = ipaddress.IPv4Network(
-                    (0, subnet_mask)).prefixlen
                 default_gateway = self._conn.exec_ps_command(
                     "(Get-ItemProperty -Path '%s').DefaultGateway" % reg_path)
                 name_server = self._conn.exec_ps_command(
                     "(Get-ItemProperty -Path '%s').NameServer" % reg_path)
+                ip_addresses = self._conn.exec_ps_command(
+                    "(Get-ItemProperty -Path '%s').IPAddress" % reg_path)
+                subnet_masks = self._conn.exec_ps_command(
+                    "(Get-ItemProperty -Path '%s').SubnetMask" % reg_path)
+
+                if not (ip_addresses and subnet_masks):
+                    LOG.warning(
+                        "No IP Address or Subnet Mask found for interface: "
+                        "'%s'" % interface)
+                    continue
+
+                prefix_lengths = []
+                for submask in subnet_masks.splitlines():
+                    prefix_lengths.append(
+                        ipaddress.IPv4Network((0, submask)).prefixlen)
+
                 ip_info = {
-                    "ip_address": ip_address,
-                    "prefix_length": prefix_length,
+                    "ip_addresses": ip_addresses.splitlines(),
+                    "prefix_lengths": prefix_lengths,
                     "default_gateway": default_gateway,
                     "dns_addresses": name_server}
                 LOG.debug(
@@ -596,11 +634,11 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
 
     def _get_static_nics_info(self, nics_info, ips_info):
         static_nics_info = []
-        reg_ip_addresses = set()
+        reg_ip_addresses = []
 
         for ip_info in ips_info:
-            if ip_info.get('ip_address'):
-                reg_ip_addresses.add(ip_info['ip_address'])
+            if ip_info.get('ip_addresses'):
+                reg_ip_addresses.extend(ip_info['ip_addresses'])
 
         for nic in nics_info:
             static_nic = copy.deepcopy(nic)
@@ -610,13 +648,14 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
                     f"Skipping NIC ('{nic.get('mac_address')}'). It has no "
                     f"detected IP addresses")
                 continue
-            diff = set(nic_ips) - reg_ip_addresses
+            diff = set(nic_ips) - set(reg_ip_addresses)
             if diff:
                 LOG.warning(
                     f"The IP addresses {list(diff)} found on the source "
                     f"VM's NIC were not found in the registry. These IPs will "
                     f"be skipped in the static IP configuration process")
-                ip_matches = list(reg_ip_addresses.intersection(set(nic_ips)))
+                ip_matches = list(
+                    set(reg_ip_addresses).intersection(set(nic_ips)))
                 if not ip_matches:
                     LOG.warning(
                         f"Couldn't find any static IP configuration that "

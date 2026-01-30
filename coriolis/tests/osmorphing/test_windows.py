@@ -646,10 +646,10 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         self.conn.exec_ps_command.side_effect = [
             'interface1\ninterface2',
             '0',
-            '192.168.1.1',
-            '255.255.255.0',
             '192.168.1.254',
             '8.8.8.8',
+            '192.168.1.1',
+            '255.255.255.0',
             '1',
         ]
         interfaces_reg_path = (windows.INTERFACES_PATH_FORMAT %
@@ -666,25 +666,25 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
                 "(Get-ItemProperty -Path '%s\\interface1').EnableDHCP" %
                 interfaces_reg_path),
             mock.call(
-                "(Get-ItemProperty -Path '%s\\interface1').IPAddress" %
-                interfaces_reg_path),
-            mock.call(
-                "(Get-ItemProperty -Path '%s\\interface1').SubnetMask" %
-                interfaces_reg_path),
-            mock.call(
                 "(Get-ItemProperty -Path '%s\\interface1').DefaultGateway" %
                 interfaces_reg_path),
             mock.call(
                 "(Get-ItemProperty -Path '%s\\interface1').NameServer"
                 % interfaces_reg_path),
             mock.call(
+                "(Get-ItemProperty -Path '%s\\interface1').IPAddress" %
+                interfaces_reg_path),
+            mock.call(
+                "(Get-ItemProperty -Path '%s\\interface1').SubnetMask" %
+                interfaces_reg_path),
+            mock.call(
                 "(Get-ItemProperty -Path '%s\\interface2').EnableDHCP"
                 % interfaces_reg_path),
         ])
 
         expected_ips_info = [
-            {"ip_address": '192.168.1.1',
-             "prefix_length": 24,
+            {"ip_addresses": ['192.168.1.1'],
+             "prefix_lengths": [24],
              "default_gateway": '192.168.1.254',
              "dns_addresses": '8.8.8.8'}
         ]
@@ -694,6 +694,8 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         self.conn.exec_ps_command.side_effect = [
             'interface1',
             '0',
+            "default_gateway",
+            "nameservers",
             None,
             None,
         ]
@@ -711,6 +713,12 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
                 "'[^\\\\]+$').Matches).Value" % interfaces_reg_path),
             mock.call("(Get-ItemProperty -Path '%s\\interface1').EnableDHCP" %
                       interfaces_reg_path),
+            mock.call(
+                "(Get-ItemProperty -Path '%s\\interface1').DefaultGateway" %
+                interfaces_reg_path),
+            mock.call(
+                "(Get-ItemProperty -Path '%s\\interface1').NameServer"
+                % interfaces_reg_path),
             mock.call("(Get-ItemProperty -Path '%s\\interface1').IPAddress" % (
                 interfaces_reg_path)),
             mock.call("(Get-ItemProperty -Path '%s\\interface1').SubnetMask" %
@@ -743,8 +751,8 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         dynamic_ipv4 = "10.0.1.16"
         dynamic_ipv6 = "fe81::728a:688:1a92:baec"
         # detected static IPs
-        ips_info = [{"ip_address": static_ipv4},
-                    {"ip_address": static_ipv6}]
+        ips_info = [{"ip_addresses": [static_ipv4]},
+                    {"ip_addresses": [static_ipv6]}]
         nics_info = [
             # no IP addresses on NIC
             {"ip_addresses": [], "mac_address": "00:50:56:92:91:42"},
