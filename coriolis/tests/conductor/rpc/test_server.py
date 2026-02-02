@@ -1177,7 +1177,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(copy, "deepcopy")
     @mock.patch.object(
         server.ConductorServerEndpoint,
-        "get_transfer_tasks_execution"
+        "_get_transfer_tasks_execution"
     )
     @mock.patch.object(
         server.ConductorServerEndpoint,

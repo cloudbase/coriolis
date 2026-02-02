@@ -1131,7 +1131,7 @@ class ConductorServerEndpoint(object):
             self._deployer_manager_client.execute_auto_deployment(
                 ctxt, transfer.id, execution.id, **deployment_options)
 
-        return self.get_transfer_tasks_execution(
+        return self._get_transfer_tasks_execution(
             ctxt, transfer_id, execution.id)
 
     @transfer_synchronized
