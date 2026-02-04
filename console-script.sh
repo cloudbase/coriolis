@@ -634,6 +634,7 @@ function deploy-external-worker {
 }
 
 function upgrade-coriolis-services {
+    #test
     printf "$UPGRADE_CORIOLIS_SERVICES"
 
     cat /root/dockerpass | docker login https://registry.cloudbase.it -u coriolis-appliance --password-stdin
