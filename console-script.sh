@@ -634,12 +634,44 @@ function deploy-external-worker {
 }
 
 function upgrade-coriolis-services {
-    printf '%s' "$UPGRADE_CORIOLIS_SERVICES"
+    printf "$UPGRADE_CORIOLIS_SERVICES"
 
+    cat /root/dockerpass | docker login https://registry.cloudbase.it -u coriolis-appliance --password-stdin
+    
+    current_release=$(cat /etc/coriolis/coriolis.release)
     coriolis_tag=$(confirm_input "Coriolis tag: ")
+    if (( $(echo "$coriolis_tag <= $current_release" | bc -l) ));then
+        echo "ERROR: You need to upgrade to a higher Coriolis Release than the one you have."
+        echo "Current Coriolis release $(cat /etc/coriolis/coriolis.release)"
+        return
+    fi
+    if [[ $coriolis_tag == "latest"  ]];then
+        echo "WARNING: You're upgrading to the latest Coriolis release!"
+    fi
 
-    if [ $coriolis_tag -eq 0 ]
-}
+    docker image pull registry.cloudbase.it/appliance/coriolis-metal-hub:"$coriolis_tag"
+    if [ $? -ne 0 ]; then
+        echo "ERROR: That Coriolis Release does not exist!"
+        return
+    fi
+
+    DBPASS="$(grep -E '^(database_password)' /etc/kolla/passwords.yml | awk '{print $2}')"
+    docker exec -ti mariadb mysqldump -u root -p"$DBPASS" --all-databases > /root/coriolis_appliance_dbs_backups.sql
+    tar -czf coriolis_etc_kolla_backup.tar.gz /etc/kolla/*
+    tar -czf coriolis_etc_coriolis_backup.tar.gz /etc/coriolis/*
+
+    cd ~/root/coriolis-docker
+    git fetch origin
+    git checkout stable/"${coriolis_tag%.*}"
+    sed -i "s@^docker_pull_images.*@docker_pull_images: true@g" /root/coriolis-docker/docker-images-config.yml
+    sed -i "s@^default_coriolis_docker_images_tag.*@default_coriolis_docker_images_tag: $coriolis_tag@g" /root/coriolis-docker/docker-images-config.yml
+    sed -i "s@^kolla_branch.*@kolla_branch: 2023.1-eol@g" /root/coriolis-docker/docker-images-config.yml
+    sed -i "/- oracle-vm/d" /root/coriolis-docker/config.yml
+
+    ./coriolis-ansible deploy
+
+    docker logout https://registry.cloudbase.it
+}   
 
 function interact {
     echo "$OPTIONS_PROMPT"
@@ -702,6 +734,10 @@ function interact {
                 "Upgrade Coriolis Components")
                         run-coriolis-console-editor-shell "$EDITING_CONTAINER_CONSOLE_PROMPT_UPGRADE"
                         $BASE_DIR/coriolis-ansible update
+            break
+                        ;;
+                "Upgrade Coriolis Services")
+                        upgrade-coriolis-services
             break
                         ;;
                 "Open Shell")
