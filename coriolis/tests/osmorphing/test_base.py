@@ -1134,10 +1134,10 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_write_file_sudo')
     def test__add_net_udev_rules(self, mock_write_file_sudo, mock_test_path):
         mock_test_path.return_value = False
-        net_ifaces_info = [
-            ("eth0", "AA:BB:CC:DD:EE:FF"),
-            ("eth1", "FF:EE:DD:CC:BB:AA")
-        ]
+        net_ifaces_info = {
+            "eth0": "AA:BB:CC:DD:EE:FF",
+            "eth1": "FF:EE:DD:CC:BB:AA"
+        }
         content = (
             'SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*", '
             'ATTR{address}=="aa:bb:cc:dd:ee:ff", NAME="eth0"\n'
@@ -1148,7 +1148,7 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         self.os_morphing_tools._add_net_udev_rules(net_ifaces_info)
 
         mock_write_file_sudo.assert_called_once_with(
-            "etc/udev/rules.d/70-persistent-net.rules", content
+            "etc/udev/rules.d/99-coriolis-net.rules", content
         )
 
     @ddt.data(

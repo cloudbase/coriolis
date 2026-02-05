@@ -198,7 +198,7 @@ def retry_on_error(max_attempts=5, sleep_seconds=0,
 
 def get_udev_net_rules(net_ifaces_info):
     content = ""
-    for name, mac_address in net_ifaces_info:
+    for name, mac_address in net_ifaces_info.items():
         content += ('SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*", '
                     'ATTR{address}=="%(mac_address)s", NAME="%(name)s"\n' %
                     {"name": name, "mac_address": mac_address.lower()})
