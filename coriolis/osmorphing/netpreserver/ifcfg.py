@@ -52,6 +52,10 @@ class IfcfgNetPreserver(base.BaseNetPreserver):
         ifcfgs = []
         for ifcfg_file in self._get_net_config_files(network_scripts_path):
             ifcfg = self.osmorphing_tool._read_config_file_sudo(ifcfg_file)
-            if ifcfg.get("TYPE") == ifcfg_type:
+            detected_type = ifcfg.get('TYPE')
+            if not detected_type:
+                detected_type = "Ethernet"
+                ifcfg["TYPE"] = detected_type
+            if detected_type.lower() == ifcfg_type.lower():
                 ifcfgs.append((ifcfg_file, ifcfg))
         return ifcfgs
