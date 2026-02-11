@@ -634,20 +634,35 @@ function deploy-external-worker {
 }
 
 function upgrade-coriolis-services {
-    #test
-    printf "$UPGRADE_CORIOLIS_SERVICES"
+    
+    #lcrccheck = last command return code check
+    lcrccheck() {
+        step="$1"
+        shift
+        "$@"
+        if [ $? -ne 0 ]; then
+            echo $step
+            echo "ERROR: Something went wrong. Please take a screenshot of this message and send it to Coriolis support."
+            return
+        else
+            echo $step
+            echo "SUCCESS: Continuing to the next step."
+        fi
+    }
 
-    cat /root/dockerpass | docker login https://registry.cloudbase.it -u coriolis-appliance --password-stdin
+    docker login https://registry.cloudbase.it
     
     current_release=$(cat /etc/coriolis/coriolis.release)
     coriolis_tag=$(confirm_input "Coriolis tag: ")
+    if [[ $coriolis_tag == "latest"  ]];then
+        echo "WARNING: Please use a Coriolis Release version!"
+        return
+    fi
+
     if (( $(echo "$coriolis_tag <= $current_release" | bc -l) ));then
         echo "ERROR: You need to upgrade to a higher Coriolis Release than the one you have."
         echo "Current Coriolis release $(cat /etc/coriolis/coriolis.release)"
         return
-    fi
-    if [[ $coriolis_tag == "latest"  ]];then
-        echo "WARNING: You're upgrading to the latest Coriolis release!"
     fi
 
     docker image pull registry.cloudbase.it/appliance/coriolis-metal-hub:"$coriolis_tag"
@@ -656,22 +671,24 @@ function upgrade-coriolis-services {
         return
     fi
 
-    DBPASS="$(grep -E '^(database_password)' /etc/kolla/passwords.yml | awk '{print $2}')"
-    docker exec -ti mariadb mysqldump -u root -p"$DBPASS" --all-databases > /root/coriolis_appliance_dbs_backups.sql
-    tar -czf coriolis_etc_kolla_backup.tar.gz /etc/kolla/*
-    tar -czf coriolis_etc_coriolis_backup.tar.gz /etc/coriolis/*
-
-    cd ~/root/coriolis-docker
-    git fetch origin
-    git checkout stable/"${coriolis_tag%.*}"
-    sed -i "s@^docker_pull_images.*@docker_pull_images: true@g" /root/coriolis-docker/docker-images-config.yml
-    sed -i "s@^default_coriolis_docker_images_tag.*@default_coriolis_docker_images_tag: $coriolis_tag@g" /root/coriolis-docker/docker-images-config.yml
-    sed -i "s@^kolla_branch.*@kolla_branch: 2023.1-eol@g" /root/coriolis-docker/docker-images-config.yml
-    sed -i "/- oracle-vm/d" /root/coriolis-docker/config.yml
+    DBPASS=$(grep -E '^(database_password)' /etc/kolla/passwords.yml | awk '{print $2}')
+    lcrccheck "Backing up database" $(docker exec mariadb mysqldump -u root -p"$DBPASS" --all-databases > /root/coriolis_appliance_dbs_backups.sql)
+    lcrccheck "Backing up kolla directory" tar -czf coriolis_etc_kolla_backup.tar.gz /etc/kolla/
+    lcrccheck "Backing up coriolis directory" tar -czf coriolis_etc_coriolis_backup.tar.gz /etc/coriolis/
+    lcrccheck "Changing directory to coriolis-docker" cd /root/coriolis-docker
+    lcrccheck "Fetching origin" git fetch origin
+    lcrccheck "Checkout to Coriolis Release: $coriolis_tag" git checkout stable/"${coriolis_tag%.*}"
+    lcrccheck "Setting docker_pull_images" sed -i "s@^docker_pull_images.*@docker_pull_images: true@g" /root/coriolis-docker/docker-images-config.yml
+    lcrccheck "Setting default_coriolis_docker_images_tag" sed -i "s@^default_coriolis_docker_images_tag.*@default_coriolis_docker_images_tag: $coriolis_tag@g" /root/coriolis-docker/docker-images-config.yml
 
     ./coriolis-ansible deploy
-
-    docker logout https://registry.cloudbase.it
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Something did not work like it should. Restoring Coriolis!"
+        docker exec -i mariadb mysql -u root -p"$DBPASS" < /root/coriolis_appliance_dbs_backups.sql
+        tar -xf coriolis_etc_kolla_backup.tar.gz -C /etc/
+        tar -xf coriolis_etc_coriolis_backup.tar.gz /etc/
+        return
+    fi
 }   
 
 function interact {
