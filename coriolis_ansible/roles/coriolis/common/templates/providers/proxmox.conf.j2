@@ -10,6 +10,10 @@ import_default_storage = "zfs1"
 # If using a paravirtual device model such as VirtIO, the OSMorphing process is recommended.
 disks_device_model = "virtio"
 
+# The extra config for the migrated VM disks. Provide an options dictionary,
+# e.g. discard: on, iothread: 1. Currently supported: discard (on/ignore).
+# vm_disks_extra_properties = discard: on
+
 # Whether or not to skip starting migrated virtual machines on Proxmox after transferring them.
 skip_migrated_vm_start = false
 
