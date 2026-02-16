@@ -808,7 +808,7 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
 
         result = self.os_morphing_tools._read_file_sudo(chroot_path)
 
-        mock_exec_cmd_chroot.assert_called_once_with('cat %s' % chroot_path)
+        mock_exec_cmd_chroot.assert_called_once_with('cat "%s"' % chroot_path)
         self.assertEqual(result, mock_exec_cmd_chroot.return_value)
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
@@ -817,7 +817,7 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
 
         result = self.os_morphing_tools._read_file_sudo(chroot_path)
 
-        mock_exec_cmd_chroot.assert_called_once_with('cat /%s' % chroot_path)
+        mock_exec_cmd_chroot.assert_called_once_with('cat "/%s"' % chroot_path)
         self.assertEqual(result, mock_exec_cmd_chroot.return_value)
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_read_file_sudo')
