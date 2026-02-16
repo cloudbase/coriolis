@@ -491,7 +491,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         if chroot_path.startswith("/") is False:
             chroot_path = "/%s" % chroot_path
         contents = self._exec_cmd_chroot(
-            'cat %s' % chroot_path)
+            'cat "%s"' % chroot_path)
         return contents
 
     def _read_grub_config(self, config):
