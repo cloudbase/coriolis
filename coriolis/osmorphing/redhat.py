@@ -69,14 +69,23 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         return "grub2-mkconfig -o %s" % location
 
     def _get_grub2_cfg_location(self):
+        """Get GRUB2 config location for Red Hat-based distros.
+
+        On RHEL 9.4+ and related distros (Rocky, Alma, etc.), the EFI grub.cfg
+        is a wrapper that loads from /boot/grub2/grub.cfg. grub2-mkconfig
+        refuses to overwrite the wrapper and requires output to
+        /boot/grub2/grub.cfg. Prefer the BIOS path when it exists.
+        """
         self._exec_cmd_chroot("mount /boot || true")
         self._exec_cmd_chroot("mount /boot/efi || true")
         uefi_cfg = os.path.join(self.UEFI_GRUB_LOCATION, "grub.cfg")
         bios_cfg = os.path.join(self.BIOS_GRUB_LOCATION, "grub.cfg")
-        if self._test_path_chroot(uefi_cfg):
-            return uefi_cfg
+        # Prefer /boot/grub2/grub.cfg - on RHEL 9.4+ UEFI, the EFI file is a
+        # wrapper and grub2-mkconfig must write to /boot/grub2/grub.cfg
         if self._test_path_chroot(bios_cfg):
             return bios_cfg
+        if self._test_path_chroot(uefi_cfg):
+            return uefi_cfg
         raise Exception(
             "could not determine grub location."
             " boot partition not mounted?")
