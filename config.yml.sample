@@ -50,3 +50,5 @@ custom_repo_branch_names: {}
 coriolis_certificate_store: "/etc/coriolis-certificates"
 coriolis_certtificate_fqdn:
 coriolis_certificate_extra_sans: []
+
+reject_step_ca: false

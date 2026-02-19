@@ -5,4 +5,3 @@ coriolis_metal_hub_syslog_socket_address: "unixgram://{{ coriolis_logger_socket_
 
 step_ca_version: 0.24.4
 step_ca_image: "smallstep/step-ca:latest"
-step_ca_port: 9000

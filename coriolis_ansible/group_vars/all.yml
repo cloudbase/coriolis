@@ -17,6 +17,7 @@ coriolis_appliance_tls_combined: "{{coriolis_certificate_store}}/combined.pem"
 coriolis_appliance_custom_cert: "{{coriolis_certificate_store}}/custom"
 
 bind_address: 127.0.0.1
+protected_ports: [3306, 4369, 4567, 8023, 8086, 11211, 15672, 25672]
 endpoint_base_address: "{{ coriolis_certtificate_fqdn | default(bind_address, true) }}"
 
 enable_coriolis_licensing_server: false
@@ -158,6 +159,8 @@ coriolis_metal_hub_endpoint_cert_paths:
   - { fact: metal_hub_endpoint_key, path: "{{ coriolis_metal_hub_client_key_path }}" }
 default_appliance_metal_hub_endpoint_name: appliance-metal-hub
 step_ca_home: /etc/step
+step_ca_port: 9000
+reject_step_ca: false
 
 # Replaces coriolis_worker_hostname to ensure backward compatibility
 # with existing appliances that use it in order to allow for external workers

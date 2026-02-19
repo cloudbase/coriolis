@@ -567,6 +567,7 @@ function change-api-certificate {
             echo "Coriolis services not exposed yet."
         return
         fi
+        $SET_CONFIG_VALUE_SCRIPT -c $CONFIG_FILE -n reject_step_ca -v "true"
         expose-coriolis-services
     fi
 }

@@ -39,7 +39,7 @@
     dest: "{{ item.dest }}"
     mode: "{{ item.mode }}"
     backup: "{{ item.backup }}"
-  with_items: 
+  with_items:
     - { src: templates/coriolis-logrotate-conf.j2, dest: /etc/logrotate.d/coriolis-logrotate-conf, mode: '0644', backup: no}
 
 - name: Copy logrotate.timer to a new location
@@ -52,7 +52,80 @@
     path: /etc/systemd/system/logrotate.timer
     regex: '^OnCalendar='
     line: OnCalendar=hourly
-    
+
 - name: Reload systemd logrotate.timer
   ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Create chain
+  ansible.builtin.iptables:
+    chain: EXPOSE_PROTECT
+    chain_management: yes
+    state: present
+
+- name: Flush chain
+  ansible.builtin.iptables:
+    chain: EXPOSE_PROTECT
+    flush: yes
+
+- name: Hook chain into INPUT
+  ansible.builtin.iptables:
+    chain: INPUT
+    jump: EXPOSE_PROTECT
+    state: present
+
+- name: Allow localhost
+  ansible.builtin.iptables:
+    chain: EXPOSE_PROTECT
+    source: 127.0.0.1
+    jump: ACCEPT
+
+- name: Allow exposed IP
+  ansible.builtin.iptables:
+    chain: EXPOSE_PROTECT
+    source: "{{ bind_address }}"
+    jump: ACCEPT
+  when: bind_address != "127.0.0.1"
+
+- name: Add reject rules
+  ansible.builtin.iptables:
+    chain: EXPOSE_PROTECT
+    protocol: tcp
+    destination_port: "{{ item }}"
+    jump: REJECT
+  with_items: "{{ protected_ports }}"
+
+- name: Reject Step CA
+  ansible.builtin.iptables:
+    chain: EXPOSE_PROTECT
+    protocol: tcp
+    destination_port: "{{ step_ca_port }}"
+    jump: REJECT
+  when: reject_step_ca
+
+- name: Save iptables rules
+  ansible.builtin.command: sh -c "iptables-save > /etc/iptables.rules"
+
+- name: Install iptables restore service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/iptables-restore.service
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Restore iptables firewall rules
+      DefaultDependencies=no
+      Before=network-pre.target
+      Wants=network-pre.target
+
+      [Service]
+      Type=oneshot
+      ExecStart=/sbin/iptables-restore /etc/iptables.rules
+
+      [Install]
+      WantedBy=multi-user.target
+
+- name: Enable iptables restore service
+  ansible.builtin.systemd:
+    name: iptables-restore.service
+    enabled: true
     daemon_reload: true

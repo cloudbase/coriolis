@@ -30,9 +30,7 @@
     hostname: step-ca
     state: started
     restart_policy: unless-stopped
-    network_mode: bridge
-    ports:
-      - "{{ step_ca_port }}:{{ step_ca_port }}"
+    network_mode: host
     env:
       DOCKER_STEPCA_INIT_NAME: "CoriolisCA"
       DOCKER_STEPCA_INIT_DNS_NAMES: "localhost,coriolis,127.0.0.1"
