@@ -1,3 +1,4 @@
+setuptools>=65.0.0,<82  # pkg_resources removed in 82; required by sqlalchemy-migrate
 eventlet
 keystoneauth1
 keystonemiddleware
