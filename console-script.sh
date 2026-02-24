@@ -657,8 +657,8 @@ function upgrade-coriolis-services {
     success=0
     DBPASS=$(grep -E '^(database_password)' /etc/kolla/passwords.yml | awk '{print $2}')
     docker exec mariadb mysqldump -u root -p"$DBPASS" --all-databases > /root/coriolis_appliance_dbs_backups.sql &&
-    tar -czf coriolis_etc_kolla_backup.tar.gz /etc/kolla/ &&
-    tar -czf coriolis_etc_coriolis_backup.tar.gz /etc/coriolis/ &&
+    tar -czf /root/coriolis_etc_kolla_backup.tar.gz /etc/kolla/ &&
+    tar -czf /root/coriolis_etc_coriolis_backup.tar.gz /etc/coriolis/ &&
     cd /root/coriolis-docker &&
     git fetch origin &&
     git checkout stable/"${coriolis_tag%.*}" &&
@@ -667,11 +667,11 @@ function upgrade-coriolis-services {
     ./coriolis-ansible deploy ||
     { success=1;}
 
-    if [[ success -eq 1 ]]; then {
+    if [[ $success -eq 1 ]]; then {
         docker exec -i mariadb mysql -u root -p"$DBPASS" < /root/coriolis_appliance_dbs_backups.sql
-        tar -xf coriolis_etc_kolla_backup.tar.gz -C /etc/
-        tar -xf coriolis_etc_coriolis_backup.tar.gz /etc/
-        return
+        tar -xf /root/coriolis_etc_kolla_backup.tar.gz -C /
+        tar -xf /root/coriolis_etc_coriolis_backup.tar.gz -C /
+        git checkout master
     }
     fi
 
