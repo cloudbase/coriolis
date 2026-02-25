@@ -664,7 +664,7 @@ function upgrade-coriolis-services {
     tar -czf /root/coriolis_etc_coriolis_backup.tar.gz /etc/coriolis/ &&
     cd /root/coriolis-docker &&
     git fetch origin &&
-    git checkout stable/"${coriolis_tag%.*}" &&
+    git checkout origin/stable/"${coriolis_tag%.*}" &&
     sed -i "s@^docker_pull_images.*@docker_pull_images: true@g" /root/coriolis-docker/docker-images-config.yml &&
     sed -i "s@^default_coriolis_docker_images_tag.*@default_coriolis_docker_images_tag: $coriolis_tag@g" /root/coriolis-docker/docker-images-config.yml &&
     ./coriolis-ansible deploy ||
