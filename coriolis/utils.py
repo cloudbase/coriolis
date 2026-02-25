@@ -718,8 +718,16 @@ def read_ssh_ini_config_file(ssh, path, check_exists=False):
         return {}
 
 
+def _get_systemd_unit_path(ssh):
+    """Returns the systemd unit directory path on the remote system."""
+    if test_ssh_path(ssh, "/lib/systemd/system"):
+        return "/lib/systemd/system"
+    return "/usr/lib/systemd/system"
+
+
 def _write_systemd(ssh, cmdline, svcname, run_as=None, start=True):
-    serviceFilePath = "/lib/systemd/system/%s.service" % svcname
+    systemd_unit_dir = _get_systemd_unit_path(ssh)
+    serviceFilePath = "%s/%s.service" % (systemd_unit_dir, svcname)
 
     if test_ssh_path(ssh, serviceFilePath):
         return
@@ -787,6 +795,12 @@ def _write_upstart(ssh, cmdline, svcname, run_as=None, start=True):
         exec_ssh_cmd(ssh, "start %s" % svcname)
 
 
+def _has_systemd(ssh):
+    """Check if the remote system uses systemd as its init system."""
+    return (test_ssh_path(ssh, "/lib/systemd/system") or
+            test_ssh_path(ssh, "/usr/lib/systemd/system"))
+
+
 @retry_on_error()
 def create_service(ssh, cmdline, svcname, run_as=None, start=True):
     # Simplistic check for init system. We usually use official images,
@@ -794,7 +808,7 @@ def create_service(ssh, cmdline, svcname, run_as=None, start=True):
     # and systemd installed side by side. So if /lib/systemd/system
     # exists, it's usually systemd enabled. If not, but /etc/init
     # exists, it's upstart
-    if test_ssh_path(ssh, "/lib/systemd/system"):
+    if _has_systemd(ssh):
         _write_systemd(ssh, cmdline, svcname, run_as=run_as, start=start)
     elif test_ssh_path(ssh, "/etc/init"):
         _write_upstart(ssh, cmdline, svcname, run_as=run_as, start=start)
@@ -805,7 +819,7 @@ def create_service(ssh, cmdline, svcname, run_as=None, start=True):
 
 @retry_on_error()
 def restart_service(ssh, svcname):
-    if test_ssh_path(ssh, "/lib/systemd/system"):
+    if _has_systemd(ssh):
         exec_ssh_cmd(ssh, "sudo systemctl restart %s" % svcname, get_pty=True)
     elif test_ssh_path(ssh, "/etc/init"):
         exec_ssh_cmd(ssh, "restart %s" % svcname)
@@ -815,7 +829,7 @@ def restart_service(ssh, svcname):
 
 @retry_on_error()
 def start_service(ssh, svcname):
-    if test_ssh_path(ssh, "/lib/systemd/system"):
+    if _has_systemd(ssh):
         exec_ssh_cmd(ssh, "sudo systemctl start %s" % svcname, get_pty=True)
     elif test_ssh_path(ssh, "/etc/init"):
         exec_ssh_cmd(ssh, "start %s" % svcname)
@@ -825,7 +839,7 @@ def start_service(ssh, svcname):
 
 @retry_on_error()
 def stop_service(ssh, svcname):
-    if test_ssh_path(ssh, "/lib/systemd/system"):
+    if _has_systemd(ssh):
         exec_ssh_cmd(ssh, "sudo systemctl stop %s" % svcname, get_pty=True)
     elif test_ssh_path(ssh, "/etc/init"):
         exec_ssh_cmd(ssh, "stop %s" % svcname)
