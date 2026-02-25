@@ -637,6 +637,7 @@ function deploy-external-worker {
 function upgrade-coriolis-services {
 
     current_release=$(cat /etc/coriolis/coriolis.release)
+    current_commit=$(git show --pretty="format:%H" --no-patch)
     coriolis_tag=$(confirm_input "Coriolis tag: ")
     if [[ $coriolis_tag == "latest"  ]];then
         echo "WARNING: Please use a Coriolis Release version!"
@@ -674,7 +675,7 @@ function upgrade-coriolis-services {
         docker exec -i mariadb mysql -u root -p"$DBPASS" < /root/coriolis_appliance_dbs_backups.sql
         tar -xf /root/coriolis_etc_kolla_backup.tar.gz -C /
         tar -xf /root/coriolis_etc_coriolis_backup.tar.gz -C /
-        git checkout master
+        git checkout $current_commit
     }
     fi
 
