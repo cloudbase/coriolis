@@ -8,6 +8,7 @@ from oslo_log import log as logging
 from coriolis import constants
 from coriolis import exception
 from coriolis.osmorphing.osmount import redhat
+from coriolis.osmorphing.osmount import suse
 from coriolis.osmorphing.osmount import ubuntu
 from coriolis.osmorphing.osmount import windows
 
@@ -17,7 +18,8 @@ LOG = logging.getLogger(__name__)
 def get_os_mount_tools(os_type, connection_info, event_manager,
                        ignore_devices, operation_timeout):
     os_mount_tools = {constants.OS_TYPE_LINUX: [ubuntu.UbuntuOSMountTools,
-                                                redhat.RedHatOSMountTools],
+                                                redhat.RedHatOSMountTools,
+                                                suse.SUSEOSMountTools],
                       constants.OS_TYPE_WINDOWS: [windows.WindowsMountTools]}
 
     if os_type and os_type not in os_mount_tools:
