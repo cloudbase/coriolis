@@ -25,11 +25,13 @@ class GetOsMountToolsTestCase(test_base.CoriolisBaseTestCase):
                        return_value=False)
     @mock.patch.object(factory.redhat.RedHatOSMountTools, 'check_os',
                        return_value=False)
+    @mock.patch.object(factory.suse.SUSEOSMountTools, 'check_os',
+                       return_value=False)
     @mock.patch.object(factory.windows.WindowsMountTools, 'check_os',
                        return_value=False)
     def test_get_os_mount_tools_no_os_found(
-            self, mock_windows_check, mock_redhat_check, mock_ubuntu_check,
-            mock_exec_cmd, mock_connect):
+            self, mock_windows_check, mock_suse_check, mock_redhat_check,
+            mock_ubuntu_check, mock_exec_cmd, mock_connect):
         mock_exec_cmd.return_value = ("Ubuntu", "")
         self.assertRaises(
             exception.CoriolisException, factory.get_os_mount_tools,
@@ -39,6 +41,7 @@ class GetOsMountToolsTestCase(test_base.CoriolisBaseTestCase):
 
         mock_redhat_check.assert_called_once_with()
         mock_ubuntu_check.assert_called_once_with()
+        mock_suse_check.assert_called_once_with()
         mock_windows_check.assert_not_called()
 
     @mock.patch.object(base.BaseSSHOSMountTools, '_connect')
@@ -47,11 +50,13 @@ class GetOsMountToolsTestCase(test_base.CoriolisBaseTestCase):
                        return_value=True)
     @mock.patch.object(factory.redhat.RedHatOSMountTools, 'check_os',
                        return_value=False)
+    @mock.patch.object(factory.suse.SUSEOSMountTools, 'check_os',
+                       return_value=False)
     @mock.patch.object(factory.windows.WindowsMountTools, 'check_os',
                        return_value=False)
     def test_get_os_mount_tools_os_found(
-            self, mock_windows_check, mock_redhat_check, mock_ubuntu_check,
-            mock_exec_cmd, mock_connect):
+            self, mock_windows_check, mock_suse_check, mock_redhat_check,
+            mock_ubuntu_check, mock_exec_cmd, mock_connect):
         mock_exec_cmd.return_value = ("Ubuntu", "")
         tools = factory.get_os_mount_tools(
             factory.constants.OS_TYPE_LINUX, mock_connect,
@@ -61,4 +66,5 @@ class GetOsMountToolsTestCase(test_base.CoriolisBaseTestCase):
 
         mock_ubuntu_check.assert_called_once_with()
         mock_redhat_check.assert_not_called()
+        mock_suse_check.assert_not_called()
         mock_windows_check.assert_not_called()
