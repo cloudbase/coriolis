@@ -301,9 +301,6 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
                 else:
                     self._conn.exec_ps_command(
                         "rm -recurse -force %s" % destination)
-            else:
-                LOG.info("Skipping extraction as destination exists")
-                return
 
         self._conn.exec_ps_command(
             "if(([System.Management.Automation.PSTypeName]"
@@ -517,7 +514,7 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
             "logfile = cloudbase-init.log\r\n"
             "default_log_levels = \r\n"
             "comtypes=INFO,suds=INFO,iso8601=WARN,requests=WARN\r\n"
-            "allow_reboot = false\r\n"
+            "allow_reboot = true\r\n"
             "plugins = %(plugins)s\r\n"
             "debug = true\r\n"
             "san_policy = OnlineAll\r\n"
