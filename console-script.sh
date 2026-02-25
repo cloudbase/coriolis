@@ -635,7 +635,7 @@ function deploy-external-worker {
 }
 
 function upgrade-coriolis-services {
-        
+
     current_release=$(cat /etc/coriolis/coriolis.release)
     coriolis_tag=$(confirm_input "Coriolis tag: ")
     if [[ $coriolis_tag == "latest"  ]];then
@@ -649,7 +649,9 @@ function upgrade-coriolis-services {
         return
     fi
 
-    docker image pull -q registry.cloudbase.it/appliance/coriolis-metal-hub:"$coriolis_tag" &> /dev/null
+    REG="registry.cloudbase.it"
+    docker login "$REG" || true
+    docker image pull -q "$REG"/appliance/coriolis-metal-hub:"$coriolis_tag" &> /dev/null
     if [ $? -ne 0 ]; then
         echo "ERROR: That Coriolis Release does not exist!"
         return
@@ -680,7 +682,7 @@ function upgrade-coriolis-services {
     rm /root/coriolis_etc_kolla_backup.tar.gz
     rm /root/coriolis_etc_coriolis_backup.tar.gz
     return
-}   
+}
 
 function interact {
     echo "$OPTIONS_PROMPT"
