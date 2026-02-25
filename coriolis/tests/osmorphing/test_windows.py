@@ -513,7 +513,7 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             "logfile = cloudbase-init.log\r\n"
             "default_log_levels = \r\n"
             "comtypes=INFO,suds=INFO,iso8601=WARN,requests=WARN\r\n"
-            "allow_reboot = false\r\n"
+            "allow_reboot = true\r\n"
             "plugins = %(plugins)s\r\n"
             "debug = true\r\n"
             "san_policy = OnlineAll\r\n"
