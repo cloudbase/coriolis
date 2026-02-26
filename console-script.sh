@@ -636,6 +636,7 @@ function deploy-external-worker {
 
 function upgrade-coriolis-services {
 
+    pushd "$BASE_DIR"
     current_release=$(cat /etc/coriolis/coriolis.release)
     current_commit=$(git show --pretty="format:%H" --no-patch)
     coriolis_tag=$(confirm_input "Coriolis tag: ")
@@ -682,6 +683,7 @@ function upgrade-coriolis-services {
     rm /root/coriolis_appliance_dbs_backups.sql
     rm /root/coriolis_etc_kolla_backup.tar.gz
     rm /root/coriolis_etc_coriolis_backup.tar.gz
+    popd
     return
 }
 
