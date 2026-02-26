@@ -669,7 +669,7 @@ function upgrade-coriolis-services {
     git checkout origin/stable/"${coriolis_tag%.*}" &&
     sed -i "s@^docker_pull_images.*@docker_pull_images: true@g" /root/coriolis-docker/docker-images-config.yml &&
     sed -i "s@^default_coriolis_docker_images_tag.*@default_coriolis_docker_images_tag: $coriolis_tag@g" /root/coriolis-docker/docker-images-config.yml &&
-    ./coriolis-ansible deploy ||
+    python3 "$BASE_DIR"/upgrade_coriolis.py -u "$BASE_DIR/utils/upgrade_scripts" -c $current_release -n $coriolis_tag ||
     { success=1;}
 
     if [[ $success -eq 1 ]]; then {
