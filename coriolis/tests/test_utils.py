@@ -915,14 +915,16 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
     def test_write_systemd(self, mock_uuid, mock_test_ssh,
                            mock_write_ssh_file, mock_exec_ssh_cmd):
         mock_uuid.return_value = 'uuid'
-        mock_test_ssh.return_value = False
+        mock_test_ssh.side_effect = [True, False]
         mock_write_ssh_file.return_value = None
 
         utils._write_systemd(self.mock_ssh, 'cmdline', 'svc_name')
 
         mock_uuid.assert_called_once_with()
-        mock_test_ssh.assert_called_once_with(
-            self.mock_ssh, '/lib/systemd/system/svc_name.service')
+        mock_test_ssh.assert_has_calls([
+            mock.call(self.mock_ssh, '/lib/systemd/system'),
+            mock.call(self.mock_ssh,
+                      '/lib/systemd/system/svc_name.service')])
         mock_write_ssh_file.assert_called_once_with(self.mock_ssh,
                                                     '/tmp/uuid.service',
                                                     mock.ANY)
@@ -936,14 +938,37 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
             mock.call(self.mock_ssh, 'sudo systemctl start svc_name',
                       get_pty=True)])
 
+    @mock.patch('coriolis.utils.exec_ssh_cmd')
+    @mock.patch('coriolis.utils.write_ssh_file')
+    @mock.patch('coriolis.utils.test_ssh_path')
+    @mock.patch.object(uuid, 'uuid4')
+    def test_write_systemd_usr_lib(self, mock_uuid, mock_test_ssh,
+                                   mock_write_ssh_file, mock_exec_ssh_cmd):
+        mock_uuid.return_value = 'uuid'
+        mock_test_ssh.side_effect = [False, False]
+        mock_write_ssh_file.return_value = None
+
+        utils._write_systemd(self.mock_ssh, 'cmdline', 'svc_name')
+
+        mock_test_ssh.assert_has_calls([
+            mock.call(self.mock_ssh, '/lib/systemd/system'),
+            mock.call(self.mock_ssh,
+                      '/usr/lib/systemd/system/svc_name.service')])
+        mock_exec_ssh_cmd.assert_has_calls([
+            mock.call(self.mock_ssh, 'sudo mv /tmp/uuid.service '
+                      '/usr/lib/systemd/system/svc_name.service',
+                      get_pty=True)])
+
     @mock.patch('coriolis.utils.test_ssh_path')
     def test_write_systemd_service_exists(self, mock_test_ssh):
         mock_test_ssh.return_value = True
 
         utils._write_systemd(self.mock_ssh, 'cmdline', 'svc_name')
 
-        mock_test_ssh.assert_called_once_with(
-            self.mock_ssh, '/lib/systemd/system/svc_name.service')
+        mock_test_ssh.assert_has_calls([
+            mock.call(self.mock_ssh, '/lib/systemd/system'),
+            mock.call(self.mock_ssh,
+                      '/lib/systemd/system/svc_name.service')])
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     @mock.patch('coriolis.utils.write_ssh_file')
@@ -954,7 +979,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
                                                      mock_write_ssh_file,
                                                      mock_exec_ssh_cmd):
         mock_uuid.return_value = 'uuid'
-        mock_test_ssh.return_value = False
+        mock_test_ssh.side_effect = [True, False]
         mock_write_ssh_file.return_value = None
         mock_exec_ssh_cmd.side_effect = [
             None, exception.CoriolisException(), None, None]
@@ -967,8 +992,10 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
                                        start=True)
 
         mock_uuid.assert_called_once_with()
-        mock_test_ssh.assert_called_once_with(
-            self.mock_ssh, '/lib/systemd/system/svc_name.service')
+        mock_test_ssh.assert_has_calls([
+            mock.call(self.mock_ssh, '/lib/systemd/system'),
+            mock.call(self.mock_ssh,
+                      '/lib/systemd/system/svc_name.service')])
         mock_write_ssh_file.assert_called_once_with(self.mock_ssh,
                                                     '/tmp/uuid.service',
                                                     mock.ANY)
@@ -982,14 +1009,16 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
                                             mock_exec_ssh_cmd):
 
         mock_uuid.return_value = 'uuid'
-        mock_test_ssh.return_value = False
+        mock_test_ssh.side_effect = [True, False]
 
         utils._write_systemd(self.mock_ssh, 'cmdline', 'svc_name',
                              run_as='test_user')
 
         mock_uuid.assert_called_once_with()
-        mock_test_ssh.assert_called_once_with(
-            self.mock_ssh, '/lib/systemd/system/svc_name.service')
+        mock_test_ssh.assert_has_calls([
+            mock.call(self.mock_ssh, '/lib/systemd/system'),
+            mock.call(self.mock_ssh,
+                      '/lib/systemd/system/svc_name.service')])
         mock_write_ssh_file.assert_called_once_with(
             self.mock_ssh, '/tmp/uuid.service',
             utils.SYSTEMD_TEMPLATE % {
@@ -1081,7 +1110,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch('coriolis.utils._write_upstart')
     @mock.patch('coriolis.utils.test_ssh_path')
     def test_create_service_upstart(self, mock_test_ssh, mock_write_upstart):
-        mock_test_ssh.side_effect = [False, True]
+        mock_test_ssh.side_effect = [False, False, True]
 
         utils.create_service(self.mock_ssh, 'cmdline', 'svc_name',
                              run_as='user', start=True)
@@ -1119,7 +1148,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch('coriolis.utils.test_ssh_path')
     def test_restart_service_with_upstart(self, mock_test_ssh,
                                           mock_exec_ssh_cmd):
-        mock_test_ssh.side_effect = [False, True]
+        mock_test_ssh.side_effect = [False, False, True]
 
         utils.restart_service(self.mock_ssh, 'svc_name')
 
@@ -1153,7 +1182,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch('coriolis.utils.test_ssh_path')
     def test_start_service_with_upstart(self, mock_test_ssh,
                                         mock_exec_ssh_cmd):
-        mock_test_ssh.side_effect = [False, True]
+        mock_test_ssh.side_effect = [False, False, True]
 
         utils.start_service(self.mock_ssh, 'svc_name')
 
@@ -1187,7 +1216,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch('coriolis.utils.test_ssh_path')
     def test_stop_service_with_upstart(self, mock_test_ssh,
                                        mock_exec_ssh_cmd):
-        mock_test_ssh.side_effect = [False, True]
+        mock_test_ssh.side_effect = [False, False, True]
 
         utils.stop_service(self.mock_ssh, 'svc_name')
 
