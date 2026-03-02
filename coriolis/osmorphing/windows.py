@@ -303,15 +303,8 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
                         "rm -recurse -force %s" % destination)
 
         self._conn.exec_ps_command(
-            "if(([System.Management.Automation.PSTypeName]"
-            "'System.IO.Compression.ZipFile').Type -or "
-            "[System.Reflection.Assembly]::LoadWithPartialName("
-            "'System.IO.Compression.FileSystem')) {"
-            "[System.IO.Compression.ZipFile]::ExtractToDirectory('%(path)s', "
-            "'%(destination)s')} else {mkdir -Force '%(destination)s'; "
-            "$shell = New-Object -ComObject Shell.Application;"
-            "$shell.Namespace('%(destination)s').copyhere(($shell.NameSpace("
-            "'%(path)s')).items())}" %
+            "Expand-Archive -LiteralPath '%(path)s' "
+            "-DestinationPath '%(destination)s' -Force" %
             {"path": path, "destination": destination},
             ignore_stdout=True)
 
