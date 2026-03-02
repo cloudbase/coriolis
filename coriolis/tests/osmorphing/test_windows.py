@@ -231,17 +231,8 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         self.conn.exec_ps_command.assert_has_calls([
             mock.call("rm -recurse -force %s" % destination),
             mock.call(
-                "if(([System.Management.Automation.PSTypeName]"
-                "'System.IO.Compression.ZipFile').Type -or "
-                "[System.Reflection.Assembly]::LoadWithPartialName("
-                "'System.IO.Compression.FileSystem')) {"
-                "[System.IO.Compression.ZipFile]::ExtractToDirectory("
-                "'%(path)s', '%(destination)s')} else {mkdir -Force "
-                "'%(destination)s'; $shell = New-Object -ComObject "
-                "Shell.Application;$shell.Namespace("
-                "'%(destination)s').copyhere(($shell.NameSpace("
-                "'%(path)s')).items())}" %
-                {"path": mock.sentinel.archive_path,
+                windows.EXTRACT_TEMPLATE %
+                {"source": mock.sentinel.archive_path,
                  "destination": destination},
                 ignore_stdout=True)
         ])

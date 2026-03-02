@@ -186,6 +186,36 @@ $IPS_INFO = ConvertFrom-Json $ips_info_json
 Invoke-Main $NICS_INFO $IPS_INFO
 """  # noqa
 
+EXTRACT_TEMPLATE = """
+function Extract-Path {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [String]$source,
+
+        [Parameter(Mandatory=$true)]
+        [String]$destination
+    )
+    try {
+        [Reflection.Assembly]::LoadWithPartialName('System.IO.Compression.FileSystem') | Out-Null
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($source)
+        foreach ($entry in $zip.Entries) {
+            $targetPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($destination, $entry.FullName))
+            if ($entry.FullName -match '[\\/]$') {
+                if (!(Test-Path $targetPath)) { New-Item -ItemType Directory -Force -Path $targetPath | Out-Null }
+            } else {
+                $parentPath = Split-Path $targetPath
+                if (!(Test-Path $parentPath)) { New-Item -ItemType Directory -Force -Path $parentPath | Out-Null }
+                [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $targetPath, $true)
+            }
+        }
+    } finally {
+        if ($zip) { $zip.Dispose() }
+    }
+}
+Extract-Path '%(source)s' '%(destination)s'
+"""  # noqa
+
 
 class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
 
@@ -303,16 +333,7 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
                         "rm -recurse -force %s" % destination)
 
         self._conn.exec_ps_command(
-            "if(([System.Management.Automation.PSTypeName]"
-            "'System.IO.Compression.ZipFile').Type -or "
-            "[System.Reflection.Assembly]::LoadWithPartialName("
-            "'System.IO.Compression.FileSystem')) {"
-            "[System.IO.Compression.ZipFile]::ExtractToDirectory('%(path)s', "
-            "'%(destination)s')} else {mkdir -Force '%(destination)s'; "
-            "$shell = New-Object -ComObject Shell.Application;"
-            "$shell.Namespace('%(destination)s').copyhere(($shell.NameSpace("
-            "'%(path)s')).items())}" %
-            {"path": path, "destination": destination},
+            EXTRACT_TEMPLATE % {"source": path, "destination": destination},
             ignore_stdout=True)
 
     def _set_service_start_mode(self, key_name, service_name, start_mode):
