@@ -231,17 +231,8 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         self.conn.exec_ps_command.assert_has_calls([
             mock.call("rm -recurse -force %s" % destination),
             mock.call(
-                "if(([System.Management.Automation.PSTypeName]"
-                "'System.IO.Compression.ZipFile').Type -or "
-                "[System.Reflection.Assembly]::LoadWithPartialName("
-                "'System.IO.Compression.FileSystem')) {"
-                "[System.IO.Compression.ZipFile]::ExtractToDirectory("
-                "'%(path)s', '%(destination)s')} else {mkdir -Force "
-                "'%(destination)s'; $shell = New-Object -ComObject "
-                "Shell.Application;$shell.Namespace("
-                "'%(destination)s').copyhere(($shell.NameSpace("
-                "'%(path)s')).items())}" %
-                {"path": mock.sentinel.archive_path,
+                windows.EXTRACT_TEMPLATE %
+                {"source": mock.sentinel.archive_path,
                  "destination": destination},
                 ignore_stdout=True)
         ])
@@ -513,7 +504,7 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             "logfile = cloudbase-init.log\r\n"
             "default_log_levels = \r\n"
             "comtypes=INFO,suds=INFO,iso8601=WARN,requests=WARN\r\n"
-            "allow_reboot = false\r\n"
+            "allow_reboot = true\r\n"
             "plugins = %(plugins)s\r\n"
             "debug = true\r\n"
             "san_policy = OnlineAll\r\n"
