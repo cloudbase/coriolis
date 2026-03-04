@@ -567,6 +567,12 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
 
             self._exec_cmd("sudo vgchange -ay -S vg_uuid=%s" % vg_uuid)
             self._exec_cmd("sudo vgchange --refresh")
+            dev_vg_path = f"/dev/{vg_props['name']}"
+            if not utils.test_ssh_path(self._ssh, dev_vg_path):
+                LOG.info(
+                    "Volume Group '%s' not found. Skipping.",
+                    dev_vg_path)
+                continue
             dev_paths_for_group = self._exec_cmd(
                 f"sudo ls -1 /dev/{vg_props['name']}/*").splitlines()
             lvm_dev_paths.extend(dev_paths_for_group)
