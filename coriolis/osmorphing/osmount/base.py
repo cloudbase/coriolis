@@ -569,7 +569,7 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
             self._exec_cmd("sudo vgchange --refresh")
             dev_vg_path = f"/dev/{vg_props['name']}"
             if not utils.test_ssh_path(self._ssh, dev_vg_path):
-                LOG.info(
+                LOG.warning(
                     "Volume Group '%s' not found. Skipping.",
                     dev_vg_path)
                 continue
