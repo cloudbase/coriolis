@@ -529,6 +529,47 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         server.ConductorServerEndpoint, "_get_worker_service_rpc_for_specs"
     )
     @mock.patch.object(server.ConductorServerEndpoint, "get_endpoint")
+    def test_get_endpoint_inventory_csv(
+            self, mock_get_endpoint, mock_get_worker_service_rpc_for_specs
+    ):
+        result = self.server.get_endpoint_inventory_csv(
+            mock.sentinel.context,
+            mock.sentinel.endpoint_id,
+            mock.sentinel.source_environment,
+        )
+
+        mock_get_endpoint.assert_called_once_with(
+            mock.sentinel.context, mock.sentinel.endpoint_id
+        )
+
+        mock_get_worker_service_rpc_for_specs.assert_called_once_with(
+            mock.sentinel.context,
+            enabled=True,
+            region_sets=[[]],
+            provider_requirements={
+                mock_get_endpoint.return_value.type: [
+                    constants.PROVIDER_TYPE_ENDPOINT_INVENTORY_EXPORT
+                ]
+            },
+        )
+
+        rpc_return_value = mock_get_worker_service_rpc_for_specs.return_value
+        rpc_return_value.get_endpoint_inventory_csv.assert_called_once_with(
+            mock.sentinel.context,
+            mock_get_endpoint.return_value.type,
+            mock_get_endpoint.return_value.connection_info,
+            mock.sentinel.source_environment,
+        )
+
+        self.assertEqual(
+            result,
+            rpc_return_value.get_endpoint_inventory_csv.return_value
+        )
+
+    @mock.patch.object(
+        server.ConductorServerEndpoint, "_get_worker_service_rpc_for_specs"
+    )
+    @mock.patch.object(server.ConductorServerEndpoint, "get_endpoint")
     def test_validate_endpoint_connection(
             self, mock_get_endpoint, mock_get_worker_service_rpc_for_specs
     ):
