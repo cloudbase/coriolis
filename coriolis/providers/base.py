@@ -623,6 +623,27 @@ class _BaseMinionPoolProvider(
         pass
 
 
+class BaseEndpointInventoryExportProvider(
+        object, with_metaclass(abc.ABCMeta)):
+    """Capability class for providers that support VM inventory CSV export.
+
+    Providers that implement this class will be offered in the UI as
+    supporting the inventory export action. Providers that do not implement
+    this class cleanly do not support it — no additional error handling is
+    required at the provider level.
+    """
+
+    @abc.abstractmethod
+    def export_instance_inventory(
+            self, ctxt, connection_info, source_environment):
+        """Export the full VM inventory as a CSV-formatted string.
+
+        Returns a standards-compliant CSV string with a header row and one
+        row per VM, sorted deterministically by VM ID.
+        """
+        raise NotImplementedError()
+
+
 class BaseSourceMinionPoolProvider(_BaseMinionPoolProvider):
 
     pass

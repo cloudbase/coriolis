@@ -492,6 +492,22 @@ class WorkerServerEndpoint(object):
 
         return storage
 
+    def get_endpoint_inventory_csv(
+            self, ctxt, platform_name, connection_info, source_environment):
+        provider = providers_factory.get_provider(
+            platform_name,
+            constants.PROVIDER_TYPE_ENDPOINT_INVENTORY_EXPORT, None)
+        if not provider:
+            raise exception.InvalidInput(
+                "Provider plugin for platform '%s' does not support "
+                "VM inventory CSV export." % platform_name)
+
+        secret_connection_info = utils.get_secret_connection_info(
+            ctxt, connection_info)
+
+        return provider.export_instance_inventory(
+            ctxt, secret_connection_info, source_environment)
+
     def get_available_providers(self, ctxt):
         return providers_factory.get_available_providers()
 

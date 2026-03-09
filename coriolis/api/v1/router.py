@@ -11,6 +11,7 @@ from coriolis.api.v1 import endpoint_actions
 from coriolis.api.v1 import endpoint_destination_minion_pool_options
 from coriolis.api.v1 import endpoint_destination_options
 from coriolis.api.v1 import endpoint_instances
+from coriolis.api.v1 import endpoint_inventory
 from coriolis.api.v1 import endpoint_networks
 from coriolis.api.v1 import endpoint_source_minion_pool_options
 from coriolis.api.v1 import endpoint_source_options
@@ -108,6 +109,11 @@ class APIRouter(api.APIRouter):
             endpoint_instances.create_resource()
         mapper.resource('instance', 'endpoints/{endpoint_id}/instances',
                         controller=self.resources['endpoint_instances'])
+
+        self.resources['endpoint_inventory'] = \
+            endpoint_inventory.create_resource()
+        mapper.resource('inventory', 'endpoints/{endpoint_id}/inventory',
+                        controller=self.resources['endpoint_inventory'])
 
         self.resources['endpoint_networks'] = \
             endpoint_networks.create_resource()
