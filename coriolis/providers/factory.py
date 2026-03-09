@@ -53,7 +53,9 @@ PROVIDER_TYPE_MAP = {
     constants.PROVIDER_TYPE_SOURCE_MINION_POOL: (
         base.BaseSourceMinionPoolProvider),
     constants.PROVIDER_TYPE_DESTINATION_MINION_POOL: (
-        base.BaseDestinationMinionPoolProvider)
+        base.BaseDestinationMinionPoolProvider),
+    constants.PROVIDER_TYPE_ENDPOINT_INVENTORY_EXPORT: (
+        base.BaseEndpointInventoryExportProvider),
 }
 
 

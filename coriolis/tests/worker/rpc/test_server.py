@@ -940,6 +940,55 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             storage, mock_get_provider.return_value.get_storage.return_value
         )
 
+    @mock.patch.object(utils, "get_secret_connection_info")
+    @mock.patch.object(providers_factory, "get_provider")
+    def test_get_endpoint_inventory_csv(
+        self, mock_get_provider, mock_get_secret
+    ):
+        result = self.server.get_endpoint_inventory_csv(
+            mock.sentinel.context,
+            mock.sentinel.platform_name,
+            mock.sentinel.connection_info,
+            mock.sentinel.source_environment,
+        )
+
+        mock_get_provider.assert_called_once_with(
+            mock.sentinel.platform_name,
+            constants.PROVIDER_TYPE_ENDPOINT_INVENTORY_EXPORT,
+            None,
+        )
+        mock_get_secret.assert_called_once_with(
+            mock.sentinel.context, mock.sentinel.connection_info
+        )
+        mock_get_provider.return_value.export_instance_inventory\
+            .assert_called_once_with(
+                mock.sentinel.context,
+                mock_get_secret.return_value,
+                mock.sentinel.source_environment,
+            )
+        self.assertEqual(
+            result,
+            mock_get_provider.return_value.export_instance_inventory
+            .return_value
+        )
+
+    @mock.patch.object(utils, "get_secret_connection_info")
+    @mock.patch.object(providers_factory, "get_provider")
+    def test_get_endpoint_inventory_csv_unsupported_provider(
+        self, mock_get_provider, mock_get_secret
+    ):
+        mock_get_provider.return_value = None
+
+        self.assertRaises(
+            exception.InvalidInput,
+            self.server.get_endpoint_inventory_csv,
+            mock.sentinel.context,
+            mock.sentinel.platform_name,
+            mock.sentinel.connection_info,
+            mock.sentinel.source_environment,
+        )
+        mock_get_secret.assert_not_called()
+
     @mock.patch.object(providers_factory, "get_available_providers")
     def test_get_available_providers(self, mock_get_available_providers):
         result = self.server.get_available_providers(mock.sentinel.context)
