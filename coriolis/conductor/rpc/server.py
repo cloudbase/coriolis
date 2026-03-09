@@ -572,6 +572,21 @@ class ConductorServerEndpoint(object):
         return worker_rpc.get_endpoint_storage(
             ctxt, endpoint.type, endpoint.connection_info, env)
 
+    def get_endpoint_inventory_csv(
+            self, ctxt, endpoint_id, source_environment):
+        endpoint = self.get_endpoint(ctxt, endpoint_id)
+
+        worker_rpc = self._get_worker_service_rpc_for_specs(
+            ctxt, enabled=True,
+            region_sets=[[reg.id for reg in endpoint.mapped_regions]],
+            provider_requirements={
+                endpoint.type: [
+                    constants.PROVIDER_TYPE_ENDPOINT_INVENTORY_EXPORT]})
+
+        return worker_rpc.get_endpoint_inventory_csv(
+            ctxt, endpoint.type, endpoint.connection_info,
+            source_environment)
+
     def validate_endpoint_connection(self, ctxt, endpoint_id):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
