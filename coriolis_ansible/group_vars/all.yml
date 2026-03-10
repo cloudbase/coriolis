@@ -71,7 +71,7 @@ coriolis_docker_image_dir: /tmp/coriolis_docker_images
 coriolis_docker_image_timeout: 300
 
 coriolis_export_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "vmware", "aws", "metal", "ovirt"]
-coriolis_import_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "oci", "aws", "vmware", "ovirt", "kubevirt", "lxd", "proxmox"]
+coriolis_import_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "oci", "aws", "vmware", "ovirt", "kubevirt", "lxd", "proxmox", "libvirt"]
 
 export_provider_modules:
   openstack: "coriolis_provider_openstack.ExportProvider"
@@ -97,6 +97,7 @@ import_provider_modules:
   kubevirt: "coriolis_provider_kubevirt.ImportProvider,coriolis_provider_harvester.ImportProvider"
   lxd: "coriolis_provider_lxd.ImportProvider"
   proxmox: "coriolis_provider_proxmox.ImportProvider"
+  libvirt: "coriolis_provider_libvirt.ImportProvider"
 
 coriolis_logger_socket_dir: /var/run/coriolis-logger
 coriolis_logger_socket_name: logger.socket

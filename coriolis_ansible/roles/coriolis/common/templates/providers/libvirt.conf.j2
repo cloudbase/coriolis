@@ -1,0 +1,164 @@
+[libvirt_migration_provider]
+# Name of the Libvirt storage pool to be used for volumes with unspecified
+# storage backing option from the source or which could not be mapped in the
+# "storage_mappings".
+#default_storage_pool =
+
+# Default image paths used for worker instances during migrations.
+# migr_image_map =
+
+# The integer size (in GBs) of the volume to boot temporary worker VMs from.
+# Minimum value supported is: 1.
+migr_worker_volume_size = 25
+
+# The amount of memory (in MBs) to allocate to temporary worker VMs.
+# Minimum value supported is: 1.
+migr_worker_memory = 4096
+
+# The amount of vcpus to allocate to temporary worker VMs.
+# Minimum value supported is: 1.
+migr_worker_vcpus = 2
+
+# The name of an existing Libvirt network used for worker VMs.
+# migr_worker_network =
+
+# What mechanism to use when sending disk data from the Coriolis installation
+# to the temporary VMs on the target Libvirt to be written to their respective
+# disk. The HTTPS-based transfer mechanism (TCP/5566) is faster but might not
+# work if there are firewalls in the way. The SSH-based transfer mechanism
+# (TCP/22) is more costly but will be allowed by most firewalls since SSH
+# access from the Coriolis installation to the temporary worker VM is always
+# required. Default is HTTPS. Supported values are: HTTPS, SSH.
+data_transfer_mechanism = HTTPS
+
+# Write the VM serial console output to a file.
+enable_vm_console_log = true
+
+# The directory used to store console log files on the Libvirt host.
+vm_console_log_dir = /var/log/libvirt/qemu
+
+# Attach a VNC console to the VM. The port will be selected automatically.
+enable_vm_vnc_console = false
+
+# The VNC listen address.
+vnc_listen_address = 0.0.0.0
+
+# URL to a .iso file containing the Windows VirtIO drivers to be injected
+# within Windows instances being migrated to Libvirt. The URL must be
+# accessible from the OSMorphing worker VM which will be deployed on Libvirt.
+windows_virtio_iso_url = https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso
+
+# Sets whether or not to configure the VM to use DHCP during the OSMorphing
+# stage.
+set_dhcp = true
+
+# Whether or not use config drive to send metadata to the migrated instance.
+# Default is false.
+use_config_drive = false
+
+# Whether or not Coriolis should reconfigure cloud-init during OSMorphing to
+# prevent it from creating a new system user or disabling the root user and
+# other existing users, including by disabling password-based SSH
+# authentication, or locking the user by changing/removing its password
+# completely. This will also prevent cloud-init from adding SSH keypairs.
+retain_user_credentials = true
+
+# Configure replica instances to use huge pages of the given size (KB). Note
+# that the huge pages must be preallocated. The possible size depends on the
+# host CPU architecture, 2MB and 1GB being the most common values on x86-64.
+# If unset, the VMs will not use huge pages. The VM memory capacity must be a
+# multiple of the hugepage size.
+hugepage_size = 0
+
+# "CPU mode to use for Libvirt domains created by this provider (eg.
+# 'host-passthrough', 'host-model'). When empty, Libvirt's default behaviour
+# is used.
+cpu_mode = host-passthrough
+
+# Value for the Libvirt <cpu check="..."> attribute. Set to 'none' to disable
+# CPU compatibility checks, or 'partial' / 'full' as required by your environment.
+cpu_check = none
+
+# Disable CPU features that would prevent the VM from being live migrated.
+cpu_migratable = true
+
+# Optional list of CPU feature names to require on created domains. Each entry
+# becomes a <feature policy="require" name="..."/> element under <cpu>.
+# By default, the provider enables rdtscp, invtsc and x2apic.
+cpu_features = rdtscp, invtsc, x2apic
+
+# A list of host CPUs that will not be used by pinned VM vCPUs.
+#
+# Contains comma separated ranges of CPUs in Libvirt format.
+#
+# Example: 1-4,^3,5
+#
+# In this example, CPUs 1,2,4 and 5 will be reserved.
+# reserved_cpus
+
+# Number of memory pages to reserved per host NUMA node.
+#
+# Each entry will contain comma separated key:value pairs describing the
+# NUMA node ID, the page size in KB and the number of reserved pages.
+#
+# Example:
+#
+#    reserved_memory_pages = node:0,size:2048,count:64
+#    reserved_memory_pages = node:0,size:4,count:2621440
+#    reserved_memory_pages = node:1,size:1048576,count:2
+#    reserved_memory_pages = node:1,size:4,count:2621440
+#
+# In this example we're reserving 10GB of memory using standard 4K page
+# size on both NUMA nodes, 2 GB of memory in 1GB pages on NUMA node 1 and
+# 128MB of memory in 2MB pages on NUMA node 0.
+# reserved_memory_pages =
+
+# Defines the NUMA scheduling strategy. If enabled, the scheduler will
+# favor NUMA nodes that are more loaded. If disabled, Coriolis try to spread
+# the resources across NUMA nodes, favoring nodes that are less loaded.
+pack_numa_nodes = false
+
+# Clock offset for replica VMs. Accepted values are 'utc' and 'localtime'.
+# When unset (the default), the provider picks 'localtime' for Windows guests
+# and 'utc' for all other OS types.
+# clock_offset =
+
+# VM timer configuration. Each entry is a set of comma-separated key:value
+# pairs describing one timer. Windows guests additionally get a hypervclock
+# timer appended unless one is already listed.
+# Example:
+#   cpu_timers = name:rtc,tickpolicy:catchup
+#   cpu_timers = name:pit,tickpolicy:delay
+#   cpu_timers = name:hpet,present:no
+# cpu_timers =
+
+# Attach a vhostmd virtio serial channel to replica instances.
+# This exposes KVM host metrics to workloads such as SAP HANA via the
+# vm-dump-metrics utility. Requires vhostmd to be running on the Libvirt host
+# and the socket at vhostmd_socket_path to exist
+enable_vhostmd = false
+
+# Path to the vhostmd Unix domain socket on the Libvirt host.
+# The channel device in the domain XML will connect to this path.
+# Only used when enable_vhostmd is enabled.
+vhostmd_socket_path = /var/lib/libvirt/qemu/vhostmd0
+
+# Source used to retrieve IP addresses from the migration worker.
+# 'lease' reads DHCP leases (requires external DNS server on the minion network),
+# 'agent' queries the QEMU guest agent (requires qemu-guest-agent running in the VM),
+# 'arp' uses the host ARP cache."
+migr_worker_iface_addr_src = agent
+
+# Specifies how pinned sibling CPUs should be defined in the Libvirt domain
+# configuration.
+# If sibling CPU floating is enabled, the VM vCPU will be allowed to float
+# between sibling host CPUs.
+#
+# <vcpupin vcpu='0' cpuset='0,16'/>
+# <vcpupin vcpu='1' cpuset='0,16'/>
+#
+# If sibling CPU floating is disabled, the VM vCPU will be pinned to a single host CPU.
+#
+# <vcpupin vcpu='0' cpuset='0'/>
+# <vcpupin vcpu='1' cpuset='16/>
+pinned_cpu_float_between_siblings = fasle

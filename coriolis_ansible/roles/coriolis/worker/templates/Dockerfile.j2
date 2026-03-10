@@ -30,6 +30,11 @@ RUN apt-get install -y openssl
 RUN apt-get install -y libcurl4-openssl-dev libxml2-dev
 {% endif %}
 
+{% if "libvirt" in coriolis_providers %}
+#NOTE: libvirt provider generates config drive, so it needs the following packages installed:
+RUN apt-get install -y libvirt-dev genisoimage
+{% endif %}
+
 {% for item in coriolis_providers %}
 RUN /bin/bash -c "pip3 install -e ./coriolis-provider-{{ item }}"
 {% endfor %}
