@@ -173,6 +173,17 @@ ENDPOINTS_POLICY_DEFAULT_RULES = [
             }
         ]
     ),
+    policy.DocumentedRuleDefault(
+        get_endpoints_policy_label('export_inventory'),
+        ENDPOINTS_POLICY_DEFAULT_RULE,
+        "Export VM inventory as CSV for a supported endpoint",
+        [
+            {
+                "path": "/endpoints/{endpoint_id}/inventory",
+                "method": "GET"
+            }
+        ]
+    ),
 ]
 
 

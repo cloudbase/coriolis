@@ -102,6 +102,13 @@ class ConductorClient(rpc.BaseRPCClient):
             endpoint_id=endpoint_id,
             env=env)
 
+    def get_endpoint_inventory_csv(
+            self, ctxt, endpoint_id, source_environment):
+        return self._call(
+            ctxt, 'get_endpoint_inventory_csv',
+            endpoint_id=endpoint_id,
+            source_environment=source_environment)
+
     def validate_endpoint_connection(self, ctxt, endpoint_id):
         return self._call(
             ctxt, 'validate_endpoint_connection',
