@@ -743,8 +743,8 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
 
         result = self.writer._uri
 
-        self.assertEqual(result, "https://%s:%s/api/v1/%s" % (
-            self.writer._ip, self.writer._port, self.writer._path))
+        self.assertEqual(result, "https://%s:%s/api/v2/device/%s" % (
+            self.writer._ip, self.writer._port, "cGF0aC90ZXN0X3BhdGg="))
 
     @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_ensure_session')
     @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_uri')
@@ -757,7 +757,7 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         mock_response.content = 'OK'
 
         mock_session = mock_session_class.return_value
-        mock_session.get.return_value = mock_response
+        mock_session.post.return_value = mock_response
 
         self.writer._session = mock_session
 
@@ -766,7 +766,7 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         original_acquire(self.writer)
 
         mock_ensure_session.assert_called_once()
-        mock_session.get.assert_called_once_with(
+        mock_session.post.assert_called_once_with(
             f"{mock_uri}/acquire",
             headers={"X-Client-Token": self.writer._id},
             timeout=mock_conf.default_requests_timeout)
@@ -783,7 +783,7 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         mock_response.content = 'OK'
 
         mock_session = mock_session_class.return_value
-        mock_session.get.return_value = mock_response
+        mock_session.post.return_value = mock_response
 
         self.writer._session = mock_session
 
@@ -792,7 +792,7 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         original_release(self.writer)
 
         mock_ensure_session.assert_called_once()
-        mock_session.get.assert_called_once_with(
+        mock_session.post.assert_called_once_with(
             f"{mock_uri}/release",
             headers={"X-Client-Token": self.writer._id},
             timeout=mock_conf.default_requests_timeout)
