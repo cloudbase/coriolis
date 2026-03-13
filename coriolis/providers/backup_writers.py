@@ -2,6 +2,7 @@
 # All Rights Reserved.
 
 import abc
+import base64
 import contextlib
 import copy
 import datetime
@@ -574,8 +575,9 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
 
     @property
     def _uri(self):
-        return "https://%s:%s/api/v1/%s" % (
-            self._ip, self._port, self._path.lstrip('/')
+        b64_path = base64.b64encode(self._path.encode()).decode()
+        return "https://%s:%s/api/v2/device/%s" % (
+            self._ip, self._port, b64_path
         )
 
     @utils.retry_on_error()
@@ -583,7 +585,7 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
         self._ensure_session()
         uri = "%s/acquire" % self._uri
         headers = {"X-Client-Token": self._id}
-        resp = self._session.get(
+        resp = self._session.post(
             uri, headers=headers, timeout=CONF.default_requests_timeout)
         LOG.debug("Returned code: %d. Msg: %s" % (
             resp.status_code, resp.content))
@@ -594,7 +596,7 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
         self._ensure_session()
         uri = "%s/release" % self._uri
         headers = {"X-Client-Token": self._id}
-        resp = self._session.get(
+        resp = self._session.post(
             uri, headers=headers, timeout=CONF.default_requests_timeout)
         LOG.debug("Returned code: %d. Msg: %s" %
                   (resp.status_code, resp.content))
