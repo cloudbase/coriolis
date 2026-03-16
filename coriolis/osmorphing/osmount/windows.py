@@ -31,6 +31,7 @@ class WindowsMountTools(base.BaseOSMountTools):
         return self._conn
 
     def check_os(self):
+        # Test change
         try:
             version_info = self._conn.exec_ps_command(
                 "(get-ciminstance Win32_OperatingSystem).Caption")
