@@ -146,6 +146,14 @@ class WorkerClient(rpc.BaseRPCClient):
             connection_info=connection_info,
             env=env)
 
+    def get_endpoint_inventory_csv(
+            self, ctxt, platform_name, connection_info, source_environment):
+        return self._call(
+            ctxt, 'get_endpoint_inventory_csv',
+            platform_name=platform_name,
+            connection_info=connection_info,
+            source_environment=source_environment)
+
     def get_available_providers(self, ctxt):
         return self._call(
             ctxt, 'get_available_providers')
