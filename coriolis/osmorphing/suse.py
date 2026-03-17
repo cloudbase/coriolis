@@ -22,6 +22,9 @@ OPENSUSE_TUMBLEWEED_VERSION_IDENTIFIER = (
     suse_detect.OPENSUSE_TUMBLEWEED_VERSION_IDENTIFIER)
 CLOUD_TOOLS_REPO_URI_FORMAT = (
     "https://download.opensuse.org/repositories/Cloud:/Tools/%s%s")
+CLOUD_TOOLS_REPO_URI_VERSION_ONLY_FORMAT = (
+    "https://download.opensuse.org/repositories/Cloud:/Tools/%s/")
+CLOUD_TOOLS_NEW_URL_MINIMUM_VERSION = 16
 
 
 class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
@@ -156,15 +159,33 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
                 (module, str(err))) from err
 
     def _add_cloud_tools_repo(self):
-        repo_suffix = ""
-        if self._version != (
-                OPENSUSE_TUMBLEWEED_VERSION_IDENTIFIER):
-            repo_suffix = "_%s" % self._version
-        repo = CLOUD_TOOLS_REPO_URI_FORMAT % (
-            self._detected_os_info[DETECTED_SUSE_RELEASE_FIELD_NAME].replace(
-                " ", "_"),
-            repo_suffix)
-        self._add_repo(repo, 'Cloud-Tools')
+        if self._version == OPENSUSE_TUMBLEWEED_VERSION_IDENTIFIER:
+            repo = CLOUD_TOOLS_REPO_URI_FORMAT % (
+                self._detected_os_info[
+                    DETECTED_SUSE_RELEASE_FIELD_NAME].replace(" ", "_"),
+                "")
+        elif self._version_supported_util(
+                self._version, minimum=CLOUD_TOOLS_NEW_URL_MINIMUM_VERSION):
+            repo = CLOUD_TOOLS_REPO_URI_VERSION_ONLY_FORMAT % self._version
+        else:
+            repo = CLOUD_TOOLS_REPO_URI_FORMAT % (
+                self._detected_os_info[
+                    DETECTED_SUSE_RELEASE_FIELD_NAME].replace(" ", "_"),
+                "_%s" % self._version)
+        try:
+            self._add_repo(repo, 'Cloud-Tools')
+        except Exception:
+            LOG.warning(
+                "Failed to add Cloud-Tools repo '%s'. If custom "
+                "repositories are configured on the target, this may be "
+                "safely ignored. Error was: %s", repo,
+                utils.get_exception_details())
+            self._event_manager.progress_update(
+                "Warning: failed to add Cloud-Tools repo '%s'. If the "
+                "required packages are available in already-configured "
+                "repositories, the migration may still succeed. If not, "
+                "please ensure the worker has internet access or "
+                "appropriate custom repositories are set up." % repo)
 
     def _get_repos(self):
         repos = {}
