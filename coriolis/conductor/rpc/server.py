@@ -1132,7 +1132,7 @@ class ConductorServerEndpoint(object):
                 ctxt, transfer.id, execution.id, **deployment_options)
 
         return self._get_transfer_tasks_execution(
-            ctxt, transfer_id, execution.id)
+            ctxt, transfer_id, execution.id, to_dict=True)
 
     @transfer_synchronized
     def get_transfer_tasks_executions(self, ctxt, transfer_id,

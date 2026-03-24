@@ -1383,7 +1383,8 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_get_transfer_tasks_execution.assert_called_once_with(
             mock.sentinel.context,
             mock.sentinel.transfer_id,
-            mock_tasks_execution.return_value.id)
+            mock_tasks_execution.return_value.id,
+            to_dict=True)
 
         self.assertEqual(
             mock_tasks_execution.return_value.status,
