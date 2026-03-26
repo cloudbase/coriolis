@@ -1400,8 +1400,16 @@ class BaseEndpointInventoryExportProvider(
             self, ctxt, connection_info, source_environment):
         """Export the full VM inventory as a CSV-formatted string.
 
-        Returns a standards-compliant CSV string with a header row and one
-        row per VM, sorted deterministically by VM ID.
+        :param ctxt: Coriolis request context
+        :param connection_info: endpoint connection parameters
+        :param source_environment: provider-specific source environment
+                                   parameters
+
+        :returns: a standards-compliant CSV string with a header row and one
+                  row per VM, sorted deterministically by VM ID. Each row
+                  contains fields such as VM ID, VM name, guest OS, firmware
+                  type, number of CPUs, memory (MB), total disk size (GB),
+                  disk details, and network interface details.
         """
         raise NotImplementedError()
 
