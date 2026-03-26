@@ -96,6 +96,13 @@ instance_refresh:
   required: false
   type: boolean
   default: false
+inventory_source_env:
+  description: |
+    Optional base64-encoded JSON object containing source environment options
+    for the inventory export When omitted, the provider's defaults are used.
+  in: query
+  required: false
+  type: string
 show_deleted:
   description: |
     Whether to include deleted resources in the response.

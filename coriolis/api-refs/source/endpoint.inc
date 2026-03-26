@@ -325,6 +325,64 @@ Response
   .. literalinclude:: ../api_samples/endpoint/endpoint-instance-show-resp.json
      :language: javascript
 
+Get Endpoint VM Inventory
+=========================
+
+.. rest_method:: GET /endpoints/{endpoint_id}/inventory
+
+Exports the full VM inventory of an endpoint in CSV format.
+
+**Preconditions**
+
+The endpoint must exist and the provider must support inventory export.
+
+Normal response codes: 200
+
+Error response codes: unauthorized(401), forbidden(403),
+itemNotFound(404)
+
+Request
+-------
+
+.. rest_parameters:: parameters.yaml
+
+   - endpoint_id : endpoint_id_path
+   - env : inventory_source_env
+
+Response
+--------
+
+The response body is a UTF-8 encoded CSV file with various columns returned.
+Each provider may return more specific fields (i.e. parentVapp when using VMWare).
+The example below shows the values returned by the VMWare provider.
+
+- **vm_id** – Unique identifier (UUID) of the VM.
+- **vm_name** – Display name of the VM.
+- **guest_id** – Raw VMware guest OS identifier (e.g. ``ubuntu64Guest``).
+- **firmware** – Firmware type (``bios`` or ``efi``).
+- **num_cpu** – Number of vCPUs.
+- **memory_mb** – Memory in megabytes.
+- **nested_virtualization** – Whether nested virtualisation is enabled.
+- **dynamic_memory_enabled** – Whether dynamic memory is enabled.
+- **secure_boot** – Whether EFI Secure Boot is enabled.
+- **os_type** – Coriolis-normalised OS type (e.g. ``linux``, ``windows``).
+- **disks** – Total provisioned disk size for the VM (e.g. ``150GB``).
+- **nics** – Semicolon-separated list of NIC entries, each formatted as
+  ``label|mac[|network[|ip1,ip2,...]]``.
+- **hostname** – Guest hostname as reported by VMware Tools (empty if tools
+  are not running).
+- **parent_vapp** – Name of the parent vApp, if any.
+- **host** – ESXi host the VM is currently running on.
+- **power_state** – Current power state (e.g. ``poweredOn``, ``poweredOff``).
+
+The response is returned with ``Content-Type: text/csv`` and a
+``Content-Disposition: attachment`` header suggesting a filename of the form
+``vm_inventory_{endpoint_id}.csv``.
+
+**Example VM Inventory CSV Response**
+
+.. literalinclude:: ../api_samples/endpoint/endpoint-inventory-resp.csv
+
 Get Endpoint Destination Options
 ================================
 
