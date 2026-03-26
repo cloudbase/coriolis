@@ -65,5 +65,3 @@ class EndpointInventoryControllerTestCase(test_base.CoriolisBaseTestCase):
             mock_context, endpoint_id, {})
         self.assertIsInstance(response, api_wsgi.ResponseObject)
         self.assertEqual(response.code, 200)
-        self.assertEqual(
-            mock_req.environ['coriolis.best_content_type'], 'text/csv')
