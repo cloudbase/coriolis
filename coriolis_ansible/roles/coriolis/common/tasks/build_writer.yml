@@ -3,4 +3,4 @@
   vars:
     resource_build_script: >-
       cd {{ build_dir }}/coriolis-writer &&
-      go build -o ./writer cmd/coriolis-writer/writer.go
+      make build-release

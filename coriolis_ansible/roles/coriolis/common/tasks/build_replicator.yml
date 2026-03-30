@@ -3,4 +3,4 @@
   vars:
     resource_build_script: >-
       cd {{ build_dir }}/coriolis-replicator &&
-      go build -o ./replicator cmd/replicator/replicator.go
+      make release-build

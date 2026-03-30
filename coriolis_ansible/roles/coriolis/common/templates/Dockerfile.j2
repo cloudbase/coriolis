@@ -29,8 +29,8 @@ RUN /bin/bash -c "pip3 install git+https://github.com/cloudbase/pywinrm.git@requ
 # user can import the code. The coriolis-api code doesn't need to run as root.
 RUN /bin/bash -c "pip3 install ./coriolis-core"
 
-COPY coriolis-replicator/replicator coriolis-core/coriolis/resources/bin/replicator
-COPY coriolis-writer/writer         coriolis-core/coriolis/resources/bin/coriolis-writer
+COPY coriolis-replicator/build/coriolis-replicator coriolis-core/coriolis/resources/bin/replicator
+COPY coriolis-writer/bin/coriolis-writer         coriolis-core/coriolis/resources/bin/coriolis-writer
 
 # This can be mapped in a volume
 RUN mkdir -p /var/log/coriolis
