@@ -18,10 +18,6 @@ CONF = cfg.CONF
 CONF.register_opts(serialization_opts)
 
 PROVIDER_TYPE_MAP = {
-    # NOTE(aznashwan): these have been disabled following the transition from
-    # classical disk-export-based migrations to Replica-based ones:
-    # constants.PROVIDER_TYPE_EXPORT: base.BaseExportProvider,
-    # constants.PROVIDER_TYPE_IMPORT: base.BaseImportProvider,
     constants.PROVIDER_TYPE_TRANSFER_EXPORT: base.BaseReplicaExportProvider,
     constants.PROVIDER_TYPE_TRANSFER_IMPORT: base.BaseReplicaImportProvider,
     constants.PROVIDER_TYPE_ENDPOINT: base.BaseEndpointProvider,
@@ -36,12 +32,8 @@ PROVIDER_TYPE_MAP = {
     constants.PROVIDER_TYPE_OS_MORPHING: base.BaseImportInstanceProvider,
     constants.PROVIDER_TYPE_INSTANCE_FLAVOR: base.BaseInstanceFlavorProvider,
     constants.PROVIDER_TYPE_SETUP_LIBS: base.BaseProviderSetupExtraLibsMixin,
-    constants.PROVIDER_TYPE_VALIDATE_MIGRATION_EXPORT: (
-        base.BaseMigrationExportValidationProvider),
     constants.PROVIDER_TYPE_VALIDATE_TRANSFER_EXPORT: (
         base.BaseReplicaExportValidationProvider),
-    constants.PROVIDER_TYPE_VALIDATE_MIGRATION_IMPORT: (
-        base.BaseMigrationImportValidationProvider),
     constants.PROVIDER_TYPE_VALIDATE_TRANSFER_IMPORT: (
         base.BaseReplicaImportValidationProvider),
     constants.PROVIDER_TYPE_SOURCE_TRANSFER_UPDATE: (

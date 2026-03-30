@@ -1,4 +1,5 @@
 {
   "$schema": "http://cloudbase.it/coriolis/schemas/network_map_schema#",
-  "type": "object"
+  "type": "object",
+  "description": "Mapping between source and destination network identifiers."
 }
