@@ -24,6 +24,7 @@ class HarnessSmokeTest(base.CoriolisIntegrationTestBase):
         """Endpoint create / get exercises."""
         endpoint = self._create_endpoint(
             name="smoke-test-endpoint",
+            endpoint_type="test-src",
             description="harness smoke test",
             connection_info={"key": "value"},
         )
@@ -37,11 +38,13 @@ class HarnessSmokeTest(base.CoriolisIntegrationTestBase):
 
         src = self._create_endpoint(
             name="smoke-src",
+            endpoint_type="test-src",
             connection_info={"foo": "lish"},
         )
 
         dst = self._create_endpoint(
             name="smoke-dst",
+            endpoint_type="test-dest",
             connection_info={"bar": "tender"},
         )
 

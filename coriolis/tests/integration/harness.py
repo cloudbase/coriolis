@@ -55,9 +55,13 @@ from coriolis.worker.rpc import server as worker_rpc_server
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
-# Path to the test provider class.
-TEST_PROVIDER_CLASS = (
-    "coriolis.tests.integration.providers.test_provider.TestProvider"
+# Dotted paths to the export (source) and import (destination) provider
+# classes.
+_TEST_EXPORT_PROVIDER = (
+    "coriolis.tests.integration.providers.test_provider.exp.TestExportProvider"
+)
+_TEST_IMPORT_PROVIDER = (
+    "coriolis.tests.integration.providers.test_provider.imp.TestImportProvider"
 )
 
 # Fixed project used for all test requests.
@@ -201,7 +205,8 @@ class _IntegrationHarness:
         cfg.CONF([], project='coriolis', version='1.0.0',
                  default_config_files=[], default_config_dirs=[])
         cfg.CONF.set_override('messaging_transport_url', 'fake://')
-        cfg.CONF.set_override('providers', [TEST_PROVIDER_CLASS])
+        cfg.CONF.set_override(
+            'providers', [_TEST_EXPORT_PROVIDER, _TEST_IMPORT_PROVIDER])
         cfg.CONF.set_override(
             'connection', 'sqlite:///%s' % self.db_path, group='database')
         cfg.CONF.set_override(
