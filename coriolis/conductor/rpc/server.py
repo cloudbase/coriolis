@@ -302,7 +302,7 @@ class ConductorServerEndpoint(object):
         if not reservation_type:
             raise exception.LicensingException(
                 message="Could not determine reservation type for transfer "
-                        f"'{action_id}' with scenario '{transfer.scenario}'.")
+                        f"'{action_id}' with scenario '{transfer.scenario}'.")  # noqa
         if not self._licensing_client:
             LOG.warn(
                 "Licensing client not instantiated. Skipping creation of "
@@ -1300,7 +1300,7 @@ class ConductorServerEndpoint(object):
         if transfer_scenario not in supported_scenarios:
             raise exception.InvalidInput(
                 message=f"Unsupported Transfer scenario '{transfer_scenario}'."
-                        f" Must be one of: {supported_scenarios}")
+                        f" Must be one of: {supported_scenarios}")  # noqa
 
         origin_endpoint = self.get_endpoint(ctxt, origin_endpoint_id)
         destination_endpoint = self.get_endpoint(
