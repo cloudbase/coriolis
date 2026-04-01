@@ -13,7 +13,9 @@ Subclasses must be run as root.
 """
 
 import os
+import time
 import unittest
+from unittest import mock
 
 from coriolisclient import client as coriolis_client
 from keystoneauth1 import session as ks_session
@@ -22,7 +24,10 @@ from oslo_config import cfg
 from oslo_log import log as logging
 
 from coriolis import constants
+from coriolis import context
+from coriolis.db import api as db_api
 from coriolis.tests.integration import harness
+from coriolis.tests.integration import utils as test_utils
 from coriolis.tests import test_base
 
 CONF = cfg.CONF
@@ -86,3 +91,152 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
         self.addCleanup(self._client.transfers.delete, transfer.id)
 
         return transfer
+
+
+class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
+    def setUp(self):
+        super().setUp()
+
+        self._src_device = test_utils.add_scsi_debug_device()
+        self.addCleanup(test_utils.remove_scsi_debug_device)
+        self._dst_device = test_utils.add_scsi_debug_device()
+        self.addCleanup(test_utils.remove_scsi_debug_device)
+
+        # Write a test pattern on the src device.
+        test_utils.write_test_pattern(self._src_device)
+
+        # Create endpoints.
+        self._src_endpoint = self._create_endpoint(
+            name="test-src",
+            endpoint_type="test-src",
+            description="integration source endpoint",
+            connection_info={
+                "block_device_path": self._src_device,
+                "pkey_path": "/home/ubuntu/.ssh/id_rsa",
+            },
+        )
+
+        self._dst_endpoint = self._create_endpoint(
+            name="test-dest",
+            endpoint_type="test-dest",
+            description="integration destination endpoint",
+            connection_info={
+                "devices": [self._dst_device],
+                "pkey_path": "/home/ubuntu/.ssh/id_rsa",
+            },
+        )
+
+        # Create transfer replica.
+        self._transfer = self._create_transfer(
+            self._src_endpoint.id,
+            self._dst_endpoint.id,
+            instances=[self._src_device],
+        )
+
+        # mock a few commands that are going to be ran through ssh; they won't
+        # pass anyway.
+        bkup = "coriolis.providers.backup_writers.HTTPBackupWriterBootstrapper"
+        repl = "coriolis.providers.replicator.Replicator"
+        for prop in [
+            "coriolis.providers.backup_writers._disable_lvm2_lvmetad",
+            f"{bkup}._add_firewalld_port",
+            f"{bkup}._change_binary_se_context",
+            f"{repl}._change_binary_se_context",
+        ]:
+            mocker = mock.patch(prop)
+            mocker.start()
+            self.addCleanup(mocker.stop)
+
+    def _execute_and_wait(self, transfer_id, timeout=300):
+        """Trigger one execution of *transfer_id* and wait for completion."""
+        execution = self._client.transfer_executions.create(
+            transfer_id, shutdown_instances=False)
+        self.assertExecutionCompleted(execution.id, timeout=timeout)
+
+    def _get_db_context(self):
+        return context.RequestContext(
+            user='int-test',
+            project_id=harness._TEST_PROJECT_ID,
+            is_admin=True,
+        )
+
+    def wait_for_execution(self, execution_id, timeout=300):
+        """Block until *execution_id* reaches a terminal state.
+
+        Polls the DB directly and yields on each iteration so in-process
+        services can make progress.
+
+        Returns the finalised TasksExecution ORM object.
+        Raises ``AssertionError`` on timeout.
+        """
+        ctxt = self._get_db_context()
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            execution = db_api.get_tasks_execution(ctxt, execution_id)
+            if execution.status in constants.FINALIZED_EXECUTION_STATUSES:
+                return execution
+            time.sleep(1)
+        self.fail(
+            "Execution %s did not reach a terminal state within %ds "
+            "(last status: %s)"
+            % (execution_id, timeout, execution.status)
+        )
+
+    def assertExecutionCompleted(self, execution_id, timeout=300):
+        """Assert that *execution_id* completes successfully."""
+        execution = self.wait_for_execution(execution_id, timeout=timeout)
+        self.assertEqual(
+            constants.EXECUTION_STATUS_COMPLETED,
+            execution.status,
+            "Execution %s ended with status %s; task details: %s"
+            % (
+                execution_id,
+                execution.status,
+                [
+                    (t.task_type, t.status, t.exception_details)
+                    for t in execution.tasks
+                    if t.status not in (
+                        constants.TASK_STATUS_COMPLETED,
+                        constants.TASK_STATUS_CANCELED,
+                    )
+                ],
+            ),
+        )
+
+    def assertExecutionErrored(self, execution_id, timeout=300):
+        """Assert that *execution_id* ends in an error state."""
+        execution = self.wait_for_execution(execution_id, timeout=timeout)
+        self.assertIn(
+            execution.status,
+            [
+                constants.EXECUTION_STATUS_ERROR,
+                constants.EXECUTION_STATUS_DEADLOCKED,
+            ],
+            "Expected an error status for execution %s, got %s"
+            % (execution_id, execution.status),
+        )
+
+    def assertDeploymentCompleted(self, deployment_id, timeout=300):
+        """Assert that *deployment_id* finishes with a completed status.
+
+        Polls last_execution_status from the DB (the API view does not expose
+        the execution ID directly, so DB polling is used for status tracking).
+        """
+        ctxt = self._get_db_context()
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            deployment = db_api.get_deployment(ctxt, deployment_id)
+            status = deployment.last_execution_status
+            if status in constants.FINALIZED_EXECUTION_STATUSES:
+                self.assertEqual(
+                    constants.EXECUTION_STATUS_COMPLETED,
+                    status,
+                    "Deployment %s ended with status %s"
+                    % (deployment_id, status),
+                )
+                return
+            time.sleep(1)
+        self.fail(
+            "Deployment %s did not reach a terminal state within %ds"
+            % (deployment_id, timeout)
+        )
