@@ -120,7 +120,7 @@ class EndpointInstanceControllerTestCase(test_base.CoriolisBaseTestCase):
 
         mock_context.can.assert_called_once_with(
             'migration:endpoints:get_instance')
-        mock_decode_base64_param.has_calls(expected_calls)
+        mock_decode_base64_param.assert_has_calls(expected_calls)
         mock_get_endpoint_instance.assert_called_once_with(
             mock_context, endpoint_id,
             env,

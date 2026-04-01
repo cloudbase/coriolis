@@ -5357,7 +5357,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(db_api, "update_service")
     @mock.patch.object(rpc_worker_client.WorkerClient, "get_service_status")
-    @mock.patch.object(db_api, "get_service")
+    @mock.patch.object(db_api, "get_service", new_callable=mock.Mock)
     def test_refresh_service_status(
         self,
         mock_get_service,
@@ -5374,12 +5374,12 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock_get_service.return_value,
             result
         )
-        mock_get_service.has_calls([
+        mock_get_service.assert_has_calls([
             mock.call(
                 mock.sentinel.context,
                 mock.sentinel.service_id
-            ) * 2
-        ])
+            )
+        ] * 2)
         mock_get_service_status.assert_called_once_with(
             mock.sentinel.context)
         mock_update_service.assert_called_once_with(
