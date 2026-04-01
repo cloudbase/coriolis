@@ -60,7 +60,6 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
 
     def _create_endpoint(self, **kwargs):
         endpoint_kwargs = {
-            "endpoint_type": "foo",
             "description": "",
             "regions": [],
         }
