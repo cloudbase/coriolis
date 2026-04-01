@@ -13,6 +13,8 @@ Tasks are executed in-process as greenlets rather than subprocesses. The
 fake:// oslo.messaging transport is in-memory and process-local; subprocess
 tasks would initialise their own isolated transport with no conductor listener,
 causing every event-handler RPC call from the task to block indefinitely.
+
+Must be run as root (scsi_debug block device setup requires it).
 """
 
 import atexit
@@ -49,6 +51,7 @@ from coriolis import rpc as rpc_module
 from coriolis.scheduler.rpc import server as scheduler_rpc_server
 from coriolis import service
 from coriolis.tasks import factory as task_runners_factory
+from coriolis.tests.integration import utils as test_utils
 from coriolis import utils as coriolis_utils
 from coriolis.worker.rpc import server as worker_rpc_server
 
@@ -212,6 +215,7 @@ class _IntegrationHarness:
         cfg.CONF.set_override(
             'lock_path', self.lock_path, group='oslo_concurrency')
         coriolis_utils.setup_logging()
+        test_utils.init_scsi_debug()
 
         # Policy enforcer: reset so it re-reads the new CONF (no policy file).
         policy_module.reset()
@@ -330,3 +334,7 @@ class _IntegrationHarness:
                 pass
 
         shutil.rmtree(self.workdir, True)
+        try:
+            test_utils.destroy_scsi_debug()
+        except Exception:
+            pass
