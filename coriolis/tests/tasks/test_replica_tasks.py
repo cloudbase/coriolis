@@ -38,9 +38,10 @@ class ReplicaTasksTestCase(test_base.CoriolisBaseTestCase):
     def test__check_ensure_volumes_info_ordering(
             self, mock_sanitize, export_info, volumes_info,
             exception_expected, expected_result):
+        mock_sanitize.side_effect = lambda x: x
         expected_calls = [
-            mock.call.mock_sanitize({"volumes_info": volumes_info}),
-            mock.call.mock_sanitize({"volumes_info": expected_result}),
+            mock.call({"volumes_info": volumes_info}),
+            mock.call({"volumes_info": expected_result}),
         ]
         if exception_expected:
             self.assertRaises(
@@ -50,7 +51,7 @@ class ReplicaTasksTestCase(test_base.CoriolisBaseTestCase):
         else:
             result = replica_tasks._check_ensure_volumes_info_ordering(
                 export_info, volumes_info)
-            mock_sanitize.has_calls(expected_calls)
+            mock_sanitize.assert_has_calls(expected_calls)
             self.assertEqual(result, expected_result)
 
     @ddt.file_data("data/test_nic_ips_update.yml")

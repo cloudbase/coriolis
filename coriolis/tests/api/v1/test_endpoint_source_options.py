@@ -48,7 +48,7 @@ class EndpointSourceOptionsControllerTestCase(test_base.CoriolisBaseTestCase):
 
         mock_context.can.assert_called_once_with(
             'migration:endpoints:list_source_options')
-        mock_decode_base64_param.has_calls(expected_calls)
+        mock_decode_base64_param.assert_has_calls(expected_calls)
         mock_get_endpoint_source_options.assert_called_once_with(
             mock_context, endpoint_id,
             env=env,

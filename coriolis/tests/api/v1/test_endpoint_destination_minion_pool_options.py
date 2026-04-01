@@ -57,7 +57,7 @@ class EndpointDestinationMinionPoolOptionsControllerTestCase(
 
         mock_context.can.assert_called_once_with(
             'migration:endpoints:list_destination_minion_pool_options')
-        mock_decode_base64_param.has_calls(expected_calls)
+        mock_decode_base64_param.assert_has_calls(expected_calls)
         (mock_get_endpoint_destination_minion_pool_options.
             assert_called_once_with)(
                 mock_context, endpoint_id,
