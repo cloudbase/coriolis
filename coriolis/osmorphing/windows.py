@@ -341,7 +341,7 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
             @({paths_string}) | ForEach-Object {{
                 Set-ItemProperty -Path $_ -Name 'Start' -Value {start_mode}
             }}
-            """,
+            """,  # noqa
             ignore_stdout=True)
 
     def _create_service(self, key_name, service_name, image_path,
@@ -667,8 +667,8 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
             if diff:
                 LOG.warning(
                     f"The IP addresses {list(diff)} found on the source "
-                    f"VM's NIC were not found in the registry. These IPs will "
-                    f"be skipped in the static IP configuration process")
+                    "VM's NIC were not found in the registry. These IPs will "
+                    "be skipped in the static IP configuration process")
                 ip_matches = list(
                     set(reg_ip_addresses).intersection(set(nic_ips)))
                 if not ip_matches:

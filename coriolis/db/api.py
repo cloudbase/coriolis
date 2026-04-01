@@ -902,7 +902,7 @@ def add_task_progress_update(
             f"Progress message for task '{task_id}' with ID '{task_event_id}'"
             f"is too long. Truncating before insertion. "
             f"Original message was: '{message}'")
-        message = f"{message[:max_msg_len-len('...')]}..."
+        message = f"{message[:max_msg_len-len('...')]}..."  # noqa
     task_progress_update.message = message
 
     task_progress_update.index = 0
@@ -936,7 +936,7 @@ def update_task_progress_update(
                 f"Progress message for task '{task_id}' with ID "
                 f"'{task_event_id}' is too long. Truncating before insertion."
                 f" Original message was: '{new_message}'")
-            new_message = f"{new_message[:max_msg_len-len('...')]}..."
+            new_message = f"{new_message[:max_msg_len-len('...')]}..."  # noqa
         task_progress_update.message = new_message
 
 

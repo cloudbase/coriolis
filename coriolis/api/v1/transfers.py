@@ -70,8 +70,8 @@ class TransferController(api_wsgi.Controller):
             if scenario not in SUPPORTED_TRANSFER_SCENARIOS:
                 raise exc.HTTPBadRequest(
                     explanation=f"Unsupported Transfer creation scenario "
-                                f"'{scenario}', must be one of: "
-                                f"{SUPPORTED_TRANSFER_SCENARIOS}")
+                                f"'{scenario}', must be one of: "  # noqa
+                                f"{SUPPORTED_TRANSFER_SCENARIOS}")  # noqa
         else:
             scenario = constants.TRANSFER_SCENARIO_REPLICA
             LOG.warn(
@@ -317,8 +317,8 @@ class TransferController(api_wsgi.Controller):
         if scenario and scenario != transfer["scenario"]:
             raise exc.HTTPBadRequest(
                 explanation=f"Changing Transfer creation scenario is not "
-                            f"supported (original scenario is "
-                            f"{transfer['scenario']}, received '{scenario}')")
+                            f"supported (original scenario is "  # noqa
+                            f"{transfer['scenario']}, received '{scenario}')")  # noqa
 
         transfer_body = body['transfer']
         origin_endpoint_id = transfer_body.get('origin_endpoint_id', None)
