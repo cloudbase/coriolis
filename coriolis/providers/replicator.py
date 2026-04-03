@@ -205,6 +205,22 @@ class Client(object):
         return int(info.headers["Content-Length"])
 
     @utils.retry_on_error()
+    def get_disk_checksum(self, device):
+        """Returns the total checksum of the given disk.
+
+        :raises HTTPError: with HTTP 409 status if checksumming has not
+          completed yet.
+        :returns: dict with 'checksum' and 'algorithm' keys.
+        """
+        uri = "%s/api/v1/dev/%s/checksum" % (self._base_uri, device)
+
+        resp = self._cli.get(
+            uri, timeout=CONF.replicator.default_requests_timeout)
+        resp.raise_for_status()
+
+        return resp.json()
+
+    @utils.retry_on_error()
     def download_chunk(self, disk, chunk):
         diskUri = self.raw_disk_uri(disk)
 
@@ -768,7 +784,44 @@ class Replicator(object):
                 return vol
         return None
 
-    def replicate_disks(self, source_volumes_info, backup_writer):
+    def _verify_disk_checksum(self, dev_name, destination):
+        """Compares source and destination checksums for a transferred disk.
+
+        Must be called while the device is still acquired on the writer side.
+
+        :raises CoriolisException: if the checksum algorithms do not match, or
+          if the checksums do not match.
+        """
+        self._event_manager.progress_update(
+            "Verifying disk integrity for /dev/%s" % dev_name)
+        source = self._cli.get_disk_checksum(dev_name)
+        end_offset = self._cli.get_disk_size(dev_name)
+        writer = destination.get_disk_checksum(
+            source["algorithm"], end_offset=end_offset)
+        if writer is None:
+            self._event_manager.progress_update(
+                "Disk integrity check skipped for /dev/%s "
+                "(writer does not support checksums)" % dev_name)
+            return
+
+        if source["algorithm"] != writer["algorithm"]:
+            raise exception.CoriolisException(
+                "Checksum algorithm mismatch for disk '%s': "
+                "source=%s, destination=%s" % (
+                    dev_name, source["algorithm"], writer["algorithm"]))
+
+        if source["checksum"] != writer["checksum"]:
+            raise exception.CoriolisException(
+                "Checksum mismatch for disk '%s': "
+                "source=%s, destination=%s" % (
+                    dev_name, source["checksum"], writer["checksum"]))
+
+        self._event_manager.progress_update(
+            "Disk integrity verified for /dev/%s (checksum: %s)" % (
+                dev_name, source["checksum"]))
+
+    def replicate_disks(
+            self, source_volumes_info, backup_writer, verify_checksum=False):
         """
         Fetch the block diff and send it to the backup_writer.
         If the target_is_zeroed parameter is set to True, on initial
@@ -845,6 +898,10 @@ class Replicator(object):
                     total += 1
                     self._event_manager.set_percentage_step(
                         perc_step, total)
+
+                if verify_checksum:
+                    self._verify_disk_checksum(devName, destination)
+
             dst_vol["replica_state"] = state_for_vol
 
         self._repl_state = curr_state

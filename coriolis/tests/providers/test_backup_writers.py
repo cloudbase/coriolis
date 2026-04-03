@@ -1061,6 +1061,161 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
                              level=logging.ERROR):
             self.assertRaises(exception.CoriolisException, self.writer.close)
 
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_ensure_session')
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_uri',
+                       new_callable=mock.PropertyMock)
+    @mock.patch.object(backup_writers, 'CONF')
+    def test__create_checksum_job(self, mock_conf, mock_uri,
+                                  mock_ensure_session):
+        self.writer._set_info(self.info)
+        mock_uri.return_value = "https://host:port/api/v2/device/b64path"
+        self.writer._session = mock.MagicMock()
+        mock_resp = mock.MagicMock()
+        mock_resp.json.return_value = {"job_id": "test-job-id"}
+        self.writer._session.post.return_value = mock_resp
+
+        result = self.writer._create_checksum_job("sha256")
+
+        self.assertEqual("test-job-id", result)
+        self.writer._session.post.assert_called_once_with(
+            "https://host:port/api/v2/device/b64path/checksumJob",
+            headers={"X-Client-Token": self.info["id"]},
+            json={"start_offset": 0, "end_offset": 0,
+                  "checksum_algorithm": "sha256"},
+            timeout=mock_conf.default_requests_timeout)
+        mock_resp.raise_for_status.assert_called_once()
+
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_ensure_session')
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_uri',
+                       new_callable=mock.PropertyMock)
+    @mock.patch.object(backup_writers, 'CONF')
+    def test__get_checksum_job_status(self, mock_conf, mock_uri,
+                                      mock_ensure_session):
+        self.writer._set_info(self.info)
+        mock_uri.return_value = "https://host:port/api/v2/device/b64path"
+        self.writer._session = mock.MagicMock()
+        mock_resp = mock.MagicMock()
+        self.writer._session.get.return_value = mock_resp
+
+        result = self.writer._get_checksum_job_status("test-job-id")
+
+        self.assertEqual(result, mock_resp.json.return_value)
+        self.writer._session.get.assert_called_once_with(
+            "https://host:port/api/v2/device/b64path/checksumJob/test-job-id",
+            timeout=mock_conf.default_requests_timeout)
+        mock_resp.raise_for_status.assert_called_once()
+
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_ensure_session')
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_uri',
+                       new_callable=mock.PropertyMock)
+    @mock.patch.object(backup_writers, 'CONF')
+    def test__delete_checksum_job(self, mock_conf, mock_uri,
+                                  mock_ensure_session):
+        self.writer._set_info(self.info)
+        mock_uri.return_value = "https://host:port/api/v2/device/b64path"
+        self.writer._session = mock.MagicMock()
+        mock_resp = mock.MagicMock()
+        self.writer._session.delete.return_value = mock_resp
+
+        self.writer._delete_checksum_job("test-job-id")
+
+        self.writer._session.delete.assert_called_once_with(
+            "https://host:port/api/v2/device/b64path/checksumJob/test-job-id",
+            timeout=mock_conf.default_requests_timeout)
+        mock_resp.raise_for_status.assert_called_once()
+
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl,
+                       '_delete_checksum_job')
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl,
+                       '_get_checksum_job_status')
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl,
+                       '_create_checksum_job')
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_wait_for_queues')
+    def test_get_disk_checksum(self, mock_wait, mock_create, mock_status,
+                               mock_delete):
+        self.writer._set_info(self.info)
+        mock_create.return_value = "test-job-id"
+        mock_status.return_value = {
+            "execution_status": "finished",
+            "checksum_value": "abc123",
+            "checksum_algorithm": "sha256",
+        }
+
+        result = self.writer.get_disk_checksum(
+            "sha256",
+            mock.sentinel.start_offset,
+            mock.sentinel.end_offset,
+        )
+
+        self.assertEqual({"checksum": "abc123", "algorithm": "sha256"}, result)
+        mock_wait.assert_called_once()
+        mock_create.assert_called_once_with(
+            "sha256",
+            mock.sentinel.start_offset,
+            mock.sentinel.end_offset,
+        )
+        mock_delete.assert_called_once_with("test-job-id")
+
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl,
+                       '_delete_checksum_job')
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl,
+                       '_get_checksum_job_status')
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl,
+                       '_create_checksum_job')
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_wait_for_queues')
+    def test_get_disk_checksum_job_failed(self, mock_wait, mock_create,
+                                          mock_status, mock_delete):
+        self.writer._set_info(self.info)
+        mock_create.return_value = "test-job-id"
+        mock_status.return_value = {
+            "execution_status": "failed",
+            "error_message": "disk error",
+        }
+
+        self.assertRaises(
+            exception.CoriolisException,
+            self.writer.get_disk_checksum, "sha256")
+        mock_delete.assert_called_once_with("test-job-id")
+
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl,
+                       '_delete_checksum_job')
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl,
+                       '_create_checksum_job')
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_wait_for_queues')
+    def test_get_disk_checksum_write_error(self, mock_wait, mock_create,
+                                           mock_delete):
+        self.writer._set_info(self.info)
+        self.writer._exception = exception.CoriolisException("write failed")
+
+        self.assertRaises(
+            exception.CoriolisException,
+            self.writer.get_disk_checksum, "sha256")
+        mock_create.assert_not_called()
+        mock_delete.assert_not_called()
+
+    @mock.patch('coriolis.providers.backup_writers.time.sleep')
+    @mock.patch('coriolis.providers.backup_writers.time.monotonic')
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl,
+                       '_delete_checksum_job')
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl,
+                       '_get_checksum_job_status')
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl,
+                       '_create_checksum_job')
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_wait_for_queues')
+    def test_get_disk_checksum_timeout(self, mock_wait, mock_create,
+                                       mock_status, mock_delete,
+                                       mock_monotonic, mock_sleep):
+        self.writer._set_info(self.info)
+        mock_create.return_value = "test-job-id"
+        mock_status.return_value = {"execution_status": "running"}
+        # First call sets the deadline; second call (after the poll) exceeds it
+        mock_monotonic.side_effect = [0, 3601]
+
+        self.assertRaises(
+            exception.CoriolisException,
+            self.writer.get_disk_checksum, "sha256")
+        mock_delete.assert_called_once_with("test-job-id")
+
 
 class HTTPBackupWriterBootstrapperTestcase(test_base.CoriolisBaseTestCase):
     """Test suite for the Coriolis HTTPBackupWriterBootstrapper class."""
