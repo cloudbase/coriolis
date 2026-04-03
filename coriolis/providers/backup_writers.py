@@ -31,6 +31,11 @@ opts = [
     cfg.BoolOpt('compress_transfers',
                 default=True,
                 help='Use compression if possible during disk transfers'),
+    cfg.IntOpt('disk_checksum_timeout',
+               default=3600,
+               help='Maximum number of seconds to wait for a disk checksum '
+                    'job to complete on the backup writer. Larger disks may '
+                    'require a higher value.'),
 ]
 CONF.register_opts(opts)
 _CORIOLIS_HTTP_WRITER_CMD = "coriolis-writer"
@@ -65,6 +70,10 @@ _WRITER_ERR_MAP = {
     14: "ERR_WRITE_MSG_ID",
     15: "ERR_OUT_OF_BOUDS",
 }
+
+_CHECKSUM_JOB_POLL_INTERVAL = 15  # seconds between writer checksum job polls
+_CHECKSUM_JOB_FINISHED = "finished"
+_CHECKSUM_JOB_FAILED = "failed"
 
 
 def _disable_lvm2_lvmetad(ssh):
@@ -192,6 +201,18 @@ class BaseBackupWriterImpl(with_metaclass(abc.ABCMeta)):
     @abc.abstractmethod
     def close(self):
         pass
+
+    def get_disk_checksum(self, algorithm, start_offset=0, end_offset=0):
+        """Returns the destination disk checksum, or None if unsupported.
+
+        :param algorithm: Checksumming algorithm to use.
+        :param start_offset: Checksumming starts from this offset.
+        :param end_offset: Checksumming stops at this offset. If it is 0,
+          the end of the disk is considered instead.
+        :returns: dict with 'checksum' and 'algorithm' keys, or None if
+          unsupported.
+        """
+        return None
 
 
 class BaseBackupWriter(with_metaclass(abc.ABCMeta)):
@@ -734,6 +755,103 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
             # No error recorded, and we have tasks in the queue
             LOG.info("Waiting for unfinished transfers to complete")
             time.sleep(0.5)
+
+    def _create_checksum_job(self, algorithm, start_offset=0, end_offset=0):
+        """Creates a full-disk checksum job on the writer.
+
+        The device must already be acquired.
+
+        :param algorithm: Checksumming algorithm to use.
+        :param start_offset: Checksumming starts from this offset.
+        :param end_offset: Checksumming stops at this offset. If it is 0,
+          the end of the disk is considered instead.
+        :returns: job ID string.
+        """
+        self._ensure_session()
+        uri = "%s/checksumJob" % self._uri
+        headers = {"X-Client-Token": self._id}
+        body = {
+            "start_offset": start_offset,
+            "end_offset": end_offset,
+            "checksum_algorithm": algorithm,
+        }
+
+        resp = self._session.post(
+            uri, headers=headers, json=body,
+            timeout=CONF.default_requests_timeout)
+        resp.raise_for_status()
+
+        return resp.json()["job_id"]
+
+    def _get_checksum_job_status(self, job_id):
+        """Returns the current status of a writer checksum job."""
+        self._ensure_session()
+        uri = "%s/checksumJob/%s" % (self._uri, job_id)
+
+        resp = self._session.get(
+            uri, timeout=CONF.default_requests_timeout)
+        resp.raise_for_status()
+
+        return resp.json()
+
+    def _delete_checksum_job(self, job_id):
+        """Deletes a writer checksum job."""
+        self._ensure_session()
+        uri = "%s/checksumJob/%s" % (self._uri, job_id)
+
+        resp = self._session.delete(
+            uri, timeout=CONF.default_requests_timeout)
+        resp.raise_for_status()
+
+    def get_disk_checksum(self, algorithm, start_offset=0, end_offset=0):
+        """Computes and returns the checksum of the entire destination disk.
+
+        Must be called while the device is acquired (inside open() context).
+        Flushes all pending writes before starting the checksum job.
+
+        :param algorithm: Checksumming algorithm to use.
+        :param start_offset: Checksumming starts from this offset.
+        :param end_offset: Checksumming stops at this offset. If it is 0,
+          the end of the disk is considered instead.
+        :returns: dict with 'checksum' and 'algorithm' keys.
+        """
+        self._wait_for_queues()
+        if self._exception:
+            raise exception.CoriolisException(
+                "Cannot checksum disk '%s', pending write error: %s" % (
+                    self._path, self._exception))
+
+        timeout = CONF.disk_checksum_timeout
+        deadline = time.monotonic() + timeout
+        job_id = self._create_checksum_job(algorithm, start_offset, end_offset)
+        try:
+            while True:
+                status = self._get_checksum_job_status(job_id)
+                execution_status = status.get("execution_status")
+                if execution_status == _CHECKSUM_JOB_FINISHED:
+                    return {
+                        "checksum": status["checksum_value"],
+                        "algorithm": status["checksum_algorithm"],
+                    }
+
+                if execution_status == _CHECKSUM_JOB_FAILED:
+                    raise exception.CoriolisException(
+                        "Checksum job failed for disk '%s': %s" % (
+                            self._path, status.get("error_message", "")))
+
+                if time.monotonic() >= deadline:
+                    raise exception.CoriolisException(
+                        "Timed out waiting for checksum job for disk '%s' "
+                        "after %d seconds." % (self._path, timeout))
+
+                time.sleep(_CHECKSUM_JOB_POLL_INTERVAL)
+        finally:
+            try:
+                self._delete_checksum_job(job_id)
+            except Exception:
+                LOG.warning(
+                    "Failed to delete checksum job %s for disk %s",
+                    job_id, self._path)
 
     def close(self):
         self._closing = True

@@ -312,6 +312,22 @@ class ClientTestCase(test_base.CoriolisBaseTestCase):
         )
         self.mock_response.raise_for_status.assert_called_once()
 
+    def test_get_disk_checksum(self):
+        self.client._cli.get.return_value = self.mock_response
+
+        original_get_disk_checksum = testutils.get_wrapped_function(
+            self.client.get_disk_checksum)
+
+        result = original_get_disk_checksum(self.client, self.device)
+
+        self.assertEqual(result, self.mock_response.json.return_value)
+        self.client._cli.get.assert_called_once_with(
+            "https://%s:%s/api/v1/dev/%s/checksum" % (
+                self.ip, self.port, self.device),
+            timeout=replicator_module.CONF.replicator.default_requests_timeout,
+        )
+        self.mock_response.raise_for_status.assert_called_once()
+
 
 class ReplicatorTestCase(test_base.CoriolisBaseTestCase):
     """Test suite for the Coriolis Replicator class."""
@@ -1090,8 +1106,82 @@ class ReplicatorTestCase(test_base.CoriolisBaseTestCase):
 
         self.assertIsNone(result)
 
+    def test__verify_disk_checksum(self):
+        checksum = {"checksum": "abc123", "algorithm": "sha256"}
+        self.replicator._cli.get_disk_checksum.return_value = checksum
+        mock_destination = mock.MagicMock()
+        mock_destination.get_disk_checksum.return_value = checksum
+
+        self.replicator._verify_disk_checksum("sdb", mock_destination)
+
+        self.replicator._cli.get_disk_checksum.assert_called_once_with("sdb")
+        mock_get_disk_size = self.replicator._cli.get_disk_size
+        mock_get_disk_size.assert_called_once_with("sdb")
+        mock_destination.get_disk_checksum.assert_called_once_with(
+            "sha256", end_offset=mock_get_disk_size.return_value)
+
+    def test__verify_disk_checksum_value_mismatch(self):
+        self.replicator._cli.get_disk_checksum.return_value = {
+            "checksum": "abc123", "algorithm": "sha256"}
+        mock_destination = mock.MagicMock()
+        mock_destination.get_disk_checksum.return_value = {
+            "checksum": "different", "algorithm": "sha256"}
+
+        self.assertRaises(
+            exception.CoriolisException,
+            self.replicator._verify_disk_checksum,
+            "sdb", mock_destination)
+
+    def test__verify_disk_checksum_algorithm_mismatch(self):
+        self.replicator._cli.get_disk_checksum.return_value = {
+            "checksum": "abc123", "algorithm": "sha256"}
+        mock_destination = mock.MagicMock()
+        mock_destination.get_disk_checksum.return_value = {
+            "checksum": "abc123", "algorithm": "xxhash"}
+
+        self.assertRaises(
+            exception.CoriolisException,
+            self.replicator._verify_disk_checksum,
+            "sdb", mock_destination)
+
+    def test__verify_disk_checksum_not_supported(self):
+        self.replicator._cli.get_disk_checksum.return_value = {
+            "checksum": "abc123", "algorithm": "sha256"}
+        mock_destination = mock.MagicMock()
+        mock_destination.get_disk_checksum.return_value = None
+
+        self.replicator._verify_disk_checksum("sdb", mock_destination)
+
+        self.replicator._cli.get_disk_checksum.assert_called_once_with("sdb")
+        mock_get_disk_size = self.replicator._cli.get_disk_size
+        mock_get_disk_size.assert_called_once_with("sdb")
+        mock_destination.get_disk_checksum.assert_called_once_with(
+            "sha256", end_offset=mock_get_disk_size.return_value)
+
+    @mock.patch.object(replicator_module.Replicator, '_verify_disk_checksum')
     @mock.patch.object(replicator_module, 'Client')
-    def test_replicate_disks(self, mock_Client):
+    def test_replicate_disks_calls_verify_checksum(
+            self, mock_Client, mock_verify):
+        self.replicator._cli = mock_Client.return_value
+        self.replicator._cli.get_changes.return_value = [
+            {'length': 100, 'offset': 0}]
+        self.replicator._volumes_info = [
+            {"disk_id": "test_disk", "disk_path": "/dev/sdb"}]
+        source_volumes_info = [
+            {"disk_id": "test_disk", "disk_path": "/dev/sdb"}]
+        self.replicator._repl_state = ['non-empty']
+        mock_destination = mock.MagicMock(spec=['seek', 'write'])
+        self.backup_writer.open.return_value.__enter__.return_value = (
+            mock_destination)
+
+        self.replicator.replicate_disks(
+            source_volumes_info, self.backup_writer, True)
+
+        mock_verify.assert_called_once_with("sdb", mock_destination)
+
+    @mock.patch.object(replicator_module.Replicator, '_verify_disk_checksum')
+    @mock.patch.object(replicator_module, 'Client')
+    def test_replicate_disks(self, mock_Client, mock_verify):
         self.replicator._cli = mock_Client.return_value
         self.replicator._cli.get_changes.return_value = [
             {'length': 100, 'offset': 0}, {'length': 200, 'offset': 100}]
@@ -1127,10 +1217,11 @@ class ReplicatorTestCase(test_base.CoriolisBaseTestCase):
                           self.replicator.replicate_disks,
                           source_volumes_info, self.backup_writer)
 
+    @mock.patch.object(replicator_module.Replicator, '_verify_disk_checksum')
     @mock.patch.object(replicator_module.Replicator, '_find_vol_state')
     @mock.patch.object(replicator_module, 'Client')
     def test_replicate_disks_initial_sync(self, mock_Client,
-                                          mock_find_vol_state):
+                                          mock_find_vol_state, mock_verify):
         self.replicator._cli = mock_Client.return_value
 
         self.replicator._cli.get_changes.return_value = [
