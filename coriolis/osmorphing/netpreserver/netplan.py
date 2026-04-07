@@ -33,7 +33,7 @@ class NetplanNetPreserver(base.BaseNetPreserver):
             cfg_path = "%s/%s" % (self.netplan_base, cfg)
             try:
                 contents = yaml.safe_load(self.osmorphing_tool._read_file_sudo(
-                                          cfg_path).decode())
+                                          cfg_path))
                 LOG.info("Parsing netplan configuration '%s'", cfg_path)
                 ifaces = contents.get('network', {}).get('ethernets', {})
                 for iface, net_cfg in ifaces.items():
