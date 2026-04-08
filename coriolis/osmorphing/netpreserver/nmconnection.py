@@ -33,10 +33,11 @@ class NmconnectionNetPreserver(base.BaseNetPreserver):
             "ethernet", self.nmconnection_file)
         if nmconnection_ethernet:
             for nmconn_file, nmconn in nmconnection_ethernet:
-                name = nmconn.get("connection", {}).get("id")
+                name = nmconn.get("interface-name", nmconn.get("id"))
                 if not name:
                     name = re.match(r"^.*/(.*)\.nmconnection$",
                                     nmconn_file).groups()[0]
+                name = name.replace(" ", "_")
                 mac_address = nmconn.get("mac-address")
                 self.interface_info[name] = {
                     "mac_address": mac_address,
