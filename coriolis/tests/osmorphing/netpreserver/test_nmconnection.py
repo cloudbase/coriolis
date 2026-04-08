@@ -101,7 +101,7 @@ class NmconnectionNetPreserverTestCase(test_base.CoriolisBaseTestCase):
             self.netpreserver.nmconnection_file + "/eth0.nmconnection"
         )
         nmconn_with_id = {
-            "connection": {"id": "eth0"},
+            "id": "eth0",
             "mac-address": "00:11:22:33:44:55",
             "address1": "192.168.1.10/24"
         }
@@ -116,21 +116,35 @@ class NmconnectionNetPreserverTestCase(test_base.CoriolisBaseTestCase):
             self.netpreserver.nmconnection_file + "/eth2.nmconnection"
         )
         nmconn_without_mac_address = {
-            "connection": {"id": "eth2"},
+            "id": "eth2",
             "address1": "192.168.1.30/24",
         }
         nmconn_file_without_mac_address_ip_address = (
             self.netpreserver.nmconnection_file + "/eth3.nmconnection"
         )
         nmconn_without_mac_address_ip_address = {
-            "connection": {"id": "eth3"},
+            "id": "id_eth3",
+            "address": "192.168.1.40/24",
+        }
+        nmconn_file_with_space = (
+            self.netpreserver.nmconnection_file + "/System ethx.nmconnection"
+        )
+        nmconn_without_mac_address_and_id = {
+            "address1": "192.168.1.50/24",
+        }
+        nmconn_with_interface_name = {
+            "interface-name": "eth4",
+            "id": "id_eth4",
+            "address": "192.168.1.60/24",
         }
         mock_get_keyfiles_by_type.return_value = [
             (nmconn_file_with_id, nmconn_with_id),
             (nmconn_file_without_id, nmconn_without_id),
             (nmconn_file_without_mac_address, nmconn_without_mac_address),
             (nmconn_file_without_mac_address_ip_address,
-             nmconn_without_mac_address_ip_address)
+             nmconn_without_mac_address_ip_address),
+            (nmconn_file_with_space, nmconn_without_mac_address_and_id),
+            (nmconn_file_with_space, nmconn_with_interface_name)
         ]
 
         self.netpreserver.interface_info = {}
@@ -150,10 +164,18 @@ class NmconnectionNetPreserverTestCase(test_base.CoriolisBaseTestCase):
                 "mac_address": None,
                 "ip_addresses": ["192.168.1.30"]
             },
-            "eth3": {
+            "id_eth3": {
                 "mac_address": None,
-                "ip_addresses": []
+                "ip_addresses": ["192.168.1.40"]
+            },
+            "System_ethx": {
+                "mac_address": None,
+                "ip_addresses": ["192.168.1.50"]
+            },
+            "eth4": {
+                "mac_address": None,
+                "ip_addresses": ["192.168.1.60"]
             }
         }
 
-        self.assertEqual(self.netpreserver.interface_info, expected_info)
+        self.assertEqual(expected_info, self.netpreserver.interface_info)
