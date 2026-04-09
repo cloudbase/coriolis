@@ -378,6 +378,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
             "command", environment=None, get_pty=False, timeout=None)
 
     def test_exec_ssh_cmd_exception(self):
+        self.mock_stdout.read.return_value = b'some error output'
         self.mock_stdout.channel.recv_exit_status.return_value = 1
         self.mock_ssh.exec_command.return_value = (None, self.mock_stdout,
                                                    self.mock_stdout)
@@ -390,6 +391,30 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
 
         self.mock_ssh.exec_command.assert_called_once_with(
             "command", environment=None, get_pty=False, timeout=None)
+
+    def test_exec_ssh_cmd_command_not_found_in_stdout(self):
+        self.mock_stdout.read.return_value = b'sudo: foo: command not found'
+        self.mock_stdout.channel.recv_exit_status.return_value = 1
+        self.mock_ssh.exec_command.return_value = (None, self.mock_stdout,
+                                                   self.mock_stdout)
+
+        original_exec_ssh_cmd = testutils.get_wrapped_function(
+            utils.exec_ssh_cmd)
+
+        self.assertRaises(exception.SSHCommandNotFoundException,
+                          original_exec_ssh_cmd, self.mock_ssh, "command")
+
+    def test_exec_ssh_cmd_exit_code_127(self):
+        self.mock_stdout.read.return_value = b''
+        self.mock_stdout.channel.recv_exit_status.return_value = 127
+        self.mock_ssh.exec_command.return_value = (None, self.mock_stdout,
+                                                   self.mock_stdout)
+
+        original_exec_ssh_cmd = testutils.get_wrapped_function(
+            utils.exec_ssh_cmd)
+
+        self.assertRaises(exception.SSHCommandNotFoundException,
+                          original_exec_ssh_cmd, self.mock_ssh, "command")
 
     def test_exec_ssh_cmd_chroot(self):
         self.mock_stdout.read.return_value = b'output\n'
