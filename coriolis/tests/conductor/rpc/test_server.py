@@ -1307,6 +1307,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             if has_origin_minion_pool else None,
             destination_minion_pool_id=mock.sentinel.destination_minion_pool_id
             if has_target_minion_pool else None,
+            clustered=False,
         )
         mock_get_transfer.return_value = mock_transfer
 

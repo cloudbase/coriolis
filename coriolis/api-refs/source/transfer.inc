@@ -51,6 +51,7 @@ Response
   - instance_osmorphing_minion_pool_mappings : instance_osmorphing_minion_pool_mappings
   - user_scripts : user_scripts
   - scenario: scenario_type
+  - clustered : clustered
 
 **Example of Transfer List Response**
 
@@ -111,6 +112,7 @@ Response
   - instance_osmorphing_minion_pool_mappings : instance_osmorphing_minion_pool_mappings
   - user_scripts : user_scripts
   - scenario: scenario_type
+  - clustered : clustered
 
 **Example of Transfer Show Response**
 
@@ -183,6 +185,7 @@ Response
   - instance_osmorphing_minion_pool_mappings : instance_osmorphing_minion_pool_mappings
   - user_scripts : user_scripts
   - scenario: scenario_type
+  - clustered : clustered
 
 **Example of Transfer Create Response**
 

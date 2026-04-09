@@ -244,6 +244,11 @@ class ReplicateDisksTask(base.TaskRunner):
         source_environment = task_info['source_environment']
 
         source_resources = task_info.get('source_resources', {})
+        # NOTE: the full volumes_info list is passed to the provider,
+        # including any entries with 'replicate_disk_data' set to False
+        # (e.g. shared disks of clustered transfers whose data is
+        # replicated by their owner instance's task). It is up to each
+        # provider to skip replicating data for such volumes.
         volumes_info = provider.replicate_disks(
             ctxt, connection_info, source_environment, instance,
             source_resources, migr_source_conn_info, migr_target_conn_info,
@@ -290,10 +295,9 @@ class DeployReplicaDisksTask(base.TaskRunner):
             event_handler)
         connection_info = base.get_connection_info(ctxt, destination)
 
-        volumes_info = task_info.get("volumes_info", [])
         volumes_info = provider.deploy_replica_disks(
             ctxt, connection_info, target_environment, instance, export_info,
-            volumes_info)
+            task_info.get("volumes_info", []))
         schemas.validate_value(
             volumes_info, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)
 
