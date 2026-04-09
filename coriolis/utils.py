@@ -311,7 +311,9 @@ def list_ssh_dir(ssh, remote_path):
         return [f for f in output.splitlines() if f.strip()]
 
 
-@retry_on_error(terminal_exceptions=[exception.MinionMachineCommandTimeout])
+@retry_on_error(terminal_exceptions=[
+    exception.MinionMachineCommandTimeout,
+    exception.SSHCommandNotFoundException])
 def exec_ssh_cmd(ssh, cmd, environment=None, get_pty=False, timeout=None):
     remote_str = "<undeterminable>"
     if timeout is not None:
@@ -335,12 +337,17 @@ def exec_ssh_cmd(ssh, cmd, environment=None, get_pty=False, timeout=None):
         raise exception.MinionMachineCommandTimeout()
     exit_code = stdout.channel.recv_exit_status()
     if exit_code:
-        raise exception.CoriolisException(
+        stdout_str = std_out.decode(errors='ignore')
+        stderr_str = std_err.decode(errors='ignore')
+        msg = (
             "Command \"%s\" failed on host '%s' with exit code: %s\n"
             "stdout: %s\nstd_err: %s" %
-            (cmd, remote_str, exit_code,
-             std_out.decode(errors='ignore'),
-             std_err.decode(errors='ignore')))
+            (cmd, remote_str, exit_code, stdout_str, stderr_str))
+        if (exit_code == 127 or
+                "command not found" in stdout_str or
+                "command not found" in stderr_str):
+            raise exception.SSHCommandNotFoundException(msg)
+        raise exception.CoriolisException(msg)
     # Most of the commands will use pseudo-terminal which unfortunately will
     # include a '\r' to every newline. This will affect all plugins too, so
     # best we can do now is replace them.

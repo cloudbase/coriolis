@@ -503,6 +503,10 @@ class MinionMachineCommandTimeout(CoriolisException):
     pass
 
 
+class SSHCommandNotFoundException(CoriolisException):
+    pass
+
+
 class OSMorphingOperationTimeout(MinionMachineCommandTimeout):
     pass
 
