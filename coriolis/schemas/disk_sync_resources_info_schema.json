@@ -18,7 +18,7 @@
             "description": "String device path (ex: /dev/sdc) from within the temporary minion VM where the disk was attached."
           }
         },
-        "required": ["disk_id", "volume_dev"],
+        "required": ["disk_id"],
         "additionalProperties": true
       }
     }

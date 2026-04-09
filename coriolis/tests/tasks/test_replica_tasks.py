@@ -145,6 +145,8 @@ class ReplicateDisksTaskTestCase(test_base.CoriolisBaseTestCase):
         task_info.get.side_effect = [
             task_info['incremental'], task_info['source_resources']]
         prov_fun = mock_get_provider.return_value.replicate_disks
+        mock_get_vol_info.return_value = [{"disk_id": "disk_id1"}]
+        prov_fun.return_value = [{"disk_id": "disk_id1"}]
         expected_result = {"volumes_info": mock_check_vol_info.return_value}
         expected_validation_calls = [
             mock.call.mock_validate_value(

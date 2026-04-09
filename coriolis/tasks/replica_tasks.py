@@ -244,12 +244,27 @@ class ReplicateDisksTask(base.TaskRunner):
         source_environment = task_info['source_environment']
 
         source_resources = task_info.get('source_resources', {})
-        volumes_info = provider.replicate_disks(
-            ctxt, connection_info, source_environment, instance,
-            source_resources, migr_source_conn_info, migr_target_conn_info,
-            volumes_info, incremental)
-        schemas.validate_value(
-            volumes_info, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)
+        volumes_to_replicate = [
+            vol for vol in volumes_info
+            if vol.get(constants.VOLUME_INFO_REPLICATE_DISK_DATA, True)]
+        pre_replicated_volumes = [
+            vol for vol in volumes_info
+            if not vol.get(constants.VOLUME_INFO_REPLICATE_DISK_DATA, True)]
+
+        if volumes_to_replicate:
+            replicated_volumes = provider.replicate_disks(
+                ctxt, connection_info, source_environment, instance,
+                source_resources, migr_source_conn_info, migr_target_conn_info,
+                volumes_to_replicate, incremental)
+            schemas.validate_value(
+                replicated_volumes, schemas.CORIOLIS_VOLUMES_INFO_SCHEMA)
+        else:
+            LOG.info(
+                "No disks marked for replication for instance '%s'. "
+                "Using pre-provisioned volumes_info.", instance)
+            replicated_volumes = []
+
+        volumes_info = pre_replicated_volumes + replicated_volumes
 
         volumes_info = _check_ensure_volumes_info_ordering(
             export_info, volumes_info)
@@ -572,6 +587,10 @@ class DeployReplicaTargetResourcesTask(base.TaskRunner):
         connection_info = base.get_connection_info(ctxt, destination)
 
         volumes_info = _get_volumes_info(task_info)
+        # NOTE: parallel minion attach may run before conductor merges
+        # shareable.
+        utils.apply_export_disk_shareable_metadata_to_volumes_info(
+            export_info, volumes_info)
 
         replica_resources_info = provider.deploy_replica_target_resources(
             ctxt, connection_info, target_environment, volumes_info)

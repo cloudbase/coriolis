@@ -133,7 +133,8 @@
           "ubuntu-xenial": "echo 'anything you need'"
         }
       },
-      "scenario": "replica"
+      "scenario": "replica",
+      "clustered": false
     }
   }
 }
