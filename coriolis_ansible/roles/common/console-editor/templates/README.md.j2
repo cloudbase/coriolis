@@ -11,3 +11,26 @@ Please feel free to use any utilities you may need such as:
     * the `vim` or `nano` editors
     * network utilities such as `ip`, `ping`, `nslookup`, or `traceroute`
     * any other utilities you may need which you can install using `apt`
+
+## Utility scripts
+
+### free_libvirt_raw_disk.py
+
+Inspects and frees Coriolis libvirt raw disk allocations that are stuck in
+`attached` or `claimed` state. This can happen when a deployment is created
+without cloning disks: the replicated volumes are attached directly to the
+migrated VM, and after the VM is deleted they remain reserved in the SQLite DB,
+preventing new transfers from picking them up.
+
+    # List all raw disks and their current status
+    python3 /root/free_libvirt_raw_disk.py list
+
+    # List only stuck disks
+    python3 /root/free_libvirt_raw_disk.py list --status attached
+    python3 /root/free_libvirt_raw_disk.py list --status claimed
+
+    # Free a specific disk by WWN
+    python3 /root/free_libvirt_raw_disk.py free --wwn <wwn>
+
+    # Free all stuck disks (shows a confirmation prompt)
+    python3 /root/free_libvirt_raw_disk.py free --all
