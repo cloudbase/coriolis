@@ -16,7 +16,7 @@ RUN echo 'if [ "$CORIOLIS_CONSOLE_EDITOR_PROMPT" ]; then echo; echo "$CORIOLIS_C
 RUN echo 'if [ -f "{{ coriolis_console_editor_extra_prompt_file }}" ]; then echo; cat "{{ coriolis_console_editor_extra_prompt_file }}"; fi' >> /root/.bashrc
 
 COPY README.md /root/README.md
-COPY free_libvirt_raw_disk.py /root/free_libvirt_raw_disk.py
+COPY free_libvirt_resources.py /root/free_libvirt_resources.py
 
 # NOTE: this will keep the container hanging indefinitely:
 CMD ["tail", "-f", "/dev/null"]

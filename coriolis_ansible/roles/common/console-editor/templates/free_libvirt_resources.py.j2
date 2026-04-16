@@ -1,0 +1,362 @@
+#!/usr/bin/env python3
+# Copyright 2026 Cloudbase Solutions Srl
+# All Rights Reserved.
+#
+# When a Coriolis deployment is created, the replicated raw volumes are
+# attached directly to the migrated VM. Similarly, PCI disk controllers can be
+# passed-through to the VM. After the VM is deleted, those resources remain in
+# "attached" status in the SQLite DB and cannot be picked up by new transfers.
+# This script lets operators inspect the DB and reset stuck resources back to
+# "available".
+#
+# Usage:
+#   python3 free_libvirt_resources.py list [--resource {disks,controllers,all}] [--status STATUS]
+#   python3 free_libvirt_resources.py free --wwn WWN [WWN ...]
+#   python3 free_libvirt_resources.py free --pci-address PCI [PCI ...]
+#   python3 free_libvirt_resources.py free --all [--yes]
+#
+# The DB file is taken from (in order of precedence):
+#   1. --db-file argument
+#   2. CORIOLIS_LIBVIRT_PROVIDER_DB_FILE environment variable
+#   3. Default: /opt/coriolis/libvirt_provider_db.sqlite
+
+import argparse
+import os
+import sqlite3
+import sys
+
+from prettytable import PrettyTable
+
+DEFAULT_DB_FILE = "/opt/coriolis/libvirt_provider_db.sqlite"
+
+STATUS_AVAILABLE = "available"
+STATUS_CLAIMED = "claimed"
+STATUS_ATTACHED = "attached"
+STATUS_UNAVAILABLE = "unavailable"
+
+ALL_STATUSES = (STATUS_AVAILABLE, STATUS_CLAIMED, STATUS_ATTACHED, STATUS_UNAVAILABLE)
+STUCK_STATUSES = (STATUS_CLAIMED, STATUS_ATTACHED)
+
+RESOURCE_DISKS = "disks"
+RESOURCE_CONTROLLERS = "controllers"
+RESOURCE_ALL = "all"
+
+DISKS_TABLE = "rawdisks"
+CONTROLLERS_TABLE = "diskcontrollers"
+
+RESOURCE_TABLE = {
+    # resource_name: table_name
+    RESOURCE_DISKS: DISKS_TABLE,
+    RESOURCE_CONTROLLERS: CONTROLLERS_TABLE,
+}
+
+# Columns shown in the table: (header label, callable that extracts the cell value
+# from a row)
+DISK_DISPLAY_COLUMNS = [
+    ("id", lambda r: r["id"]),
+    ("status", lambda r: r["status"] or ""),
+    ("wwn", lambda r: r["wwn"] or ""),
+    ("serial", lambda r: r["serial"] or ""),
+    ("host", lambda r: r["host"] or ""),
+    ("size_gb", lambda r: f"{r['size'] / (1024**3):.1f}" if r["size"] else "?"),
+    ("path", lambda r: r["path"] or ""),
+    ("pool_name", lambda r: r["pool_name"] or ""),
+    ("volume_name", lambda r: r["volume_name"] or ""),
+]
+
+CONTROLLER_DISPLAY_COLUMNS = [
+    ("id", lambda r: r["id"]),
+    ("status", lambda r: r["status"] or ""),
+    ("pci_address", lambda r: r["pci_address"] or ""),
+    ("host", lambda r: r["host"] or ""),
+    ("transfer_id", lambda r: r["transfer_id"] or ""),
+    ("unavailable_reason", lambda r: r["unavailable_reason"] or ""),
+]
+
+TABLE_COLUMNS = {
+    # table_name: table_columns
+    DISKS_TABLE: DISK_DISPLAY_COLUMNS,
+    CONTROLLERS_TABLE: CONTROLLER_DISPLAY_COLUMNS,
+}
+
+IDENTIFIERS = {
+    # table_name: table_field
+    DISKS_TABLE: "wwn",
+    CONTROLLERS_TABLE: "pci_address",
+}
+
+
+def _db_file_path(args):
+    return (
+        getattr(args, "db_file", None)
+        or os.environ.get("CORIOLIS_LIBVIRT_PROVIDER_DB_FILE")
+        or DEFAULT_DB_FILE
+    )
+
+
+def _connect(db_file, write=False):
+    if not os.path.isfile(db_file):
+        print(f"ERROR: DB file not found: {db_file}", file=sys.stderr)
+        sys.exit(1)
+
+    if write and not os.access(db_file, os.W_OK):
+        print(
+            f"ERROR: DB file is not writable: {db_file}\n"
+            "       Try re-running with sudo.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    conn = sqlite3.connect(db_file)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def _print_table(rows, columns):
+    if not rows:
+        print("(no entries found)")
+        return
+
+    table = PrettyTable(field_names=[label for label, _ in columns])
+    table.align = "l"
+    for row in rows:
+        table.add_row([extractor(row) for _, extractor in columns])
+
+    print(table)
+
+
+def _query_stuck(conn, table):
+    placeholders = ",".join("?" * len(STUCK_STATUSES))
+    query = f"SELECT * FROM {table} WHERE status IN ({placeholders}) ORDER BY id"
+    return conn.execute(query, STUCK_STATUSES).fetchall()
+
+
+def cmd_list(args):
+    status_filter = getattr(args, "status", None)
+    status_label = f" (status={status_filter!r})" if status_filter else ""
+
+    resource = getattr(args, "resource", RESOURCE_ALL)
+    resources = [resource]
+    if resource == RESOURCE_ALL:
+        resources = [RESOURCE_DISKS, RESOURCE_CONTROLLERS]
+
+    db_file = _db_file_path(args)
+    conn = _connect(db_file)
+
+    for resource in resources:
+        table = RESOURCE_TABLE[resource]
+        if status_filter:
+            query = f"SELECT * FROM {table} WHERE status = ? ORDER BY id"
+            rows = conn.execute(query, (status_filter,)).fetchall()
+        else:
+            query = f"SELECT * FROM {table} ORDER BY id"
+            rows = conn.execute(query).fetchall()
+
+        print(f"{resource} in {db_file}{status_label}:")
+        _print_table(rows, TABLE_COLUMNS[table])
+        print()
+
+    conn.close()
+
+
+def _free_resources_by_identifier(conn, resources, resource_name):
+    table = RESOURCE_TABLE[resource_name]
+    identifier = IDENTIFIERS[table]
+    released = 0
+
+    for resource in resources:
+        query = f"SELECT * FROM {table} WHERE {identifier} = ?"
+        row = conn.execute(query, (resource,)).fetchone()
+        if not row:
+            print(
+                f"WARNING: no {resource_name} found with {identifier}={resource!r}",
+                file=sys.stderr,
+            )
+            continue
+
+        if row["status"] == STATUS_AVAILABLE:
+            print(
+                f"{resource_name} {resource!r} is already '{STATUS_AVAILABLE}', skipping."
+            )
+            continue
+
+        if row["status"] == STATUS_UNAVAILABLE:
+            print(
+                f"WARNING: {resource_name} {resource!r} is '{STATUS_UNAVAILABLE}' "
+                f"(reason: {row['unavailable_reason'] or 'n/a'}). "
+                "Freeing it anyway."
+            )
+
+        query = f"UPDATE {table} SET status = ? WHERE {identifier} = ?"
+        conn.execute(query, (STATUS_AVAILABLE, resource))
+        conn.commit()
+        print(
+            f"Released {resource_name}: {identifier}={resource!r} "
+            f"path={row['path']!r} host={row['host']!r}"
+        )
+        released += 1
+
+    return released
+
+
+def cmd_free(args):
+    wwns = getattr(args, "wwn", None) or []
+    pci_addresses = getattr(args, "pci_address", None) or []
+    free_all = getattr(args, "all", False)
+    yes = getattr(args, "yes", False)
+
+    if not (wwns or pci_addresses or free_all):
+        print("ERROR: specify --wwn, --pci-address, or --all", file=sys.stderr)
+        sys.exit(1)
+
+    db_file = _db_file_path(args)
+    conn = _connect(db_file, write=True)
+
+    if free_all:
+        disk_rows = _query_stuck(conn, DISKS_TABLE)
+        ctrl_rows = _query_stuck(conn, CONTROLLERS_TABLE)
+
+        if not disk_rows and not ctrl_rows:
+            print("No disks or controllers in 'attached' or 'claimed' state.")
+            conn.close()
+            return
+
+        if disk_rows:
+            print(f"The following disks will be reset to '{STATUS_AVAILABLE}':")
+            _print_table(disk_rows, DISK_DISPLAY_COLUMNS)
+
+        if ctrl_rows:
+            if disk_rows:
+                print()
+            print(f"The following controllers will be reset to '{STATUS_AVAILABLE}':")
+            _print_table(ctrl_rows, CONTROLLER_DISPLAY_COLUMNS)
+
+        if not yes:
+            answer = input("\nProceed? [y/N] ").strip().lower()
+            if answer not in ("y", "yes"):
+                print("Aborted.")
+                conn.close()
+                return
+
+        placeholders = ",".join("?" * len(STUCK_STATUSES))
+
+        if disk_rows:
+            query = (
+                f"UPDATE {DISKS_TABLE} SET status = ? WHERE status IN ({placeholders})"
+            )
+            conn.execute(query, (STATUS_AVAILABLE, *STUCK_STATUSES))
+        if ctrl_rows:
+            query = (
+                f"UPDATE {CONTROLLERS_TABLE} SET status = ? "
+                f"WHERE status IN ({placeholders})"
+            )
+            conn.execute(query, (STATUS_AVAILABLE, *STUCK_STATUSES))
+
+        conn.commit()
+
+        parts = []
+        if disk_rows:
+            parts.append(f"{len(disk_rows)} disk(s)")
+        if ctrl_rows:
+            parts.append(f"{len(ctrl_rows)} controller(s)")
+        print(
+            f"Released {' and '.join(parts)} ({len(disk_rows) + len(ctrl_rows)} total)."
+        )
+        conn.close()
+        return
+
+    released = 0
+    if wwns:
+        released += _free_resources_by_identifier(conn, wwns, RESOURCE_DISKS)
+    if pci_addresses:
+        released += _free_controllers_by_pci(conn, pci_addresses, RESOURCE_CONTROLLERS)
+
+    if released:
+        print(f"\nReleased {released} resource(s).")
+
+    conn.close()
+
+
+def get_parser():
+    parser = argparse.ArgumentParser(
+        description=(
+            "Inspect and free Coriolis libvirt raw disk and PCI controller allocations "
+            "stuck in 'attached' or 'claimed' state after a deployment was deleted."
+        )
+    )
+    parser.add_argument(
+        "--db-file",
+        default=None,
+        metavar="PATH",
+        help=(
+            f"Path to the SQLite DB file "
+            f"(default: $CORIOLIS_LIBVIRT_PROVIDER_DB_FILE or {DEFAULT_DB_FILE})"
+        ),
+    )
+
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    list_parser = subparsers.add_parser(
+        "list", help="List raw disks and / or disk controllers."
+    )
+    list_parser.add_argument(
+        "--resource",
+        choices=(RESOURCE_DISKS, RESOURCE_CONTROLLERS, RESOURCE_ALL),
+        default=RESOURCE_ALL,
+        help="Which resource type to list (default: all).",
+    )
+    list_parser.add_argument(
+        "--status",
+        choices=ALL_STATUSES,
+        default=None,
+        help="Filter by status (default: show all).",
+    )
+    list_parser.set_defaults(func=cmd_list)
+
+    free_parser = subparsers.add_parser(
+        "free",
+        help=(
+            "Reset 'attached' or 'claimed' resources back to 'available'. "
+            "Use --wwn for specific disks, --pci-address for specific controllers, "
+            "or --all for everything stuck."
+        ),
+    )
+    target_group = free_parser.add_mutually_exclusive_group(required=True)
+    target_group.add_argument(
+        "--wwn",
+        nargs="+",
+        metavar="WWN",
+        help="WWN(s) of the raw disk(s) to free.",
+    )
+    target_group.add_argument(
+        "--pci-address",
+        nargs="+",
+        metavar="PCI_ADDRESS",
+        help="PCI address(es) of the disk controller(s) to free (e.g. 0000:03:00.0).",
+    )
+    target_group.add_argument(
+        "--all",
+        action="store_true",
+        help=(
+            "Free all disks and controllers currently in 'attached' or 'claimed' state."
+        ),
+    )
+    free_parser.add_argument(
+        "--yes",
+        "-y",
+        action="store_true",
+        help="Skip the confirmation prompt (only relevant with --all).",
+    )
+    free_parser.set_defaults(func=cmd_free)
+
+    return parser
+
+
+def main():
+    parser = get_parser()
+    args = parser.parse_args()
+    args.func(args)
+
+
+if __name__ == "__main__":
+    main()
