@@ -34,10 +34,12 @@ LOG = logging.getLogger(__name__)
 
 SUPPORTED_CONTENT_TYPES = (
     'application/json',
+    'text/csv',
 )
 
 _MEDIA_TYPE_MAP = {
     'application/json': 'json',
+    'text/csv': 'csv',
 }
 
 
@@ -426,6 +428,13 @@ class JSONDictSerializer(DictSerializer):
         return jsonutils.dumps(data)
 
 
+class CSVSerializer(DictSerializer):
+    """Serializer for CSV responses. Expects pre-formatted CSV string."""
+
+    def default(self, data):
+        return str(data)
+
+
 def serializers(**serializers):
     """Attaches serializers to a method.
 
@@ -693,7 +702,8 @@ class Resource(Application):
         default_deserializers.update(deserializers)
 
         self.default_deserializers = default_deserializers
-        self.default_serializers = dict(json=JSONDictSerializer)
+        self.default_serializers = dict(json=JSONDictSerializer,
+                                        csv=CSVSerializer)
 
         self.action_peek = dict(json=action_peek_json)
         self.action_peek.update(action_peek or {})

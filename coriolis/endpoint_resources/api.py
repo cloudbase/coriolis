@@ -27,3 +27,8 @@ class API(object):
     def get_endpoint_storage(self, ctxt, endpoint_id, env):
         return self._rpc_client.get_endpoint_storage(
             ctxt, endpoint_id, env)
+
+    def get_endpoint_inventory_csv(
+            self, ctxt, endpoint_id, source_environment):
+        return self._rpc_client.get_endpoint_inventory_csv(
+            ctxt, endpoint_id, source_environment)
