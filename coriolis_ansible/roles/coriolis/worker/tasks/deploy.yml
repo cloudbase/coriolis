@@ -39,4 +39,9 @@
         - vmware-vix-disklib-distrib/lib64
   when: vixdisklib_download.changed
 
+- name: Ensure libvirt provider DB file exists on the host
+  file:
+    path: "{{ coriolis_libvirt_provider_db_file }}"
+    state: touch
+
 - include_tasks: setup_worker_container.yml

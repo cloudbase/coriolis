@@ -67,6 +67,7 @@ coriolis_vmware_vix_disklib_dir: "{{ appliance_coriolis_opt_dir }}/vmware-vix-di
 coriolis_hyperv_share_local_dir: "{{ appliance_coriolis_opt_dir }}/hyperv-exports"
 coriolis_export_dir: "{{ appliance_coriolis_opt_dir }}/export"
 coriolis_profiling_dir_container: "{{ appliance_coriolis_opt_dir }}/profiling"
+coriolis_libvirt_provider_db_file: "{{ appliance_coriolis_opt_dir }}/libvirt_provider_db.sqlite"
 coriolis_docker_image_dir: /tmp/coriolis_docker_images
 coriolis_docker_image_timeout: 300
 
