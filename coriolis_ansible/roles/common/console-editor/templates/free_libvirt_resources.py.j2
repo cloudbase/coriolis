@@ -85,6 +85,17 @@ IDENTIFIERS = {
     CONTROLLERS_TABLE: "pci_address",
 }
 
+# Extra fields to NULL out when freeing a resource, beyond setting status=available.
+CLEAR_FIELDS = {
+    CONTROLLERS_TABLE: ["transfer_id"],
+}
+
+# Fields printed in the "Released ..." confirmation line, per table.
+RELEASE_SUMMARY_FIELDS = {
+    DISKS_TABLE: ["path", "host"],
+    CONTROLLERS_TABLE: ["host", "transfer_id"],
+}
+
 
 def _db_file_path(args):
     return (
@@ -125,10 +136,21 @@ def _print_table(rows, columns):
     print(table)
 
 
-def _query_stuck(conn, table):
+def _query_stuck_disks(conn):
     placeholders = ",".join("?" * len(STUCK_STATUSES))
-    query = f"SELECT * FROM {table} WHERE status IN ({placeholders}) ORDER BY id"
-    return conn.execute(query, STUCK_STATUSES).fetchall()
+    return conn.execute(
+        f"SELECT * FROM {DISKS_TABLE} WHERE status IN ({placeholders}) ORDER BY id",
+        STUCK_STATUSES,
+    ).fetchall()
+
+
+def _query_stuck_controllers(conn):
+    placeholders = ",".join("?" * len(STUCK_STATUSES))
+    return conn.execute(
+        f"SELECT * FROM {CONTROLLERS_TABLE} "
+        f"WHERE status IN ({placeholders}) OR transfer_id IS NOT NULL ORDER BY id",
+        STUCK_STATUSES,
+    ).fetchall()
 
 
 def cmd_list(args):
@@ -174,7 +196,9 @@ def _free_resources_by_identifier(conn, resources, resource_name):
             )
             continue
 
-        if row["status"] == STATUS_AVAILABLE:
+        extra = CLEAR_FIELDS.get(table, [])
+        extra_fields_set = [row[e] is not None for e in extra]
+        if row["status"] == STATUS_AVAILABLE and not any(extra_fields_set):
             print(
                 f"{resource_name} {resource!r} is already '{STATUS_AVAILABLE}', skipping."
             )
@@ -187,13 +211,14 @@ def _free_resources_by_identifier(conn, resources, resource_name):
                 "Freeing it anyway."
             )
 
-        query = f"UPDATE {table} SET status = ? WHERE {identifier} = ?"
+        set_clause = ", ".join(["status = ?"] + [f"{e} = NULL" for e in extra])
+        query = f"UPDATE {table} SET {set_clause} WHERE {identifier} = ?"
         conn.execute(query, (STATUS_AVAILABLE, resource))
         conn.commit()
-        print(
-            f"Released {resource_name}: {identifier}={resource!r} "
-            f"path={row['path']!r} host={row['host']!r}"
+        summary = "  ".join(
+            f"{f}={row[f]!r}" for f in RELEASE_SUMMARY_FIELDS.get(table, ["host"])
         )
+        print(f"Released {resource_name}: {identifier}={resource!r}  {summary}")
         released += 1
 
     return released
@@ -213,8 +238,8 @@ def cmd_free(args):
     conn = _connect(db_file, write=True)
 
     if free_all:
-        disk_rows = _query_stuck(conn, DISKS_TABLE)
-        ctrl_rows = _query_stuck(conn, CONTROLLERS_TABLE)
+        disk_rows = _query_stuck_disks(conn)
+        ctrl_rows = _query_stuck_controllers(conn)
 
         if not disk_rows and not ctrl_rows:
             print("No disks or controllers in 'attached' or 'claimed' state.")
@@ -246,8 +271,10 @@ def cmd_free(args):
             )
             conn.execute(query, (STATUS_AVAILABLE, *STUCK_STATUSES))
         if ctrl_rows:
+            extra = CLEAR_FIELDS.get(CONTROLLERS_TABLE, [])
+            set_clause = ", ".join(["status = ?"] + [f"{e} = NULL" for e in extra])
             query = (
-                f"UPDATE {CONTROLLERS_TABLE} SET status = ? "
+                f"UPDATE {CONTROLLERS_TABLE} SET {set_clause} "
                 f"WHERE status IN ({placeholders})"
             )
             conn.execute(query, (STATUS_AVAILABLE, *STUCK_STATUSES))
@@ -269,7 +296,11 @@ def cmd_free(args):
     if wwns:
         released += _free_resources_by_identifier(conn, wwns, RESOURCE_DISKS)
     if pci_addresses:
-        released += _free_controllers_by_pci(conn, pci_addresses, RESOURCE_CONTROLLERS)
+        released += _free_resources_by_identifier(
+            conn,
+            pci_addresses,
+            RESOURCE_CONTROLLERS,
+        )
 
     if released:
         print(f"\nReleased {released} resource(s).")
