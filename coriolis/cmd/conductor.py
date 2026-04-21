@@ -5,6 +5,8 @@ import sys
 
 from oslo_concurrency import processutils
 from oslo_config import cfg
+from oslo_reports import guru_meditation_report as gmr
+from oslo_reports import opts as gmr_opts
 
 from coriolis.conductor.rpc import server as rpc_server
 from coriolis import constants
@@ -27,6 +29,9 @@ def main():
         worker_count = CONF.conductor.worker_count
     utils.setup_logging()
     service.check_locks_dir_empty()
+
+    gmr_opts.set_defaults(CONF)
+    gmr.TextGuruMeditation.setup_autorun(version="1.0.0", conf=CONF)
 
     server = service.MessagingService(
         constants.CONDUCTOR_MAIN_MESSAGING_TOPIC,

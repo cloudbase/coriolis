@@ -4,6 +4,8 @@
 import sys
 
 from oslo_config import cfg
+from oslo_reports import guru_meditation_report as gmr
+from oslo_reports import opts as gmr_opts
 
 from coriolis import constants
 from coriolis.scheduler.rpc import server as rpc_server
@@ -23,6 +25,9 @@ def main():
     CONF(sys.argv[1:], project='coriolis',
          version="1.0.0")
     utils.setup_logging()
+
+    gmr_opts.set_defaults(CONF)
+    gmr.TextGuruMeditation.setup_autorun(version="1.0.0", conf=CONF)
 
     server = service.MessagingService(
         constants.SCHEDULER_MAIN_MESSAGING_TOPIC,

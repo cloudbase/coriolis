@@ -5,6 +5,8 @@ import sys
 
 from oslo_concurrency import processutils
 from oslo_config import cfg
+from oslo_reports import guru_meditation_report as gmr
+from oslo_reports import opts as gmr_opts
 
 from coriolis import service
 from coriolis import utils
@@ -24,6 +26,9 @@ def main():
     if not worker_count:
         worker_count = CONF.api.worker_count
     utils.setup_logging()
+
+    gmr_opts.set_defaults(CONF)
+    gmr.TextGuruMeditation.setup_autorun(version="1.0.0", conf=CONF)
 
     server = service.WSGIService(
         'coriolis-api', worker_count=worker_count)
