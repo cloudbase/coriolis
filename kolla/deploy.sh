@@ -58,7 +58,7 @@ fi
 "$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n kolla_tls_backend_cert -v "$CORIOLIS_APPLIANCE_CERT"
 "$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n kolla_tls_backend_key -v "$CORIOLIS_APPLIANCE_KEY"
 "$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n rabbitmq_enable_tls -v "yes"
-"$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n rabbitmq_cacert -v "/etc/coriolis/ssl/ca/coriolis-ca.crt"
+"$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n rabbitmq_cacert -v "/etc/ssl/certs/ca-certificates.crt"
 "$SET_CONFIG_VALUE_SCRIPT" -c $KOLLA_CONF -n rabbitmq_tls_options -v "{versions.1: tlsv1.2, versions.2: tlsv1.3}"
 
 
