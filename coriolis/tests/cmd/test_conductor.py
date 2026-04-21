@@ -23,8 +23,11 @@ class ConductorTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch('coriolis.cmd.conductor.CONF')
     @mock.patch.object(service, 'get_worker_count_from_args')
     @mock.patch.object(sys, 'argv')
+    @mock.patch(
+        'oslo_reports.guru_meditation_report.TextGuruMeditation.setup_autorun')
     def test_main(
         self,
+        mock_gmr_setup,
         mock_argv,
         mock_get_worker_count_from_args,
         mock_conf,
@@ -54,6 +57,8 @@ class ConductorTestCase(test_base.CoriolisBaseTestCase):
             workers=mock_MessagingService.return_value.
             get_workers_count.return_value)
         mock_service.launch.return_value.wait.assert_called_once()
+        mock_gmr_setup.assert_called_once_with(
+            version="1.0.0", conf=mock_conf)
 
     @mock.patch.object(service, 'service')
     @mock.patch.object(rpc_server, 'ConductorServerEndpoint')
@@ -63,8 +68,11 @@ class ConductorTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch('coriolis.cmd.conductor.CONF')
     @mock.patch.object(service, 'get_worker_count_from_args')
     @mock.patch.object(sys, 'argv')
+    @mock.patch(
+        'oslo_reports.guru_meditation_report.TextGuruMeditation.setup_autorun')
     def test_main_no_worker_count(
         self,
+        mock_gmr_setup,
         mock_argv,
         mock_get_worker_count_from_args,
         mock_conf,
@@ -94,3 +102,5 @@ class ConductorTestCase(test_base.CoriolisBaseTestCase):
             workers=mock_MessagingService.return_value.
             get_workers_count.return_value)
         mock_service.launch.return_value.wait.assert_called_once()
+        mock_gmr_setup.assert_called_once_with(
+            version="1.0.0", conf=mock_conf)

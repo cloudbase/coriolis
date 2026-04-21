@@ -21,8 +21,11 @@ class TransferCronTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(utils, 'setup_logging')
     @mock.patch('coriolis.cmd.transfer_cron.CONF')
     @mock.patch.object(sys, 'argv')
+    @mock.patch(
+        'oslo_reports.guru_meditation_report.TextGuruMeditation.setup_autorun')
     def test_main(
         self,
+        mock_gmr_setup,
         mock_argv,
         mock_conf,
         mock_setup_logging,
@@ -46,3 +49,5 @@ class TransferCronTestCase(test_base.CoriolisBaseTestCase):
             workers=mock_MessagingService.return_value.
             get_workers_count.return_value)
         mock_service.launch.return_value.wait.assert_called_once()
+        mock_gmr_setup.assert_called_once_with(
+            version="1.0.0", conf=mock_conf)
