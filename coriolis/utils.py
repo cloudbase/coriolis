@@ -737,6 +737,9 @@ def _write_systemd(ssh, cmdline, svcname, run_as=None, start=True):
     serviceFilePath = "%s/%s.service" % (systemd_unit_dir, svcname)
 
     if test_ssh_path(ssh, serviceFilePath):
+        if start:
+            exec_ssh_cmd(
+                ssh, "sudo systemctl start %s" % svcname, get_pty=True)
         return
 
     def _reload_and_start(start=True):
