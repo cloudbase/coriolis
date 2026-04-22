@@ -3,15 +3,17 @@
 
 import json
 import os
+import select
 import shutil
+import socket
 import tempfile
+import threading
 import time
 
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import units
 import paramiko
-from sshtunnel import SSHTunnelForwarder
 
 from coriolis import exception
 from coriolis.providers import provider_utils
@@ -42,6 +44,105 @@ replicator_opts = [
 
 CONF = cfg.CONF
 CONF.register_opts(replicator_opts, 'replicator')
+
+
+class _SSHTunnel(object):
+    """Local port-forward SSH tunnel backed by paramiko."""
+
+    def __init__(self, ssh_host, ssh_port, ssh_username, ssh_pkey,
+                 ssh_password, remote_bind_address, local_bind_address=None):
+        self._ssh_host = ssh_host
+        self._ssh_port = ssh_port
+        self._ssh_username = ssh_username
+        self._ssh_pkey = ssh_pkey
+        self._ssh_password = ssh_password
+        self._remote_bind_address = remote_bind_address
+        self._requested_local = local_bind_address or ('127.0.0.1', 0)
+        self._transport = None
+        self._listen_sock = None
+        self.local_bind_address = None
+
+    def start(self):
+        client = utils.connect_ssh(
+            self._ssh_host,
+            self._ssh_port,
+            self._ssh_username,
+            pkey=self._ssh_pkey,
+            password=self._ssh_password,
+        )
+        self._transport = client.get_transport()
+
+        self._listen_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._listen_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self._listen_sock.bind(self._requested_local)
+        self._listen_sock.listen(5)
+        self.local_bind_address = self._listen_sock.getsockname()
+
+        t = threading.Thread(target=self._accept_loop, daemon=True)
+        t.start()
+
+    def _accept_loop(self):
+        while True:
+            try:
+                sock, _ = self._listen_sock.accept()
+            except OSError:
+                LOG.warning(
+                    "Error accepting socket connection: %s",
+                    utils.get_exception_details())
+                return
+
+            t = threading.Thread(
+                target=self._forward, args=(sock,), daemon=True)
+            t.start()
+
+    def _forward(self, local_sock):
+        try:
+            chan = self._transport.open_channel(
+                'direct-tcpip',
+                self._remote_bind_address,
+                local_sock.getpeername(),
+            )
+        except Exception:
+            LOG.warning(
+                "Failed to open SSH forwarding channel to %s: %s",
+                self._remote_bind_address, utils.get_exception_details())
+            local_sock.close()
+            return
+
+        try:
+            while True:
+                r, _, _ = select.select([local_sock, chan], [], [])
+                if local_sock in r:
+                    data = local_sock.recv(4096)
+                    if not data:
+                        break
+                    chan.send(data)
+
+                if chan in r:
+                    data = chan.recv(4096)
+                    if not data:
+                        break
+                    local_sock.send(data)
+        except Exception:
+            LOG.warning(
+                "Error forwarding SSH tunnel traffic to %s: %s",
+                self._remote_bind_address, utils.get_exception_details())
+        finally:
+            chan.close()
+            local_sock.close()
+
+    def stop(self):
+        if self._listen_sock:
+            try:
+                self._listen_sock.close()
+            except OSError:
+                pass
+
+        if self._transport:
+            try:
+                self._transport.close()
+            except Exception:
+                pass
 
 
 class Client(object):
@@ -138,8 +239,9 @@ class Client(object):
             raise exception.CoriolisException(
                 "Either password or pkey is required")
 
-        server = SSHTunnelForwarder(
-            (remote_host, remote_port),
+        server = _SSHTunnel(
+            ssh_host=remote_host,
+            ssh_port=remote_port,
             ssh_username=remote_user,
             ssh_pkey=pkey,
             ssh_password=password,

@@ -78,7 +78,9 @@ class TestExportProvider(
         """Build a Replicator that connects via SSH to *conn_info*.
 
         *conn_info* must contain ``ip``, ``port``, ``username``, and
-        ``pkey_path`` keys.
+        ``pkey_path`` keys. An optional ``use_tunnel`` key forces the
+        replicator client to connect through an SSH tunnel instead of
+        directly to the replicator's TCP port.
         """
         pkey = paramiko.RSAKey.from_private_key_file(conn_info["pkey_path"])
         repl_conn_info = {
@@ -88,7 +90,8 @@ class TestExportProvider(
             "pkey": pkey,
         }
         return replicator_module.Replicator(
-            repl_conn_info, event_mgr, volumes_info, repl_state)
+            repl_conn_info, event_mgr, volumes_info, repl_state,
+            use_tunnel=conn_info.get("use_tunnel", False))
 
     # BaseProvider / BaseEndpointProvider
 
@@ -114,6 +117,7 @@ class TestExportProvider(
             "type": "object",
             "properties": {
                 "instance_block_devices": {"type": "object"},
+                "use_tunnel": {"type": "boolean"},
             },
         }
 
@@ -254,6 +258,7 @@ class TestExportProvider(
                 "port": 22,
                 "username": "root",
                 "pkey_path": pkey_path,
+                "use_tunnel": source_environment.get("use_tunnel", False),
             }
             replicator = self._make_replicator(
                 src_conn_info, self._event_manager(), [], None)

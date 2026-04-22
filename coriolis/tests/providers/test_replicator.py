@@ -15,6 +15,130 @@ from coriolis.tests import test_base
 from coriolis.tests import testutils
 
 
+class SSHTunnelTestCase(test_base.CoriolisBaseTestCase):
+    """Test suite for the Coriolis _SSHTunnel class."""
+
+    def setUp(self):
+        super(SSHTunnelTestCase, self).setUp()
+        self.ssh_host = mock.sentinel.ssh_host
+        self.ssh_port = mock.sentinel.ssh_port
+        self.ssh_username = mock.sentinel.ssh_username
+        self.ssh_pkey = mock.sentinel.ssh_pkey
+        self.ssh_password = mock.sentinel.ssh_password
+        self.remote_bind_address = ("127.0.0.1", 1234)
+        self.tunnel = replicator_module._SSHTunnel(
+            self.ssh_host, self.ssh_port, self.ssh_username, self.ssh_pkey,
+            self.ssh_password, self.remote_bind_address)
+
+    @mock.patch.object(replicator_module.threading, 'Thread')
+    @mock.patch.object(replicator_module.socket, 'socket')
+    @mock.patch.object(replicator_module.utils, 'connect_ssh')
+    def test_start(self, mock_connect_ssh, mock_socket, mock_thread):
+        mock_client = mock_connect_ssh.return_value
+        mock_sock = mock_socket.return_value
+        mock_sock.getsockname.return_value = ("127.0.0.1", 4321)
+
+        self.tunnel.start()
+
+        mock_connect_ssh.assert_called_once_with(
+            self.ssh_host, self.ssh_port, self.ssh_username,
+            pkey=self.ssh_pkey, password=self.ssh_password)
+        self.assertEqual(
+            mock_client.get_transport.return_value, self.tunnel._transport)
+
+        mock_socket.assert_called_once_with(
+            replicator_module.socket.AF_INET,
+            replicator_module.socket.SOCK_STREAM)
+        mock_sock.setsockopt.assert_called_once_with(
+            replicator_module.socket.SOL_SOCKET,
+            replicator_module.socket.SO_REUSEADDR, 1)
+        mock_sock.bind.assert_called_once_with(
+            self.tunnel._requested_local)
+        mock_sock.listen.assert_called_once_with(5)
+        self.assertEqual(mock_sock, self.tunnel._listen_sock)
+        self.assertEqual(("127.0.0.1", 4321), self.tunnel.local_bind_address)
+
+        mock_thread.assert_called_once_with(
+            target=self.tunnel._accept_loop, daemon=True)
+        mock_thread.return_value.start.assert_called_once_with()
+
+    @mock.patch.object(replicator_module.threading, 'Thread')
+    def test_accept_loop(self, mock_thread):
+        mock_sock = mock.sentinel.sock
+        self.tunnel._listen_sock = mock.MagicMock()
+        self.tunnel._listen_sock.accept.side_effect = [
+            (mock_sock, mock.sentinel.addr), OSError]
+
+        self.tunnel._accept_loop()
+
+        self.assertEqual(2, self.tunnel._listen_sock.accept.call_count)
+        mock_thread.assert_called_once_with(
+            target=self.tunnel._forward, args=(mock_sock,), daemon=True)
+        mock_thread.return_value.start.assert_called_once_with()
+
+    def test_forward_open_channel_fails(self):
+        local_sock = mock.MagicMock()
+        self.tunnel._transport = mock.MagicMock()
+        self.tunnel._transport.open_channel.side_effect = Exception(
+            "connection refused")
+
+        self.tunnel._forward(local_sock)
+
+        local_sock.close.assert_called_once_with()
+
+    @mock.patch.object(replicator_module.select, 'select')
+    def test_forward(self, mock_select):
+        local_sock = mock.MagicMock()
+        chan = mock.MagicMock()
+        self.tunnel._transport = mock.MagicMock()
+        self.tunnel._transport.open_channel.return_value = chan
+
+        local_sock.recv.return_value = b"request"
+        chan.recv.side_effect = [b"response", b""]
+        mock_select.side_effect = [
+            ([local_sock], [], []),
+            ([chan], [], []),
+            ([chan], [], []),
+        ]
+
+        self.tunnel._forward(local_sock)
+
+        self.tunnel._transport.open_channel.assert_called_once_with(
+            'direct-tcpip', self.tunnel._remote_bind_address,
+            local_sock.getpeername.return_value)
+        chan.send.assert_called_once_with(b"request")
+        local_sock.send.assert_called_once_with(b"response")
+        chan.close.assert_called_once_with()
+        local_sock.close.assert_called_once_with()
+
+    @mock.patch.object(replicator_module.select, 'select')
+    def test_forward_local_sock_closed(self, mock_select):
+        local_sock = mock.MagicMock()
+        chan = mock.MagicMock()
+        self.tunnel._transport = mock.MagicMock()
+        self.tunnel._transport.open_channel.return_value = chan
+
+        local_sock.recv.return_value = b""
+        mock_select.return_value = ([local_sock], [], [])
+
+        self.tunnel._forward(local_sock)
+
+        chan.close.assert_called_once_with()
+        local_sock.close.assert_called_once_with()
+
+    def test_stop(self):
+        self.tunnel._listen_sock = mock.MagicMock()
+        self.tunnel._listen_sock.close.side_effect = OSError
+        self.tunnel._transport = mock.MagicMock()
+        self.tunnel._transport.close.side_effect = Exception(
+            "boom goes the dynamite")
+
+        self.tunnel.stop()
+
+        self.tunnel._listen_sock.close.assert_called_once_with()
+        self.tunnel._transport.close.assert_called_once_with()
+
+
 class ClientTestCase(test_base.CoriolisBaseTestCase):
     """Test suite for the Coriolis Client class."""
 
@@ -145,12 +269,13 @@ class ClientTestCase(test_base.CoriolisBaseTestCase):
         mock_setup_tunnel.assert_called_once()
         mock_tunnel.stop.assert_called_once()
 
-    @mock.patch.object(replicator_module, 'SSHTunnelForwarder')
-    def test__get_ssh_tunnel(self, mock_SSHTunnelForwarder):
+    @mock.patch.object(replicator_module, '_SSHTunnel')
+    def test__get_ssh_tunnel(self, mock_SSHTunnel):
         result = self.client._get_ssh_tunnel()
 
-        mock_SSHTunnelForwarder.assert_called_once_with((
-            self.ssh_conn_info["hostname"], self.ssh_conn_info["port"]),
+        mock_SSHTunnel.assert_called_once_with(
+            ssh_host=self.ssh_conn_info["hostname"],
+            ssh_port=self.ssh_conn_info["port"],
             ssh_username=self.ssh_conn_info["username"],
             ssh_pkey=self.ssh_conn_info["pkey"],
             ssh_password=self.ssh_conn_info["password"],
@@ -158,7 +283,7 @@ class ClientTestCase(test_base.CoriolisBaseTestCase):
             local_bind_address=("127.0.0.1", 0)
         )
 
-        self.assertEqual(result, mock_SSHTunnelForwarder.return_value)
+        self.assertEqual(result, mock_SSHTunnel.return_value)
 
     def test__get_ssh_tunnel_no_credentials(self):
         self.client._ssh_conn_info = {
