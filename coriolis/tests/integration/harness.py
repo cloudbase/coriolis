@@ -298,7 +298,6 @@ class _IntegrationHarness:
             group='minion_manager')
 
         coriolis_utils.setup_logging()
-        test_utils.init_scsi_debug()
 
         # Policy enforcer: reset so it re-reads the new CONF (no policy file).
         policy_module.reset()

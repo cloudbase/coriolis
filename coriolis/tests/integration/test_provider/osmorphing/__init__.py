@@ -1,0 +1,10 @@
+# Copyright 2026 Cloudbase Solutions Srl
+# All Rights Reserved.
+
+from coriolis.osmorphing import base
+from coriolis.tests.integration.test_provider.osmorphing import ubuntu
+
+
+OS_MORPHERS: list[base.BaseLinuxOSMorphingTools] = [
+    ubuntu.TestUbuntuOSMorphingTools,
+]
