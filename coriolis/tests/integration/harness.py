@@ -46,6 +46,7 @@ from coriolis import context
 from coriolis.db import api as db_api
 from coriolis.db.sqlalchemy import api as sqlalchemy_api
 from coriolis.db.sqlalchemy import migration as db_migration
+from coriolis.deployer_manager.rpc import server as deployer_manager_rpc_server
 from coriolis import exception
 from coriolis import policy as policy_module
 from coriolis import rpc as rpc_module
@@ -53,6 +54,7 @@ from coriolis.scheduler.rpc import server as scheduler_rpc_server
 from coriolis import service
 from coriolis.tasks import factory as task_runners_factory
 from coriolis.tests.integration import utils as test_utils
+from coriolis.transfer_cron.rpc import server as transfer_cron_rpc_server
 from coriolis import utils as coriolis_utils
 from coriolis.worker.rpc import server as worker_rpc_server
 
@@ -252,6 +254,9 @@ class _IntegrationHarness:
         coriolis_utils.setup_logging()
         test_utils.init_scsi_debug()
 
+        self._send_signal_patcher = mock.patch("psutil.Process.send_signal")
+        self._send_signal_patcher.start()
+
         # Policy enforcer: reset so it re-reads the new CONF (no policy file).
         policy_module.reset()
 
@@ -260,6 +265,8 @@ class _IntegrationHarness:
         self.api_port = None
         self._conductor_svc = None
         self._scheduler_svc = None
+        self._transfer_cron_svc = None
+        self._deployer_manager_svc = None
         self._worker_svc = None
         self._worker_host_svc = None
 
@@ -318,6 +325,26 @@ class _IntegrationHarness:
             init_rpc=False,
         )
         self._scheduler_svc.start()
+
+        # Transfer-cron: constructor makes an RPC call to the conductor to load
+        # existing schedules, so the conductor must be running first.
+        self._transfer_cron_svc = service.MessagingService(
+            constants.TRANSFER_CRON_MAIN_MESSAGING_TOPIC,
+            [transfer_cron_rpc_server.TransferCronServerEndpoint()],
+            transfer_cron_rpc_server.VERSION,
+            worker_count=1,
+            init_rpc=False,
+        )
+        self._transfer_cron_svc.start()
+
+        self._deployer_manager_svc = service.MessagingService(
+            constants.DEPLOYER_MANAGER_MAIN_MESSAGING_TOPIC,
+            [deployer_manager_rpc_server.DeployerManagerServerEndpoint()],
+            deployer_manager_rpc_server.VERSION,
+            worker_count=1,
+            init_rpc=False,
+        )
+        self._deployer_manager_svc.start()
 
         # Worker: constructor calls _register_worker_service() which makes a
         # blocking RPC call to the conductor, so the conductor must already be
@@ -380,6 +407,8 @@ class _IntegrationHarness:
     def _teardown(self):
         LOG.info("Teardown initiated.")
 
+        self._send_signal_patcher.stop()
+
         try:
             coriolis_utils.exec_process(
                 [
@@ -397,6 +426,7 @@ class _IntegrationHarness:
             pass
 
         for svc in [self._worker_host_svc, self._worker_svc,
+                    self._deployer_manager_svc, self._transfer_cron_svc,
                     self._scheduler_svc, self._conductor_svc]:
             if not svc:
                 continue
