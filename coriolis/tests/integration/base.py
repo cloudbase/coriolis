@@ -48,6 +48,8 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
         cls._workdir = cls._harness.workdir
         cls._lock_path = cls._harness.lock_path
         cls._api_port = cls._harness.api_port
+        cls._exp_platform = cls._harness.exp_provider_platform
+        cls._imp_platform = cls._harness.imp_provider_platform
         cls._client = cls.get_client()
 
     # Helpers for subclasses
@@ -141,7 +143,7 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
         # Create endpoints.
         self._src_endpoint = self._create_endpoint(
             name="test-src",
-            endpoint_type="test-src",
+            endpoint_type=self._exp_platform,
             description="integration source endpoint",
             connection_info={
                 "block_device_path": self._src_device,
@@ -151,7 +153,7 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
 
         self._dst_endpoint = self._create_endpoint(
             name="test-dest",
-            endpoint_type="test-dest",
+            endpoint_type=self._imp_platform,
             description="integration destination endpoint",
             connection_info={
                 "devices": [self._dst_device],
