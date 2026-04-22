@@ -16,9 +16,11 @@ import paramiko
 
 from coriolis import events
 from coriolis.providers import backup_writers
-from coriolis.providers.base import BaseEndpointProvider
+from coriolis.providers.base import BaseEndpointInstancesProvider
+from coriolis.providers.base import BaseEndpointSourceOptionsProvider
 from coriolis.providers.base import BaseReplicaExportProvider
 from coriolis.providers.base import BaseReplicaExportValidationProvider
+from coriolis.providers.base import BaseUpdateSourceReplicaProvider
 from coriolis.providers import replicator as replicator_module
 
 CONF = cfg.CONF
@@ -26,7 +28,9 @@ LOG = logging.getLogger(__name__)
 
 
 class TestExportProvider(
-        BaseEndpointProvider,
+        BaseEndpointInstancesProvider,
+        BaseEndpointSourceOptionsProvider,
+        BaseUpdateSourceReplicaProvider,
         BaseReplicaExportProvider,
         BaseReplicaExportValidationProvider):
     """Source-side provider backed by a local `scsi_debug` block device.
@@ -82,6 +86,57 @@ class TestExportProvider(
 
     def get_source_environment_schema(self):
         return {"type": "object", "properties": {}}
+
+    # BaseEndpointInstancesProvider
+
+    def get_instances(self, ctxt, connection_info, source_environment,
+                      limit=None, last_seen_id=None,
+                      instance_name_pattern=None, refresh=False):
+        return [self._instance_info(connection_info)]
+
+    def get_instance(self, ctxt, connection_info, source_environment,
+                     instance_name):
+        return self._instance_info(connection_info)
+
+    def _instance_info(self, connection_info):
+        device = connection_info.get("device", "")
+        name = os.path.basename(device) if device else "test-instance"
+        return {
+            "id": name,
+            "name": name,
+            "instance_name": name,
+            "num_cpu": 1,
+            "memory_mb": 512,
+            "os_type": "linux",
+            "nested_virtualization": False,
+            "devices": {
+                "disks": [],
+                "nics": [],
+                "cdroms": [],
+                "serial_ports": [],
+                "floppies": [],
+                "controllers": [],
+            },
+        }
+
+    # BaseEndpointSourceOptionsProvider
+
+    def get_source_environment_options(
+            self, ctxt, connection_info, env=None, option_names=None):
+        return [
+            {
+                "name": "source_opt",
+                "values": ["foo", "lish"],
+                "config_default": "foo",
+            },
+        ]
+
+    # BaseUpdateSourceReplicaProvider
+
+    def check_update_source_environment_params(
+            self, ctxt, connection_info, instance_name, volumes_info,
+            old_params, new_params):
+        return volumes_info
 
     def get_os_morphing_tools(self, os_type, osmorphing_info):
         return []
