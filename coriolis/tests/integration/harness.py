@@ -103,6 +103,29 @@ class _TestAPIRouter(api_v1_router.APIRouter):
         self._setup_extensions(ext_mgr)
         base_wsgi.Router.__init__(self, mapper)
 
+    def _setup_routes(self, mapper, ext_mgr):
+        super()._setup_routes(mapper, ext_mgr)
+
+        # super()._setup_routes registers action routes with a hardcoded
+        # /{project_id}/ prefix via mapper.connect(). The test client sends
+        # paths without that prefix, so add a matching prefix-less route here.
+        action_url_pairs = [
+            ('minion_pool_actions', '/minion_pools/{id}/actions'),
+            ('endpoint_actions', '/endpoints/{id}/actions'),
+            ('deployment_actions', '/deployments/{id}/actions'),
+            ('transfer_actions', '/transfers/{id}/actions'),
+            ('transfer_tasks_execution_actions',
+             '/transfers/{transfer_id}/executions/{id}/actions'),
+        ]
+        for action, url in action_url_pairs:
+            mapper.connect(
+                action,
+                url,
+                controller=self.resources[action],
+                action='action',
+                conditions={'method': 'POST'},
+            )
+
 
 class _InProcessWorkerServerEndpoint(worker_rpc_server.WorkerServerEndpoint):
     """Worker endpoint that runs tasks as greenlets instead of subprocesses.

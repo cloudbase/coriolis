@@ -97,6 +97,16 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
 
         return transfer
 
+    def _ignoreExc(self, func):
+        """Wrap the given function, ignoring exceptions."""
+        def f(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except Exception as ex:
+                LOG.warn("Exception encountered: %s", ex)
+
+        return f
+
 
 class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
     def setUp(self):
