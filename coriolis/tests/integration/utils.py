@@ -30,6 +30,12 @@ _SCSI_DEBUG_ADD_HOST = "/sys/bus/pseudo/drivers/scsi_debug/add_host"
 DATA_MINION_IMAGE = "coriolis-data-minion:test"
 
 
+def get_host_disk_devices() -> set:
+    """Return the /dev paths of disk-type block devices visible on the host."""
+    disk_names = _lsblk_disk_names()
+    return {"/dev/" + disk_name for disk_name in disk_names}
+
+
 def _lsblk_disk_names() -> set:
     """Return the set of disk-type block device names visible to lsblk."""
     result = _run(["lsblk", "-Jb", "-o", "NAME,TYPE"], check=False)
@@ -62,12 +68,13 @@ def _poll_for_new_disks(before, count, timeout=_SETTLE_TIMEOUT):
     )
 
 
-def init_scsi_debug(size_mb=64):
-    """Load scsi_debug with per_host_store=1.
+def init_scsi_debug(size_mb=16):
+    """Load scsi_debug with per_host_store=1 and size_mb per device.
 
-    Must be called once per process before any ``add_scsi_debug_device``
-    calls. With ``per_host_store=1`` every host added via the sysfs knob
-    gets its own independent backing store, so devices never share storage.
+    Call ``destroy_scsi_debug`` first if the module is already loaded with a
+    different size. With ``per_host_store=1`` every host added via the sysfs
+    knob gets its own independent backing store, so devices never share
+    storage.
     """
     _run([
         "modprobe",
@@ -303,3 +310,59 @@ def unplug_device_from_container(container_id, device_path):
         "nsenter", "--target", str(pid), "--mount", "--",
         "rm", "-f", device_path,
     ], check=False)
+
+
+# OS Morphing utils
+
+
+def write_os_image_to_disk(device_path, container_image):
+    """Write a real Linux rootfs to *device_path*.
+
+    Exports the filesystem of a container image via ``docker export`` and
+    extracts it onto an ext4-formatted device, giving a chroot-able root with
+    that container OS' standard filesystem and binaries present.
+    """
+    _run(["mkfs.ext4", "-F", device_path])
+
+    result = _run(["docker", "create", container_image])
+    container_id = result.stdout.decode().strip()
+
+    try:
+        with tempfile.TemporaryDirectory() as mount_point:
+            _run(["mount", device_path, mount_point])
+
+            try:
+                export = subprocess.Popen(
+                    ["docker", "export", container_id],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                )
+                subprocess.run(
+                    ["tar", "-x", "-C", mount_point],
+                    stdin=export.stdout,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=True,
+                )
+                export.stdout.close()
+                export.wait()
+            finally:
+                _run(["umount", mount_point])
+
+    finally:
+        _run(["docker", "rm", "-f", container_id], check=False)
+
+
+def path_exists_on_device(device_path, rel_path):
+    """Checks if *path* exists on the filesystem of *device_path*.
+
+    Mounts the device read-only into a temporary directory, checks for the
+    path, then unmounts.
+    """
+    with tempfile.TemporaryDirectory() as mount_point:
+        _run(["mount", "-o", "ro", device_path, mount_point])
+
+        try:
+            return os.path.exists(os.path.join(mount_point, rel_path))
+        finally:
+            _run(["umount", mount_point])

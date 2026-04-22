@@ -230,6 +230,7 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
 class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
 
     _CREATE_MINION_POOLS = False
+    _SCSI_DEBUG_SIZE_MB = 16
 
     @classmethod
     def setUpClass(cls):
@@ -279,6 +280,10 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
                 cls.fail(
                     "Pool did not reach ALLOCATED (got %s)" % pool_obj.status,
                 )
+
+        # (re)init the scsi_debug module.
+        test_utils.destroy_scsi_debug()
+        test_utils.init_scsi_debug(size_mb=cls._SCSI_DEBUG_SIZE_MB)
 
     def setUp(self):
         super().setUp()

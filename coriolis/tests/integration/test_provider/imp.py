@@ -24,6 +24,7 @@ from coriolis.providers.base import BaseEndpointStorageProvider
 from coriolis.providers.base import BaseReplicaImportProvider
 from coriolis.providers.base import BaseReplicaImportValidationProvider
 from coriolis.providers.base import BaseUpdateDestinationReplicaProvider
+from coriolis.tests.integration.test_provider import osmorphing
 from coriolis.tests.integration import utils as test_utils
 from coriolis import utils as coriolis_utils
 
@@ -155,8 +156,9 @@ class TestImportProvider(
 
     def deploy_replica_target_resources(
             self, ctxt, connection_info, target_environment, volumes_info):
+        devices = [vol["volume_dev"] for vol in volumes_info]
         result = self._create_minion(
-            "coriolis-writer", connection_info, volumes_info)
+            "coriolis-writer", connection_info, devices)
 
         return {
             "volumes_info": volumes_info,
@@ -165,10 +167,9 @@ class TestImportProvider(
         }
 
     def _create_minion(
-            self, name_prefix, connection_info, volumes_info,
-            device_cgroup_rules=None):
+            self, name_prefix, connection_info, devices=None, volumes=None,
+            device_cgroup_rules=None, setup_writer=True):
         pkey_path = connection_info["pkey_path"]
-        dest_devices = [vol["volume_dev"] for vol in volumes_info]
         container_name = "%s-%s" % (name_prefix, uuid.uuid4().hex[:8])
 
         container_id = test_utils.run_container(
@@ -176,7 +177,8 @@ class TestImportProvider(
             container_name,
             is_systemd=True,
             ssh_key=f"{pkey_path}.pub",
-            devices=dest_devices,
+            devices=devices,
+            volumes=volumes,
             device_cgroup_rules=device_cgroup_rules,
         )
 
@@ -189,20 +191,23 @@ class TestImportProvider(
                 "ip": container_ip,
                 "port": 22,
                 "username": "root",
-                "pkey": pkey,
+                "pkey": coriolis_utils.serialize_key(pkey),
             }
-            bootstrapper = backup_writers.HTTPBackupWriterBootstrapper(
-                ssh_conn_info, WRITER_TEST_PORT)
-            writer_conn_details = bootstrapper.setup_writer()
 
-            return {
+            info = {
                 "container_id": container_id,
                 "ssh_connection_info": ssh_conn_info,
-                "backup_writer_connection_info": {
+            }
+            if setup_writer:
+                bootstrapper = backup_writers.HTTPBackupWriterBootstrapper(
+                    ssh_conn_info, WRITER_TEST_PORT)
+                writer_conn_details = bootstrapper.setup_writer()
+                info["backup_writer_connection_info"] = {
                     "backend": "http_backup_writer",
                     "connection_details": writer_conn_details,
-                },
-            }
+                }
+
+            return info
         except Exception:
             test_utils.remove_container(container_id)
             raise
@@ -265,19 +270,47 @@ class TestImportProvider(
     # BaseInstanceProvider
 
     def get_os_morphing_tools(self, os_type, osmorphing_info):
-        return []
+        return osmorphing.OS_MORPHERS
 
     # BaseImportInstanceProvider
 
     def deploy_os_morphing_resources(
             self, ctxt, connection_info, target_environment,
             instance_deployment_info):
-        return {}
+        devices = list(target_environment.get("devices", []))
+
+        # lsblk inside the container sees all the host block devices because
+        # Docker containers share the host kernel's sysfs (/sys/block/).
+        # Populate ignore_devices with every host disk except the target
+        # so osmorphing only considers the devices we actually attached.
+        ignore_devices = list(
+            test_utils.get_host_disk_devices() - set(devices)
+        )
+
+        # Mount the host's /lib/modules tree so that modprobe can
+        # resolve built-in modules.
+        volumes = ["/lib/modules:/lib/modules:ro"]
+        result = self._create_minion(
+            "coriolis-osmorphing", connection_info, devices,
+            volumes, setup_writer=False,
+        )
+
+        return {
+            "os_morphing_resources": {"container_id": result["container_id"]},
+            "osmorphing_connection_info": result["ssh_connection_info"],
+            "osmorphing_info": {
+                "os_type": instance_deployment_info.get("os_type", "linux"),
+                "ignore_devices": ignore_devices,
+            },
+        }
 
     def delete_os_morphing_resources(
             self, ctxt, connection_info, target_environment,
             os_morphing_resources):
-        pass
+        if os_morphing_resources:
+            container_id = os_morphing_resources.get("container_id")
+            if container_id:
+                test_utils.remove_container(container_id)
 
     # BaseReplicaImportValidationProvider
 
