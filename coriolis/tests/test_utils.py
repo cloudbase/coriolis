@@ -959,16 +959,20 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
                       '/usr/lib/systemd/system/svc_name.service',
                       get_pty=True)])
 
+    @mock.patch('coriolis.utils.exec_ssh_cmd')
     @mock.patch('coriolis.utils.test_ssh_path')
-    def test_write_systemd_service_exists(self, mock_test_ssh):
+    def test_write_systemd_service_exists(self, mock_test_ssh,
+                                          mock_exec_ssh_cmd):
         mock_test_ssh.return_value = True
 
-        utils._write_systemd(self.mock_ssh, 'cmdline', 'svc_name')
+        utils._write_systemd(self.mock_ssh, 'cmdline', 'svc_name', start=True)
 
         mock_test_ssh.assert_has_calls([
             mock.call(self.mock_ssh, '/lib/systemd/system'),
             mock.call(self.mock_ssh,
                       '/lib/systemd/system/svc_name.service')])
+        mock_exec_ssh_cmd.assert_called_once_with(
+            self.mock_ssh, 'sudo systemctl start svc_name', get_pty=True)
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     @mock.patch('coriolis.utils.write_ssh_file')
