@@ -22,6 +22,7 @@ import os
 import queue
 import shutil
 import socket
+import subprocess
 import tempfile
 from unittest import mock
 import uuid
@@ -220,6 +221,15 @@ class _IntegrationHarness:
         self._mysql_username = "root"
         self._mysql_password = "coriolis"
         self._mysql_database = "coriolis"
+
+        self.ssh_key_path = os.path.join(self.workdir, "id_rsa")
+        subprocess.run(
+            ["ssh-keygen", "-t", "rsa", "-b", "2048",
+             "-f", self.ssh_key_path, "-N", ""],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
 
         coriolis_conf.init_common_opts()
         cfg.CONF([], project='coriolis', version='1.0.0',

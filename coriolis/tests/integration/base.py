@@ -13,6 +13,7 @@ Subclasses must be run as root.
 """
 
 import os
+import subprocess
 import time
 import unittest
 from unittest import mock
@@ -32,11 +33,6 @@ from coriolis.tests import test_base
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
-
-# Path to the SSH private key used to connect to the (local) provider.
-# Override via the CORIOLIS_TEST_SSH_KEY_PATH environment variable.
-_TEST_SSH_KEY_PATH = os.environ.get(
-    'CORIOLIS_TEST_SSH_KEY_PATH', '/root/.ssh/id_rsa')
 
 
 class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
@@ -108,6 +104,23 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
 
 
 class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
+
+    @classmethod
+    def setUpClass(cls):
+        result = subprocess.run(
+            ["docker", "image", "inspect", test_utils.DATA_MINION_IMAGE],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        if result.returncode != 0:
+            raise unittest.SkipTest(
+                "Docker image not found; build it with: "
+                "docker build -t %s "
+                "coriolis/tests/integration/dockerfiles/data-minion/"
+                % test_utils.DATA_MINION_IMAGE)
+
+        super().setUpClass()
+
     def setUp(self):
         super().setUp()
 
@@ -126,7 +139,7 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             description="integration source endpoint",
             connection_info={
                 "block_device_path": self._src_device,
-                "pkey_path": _TEST_SSH_KEY_PATH,
+                "pkey_path": self._harness.ssh_key_path,
             },
         )
 
@@ -136,7 +149,7 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             description="integration destination endpoint",
             connection_info={
                 "devices": [self._dst_device],
-                "pkey_path": _TEST_SSH_KEY_PATH,
+                "pkey_path": self._harness.ssh_key_path,
             },
         )
 

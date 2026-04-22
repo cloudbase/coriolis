@@ -52,16 +52,6 @@ Key packages used by the harness:
 - `keystoneauth1`: session used by `coriolisclient` (auth is bypassed in tests)
 - `oslo.messaging`, `oslo.config`, `oslo.log`, `oslo.service`
 
-### SSH key (for provider connection info)
-
-The test provider connection info includes a `pkey_path` field that
-defaults to `/root/.ssh/id_rsa`. Override it with the environment
-variable `CORIOLIS_TEST_SSH_KEY_PATH` if the key lives elsewhere.
-
-> The key is passed through to the provider's connection info dictionary
-> but the smoke tests and current provider implementation do not actually
-> open an SSH connection, so any readable file path satisfies the field.
-
 ### Root access
 
 The tests must run as root because:

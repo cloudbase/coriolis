@@ -26,7 +26,7 @@ class EndpointCapabilitiesTest(base.CoriolisIntegrationTestBase):
             endpoint_type="test-src",
             connection_info={
                 "block_device_path": "/dev/null",
-                "pkey_path": base._TEST_SSH_KEY_PATH,
+                "pkey_path": self._harness.ssh_key_path,
             },
         )
         # Empty devices list passes the destination validate_connection loop.
@@ -35,7 +35,7 @@ class EndpointCapabilitiesTest(base.CoriolisIntegrationTestBase):
             endpoint_type="test-dest",
             connection_info={
                 "devices": [],
-                "pkey_path": base._TEST_SSH_KEY_PATH,
+                "pkey_path": self._harness.ssh_key_path,
             },
         )
 
@@ -54,7 +54,7 @@ class EndpointCapabilitiesTest(base.CoriolisIntegrationTestBase):
             endpoint_type="test-src",
             connection_info={
                 "block_device_path": "/dev/coriolis-no-such-device",
-                "pkey_path": base._TEST_SSH_KEY_PATH,
+                "pkey_path": self._harness.ssh_key_path,
             },
         )
         valid, message = self._client.endpoints.validate_connection(
