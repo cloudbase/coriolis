@@ -105,6 +105,8 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
 
 class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
 
+    _CREATE_SCSI_DBG_DEVS = True
+
     @classmethod
     def setUpClass(cls):
         result = subprocess.run(
@@ -124,10 +126,14 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
     def setUp(self):
         super().setUp()
 
-        self._src_device = test_utils.add_scsi_debug_device()
-        self.addCleanup(test_utils.remove_scsi_debug_device)
-        self._dst_device = test_utils.add_scsi_debug_device()
-        self.addCleanup(test_utils.remove_scsi_debug_device)
+        self._src_device = None
+        self._dst_device = None
+
+        if self._CREATE_SCSI_DBG_DEVS:
+            self._src_device = test_utils.add_scsi_debug_device()
+            self.addCleanup(test_utils.remove_scsi_debug_device)
+            self._dst_device = test_utils.add_scsi_debug_device()
+            self.addCleanup(test_utils.remove_scsi_debug_device)
 
         # Write a test pattern on the src device.
         test_utils.write_test_pattern(self._src_device)
@@ -187,7 +193,8 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             is_admin=True,
         )
 
-    def wait_for_execution(self, execution_id, timeout=300):
+    def wait_for_execution(self, execution_id, timeout=300,
+                           desired_statuses=None):
         """Block until *execution_id* reaches a terminal state.
 
         Polls the DB directly and yields on each iteration so in-process
@@ -196,17 +203,20 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
         Returns the finalised TasksExecution ORM object.
         Raises ``AssertionError`` on timeout.
         """
+        if not desired_statuses:
+            desired_statuses = constants.FINALIZED_EXECUTION_STATUSES
+
         ctxt = self._get_db_context()
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             execution = db_api.get_tasks_execution(ctxt, execution_id)
-            if execution.status in constants.FINALIZED_EXECUTION_STATUSES:
+            if execution.status in desired_statuses:
                 return execution
             time.sleep(1)
         self.fail(
-            "Execution %s did not reach a terminal state within %ds "
+            "Execution %s did not reach one of the states %r within %ds"
             "(last status: %s)"
-            % (execution_id, timeout, execution.status)
+            % (execution_id, timeout, desired_statuses, execution.status)
         )
 
     def assertExecutionCompleted(self, execution_id, timeout=300):
@@ -243,6 +253,28 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             % (execution_id, execution.status),
         )
 
+    def wait_for_deployment(self, deployment_id, timeout=300,
+                            desired_statuses=None):
+        """Block until *deployment_id* reaches any terminal state.
+
+        Returns the finalised deployment ORM object.
+        Raises ``AssertionError`` on timeout.
+        """
+        if not desired_statuses:
+            desired_statuses = constants.FINALIZED_EXECUTION_STATUSES
+
+        ctxt = self._get_db_context()
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            deployment = db_api.get_deployment(ctxt, deployment_id)
+            if deployment.last_execution_status in desired_statuses:
+                return deployment
+            time.sleep(1)
+        self.fail(
+            "Deployment %s did not reach one of the states %r within %ds"
+            % (deployment_id, desired_statuses, timeout)
+        )
+
     def assertDeploymentCompleted(self, deployment_id, timeout=300):
         """Assert that *deployment_id* finishes with a completed status.
 
@@ -267,3 +299,18 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             "Deployment %s did not reach a terminal state within %ds"
             % (deployment_id, timeout)
         )
+
+    def _patch_add_delay(self, obj, method_name):
+        _orig = getattr(obj, method_name)
+
+        def _slow_call(*args, **kwargs):
+            time.sleep(10)
+            return _orig(*args, **kwargs)
+
+        self._execute_and_wait(self._transfer.id)
+
+        patcher = mock.patch.object(
+            obj, method_name, side_effect=_slow_call, autospec=True,
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
