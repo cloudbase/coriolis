@@ -15,9 +15,13 @@ from oslo_log import log as logging
 import paramiko
 
 from coriolis.providers import backup_writers
+from coriolis.providers.base import BaseEndpointDestinationOptionsProvider
+from coriolis.providers.base import BaseEndpointNetworksProvider
 from coriolis.providers.base import BaseEndpointProvider
+from coriolis.providers.base import BaseEndpointStorageProvider
 from coriolis.providers.base import BaseReplicaImportProvider
 from coriolis.providers.base import BaseReplicaImportValidationProvider
+from coriolis.providers.base import BaseUpdateDestinationReplicaProvider
 from coriolis import utils
 
 LOG = logging.getLogger(__name__)
@@ -29,6 +33,10 @@ WRITER_TEST_PORT = 16677
 
 class TestImportProvider(
         BaseEndpointProvider,
+        BaseEndpointDestinationOptionsProvider,
+        BaseEndpointNetworksProvider,
+        BaseEndpointStorageProvider,
+        BaseUpdateDestinationReplicaProvider,
         BaseReplicaImportProvider,
         BaseReplicaImportValidationProvider):
     """Destination-side provider backed by a local `scsi_debug` block device.
@@ -74,6 +82,37 @@ class TestImportProvider(
 
     def get_target_environment_schema(self):
         return {"type": "object", "properties": {}}
+
+    # BaseEndpointDestinationOptionsProvider
+
+    def get_target_environment_options(
+            self, ctxt, connection_info, env=None, option_names=None):
+        return [
+            {
+                "name": "dest_opt",
+                "values": ["foo", "lish"],
+                "config_default": "foo",
+            },
+        ]
+
+    # BaseEndpointNetworksProvider
+
+    def get_networks(self, ctxt, connection_info, env):
+        return [{"id": "test-net-1", "name": "test-net-1"}]
+
+    # BaseEndpointStorageProvider
+
+    def get_storage(self, ctxt, connection_info, target_environment):
+        return {
+            "storage_backends": [{"id": "test-store", "name": "test-store"}],
+        }
+
+    # BaseUpdateDestinationReplicaProvider
+
+    def check_update_destination_environment_params(
+            self, ctxt, connection_info, export_info, volumes_info,
+            old_params, new_params):
+        return volumes_info
 
     # BaseReplicaImportProvider
 
