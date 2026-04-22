@@ -33,6 +33,11 @@ from coriolis.tests import test_base
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
+# Path to the SSH private key used to connect to the (local) provider.
+# Override via the CORIOLIS_TEST_SSH_KEY_PATH environment variable.
+_TEST_SSH_KEY_PATH = os.environ.get(
+    'CORIOLIS_TEST_SSH_KEY_PATH', '/root/.ssh/id_rsa')
+
 
 class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
     """Base class for integration tests."""
@@ -112,7 +117,7 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             description="integration source endpoint",
             connection_info={
                 "block_device_path": self._src_device,
-                "pkey_path": "/home/ubuntu/.ssh/id_rsa",
+                "pkey_path": _TEST_SSH_KEY_PATH,
             },
         )
 
@@ -122,7 +127,7 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             description="integration destination endpoint",
             connection_info={
                 "devices": [self._dst_device],
-                "pkey_path": "/home/ubuntu/.ssh/id_rsa",
+                "pkey_path": _TEST_SSH_KEY_PATH,
             },
         )
 

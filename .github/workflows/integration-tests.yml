@@ -1,0 +1,51 @@
+name: Coriolis Integration Tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ "master" ]
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    runs-on: ubuntu-24.04
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+        architecture: "x64"
+
+    - name: Install tox
+      shell: bash
+      run: |
+        sudo apt install tox
+
+    - name: Install scsi_debug kernel module
+      shell: bash
+      run: |
+        sudo apt-get install -y linux-modules-extra-$(uname -r)
+
+    - name: Set up SSH for localhost
+      shell: bash
+      run: |
+        sudo apt-get install -y openssh-server
+        sudo mkdir -p /root/.ssh
+        sudo chmod 700 /root/.ssh
+        sudo ssh-keygen -t rsa -b 4096 -N "" -f /root/.ssh/id_rsa
+        sudo bash -c 'cat /root/.ssh/id_rsa.pub >> /root/.ssh/authorized_keys'
+        sudo chmod 600 /root/.ssh/authorized_keys
+        sudo bash -c 'echo "PermitRootLogin yes" >> /etc/ssh/sshd_config'
+        sudo systemctl start ssh
+        sudo ssh-keyscan -H 127.0.0.1 | sudo tee -a /root/.ssh/known_hosts
+
+    - name: Run integration tests
+      shell: bash
+      run: |
+        sudo -E tox -e integration -v
