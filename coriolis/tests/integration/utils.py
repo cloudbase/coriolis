@@ -7,11 +7,15 @@ Integration test utils.
 
 import json
 import os
+import socket
 import subprocess
 import tempfile
 import time
 
 from oslo_log import log as logging
+import paramiko
+
+from coriolis import utils as coriolis_utils
 
 LOG = logging.getLogger(__name__)
 
@@ -22,6 +26,8 @@ _POLL_INTERVAL = 1
 # host with its own independent backing store (requires per_host_store=1);
 # writing "-1" removes the most-recently added host (LIFO).
 _SCSI_DEBUG_ADD_HOST = "/sys/bus/pseudo/drivers/scsi_debug/add_host"
+
+DATA_MINION_IMAGE = "coriolis-data-minion:test"
 
 
 def _lsblk_disk_names() -> set:
@@ -145,3 +151,109 @@ def _run(cmd, check=True):
         stderr=subprocess.DEVNULL,
         check=check,
     )
+
+
+def wait_for_ssh(host, port, username, pkey_path, timeout=30):
+    """Block until SSH on *host*:*port* accepts connections.
+
+    :param host: hostname or IP
+    :param port: SSH port
+    :param username: SSH username
+    :param pkey_path: path to the private key file
+    :param timeout: seconds before raising AssertionError
+    """
+    pkey = paramiko.RSAKey.from_private_key_file(pkey_path)
+    deadline = time.monotonic() + timeout
+    last_exc = None
+    while time.monotonic() < deadline:
+        try:
+            client = coriolis_utils.connect_ssh(
+                host, port, username, pkey=pkey, connect_timeout=5)
+            client.close()
+            return
+        except (paramiko.SSHException, socket.error, OSError) as exc:
+            last_exc = exc
+            time.sleep(1)
+    raise AssertionError(
+        "SSH %s@%s:%d not ready after %ds: %s" % (
+            username, host, port, timeout, last_exc))
+
+
+# Docker utils
+
+
+def _start_container(image, name, extra_args=None):
+    cmd = ["docker", "run", "--detach", "--name", name]
+    if extra_args:
+        cmd.extend(extra_args)
+    cmd.append(image)
+    result = _run(cmd)
+    return result.stdout.decode().strip()
+
+
+def start_container(
+    image, name, is_systemd=False, ssh_key=None, volumes=None, devices=None,
+    extra_args=None,
+):
+    """Start a detached Docker container and return its container ID.
+
+    :param image: Docker image name / tag to run.
+    :param name: Name to assign to the container.
+    :param is_systemd: If the container is running systemd. If true, the
+      necessary volumes, security opts, and caps are added for it to run.
+    :param ssh_key: SSH key to add as a volume to the authorized_keys.
+    :param volumes: List of volumes to attach to the container.
+    :param devices: List of devices to attach to the container.
+    :param extra_args: Optional list of extra ``docker run`` arguments.
+    :returns: container ID string (stripped).
+    """
+    volumes = volumes or []
+    devices = devices or []
+    extra_args = extra_args or []
+    sec_opts = []
+    caps = []
+
+    if is_systemd:
+        volumes += ["/sys/fs/cgroup:/sys/fs/cgroup:rw"]
+        sec_opts = ["apparmor=unconfined"]
+        caps = ["SYS_ADMIN"]
+        extra_args += ["--cgroupns=host"]
+
+    if ssh_key:
+        volumes = [f"{ssh_key}:/root/.ssh/authorized_keys:ro"] + volumes
+
+    for volume in volumes:
+        extra_args += ["--volume", volume]
+
+    for device in devices:
+        extra_args += ["--device", f"{device}:{device}"]
+
+    for cap in caps:
+        extra_args += ["--cap-add", cap]
+
+    for sec_opt in sec_opts:
+        extra_args += ["--security-opt", sec_opt]
+
+    return _start_container(image, name, extra_args)
+
+
+def stop_container(container_id):
+    """Stop and remove a Docker container, ignoring errors.
+
+    :param container_id: container ID or name to stop / remove.
+    """
+    _run(["docker", "stop", "--time", "5", container_id], check=False)
+    _run(["docker", "rm", "--force", container_id], check=False)
+
+
+def get_container_ip(container_id):
+    """Return the first bridge-network IP address of *container_id*.
+
+    :param container_id: container ID or name
+    :returns: IP address string
+    """
+    result = _run(
+        ["docker", "inspect", "--format",
+         "{{.NetworkSettings.IPAddress}}",
+         container_id])
+    return result.stdout.decode().strip()

@@ -32,18 +32,18 @@ jobs:
       run: |
         sudo apt-get install -y linux-modules-extra-$(uname -r)
 
-    - name: Set up SSH for localhost
+    - name: Generate SSH key for provider connection info
       shell: bash
       run: |
-        sudo apt-get install -y openssh-server
         sudo mkdir -p /root/.ssh
         sudo chmod 700 /root/.ssh
         sudo ssh-keygen -t rsa -b 4096 -N "" -f /root/.ssh/id_rsa
-        sudo bash -c 'cat /root/.ssh/id_rsa.pub >> /root/.ssh/authorized_keys'
-        sudo chmod 600 /root/.ssh/authorized_keys
-        sudo bash -c 'echo "PermitRootLogin yes" >> /etc/ssh/sshd_config'
-        sudo systemctl start ssh
-        sudo ssh-keyscan -H 127.0.0.1 | sudo tee -a /root/.ssh/known_hosts
+
+    - name: Build Docker image for integration test minions
+      shell: bash
+      run: |
+        docker build -t coriolis-data-minion:test \
+          coriolis/tests/integration/dockerfiles/data-minion/
 
     - name: Run integration tests
       shell: bash
