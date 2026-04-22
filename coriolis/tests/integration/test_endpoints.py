@@ -23,7 +23,7 @@ class EndpointCapabilitiesTest(base.CoriolisIntegrationTestBase):
         # /dev/null satisfies os.path.exists checks in validate_connection.
         self._src_endpoint = self._create_endpoint(
             name="cap-src",
-            endpoint_type="test-src",
+            endpoint_type=self._exp_platform,
             connection_info={
                 "block_device_path": "/dev/null",
                 "pkey_path": self._harness.ssh_key_path,
@@ -32,7 +32,7 @@ class EndpointCapabilitiesTest(base.CoriolisIntegrationTestBase):
         # Empty devices list passes the destination validate_connection loop.
         self._dst_endpoint = self._create_endpoint(
             name="cap-dest",
-            endpoint_type="test-dest",
+            endpoint_type=self._imp_platform,
             connection_info={
                 "devices": [],
                 "pkey_path": self._harness.ssh_key_path,
@@ -51,7 +51,7 @@ class EndpointCapabilitiesTest(base.CoriolisIntegrationTestBase):
     def test_validate_connection_failure(self):
         bad_endpoint = self._create_endpoint(
             name="cap-bad",
-            endpoint_type="test-src",
+            endpoint_type=self._exp_platform,
             connection_info={
                 "block_device_path": "/dev/coriolis-no-such-device",
                 "pkey_path": self._harness.ssh_key_path,

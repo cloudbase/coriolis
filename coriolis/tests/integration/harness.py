@@ -18,6 +18,7 @@ Must be run as root (scsi_debug block device setup requires it).
 """
 
 import atexit
+import importlib
 import os
 import queue
 import shutil
@@ -72,6 +73,13 @@ _TEST_IMPORT_PROVIDER = (
 
 # Fixed project used for all test requests.
 _TEST_PROJECT_ID = 'integration-project'
+
+
+def _provider_platform(dotted_path):
+    """Return the ``platform`` attribute of the class at *dotted_path*."""
+    module_path, class_name = dotted_path.rsplit('.', 1)
+    cls = getattr(importlib.import_module(module_path), class_name)
+    return cls.platform
 
 
 class DaemonCherootWorker(cheroot_threadpool.WorkerThread):
@@ -259,6 +267,9 @@ class _IntegrationHarness:
 
         # Policy enforcer: reset so it re-reads the new CONF (no policy file).
         policy_module.reset()
+
+        self.exp_provider_platform = _provider_platform(_TEST_EXPORT_PROVIDER)
+        self.imp_provider_platform = _provider_platform(_TEST_IMPORT_PROVIDER)
 
         self._wsgi_server = None
         self._wsgi_server_thread = None
