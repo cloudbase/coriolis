@@ -245,6 +245,10 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
     _CREATE_MINION_POOLS = False
     _SCSI_DEBUG_SIZE_MB = 16
 
+    # Extra source_environment entries merged into the default transfer's
+    # source_environment.
+    _EXTRA_SOURCE_ENVIRONMENT = {}
+
     @classmethod
     def setUpClass(cls):
         harness._IntegrationHarness.get().imp_provider.check_prerequisites()
@@ -307,6 +311,7 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             source_environment={
                 "instance_block_devices": {
                     self._instance_name: [self._src_device]},
+                **self._EXTRA_SOURCE_ENVIRONMENT,
             },
         )
         # Safety-net cleanup for destination devices allocated by the provider.

@@ -44,7 +44,6 @@ strict-rfc3339
 sqlalchemy<2.0.0
 taskflow
 webob
-sshtunnel
 requests-unixsocket
 # Cherrypy wsgi, also used by Ironic.
 # Leveraged by coriolis-api when called directly.

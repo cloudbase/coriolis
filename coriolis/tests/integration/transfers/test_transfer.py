@@ -25,6 +25,7 @@ from coriolis import constants
 from coriolis import data_transfer
 from coriolis.db import api as db_api
 from coriolis.providers import backup_writers
+from coriolis.providers import replicator as replicator_module
 from coriolis.tests.integration import base
 from coriolis.tests.integration import utils as test_utils
 
@@ -398,3 +399,35 @@ class MinionPoolTransferTest(
         super().test_transfer()
         self.assertPoolAllocated(self._pool_id)
         self.assertMachinesAvailable(self._pool_id)
+
+
+class ReplicaTransferViaSSHTunnelTest(base.ReplicaIntegrationTestBase):
+    """Transfer tests using an SSH tunneled replicator client."""
+
+    _EXTRA_SOURCE_ENVIRONMENT = {"use_tunnel": True}
+
+    def test_transfer_via_ssh_tunnel(self):
+        tunnel_starts = []
+        original_get_ssh_tunnel = replicator_module.Client._get_ssh_tunnel
+
+        def _spy_get_ssh_tunnel(client_self):
+            tunnel = original_get_ssh_tunnel(client_self)
+            tunnel.start = mock.Mock(wraps=tunnel.start)
+            tunnel_starts.append(tunnel.start)
+            return tunnel
+
+        with mock.patch.object(
+                replicator_module.Client, "_get_ssh_tunnel",
+                _spy_get_ssh_tunnel):
+            self._execute_and_wait(self._transfer.id)
+
+        self.assertTrue(tunnel_starts, "SSH tunnel was never constructed")
+        self.assertTrue(
+            any(t.called for t in tunnel_starts),
+            "SSH tunnel was constructed but never started")
+
+        if self._harness.uses_core_test_import_provider():
+            self.assertTrue(
+                test_utils.devices_match(self._src_device, self._dst_device),
+                "Devices do not match after transfer via SSH tunnel",
+            )
