@@ -1,5 +1,4 @@
 setuptools>=65.0.0,<82  # pkg_resources removed in 82; required by sqlalchemy-migrate
-eventlet
 keystoneauth1
 keystonemiddleware
 Jinja2
@@ -46,3 +45,8 @@ taskflow
 webob
 sshtunnel
 requests-unixsocket
+# Cherrypy wsgi, also used by Ironic.
+# Leveraged by coriolis-api when called directly.
+cheroot
+# Used by oslo.service in thread mode.
+cotyledon

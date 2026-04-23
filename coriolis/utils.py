@@ -17,6 +17,7 @@ import socket
 import string
 import subprocess
 import sys
+import threading
 import time
 import traceback
 import uuid
@@ -262,6 +263,8 @@ def write_ssh_file(ssh, remote_path, content):
     # Enabling pipelined transfers here will make
     # SFTP transfers much faster, but in combination
     # with eventlet, it seems to cause some lock-ups
+    #
+    # TODO(lpetrut): reconsider this now that eventlet is gone.
     fd.write(content)
     fd.close()
 
@@ -1048,3 +1051,15 @@ class Grub2ConfigEditor(object):
             tmp.write("%s\n" % fmt)
         tmp.seek(0)
         return tmp.read()
+
+
+def start_thread(target, args=(), kwargs=None, daemon=True):
+    """Convenience helper for one-liner thread spawning."""
+    thread = threading.Thread(
+        target=target,
+        daemon=daemon,
+        args=args,
+        kwargs=kwargs or {},
+    )
+    thread.start()
+    return thread

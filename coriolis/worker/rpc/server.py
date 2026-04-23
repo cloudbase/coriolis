@@ -9,7 +9,6 @@ import signal
 import sys
 import time
 
-import eventlet
 from oslo_config import cfg
 from oslo_log import log as logging
 import psutil
@@ -54,7 +53,7 @@ class WorkerServerEndpoint(object):
     @property
     def _rpc_conductor_client(self):
         # NOTE(aznashwan): it is unsafe to fork processes with pre-instantiated
-        # oslo_messaging clients as the underlying eventlet thread queues will
+        # oslo_messaging clients as the underlying thread queues will
         # be invalidated. Considering this class both serves from a "main
         # process" as well as forking child processes, it is safest to
         # re-instantiate the client every time:
@@ -264,10 +263,19 @@ class WorkerServerEndpoint(object):
                     "Task '%s' was already in cancelling status." % task_id)
             raise
 
-        evt = eventlet.spawn(self._wait_for_process, p, mp_q)
-        eventlet.spawn(self._handle_mp_log_events, p, mp_log_q)
+        # TODO(lpetrut): one logger thread per subprocess may be excessive when
+        # having a large number of concurrent jobs. It may be worth having a
+        # single thread aggregating logs from all subprocesses, potentially
+        # using asyncio.
+        #
+        # Note that asyncio coroutines can't directly consume multiprocessing
+        # queues, we'd probably need pipes instead. There's also the option of
+        # using select/poll/epoll directly.
+        utils.start_thread(
+            target=self._handle_mp_log_events,
+            args=(p, mp_log_q))
 
-        result = evt.wait()
+        result = self._wait_for_process(p, mp_q)
         p.join()
 
         if result is None:

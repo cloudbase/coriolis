@@ -3,7 +3,6 @@
 
 import time
 
-import eventlet
 from oslo_config import cfg
 from oslo_log import log as logging
 
@@ -135,7 +134,7 @@ class DeployerManagerServerEndpoint:
             time.sleep(10)
 
     def _init_loop(self):
-        eventlet.spawn(self._loop)
+        utils.start_thread(self._loop)
 
     def execute_auto_deployment(
             self, ctxt, transfer_id, deployer_id, **kwargs):

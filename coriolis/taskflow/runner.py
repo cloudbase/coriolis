@@ -1,10 +1,8 @@
 # Copyright 2020 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-# NOTE: we neeed to make sure eventlet is imported:
 import multiprocessing
 import sys
-import eventlet  # noqa
 
 from logging import handlers
 from oslo_config import cfg
@@ -127,7 +125,19 @@ class TaskFlowRunner(object):
         LOG.debug(
             "Sucessfully started background process for flow '%s' with "
             "PID: '%d'", flow.name, process.pid)
-        eventlet.spawn(self._handle_mp_log_events, process, mp_log_q)
+
+        # TODO(lpetrut): one logger thread per subprocess may be excessive when
+        # having a large number of concurrent jobs. It may be worth having a
+        # single thread aggregating logs from all subprocesses, potentially
+        # using asyncio.
+        #
+        # Note that asyncio coroutines can't directly consume multiprocessing
+        # queues, we'd probably need pipes instead. There's also the option of
+        # using select/poll/epoll directly.
+        utils.start_thread(
+            target=self._handle_mp_log_events,
+            args=(process, mp_log_q),
+            daemon=True)
 
     def run_flow_in_background(self, flow, store=None):
         """ Starts the given flow in the background in a separate process.
