@@ -75,7 +75,7 @@ MINION_POOL_POWER_OFF_MACHINE_TASK_NAME_FORMAT = (
 class MinionManagerTaskEventMixin(object):
 
     # NOTE(aznashwan): it is unsafe to fork processes with pre-instantiated
-    # oslo_messaging clients as the underlying eventlet thread queues will
+    # oslo_messaging clients as the underlying thread queues will
     # be invalidated. Considering this class both serves from a "main
     # process" as well as forking child processes, it is safest to
     # re-instantiate the clients every time:

@@ -177,7 +177,7 @@ class ConductorServerEndpoint(object):
         self._deployer_manager_client_instance = None
 
     # NOTE(aznashwan): it is unsafe to fork processes with pre-instantiated
-    # oslo_messaging clients as the underlying eventlet thread queues will
+    # oslo_messaging clients as the underlying thread queues will
     # be invalidated. Considering this class both serves from a "main
     # process" as well as forking child processes, it is safest to
     # instantiate the clients only when needed:

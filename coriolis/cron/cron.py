@@ -1,15 +1,16 @@
 import datetime
+import queue
 import sys
+import threading
 import time
 
-import eventlet
-from eventlet import semaphore
 from oslo_log import log
 from oslo_utils import timeutils
 import schedule
 
 from coriolis import exception
 from coriolis import schemas
+from coriolis import utils
 
 
 LOG = log.getLogger(__name__)
@@ -144,11 +145,11 @@ class CronJob(object):
 class Cron(object):
 
     def __init__(self):
-        self._queue = eventlet.Queue(maxsize=1000)
+        self._queue = queue.Queue(maxsize=1000)
         self._should_stop = False
         self._jobs = {}
-        self._eventlets = []
-        self._semaphore = semaphore.Semaphore(value=1)
+        self._threads = []
+        self._semaphore = threading.Semaphore(value=1)
 
     def register(self, job):
         if not isinstance(job, CronJob):
@@ -189,7 +190,7 @@ class Cron(object):
                           jobs[job].schedule)
                 if jobs[job].should_run(now):
                     LOG.debug("Spawning job %s" % job)
-                    eventlet.spawn(jobs[job].start, self._queue)
+                    utils.start_thread(jobs[job].start, args=[self._queue])
                     spawned += 1
 
         done = timeutils.utcnow()
@@ -199,12 +200,12 @@ class Cron(object):
             "jobs": spawned})
 
     def _loop(self):
-        while True:
+        while not self._should_stop:
             schedule.run_pending()
             time.sleep(.2)
 
     def _result_loop(self):
-        while True:
+        while not self._should_stop:
             job_info = self._queue.get()
             result = job_info["result"]
             error = job_info["error_info"]
@@ -223,7 +224,7 @@ class Cron(object):
     def _janitor(self):
         # remove expired jobs from memory. The check for expired
         # jobs runs once every minute.
-        while True:
+        while not self._should_stop:
             with self._semaphore:
                 tmp = {}
                 for job in self._jobs:
@@ -236,24 +237,13 @@ class Cron(object):
             # No need to run very often. Once a minute should do
             time.sleep(60)
 
-    def _ripper(self):
-        # Not sure if this will ever be called, but for correctness
-        # sake, thought I'd add it
-        while True:
-            if self._should_stop:
-                if len(self._eventlets):
-                    for greenthread in self._eventlets:
-                        eventlet.kill(greenthread)
-                    self._eventlets = []
-                return
-            time.sleep(.5)
-
     def start(self):
         schedule.every().minute.do(self._check_jobs)
-        self._eventlets.append(eventlet.spawn(self._loop))
-        self._eventlets.append(eventlet.spawn(self._janitor))
-        self._eventlets.append(eventlet.spawn(self._result_loop))
-        eventlet.spawn(self._ripper)
+        self._threads.append(utils.start_thread(self._loop))
+        # TODO(lpetrut): consider using "schedule" for the janitor job to avoid
+        # spawning an additional thread.
+        self._threads.append(utils.start_thread(self._janitor))
+        self._threads.append(utils.start_thread(self._result_loop))
 
     def stop(self):
         self._should_stop = True
