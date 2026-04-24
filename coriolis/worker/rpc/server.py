@@ -7,6 +7,7 @@ import os
 import shutil
 import signal
 import sys
+import threading
 import time
 
 from oslo_config import cfg
@@ -49,6 +50,7 @@ class WorkerServerEndpoint(object):
         self._server = utils.get_hostname()
         self._service_registration = self._register_worker_service()
         self._rpc_conductor_client_instance = None
+        self._lock = threading.Lock()
 
     @property
     def _rpc_conductor_client(self):
@@ -166,20 +168,23 @@ class WorkerServerEndpoint(object):
         param extra_library_paths: list(str): list of paths with extra
         libraries which should be available to the worker process.
         """
-        original_ld_path = os.environ.get('LD_LIBRARY_PATH', "")
-        LOG.debug(
-            "Starting new worker process with extra libraries: '%s'",
-            extra_library_paths)
-        try:
-            os.environ['LD_LIBRARY_PATH'] = self._get_custom_ld_path(
-                original_ld_path, extra_library_paths)
-            process.start()
-        except TypeError:
-            LOG.warning(
-                "Failed to set extra library paths: %s. Error was: %s",
-                extra_library_paths, utils.get_exception_details())
-        finally:
-            os.environ['LD_LIBRARY_PATH'] = original_ld_path
+        # We're modifying the "os.environ" globally. To avoid race conditions,
+        # we need to use a lock.
+        with self._lock:
+            original_ld_path = os.environ.get('LD_LIBRARY_PATH', "")
+            LOG.debug(
+                "Starting new worker process with extra libraries: '%s'",
+                extra_library_paths)
+            try:
+                os.environ['LD_LIBRARY_PATH'] = self._get_custom_ld_path(
+                    original_ld_path, extra_library_paths)
+                process.start()
+            except TypeError:
+                LOG.warning(
+                    "Failed to set extra library paths: %s. Error was: %s",
+                    extra_library_paths, utils.get_exception_details())
+            finally:
+                os.environ['LD_LIBRARY_PATH'] = original_ld_path
 
     def _get_extra_library_paths_for_providers(
             self, ctxt, task_id, task_type, origin, destination):
