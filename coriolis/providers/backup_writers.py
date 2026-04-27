@@ -540,20 +540,9 @@ class SSHBackupWriter(BaseBackupWriter):
     def _connect_ssh(self):
         LOG.info("Connecting to SSH host: %(ip)s:%(port)s" %
                  {"ip": self._ip, "port": self._port})
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        try:
-            ssh.connect(
-                hostname=self._ip,
-                port=self._port,
-                username=self._username,
-                pkey=self._pkey,
-                password=self._password)
-        except (Exception, KeyboardInterrupt):
-            # No need to log the error as we just raise
-            ssh.close()
-            raise
-        return ssh
+        return utils.connect_ssh(
+            self._ip, self._port, self._username,
+            pkey=self._pkey, password=self._password)
 
 
 class HTTPBackupWriterImpl(BaseBackupWriterImpl):
@@ -906,20 +895,9 @@ class HTTPBackupWriterBootstrapper(object):
     def _connect_ssh(self):
         LOG.info("Connecting to SSH host: %(ip)s:%(port)s" %
                  {"ip": self._ip, "port": self._port})
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        try:
-            ssh.connect(
-                hostname=self._ip,
-                port=self._port,
-                username=self._username,
-                pkey=self._pkey,
-                password=self._password)
-        except (Exception, KeyboardInterrupt):
-            # No need to log the error as we just raise
-            ssh.close()
-            raise
-        return ssh
+        return utils.connect_ssh(
+            self._ip, self._port, self._username,
+            pkey=self._pkey, password=self._password)
 
     def _inject_dport_allow_rule(self, ssh):
         cmd = (

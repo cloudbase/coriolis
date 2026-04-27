@@ -673,12 +673,21 @@ class ReplicatorTestCase(test_base.CoriolisBaseTestCase):
         original_get_ssh_client = testutils.get_wrapped_function(
             self.replicator._get_ssh_client)
 
-        result = original_get_ssh_client(self.replicator, self.conn_info)
+        arg = {
+            "hostname": self.conn_info["ip"],
+            "port": self.conn_info["port"],
+            "username": self.conn_info["username"],
+            "password": self.conn_info["password"],
+            "pkey": None,
+            "banner_timeout": (
+                replicator_module.CONF.replicator.default_requests_timeout),
+        }
+        result = original_get_ssh_client(self.replicator, arg)
 
         mock_ssh_client.assert_called_once()
         self._ssh.set_missing_host_key_policy.assert_called_once_with(
             mock.ANY)
-        self._ssh.connect.assert_called_once_with(**self.conn_info)
+        self._ssh.connect.assert_called_once_with(**arg)
 
         self.assertEqual(result, mock_ssh_client.return_value)
 
@@ -691,8 +700,17 @@ class ReplicatorTestCase(test_base.CoriolisBaseTestCase):
         original_get_ssh_client = testutils.get_wrapped_function(
             self.replicator._get_ssh_client)
 
+        arg = {
+            "hostname": self.conn_info["ip"],
+            "port": self.conn_info["port"],
+            "username": self.conn_info["username"],
+            "password": self.conn_info["password"],
+            "pkey": None,
+            "banner_timeout": (
+                replicator_module.CONF.replicator.default_requests_timeout),
+        }
         self.assertRaises(exception.CoriolisException, original_get_ssh_client,
-                          self.replicator, self.conn_info)
+                          self.replicator, arg)
 
     def test__parse_source_ssh_conn_info(self):
         expected_arg = {

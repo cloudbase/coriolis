@@ -11,7 +11,6 @@ import re
 import uuid
 
 from oslo_log import log as logging
-import paramiko
 from six import with_metaclass
 
 from coriolis import exception
@@ -82,10 +81,8 @@ class BaseSSHOSMountTools(BaseOSMountTools):
         self._event_manager.progress_update(
             "Connecting through SSH to OSMorphing host on: %(ip)s:%(port)s" %
             ({"ip": ip, "port": port}))
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(hostname=ip, port=port, username=username, pkey=pkey,
-                    password=password)
+        ssh = utils.connect_ssh(
+            ip, port, username, pkey=pkey, password=password)
         ssh.set_log_channel("paramiko.morpher.%s.%s" % (ip, port))
         self._ssh = ssh
 
