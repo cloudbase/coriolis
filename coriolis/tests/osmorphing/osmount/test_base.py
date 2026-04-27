@@ -910,6 +910,7 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
 
         self.assertEqual(result, ('/tmp/tmp_dir', '/dev/sdb1'))
 
+    @mock.patch("time.sleep")
     @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')
     @mock.patch.object(base.BaseLinuxOSMountTools, '_get_vgs')
     @mock.patch.object(base.BaseLinuxOSMountTools, '_get_mounted_devices')
@@ -924,7 +925,7 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
                               mock_find_dev_with_contents,
                               mock_find_and_mount_root,
                               mock_get_mounted_devices, mock_get_vgs,
-                              mock_exec_cmd):
+                              mock_exec_cmd, mock_sleep):
         mock_get_volume_block_devices.return_value = ["/dev/sda", "/dev/sdb"]
         mock_find_and_mount_root.return_value = ("/tmp/tmp_dir", "/dev/sdb1")
         mock_get_vgs.return_value = {

@@ -473,7 +473,8 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         ]
         mock_exec_ssh_cmd.assert_has_calls(expected_calls)
 
-    def test_run_xfs_repair_exception(self):
+    @mock.patch("time.sleep")
+    def test_run_xfs_repair_exception(self, mock_sleep):
         self.mock_ssh.exec_command.side_effect = Exception()
 
         with self.assertLogs('coriolis.utils', level=logging.WARN):
