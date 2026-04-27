@@ -1,8 +1,6 @@
 # Copyright 2023 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-
-import eventlet
 import logging
 import multiprocessing
 import sys
@@ -157,7 +155,7 @@ class TaskFlowRunnerTestCase(test_base.CoriolisBaseTestCase):
         result = self.runner._handle_mp_log_events(mock_p, self.mock_mp_log_q)
         self.assertIsNone(result)
 
-    @mock.patch.object(eventlet, 'spawn')
+    @mock.patch('coriolis.utils.start_thread')
     @mock.patch.object(multiprocessing, "get_context")
     def test_spawn_process_flow(self, mock_get_context, mock_spawn):
         mock_process = mock.Mock()
@@ -175,9 +173,10 @@ class TaskFlowRunnerTestCase(test_base.CoriolisBaseTestCase):
             target=self.runner._run_flow_in_process,
             args=(self.mock_flow, mock_mp_ctx.Queue.return_value, self.store))
         mock_process.start.assert_called_once_with()
-        mock_spawn.assert_called_once_with(self.runner._handle_mp_log_events,
-                                           mock_process,
-                                           mock_mp_ctx.Queue.return_value)
+        mock_spawn.assert_called_once_with(
+            target=self.runner._handle_mp_log_events,
+            args=(mock_process, mock_mp_ctx.Queue.return_value),
+            daemon=True)
 
     @mock.patch.object(runner.TaskFlowRunner, '_spawn_process_flow')
     def test_run_flow_in_background(self, mock_spawn_process_flow):

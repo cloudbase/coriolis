@@ -68,7 +68,7 @@ class ServiceTestCase(test_base.CoriolisBaseTestCase):
 class WSGIServiceTestCase(test_base.CoriolisBaseTestCase):
     """Test suite for the Coriolis WSGIService class."""
 
-    @mock.patch.object(service.wsgi.Loader, 'load_app')
+    @mock.patch('oslo_service.wsgi.Loader.load_app')
     @mock.patch.object(service, 'rpc')
     @mock.patch.object(service, 'CONF')
     @mock.patch.object(service.wsgi, 'Server')
@@ -85,11 +85,12 @@ class WSGIServiceTestCase(test_base.CoriolisBaseTestCase):
         mock_rpc.init.assert_called_once_with()
         mock_load_app.assert_called_once_with(mock.sentinel.name)
         mock_server.assert_called_once_with(
-            mock_conf,
-            mock.sentinel.name,
-            mock_load_app.return_value,
-            host=mock_conf.api_migration_listen,
-            port=mock_conf.api_migration_listen_port)
+            server_name=mock.sentinel.name,
+            wsgi_app=mock_load_app.return_value,
+            bind_addr=(
+                mock_conf.api_migration_listen,
+                mock_conf.api_migration_listen_port),
+        )
         self.assertEqual(wsgi_service._host, mock_conf.api_migration_listen)
         self.assertEqual(wsgi_service._port,
                          mock_conf.api_migration_listen_port)
@@ -136,15 +137,11 @@ class WSGIServiceTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(service, 'CONF')
     @mock.patch('oslo_service.wsgi.Loader.load_app')
     @mock.patch('coriolis.rpc.messaging.get_transport')
-    @mock.patch('eventlet.listen')
-    def test_service_methods(self, mock_listen, mock_get_transport,
+    def test_service_methods(self, mock_get_transport,
                              mock_load_app, mock_conf):
         mock_conf.api_migration_workers = 10
         mock_load_app.return_value = mock.MagicMock()
         mock_get_transport.return_value = mock.MagicMock()
-        mock_socket = mock.MagicMock()
-        mock_socket.getsockname.return_value = ('localhost', 8080)
-        mock_listen.return_value = mock_socket
 
         result = service.WSGIService('test_service', None, True)
 
@@ -154,16 +151,15 @@ class WSGIServiceTestCase(test_base.CoriolisBaseTestCase):
                          mock_conf.api_migration_workers)
 
         result.start()
-        result._server.start.assert_called_once()
+        result._server.serve.assert_called_once()
 
         result.stop()
         result._server.stop.assert_called_once()
 
         result.wait()
-        result._server.wait.assert_called_once()
 
+        # no-op, no greenpool to adjust.
         result.reset()
-        result._server.reset.assert_called_once()
 
 
 class MessagingServiceTestCase(test_base.CoriolisBaseTestCase):

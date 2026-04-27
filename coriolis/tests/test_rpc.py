@@ -81,7 +81,7 @@ class RpcTestCase(test_base.CoriolisBaseTestCase):
         mock_context_serializer.assert_called_once_with(serializer)
         mock_get_rpc_server.assert_called_once_with(
             mock_get_transport.return_value, target, endpoints,
-            executor='eventlet', serializer=serializer)
+            executor='threading', serializer=serializer)
         self.assertEqual(result, mock_get_rpc_server.return_value)
 
     @mock.patch('coriolis.rpc.messaging.get_transport')
