@@ -141,6 +141,8 @@ class WSGIService(service.ServiceBase):
         return self._workers
 
     def start(self):
+        self._server.prepare()
+
         self._thread = threading.Thread(
             target=self._server.serve,
             daemon=True

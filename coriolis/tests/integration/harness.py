@@ -6,7 +6,7 @@ Base test harness for Coriolis integration tests.
 
 Starts conductor, scheduler, and worker services in-process using
 oslo.messaging's fake:// transport and a temporary SQLite database. Serves
-the Coriolis REST API via eventlet on a random local port. No RabbitMQ,
+the Coriolis REST API via cheroot on a random local port. No RabbitMQ,
 Keystone, or Barbican are required.
 
 Tasks are executed in-process as greenlets rather than subprocesses. The
@@ -21,11 +21,11 @@ import atexit
 import os
 import queue
 import shutil
+import socket
 import tempfile
 from unittest import mock
 
-import eventlet
-import eventlet.wsgi
+from cheroot import wsgi as cheroot_wsgi
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_middleware import request_id as request_id_middleware
@@ -110,7 +110,6 @@ class _InProcessWorkerServerEndpoint(worker_rpc_server.WorkerServerEndpoint):
     The fake:// transport is in-memory and process-local. A subprocess would
     initialise its own isolated fake:// instance with no conductor listener, so
     every RPC call made by the task's event handler would block indefinitely.
-    Running inline keeps all RPC calls within the same eventlet hub.
     """
 
     def _exec_task_process(
@@ -140,7 +139,8 @@ class _InProcessWorkerServerEndpoint(worker_rpc_server.WorkerServerEndpoint):
                 LOG.exception(ex)
                 result_q.put(str(ex))
 
-        eventlet.spawn(_run).wait()
+        thread = coriolis_utils.start_thread(_run)
+        thread.join()
 
         result = result_q.get_nowait()
         if isinstance(result, str):
@@ -233,7 +233,8 @@ class _IntegrationHarness:
         # with a per-object alternative for the lifetime of this process.
         db_api._delete_transfer_action = _sqlite_delete_transfer_action
 
-        self._sock = None
+        self._wsgi_server = None
+        self._wsgi_server_thread = None
         self.api_port = None
         self._conductor_svc = None
         self._scheduler_svc = None
@@ -310,12 +311,22 @@ class _IntegrationHarness:
         wsgi_app = fault_middleware.FaultWrapper(wsgi_app)
         wsgi_app = request_id_middleware.RequestId(wsgi_app)
 
-        self._sock = eventlet.listen(('127.0.0.1', 0))
-        self.api_port = self._sock.getsockname()[1]
-        eventlet.spawn(eventlet.wsgi.server, self._sock, wsgi_app)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(('127.0.0.1', 0))
+            s.listen(1)
+            # Pick an available port.
+            self.api_port = s.getsockname()[1]
 
-        # Give services a moment to finish initialising.
-        eventlet.sleep(0.5)
+        self._wsgi_server = cheroot_wsgi.Server(
+            bind_addr=("127.0.0.1", self.api_port),
+            wsgi_app=wsgi_app,
+            server_name="coriolis-api",
+        )
+        self._wsgi_server.prepare()
+        self._wsgi_server_thread = coriolis_utils.start_thread(
+            self._wsgi_server.serve,
+            daemon=True,
+        )
 
     def _teardown(self):
         for svc in [self._worker_host_svc, self._worker_svc,
@@ -327,9 +338,10 @@ class _IntegrationHarness:
             except Exception:
                 pass
 
-        if self._sock is not None:
+        if self._wsgi_server:
             try:
-                self._sock.close()
+                self._wsgi_server.stop()
+                self._wsgi_server_thread.join()
             except Exception:
                 pass
 
