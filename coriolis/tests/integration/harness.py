@@ -23,8 +23,10 @@ import queue
 import shutil
 import socket
 import tempfile
+import threading
 from unittest import mock
 
+from cheroot.workers import threadpool as cheroot_threadpool
 from cheroot import wsgi as cheroot_wsgi
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -69,6 +71,27 @@ _TEST_IMPORT_PROVIDER = (
 
 # Fixed project used for all test requests.
 _TEST_PROJECT_ID = 'integration-project'
+
+
+class DaemonCherootWorker(cheroot_threadpool.WorkerThread):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.daemon = True
+        # Mark the cheroot threads as daemons so that the main thread won't
+        # wait for them when closing. The WSGI will be stopped using "atexit",
+        # which runs a bit later.
+        #
+        # Possible alternatives if this becomes a problem:
+        #   * Use threading._register_atexit instead of atexit
+        #     * may become public: https://github.com/python/cpython/issues/86128
+        #   * Cleanup the harness in tearDownClass
+        #     * we tried to avoid spinning up the services for every test class
+        #   * Move the api services to a separate process
+        #     * we're currently relying on the "fake" messaging backend, which
+        #       doesn't work with separate processes.
+
+
+cheroot_threadpool.WorkerThread = DaemonCherootWorker
 
 
 class _NoAuthMiddleware(api_wsgi.Middleware):
@@ -329,6 +352,7 @@ class _IntegrationHarness:
         )
 
     def _teardown(self):
+        LOG.info("Teardown initiated.")
         for svc in [self._worker_host_svc, self._worker_svc,
                     self._scheduler_svc, self._conductor_svc]:
             if not svc:
