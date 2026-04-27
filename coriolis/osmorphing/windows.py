@@ -77,6 +77,9 @@ REQUIRED_DETECTED_WINDOWS_OS_FIELDS = [
 INTERFACES_PATH_FORMAT = (
     "HKLM:\\%s\\ControlSet001\\Services\\Tcpip\\Parameters\\Interfaces")
 
+DEVICE_CLASS_BASE_PATH_FORMAT = (
+    "HKLM:\\%s\\ControlSet001\\Control\\Network")
+
 STATIC_IP_SCRIPT_TEMPLATE = """
 $ErrorActionPreference = "Stop"
 
@@ -175,6 +178,16 @@ function Invoke-Main {
         Set-DnsClientServerAddress -InterfaceIndex $interface.IfIndex -ResetServerAddresses
 
         Set-IPAddresses $interface $nic.ip_addresses $ips_info
+
+        if ($nic.PSObject.Properties['interface_name'] -and $nic.interface_name) {
+            $conflictAdapter = Get-NetAdapter -Name $nic.interface_name -ErrorAction SilentlyContinue
+            if ($conflictAdapter -and $conflictAdapter.IfIndex -ne $interface.IfIndex) {
+                Write-Host "Removing conflicting adapter '$($conflictAdapter.Name)' to free up name '$($nic.interface_name)'"
+                Remove-NetAdapter -Name $conflictAdapter.Name -Confirm:$false
+            }
+            Rename-NetAdapter -Name $interface.Name -NewName $nic.interface_name
+            Write-Host "Renamed network adapter '$($interface.Name)' to '$($nic.interface_name)'"
+        }
     }
 }
 
@@ -599,12 +612,41 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
 
         return cloudbaseinit_base_dir
 
+    def _get_guid_to_adapter_info_map(self, key_name):
+        network_base_path = DEVICE_CLASS_BASE_PATH_FORMAT % key_name
+        ps_command = (
+            "$ErrorActionPreference = 'SilentlyContinue'; "
+            "$networkBase = '%(base)s'; "
+            "Get-ChildItem -Path $networkBase | "
+            "ForEach-Object { $classPath = $_.PSPath; "
+            "Get-ChildItem -Path $classPath | "
+            "ForEach-Object { $netGuid = $_.PSChildName; "
+            "$connPath = \"$classPath\\$netGuid\\Connection\"; "
+            "$p = Get-ItemProperty -Path $connPath; "
+            "if ($p.Name) { \"$netGuid|$($p.Name)\" } } }; "
+            "exit 0" % {'base': network_base_path})
+        result = self._conn.exec_ps_command(ps_command)
+        LOG.debug(
+            "GUID-to-adapter-info PS command output: %s", result)
+        guid_map = {}
+        for line in result.splitlines():
+            if '|' in line:
+                parts = line.split('|', 1)
+                guid = parts[0].strip().upper()
+                name = parts[1].strip()
+                guid_map[guid] = {'interface_name': name}
+                LOG.debug(
+                    "Found interface name '%s' for adapter GUID '%s'",
+                    name, guid)
+        return guid_map
+
     def _compile_static_ip_conf_from_registry(self, key_name):
         ips_info = []
         interfaces_reg_path = INTERFACES_PATH_FORMAT % key_name
         interfaces = self._conn.exec_ps_command(
             "(((Get-ChildItem -Path '%s').Name | Select-String -Pattern "
             "'[^\\\\]+$').Matches).Value" % interfaces_reg_path)
+        guid_to_adapter_info = self._get_guid_to_adapter_info_map(key_name)
         for interface in interfaces.splitlines():
             reg_path = '%s\\%s' % (interfaces_reg_path, interface)
             enable_dhcp = self._conn.exec_ps_command(
@@ -630,11 +672,20 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
                     prefix_lengths.append(
                         ipaddress.IPv4Network((0, submask)).prefixlen)
 
+                adapter_info = guid_to_adapter_info.get(interface.upper(), {})
+                interface_name = adapter_info.get('interface_name', '')
+                if not interface_name:
+                    LOG.warning(
+                        "Could not find interface name for interface GUID "
+                        "'%s'. Adapter name will not be preserved."
+                        % interface)
+
                 ip_info = {
                     "ip_addresses": ip_addresses.splitlines(),
                     "prefix_lengths": prefix_lengths,
                     "default_gateway": default_gateway,
-                    "dns_addresses": name_server}
+                    "dns_addresses": name_server,
+                    "interface_name": interface_name}
                 LOG.debug(
                     "Found static IP configuration for interface '%s': "
                     "%s" % (interface, ip_info))
@@ -678,6 +729,13 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
                         f"NIC ({nic.get('mac_address')}). Skipping")
                     continue
                 static_nic['ip_addresses'] = ip_matches
+            for ip_info in ips_info:
+                if set(static_nic['ip_addresses']).intersection(
+                        set(ip_info.get('ip_addresses', []))):
+                    interface_name = ip_info.get('interface_name')
+                    if interface_name:
+                        static_nic['interface_name'] = interface_name
+                    break
             static_nics_info.append(static_nic)
 
         return static_nics_info

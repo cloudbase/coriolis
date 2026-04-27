@@ -677,8 +677,23 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             "HKLM\\%s" % mock_uuid4.return_value)
 
     def test__compile_static_ip_conf_from_registry(self):
+        network_base_path = (windows.DEVICE_CLASS_BASE_PATH_FORMAT %
+                             mock.sentinel.key_name)
+        adapter_map_ps_cmd = (
+            "$ErrorActionPreference = 'SilentlyContinue'; "
+            "$networkBase = '%(base)s'; "
+            "Get-ChildItem -Path $networkBase | "
+            "ForEach-Object { $classPath = $_.PSPath; "
+            "Get-ChildItem -Path $classPath | "
+            "ForEach-Object { $netGuid = $_.PSChildName; "
+            "$connPath = \"$classPath\\$netGuid\\Connection\"; "
+            "$p = Get-ItemProperty -Path $connPath; "
+            "if ($p.Name) { \"$netGuid|$($p.Name)\" } } }; "
+            "exit 0" % {'base': network_base_path})
+
         self.conn.exec_ps_command.side_effect = [
             'interface1\ninterface2',
+            '',
             '0',
             '192.168.1.254',
             '8.8.8.8',
@@ -696,6 +711,7 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             mock.call(
                 "(((Get-ChildItem -Path '%s').Name | Select-String -Pattern "
                 "'[^\\\\]+$').Matches).Value" % interfaces_reg_path),
+            mock.call(adapter_map_ps_cmd),
             mock.call(
                 "(Get-ItemProperty -Path '%s\\interface1').EnableDHCP" %
                 interfaces_reg_path),
@@ -720,13 +736,29 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             {"ip_addresses": ['192.168.1.1'],
              "prefix_lengths": [24],
              "default_gateway": '192.168.1.254',
-             "dns_addresses": '8.8.8.8'}
+             "dns_addresses": '8.8.8.8',
+             "interface_name": ''}
         ]
         self.assertEqual(result, expected_ips_info)
 
     def test_compile_static_ip_conf_from_registry_no_ip_or_subnet(self):
+        network_base_path = (windows.DEVICE_CLASS_BASE_PATH_FORMAT %
+                             mock.sentinel.key_name)
+        adapter_map_ps_cmd = (
+            "$ErrorActionPreference = 'SilentlyContinue'; "
+            "$networkBase = '%(base)s'; "
+            "Get-ChildItem -Path $networkBase | "
+            "ForEach-Object { $classPath = $_.PSPath; "
+            "Get-ChildItem -Path $classPath | "
+            "ForEach-Object { $netGuid = $_.PSChildName; "
+            "$connPath = \"$classPath\\$netGuid\\Connection\"; "
+            "$p = Get-ItemProperty -Path $connPath; "
+            "if ($p.Name) { \"$netGuid|$($p.Name)\" } } }; "
+            "exit 0" % {'base': network_base_path})
+
         self.conn.exec_ps_command.side_effect = [
             'interface1',
+            '',
             '0',
             "default_gateway",
             "nameservers",
@@ -745,6 +777,7 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             mock.call(
                 "(((Get-ChildItem -Path '%s').Name | Select-String -Pattern "
                 "'[^\\\\]+$').Matches).Value" % interfaces_reg_path),
+            mock.call(adapter_map_ps_cmd),
             mock.call("(Get-ItemProperty -Path '%s\\interface1').EnableDHCP" %
                       interfaces_reg_path),
             mock.call(
@@ -760,8 +793,23 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         ])
 
     def test_compile_static_ip_conf_from_registry_no_static_ip(self):
+        network_base_path = (windows.DEVICE_CLASS_BASE_PATH_FORMAT %
+                             mock.sentinel.key_name)
+        adapter_map_ps_cmd = (
+            "$ErrorActionPreference = 'SilentlyContinue'; "
+            "$networkBase = '%(base)s'; "
+            "Get-ChildItem -Path $networkBase | "
+            "ForEach-Object { $classPath = $_.PSPath; "
+            "Get-ChildItem -Path $classPath | "
+            "ForEach-Object { $netGuid = $_.PSChildName; "
+            "$connPath = \"$classPath\\$netGuid\\Connection\"; "
+            "$p = Get-ItemProperty -Path $connPath; "
+            "if ($p.Name) { \"$netGuid|$($p.Name)\" } } }; "
+            "exit 0" % {'base': network_base_path})
+
         self.conn.exec_ps_command.side_effect = [
             'interface1',
+            '',
             '1',
         ]
         interfaces_reg_path = (windows.INTERFACES_PATH_FORMAT %
@@ -775,6 +823,7 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             mock.call(
                 "(((Get-ChildItem -Path '%s').Name | Select-String -Pattern "
                 "'[^\\\\]+$').Matches).Value" % interfaces_reg_path),
+            mock.call(adapter_map_ps_cmd),
             mock.call("(Get-ItemProperty -Path '%s\\interface1').EnableDHCP" %
                       interfaces_reg_path),
         ])
