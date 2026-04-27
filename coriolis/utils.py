@@ -523,6 +523,39 @@ def deserialize_key(key_bytes, password=None):
     return paramiko.RSAKey.from_private_key(key_io, password)
 
 
+def connect_ssh(hostname, port, username, pkey=None, password=None,
+                connect_timeout=None, banner_timeout=None):
+    """Open and return a connected paramiko SSHClient.
+
+    :param pkey: a paramiko.PKey instance or None.
+    :param password: plaintext password or None.
+    :param connect_timeout: socket-level timeout in seconds (None = default).
+    :param banner_timeout: banner timeout in seconds passed to paramiko.
+    :raises: exception.CoriolisException on failure.
+    """
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    kwargs = dict(
+        hostname=hostname, port=port, username=username,
+        pkey=pkey, password=password)
+
+    if connect_timeout is not None:
+        kwargs["timeout"] = connect_timeout
+    if banner_timeout is not None:
+        kwargs["banner_timeout"] = banner_timeout
+
+    try:
+        ssh.connect(**kwargs)
+    except paramiko.ssh_exception.SSHException as ex:
+        raise exception.CoriolisException(
+            "Failed to setup SSH client: %s" % str(ex)) from ex
+    except (Exception, KeyboardInterrupt):
+        ssh.close()
+        raise
+
+    return ssh
+
+
 def is_serializable(obj):
     pickle.dumps(obj)
 

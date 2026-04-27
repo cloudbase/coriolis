@@ -496,18 +496,10 @@ class Replicator(object):
         """
         gets a paramiko SSH client
         """
-        try:
-            ssh = paramiko.SSHClient()
-            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            try:
-                ssh.connect(**args)
-                return ssh
-            except Exception:
-                ssh.close()
-                raise
-        except paramiko.ssh_exception.SSHException as ex:
-            raise exception.CoriolisException(
-                "Failed to setup SSH client: %s" % str(ex)) from ex
+        return utils.connect_ssh(
+            args["hostname"], args["port"], args["username"],
+            pkey=args.get("pkey"), password=args.get("password"),
+            banner_timeout=args.get("banner_timeout"))
 
     def _parse_source_ssh_conn_info(self, conn_info):
         # if we get valid SSH connection info we can

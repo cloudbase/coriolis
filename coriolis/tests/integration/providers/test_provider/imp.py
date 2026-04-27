@@ -259,10 +259,7 @@ class TestImportProvider(
 # Helpers
 def _ssh_connect(pkey_path):
     pkey = paramiko.RSAKey.from_private_key_file(pkey_path)
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(hostname="127.0.0.1", username="root", pkey=pkey)
-    return ssh
+    return utils.connect_ssh("127.0.0.1", 22, "root", pkey=pkey)
 
 
 def _read_file(path):
