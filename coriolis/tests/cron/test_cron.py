@@ -3,7 +3,7 @@
 
 import datetime
 import ddt
-import eventlet
+
 import schedule
 import sys
 import time
@@ -403,7 +403,7 @@ class CronTestCase(test_base.CoriolisBaseTestCase):
             self.cron._jobs
         )
 
-    @mock.patch.object(eventlet, 'spawn')
+    @mock.patch('coriolis.utils.start_thread')
     def test_check_jobs(self, mock_spawn):
         mock_job = mock.Mock()
         mock_job2 = mock.Mock()
@@ -415,7 +415,9 @@ class CronTestCase(test_base.CoriolisBaseTestCase):
 
         self.cron._check_jobs()
 
-        mock_spawn.assert_called_once_with(mock_job.start, self.cron._queue)
+        mock_spawn.assert_called_once_with(
+            mock_job.start,
+            args=[self.cron._queue])
 
     @mock.patch.object(time, 'sleep')
     @mock.patch.object(schedule, 'run_pending')
@@ -474,26 +476,11 @@ class CronTestCase(test_base.CoriolisBaseTestCase):
             self.cron._jobs
         )
 
-    @mock.patch.object(eventlet, 'kill')
-    @mock.patch.object(time, 'sleep')
-    def test_ripper(self, mock_sleep, mock_kill):
-        self.cron._should_stop = True
-        self.cron._eventlets = ['mock_event1', 'mock_event2']
-
-        self.cron._ripper()
-
-        self.assertEqual(
-            [],
-            self.cron._eventlets
-        )
-        mock_kill.assert_has_calls([
-            mock.call('mock_event1'), mock.call('mock_event2')])
-
-    @mock.patch.object(eventlet, 'spawn')
+    @mock.patch('coriolis.utils.start_thread')
     @mock.patch.object(schedule, 'every')
     def test_start(self, mock_every, mock_spawn):
         mock_spawn.side_effect = [
-            'spawn_loop', 'spawn_janitor', 'spawn_result_loop', 'spawn_ripper']
+            'spawn_loop', 'spawn_janitor', 'spawn_result_loop']
 
         self.cron.start()
 
@@ -503,11 +490,10 @@ class CronTestCase(test_base.CoriolisBaseTestCase):
             mock.call(self.cron._loop),
             mock.call(self.cron._janitor),
             mock.call(self.cron._result_loop),
-            mock.call(self.cron._ripper)
         ])
         self.assertEqual(
             ['spawn_loop', 'spawn_janitor', 'spawn_result_loop'],
-            self.cron._eventlets
+            self.cron._threads
         )
 
     def test_stop(self):

@@ -8,7 +8,6 @@ import tempfile
 from unittest import mock
 
 import ddt
-import eventlet
 from oslo_log import log as logging
 import psutil
 from six.moves import queue
@@ -129,9 +128,11 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         self.assertEqual(result, expected_result)
 
     @mock.patch.object(server.WorkerServerEndpoint,
+                       "_wait_for_process")
+    @mock.patch.object(server.WorkerServerEndpoint,
                        "_start_process_with_custom_library_paths")
     @mock.patch.object(server, "_task_process")
-    @mock.patch.object(eventlet, "spawn")
+    @mock.patch('coriolis.utils.start_thread')
     @mock.patch.object(server.WorkerServerEndpoint, "_rpc_conductor_client")
     @mock.patch.object(
         server.WorkerServerEndpoint, "_get_extra_library_paths_for_providers"
@@ -145,6 +146,7 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_spawn,
         mock_task_process,
         mock_start_process,
+        mock_wait_process,
     ):
         def call_exec_task_process(report_to_conductor=True):
             return self.server._exec_task_process(
@@ -223,16 +225,16 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         # Returns the spawned process result
         mock_rpc_client.set_task_host.side_effect = None
         result = call_exec_task_process()
-        self.assertEqual(result, mock_spawn.return_value.wait.return_value)
+        self.assertEqual(result, mock_wait_process.return_value)
 
         # if return value is None, raise TaskProcessCanceledException
-        mock_spawn.return_value.wait.return_value = None
+        mock_wait_process.return_value = None
         self.assertRaises(
             exception.TaskProcessCanceledException, call_exec_task_process
         )
 
         # if return value is string, raise TaskProcessException
-        mock_spawn.return_value.wait.return_value = "Test string"
+        mock_wait_process.return_value = "Test string"
         self.assertRaises(
             exception.TaskProcessException, call_exec_task_process
         )

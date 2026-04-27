@@ -337,20 +337,20 @@ class SSHBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         self.assertRaises(exception.CoriolisException, original_send_msg,
                           self.writer, mock.sentinel.data)
 
-    @mock.patch.object(backup_writers, 'eventlet')
+    @mock.patch('coriolis.utils.start_thread')
     @mock.patch.object(backup_writers.SSHBackupWriterImpl, '_encoder')
     @mock.patch.object(backup_writers.SSHBackupWriterImpl, '_sender')
     @mock.patch.object(backup_writers.SSHBackupWriterImpl, '_exec_helper_cmd')
     def test__open(self, mock_exec_helper_cmd, mock_sender, mock_encoder,
-                   mock_eventlet):
+                   mock_start_thread):
         self.writer._open()
 
         mock_exec_helper_cmd.assert_called_once()
-        mock_eventlet.spawn.assert_has_calls(
+        mock_start_thread.assert_has_calls(
             [mock.call(mock_sender), mock.call(mock_encoder),
              mock.call(mock_encoder), mock.call(mock_encoder)])
 
-        self.assertEqual(len(self.writer._encoder_evt), 3)
+        self.assertEqual(len(self.writer._encoder_threads), 3)
 
     def test_seek(self):
         self.writer.seek(mock.sentinel.offset)
@@ -473,32 +473,24 @@ class SSHBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         self.assertIsNone(self.writer._ssh)
 
     @mock.patch.object(backup_writers.SSHBackupWriterImpl, '_wait_for_queues')
-    @mock.patch.object(backup_writers, 'eventlet')
-    def test_close_with_sender_evt(self, mock_eventlet, mock_wait_for_queues):
+    def test_close_with_sender_thread(self, mock_wait_for_queues):
         mock_wait_for_queues.return_value = None
-        mock_sender_evt = mock.MagicMock()
-        self.writer._sender_evt = mock_sender_evt
+        self.writer._sender_thread = mock.MagicMock()
         self.writer._ssh = None
 
         self.writer.close()
 
-        mock_eventlet.kill.assert_called_once_with(mock_sender_evt)
-        self.assertIsNone(self.writer._sender_evt)
+        self.assertIsNone(self.writer._sender_thread)
 
     @mock.patch.object(backup_writers.SSHBackupWriterImpl, '_wait_for_queues')
-    @mock.patch.object(backup_writers, 'eventlet')
-    def test_close_with_encoder_evt(self, mock_eventlet, mock_wait_for_queues):
+    def test_close_with_encoder_threads(self, mock_wait_for_queues):
         mock_wait_for_queues.return_value = None
-        mock_encoder_evt = [mock.MagicMock(), mock.MagicMock()]
-        self.writer._encoder_evt = mock_encoder_evt
+        self.writer._encoder_threads = [mock.MagicMock(), mock.MagicMock()]
         self.writer._ssh = None
 
         self.writer.close()
 
-        mock_eventlet.kill.assert_has_calls([
-            mock.call(mock_encoder_evt[0]),
-            mock.call(mock_encoder_evt[1])])
-        self.assertEqual(self.writer._encoder_evt, [])
+        self.assertEqual(self.writer._encoder_threads, [])
 
     def test__handle_exception_with_exit_status(self):
         self.writer._stdout.channel.exit_status_ready.return_value = True
@@ -834,15 +826,15 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_init_session')
     @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_acquire')
-    @mock.patch.object(backup_writers, 'eventlet')
-    def test__open(self, mock_eventlet, mock_acquire, mock_init_session):
+    @mock.patch('coriolis.utils.start_thread')
+    def test__open(self, mock_start_thread, mock_acquire, mock_init_session):
         self.writer._compressor_count = None
 
         self.writer._open()
 
         mock_init_session.assert_called_once()
         mock_acquire.assert_called_once()
-        mock_eventlet.spawn.assert_has_calls(
+        mock_start_thread.assert_has_calls(
             [mock.call(self.writer._sender),
              mock.call(self.writer._compressor)])
 
@@ -850,16 +842,17 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_init_session')
     @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_acquire')
-    @mock.patch.object(backup_writers, 'eventlet')
+    @mock.patch('coriolis.utils.start_thread')
     def test__open_compressor_count_not_none_or_zero(
-            self, mock_eventlet, mock_acquire, mock_init_session):
+            self, mock_start_thread, mock_acquire, mock_init_session):
         self.writer._compressor_count = 2
 
         self.writer._open()
 
         self.assertEqual(
-            len(self.writer._compressor_evt), self.writer._compressor_count)
-        self.assertEqual(mock_eventlet.spawn.call_count, 3)
+            len(self.writer._compressor_threads),
+            self.writer._compressor_count)
+        self.assertEqual(mock_start_thread.call_count, 3)
 
     def test_seek(self):
         self.writer.seek(mock.sentinel.offset)
@@ -1039,17 +1032,17 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         self.writer._closing = True
 
         self.writer._session = mock.MagicMock()
-        self.writer._sender_evt = mock.MagicMock()
+        self.writer._sender_thread = mock.MagicMock()
         self.writer._comp_q = mock.MagicMock()
-        self.writer._compressor_evt = [mock.MagicMock(), mock.MagicMock()]
+        self.writer._compressor_threads = [mock.MagicMock(), mock.MagicMock()]
 
         self.writer.close()
 
         mock_wait_for_queues.assert_called_once()
         mock_release.assert_called_once()
         self.assertIsNone(self.writer._session)
-        self.assertIsNone(self.writer._sender_evt)
-        self.assertIsNone(self.writer._compressor_evt)
+        self.assertIsNone(self.writer._sender_thread)
+        self.assertIsNone(self.writer._compressor_threads)
 
     @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_wait_for_queues')
     @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_release')

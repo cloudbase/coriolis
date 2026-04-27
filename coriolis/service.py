@@ -128,7 +128,7 @@ class WSGIService(service.ServiceBase):
             self._workers = (
                 CONF.api_migration_workers or processutils.get_worker_count())
 
-        self._loader = wsgi.Loader(CONF)
+        self._loader = oslo_wsgi.Loader(CONF)
         self._app = self._loader.load_app(name)
 
         bind_addr = (self._host, self._port)

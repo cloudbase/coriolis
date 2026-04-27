@@ -1,6 +1,7 @@
 # Copyright 2024 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from oslo_service import backend
 from oslotest import mock_fixture
 
 # NOTE(claudiub): this needs to be called before any mock.patch calls are
@@ -8,3 +9,5 @@ from oslotest import mock_fixture
 # the mock.patch autospec issue:
 # https://github.com/testing-cabal/mock/issues/396
 mock_fixture.patch_mock_module()
+
+backend.init_backend(backend.BackendType.THREADING)
