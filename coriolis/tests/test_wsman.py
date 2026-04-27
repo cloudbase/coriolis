@@ -122,7 +122,8 @@ class WSManConnectionTestCase(test_base.CoriolisBaseTestCase):
             mock.ANY, mock.ANY)
         self.conn._protocol.close_shell.assert_called_once_with(mock.ANY)
 
-    def test__exec_command_invalid_credentials(self):
+    @mock.patch("time.sleep")
+    def test__exec_command_invalid_credentials(self, mock_sleep):
         self.conn._protocol.open_shell.side_effect = (
             wsman.winrm_exceptions.InvalidCredentialsError)
 

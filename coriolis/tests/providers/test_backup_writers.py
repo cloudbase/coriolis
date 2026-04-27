@@ -940,11 +940,12 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         self.assertEqual(self.writer._write_error, False)
         self.assertIsInstance(self.writer._exception, BaseException)
 
+    @mock.patch("time.sleep")
     @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_ensure_session')
     @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_uri')
     @mock.patch.object(backup_writers, 'CONF')
     def test__sender_with_exception(self, mock_conf, mock_uri,
-                                    mock_ensure_session):
+                                    mock_ensure_session, mock_sleep):
         self.writer._session = mock.MagicMock()
         self.writer._sender_q = mock.MagicMock()
         mock_response = mock.MagicMock()
