@@ -689,7 +689,7 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
             return
 
     def _compressor(self):
-        LOG.debug("Backup comperssor started.")
+        LOG.debug("Backup compressor started.")
         while not self._stopped:
             try:
                 payload = self._comp_q.get(timeout=2)
