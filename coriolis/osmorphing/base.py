@@ -433,6 +433,16 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
     def _reset_cloud_init_run(self):
         self._exec_cmd_chroot("cloud-init clean --logs")
 
+    def _get_cloud_init_modules(self):
+        cloud_cfg_path = 'etc/cloud/cloud.cfg'
+        if not self._test_path(cloud_cfg_path):
+            return
+        cloud_cfg_content = self._read_file_sudo(cloud_cfg_path)
+        cloud_cfg = yaml.load(cloud_cfg_content, Loader=yaml.SafeLoader)
+        modules = cloud_cfg.get('cloud_init_modules', [])
+
+        return modules
+
     def _get_default_cloud_user(self):
         cloud_cfg_path = 'etc/cloud/cloud.cfg'
         if not self._test_path(cloud_cfg_path):
@@ -472,6 +482,10 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         if not self._osmorphing_parameters.get('set_dhcp', True):
             disabled_network_config = {"network": {"config": "disabled"}}
             cloud_cfg_mods.update(disabled_network_config)
+            modules = self._get_cloud_init_modules()
+            if 'update_etc_hosts' in modules:
+                modules = [m for m in modules if m != 'update_etc_hosts']
+                cloud_cfg_mods.update({'cloud_init_modules': modules})
 
         self._write_cloud_init_mods_config(cloud_cfg_mods)
 

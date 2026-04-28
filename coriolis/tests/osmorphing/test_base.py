@@ -662,6 +662,26 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
             "cloud-init clean --logs")
 
     @ddt.data(
+        (False, None, None),
+        (True, "other_modules:\n  - not_update_etc_hosts\n"
+         "cloud_init_modules:\n  - set_hostname\n  - update_etc_hosts\n",
+         ["set_hostname", "update_etc_hosts"]),
+        (True, "other_modules:\n  - update_etc_hosts\n", [])
+    )
+    @ddt.unpack
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, "_read_file_sudo")
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, "_test_path")
+    def test__get_cloud_init_modules(
+            self, test_path_result, file_content,
+            expected_result, mock__test_path, mock__read_file_sudo):
+        mock__test_path.return_value = test_path_result
+        mock__read_file_sudo.return_value = file_content
+
+        result = self.os_morphing_tools._get_cloud_init_modules()
+
+        self.assertEqual(result, expected_result)
+
+    @ddt.data(
         (False, None, base.DEFAULT_CLOUD_USER),
         (True, "system_info:\n  default_user:\n    name: mock_user\n",
          "mock_user"),
@@ -713,6 +733,7 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
             ["vim"],
             {},
             False,
+            [],
             None,
             False
         ),
@@ -720,6 +741,7 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
             ["cloud-init"],
             {"retain_user_credentials": True, "set_dhcp": False},
             False,
+            ["set_hostname"],
             {
                 "disable_root": False,
                 "ssh_pwauth": True,
@@ -732,7 +754,19 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
             ["cloud-init", "vim"],
             {"retain_user_credentials": False, "set_dhcp": True},
             True,
+            [],
             {},
+            False
+        ),
+        (
+            ["cloud-init", "vim"],
+            {"retain_user_credentials": False, "set_dhcp": False},
+            True,
+            ["update_etc_hosts", "set_hostname", "write_files"],
+            {
+                "network": {"config": "disabled"},
+                "cloud_init_modules": ["set_hostname", "write_files"]
+            },
             False
         ),
     )
@@ -740,6 +774,8 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(base.BaseLinuxOSMorphingTools,
                        '_enable_systemd_service')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_has_systemd_chroot')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools,
+                       '_get_cloud_init_modules')
     @mock.patch.object(base.BaseLinuxOSMorphingTools,
                        '_write_cloud_init_mods_config')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_create_cloudinit_user')
@@ -751,15 +787,18 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(base.BaseLinuxOSMorphingTools, 'get_packages')
     def test__configure_cloud_init(
             self, returned_packages, osmorphing_params, creates_cloudinit_user,
+            cloud_init_modules,
             expected_result, has_systemd_chroot, mock_get_packages,
             mock__disable_installer_cloud_config,
             mock__ensure_cloud_init_not_disabled, mock__reset_cloud_init_run,
             mock__create_cloudinit_user, mock__write_cloud_init_mods_config,
+            mock__get_cloud_init_modules,
             mock__has_systemd_chroot, mock__enable_systemd_service
     ):
         mock_get_packages.return_value = returned_packages
         self.os_morphing_tools._osmorphing_parameters = osmorphing_params
         mock__has_systemd_chroot.return_value = has_systemd_chroot
+        mock__get_cloud_init_modules.return_value = cloud_init_modules
 
         self.os_morphing_tools._configure_cloud_init()
 
