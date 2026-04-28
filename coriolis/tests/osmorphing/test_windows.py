@@ -677,8 +677,28 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             "HKLM\\%s" % mock_uuid4.return_value)
 
     def test__compile_static_ip_conf_from_registry(self):
+        class_base_path = (windows.NET_ADAPTER_CLASS_BASE_PATH_FORMAT %
+                           mock.sentinel.key_name)
+        adapter_map_ps_cmd = (
+            "$ErrorActionPreference = 'SilentlyContinue'; "
+            "$classBase = '%(base)s'; "
+            "$netClassGuid = (Get-ChildItem $classBase "
+            "-ErrorAction SilentlyContinue | "
+            "ForEach-Object { $p = Get-ItemProperty $_.PSPath "
+            "-ErrorAction SilentlyContinue; "
+            "if ($p.Class -eq 'Net') { $_.PSChildName } }); "
+            "Get-ChildItem -Path \"$classBase\\$netClassGuid\" "
+            "-ErrorAction SilentlyContinue | "
+            "ForEach-Object { $p = Get-ItemProperty -Path $_.PSPath "
+            "-ErrorAction SilentlyContinue; "
+            "if ($p.NetCfgInstanceId -and $p.DriverDesc) "
+            "{ \"$($p.NetCfgInstanceId)|$($p.DriverDesc)|"
+            "$($p.NetworkAddress)\" } }; "
+            "exit 0" % {'base': class_base_path})
+
         self.conn.exec_ps_command.side_effect = [
             'interface1\ninterface2',
+            '',
             '0',
             '192.168.1.254',
             '8.8.8.8',
@@ -696,6 +716,7 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             mock.call(
                 "(((Get-ChildItem -Path '%s').Name | Select-String -Pattern "
                 "'[^\\\\]+$').Matches).Value" % interfaces_reg_path),
+            mock.call(adapter_map_ps_cmd),
             mock.call(
                 "(Get-ItemProperty -Path '%s\\interface1').EnableDHCP" %
                 interfaces_reg_path),
@@ -720,13 +741,35 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             {"ip_addresses": ['192.168.1.1'],
              "prefix_lengths": [24],
              "default_gateway": '192.168.1.254',
-             "dns_addresses": '8.8.8.8'}
+             "dns_addresses": '8.8.8.8',
+             "interface_name": '',
+             "network_address": ''}
         ]
         self.assertEqual(result, expected_ips_info)
 
     def test_compile_static_ip_conf_from_registry_no_ip_or_subnet(self):
+        class_base_path = (windows.NET_ADAPTER_CLASS_BASE_PATH_FORMAT %
+                           mock.sentinel.key_name)
+        adapter_map_ps_cmd = (
+            "$ErrorActionPreference = 'SilentlyContinue'; "
+            "$classBase = '%(base)s'; "
+            "$netClassGuid = (Get-ChildItem $classBase "
+            "-ErrorAction SilentlyContinue | "
+            "ForEach-Object { $p = Get-ItemProperty $_.PSPath "
+            "-ErrorAction SilentlyContinue; "
+            "if ($p.Class -eq 'Net') { $_.PSChildName } }); "
+            "Get-ChildItem -Path \"$classBase\\$netClassGuid\" "
+            "-ErrorAction SilentlyContinue | "
+            "ForEach-Object { $p = Get-ItemProperty -Path $_.PSPath "
+            "-ErrorAction SilentlyContinue; "
+            "if ($p.NetCfgInstanceId -and $p.DriverDesc) "
+            "{ \"$($p.NetCfgInstanceId)|$($p.DriverDesc)|"
+            "$($p.NetworkAddress)\" } }; "
+            "exit 0" % {'base': class_base_path})
+
         self.conn.exec_ps_command.side_effect = [
             'interface1',
+            '',
             '0',
             "default_gateway",
             "nameservers",
@@ -745,6 +788,7 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             mock.call(
                 "(((Get-ChildItem -Path '%s').Name | Select-String -Pattern "
                 "'[^\\\\]+$').Matches).Value" % interfaces_reg_path),
+            mock.call(adapter_map_ps_cmd),
             mock.call("(Get-ItemProperty -Path '%s\\interface1').EnableDHCP" %
                       interfaces_reg_path),
             mock.call(
@@ -760,8 +804,28 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         ])
 
     def test_compile_static_ip_conf_from_registry_no_static_ip(self):
+        class_base_path = (windows.NET_ADAPTER_CLASS_BASE_PATH_FORMAT %
+                           mock.sentinel.key_name)
+        adapter_map_ps_cmd = (
+            "$ErrorActionPreference = 'SilentlyContinue'; "
+            "$classBase = '%(base)s'; "
+            "$netClassGuid = (Get-ChildItem $classBase "
+            "-ErrorAction SilentlyContinue | "
+            "ForEach-Object { $p = Get-ItemProperty $_.PSPath "
+            "-ErrorAction SilentlyContinue; "
+            "if ($p.Class -eq 'Net') { $_.PSChildName } }); "
+            "Get-ChildItem -Path \"$classBase\\$netClassGuid\" "
+            "-ErrorAction SilentlyContinue | "
+            "ForEach-Object { $p = Get-ItemProperty -Path $_.PSPath "
+            "-ErrorAction SilentlyContinue; "
+            "if ($p.NetCfgInstanceId -and $p.DriverDesc) "
+            "{ \"$($p.NetCfgInstanceId)|$($p.DriverDesc)|"
+            "$($p.NetworkAddress)\" } }; "
+            "exit 0" % {'base': class_base_path})
+
         self.conn.exec_ps_command.side_effect = [
             'interface1',
+            '',
             '1',
         ]
         interfaces_reg_path = (windows.INTERFACES_PATH_FORMAT %
@@ -775,6 +839,7 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             mock.call(
                 "(((Get-ChildItem -Path '%s').Name | Select-String -Pattern "
                 "'[^\\\\]+$').Matches).Value" % interfaces_reg_path),
+            mock.call(adapter_map_ps_cmd),
             mock.call("(Get-ItemProperty -Path '%s\\interface1').EnableDHCP" %
                       interfaces_reg_path),
         ])
