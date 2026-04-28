@@ -4,12 +4,13 @@
 """
 Import-side (destination) implementation of the test provider.
 
-Uses HTTPBackupWriterBootstrapper (via SSH to 127.0.0.1) to deploy and manage
-the coriolis-writer service and provides the target_conn_info that
-BackupWritersFactory expects.
+Uses HTTPBackupWriterBootstrapper (via SSH to a Docker data-minion container)
+to deploy and manage the coriolis-writer service and provides the
+target_conn_info that BackupWritersFactory expects.
 """
 
 import os
+import uuid
 
 from oslo_log import log as logging
 import paramiko
@@ -22,13 +23,12 @@ from coriolis.providers.base import BaseEndpointStorageProvider
 from coriolis.providers.base import BaseReplicaImportProvider
 from coriolis.providers.base import BaseReplicaImportValidationProvider
 from coriolis.providers.base import BaseUpdateDestinationReplicaProvider
-from coriolis import utils
+from coriolis.tests.integration import utils as test_utils
 
 LOG = logging.getLogger(__name__)
 
-# Port used by the test writer binary. Chosen to avoid collision with the
-# production default (6677).
-WRITER_TEST_PORT = 16677
+# Port used by the test writer binary inside the container.
+WRITER_TEST_PORT = 6677
 
 
 class TestImportProvider(
@@ -145,39 +145,50 @@ class TestImportProvider(
     def deploy_replica_target_resources(
             self, ctxt, connection_info, target_environment, volumes_info):
         pkey_path = connection_info["pkey_path"]
-        pkey = paramiko.RSAKey.from_private_key_file(pkey_path)
-        ssh_conn_info = {
-            "ip": "127.0.0.1",
-            "port": 22,
-            "username": "root",
-            "pkey": pkey,
-        }
+        dest_devices = [vol["volume_dev"] for vol in volumes_info]
+        container_name = "coriolis-writer-%s" % uuid.uuid4().hex[:8]
 
-        bootstrapper = backup_writers.HTTPBackupWriterBootstrapper(
-            ssh_conn_info, WRITER_TEST_PORT)
-        writer_conn_details = bootstrapper.setup_writer()
+        container_id = test_utils.start_container(
+            test_utils.DATA_MINION_IMAGE,
+            container_name,
+            is_systemd=True,
+            ssh_key=f"{pkey_path}.pub",
+            devices=dest_devices,
+        )
 
-        return {
-            "volumes_info": volumes_info,
-            "connection_info": {
-                "backend": "http_backup_writer",
-                "connection_details": writer_conn_details,
-            },
-            "migr_resources": {},
-        }
+        try:
+            container_ip = test_utils.get_container_ip(container_id)
+            test_utils.wait_for_ssh(container_ip, 22, "root", pkey_path)
+
+            pkey = paramiko.RSAKey.from_private_key_file(pkey_path)
+            ssh_conn_info = {
+                "ip": container_ip,
+                "port": 22,
+                "username": "root",
+                "pkey": pkey,
+            }
+            bootstrapper = backup_writers.HTTPBackupWriterBootstrapper(
+                ssh_conn_info, WRITER_TEST_PORT)
+            writer_conn_details = bootstrapper.setup_writer()
+
+            return {
+                "volumes_info": volumes_info,
+                "connection_info": {
+                    "backend": "http_backup_writer",
+                    "connection_details": writer_conn_details,
+                },
+                "migr_resources": {"container_id": container_id},
+            }
+        except Exception:
+            test_utils.stop_container(container_id)
+            raise
 
     def delete_replica_target_resources(
             self, ctxt, connection_info, target_environment,
             migr_resources_dict):
-        pkey_path = connection_info.get("pkey_path")
-        if not pkey_path:
-            return
-        ssh = _ssh_connect(pkey_path)
-        try:
-            utils.stop_service(
-                ssh, backup_writers._CORIOLIS_HTTP_WRITER_CMD)
-        finally:
-            ssh.close()
+        container_id = (migr_resources_dict or {}).get("container_id")
+        if container_id:
+            test_utils.stop_container(container_id)
 
     def delete_replica_disks(
             self, ctxt, connection_info, target_environment, volumes_info):
@@ -254,18 +265,3 @@ class TestImportProvider(
     def validate_replica_deployment_input(
             self, ctxt, connection_info, target_environment, export_info):
         return {}
-
-
-# Helpers
-def _ssh_connect(pkey_path):
-    pkey = paramiko.RSAKey.from_private_key_file(pkey_path)
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(hostname="127.0.0.1", username="root", pkey=pkey)
-    return ssh
-
-
-def _read_file(path):
-    """Return the contents of *path* as a string."""
-    with open(path) as fh:
-        return fh.read()

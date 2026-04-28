@@ -13,6 +13,7 @@ Subclasses must be run as root.
 """
 
 import os
+import subprocess
 import time
 import unittest
 from unittest import mock
@@ -33,7 +34,7 @@ from coriolis.tests import test_base
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
-# Path to the SSH private key used to connect to the (local) provider.
+# Path to the SSH private key used to connect to the (local) provider minions.
 # Override via the CORIOLIS_TEST_SSH_KEY_PATH environment variable.
 _TEST_SSH_KEY_PATH = os.environ.get(
     'CORIOLIS_TEST_SSH_KEY_PATH', '/root/.ssh/id_rsa')
@@ -109,6 +110,29 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
 
 
 class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
+
+    @classmethod
+    def setUpClass(cls):
+        if not os.path.exists(_TEST_SSH_KEY_PATH):
+            raise unittest.SkipTest(
+                "SSH private key not found at %r; set "
+                "CORIOLIS_TEST_SSH_KEY_PATH to the path of your key."
+                % _TEST_SSH_KEY_PATH)
+
+        result = subprocess.run(
+            ["docker", "image", "inspect", test_utils.DATA_MINION_IMAGE],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        if result.returncode != 0:
+            raise unittest.SkipTest(
+                "Docker image not found; build it with: "
+                "docker build -t %s "
+                "coriolis/tests/integration/dockerfiles/data-minion/"
+                % test_utils.DATA_MINION_IMAGE)
+
+        super().setUpClass()
+
     def setUp(self):
         super().setUp()
 
@@ -154,6 +178,7 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
         repl = "coriolis.providers.replicator.Replicator"
         for prop in [
             "coriolis.providers.backup_writers._disable_lvm2_lvmetad",
+            "coriolis.providers.backup_writers._disable_lvm_metad_udev_rule",
             f"{bkup}._add_firewalld_port",
             f"{bkup}._change_binary_se_context",
             f"{repl}._change_binary_se_context",

@@ -4,11 +4,12 @@
 """
 Export-side (source) implementation of the test provider.
 
-Uses Replicator (via SSH to 127.0.0.1) to deploy and manage the
-coriolis-replicator service and perform disk replication.
+Uses Replicator (via SSH to a Docker data-minion container) to deploy and
+manage the coriolis-replicator service and perform disk replication.
 """
 
 import os
+import uuid
 
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -22,6 +23,7 @@ from coriolis.providers.base import BaseReplicaExportProvider
 from coriolis.providers.base import BaseReplicaExportValidationProvider
 from coriolis.providers.base import BaseUpdateSourceReplicaProvider
 from coriolis.providers import replicator as replicator_module
+from coriolis.tests.integration import utils as test_utils
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
@@ -51,16 +53,21 @@ class TestExportProvider(
     def _event_manager(self):
         return events.EventManager(self._event_handler)
 
-    def _make_replicator(self, pkey_path, event_mgr, volumes_info, repl_state):
-        # TODO(claudiub): Use containers instead of using 127.0.0.1.
-        pkey = paramiko.RSAKey.from_private_key_file(pkey_path)
-        conn_info = {
-            "ip": "127.0.0.1",
-            "username": "root",
+    def _make_replicator(self, conn_info, event_mgr, volumes_info, repl_state):
+        """Build a Replicator that connects via SSH to *conn_info*.
+
+        *conn_info* must contain ``ip``, ``port``, ``username``, and
+        ``pkey_path`` keys.
+        """
+        pkey = paramiko.RSAKey.from_private_key_file(conn_info["pkey_path"])
+        repl_conn_info = {
+            "ip": conn_info["ip"],
+            "port": conn_info.get("port", 22),
+            "username": conn_info.get("username", "root"),
             "pkey": pkey,
         }
         return replicator_module.Replicator(
-            conn_info, event_mgr, volumes_info, repl_state)
+            repl_conn_info, event_mgr, volumes_info, repl_state)
 
     # BaseProvider / BaseEndpointProvider
 
@@ -179,42 +186,56 @@ class TestExportProvider(
         block_device_path = connection_info["block_device_path"]
         pkey_path = connection_info["pkey_path"]
 
-        replicator = self._make_replicator(
-            pkey_path, self._event_manager(), [], None)
-        replicator.init_replicator()
+        container_name = "coriolis-replicator-%s" % uuid.uuid4().hex[:8]
+        container_id = test_utils.start_container(
+            test_utils.DATA_MINION_IMAGE,
+            container_name,
+            is_systemd=True,
+            ssh_key=f"{pkey_path}.pub",
+            devices=[block_device_path],
+        )
 
-        disk_id = os.path.basename(block_device_path)
-        return {
-            "connection_info": {
-                "ip": "127.0.0.1",
+        try:
+            container_ip = test_utils.get_container_ip(container_id)
+            test_utils.wait_for_ssh(container_ip, 22, "root", pkey_path)
+
+            src_conn_info = {
+                "ip": container_ip,
                 "port": 22,
                 "username": "root",
                 "pkey_path": pkey_path,
-            },
-            "migr_resources": {
-                "disk_mappings": {disk_id: block_device_path},
-            },
-        }
+            }
+            replicator = self._make_replicator(
+                src_conn_info, self._event_manager(), [], None)
+            replicator.init_replicator()
+
+            disk_id = os.path.basename(block_device_path)
+            return {
+                "connection_info": src_conn_info,
+                "migr_resources": {
+                    "container_id": container_id,
+                    "disk_mappings": {disk_id: block_device_path},
+                },
+            }
+        except Exception:
+            test_utils.stop_container(container_id)
+            raise
 
     def delete_replica_source_resources(
             self, ctxt, connection_info, source_environment,
             migr_resources_dict):
-        pkey_path = connection_info.get("pkey_path")
-        if not pkey_path:
-            return
-        replicator = self._make_replicator(
-            pkey_path, self._event_manager(), [], None)
-        replicator.stop()
+        container_id = (migr_resources_dict or {}).get("container_id")
+        if container_id:
+            test_utils.stop_container(container_id)
 
     def replicate_disks(
             self, ctxt, connection_info, source_environment, instance_name,
             source_resources, source_conn_info, target_conn_info,
             volumes_info, incremental):
-        pkey_path = source_conn_info["pkey_path"]
         repl_state = _extract_repl_state(volumes_info) if incremental else None
 
         replicator = self._make_replicator(
-            pkey_path, self._event_manager(), volumes_info, repl_state)
+            source_conn_info, self._event_manager(), volumes_info, repl_state)
         replicator.init_replicator()
         replicator.wait_for_chunks()
 
