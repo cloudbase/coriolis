@@ -50,7 +50,6 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
         super().setUpClass()
         cls._harness = harness._IntegrationHarness.get()
         cls._workdir = cls._harness.workdir
-        cls._db_path = cls._harness.db_path
         cls._lock_path = cls._harness.lock_path
         cls._api_port = cls._harness.api_port
         cls._client = cls.get_client()
