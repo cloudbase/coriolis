@@ -13,6 +13,7 @@ exception, triggers a transfer execution, and asserts that:
 Must be run as root; requires the scsi_debug kernel module.
 """
 
+import unittest
 from unittest import mock
 
 from coriolis.tests.integration import base
@@ -24,6 +25,9 @@ class TransferFailureIntegrationTest(base.ReplicaIntegrationTestBase):
 
     def test_error_status_on_provider_failure(self):
         """Execution reaches ERROR when target resource deployment fails."""
+        raise unittest.SkipTest(
+            "Currently skipped, causes the test process to be killed. "
+            "Re-enable the test once we switch to external Coriolis services.")
 
         injected_error = Exception("injected target resource failure")
 
