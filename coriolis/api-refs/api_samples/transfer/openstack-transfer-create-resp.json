@@ -49,6 +49,7 @@
       }
     },
     "executions": [],
-    "scenario": "replica"
+    "scenario": "replica",
+    "clustered": false
   }
 }

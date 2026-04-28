@@ -118,9 +118,14 @@
                 "type": "string",
                 "description": "The allocation scheme for the given disk (static = thick; dynamic = thin)",
                 "enum": ["static", "dynamic"]
+              },
+              "shareable": {
+                "type": "boolean",
+                "description": "Whether the disk is shared (multi-writer) and can be attached to multiple VMs simultaneously."
               }
             },
             "required": [
+              "id",
               "size_bytes"
             ]
           }

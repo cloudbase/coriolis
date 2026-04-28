@@ -8,6 +8,7 @@ from coriolis import events
 from coriolis import exception
 from coriolis.providers import factory as providers_factory
 from coriolis.tasks import base
+from coriolis import utils
 
 LOG = logging.getLogger(__name__)
 
@@ -476,6 +477,16 @@ class _BaseAttachVolumesToTransferMinionTask(
     @classmethod
     def _get_volumes_info_from_task_info(cls, task_info):
         return task_info["volumes_info"]
+
+    def _run(
+            self, ctxt, instance, origin, destination, task_info,
+            event_handler):
+        export_info = task_info.get("export_info")
+        if export_info:
+            utils.apply_export_disk_shareable_metadata_to_volumes_info(
+                export_info, self._get_volumes_info_from_task_info(task_info))
+        return super(_BaseAttachVolumesToTransferMinionTask, self)._run(
+            ctxt, instance, origin, destination, task_info, event_handler)
 
     @classmethod
     def get_required_task_info_properties(cls):

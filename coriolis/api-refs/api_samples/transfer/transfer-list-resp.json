@@ -74,7 +74,8 @@
         "instances": {}
       },
       "id": "0460aa4d-6b16-4c98-bd56-27ee186e4a22",
-      "scenario": "replica"
+      "scenario": "replica",
+      "clustered": false
     }
   ]
 }

@@ -283,6 +283,7 @@ class BaseTransferActionTestCase(test_base.CoriolisBaseTestCase):
         transfer.info = mock.sentinel.info
         transfer.clone_disks = True
         transfer.skip_os_morphing = False
+        transfer.clustered = False
         expected_result = {
             "base_id": mock.sentinel.base_id,
             "user_id": mock.sentinel.user_id,
@@ -314,6 +315,7 @@ class BaseTransferActionTestCase(test_base.CoriolisBaseTestCase):
             "info": mock.sentinel.info,
             "clone_disks": True,
             "skip_os_morphing": False,
+            "clustered": False,
         }
 
         result = transfer.to_dict()
