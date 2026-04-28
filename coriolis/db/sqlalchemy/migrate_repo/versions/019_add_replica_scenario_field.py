@@ -9,7 +9,9 @@ def upgrade(migrate_engine):
     meta.bind = migrate_engine
 
     replica = sqlalchemy.Table(
-        'replica', meta, autoload=True)
+        'replica', meta, autoload=True,
+        mysql_engine="InnoDB",
+        mysql_charset="utf8")
 
     replica_scenario = sqlalchemy.Column(
         "scenario", sqlalchemy.String(255), nullable=False,

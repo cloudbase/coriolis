@@ -6,7 +6,9 @@ def upgrade(migrate_engine):
     meta.bind = migrate_engine
 
     base_transfer = sqlalchemy.Table(
-        'base_transfer_action', meta, autoload=True)
+        'base_transfer_action', meta, autoload=True,
+        mysql_engine="InnoDB",
+        mysql_charset="utf8")
     clone_disks = sqlalchemy.Column(
         "clone_disks", sqlalchemy.Boolean, nullable=False, default=True)
     base_transfer.create_column(clone_disks)

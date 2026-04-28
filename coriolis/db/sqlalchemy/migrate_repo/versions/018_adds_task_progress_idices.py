@@ -11,7 +11,9 @@ def upgrade(migrate_engine):
     task_event.create_column(event_index)
 
     task_progress_update = sqlalchemy.Table(
-        'task_progress_update', meta, autoload=True)
+        'task_progress_update', meta, autoload=True,
+        mysql_engine="InnoDB",
+        mysql_charset="utf8")
     progress_index = sqlalchemy.Column(
         "index", sqlalchemy.Integer, default=0, nullable=False)
     task_progress_update.create_column(progress_index)
