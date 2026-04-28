@@ -285,6 +285,28 @@ class BaseSUSEMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         expected_repo = suse.CLOUD_TOOLS_REPO_URI_FORMAT % ('test_release', '')
         mock_add_repo.assert_called_once_with(expected_repo, 'Cloud-Tools')
 
+    @mock.patch.object(suse.BaseSUSEMorphingTools, '_add_repo')
+    def test_add_cloud_tools_repo_version_16(self, mock_add_repo):
+        self.morphing_tools._version = "16"
+
+        self.morphing_tools._add_cloud_tools_repo()
+
+        expected_repo = suse.CLOUD_TOOLS_REPO_URI_VERSION_ONLY_FORMAT % "16"
+        mock_add_repo.assert_called_once_with(expected_repo, 'Cloud-Tools')
+
+    @mock.patch.object(suse.BaseSUSEMorphingTools, '_add_repo')
+    def test_add_cloud_tools_repo_add_repo_failure(self, mock_add_repo):
+        mock_add_repo.side_effect = Exception("connection error")
+
+        with self.assertLogs(
+                'coriolis.osmorphing.suse', level=logging.WARNING):
+            self.morphing_tools._add_cloud_tools_repo()
+
+        expected_repo = suse.CLOUD_TOOLS_REPO_URI_FORMAT % (
+            'test_release', '_12')
+        mock_add_repo.assert_called_once_with(expected_repo, 'Cloud-Tools')
+        self.event_manager.progress_update.assert_called_once()
+
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     def test__get_repos(self, mock_exec_cmd_chroot):
         mock_exec_cmd_chroot.return_value = (
