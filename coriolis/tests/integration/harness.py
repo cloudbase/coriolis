@@ -6,7 +6,7 @@ Base test harness for Coriolis integration tests.
 
 Starts conductor, scheduler, and worker services in-process using
 oslo.messaging's fake:// transport and a temporary SQLite database. Serves
-the Coriolis REST API via eventlet on a random local port. No RabbitMQ,
+the Coriolis REST API via cheroot on a random local port. No RabbitMQ,
 Keystone, or Barbican are required.
 
 Tasks are executed in-process as greenlets rather than subprocesses. The
@@ -21,16 +21,17 @@ import atexit
 import os
 import queue
 import shutil
+import socket
 import tempfile
 from unittest import mock
+import uuid
 
-import eventlet
-import eventlet.wsgi
+from cheroot.workers import threadpool as cheroot_threadpool
+from cheroot import wsgi as cheroot_wsgi
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_middleware import request_id as request_id_middleware
 from oslo_service import wsgi as base_wsgi
-from oslo_utils import timeutils
 import webob.dec
 
 from coriolis import api as api_module
@@ -44,7 +45,6 @@ from coriolis import context
 from coriolis.db import api as db_api
 from coriolis.db.sqlalchemy import api as sqlalchemy_api
 from coriolis.db.sqlalchemy import migration as db_migration
-from coriolis.db.sqlalchemy import models
 from coriolis import exception
 from coriolis import policy as policy_module
 from coriolis import rpc as rpc_module
@@ -69,6 +69,28 @@ _TEST_IMPORT_PROVIDER = (
 
 # Fixed project used for all test requests.
 _TEST_PROJECT_ID = 'integration-project'
+
+
+class DaemonCherootWorker(cheroot_threadpool.WorkerThread):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.daemon = True
+        # Mark the cheroot threads as daemons so that the main thread won't
+        # wait for them when closing. The WSGI will be stopped using "atexit",
+        # which runs a bit later.
+        #
+        # Possible alternatives if this becomes a problem:
+        #   * Use threading._register_atexit instead of atexit
+        #     * may become public:
+        #       https://github.com/python/cpython/issues/86128
+        #   * Cleanup the harness in tearDownClass
+        #     * we tried to avoid spinning up the services for every test class
+        #   * Move the api services to a separate process
+        #     * we're currently relying on the "fake" messaging backend, which
+        #       doesn't work with separate processes.
+
+
+cheroot_threadpool.WorkerThread = DaemonCherootWorker
 
 
 class _NoAuthMiddleware(api_wsgi.Middleware):
@@ -133,7 +155,6 @@ class _InProcessWorkerServerEndpoint(worker_rpc_server.WorkerServerEndpoint):
     The fake:// transport is in-memory and process-local. A subprocess would
     initialise its own isolated fake:// instance with no conductor listener, so
     every RPC call made by the task's event handler would block indefinitely.
-    Running inline keeps all RPC calls within the same eventlet hub.
     """
 
     def _exec_task_process(
@@ -163,45 +184,13 @@ class _InProcessWorkerServerEndpoint(worker_rpc_server.WorkerServerEndpoint):
                 LOG.exception(ex)
                 result_q.put(str(ex))
 
-        eventlet.spawn(_run).wait()
+        thread = coriolis_utils.start_thread(_run)
+        thread.join()
 
         result = result_q.get_nowait()
         if isinstance(result, str):
             raise exception.TaskProcessException(result)
         return result
-
-
-def _sqlite_delete_transfer_action(context, cls, id):
-    """Per-object soft-delete workaround for SQLite.
-
-    SQLite does not support the bulk UPDATE ... FROM ... statement that
-    oslo.db's Query.soft_delete() generates for joined-table-inheritance
-    models (Transfer / Deployment -> BaseTransferAction).
-
-    This replacement iterates over objects individually and is used only when
-    integration tests run against SQLite.
-    """
-    args = {"base_id": id}
-    if db_api.is_user_context(context):
-        args["project_id"] = context.project_id
-
-    session = db_api._session(context)
-    now = timeutils.utcnow()
-    objs = db_api._soft_delete_aware_query(
-        context, cls).filter_by(**args).all()
-    if not objs:
-        raise exception.NotFound("0 entries were soft deleted")
-
-    for obj in objs:
-        obj.deleted_at = now
-        obj.deleted = 1
-        obj.save(session=session)
-
-    for execution in db_api._soft_delete_aware_query(
-            context, models.TasksExecution).filter_by(action_id=id).all():
-        execution.deleted_at = now
-        execution.deleted = 1
-        execution.save(session=session)
 
 
 class _IntegrationHarness:
@@ -223,9 +212,14 @@ class _IntegrationHarness:
 
     def __init__(self):
         self.workdir = tempfile.mkdtemp(prefix="coriolis-integration-")
-        self.db_path = os.path.join(self.workdir, "test.db")
         self.lock_path = os.path.join(self.workdir, "locks")
         os.makedirs(self.lock_path)
+
+        self._mysql_container_name = "coriolis-test-mysql-%s" % str(
+            uuid.uuid4()).split("-")[0]
+        self._mysql_username = "root"
+        self._mysql_password = "coriolis"
+        self._mysql_database = "coriolis"
 
         coriolis_conf.init_common_opts()
         cfg.CONF([], project='coriolis', version='1.0.0',
@@ -233,8 +227,16 @@ class _IntegrationHarness:
         cfg.CONF.set_override('messaging_transport_url', 'fake://')
         cfg.CONF.set_override(
             'providers', [_TEST_EXPORT_PROVIDER, _TEST_IMPORT_PROVIDER])
+        db_url = ('mysql+pymysql://%(user)s:%(password)s'
+                  '@localhost:3306/%(database)s') % {
+            "user": self._mysql_username,
+            "password": self._mysql_password,
+            "database": self._mysql_database,
+        }
         cfg.CONF.set_override(
-            'connection', 'sqlite:///%s' % self.db_path, group='database')
+            'connection', db_url, group='database')
+        cfg.CONF.set_override(
+            'retry_interval', 1, group='database')
         cfg.CONF.set_override(
             'lock_path', self.lock_path, group='oslo_concurrency')
         coriolis_utils.setup_logging()
@@ -243,31 +245,46 @@ class _IntegrationHarness:
         # Policy enforcer: reset so it re-reads the new CONF (no policy file).
         policy_module.reset()
 
-        # SQLAlchemy facade and RPC transport are module-level singletons;
-        # reset them so they are re-created from the new CONF values.
-        sqlalchemy_api._facade = None
-        rpc_module._TRANSPORT = None
-
-        engine = db_api.get_engine()
-        db_migration.db_sync(engine)
-
-        # SQLite does not support bulk UPDATE ... FROM ... for
-        # joined-table-inheritance models; replace the production function
-        # with a per-object alternative for the lifetime of this process.
-        db_api._delete_transfer_action = _sqlite_delete_transfer_action
-
-        self._sock = None
+        self._wsgi_server = None
+        self._wsgi_server_thread = None
         self.api_port = None
         self._conductor_svc = None
         self._scheduler_svc = None
         self._worker_svc = None
         self._worker_host_svc = None
-        self._start_services()
+
+        # SQLAlchemy facade and RPC transport are module-level singletons;
+        # reset them so they are re-created from the new CONF values.
+        sqlalchemy_api._facade = None
+        rpc_module._TRANSPORT = None
 
         atexit.register(self._teardown)
 
-    def _start_services(self):
+        self._start_db_container()
+
+        engine = db_api.get_engine()
+        db_migration.db_sync(engine)
+
+        self._start_coriolis_services()
+
+    def _start_db_container(self):
+        coriolis_utils.exec_process(
+            [
+                "docker",
+                "run",
+                "-d",
+                "--name",
+                self._mysql_container_name,
+                "-e",
+                f"MYSQL_ROOT_PASSWORD={self._mysql_password}",
+                "-e", f"MYSQL_DATABASE={self._mysql_database}",
+                "-p", "3306:3306",
+                "mariadb:10-jammy",
+            ])
+
+    def _start_coriolis_services(self):
         """Start conductor, scheduler, worker, and API in-process."""
+
         rpc_module.init()
 
         # Conductor: must start first so the worker can register with it.
@@ -333,14 +350,42 @@ class _IntegrationHarness:
         wsgi_app = fault_middleware.FaultWrapper(wsgi_app)
         wsgi_app = request_id_middleware.RequestId(wsgi_app)
 
-        self._sock = eventlet.listen(('127.0.0.1', 0))
-        self.api_port = self._sock.getsockname()[1]
-        eventlet.spawn(eventlet.wsgi.server, self._sock, wsgi_app)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(('127.0.0.1', 0))
+            s.listen(1)
+            # Pick an available port.
+            self.api_port = s.getsockname()[1]
 
-        # Give services a moment to finish initialising.
-        eventlet.sleep(0.5)
+        self._wsgi_server = cheroot_wsgi.Server(
+            bind_addr=("127.0.0.1", self.api_port),
+            wsgi_app=wsgi_app,
+            server_name="coriolis-api",
+        )
+        self._wsgi_server.prepare()
+        self._wsgi_server_thread = coriolis_utils.start_thread(
+            self._wsgi_server.serve,
+            daemon=True,
+        )
 
     def _teardown(self):
+        LOG.info("Teardown initiated.")
+
+        try:
+            coriolis_utils.exec_process(
+                [
+                    "docker",
+                    "stop",
+                    self._mysql_container_name
+                ])
+            coriolis_utils.exec_process(
+                [
+                    "docker",
+                    "rm",
+                    self._mysql_container_name
+                ])
+        except Exception:
+            pass
+
         for svc in [self._worker_host_svc, self._worker_svc,
                     self._scheduler_svc, self._conductor_svc]:
             if not svc:
@@ -350,9 +395,10 @@ class _IntegrationHarness:
             except Exception:
                 pass
 
-        if self._sock is not None:
+        if self._wsgi_server:
             try:
-                self._sock.close()
+                self._wsgi_server.stop()
+                self._wsgi_server_thread.join()
             except Exception:
                 pass
 

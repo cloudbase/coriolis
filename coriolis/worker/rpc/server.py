@@ -7,9 +7,9 @@ import os
 import shutil
 import signal
 import sys
+import threading
 import time
 
-import eventlet
 from oslo_config import cfg
 from oslo_log import log as logging
 import psutil
@@ -50,11 +50,12 @@ class WorkerServerEndpoint(object):
         self._server = utils.get_hostname()
         self._service_registration = self._register_worker_service()
         self._rpc_conductor_client_instance = None
+        self._lock = threading.Lock()
 
     @property
     def _rpc_conductor_client(self):
         # NOTE(aznashwan): it is unsafe to fork processes with pre-instantiated
-        # oslo_messaging clients as the underlying eventlet thread queues will
+        # oslo_messaging clients as the underlying thread queues will
         # be invalidated. Considering this class both serves from a "main
         # process" as well as forking child processes, it is safest to
         # re-instantiate the client every time:
@@ -167,20 +168,23 @@ class WorkerServerEndpoint(object):
         param extra_library_paths: list(str): list of paths with extra
         libraries which should be available to the worker process.
         """
-        original_ld_path = os.environ.get('LD_LIBRARY_PATH', "")
-        LOG.debug(
-            "Starting new worker process with extra libraries: '%s'",
-            extra_library_paths)
-        try:
-            os.environ['LD_LIBRARY_PATH'] = self._get_custom_ld_path(
-                original_ld_path, extra_library_paths)
-            process.start()
-        except TypeError:
-            LOG.warning(
-                "Failed to set extra library paths: %s. Error was: %s",
-                extra_library_paths, utils.get_exception_details())
-        finally:
-            os.environ['LD_LIBRARY_PATH'] = original_ld_path
+        # We're modifying the "os.environ" globally. To avoid race conditions,
+        # we need to use a lock.
+        with self._lock:
+            original_ld_path = os.environ.get('LD_LIBRARY_PATH', "")
+            LOG.debug(
+                "Starting new worker process with extra libraries: '%s'",
+                extra_library_paths)
+            try:
+                os.environ['LD_LIBRARY_PATH'] = self._get_custom_ld_path(
+                    original_ld_path, extra_library_paths)
+                process.start()
+            except TypeError:
+                LOG.warning(
+                    "Failed to set extra library paths: %s. Error was: %s",
+                    extra_library_paths, utils.get_exception_details())
+            finally:
+                os.environ['LD_LIBRARY_PATH'] = original_ld_path
 
     def _get_extra_library_paths_for_providers(
             self, ctxt, task_id, task_type, origin, destination):
@@ -264,10 +268,19 @@ class WorkerServerEndpoint(object):
                     "Task '%s' was already in cancelling status." % task_id)
             raise
 
-        evt = eventlet.spawn(self._wait_for_process, p, mp_q)
-        eventlet.spawn(self._handle_mp_log_events, p, mp_log_q)
+        # TODO(lpetrut): one logger thread per subprocess may be excessive when
+        # having a large number of concurrent jobs. It may be worth having a
+        # single thread aggregating logs from all subprocesses, potentially
+        # using asyncio.
+        #
+        # Note that asyncio coroutines can't directly consume multiprocessing
+        # queues, we'd probably need pipes instead. There's also the option of
+        # using select/poll/epoll directly.
+        utils.start_thread(
+            target=self._handle_mp_log_events,
+            args=(p, mp_log_q))
 
-        result = evt.wait()
+        result = self._wait_for_process(p, mp_q)
         p.join()
 
         if result is None:

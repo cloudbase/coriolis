@@ -184,7 +184,7 @@ class MinionManagerPoolRpcEventHandler(events.BaseEventHandler):
     @property
     def _rpc_minion_manager_client(self):
         # NOTE(aznashwan): it is unsafe to fork processes with pre-instantiated
-        # oslo_messaging clients as the underlying eventlet thread queues will
+        # oslo_messaging clients as the underlying thread queues will
         # be invalidated.
         if self._rpc_minion_manager_client_instance is None:
             self._rpc_minion_manager_client_instance = MinionManagerClient()

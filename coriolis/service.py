@@ -5,13 +5,15 @@ import argparse
 import os
 import platform
 import sys
+import threading
 
+from cheroot import wsgi
 from oslo_concurrency import processutils
 from oslo_config import cfg
 from oslo_log import log as logging
 import oslo_messaging as messaging
 from oslo_service import service
-from oslo_service import wsgi
+from oslo_service import wsgi as oslo_wsgi
 
 from coriolis import rpc
 from coriolis import utils
@@ -106,7 +108,7 @@ def get_application():
     CONF(args[1:], project='coriolis', version="1.0.0")
     utils.setup_logging()
 
-    loader = wsgi.Loader(CONF)
+    loader = oslo_wsgi.Loader(CONF)
     return loader.load_app("coriolis-api")
 
 
@@ -126,29 +128,39 @@ class WSGIService(service.ServiceBase):
             self._workers = (
                 CONF.api_migration_workers or processutils.get_worker_count())
 
-        self._loader = wsgi.Loader(CONF)
+        self._loader = oslo_wsgi.Loader(CONF)
         self._app = self._loader.load_app(name)
 
-        self._server = wsgi.Server(CONF,
-                                   name,
-                                   self._app,
-                                   host=self._host,
-                                   port=self._port)
+        bind_addr = (self._host, self._port)
+        self._server = wsgi.Server(
+            bind_addr=bind_addr,
+            wsgi_app=self._app,
+            server_name=name)
 
     def get_workers_count(self):
         return self._workers
 
     def start(self):
-        self._server.start()
+        self._server.prepare()
+
+        self._thread = threading.Thread(
+            target=self._server.serve,
+            daemon=True
+        )
+        self._thread.start()
 
     def stop(self):
-        self._server.stop()
+        if self._server:
+            self._server.stop()
+            if self._thread:
+                self._thread.join(timeout=2)
 
     def wait(self):
-        self._server.wait()
+        if self._thread:
+            self._thread.join()
 
     def reset(self):
-        self._server.reset()
+        pass
 
 
 class MessagingService(service.ServiceBase):

@@ -10,7 +10,9 @@ def upgrade(migrate_engine):
 
     # add 'user_scripts' column to 'base_transfer_action':
     base_transfer = sqlalchemy.Table(
-        'base_transfer_action', meta, autoload=True)
+        'base_transfer_action', meta, autoload=True,
+        mysql_engine="InnoDB",
+        mysql_charset="utf8")
 
     user_scripts = sqlalchemy.Column(
         "user_scripts", sqlalchemy.Text, nullable=True)

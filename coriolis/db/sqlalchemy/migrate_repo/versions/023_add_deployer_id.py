@@ -5,7 +5,10 @@ def upgrade(migrate_engine):
     meta = sqlalchemy.MetaData()
     meta.bind = migrate_engine
 
-    deployment = sqlalchemy.Table('deployment', meta, autoload=True)
+    deployment = sqlalchemy.Table(
+        'deployment', meta, autoload=True,
+        mysql_engine="InnoDB",
+        mysql_charset="utf8")
     deployer_id = sqlalchemy.Column(
         'deployer_id', sqlalchemy.String(36), nullable=True)
     trust_id = sqlalchemy.Column(

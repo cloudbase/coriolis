@@ -8,13 +8,13 @@ import copy
 import datetime
 import errno
 import os
+import queue
 import shutil
 import tempfile
 import threading
 import time
 import uuid
 
-import eventlet
 from oslo_config import cfg
 from oslo_log import log as logging
 import paramiko
@@ -284,13 +284,18 @@ class SSHBackupWriterImpl(BaseBackupWriterImpl):
         self._stderr = None
         self._offset = None
         self._ssh = None
-        self._sender_q = eventlet.Queue(maxsize=5)
-        self._enc_q = eventlet.Queue(maxsize=5)
-        self._sender_evt = None
-        self._encoder_evt = []
+        self._sender_q = queue.Queue(maxsize=5)
+        self._enc_q = queue.Queue(maxsize=5)
+        self._sender_thread = None
+        self._encoder_threads = []
         self._encoder_cnt = encoder_count
         self._exception = None
+        # Stop sequence:
+        # * once "_closing" is set, we no longer accept writes. We wait for
+        #   the queues to be emptied and then we set "_stopped".
+        # * once "_stopped" is set, the worker loops will exit.
         self._closing = False
+        self._stopped = False
 
         self._compress_transfer = compress_transfer
         if self._compress_transfer is None:
@@ -343,11 +348,10 @@ class SSHBackupWriterImpl(BaseBackupWriterImpl):
 
     def _open(self):
         self._exec_helper_cmd()
-        self._sender_evt = eventlet.spawn(
-            self._sender)
+        self._sender_thread = utils.start_thread(self._sender)
         for _ in range(self._encoder_cnt):
-            self._encoder_evt.append(
-                eventlet.spawn(self._encoder))
+            self._encoder_threads.append(
+                utils.start_thread(self._encoder))
 
     def seek(self, pos):
         self._offset = pos
@@ -356,20 +360,32 @@ class SSHBackupWriterImpl(BaseBackupWriterImpl):
         pass
 
     def _sender(self):
-        while True:
-            data = self._sender_q.get()
+        LOG.debug("Backup sender started.")
+        while not self._stopped:
+            try:
+                data = self._sender_q.get(timeout=2)
+            except queue.Empty:
+                LOG.debug("Backup sender queue empty.")
+                continue
             try:
                 self._send_msg(data)
             except BaseException as err:
+                LOG.error("Backup sender failed.")
                 self._exception = err
                 raise
             finally:
                 self._sender_q.task_done()
                 del data
+        LOG.debug("Backup sender stopped.")
 
     def _encoder(self):
-        while True:
-            payload = self._enc_q.get()
+        LOG.debug("Backup encoder started.")
+        while not self._stopped:
+            try:
+                payload = self._enc_q.get(timeout=2)
+            except queue.Empty:
+                LOG.debug("Backup encoder queue empty.")
+                continue
             try:
                 data = self._encode_data(
                     payload["data"],
@@ -377,10 +393,12 @@ class SSHBackupWriterImpl(BaseBackupWriterImpl):
                     payload["msg_id"])
                 self._sender_q.put(data)
             except BaseException as err:
+                LOG.error("Backup encoder failed.")
                 self._exception = err
                 raise
             finally:
                 self._enc_q.task_done()
+        LOG.debug("Backup encoder stopped.")
 
     def write(self, data):
         if self._closing:
@@ -406,6 +424,9 @@ class SSHBackupWriterImpl(BaseBackupWriterImpl):
         timeout = datetime.datetime.now() + datetime.timedelta(seconds=600)
         while (self._enc_q.unfinished_tasks or
                self._sender_q.unfinished_tasks) and not self._exception:
+            LOG.info("Waiting for unfinished transfers to complete, "
+                     f"encoder tasks: {self._enc_q.unfinished_tasks}, "
+                     f"sender tasks: {self._sender_q.unfinished_tasks}.")
             time.sleep(0.5)
             now = datetime.datetime.now()
             if now >= timeout:
@@ -415,6 +436,7 @@ class SSHBackupWriterImpl(BaseBackupWriterImpl):
     def close(self):
         self._closing = True
         self._wait_for_queues()
+        self._stopped = True
         if self._exception:
             # We can raise here. Any SSH socket cleanup will happen
             # in _handle_exception()
@@ -427,13 +449,15 @@ class SSHBackupWriterImpl(BaseBackupWriterImpl):
             self._ssh.exec_command("sudo sync")
             self._ssh.close()
             self._ssh = None
-        if self._sender_evt:
-            eventlet.kill(self._sender_evt)
-            self._sender_evt = None
+        if self._sender_thread:
+            LOG.debug("Joining sender thread.")
+            self._sender_thread.join()
+            self._sender_thread = None
 
-        for i in self._encoder_evt:
-            eventlet.kill(i)
-        self._encoder_evt = []
+        for i in self._encoder_threads:
+            LOG.debug("Joining encoder thread.")
+            i.join()
+        self._encoder_threads = []
 
     def _handle_exception(self, ex):
         super(SSHBackupWriterImpl, self)._handle_exception(ex)
@@ -566,16 +590,21 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
         self._crt = None
         self._key = None
         self._ca = None
+        # Stop sequence:
+        # * once "_closing" is set, we no longer accept writes. We wait for
+        #   the queues to be emptied and then we set "_stopped".
+        # * once "_stopped" is set, the worker loops will exit.
         self._closing = False
+        self._stopped = False
         self._write_error = False
         self._id = None
         self._exception = None
         self._compressor_count = compressor_count
-        self._comp_q = eventlet.Queue(maxsize=5)
-        self._sender_q = eventlet.Queue(maxsize=5)
+        self._comp_q = queue.Queue(maxsize=5)
+        self._sender_q = queue.Queue(maxsize=5)
 
-        self._sender_evt = None
-        self._compressor_evt = None
+        self._sender_thread = None
+        self._compressor_threads = None
 
         self._compress_transfer = compress_transfer
         if self._compress_transfer is None:
@@ -637,13 +666,13 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
         self._closing = False
         self._init_session()
         self._acquire()
-        self._sender_evt = eventlet.spawn(self._sender)
+        self._sender_thread = utils.start_thread(self._sender)
         if self._compressor_count is None or self._compressor_count == 0:
             self._compressor_count = 1
-        self._compressor_evt = []
+        self._compressor_threads = []
         for _ in range(self._compressor_count):
-            self._compressor_evt.append(
-                eventlet.spawn(self._compressor))
+            self._compressor_threads.append(
+                utils.start_thread(self._compressor))
 
     def seek(self, pos):
         self._offset = pos
@@ -660,8 +689,13 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
             return
 
     def _compressor(self):
-        while True:
-            payload = self._comp_q.get()
+        LOG.debug("Backup compressor started.")
+        while not self._stopped:
+            try:
+                payload = self._comp_q.get(timeout=2)
+            except queue.Empty:
+                LOG.debug("Backup compressor queue empty.")
+                continue
             send_payload = {
                 "encoding": None,
                 "offset": payload["offset"],
@@ -674,17 +708,23 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
                     if compressed:
                         send_payload["encoding"] = 'gzip'
                 except BaseException as err:
-                    LOG.exception(err)
+                    LOG.exception("Backup compressor failure.")
                     self._exception = err
                     self._comp_q.task_done()
                     raise
             send_payload["chunk"] = chunk
             self._sender_q.put(send_payload)
             self._comp_q.task_done()
+        LOG.debug("Backup compressor stopped.")
 
     def _sender(self):
-        while True:
-            payload = self._sender_q.get()
+        LOG.debug("Backup sender started.")
+        while not self._stopped:
+            try:
+                payload = self._sender_q.get(timeout=2)
+            except queue.Empty:
+                LOG.debug("Backup sender queue empty.")
+                continue
             offset = copy.copy(payload["offset"])
             headers = {
                 "X-Write-Offset": str(offset),
@@ -724,7 +764,7 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
             except BaseException as err:
                 # record the exception. We need to terminate
                 # the writer if this is set
-                LOG.exception(err)
+                LOG.exception("Backup sender failed.")
                 self._exception = err
                 self._sender_q.task_done()
                 raise
@@ -732,6 +772,7 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
                 del headers
                 del payload
             self._sender_q.task_done()
+        LOG.debug("Backup sender stopped.")
 
     @utils.retry_on_error()
     def write(self, data):
@@ -750,11 +791,18 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
         self._offset += len(data)
 
     def _wait_for_queues(self):
+        timeout = datetime.datetime.now() + datetime.timedelta(seconds=600)
         while (self._comp_q.unfinished_tasks or
                self._sender_q.unfinished_tasks) and not self._exception:
             # No error recorded, and we have tasks in the queue
-            LOG.info("Waiting for unfinished transfers to complete")
+            LOG.info("Waiting for unfinished transfers to complete, "
+                     f"compressor tasks: {self._comp_q.unfinished_tasks}, "
+                     f"sender tasks: {self._sender_q.unfinished_tasks}.")
             time.sleep(0.5)
+            now = datetime.datetime.now()
+            if now >= timeout:
+                raise exception.CoriolisException(
+                    "Timed out waiting for data transfer to finish")
 
     def _create_checksum_job(self, algorithm, start_offset=0, end_offset=0):
         """Creates a full-disk checksum job on the writer.
@@ -856,6 +904,7 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
     def close(self):
         self._closing = True
         self._wait_for_queues()
+        self._stopped = True
         if self._exception:
             # There was an exception while writing. We still need to
             # release the disk.
@@ -870,13 +919,15 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
         if self._session:
             self._session.close()
             self._session = None
-        if self._sender_evt:
-            eventlet.kill(self._sender_evt)
-            self._sender_evt = None
-        if self._compressor_evt:
-            for i in self._compressor_evt:
-                eventlet.kill(i)
-            self._compressor_evt = None
+        if self._sender_thread:
+            LOG.debug("Joining sender thread.")
+            self._sender_thread.join()
+            self._sender_thread = None
+        if self._compressor_threads:
+            for i in self._compressor_threads:
+                LOG.debug("Joining compressor thread.")
+                i.join()
+            self._compressor_threads = None
 
 
 class HTTPBackupWriterBootstrapper(object):
