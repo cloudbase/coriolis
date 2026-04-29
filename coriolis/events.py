@@ -76,9 +76,12 @@ class EventManager(object, with_metaclass(abc.ABCMeta)):
             perc = int(new_current_step * 100 // perc_step.total_steps)
 
         if self._call_event_handler and perc > perc_step.last_perc:
+            sync_final = (
+                perc_step.total_steps > 0 and
+                new_current_step >= perc_step.total_steps)
             self._call_event_handler(
                 'update_progress_update', step.progress_update_id,
-                new_current_step)
+                new_current_step, sync=sync_final)
             perc_id = copy.copy(step.progress_update_id)
             total_steps = perc_step.total_steps
             del self._perc_steps[step.progress_update_id]
@@ -114,7 +117,7 @@ class BaseEventHandler(object, with_metaclass(abc.ABCMeta)):
     @abc.abstractmethod
     def update_progress_update(
             self, update_identifier, new_current_step,
-            new_total_steps=None, new_message=None):
+            new_total_steps=None, new_message=None, sync=False):
         pass
 
     @classmethod

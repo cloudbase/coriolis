@@ -205,7 +205,7 @@ class MinionManagerPoolRpcEventHandler(events.BaseEventHandler):
 
     def update_progress_update(
             self, update_identifier, new_current_step,
-            new_total_steps=None, new_message=None):
+            new_total_steps=None, new_message=None, sync=False):
         LOG.info(
             "Updating progress update '%s' for pool '%s' with new step %s",
             update_identifier, self._pool_id, new_current_step)

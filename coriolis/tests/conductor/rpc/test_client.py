@@ -297,8 +297,23 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
             "new_total_steps": None,
             "new_message": None
         }
-        self._test(self.client.update_task_progress_update, args,
-                   rpc_op='_cast')
+        self._test(
+            self.client.update_task_progress_update, args, rpc_op='_cast')
+
+    def test_update_task_progress_update_sync_final(self):
+        args = {
+            "task_id": "mock_task_id",
+            "progress_update_index": "mock_progress_update_index",
+            "new_current_step": "mock_new_current_step",
+            "new_total_steps": None,
+            "new_message": None,
+        }
+        with mock.patch.object(self.client, '_call') as op_mock:
+            ctxt = mock.sentinel.ctxt
+            self.client.update_task_progress_update(
+                ctxt, sync=True, **args)
+            op_mock.assert_called_once_with(
+                ctxt, 'update_task_progress_update', **args)
 
     def test_create_transfer_schedule(self):
         args = {
@@ -539,7 +554,8 @@ class ConductorTaskRpcEventHandlerTestCase(test_base.CoriolisBaseTestCase):
             update_identifier,
             new_current_step,
             new_total_steps=new_total_steps,
-            new_message=new_message
+            new_message=new_message,
+            sync=False,
         )
 
     @mock.patch.object(client.ConductorClient, 'add_task_event')
