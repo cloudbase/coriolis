@@ -805,16 +805,16 @@ class Replicator(object):
             return
 
         if source["algorithm"] != writer["algorithm"]:
-            raise exception.CoriolisException(
-                "Checksum algorithm mismatch for disk '%s': "
-                "source=%s, destination=%s" % (
-                    dev_name, source["algorithm"], writer["algorithm"]))
+            raise exception.ChecksumAlgorithmMismatch(
+                disk=dev_name,
+                source_alg=source["algorithm"],
+                dest_alg=writer["algorithm"])
 
         if source["checksum"] != writer["checksum"]:
-            raise exception.CoriolisException(
-                "Checksum mismatch for disk '%s': "
-                "source=%s, destination=%s" % (
-                    dev_name, source["checksum"], writer["checksum"]))
+            raise exception.ChecksumMismatch(
+                disk=dev_name,
+                source_checksum=source["checksum"],
+                dest_checksum=writer["checksum"])
 
         self._event_manager.progress_update(
             "Disk integrity verified for /dev/%s (checksum: %s)" % (

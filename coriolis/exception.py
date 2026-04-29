@@ -529,6 +529,18 @@ class OSMorphingWinRMOperationTimeout(OSMorphingOperationTimeout):
         "in Coriolis' static configuration file.")
 
 
+class ChecksumAlgorithmMismatch(CoriolisException):
+    message = (
+        "Checksum algorithm mismatch for disk '%(disk)s': "
+        "source=%(source_alg)s, destination=%(dest_alg)s")
+
+
+class ChecksumMismatch(CoriolisException):
+    message = (
+        "Checksum mismatch for disk '%(disk)s': "
+        "source=%(source_checksum)s, destination=%(dest_checksum)s")
+
+
 class MigrationLicenceFulfilledException(Invalid):
     message = (
         "The Live Migration operation with ID '%(action_id)s' (licensing "
