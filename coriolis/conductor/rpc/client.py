@@ -293,8 +293,17 @@ class ConductorClient(rpc.BaseRPCClient):
 
     def update_task_progress_update(
             self, ctxt, task_id, progress_update_index, new_current_step,
-            new_total_steps=None, new_message=None):
-        self._cast(
+            new_total_steps=None, new_message=None, sync=False):
+        # Use _call on the last step to make sure the DB is updated
+        # and the UI is showing the correct progress.
+        # Intermediate steps use cast to avoid blocking on every tick.
+        if sync:
+            return self._call(
+                ctxt, 'update_task_progress_update', task_id=task_id,
+                progress_update_index=progress_update_index,
+                new_current_step=new_current_step,
+                new_total_steps=new_total_steps, new_message=new_message)
+        return self._cast(
             ctxt, 'update_task_progress_update', task_id=task_id,
             progress_update_index=progress_update_index,
             new_current_step=new_current_step,
@@ -468,13 +477,14 @@ class ConductorTaskRpcEventHandler(events.BaseEventHandler):
 
     def update_progress_update(
             self, update_identifier, new_current_step,
-            new_total_steps=None, new_message=None):
+            new_total_steps=None, new_message=None, sync=False):
         LOG.info(
             "Updating progress update '%s' for task '%s' with new step %s",
             update_identifier, self._task_id, new_current_step)
         self._rpc_conductor_client.update_task_progress_update(
             self._ctxt, self._task_id, update_identifier, new_current_step,
-            new_total_steps=new_total_steps, new_message=new_message)
+            new_total_steps=new_total_steps, new_message=new_message,
+            sync=sync)
 
     def add_event(self, message, level=constants.TASK_EVENT_INFO):
         self._rpc_conductor_client.add_task_event(

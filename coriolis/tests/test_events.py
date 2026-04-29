@@ -110,6 +110,19 @@ class EventManagerTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.progress_update_id: events._PercStepData(
                 mock.sentinel.progress_update_id, 60, 0, 100)}
         self.assertEqual(self.event_manager._perc_steps, expected_perc_steps)
+        self.mock_event_handler.update_progress_update.assert_called_once_with(
+            mock.sentinel.progress_update_id, 60, sync=False)
+
+    def test_set_percentage_step_sync_final_update(self):
+        perc_step_data = events._PercStepData(
+            mock.sentinel.progress_update_id, 90, 0, 100)
+        self.event_manager._perc_steps[
+            mock.sentinel.progress_update_id] = perc_step_data
+
+        self.event_manager.set_percentage_step(perc_step_data, 100)
+
+        self.mock_event_handler.update_progress_update.assert_called_once_with(
+            mock.sentinel.progress_update_id, 100, sync=True)
 
     def test_set_percentage_step_no_perc_step(self):
         self.event_manager.set_percentage_step(
