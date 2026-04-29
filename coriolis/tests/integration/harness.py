@@ -228,7 +228,7 @@ class _IntegrationHarness:
         cfg.CONF.set_override(
             'providers', [_TEST_EXPORT_PROVIDER, _TEST_IMPORT_PROVIDER])
         db_url = ('mysql+pymysql://%(user)s:%(password)s'
-                  '@localhost:3306/%(database)s') % {
+                  '@localhost:13306/%(database)s') % {
             "user": self._mysql_username,
             "password": self._mysql_password,
             "database": self._mysql_database,
@@ -278,7 +278,7 @@ class _IntegrationHarness:
                 "-e",
                 f"MYSQL_ROOT_PASSWORD={self._mysql_password}",
                 "-e", f"MYSQL_DATABASE={self._mysql_database}",
-                "-p", "3306:3306",
+                "-p", "13306:3306",
                 "mariadb:10-jammy",
             ])
 
