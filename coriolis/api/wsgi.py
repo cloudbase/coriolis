@@ -656,6 +656,9 @@ class ResourceExceptionHandler(object):
         elif isinstance(ex_value, Fault):
             LOG.info(_LI("Fault thrown: %s"), ex_value)
             raise ex_value
+        elif isinstance(ex_value, webob.exc.HTTPNoContent):
+            LOG.info(_LI("HTTPNoContent: %s"), ex_value)
+            raise ex_value
         elif isinstance(ex_value, webob.exc.HTTPException):
             LOG.info(_LI("HTTP exception thrown: %s"), ex_value)
             raise Fault(ex_value)
