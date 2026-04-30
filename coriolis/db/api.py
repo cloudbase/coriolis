@@ -7,6 +7,7 @@ from oslo_config import cfg
 from oslo_db import api as db_api
 from oslo_db import options as db_options
 from oslo_db.sqlalchemy import enginefacade
+from oslo_db.sqlalchemy import utils as sqlalchemyutils
 from oslo_log import log as logging
 from oslo_utils import timeutils
 from sqlalchemy import func
@@ -275,7 +276,10 @@ def delete_endpoint(context, endpoint_id):
 
 @enginefacade.reader
 def get_transfer_tasks_executions(context, transfer_id, include_tasks=False,
-                                  include_task_info=False, to_dict=False):
+                                  include_task_info=False,
+                                  marker=None,
+                                  limit=None,
+                                  to_dict=False):
     q = _soft_delete_aware_query(context, models.TasksExecution)
     q = q.join(models.Transfer)
     if include_task_info:
@@ -285,8 +289,21 @@ def get_transfer_tasks_executions(context, transfer_id, include_tasks=False,
     if is_user_context(context):
         q = q.filter(models.Transfer.project_id == context.project_id)
 
-    db_result = q.filter(
-        models.Transfer.id == transfer_id).all()
+    q = q.filter(models.Transfer.id == transfer_id)
+
+    if marker:
+        try:
+            marker = get_transfer_tasks_execution(
+                context, transfer_id, marker)
+        except exception.NotFound:
+            raise exception.MarkerNotFound(marker=marker)
+
+    if marker or limit:
+        q = sqlalchemy.paginate_query(
+            q, models.TasksExecution, limit,
+            sort_keys=['id'], marker=marker)
+
+    db_result = q.all()
     if to_dict:
         return [e.to_dict() for e in db_result]
     return db_result
