@@ -2,6 +2,7 @@
 # All Rights Reserved.
 
 from coriolis.api.v1.views import transfer_tasks_execution_view
+from coriolis.api import common
 from coriolis.api import wsgi as api_wsgi
 from coriolis import exception
 from coriolis.policies import transfer_tasks_executions as executions_policies
@@ -31,9 +32,12 @@ class TransferTasksExecutionController(api_wsgi.Controller):
         context.can(
             executions_policies.get_transfer_executions_policy_label("list"))
 
+        marker, limit = common.get_paging_params(req)
+
         return transfer_tasks_execution_view.collection(
             self._transfer_tasks_execution_api.get_executions(
-                context, transfer_id, include_tasks=False))
+                context, transfer_id, include_tasks=False,
+                marker=marker, limit=limit))
 
     def detail(self, req, transfer_id):
         context = req.environ["coriolis.context"]

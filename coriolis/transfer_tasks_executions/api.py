@@ -20,9 +20,10 @@ class API(object):
         self._rpc_client.cancel_transfer_tasks_execution(
             ctxt, transfer_id, execution_id, force)
 
-    def get_executions(self, ctxt, transfer_id, include_tasks=False):
+    def get_executions(self, ctxt, transfer_id, include_tasks=False,
+                       marker=None, limit=None):
         return self._rpc_client.get_transfer_tasks_executions(
-            ctxt, transfer_id, include_tasks)
+            ctxt, transfer_id, include_tasks, marker, limit)
 
     def get_execution(self, ctxt, transfer_id, execution_id):
         return self._rpc_client.get_transfer_tasks_execution(

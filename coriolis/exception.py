@@ -289,6 +289,11 @@ class NotFound(CoriolisException):
     safe = True
 
 
+class MarkerNotFound(NotFound):
+    message = _(
+        "Could not find database record "
+        "identified by marker: %(marker)s")
+
 class RegionNotFound(NotFound):
     message = _("The specified Coriolis region(s) could not be found.")
 

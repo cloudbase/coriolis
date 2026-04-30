@@ -1152,10 +1152,15 @@ class ConductorServerEndpoint(object):
     @transfer_synchronized
     def get_transfer_tasks_executions(self, ctxt, transfer_id,
                                       include_tasks=False,
-                                      include_task_info=False):
+                                      include_task_info=False,
+                                      marker=None,
+                                      limit=None):
         return db_api.get_transfer_tasks_executions(
             ctxt, transfer_id, include_tasks,
-            include_task_info=include_task_info, to_dict=True)
+            include_task_info=include_task_info,
+            marker=marker,
+            limit=limit,
+            to_dict=True)
 
     @tasks_execution_synchronized
     def get_transfer_tasks_execution(self, ctxt, transfer_id, execution_id,

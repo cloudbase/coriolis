@@ -143,11 +143,15 @@ class ConductorClient(rpc.BaseRPCClient):
             shutdown_instances=shutdown_instances, auto_deploy=auto_deploy)
 
     def get_transfer_tasks_executions(self, ctxt, transfer_id,
-                                      include_tasks=False):
+                                      include_tasks=False,
+                                      marker=None,
+                                      limit=None):
         return self._call(
             ctxt, 'get_transfer_tasks_executions',
             transfer_id=transfer_id,
-            include_tasks=include_tasks)
+            include_tasks=include_tasks,
+            marker=marker,
+            limit=limit)
 
     def get_transfer_tasks_execution(self, ctxt, transfer_id, execution_id,
                                      include_task_info=False):
