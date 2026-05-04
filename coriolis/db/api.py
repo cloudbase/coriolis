@@ -7,7 +7,7 @@ from oslo_config import cfg
 from oslo_db import api as db_api
 from oslo_db import options as db_options
 from oslo_db.sqlalchemy import enginefacade
-from oslo_db.sqlalchemy import utils as sqlalchemyutils
+from oslo_db.sqlalchemy import utils as sqlalchemy_utils
 from oslo_log import log as logging
 from oslo_utils import timeutils
 from sqlalchemy import func
@@ -279,6 +279,8 @@ def get_transfer_tasks_executions(context, transfer_id, include_tasks=False,
                                   include_task_info=False,
                                   marker=None,
                                   limit=None,
+                                  sort_keys: list[str] | None = None,
+                                  sort_dirs: list[str] | None = None,
                                   to_dict=False):
     q = _soft_delete_aware_query(context, models.TasksExecution)
     q = q.join(models.Transfer)
@@ -291,17 +293,22 @@ def get_transfer_tasks_executions(context, transfer_id, include_tasks=False,
 
     q = q.filter(models.Transfer.id == transfer_id)
 
+    sort_keys, sort_dirs = process_sort_params(
+        sort_keys,
+        sort_dirs,
+    )
     if marker:
         try:
             marker = get_transfer_tasks_execution(
                 context, transfer_id, marker)
         except exception.NotFound:
             raise exception.MarkerNotFound(marker=marker)
-
-    if marker or limit:
-        q = sqlalchemy.paginate_query(
-            q, models.TasksExecution, limit,
-            sort_keys=['id'], marker=marker)
+    q = sqlalchemy_utils.paginate_query(
+        q, models.TasksExecution, limit,
+        sort_keys=sort_keys,
+        sort_dirs=sort_dirs,
+        marker=marker,
+    )
 
     db_result = q.all()
     if to_dict:
@@ -1521,3 +1528,78 @@ def update_minion_pool(context, minion_pool_id, updated_values):
     # the oslo_db library uses this method for both the `created_at` and
     # `updated_at` fields
     setattr(lifecycle, 'updated_at', timeutils.utcnow())
+
+
+def process_sort_params(
+    sort_keys,
+    sort_dirs,
+    default_keys=None,
+    default_dir='desc',
+):
+    """Process the sort parameters to include default keys.
+
+    Creates a list of sort keys and a list of sort directions. Adds the default
+    keys to the end of the list if they are not already included.
+
+    When adding the default keys to the sort keys list, the associated
+    direction is:
+    1) The first element in the 'sort_dirs' list (if specified), else
+    2) 'default_dir' value (Note that 'asc' is the default value since this is
+    the default in sqlalchemy.utils.paginate_query)
+
+    :param sort_keys: List of sort keys to include in the processed list
+    :param sort_dirs: List of sort directions to include in the processed list
+    :param default_keys: List of sort keys that need to be included in the
+        processed list, they are added at the end of the list if not already
+        specified.
+    :param default_dir: Sort direction associated with each of the default
+        keys that are not supplied, used when they are added to the processed
+        list
+    :returns: list of sort keys, list of sort directions
+    :raise exception.InvalidInput: If more sort directions than sort keys
+        are specified or if an invalid sort direction is specified
+    """
+    if default_keys is None:
+        default_keys = ['created_at', 'id']
+
+    # Determine direction to use for when adding default keys
+    if sort_dirs and len(sort_dirs):
+        default_dir_value = sort_dirs[0]
+    else:
+        default_dir_value = default_dir
+
+    # Create list of keys (do not modify the input list)
+    if sort_keys:
+        result_keys = list(sort_keys)
+    else:
+        result_keys = []
+
+    # If a list of directions is not provided, use the default sort direction
+    # for all provided keys.
+    if sort_dirs:
+        result_dirs = []
+        # Verify sort direction
+        for sort_dir in sort_dirs:
+            if sort_dir not in ('asc', 'desc'):
+                msg = (f"Unknown sort direction: {sort_dir}, "
+                       "must be 'desc' or 'asc'.")
+                raise exception.InvalidInput(reason=msg)
+            result_dirs.append(sort_dir)
+    else:
+        result_dirs = [default_dir_value for _sort_key in result_keys]
+
+    # Ensure that the key and direction length match
+    while len(result_dirs) < len(result_keys):
+        result_dirs.append(default_dir_value)
+    # Unless more direction are specified, which is an error
+    if len(result_dirs) > len(result_keys):
+        msg = "Sort direction array size exceeds sort key array size."
+        raise exception.InvalidInput(reason=msg)
+
+    # Ensure defaults are included
+    for key in default_keys:
+        if key not in result_keys:
+            result_keys.append(key)
+            result_dirs.append(default_dir_value)
+
+    return result_keys, result_dirs

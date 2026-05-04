@@ -21,9 +21,11 @@ class API(object):
             ctxt, transfer_id, execution_id, force)
 
     def get_executions(self, ctxt, transfer_id, include_tasks=False,
-                       marker=None, limit=None):
+                       marker=None, limit=None,
+                       sort_keys=None, sort_dirs=None):
         return self._rpc_client.get_transfer_tasks_executions(
-            ctxt, transfer_id, include_tasks, marker, limit)
+            ctxt, transfer_id, include_tasks, marker, limit,
+            sort_keys, sort_dirs)
 
     def get_execution(self, ctxt, transfer_id, execution_id):
         return self._rpc_client.get_transfer_tasks_execution(

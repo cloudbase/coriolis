@@ -33,11 +33,13 @@ class TransferTasksExecutionController(api_wsgi.Controller):
             executions_policies.get_transfer_executions_policy_label("list"))
 
         marker, limit = common.get_paging_params(req)
+        sort_keys, sort_dirs = common.get_sort_params(req)
 
         return transfer_tasks_execution_view.collection(
             self._transfer_tasks_execution_api.get_executions(
                 context, transfer_id, include_tasks=False,
-                marker=marker, limit=limit))
+                marker=marker, limit=limit,
+                sort_keys=sort_keys, sort_dirs=sort_dirs))
 
     def detail(self, req, transfer_id):
         context = req.environ["coriolis.context"]
