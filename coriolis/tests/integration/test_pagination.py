@@ -139,3 +139,35 @@ class PaginationTest(base.CoriolisIntegrationTestBase):
             self._get_record_summary(e) for e in sorted_exp_exec]
 
         self.assertEqual(exp_sorted_exec_summary, ret_exec_summary)
+
+    def test_transfer_execution_list_pagination(self):
+        # Get the first 2 entries, sorted by ID in ascending order.
+        executions = self._client.transfer_executions.list(
+            self._transfers[0].id,
+            limit=2,
+            sort_keys=['id'],
+            sort_dirs=['asc'])
+        ret_exec_summary = [self._get_record_summary(e) for e in executions]
+
+        exp_exec = self._executions[self._transfers[0].id]
+        sorted_exp_exec = sorted(
+            exp_exec,
+            key=operator.attrgetter('id'))
+        exp_sorted_exec_summary = [
+            self._get_record_summary(e) for e in sorted_exp_exec][:2]
+        self.assertEqual(exp_sorted_exec_summary, ret_exec_summary)
+
+        # Get the next 2 entries.
+        next_executions = self._client.transfer_executions.list(
+            self._transfers[0].id,
+            limit=2,
+            marker=executions[-1].id,
+            sort_keys=['id'],
+            sort_dirs=['asc'])
+        ret_exec_summary = [
+            self._get_record_summary(e)
+            for e in next_executions]
+
+        exp_sorted_exec_summary = [
+            self._get_record_summary(e) for e in sorted_exp_exec][2:4]
+        self.assertEqual(exp_sorted_exec_summary, ret_exec_summary)

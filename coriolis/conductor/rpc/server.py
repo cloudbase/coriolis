@@ -1154,12 +1154,16 @@ class ConductorServerEndpoint(object):
                                       include_tasks=False,
                                       include_task_info=False,
                                       marker=None,
-                                      limit=None):
+                                      limit=None,
+                                      sort_keys=None,
+                                      sort_dirs=None):
         return db_api.get_transfer_tasks_executions(
             ctxt, transfer_id, include_tasks,
             include_task_info=include_task_info,
             marker=marker,
             limit=limit,
+            sort_keys=sort_keys,
+            sort_dirs=sort_dirs,
             to_dict=True)
 
     @tasks_execution_synchronized
