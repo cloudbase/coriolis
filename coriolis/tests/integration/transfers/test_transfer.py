@@ -73,3 +73,13 @@ class ReplicaTransferIntegrationTest(base.ReplicaIntegrationTestBase):
             test_utils.devices_match(self._src_device, self._dst_device),
             "Destination does not match source after incremental transfer",
         )
+
+
+class MinionPoolTransferTest(
+        base.MinionPoolReplicaTestBase, ReplicaTransferIntegrationTest):
+    """Transfer execution that uses a pre-allocated destination minion pool."""
+
+    def test_transfer(self):
+        super().test_transfer()
+        self.assertPoolAllocated(self._pool_id)
+        self.assertMachinesAvailable(self._pool_id)

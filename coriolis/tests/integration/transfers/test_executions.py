@@ -116,3 +116,8 @@ class TransferExecutionsTests(base.ReplicaIntegrationTestBase):
             "Expected a canceled/error status after cancel, got %s"
             % final.status,
         )
+
+
+class MinionPoolTransferExecutionsTests(
+        base.MinionPoolReplicaTestBase, TransferExecutionsTests):
+    """Transfer executions that use a pre-allocated destination minion pool."""
