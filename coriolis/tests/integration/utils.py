@@ -182,7 +182,12 @@ def wait_for_ssh(host, port, username, pkey_path, timeout=30):
 # Docker utils
 
 
-def _start_container(image, name, extra_args=None):
+def start_container(container_id):
+    """Start a stopped Docker container."""
+    _run(["docker", "start", container_id], check=False)
+
+
+def _run_container(image, name, extra_args=None):
     cmd = ["docker", "run", "--detach", "--name", name]
     if extra_args:
         cmd.extend(extra_args)
@@ -191,9 +196,9 @@ def _start_container(image, name, extra_args=None):
     return result.stdout.decode().strip()
 
 
-def start_container(
+def run_container(
     image, name, is_systemd=False, ssh_key=None, volumes=None, devices=None,
-    extra_args=None,
+    device_cgroup_rules=None, extra_args=None,
 ):
     """Start a detached Docker container and return its container ID.
 
@@ -204,11 +209,15 @@ def start_container(
     :param ssh_key: SSH key to add as a volume to the authorized_keys.
     :param volumes: List of volumes to attach to the container.
     :param devices: List of devices to attach to the container.
+    :param device_cgroup_rules: List of device cgroup rules (e.g.
+      ``["b *:* rwm"]``). This is needed for device hotplug after container
+      creation.
     :param extra_args: Optional list of extra ``docker run`` arguments.
     :returns: container ID string (stripped).
     """
     volumes = volumes or []
     devices = devices or []
+    device_cgroup_rules = device_cgroup_rules or []
     extra_args = extra_args or []
     sec_opts = []
     caps = []
@@ -228,21 +237,29 @@ def start_container(
     for device in devices:
         extra_args += ["--device", f"{device}:{device}"]
 
+    for rule in device_cgroup_rules:
+        extra_args += ["--device-cgroup-rule", rule]
+
     for cap in caps:
         extra_args += ["--cap-add", cap]
 
     for sec_opt in sec_opts:
         extra_args += ["--security-opt", sec_opt]
 
-    return _start_container(image, name, extra_args)
+    return _run_container(image, name, extra_args)
 
 
 def stop_container(container_id):
+    """Stop a Docker container."""
+    _run(["docker", "stop", "--time", "5", container_id], check=False)
+
+
+def remove_container(container_id):
     """Stop and remove a Docker container, ignoring errors.
 
     :param container_id: container ID or name to stop / remove.
     """
-    _run(["docker", "stop", "--time", "5", container_id], check=False)
+    stop_container(container_id)
     _run(["docker", "rm", "--force", container_id], check=False)
 
 
@@ -257,3 +274,32 @@ def get_container_ip(container_id):
          "{{.NetworkSettings.IPAddress}}",
          container_id])
     return result.stdout.decode().strip()
+
+
+def _get_container_pid(container_id):
+    """Return the host PID of the init process of *container_id*."""
+    result = _run(
+        ["docker", "inspect", "--format", "{{.State.Pid}}", container_id])
+    return int(result.stdout.decode().strip())
+
+
+def hotplug_device_to_container(container_id, device_path):
+    """Create a device node for *device_path* in *container_id*'s namespace."""
+    pid = _get_container_pid(container_id)
+    stat_result = os.stat(device_path)
+    major = os.major(stat_result.st_rdev)
+    minor = os.minor(stat_result.st_rdev)
+
+    _run([
+        "nsenter", "--target", str(pid), "--mount", "--",
+        "mknod", device_path, "b", str(major), str(minor),
+    ])
+
+
+def unplug_device_from_container(container_id, device_path):
+    """Remove a device node from *container_id*'s mount namespace."""
+    pid = _get_container_pid(container_id)
+    _run([
+        "nsenter", "--target", str(pid), "--mount", "--",
+        "rm", "-f", device_path,
+    ], check=False)

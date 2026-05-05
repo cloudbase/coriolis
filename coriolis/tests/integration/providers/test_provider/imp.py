@@ -16,6 +16,7 @@ from oslo_log import log as logging
 import paramiko
 
 from coriolis.providers import backup_writers
+from coriolis.providers.base import BaseDestinationMinionPoolProvider
 from coriolis.providers.base import BaseEndpointDestinationOptionsProvider
 from coriolis.providers.base import BaseEndpointNetworksProvider
 from coriolis.providers.base import BaseEndpointProvider
@@ -24,6 +25,7 @@ from coriolis.providers.base import BaseReplicaImportProvider
 from coriolis.providers.base import BaseReplicaImportValidationProvider
 from coriolis.providers.base import BaseUpdateDestinationReplicaProvider
 from coriolis.tests.integration import utils as test_utils
+from coriolis import utils as coriolis_utils
 
 LOG = logging.getLogger(__name__)
 
@@ -38,7 +40,8 @@ class TestImportProvider(
         BaseEndpointStorageProvider,
         BaseUpdateDestinationReplicaProvider,
         BaseReplicaImportProvider,
-        BaseReplicaImportValidationProvider):
+        BaseReplicaImportValidationProvider,
+        BaseDestinationMinionPoolProvider):
     """Destination-side provider backed by a local `scsi_debug` block device.
 
     ``connection_info`` (the destination endpoint's connection info) has the
@@ -144,16 +147,29 @@ class TestImportProvider(
 
     def deploy_replica_target_resources(
             self, ctxt, connection_info, target_environment, volumes_info):
+        result = self._create_minion(
+            "coriolis-writer", connection_info, volumes_info)
+
+        return {
+            "volumes_info": volumes_info,
+            "connection_info": result["backup_writer_connection_info"],
+            "migr_resources": {"container_id": result["container_id"]},
+        }
+
+    def _create_minion(
+            self, name_prefix, connection_info, volumes_info,
+            device_cgroup_rules=None):
         pkey_path = connection_info["pkey_path"]
         dest_devices = [vol["volume_dev"] for vol in volumes_info]
-        container_name = "coriolis-writer-%s" % uuid.uuid4().hex[:8]
+        container_name = "%s-%s" % (name_prefix, uuid.uuid4().hex[:8])
 
-        container_id = test_utils.start_container(
+        container_id = test_utils.run_container(
             test_utils.DATA_MINION_IMAGE,
             container_name,
             is_systemd=True,
             ssh_key=f"{pkey_path}.pub",
             devices=dest_devices,
+            device_cgroup_rules=device_cgroup_rules,
         )
 
         try:
@@ -172,15 +188,15 @@ class TestImportProvider(
             writer_conn_details = bootstrapper.setup_writer()
 
             return {
-                "volumes_info": volumes_info,
-                "connection_info": {
+                "container_id": container_id,
+                "ssh_connection_info": ssh_conn_info,
+                "backup_writer_connection_info": {
                     "backend": "http_backup_writer",
                     "connection_details": writer_conn_details,
                 },
-                "migr_resources": {"container_id": container_id},
             }
         except Exception:
-            test_utils.stop_container(container_id)
+            test_utils.remove_container(container_id)
             raise
 
     def delete_replica_target_resources(
@@ -188,7 +204,7 @@ class TestImportProvider(
             migr_resources_dict):
         container_id = (migr_resources_dict or {}).get("container_id")
         if container_id:
-            test_utils.stop_container(container_id)
+            test_utils.remove_container(container_id)
 
     def delete_replica_disks(
             self, ctxt, connection_info, target_environment, volumes_info):
@@ -264,4 +280,120 @@ class TestImportProvider(
 
     def validate_replica_deployment_input(
             self, ctxt, connection_info, target_environment, export_info):
+        return {}
+
+    # BaseDestinationMinionPoolProvider
+
+    def get_minion_pool_environment_schema(self):
+        return self.get_target_environment_schema()
+
+    def get_minion_pool_options(
+            self, ctxt, connection_info, env=None, option_names=None):
+        return self.get_target_environment_options(
+            ctxt, connection_info, env, option_names)
+
+    def validate_minion_compatibility_for_transfer(
+            self, ctxt, connection_info, export_info, environment_options,
+            minion_properties):
+        pass
+
+    def validate_minion_pool_environment_options(
+            self, ctxt, connection_info, environment_options):
+        pass
+
+    def set_up_pool_shared_resources(
+            self, ctxt, connection_info, environment_options, pool_identifier):
+        return {}
+
+    def tear_down_pool_shared_resources(
+            self, ctxt, connection_info, environment_options,
+            pool_shared_resources):
+        pass
+
+    def create_minion(
+            self, ctxt, connection_info, environment_options, pool_identifier,
+            pool_os_type, pool_shared_resources, new_minion_identifier):
+        # Devices are hotplugged after container creation via mknod / nsenter.
+        # We must pre-authorize all block devices through the
+        # --device-cgroup-rule option, otherwise any device added will be
+        # inaccessible ("operation not permitted" error on open).
+        result = self._create_minion(
+            "coriolis-pool-minion", connection_info, [],
+            device_cgroup_rules=["b *:* rwm"])
+
+        backup_writer_conn_info = result["backup_writer_connection_info"]
+        return {
+            "connection_info": result["ssh_connection_info"],
+            "backup_writer_connection_info": backup_writer_conn_info,
+            "minion_provider_properties": {
+                "container_id": result["container_id"],
+            },
+        }
+
+    def delete_minion(self, ctxt, connection_info, minion_properties):
+        container_id = (minion_properties or {}).get("container_id")
+        if container_id:
+            test_utils.remove_container(container_id)
+
+    def shutdown_minion(self, ctxt, connection_info, minion_properties):
+        container_id = (minion_properties or {}).get("container_id")
+        if container_id:
+            test_utils.stop_container(container_id)
+
+    def start_minion(self, ctxt, connection_info, minion_properties):
+        container_id = (minion_properties or {}).get("container_id")
+        if container_id:
+            test_utils.start_container(container_id)
+
+    def attach_volumes_to_minion(
+            self, ctxt, connection_info, minion_properties,
+            minion_connection_info, volumes_info):
+        container_id = minion_properties["container_id"]
+        for vol in volumes_info:
+            device_path = vol["volume_dev"]
+            test_utils.hotplug_device_to_container(container_id, device_path)
+
+        return {
+            "minion_properties": minion_properties,
+            "volumes_info": volumes_info,
+        }
+
+    def detach_volumes_from_minion(
+            self, ctxt, connection_info, minion_properties,
+            minion_connection_info, volumes_info):
+        container_id = (minion_properties or {}).get("container_id")
+        if not container_id:
+            return
+
+        for vol in (volumes_info or []):
+            dev_path = vol.get("volume_dev")
+            if not dev_path:
+                continue
+
+            test_utils.unplug_device_from_container(container_id, dev_path)
+
+        return {
+            "minion_properties": minion_properties,
+            "volumes_info": volumes_info,
+        }
+
+    def healthcheck_minion(
+            self, ctxt, connection_info, minion_properties,
+            minion_connection_info):
+        ip = minion_connection_info.get("ip")
+        port = minion_connection_info.get("port", 22)
+        username = minion_connection_info.get("username", "root")
+        pkey = minion_connection_info.get("pkey")
+
+        client = coriolis_utils.connect_ssh(ip, port, username, pkey=pkey)
+        client.close()
+
+    def validate_osmorphing_minion_compatibility_for_transfer(
+            self, ctxt, connection_info, export_info, environment_options,
+            minion_properties):
+        pass
+
+    def get_additional_os_morphing_info(
+            self, ctxt, connection_info, target_environment,
+            instance_deployment_info):
         return {}
