@@ -1215,10 +1215,17 @@ class ConductorServerEndpoint(object):
 
     @staticmethod
     def get_transfers(ctxt, include_tasks_executions=False,
-                      include_task_info=False):
+                      include_task_info=False,
+                      marker=None, limit=None,
+                      sort_keys=None, sort_dirs=None):
         return db_api.get_transfers(
             ctxt, include_tasks_executions=include_tasks_executions,
-            include_task_info=include_task_info, to_dict=True)
+            include_task_info=include_task_info,
+            marker=marker,
+            limit=limit,
+            sort_keys=sort_keys,
+            sort_dirs=sort_dirs,
+            to_dict=True)
 
     @transfer_synchronized
     def get_transfer(self, ctxt, transfer_id, include_task_info=False):

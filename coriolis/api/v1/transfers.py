@@ -1,6 +1,7 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from coriolis.api import common
 from coriolis.api.v1 import utils as api_utils
 from coriolis.api.v1.views import transfer_tasks_execution_view
 from coriolis.api.v1.views import transfer_view
@@ -49,11 +50,16 @@ class TransferController(api_wsgi.Controller):
         context.can(transfer_policies.get_transfers_policy_label("list"))
         include_task_info = api_utils.get_bool_url_arg(
             req, "include_task_info", default=False)
+        marker, limit = common.get_paging_params(req)
+        sort_keys, sort_dirs = common.get_sort_params(req)
         return transfer_view.collection(
             self._transfer_api.get_transfers(
                 context,
                 include_tasks_executions=include_task_info,
-                include_task_info=include_task_info))
+                include_task_info=include_task_info,
+                marker=marker, limit=limit,
+                sort_keys=sort_keys, sort_dirs=sort_dirs,
+            ))
 
     def index(self, req):
         return self._list(req)

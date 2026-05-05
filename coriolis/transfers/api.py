@@ -32,10 +32,14 @@ class API(object):
         self._rpc_client.delete_transfer(ctxt, transfer_id)
 
     def get_transfers(self, ctxt, include_tasks_executions=False,
-                      include_task_info=False):
+                      include_task_info=False,
+                      marker=None, limit=None,
+                      sort_keys=None, sort_dirs=None):
         return self._rpc_client.get_transfers(
             ctxt, include_tasks_executions,
-            include_task_info=include_task_info)
+            include_task_info=include_task_info,
+            marker=marker, limit=limit,
+            sort_keys=sort_keys, sort_dirs=sort_dirs)
 
     def get_transfer(self, ctxt, transfer_id, include_task_info=False):
         return self._rpc_client.get_transfer(
