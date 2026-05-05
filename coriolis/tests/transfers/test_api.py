@@ -17,6 +17,9 @@ class APITestCase(test_base.CoriolisBaseTestCase):
         self.api._rpc_client = self.rpc_client
         self.ctxt = mock.sentinel.ctxt
         self.transfer_id = mock.sentinel.transfer_id
+        self._mock_pagination_args = dict(
+            marker="mock_marker", limit=5,
+            sort_keys=["mock_column"], sort_dirs=["desc"])
 
     def test_create(self):
         origin_endpoint_id = mock.sentinel.origin_endpoint_id
@@ -66,10 +69,14 @@ class APITestCase(test_base.CoriolisBaseTestCase):
 
     def test_get_transfers(self):
         result = self.api.get_transfers(
-            self.ctxt, include_tasks_executions=False, include_task_info=False)
+            self.ctxt, include_tasks_executions=False, include_task_info=False,
+            **self._mock_pagination_args,
+        )
 
         self.rpc_client.get_transfers.assert_called_once_with(
-            self.ctxt, False, include_task_info=False)
+            self.ctxt, False, include_task_info=False,
+            **self._mock_pagination_args,
+        )
         self.assertEqual(result, self.rpc_client.get_transfers.return_value)
 
     def test_get_transfer(self):

@@ -48,13 +48,23 @@ class APITestCase(test_base.CoriolisBaseTestCase):
                 self.ctxt, self.transfer_id, self.execution_id, force))
 
     def test_get_executions(self):
-        include_tasks = mock.sentinel.include_tasks
-
-        result = self.api.get_executions(self.ctxt, self.transfer_id,
-                                         include_tasks)
+        result = self.api.get_executions(
+            self.ctxt, self.transfer_id,
+            mock.sentinel.include_tasks,
+            mock.sentinel.marker,
+            mock.sentinel.limit,
+            mock.sentinel.sort_keys,
+            mock.sentinel.sort_dirs,
+        )
 
         self.rpc_client.get_transfer_tasks_executions.assert_called_once_with(
-            self.ctxt, self.transfer_id, include_tasks)
+            self.ctxt, self.transfer_id,
+            mock.sentinel.include_tasks,
+            mock.sentinel.marker,
+            mock.sentinel.limit,
+            mock.sentinel.sort_keys,
+            mock.sentinel.sort_dirs,
+        )
         self.assertEqual(
             result, self.rpc_client.get_transfer_tasks_executions.return_value)
 

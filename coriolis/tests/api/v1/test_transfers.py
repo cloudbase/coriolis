@@ -84,6 +84,8 @@ class TransferControllerTestCase(test_base.CoriolisBaseTestCase):
             include_task_info=mock_get_bool_url_arg.return_value)
         mock_single.assert_not_called()
 
+    @mock.patch("coriolis.api.common.get_paging_params")
+    @mock.patch("coriolis.api.common.get_sort_params")
     @mock.patch.object(transfer_view, 'collection')
     @mock.patch.object(api.API, 'get_transfers')
     @mock.patch.object(api_utils, 'get_bool_url_arg')
@@ -92,10 +94,19 @@ class TransferControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_get_bool_url_arg,
         mock_get_transfers,
         mock_collection,
+        mock_get_sort_params,
+        mock_get_paging_params,
     ):
         mock_req = mock.Mock()
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
+        mock_get_sort_params.return_value = (
+            mock.sentinel.sort_keys,
+            mock.sentinel.sort_dirs)
+        mock_get_paging_params.return_value = (
+            mock.sentinel.marker,
+            mock.sentinel.limit,
+        )
 
         mock_get_bool_url_arg.side_effect = [False, False]
 
@@ -116,7 +127,11 @@ class TransferControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_get_transfers.assert_called_once_with(
             mock_context,
             include_tasks_executions=False,
-            include_task_info=False
+            include_task_info=False,
+            marker=mock.sentinel.marker,
+            limit=mock.sentinel.limit,
+            sort_keys=mock.sentinel.sort_keys,
+            sort_dirs=mock.sentinel.sort_dirs,
         )
         mock_collection.assert_called_once_with(
             mock_get_transfers.return_value)

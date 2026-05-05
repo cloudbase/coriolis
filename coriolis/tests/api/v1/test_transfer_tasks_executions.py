@@ -73,17 +73,28 @@ class TransferTasksExecutionControllerTestCase(test_base.CoriolisBaseTestCase):
             mock_context, transfer_id, id)
         mock_single.assert_not_called()
 
+    @mock.patch("coriolis.api.common.get_paging_params")
+    @mock.patch("coriolis.api.common.get_sort_params")
     @mock.patch.object(transfer_tasks_execution_view, 'collection')
     @mock.patch.object(api.API, 'get_executions')
     def test_index(
         self,
         mock_get_executions,
-        mock_collection
+        mock_collection,
+        mock_get_sort_params,
+        mock_get_paging_params,
     ):
         mock_req = mock.Mock()
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
         transfer_id = mock.sentinel.transfer_id
+        mock_get_sort_params.return_value = (
+            mock.sentinel.sort_keys,
+            mock.sentinel.sort_dirs)
+        mock_get_paging_params.return_value = (
+            mock.sentinel.marker,
+            mock.sentinel.limit,
+        )
 
         result = self.transfer_api.index(mock_req, transfer_id)
 
@@ -95,7 +106,12 @@ class TransferTasksExecutionControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_context.can.assert_called_once_with(
             "migration:transfer_executions:list")
         mock_get_executions.assert_called_once_with(
-            mock_context, transfer_id, include_tasks=False)
+            mock_context, transfer_id, include_tasks=False,
+            marker=mock.sentinel.marker,
+            limit=mock.sentinel.limit,
+            sort_keys=mock.sentinel.sort_keys,
+            sort_dirs=mock.sentinel.sort_dirs,
+        )
         mock_collection.assert_called_once_with(
             mock_get_executions.return_value)
 

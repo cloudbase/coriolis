@@ -37,6 +37,10 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
         super(ConductorClientTestCase, self).setUp()
         self.client = client.ConductorClient()
 
+        self._mock_pagination_args = dict(
+            marker="mock_marker", limit=5,
+            sort_keys=["mock_column"], sort_dirs=["desc"])
+
     def test_create_endpoint(self):
         args = {
             "name": "mock_name",
@@ -161,7 +165,8 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
     def test_get_transfer_tasks_executions(self):
         args = {
             "transfer_id": "mock_transfer_id",
-            "include_tasks": False
+            "include_tasks": False,
+            **self._mock_pagination_args,
         }
         self._test(self.client.get_transfer_tasks_executions, args)
 
@@ -205,6 +210,7 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
         args = {
             "include_tasks_executions": False,
             "include_task_info": False,
+            **self._mock_pagination_args,
         }
         self._test(self.client.get_transfers, args)
 

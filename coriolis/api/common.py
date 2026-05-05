@@ -13,8 +13,8 @@ def get_paging_params(req):
 
 
 def get_sort_params(req,
-                    default_key='created_at',
-                    default_dir='desc'):
+                    default_keys=('created_at', 'id'),
+                    default_dirs=('desc', 'desc')):
     """Retrieves sort keys/directions parameters.
 
     Processes the parameters to create a list of sort keys and sort directions
@@ -25,10 +25,10 @@ def get_sort_params(req,
     The input parameters are not modified.
 
     :param req: coriolis.api.wsgi.Request object
-    :param default_key: default sort key value, added to the list if no
-                        'sort_key' parameters are supplied
-    :param default_dir: default sort dir value, added to the list if no
-                        'sort_dir' parameters are supplied
+    :param default_keys: default sort key values, added to the list if no
+                         'sort_key' parameters are supplied
+    :param default_dirs: default sort dir values, added to the list if no
+                         'sort_dir' parameters are supplied
     :returns: list of sort keys, list of sort dirs
     """
     params = req.params.copy()
@@ -38,8 +38,8 @@ def get_sort_params(req,
         sort_keys.append(params.pop('sort_key').strip())
     while 'sort_dir' in params:
         sort_dirs.append(params.pop('sort_dir').strip())
-    if len(sort_keys) == 0 and default_key:
-        sort_keys.append(default_key)
-    if len(sort_dirs) == 0 and default_dir:
-        sort_dirs.append(default_dir)
+    if len(sort_keys) == 0 and default_keys:
+        sort_keys.extend(default_keys)
+    if len(sort_dirs) == 0 and default_dirs:
+        sort_dirs.extend(default_dirs)
     return sort_keys, sort_dirs

@@ -37,6 +37,9 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         self.server = server.ConductorServerEndpoint()
         self._licensing_client = mock.Mock()
         self.server._licensing_client = self._licensing_client
+        self._mock_pagination_args = dict(
+            marker="mock_marker", limit=5,
+            sort_keys=["mock_column"], sort_dirs=["desc"])
 
     @mock.patch.object(
         rpc_worker_client.WorkerClient, "from_service_definition"
@@ -1447,7 +1450,8 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.context,
             mock.sentinel.transfer_id,
             mock.sentinel.execution_id,
-            include_task_info=False
+            include_task_info=False,
+            **self._mock_pagination_args,
         )
 
         self.assertEqual(
@@ -1459,7 +1463,8 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.transfer_id,
             mock.sentinel.execution_id,
             include_task_info=False,
-            to_dict=True
+            **self._mock_pagination_args,
+            to_dict=True,
         )
 
     @mock.patch.object(db_api, "get_transfer_tasks_execution")
@@ -1675,7 +1680,8 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         result = self.server.get_transfers(
             mock.sentinel.context,
             include_tasks_executions=False,
-            include_task_info=False
+            include_task_info=False,
+            **self._mock_pagination_args,
         )
 
         self.assertEqual(
@@ -1686,7 +1692,8 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.context,
             include_tasks_executions=False,
             include_task_info=False,
-            to_dict=True
+            to_dict=True,
+            **self._mock_pagination_args,
         )
 
     @mock.patch.object(server.ConductorServerEndpoint, '_get_transfer')

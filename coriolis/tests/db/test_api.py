@@ -326,6 +326,74 @@ class DBAPITestCase(BaseDBAPITestCase):
         self.assertEqual(result.id, valid_endpoint.id)
         self.assertIsNotNone(result.deleted_at)
 
+class DBAPISortParamsTestCase(BaseDBAPITestCase):
+    def test_invalid_sort_dirs(self):
+        self.assertRaises(
+            exception.InvalidInput,
+            api.process_sort_params,
+            sort_keys=["created_at", "id"],
+            sort_dirs=["asc", "descending"],
+        )
+
+    def test_too_many_sort_dirs(self):
+        self.assertRaises(
+            exception.InvalidInput,
+            api.process_sort_params,
+            sort_keys=["id"],
+            sort_dirs=["asc", "asc"],
+        )
+
+    def test_unmodified_input(self):
+        sort_keys = ["created_at", "id"]
+        sort_dirs = ["desc", "desc"]
+
+        ret_keys, ret_dirs = api.process_sort_params(
+            sort_keys, sort_dirs)
+
+        self.assertEqual(sort_keys, ret_keys)
+        self.assertEqual(sort_dirs, ret_dirs)
+
+    def test_unmatched_input(self):
+        sort_keys = ["created_at", "id"]
+        sort_dirs = ["asc"]
+        exp_dirs = ["asc", "asc"]
+
+        ret_keys, ret_dirs = api.process_sort_params(
+            sort_keys, sort_dirs)
+
+        self.assertEqual(sort_keys, ret_keys)
+        self.assertEqual(exp_dirs, ret_dirs)
+
+    def test_default_keys_appended(self):
+        sort_keys = ["created_at"]
+        sort_dirs = ["asc"]
+        exp_sort_keys = ["created_at", "id"]
+        exp_dirs = ["asc", "asc"]
+
+        ret_keys, ret_dirs = api.process_sort_params(
+            sort_keys, sort_dirs,
+            default_keys=["id"],
+            default_dir="asc",
+        )
+
+        self.assertEqual(exp_sort_keys, ret_keys)
+        self.assertEqual(exp_dirs, ret_dirs)
+
+    def test_default_keys_without_input(self):
+        sort_keys = None
+        sort_dirs = None
+        exp_sort_keys = ["id"]
+        exp_dirs = ["asc"]
+
+        ret_keys, ret_dirs = api.process_sort_params(
+            sort_keys, sort_dirs,
+            default_keys=["id"],
+            default_dir="asc",
+        )
+
+        self.assertEqual(exp_sort_keys, ret_keys)
+        self.assertEqual(exp_dirs, ret_dirs)
+
 
 class EndpointDBAPITestCase(BaseDBAPITestCase):
 
