@@ -148,6 +148,21 @@ Delete a migration job:
 
 Note: only completed, failed or cancelled jobs can be deleted.
 
+The following Coriolis APIs support pagination:
+* transfers
+* transfer executions
+* deployments
+* endpoint instances (only marker and limit parameters)
+
+Pagination parameters:
+* ``sort_key`` - sort key, repeatable. `created_at` and `id` are used by default.
+* ``sort_dir`` - sort direction, repeatable. `asc` or `desc` (default).
+* ``marker`` - the last seen ID, omitted from the results.
+* ``limit`` - the maximum number of records to retrieve.
+
+Example:
+
+    GET http://server:7667/v1/transfers?marker=a7061715-e56c-470c-a6ac-80bb02f1f198&limit=2&sort_key=id&sort_dir=asc
 
 API Documentation
 -----------------
