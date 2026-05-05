@@ -29,9 +29,9 @@ class PaginationTest(base.CoriolisIntegrationTestBase):
     def setUpClass(cls):
         super().setUpClass()
 
-        cls._admin_ctx = coriolis_context.get_admin_context()
-        cls._admin_ctx.user_id = cls.FAKE_USER_ID
-        cls._admin_ctx.project_id = cls.FAKE_PROJECT_ID
+        cls._ctx = coriolis_context.RequestContext(
+            user=cls.FAKE_USER_ID,
+            project_id=cls.FAKE_PROJECT_ID)
 
         cls._setup_mocks()
 
@@ -49,7 +49,7 @@ class PaginationTest(base.CoriolisIntegrationTestBase):
         kwargs["info"] = {instance: {
             'volumes_info': []} for instance in kwargs["instances"]}
         transfer = models.Transfer(**kwargs)
-        db_api.add_transfer(cls._admin_ctx, transfer)
+        db_api.add_transfer(cls._ctx, transfer)
         return transfer
 
     @classmethod
@@ -69,7 +69,7 @@ class PaginationTest(base.CoriolisIntegrationTestBase):
         # "add_transfer_tasks_execution" expects "action" to be set,
         # despite not being declared by the model.
         execution.action = transfer
-        db_api.add_transfer_tasks_execution(cls._admin_ctx, execution)
+        db_api.add_transfer_tasks_execution(cls._ctx, execution)
         return execution
 
     @classmethod
@@ -82,7 +82,7 @@ class PaginationTest(base.CoriolisIntegrationTestBase):
         kwargs["type"] = kwargs.get("type", "openstack")
         endpoint = models.Endpoint(
             **kwargs)
-        db_api.add_endpoint(cls._admin_ctx, endpoint)
+        db_api.add_endpoint(cls._ctx, endpoint)
         return endpoint
 
     @classmethod
@@ -99,7 +99,7 @@ class PaginationTest(base.CoriolisIntegrationTestBase):
         kwargs["destination_endpoint_id"] = destination_endpoint_id
         deployment = models.Deployment(
             **kwargs)
-        db_api.add_deployment(cls._admin_ctx, deployment)
+        db_api.add_deployment(cls._ctx, deployment)
         return deployment
 
     @classmethod
