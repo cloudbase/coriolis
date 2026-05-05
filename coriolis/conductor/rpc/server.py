@@ -1374,10 +1374,16 @@ class ConductorServerEndpoint(object):
         return transfer
 
     @staticmethod
-    def get_deployments(ctxt, include_tasks, include_task_info=False):
+    def get_deployments(ctxt, include_tasks, include_task_info=False,
+                        marker=None, limit=None,
+                        sort_keys=None, sort_dirs=None):
         return db_api.get_deployments(
             ctxt, include_tasks,
             include_task_info=include_task_info,
+            marker=marker,
+            limit=limit,
+            sort_keys=sort_keys,
+            sort_dirs=sort_dirs,
             to_dict=True)
 
     @deployment_synchronized

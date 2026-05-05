@@ -563,6 +563,10 @@ def get_transfer_deployments(context, transfer_id):
 def get_deployments(context,
                     include_tasks=False,
                     include_task_info=False,
+                    marker=None,
+                    limit=None,
+                    sort_keys: list[str] | None = None,
+                    sort_dirs: list[str] | None = None,
                     to_dict=False):
     q = _soft_delete_aware_query(context, models.Deployment)
     if include_tasks:
@@ -572,10 +576,26 @@ def get_deployments(context,
     if include_task_info:
         q = q.options(orm.undefer('info'))
 
-    args = {}
     if is_user_context(context):
-        args["project_id"] = context.project_id
-    result = q.filter_by(**args).all()
+        q = q.filter_by(project_id=context.project_id)
+
+    sort_keys, sort_dirs = process_sort_params(
+        sort_keys,
+        sort_dirs,
+    )
+    if marker:
+        try:
+            marker = get_deployment(context, marker)
+        except exception.NotFound:
+            raise exception.MarkerNotFound(marker=marker)
+    q = sqlalchemy_utils.paginate_query(
+        q, models.Deployment, limit,
+        sort_keys=sort_keys,
+        sort_dirs=sort_dirs,
+        marker=marker,
+    )
+
+    result = q.all()
     if to_dict:
         return [i.to_dict(
             include_task_info=include_task_info,

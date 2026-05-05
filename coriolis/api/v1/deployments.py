@@ -4,6 +4,7 @@
 from oslo_log import log as logging
 from webob import exc
 
+from coriolis.api import common
 from coriolis.api.v1 import utils as api_utils
 from coriolis.api.v1.views import deployment_view
 from coriolis.api import wsgi as api_wsgi
@@ -43,11 +44,17 @@ class DeploymentsController(api_wsgi.Controller):
         context.can(deployment_policies.get_deployments_policy_label("list"))
         include_task_info = api_utils.get_bool_url_arg(
             req, "include_task_info", default=False)
+
+        marker, limit = common.get_paging_params(req)
+        sort_keys, sort_dirs = common.get_sort_params(req)
+
         return deployment_view.collection(
             self._deployment_api.get_deployments(
                 context,
                 include_tasks=include_task_info,
-                include_task_info=include_task_info
+                include_task_info=include_task_info,
+                marker=marker, limit=limit,
+                sort_keys=sort_keys, sort_dirs=sort_dirs,
             ))
 
     def index(self, req):
