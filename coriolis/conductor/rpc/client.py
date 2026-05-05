@@ -226,10 +226,17 @@ class ConductorClient(rpc.BaseRPCClient):
             ctxt, 'delete_transfer_disks', transfer_id=transfer_id)
 
     def get_deployments(self, ctxt, include_tasks=False,
-                        include_task_info=False):
+                        include_task_info=False,
+                        marker=None, limit=None,
+                        sort_keys=None, sort_dirs=None):
         return self._call(
             ctxt, 'get_deployments', include_tasks=include_tasks,
-            include_task_info=include_task_info)
+            include_task_info=include_task_info,
+            marker=marker,
+            limit=limit,
+            sort_keys=sort_keys,
+            sort_dirs=sort_dirs,
+        )
 
     def get_deployment(self, ctxt, deployment_id, include_task_info=False):
         return self._call(
