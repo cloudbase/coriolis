@@ -239,3 +239,39 @@ class PaginationTest(base.CoriolisIntegrationTestBase):
         )
         ret_depl_summary = [self._get_record_summary(d) for d in deployments]
         self.assertEqual(exp_sorted_depl_summary[2:4], ret_depl_summary)
+
+    def test_transfer_list(self):
+        transfers = self._client.transfers.list()
+        ret_transfer_summary = [self._get_record_summary(t) for t in transfers]
+
+        exp_sorted_transfer_summary = [
+            self._get_record_summary(d) for d in self._transfers]
+        exp_sorted_transfer_summary = sorted(
+            exp_sorted_transfer_summary,
+            key=lambda x: (x["created_at"], x["id"]),
+            reverse=True)
+        self.assertEqual(exp_sorted_transfer_summary, ret_transfer_summary)
+
+    def test_transfer_list_pagination(self):
+        # Get the first 2 entries, sorted by ID in ascending order.
+        transfers = self._client.transfers.list(
+            limit=2,
+            sort_keys=['id'],
+            sort_dirs=['asc'])
+        ret_transfer_summary = [self._get_record_summary(t) for t in transfers]
+
+        exp_sorted_transfer_summary = [
+            self._get_record_summary(d) for d in self._transfers]
+        exp_sorted_transfer_summary = sorted(
+            exp_sorted_transfer_summary,
+            key=lambda x: x["id"])
+        self.assertEqual(exp_sorted_transfer_summary[:2], ret_transfer_summary)
+
+        # Get the next 2 entries.
+        transfers = self._client.transfers.list(
+            limit=2,
+            sort_keys=['id'],
+            sort_dirs=['asc'],
+            marker=transfers[-1].id)
+        ret_transfer_summary = [self._get_record_summary(t) for t in transfers]
+        self.assertEqual(exp_sorted_transfer_summary[2:4], ret_transfer_summary)

@@ -454,6 +454,10 @@ def get_transfers(context,
                   transfer_scenario=None,
                   include_tasks_executions=False,
                   include_task_info=False,
+                  marker=None,
+                  limit=None,
+                  sort_keys: list[str] | None = None,
+                  sort_dirs: list[str] | None = None,
                   to_dict=False):
     q = _soft_delete_aware_query(context, models.Transfer)
     if include_tasks_executions:
@@ -466,6 +470,23 @@ def get_transfers(context,
     if is_user_context(context):
         q = q.filter(
             models.Transfer.project_id == context.project_id)
+
+    sort_keys, sort_dirs = process_sort_params(
+        sort_keys,
+        sort_dirs,
+    )
+    if marker:
+        try:
+            marker = get_transfer(context, marker)
+        except exception.NotFound:
+            raise exception.MarkerNotFound(marker=marker)
+    q = sqlalchemy_utils.paginate_query(
+        q, models.Transfer, limit,
+        sort_keys=sort_keys,
+        sort_dirs=sort_dirs,
+        marker=marker,
+    )
+
     db_result = q.all()
     if to_dict:
         return [

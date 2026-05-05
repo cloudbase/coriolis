@@ -206,11 +206,18 @@ class ConductorClient(rpc.BaseRPCClient):
             skip_os_morphing=skip_os_morphing)
 
     def get_transfers(self, ctxt, include_tasks_executions=False,
-                      include_task_info=False):
+                      include_task_info=False,
+                      marker=None, limit=None,
+                      sort_keys=None, sort_dirs=None):
         return self._call(
             ctxt, 'get_transfers',
             include_tasks_executions=include_tasks_executions,
-            include_task_info=include_task_info)
+            include_task_info=include_task_info,
+            marker=marker,
+            limit=limit,
+            sort_keys=sort_keys,
+            sort_dirs=sort_dirs,
+        )
 
     def get_transfer(self, ctxt, transfer_id, include_task_info=False):
         return self._call(
