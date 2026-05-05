@@ -187,7 +187,7 @@ class TestExportProvider(
         pkey_path = connection_info["pkey_path"]
 
         container_name = "coriolis-replicator-%s" % uuid.uuid4().hex[:8]
-        container_id = test_utils.start_container(
+        container_id = test_utils.run_container(
             test_utils.DATA_MINION_IMAGE,
             container_name,
             is_systemd=True,
@@ -218,7 +218,7 @@ class TestExportProvider(
                 },
             }
         except Exception:
-            test_utils.stop_container(container_id)
+            test_utils.remove_container(container_id)
             raise
 
     def delete_replica_source_resources(
@@ -226,7 +226,7 @@ class TestExportProvider(
             migr_resources_dict):
         container_id = (migr_resources_dict or {}).get("container_id")
         if container_id:
-            test_utils.stop_container(container_id)
+            test_utils.remove_container(container_id)
 
     def replicate_disks(
             self, ctxt, connection_info, source_environment, instance_name,
