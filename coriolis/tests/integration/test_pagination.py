@@ -16,7 +16,6 @@ from coriolis.db.sqlalchemy import models
 from coriolis.tests.integration import base
 
 
-
 class PaginationTest(base.CoriolisIntegrationTestBase):
     FAKE_USER_ID = "fake-user-id"
     FAKE_PROJECT_ID = "fake-project-id"
@@ -77,8 +76,9 @@ class PaginationTest(base.CoriolisIntegrationTestBase):
         cls,
         **kwargs,
     ) -> models.Endpoint:
-        kwargs["id"] = kwargs.get("id", str(uuid.uuid4()))
-        kwargs["name"] = kwargs.get("name", f"test-endpoint-{kwargs["id"]}")
+        endpoint_id = kwargs.get("id", str(uuid.uuid4()))
+        kwargs["id"] = endpoint_id
+        kwargs["name"] = kwargs.get("name", f"test-endpoint-{endpoint_id}")
         kwargs["type"] = kwargs.get("type", "openstack")
         endpoint = models.Endpoint(
             **kwargs)
@@ -147,7 +147,7 @@ class PaginationTest(base.CoriolisIntegrationTestBase):
         # *all* fields, just the ones that are relevant for pagination.
         created_at = record.created_at
         if isinstance(created_at, str):
-            created_at =  datetime.datetime.fromisoformat(created_at)
+            created_at = datetime.datetime.fromisoformat(created_at)
         # The service may not have microsecond level precision
         # and we need to compare records.
         created_at = created_at.replace(microsecond=0)
@@ -274,4 +274,5 @@ class PaginationTest(base.CoriolisIntegrationTestBase):
             sort_dirs=['asc'],
             marker=transfers[-1].id)
         ret_transfer_summary = [self._get_record_summary(t) for t in transfers]
-        self.assertEqual(exp_sorted_transfer_summary[2:4], ret_transfer_summary)
+        self.assertEqual(
+            exp_sorted_transfer_summary[2:4], ret_transfer_summary)

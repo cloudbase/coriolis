@@ -1,8 +1,8 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-from coriolis.api.v1.views import transfer_tasks_execution_view
 from coriolis.api import common
+from coriolis.api.v1.views import transfer_tasks_execution_view
 from coriolis.api import wsgi as api_wsgi
 from coriolis import exception
 from coriolis.policies import transfer_tasks_executions as executions_policies
