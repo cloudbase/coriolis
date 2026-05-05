@@ -86,3 +86,8 @@ class ReplicaDeploymentIntegrationTest(base.ReplicaIntegrationTestBase):
                 constants.EXECUTION_STATUS_CANCELED_FOR_DEBUGGING,
             ],
         )
+
+
+class MinionPoolReplicaDeploymentTests(
+        base.MinionPoolReplicaTestBase, ReplicaDeploymentIntegrationTest):
+    """Replica deployment that uses a pre-allocated destination minion pool."""

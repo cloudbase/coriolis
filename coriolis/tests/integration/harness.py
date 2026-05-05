@@ -25,7 +25,6 @@ import shutil
 import socket
 import subprocess
 import tempfile
-from unittest import mock
 import uuid
 
 from cheroot.workers import threadpool as cheroot_threadpool
@@ -49,10 +48,12 @@ from coriolis.db.sqlalchemy import api as sqlalchemy_api
 from coriolis.db.sqlalchemy import migration as db_migration
 from coriolis.deployer_manager.rpc import server as deployer_manager_rpc_server
 from coriolis import exception
+from coriolis.minion_manager.rpc import server as minion_manager_rpc_server
 from coriolis import policy as policy_module
 from coriolis import rpc as rpc_module
 from coriolis.scheduler.rpc import server as scheduler_rpc_server
 from coriolis import service
+from coriolis.taskflow import runner as taskflow_runner
 from coriolis.tasks import factory as task_runners_factory
 from coriolis.tests.integration import utils as test_utils
 from coriolis.transfer_cron.rpc import server as transfer_cron_rpc_server
@@ -204,6 +205,36 @@ class _InProcessWorkerServerEndpoint(worker_rpc_server.WorkerServerEndpoint):
         return result
 
 
+class _InProcessTaskflowRunner(taskflow_runner.TaskFlowRunner):
+    """Runs taskflow flows in a daemon thread instead of a child process.
+
+    The default runner uses multiprocessing.spawn, which creates an isolated
+    process with its own fake:// transport instance (no registered services).
+    Running in-thread lets pool tasks reach the conductor, scheduler, and
+    worker that are already live in this process.
+    """
+
+    def run_flow_in_background(self, flow, store=None):
+        coriolis_utils.start_thread(
+            target=self._run_flow,
+            args=(flow,),
+            kwargs={"store": store},
+            daemon=True,
+        )
+
+
+class _InProcessMinionManagerServerEndpoint(
+        minion_manager_rpc_server.MinionManagerServerEndpoint):
+    """Minion manager endpoint that runs pool task flows in-thread."""
+
+    @property
+    def _taskflow_runner(self):
+        return _InProcessTaskflowRunner(
+            constants.MINION_MANAGER_MAIN_MESSAGING_TOPIC,
+            max_workers=25,
+        )
+
+
 class _IntegrationHarness:
     """Shared Integration tests infrastructure; created once per process.
 
@@ -259,6 +290,13 @@ class _IntegrationHarness:
             'retry_interval', 1, group='database')
         cfg.CONF.set_override(
             'lock_path', self.lock_path, group='oslo_concurrency')
+
+        # Disable automatic pool-refresh cron jobs (they would try to contact
+        # Keystone for trust maintenance).
+        cfg.CONF.set_override(
+            'minion_pool_default_refresh_period_minutes', 0,
+            group='minion_manager')
+
         coriolis_utils.setup_logging()
         test_utils.init_scsi_debug()
 
@@ -275,6 +313,7 @@ class _IntegrationHarness:
         self._scheduler_svc = None
         self._transfer_cron_svc = None
         self._deployer_manager_svc = None
+        self._minion_manager_svc = None
         self._worker_svc = None
         self._worker_host_svc = None
 
@@ -315,7 +354,6 @@ class _IntegrationHarness:
         # Conductor: must start first so the worker can register with it.
         conductor_endpoint = conductor_rpc_server.ConductorServerEndpoint()
         conductor_endpoint._licensing_client = None
-        conductor_endpoint._minion_manager_client_instance = mock.MagicMock()
         self._conductor_svc = service.MessagingService(
             constants.CONDUCTOR_MAIN_MESSAGING_TOPIC,
             [conductor_endpoint],
@@ -353,6 +391,18 @@ class _IntegrationHarness:
             init_rpc=False,
         )
         self._deployer_manager_svc.start()
+
+        # Minion manager: runs pool lifecycle task flows in-thread so that
+        # they can reach the in-process conductor, scheduler, and worker over
+        # the fake:// transport.
+        self._minion_manager_svc = service.MessagingService(
+            constants.MINION_MANAGER_MAIN_MESSAGING_TOPIC,
+            [_InProcessMinionManagerServerEndpoint()],
+            minion_manager_rpc_server.VERSION,
+            worker_count=1,
+            init_rpc=False,
+        )
+        self._minion_manager_svc.start()
 
         # Worker: constructor calls _register_worker_service() which makes a
         # blocking RPC call to the conductor, so the conductor must already be
@@ -432,8 +482,9 @@ class _IntegrationHarness:
             pass
 
         for svc in [self._worker_host_svc, self._worker_svc,
-                    self._deployer_manager_svc, self._transfer_cron_svc,
-                    self._scheduler_svc, self._conductor_svc]:
+                    self._minion_manager_svc, self._deployer_manager_svc,
+                    self._transfer_cron_svc, self._scheduler_svc,
+                    self._conductor_svc]:
             if not svc:
                 continue
             try:
