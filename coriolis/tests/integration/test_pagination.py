@@ -13,6 +13,7 @@ from coriolis import constants
 from coriolis import context as coriolis_context
 from coriolis.db import api as db_api
 from coriolis.db.sqlalchemy import models
+from coriolis import exception
 from coriolis.tests.integration import base
 
 
@@ -31,17 +32,19 @@ class PaginationTest(base.CoriolisIntegrationTestBase):
         cls._ctx = coriolis_context.RequestContext(
             user=cls.FAKE_USER_ID,
             project_id=cls.FAKE_PROJECT_ID)
+        cls._admin_ctx = coriolis_context.get_admin_context()
 
         cls._setup_mocks()
 
     @classmethod
-    def _create_transfer(
+    def _create_db_transfer(
         cls,
         origin_endpoint_id: str,
         destination_endpoint_id: str,
         instances: list[str] | None = None,
         **kwargs,
     ) -> models.Transfer:
+        kwargs["id"] = kwargs.get("id", str(uuid.uuid4()))
         kwargs["instances"] = instances or []
         kwargs["origin_endpoint_id"] = origin_endpoint_id
         kwargs["destination_endpoint_id"] = destination_endpoint_id
@@ -49,10 +52,13 @@ class PaginationTest(base.CoriolisIntegrationTestBase):
             'volumes_info': []} for instance in kwargs["instances"]}
         transfer = models.Transfer(**kwargs)
         db_api.add_transfer(cls._ctx, transfer)
+        cls.addClassCleanup(
+            cls._ignoreExc(db_api.delete_transfer, exception.NotFound),
+            cls._admin_ctx, transfer.id)
         return transfer
 
     @classmethod
-    def _create_execution(
+    def _create_db_execution(
         cls,
         transfer: models.Transfer,
         **kwargs,
@@ -68,11 +74,15 @@ class PaginationTest(base.CoriolisIntegrationTestBase):
         # "add_transfer_tasks_execution" expects "action" to be set,
         # despite not being declared by the model.
         execution.action = transfer
-        db_api.add_transfer_tasks_execution(cls._ctx, execution)
+        db_api.add_transfer_tasks_execution(cls._admin_ctx, execution)
+        cls.addClassCleanup(
+            cls._ignoreExc(db_api.delete_transfer_tasks_execution,
+                           exception.NotFound),
+            cls._admin_ctx, execution.id)
         return execution
 
     @classmethod
-    def _create_endpoint(
+    def _create_db_endpoint(
         cls,
         **kwargs,
     ) -> models.Endpoint:
@@ -83,10 +93,13 @@ class PaginationTest(base.CoriolisIntegrationTestBase):
         endpoint = models.Endpoint(
             **kwargs)
         db_api.add_endpoint(cls._ctx, endpoint)
+        cls.addClassCleanup(
+            cls._ignoreExc(db_api.delete_endpoint, exception.NotFound),
+            cls._admin_ctx, endpoint.id)
         return endpoint
 
     @classmethod
-    def _create_deployment(
+    def _create_db_deployment(
         cls,
         transfer_id,
         origin_endpoint_id: str,
@@ -100,12 +113,18 @@ class PaginationTest(base.CoriolisIntegrationTestBase):
         deployment = models.Deployment(
             **kwargs)
         db_api.add_deployment(cls._ctx, deployment)
+        cls.addClassCleanup(
+            cls._ignoreExc(db_api.delete_deployment, exception.NotFound),
+            cls._admin_ctx, deployment.id)
         return deployment
 
     @classmethod
     def _setup_mocks(cls):
-        cls._src_endpoint = cls._create_endpoint()
-        cls._dst_endpoint = cls._create_endpoint()
+        # Note that we're using an admin context when performing cleanups.
+        # In case of already deleted records we'll get a "NotFound" error
+        # instead of "NotAuthorized".
+        cls._src_endpoint = cls._create_db_endpoint()
+        cls._dst_endpoint = cls._create_db_endpoint()
 
         cls._transfers = []
         cls._executions = {}
@@ -114,7 +133,7 @@ class PaginationTest(base.CoriolisIntegrationTestBase):
         for transfer_idx in range(cls.TRANSFER_COUNT):
             # For testing purposes, we'll set the "created_at" field
             # explicitly, adding a small time delta between records.
-            transfer = cls._create_transfer(
+            transfer = cls._create_db_transfer(
                 origin_endpoint_id=cls._src_endpoint.id,
                 destination_endpoint_id=cls._dst_endpoint.id,
                 created_at=timeutils.utcnow() + datetime.timedelta(
@@ -123,7 +142,7 @@ class PaginationTest(base.CoriolisIntegrationTestBase):
 
             cls._executions[transfer.id] = []
             for execution_idx in range(cls.EXECUTIONS_PER_TRANSFER):
-                execution = cls._create_execution(
+                execution = cls._create_db_execution(
                     transfer=transfer,
                     created_at=timeutils.utcnow() + datetime.timedelta(
                         seconds=execution_idx))
@@ -131,7 +150,7 @@ class PaginationTest(base.CoriolisIntegrationTestBase):
 
             cls._deployments[transfer.id] = []
             for deployment_idx in range(cls.DEPLOYMENTS_PER_TRANSFER):
-                deployment = cls._create_deployment(
+                deployment = cls._create_db_deployment(
                     transfer_id=transfer.id,
                     origin_endpoint_id=cls._src_endpoint.id,
                     destination_endpoint_id=cls._dst_endpoint.id,

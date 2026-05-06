@@ -326,6 +326,7 @@ class DBAPITestCase(BaseDBAPITestCase):
         self.assertEqual(result.id, valid_endpoint.id)
         self.assertIsNotNone(result.deleted_at)
 
+
 class DBAPISortParamsTestCase(BaseDBAPITestCase):
     def test_invalid_sort_dirs(self):
         self.assertRaises(
