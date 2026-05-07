@@ -262,9 +262,6 @@ class _IntegrationHarness:
         coriolis_utils.setup_logging()
         test_utils.init_scsi_debug()
 
-        self._send_signal_patcher = mock.patch("psutil.Process.send_signal")
-        self._send_signal_patcher.start()
-
         # Policy enforcer: reset so it re-reads the new CONF (no policy file).
         policy_module.reset()
 
@@ -417,8 +414,6 @@ class _IntegrationHarness:
 
     def _teardown(self):
         LOG.info("Teardown initiated.")
-
-        self._send_signal_patcher.stop()
 
         try:
             coriolis_utils.exec_process(
