@@ -52,6 +52,13 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
         cls._imp_platform = cls._harness.imp_provider_platform
         cls._client = cls.get_client()
 
+    def setUp(self):
+        super().setUp()
+
+        patcher = mock.patch("psutil.Process.send_signal")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     # Helpers for subclasses
     @classmethod
     def get_client(cls):
