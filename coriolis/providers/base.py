@@ -1317,6 +1317,7 @@ class _BaseMinionPoolProvider(
         ctxt: context.RequestContext,
         connection_info: dict,
         minion_properties: dict,
+        minion_connection_info: dict,
         volumes_info: list[dict],
     ) -> dict:
         """Attach volumes to minion instance.
@@ -1328,6 +1329,8 @@ class _BaseMinionPoolProvider(
                                   "minion_provider_properties".
         :param volumes_info: provider specific list of volumes, conforming
                              to volumes_info_schema.json
+        :param minion_connection_info: minion connection info returned by
+                                       "create_minion"
         :returns: a dict containing the following fields
             * minion_properties - updated minion properties
             * volumes_info - updated volume info, specifying the attachment
@@ -1347,6 +1350,7 @@ class _BaseMinionPoolProvider(
         ctxt: context.RequestContext,
         connection_info: dict,
         minion_properties: dict,
+        minion_connection_info: dict,
         volumes_info: list[dict],
     ):
         """Detach volumes from minion instance.
@@ -1356,8 +1360,14 @@ class _BaseMinionPoolProvider(
         :param minion_properties: provider specific properties returned by
                                   "create_minion" through
                                   "minion_provider_properties".
+        :param minion_connection_info: minion connection info returned by
+                                       "create_minion"
         :param volumes_info: provider specific list of volumes, conforming
                              to volumes_info_schema.json
+
+        :returns: a dict containing the following fields
+            * minion_properties - updated minion properties
+            * volumes_info - updated volume info.
         """
         pass
 
