@@ -25,6 +25,8 @@ REQUIRED_DETECTED_OS_FIELDS = [
     "os_type", "distribution_name", "release_version",
     "friendly_release_name"]
 DEFAULT_CLOUD_USER = "cloud-user"
+CLOUD_INIT_SERVICE_UNIT_NAME = "cloud-init"
+CLOUD_INIT_SERVICE_UNIT_NAME_FALLBACK = "cloud-init-main"
 
 
 class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
@@ -472,7 +474,16 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         self._write_cloud_init_mods_config(cloud_cfg_mods)
 
         if self._has_systemd_chroot():
-            self._enable_systemd_service("cloud-init")
+            try:
+                self._enable_systemd_service(CLOUD_INIT_SERVICE_UNIT_NAME)
+            except exception.CoriolisException:
+                LOG.warning(
+                    "Failed to enable service unit with name "
+                    f"{CLOUD_INIT_SERVICE_UNIT_NAME}. Trying new name.")
+                # NOTE(dvincze): New versions of cloud-init (>26) got its
+                # unit service name renamed.
+                self._enable_systemd_service(
+                    CLOUD_INIT_SERVICE_UNIT_NAME_FALLBACK)
 
     def _test_path_chroot(self, path):
         # This method uses _exec_cmd_chroot() instead of SFTP stat()
