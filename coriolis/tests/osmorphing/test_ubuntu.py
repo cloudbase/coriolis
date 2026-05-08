@@ -4,11 +4,14 @@
 import logging
 from unittest import mock
 
+import ddt
+
 from coriolis.osmorphing import base
 from coriolis.osmorphing import ubuntu
 from coriolis.tests import test_base
 
 
+@ddt.ddt
 class BaseUbuntuMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
     """Test suite for the BaseUbuntuMophingTools class."""
 
@@ -37,19 +40,21 @@ class BaseUbuntuMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
 
         self.assertFalse(result)
 
-    def test_check_os_supported_lts_release(self):
-        self.detected_os_info['release_version'] = '20.04'
+    @ddt.data(
+        ("20.04", True),
+        ("20.04.2 LTS", True),
+        ("20.10", False),
+        ("20.054", False),
+        ("19.04", False),
+    )
+    @ddt.unpack
+    def test_check_os_supported_lts_release(self, release_version, expected):
+        self.detected_os_info['release_version'] = release_version
 
         result = ubuntu.BaseUbuntuMorphingTools.check_os_supported(
             self.detected_os_info)
 
-        self.assertTrue(result)
-
-    def test_check_os_supported_non_lts_release(self):
-        result = ubuntu.BaseUbuntuMorphingTools.check_os_supported(
-            self.detected_os_info)
-
-        self.assertTrue(result)
+        self.assertEqual(expected, result)
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_write_file_sudo')

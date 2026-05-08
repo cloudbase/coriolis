@@ -24,15 +24,16 @@ class BaseUbuntuMorphingTools(debian.BaseDebianMorphingTools):
                 UBUNTU_DISTRO_IDENTIFIER):
             return False
 
-        lts_releases = [12.04, 14.04, 16.04, 18.04, 20.04]
-        for lts_release in lts_releases:
-            if cls._version_supported_util(
-                    detected_os_info['release_version'],
-                    minimum=lts_release, maximum=lts_release):
-                return True
+        version, subversion = detected_os_info['release_version'].split('.', 1)
+        if int(version) % 2 != 0 or not subversion.startswith("04"):
+            LOG.warning(
+                "Detected Ubuntu release version "
+                f"'{detected_os_info['release_version']}' is not an LTS one. "
+                "Coriolis only supports morphing Ubuntu LTS versions.")
+            return False
 
         return cls._version_supported_util(
-            detected_os_info['release_version'], minimum=22.04)
+            detected_os_info['release_version'], minimum=12.04)
 
     def _set_netplan_ethernet_configs(
             self, nics_info, dhcp=False, iface_name_prefix=None):
