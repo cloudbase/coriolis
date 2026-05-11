@@ -20,6 +20,10 @@ skip_migrated_vm_start = false
 # Whether or not to force enable KVM hardware virtualization.
 force_enable_kvm = false
 
+# Whether or not to use thin-provisioned disks (qcow2) for the migrated VM.
+# Applicable to storage backends that support qcow snapshots.
+use_qcow_disk = false
+
 # Default virtual CPU model to use for migrated VMs.
 # Note that some CPU models might not be compatible with all CPU vendors.
 # Additionally, using the 'host' model might lead to incompatibilities in
