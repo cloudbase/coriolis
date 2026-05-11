@@ -50,7 +50,8 @@ class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
         self._osmorphing_parameters = osmorphing_parameters
         self._osmorphing_operation_timeout = operation_timeout
 
-    @abc.abstractclassmethod
+    @classmethod
+    @abc.abstractmethod
     def get_required_detected_os_info_fields(cls):
         raise NotImplementedError("Required OS params not defined.")
 
@@ -76,7 +77,8 @@ class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
                     extra_os_info_fields, cls.__name__, detected_os_info))
         return True
 
-    @abc.abstractclassmethod
+    @classmethod
+    @abc.abstractmethod
     def check_os_supported(cls, detected_os_info):
         raise NotImplementedError(
             "OS compatibility check not implemented for tools class %s" % (
