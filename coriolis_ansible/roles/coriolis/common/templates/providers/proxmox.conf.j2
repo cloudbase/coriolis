@@ -34,6 +34,12 @@ import_default_cpu_model = "x86-64-v2-AES"
 # If using a paravirtual device model such as VirtIO, the OSMorphing process is recommended.
 nics_device_model = "virtio"
 
+# The scsi controller type to use for disks for the migrated VMs."
+scsi_controller_model = "virtio-scsi-pci"
+
+# The machine type to use for the migrated VMs.
+machine_type = "q35"
+
 # Whether or not to enable the cluster-wide Proxmox firewall configuration migrated VMs.
 nics_enable_firewall = true
 
