@@ -48,7 +48,8 @@ class TaskRunner(with_metaclass(abc.ABCMeta)):
 
         return required_libs
 
-    @abc.abstractclassmethod
+    @classmethod
+    @abc.abstractmethod
     def get_required_task_info_properties(cls):
         """ Returns a list of the string fields which are required
         to be present during the tasks' run method. """
@@ -56,7 +57,8 @@ class TaskRunner(with_metaclass(abc.ABCMeta)):
             "No required task info properties specified for task class of "
             "type '%s'." % cls)
 
-    @abc.abstractclassmethod
+    @classmethod
+    @abc.abstractmethod
     def get_returned_task_info_properties(cls):
         """ Returns a list of the string fields which are returned by the
         tasks' run method to be added to the task info.
@@ -65,7 +67,8 @@ class TaskRunner(with_metaclass(abc.ABCMeta)):
             "No returned task info properties specified for task class of "
             "type '%s'." % cls)
 
-    @abc.abstractclassmethod
+    @classmethod
+    @abc.abstractmethod
     def get_required_provider_types(cls):
         """ Returns a dict with 'source/destination' as keys containing a list
         of all the provider types (constants.PROVIDER_TYPE_*) required for the
@@ -75,7 +78,8 @@ class TaskRunner(with_metaclass(abc.ABCMeta)):
             "No required provider types specified for task class of "
             "type '%s'." % cls)
 
-    @abc.abstractclassmethod
+    @classmethod
+    @abc.abstractmethod
     def get_required_platform(cls):
         """ Returns whether the task operates on the source platform, the
         destination, or both. (constants.TASK_PLATFORM_*)

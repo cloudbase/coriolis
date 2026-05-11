@@ -25,7 +25,8 @@ class BaseOSDetectTools(object, with_metaclass(abc.ABCMeta)):
         self._environment = {}
         self._osdetect_operation_timeout = operation_timeout
 
-    @abc.abstractclassmethod
+    @classmethod
+    @abc.abstractmethod
     def returned_detected_os_info_fields(cls):
         raise NotImplementedError(
             "No returned OS info fields by class '%s'" % cls.__name__)
