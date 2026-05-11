@@ -74,9 +74,6 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
             # Prevent the test runner from being killed by Coriolis sending
             # SIGINT to in-process workers.
             "psutil.Process.send_signal",
-            # When removing minion pools, this is also called.
-            # There is no Keystone, so it needs to be mocked.
-            "coriolis.keystone.delete_trust",
         ]
         for thing in to_patch:
             patcher = mock.patch(thing)
@@ -116,24 +113,28 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
             project_id=harness._TEST_PROJECT_ID,
         )
 
-    def _create_endpoint(self, **kwargs):
+    @classmethod
+    def _create_endpoint(cls, **kwargs):
         endpoint_kwargs = {
             "description": "",
             "regions": [],
         }
         endpoint_kwargs.update(kwargs)
-        endpoint = self._client.endpoints.create(**endpoint_kwargs)
-        self.addCleanup(self._client.endpoints.delete, endpoint.id)
+        endpoint = cls._client.endpoints.create(**endpoint_kwargs)
+        cls.addClassCleanup(cls._client.endpoints.delete, endpoint.id)
 
         return endpoint
 
-    def _create_transfer(self, src_id, dst_id, instances, **kwargs):
+    def _create_transfer(
+            self, src_id, dst_id, instances, source_environment=None,
+            destination_environment=None, **kwargs):
         """Create a Replica transfer object and return its ID."""
+
         transfer = self._client.transfers.create(
             origin_endpoint_id=src_id,
             destination_endpoint_id=dst_id,
-            source_environment={},
-            destination_environment={},
+            source_environment=source_environment or {},
+            destination_environment=destination_environment or {},
             instances=instances,
             transfer_scenario=constants.TRANSFER_SCENARIO_REPLICA,
             network_map={},
@@ -146,9 +147,10 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
 
         return transfer
 
+    @classmethod
     def _create_pool(
-            self, endpoint_id, name="test-pool", skip_allocation=True):
-        pool = self._client.minion_pools.create(
+            cls, endpoint_id, name="test-pool", skip_allocation=True):
+        pool = cls._client.minion_pools.create(
             name=name,
             endpoint=endpoint_id,
             platform=constants.PROVIDER_PLATFORM_DESTINATION,
@@ -161,32 +163,37 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
                 constants.MINION_POOL_MACHINE_RETENTION_STRATEGY_DELETE),
             skip_allocation=skip_allocation,
         )
-        self.addCleanup(self._safe_delete_pool, pool.id)
+        cls.addClassCleanup(cls._safe_delete_pool, pool.id)
 
         return pool
 
-    def _safe_delete_pool(self, pool_id):
+    @classmethod
+    def _safe_delete_pool(cls, pool_id):
         """Delete pool, force-deallocating first if needed."""
         try:
-            pool = self._client.minion_pools.get(pool_id)
+            pool = cls._client.minion_pools.get(pool_id)
         except Exception:
             LOG.info("[Cleanup]: Pool '%s' not found. Skip delete.")
             return
 
         if pool.status not in MINION_DEALLOCATED_TERMINAL:
-            self._client.minion_pools.deallocate_minion_pool(
+            cls._client.minion_pools.deallocate_minion_pool(
                 pool_id, force=True)
-            self._wait_for_pool(pool_id, MINION_DEALLOCATED_TERMINAL)
+            cls._wait_for_pool(pool_id, MINION_DEALLOCATED_TERMINAL)
 
-        self._client.minion_pools.delete(pool_id)
+        with mock.patch("coriolis.keystone.delete_trust"):
+            # When removing minion pools, this is also called.
+            # There is no Keystone, so it needs to be mocked.
+            cls._client.minion_pools.delete(pool_id)
 
-    def _wait_for_pool(self, pool_id, terminal_statuses, timeout=180):
+    @classmethod
+    def _wait_for_pool(cls, pool_id, terminal_statuses, timeout=180):
         """Poll the DB until *pool_id* reaches one of *terminal_statuses*.
 
         :returns: minion pool ORM object.
         :raises: AssertionError on timeout.
         """
-        ctxt = self._get_db_context()
+        ctxt = cls._get_db_context()
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             pool = db_api.get_minion_pool(ctxt, pool_id)
@@ -195,12 +202,13 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
             time.sleep(1)
         pool = db_api.get_minion_pool(ctxt, pool_id)
         last = pool.status if pool else "not found"
-        self.fail(
+        cls.fail(
             "Pool %s did not reach one of %r within %ds (last: %s)"
             % (pool_id, terminal_statuses, timeout, last)
         )
 
-    def _get_db_context(self):
+    @staticmethod
+    def _get_db_context():
         return context.RequestContext(
             user='int-test',
             project_id=harness._TEST_PROJECT_ID,
@@ -221,7 +229,6 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
 
 class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
 
-    _CREATE_SCSI_DBG_DEVS = True
     _CREATE_MINION_POOLS = False
 
     @classmethod
@@ -240,18 +247,46 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
 
         super().setUpClass()
 
+        cls._src_endpoint = cls._create_endpoint(
+            name="test-src",
+            endpoint_type=cls._exp_platform,
+            description="integration source endpoint",
+            connection_info={
+                "pkey_path": cls._harness.ssh_key_path,
+                "role": "source",
+            },
+        )
+
+        cls._dst_endpoint = cls._create_endpoint(
+            name="test-dest",
+            endpoint_type=cls._imp_platform,
+            description="integration destination endpoint",
+            connection_info={
+                "pkey_path": cls._harness.ssh_key_path,
+                "role": "destination",
+            },
+        )
+
+        # Create minion pool if needed.
+        cls._pool_id = None
+        if cls._CREATE_MINION_POOLS:
+            pool = cls._create_pool(
+                cls._dst_endpoint.id, "transfer-pool", skip_allocation=False)
+            cls._pool_id = pool.id
+
+            pool_obj = cls._wait_for_pool(pool.id, MINION_ALLOCATED_TERMINAL)
+            if pool_obj.status != constants.MINION_POOL_STATUS_ALLOCATED:
+                cls.fail(
+                    "Pool did not reach ALLOCATED (got %s)" % pool_obj.status,
+                )
+
     def setUp(self):
         super().setUp()
 
-        self._src_device = None
-        self._dst_device = None
-        self._pool_id = None
-
-        if self._CREATE_SCSI_DBG_DEVS:
-            self._src_device = test_utils.add_scsi_debug_device()
-            self.addCleanup(test_utils.remove_scsi_debug_device)
-            self._dst_device = test_utils.add_scsi_debug_device()
-            self.addCleanup(test_utils.remove_scsi_debug_device)
+        self._src_device = test_utils.add_scsi_debug_device()
+        self.addCleanup(test_utils.remove_scsi_debug_device)
+        self._dst_device = test_utils.add_scsi_debug_device()
+        self.addCleanup(test_utils.remove_scsi_debug_device)
 
         # Write a test pattern on the src device.
         # Incremental transfer tests update the second chunk (offset=4096).
@@ -259,47 +294,14 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
         # store from a previous test run.
         test_utils.write_test_pattern(self._src_device, 8192)
 
-        # Create endpoints.
-        self._src_endpoint = self._create_endpoint(
-            name="test-src",
-            endpoint_type=self._exp_platform,
-            description="integration source endpoint",
-            connection_info={
-                "block_device_path": self._src_device,
-                "pkey_path": self._harness.ssh_key_path,
-            },
-        )
-
-        self._dst_endpoint = self._create_endpoint(
-            name="test-dest",
-            endpoint_type=self._imp_platform,
-            description="integration destination endpoint",
-            connection_info={
-                "devices": [self._dst_device],
-                "pkey_path": self._harness.ssh_key_path,
-            },
-        )
-
-        # Create minion pool if needed.
-        if self._CREATE_MINION_POOLS:
-            pool = self._create_pool(
-                self._dst_endpoint.id, "transfer-pool", skip_allocation=False)
-            self._pool_id = pool.id
-
-            pool_obj = self._wait_for_pool(pool.id, MINION_ALLOCATED_TERMINAL)
-
-            self.assertEqual(
-                constants.MINION_POOL_STATUS_ALLOCATED,
-                pool_obj.status,
-                "Pool did not reach ALLOCATED (got %s)" % pool_obj.status,
-            )
-
         # Create transfer replica.
         self._transfer = self._create_transfer(
             self._src_endpoint.id,
             self._dst_endpoint.id,
             instances=[self._src_device],
             destination_minion_pool_id=self._pool_id,
+            source_environment={"block_device_path": self._src_device},
+            destination_environment={"devices": [self._dst_device]},
         )
 
         # mock a few commands that are going to be ran through ssh; they won't
@@ -405,28 +407,13 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
         )
 
     def assertDeploymentCompleted(self, deployment_id, timeout=300):
-        """Assert that *deployment_id* finishes with a completed status.
-
-        Polls last_execution_status from the DB (the API view does not expose
-        the execution ID directly, so DB polling is used for status tracking).
-        """
-        ctxt = self._get_db_context()
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            deployment = db_api.get_deployment(ctxt, deployment_id)
-            status = deployment.last_execution_status
-            if status in constants.FINALIZED_EXECUTION_STATUSES:
-                self.assertEqual(
-                    constants.EXECUTION_STATUS_COMPLETED,
-                    status,
-                    "Deployment %s ended with status %s"
-                    % (deployment_id, status),
-                )
-                return
-            time.sleep(1)
-        self.fail(
-            "Deployment %s did not reach a terminal state within %ds"
-            % (deployment_id, timeout)
+        """Assert that *deployment_id* finishes with a completed status."""
+        deployment = self.wait_for_deployment(deployment_id, timeout=timeout)
+        self.assertEqual(
+            constants.EXECUTION_STATUS_COMPLETED,
+            deployment.last_execution_status,
+            "Deployment %s ended with status %s"
+            % (deployment_id, deployment.last_execution_status),
         )
 
     def _patch_add_delay(self, obj, method_name):

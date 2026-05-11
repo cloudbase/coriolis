@@ -37,8 +37,6 @@ class _TransferScheduleTestBase(base.ReplicaIntegrationTestBase):
 
 class TransferScheduleBasicTests(_TransferScheduleTestBase):
 
-    _CREATE_SCSI_DBG_DEVS = False
-
     def test_schedule_crud(self):
         # Create.
         sched = self._create_schedule()

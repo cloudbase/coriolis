@@ -40,8 +40,13 @@ class TestExportProvider(
     ``connection_info`` (the source endpoint's connection info) has the form::
 
         {
-            "block_device_path": "/dev/sdX",           # source block device
-            "pkey_path":         "/root/.ssh/id_rsa",  # key for localhost SSH
+            "pkey_path": "/root/.ssh/id_rsa",  # key for localhost SSH
+        }
+
+    ``source_environment`` (per-transfer source settings) has the form::
+
+        {
+            "block_device_path": "/dev/sdX",  # source block device
         }
     """
 
@@ -75,16 +80,13 @@ class TestExportProvider(
         return {
             "type": "object",
             "properties": {
-                "block_device_path": {"type": "string"},
                 "pkey_path": {"type": "string"},
+                "role": {"type": "string"},
             },
-            "required": ["block_device_path", "pkey_path"],
+            "required": ["pkey_path"],
         }
 
     def validate_connection(self, ctxt, connection_info):
-        block_device_path = connection_info["block_device_path"]
-        if not os.path.exists(block_device_path):
-            raise ValueError("Source device not found: %s" % block_device_path)
         pkey_path = connection_info["pkey_path"]
         if not os.path.exists(pkey_path):
             raise ValueError("SSH private key not found: %s" % pkey_path)
@@ -92,21 +94,26 @@ class TestExportProvider(
     # BaseExportInstanceProvider
 
     def get_source_environment_schema(self):
-        return {"type": "object", "properties": {}}
+        return {
+            "type": "object",
+            "properties": {
+                "block_device_path": {"type": "string"},
+            },
+        }
 
     # BaseEndpointInstancesProvider
 
     def get_instances(self, ctxt, connection_info, source_environment,
                       limit=None, last_seen_id=None,
                       instance_name_pattern=None, refresh=False):
-        return [self._instance_info(connection_info)]
+        return [self._instance_info(source_environment)]
 
     def get_instance(self, ctxt, connection_info, source_environment,
                      instance_name):
-        return self._instance_info(connection_info)
+        return self._instance_info(source_environment)
 
-    def _instance_info(self, connection_info):
-        device = connection_info.get("device", "")
+    def _instance_info(self, source_environment):
+        device = source_environment.get("block_device_path", "")
         name = os.path.basename(device) if device else "test-instance"
         return {
             "id": name,
@@ -153,7 +160,7 @@ class TestExportProvider(
     def get_replica_instance_info(
             self, ctxt, connection_info, source_environment, instance_name):
         """Return minimal export info describing the source block device."""
-        block_device_path = connection_info["block_device_path"]
+        block_device_path = source_environment["block_device_path"]
         size_bytes = _get_block_device_size(block_device_path)
         disk_id = os.path.basename(block_device_path)
 
@@ -183,7 +190,7 @@ class TestExportProvider(
 
     def deploy_replica_source_resources(
             self, ctxt, connection_info, export_info, source_environment):
-        block_device_path = connection_info["block_device_path"]
+        block_device_path = source_environment["block_device_path"]
         pkey_path = connection_info["pkey_path"]
 
         container_name = "coriolis-replicator-%s" % uuid.uuid4().hex[:8]
