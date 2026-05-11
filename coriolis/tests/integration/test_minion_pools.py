@@ -55,7 +55,7 @@ class MinionPoolLifecycleTest(base.MinionPoolTestBase):
         self.assertEqual("updated notes", updated.notes)
 
         # Delete
-        self._client.minion_pools.delete(pool.id)
+        self._safe_delete_pool(pool.id)
 
         pools = self._client.minion_pools.list()
         self.assertNotIn(pool.id, [p.id for p in pools])

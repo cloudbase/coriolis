@@ -48,8 +48,13 @@ class TestImportProvider(
     form::
 
         {
-            "devices":   ["/dev/sdY", ...],   # pre-allocated destination devs
-            "pkey_path": "/root/.ssh/id_rsa", # key for localhost SSH
+            "pkey_path": "/root/.ssh/id_rsa",  # key for localhost SSH
+        }
+
+    ``target_environment`` (per-transfer destination settings) has the form::
+
+        {
+            "devices": ["/dev/sdY", ...],  # pre-allocated destination devs
         }
     """
 
@@ -64,19 +69,13 @@ class TestImportProvider(
         return {
             "type": "object",
             "properties": {
-                "devices": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                },
                 "pkey_path": {"type": "string"},
+                "role": {"type": "string"},
             },
-            "required": ["devices", "pkey_path"],
+            "required": ["pkey_path"],
         }
 
     def validate_connection(self, ctxt, connection_info):
-        for dev in connection_info.get("devices", []):
-            if not os.path.exists(dev):
-                raise ValueError("Destination device not found: %s" % dev)
         pkey_path = connection_info["pkey_path"]
         if not os.path.exists(pkey_path):
             raise ValueError("SSH private key not found: %s" % pkey_path)
@@ -84,7 +83,16 @@ class TestImportProvider(
     # BaseImportInstanceProvider
 
     def get_target_environment_schema(self):
-        return {"type": "object", "properties": {}}
+        return {
+            "type": "object",
+            "properties": {
+                "devices": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
+            },
+            "required": [],
+        }
 
     # BaseEndpointDestinationOptionsProvider
 
@@ -127,7 +135,7 @@ class TestImportProvider(
         Returns a volumes_info list where each entry has ``disk_id`` (from
         the source) and ``volume_dev`` (the destination block device path).
         """
-        dest_devices = list(connection_info["devices"])
+        dest_devices = list(target_environment["devices"])
         src_disks = export_info.get("devices", {}).get("disks", [])
 
         if len(src_disks) > len(dest_devices):
