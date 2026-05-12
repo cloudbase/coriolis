@@ -5,6 +5,7 @@
 Integration test utils.
 """
 
+import contextlib
 import json
 import os
 import socket
@@ -394,17 +395,84 @@ def write_os_image_to_disk(device_path, container_image):
         _run(["docker", "rm", "-f", container_id], check=False)
 
 
-def path_exists_on_device(device_path, rel_path):
-    """Checks if *path* exists on the filesystem of *device_path*.
+def _fixup_luks_inner_os(mapper_path, luks_uuid):
+    """Patch the OS image inside a LUKS mapper to work with OS morphing.
 
-    Mounts the device read-only into a temporary directory, checks for the
-    path, then unmounts.
+    Docker container images are not full OS installs, so a few things need
+    fixing before Coriolis can morph them:
+
+    1. /etc/crypttab is missing: the LUKS mixin needs a UUID= entry there to
+       configure initramfs auto-unlock.
+    2. /boot may be absent (e.g. Rocky Linux 9 Docker image): the osmount
+       root-finder requires etc, bin, sbin, and boot to all be present.
+    """
+    mapper_name = "luks-%s" % luks_uuid
+    crypttab_entry = "%s\tUUID=%s\tnone\tluks\n" % (mapper_name, luks_uuid)
+
+    with tempfile.TemporaryDirectory() as mount_point:
+        _run(["mount", mapper_path, mount_point])
+
+        try:
+            etc_dir = os.path.join(mount_point, "etc")
+            os.makedirs(etc_dir, exist_ok=True)
+            crypttab_path = os.path.join(etc_dir, "crypttab")
+
+            with open(crypttab_path, "w") as fh:
+                fh.write(crypttab_entry)
+
+            os.makedirs(os.path.join(mount_point, "boot"), exist_ok=True)
+        finally:
+            _run(["umount", mount_point])
+
+
+def make_luks_device(device_path, key_file, container_image):
+    """Format *device_path* with LUKS and write a minimal Linux OS inside.
+
+    The mapper device is opened only for the duration of the call. It is closed
+    before returning, leaving the raw device encrypted.
+
+    Exports the filesystem the container image onto the given device, then
+    writes a /etc/crypttab entry so that the LUKS mixin can find the UUID
+    when configuring initramfs auto-unlock during OS morphing.
+    """
+    _run([
+        "cryptsetup", "luksFormat", "--batch-mode", "--key-file", key_file,
+        device_path,
+    ])
+
+    luks_uuid = _run(
+        ["cryptsetup", "luksUUID", device_path]).stdout.decode().strip()
+
+    with luks_open(device_path, key_file) as mapper_path:
+        write_os_image_to_disk(mapper_path, container_image)
+        _fixup_luks_inner_os(mapper_path, luks_uuid)
+
+
+@contextlib.contextmanager
+def luks_open(device_path, key_file):
+    mapper_name = "coriolis_luks_setup_%s" % os.path.basename(device_path)
+    _run([
+        "cryptsetup", "luksOpen", "--key-file", key_file, device_path,
+        mapper_name,
+    ])
+
+    try:
+        yield "/dev/mapper/%s" % mapper_name
+    finally:
+        _run(["cryptsetup", "luksClose", mapper_name])
+
+
+def path_exists_on_device(device_path, rel_path):
+    """Checks if *rel_path* exists on the filesystem of *device_path*.
+
+    Uses lexists so dangling symlinks (e.g. absolute targets only valid inside
+    the OS, not on the host) are still reported as present.
     """
     with tempfile.TemporaryDirectory() as mount_point:
         _run(["mount", "-o", "ro", device_path, mount_point])
 
         try:
-            return os.path.exists(os.path.join(mount_point, rel_path))
+            return os.path.lexists(os.path.join(mount_point, rel_path))
         finally:
             _run(["umount", mount_point])
 

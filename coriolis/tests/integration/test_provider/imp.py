@@ -16,6 +16,7 @@ import uuid
 from oslo_log import log as logging
 import paramiko
 
+from coriolis import constants
 from coriolis.providers import backup_writers
 from coriolis.providers.base import BaseDestinationMinionPoolProvider
 from coriolis.providers.base import BaseEndpointDestinationOptionsProvider
@@ -269,11 +270,13 @@ class TestImportProvider(
         devices = [
             vol["volume_dev"] for vol in volumes_info if vol.get("volume_dev")
         ]
-        return {
-            "instance_deployment_info": {
-                "devices": devices,
-            },
-        }
+        info = {"devices": devices}
+
+        passphrase = target_environment.get(constants.ENCRYPTED_DISKS_PASS)
+        if passphrase:
+            info[constants.ENCRYPTED_DISKS_PASS] = passphrase
+
+        return {"instance_deployment_info": info}
 
     def finalize_replica_instance_deployment(
             self, ctxt, connection_info, target_environment,
@@ -303,6 +306,8 @@ class TestImportProvider(
     # BaseInstanceProvider
 
     def get_os_morphing_tools(self, os_type, osmorphing_info):
+        if osmorphing_info.get(constants.ENCRYPTED_DISKS_PASS):
+            return osmorphing.LUKS_OS_MORPHERS
         return osmorphing.OS_MORPHERS
 
     # BaseImportInstanceProvider
@@ -320,12 +325,29 @@ class TestImportProvider(
             test_utils.get_host_disk_devices() - set(devices)
         )
 
+        device_cgroup_rules = None
+        passphrase = instance_deployment_info.get(
+            constants.ENCRYPTED_DISKS_PASS)
+        if passphrase:
+            # luksOpen inside the container needs /dev/mapper/control.
+            # Docker only gives containers the device nodes passed at run time,
+            # so we must include it explicitly.
+            #
+            # After luksOpen, the kernel creates a new dm block device (dm-N).
+            # udevd inside the container tries to mknod it, but the device
+            # cgroup blocks access to device numbers not in the container's
+            # allowlist. "b *:* rwm" lifts that restriction for block devices,
+            # so the new mapper node becomes accessible.
+            devices = devices + ["/dev/mapper/control"]
+            device_cgroup_rules = ["b *:* rwm"]
+
         # Mount the host's /lib/modules tree so that modprobe can
         # resolve built-in modules.
         volumes = ["/lib/modules:/lib/modules:ro"]
         result = self._create_minion(
             "coriolis-osmorphing", connection_info, devices,
             volumes, setup_writer=False,
+            device_cgroup_rules=device_cgroup_rules,
         )
 
         return {
@@ -334,6 +356,7 @@ class TestImportProvider(
             "osmorphing_info": {
                 "os_type": instance_deployment_info.get("os_type", "linux"),
                 "ignore_devices": ignore_devices,
+                constants.ENCRYPTED_DISKS_PASS: passphrase,
             },
         }
 

@@ -430,15 +430,25 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
         #   where 'ln -s /dev/dm-N /dev/<VG-name>/<LV-name>'
         # Querying for the kernel device name (KNAME) should ensure we get the
         # device names we desire both for physical and logical volumes.
-        volume_devs = self._exec_cmd("lsblk -lnao KNAME").splitlines()
-        LOG.debug("All block devices: %s", str(volume_devs))
+        raw = self._exec_cmd("lsblk -lnao KNAME,TYPE")
+        LOG.debug("All block devices: %s", raw)
 
-        volume_devs = ["/dev/%s" % d for d in volume_devs if
-                       not re.match(r"^.*\d+$", d)]
+        # Exclude partitions; each line is "<kname> <type>".
+        volume_devs = []
+        for line in raw.splitlines():
+            parts = line.split()
+            if len(parts) >= 2 and parts[1] != "part":
+                volume_devs.append("/dev/%s" % parts[0])
 
         LOG.debug("Ignoring block devices: %s", self._ignore_devices)
         volume_devs = [d for d in volume_devs if d
                        not in self._ignore_devices]
+
+        # lsblk reads sysfs, which is shared with the host inside containers,
+        # so it may list devices that have no /dev node here. Drop any such
+        # phantom entries.
+        volume_devs = [d for d in volume_devs
+                       if utils.test_ssh_path(self._ssh, d)]
 
         LOG.info("Volume block devices: %s", volume_devs)
         return volume_devs

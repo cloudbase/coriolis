@@ -6,7 +6,9 @@ FROM ubuntu:24.04
 # dbus is required for systemd to fully manage units;
 # sudo is used by replicator / writer setup.
 # kmod is required during OS morphing (modprobe is being called).
+# cryptsetup is required to unlock / lock LUKS-encrypted devices during OS morphing.
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    cryptsetup \
     dbus \
     kmod \
     openssh-server \

@@ -73,7 +73,11 @@ class BaseSSHOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch('paramiko.SSHClient')
     @mock.patch.object(base.utils, 'wait_for_port_connectivity')
-    def test__connect(self, mock_wait_for_port_connectivity, mock_ssh_client):
+    @mock.patch.object(base.utils, 'deserialize_key')
+    def test__connect(
+        self, mock_deserialize_key, mock_wait_for_port_connectivity,
+        mock_ssh_client,
+    ):
         base_os_mount_tools = TestBaseSSHOSMountTools(
             self.conn_info, self.event_manager,
             mock.sentinel.ignore_devices, mock.sentinel.operation_timeout)
@@ -86,6 +90,7 @@ class BaseSSHOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
                              level=logging.INFO):
             original_connect(base_os_mount_tools)
 
+        mock_deserialize_key.assert_called_with(self.conn_info['pkey'])
         mock_wait_for_port_connectivity.assert_has_calls([
             mock.call(self.conn_info['ip'], 22),
             mock.call(self.conn_info['ip'], 22),
@@ -95,7 +100,7 @@ class BaseSSHOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         self.ssh.connect.assert_called_once_with(
             hostname=self.conn_info['ip'], port=22,
             username=self.conn_info['username'],
-            pkey=self.conn_info['pkey'],
+            pkey=mock_deserialize_key.return_value,
             password=self.conn_info['password'])
 
         self.ssh.set_log_channel.assert_called_once_with(
@@ -646,14 +651,23 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
 
         self.assertEqual(result, expected_result)
 
+    @mock.patch.object(base.utils, 'test_ssh_path', return_value=True)
     @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')
-    def test__get_volume_block_devices(self, mock_exec_cmd):
-        mock_exec_cmd.return_value = "sda\nsda1\nsda2\nsdb\nsdb1\nsdb2"
+    def test__get_volume_block_devices(self, mock_exec_cmd, _mock_test_path):
+        lsblk_output = (
+            "sda  disk\n"
+            "sda1 part\n"
+            "sda2 part\n"
+            "sdb  disk\n"
+            "sdb1 part\n"
+            "sdb2 part\n"
+        )
+        mock_exec_cmd.return_value = lsblk_output
         self.base_os_mount_tools._ignore_devices = ["/dev/sda1"]
 
         result = self.base_os_mount_tools._get_volume_block_devices()
 
-        mock_exec_cmd.assert_called_once_with("lsblk -lnao KNAME")
+        mock_exec_cmd.assert_called_once_with("lsblk -lnao KNAME,TYPE")
         expected_result = ["/dev/sda", "/dev/sdb"]
 
         self.assertEqual(result, expected_result)
