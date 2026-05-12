@@ -846,7 +846,9 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(
         base.BaseLinuxOSMountTools, '_check_mount_fstab_partitions'
     )
-    def test_mount_os(self, mock_check_mount_fstab_partitions,
+    @mock.patch.object(base.luks_mixin.LinuxLUKSMixin, '_unlock_luks_devices')
+    def test_mount_os(self, mock_unlock_luks_devices,
+                      mock_check_mount_fstab_partitions,
                       mock_get_volume_block_devices,
                       mock_find_dev_with_contents, mock_find_and_mount_root,
                       mock_get_mounted_devices, mock_get_vgs, mock_exec_cmd,
@@ -923,7 +925,9 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(
         base.BaseLinuxOSMountTools, '_check_mount_fstab_partitions'
     )
-    def test_mount_os_run_xfs(self, mock_check_mount_fstab_partitions,
+    @mock.patch.object(base.luks_mixin.LinuxLUKSMixin, '_unlock_luks_devices')
+    def test_mount_os_run_xfs(self, mock_unlock_luks_devices,
+                              mock_check_mount_fstab_partitions,
                               mock_get_volume_block_devices,
                               mock_find_dev_with_contents,
                               mock_find_and_mount_root,

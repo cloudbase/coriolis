@@ -137,7 +137,8 @@ def morph_image(origin_provider, destination_provider, connection_info,
     # instantiate and run OSMount tools:
     os_mount_tools = osmount_factory.get_os_mount_tools(
         os_type, connection_info, event_manager, ignore_devices,
-        CONF.default_osmorphing_operation_timeout)
+        CONF.default_osmorphing_operation_timeout,
+        osmorphing_info=osmorphing_info)
 
     proxy_settings = _get_proxy_settings()
     os_mount_tools.set_proxy(proxy_settings)
@@ -317,3 +318,6 @@ def _morph_image(origin_provider, destination_provider, connection_info,
             user_script, script_idx, user_provided=True)
     if not first_boot_user_scripts:
         event_manager.progress_update('No first-boot user script specified')
+
+    os_mount_tools.remove_encryption_artifacts(os_root_dir)
+    os_mount_tools.install_encryption_firstboot_setup(os_root_dir)
