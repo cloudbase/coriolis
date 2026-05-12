@@ -1,11 +1,10 @@
 # Copyright 2026 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-"""Integration tests for transfer schedule CRUD.
+"""Integration tests for transfer schedule CRUD and execution.
 
 Creates, lists, gets, updates, and deletes schedules attached to a replica
-transfer. Does not require the transfer-cron service: schedule execution is
-not tested here, only the management API.
+transfer. Verifies that an enabled schedule triggers a transfer execution.
 """
 
 import datetime
@@ -74,18 +73,21 @@ class TransferScheduleTests(_TransferScheduleTestBase):
         """Verify that a schedule triggers a transfer execution.
 
         Creates a schedule targeting the next wall-clock minute so the
-        in-process transfer-cron service fires it within ~120 seconds.
+        in-process transfer-cron service fires it within ~180 seconds.
         The cron checks jobs every 60s.
+
+        If the the cron job checker ran for *this* minute, and we create a
+        scheduled transfer for *this* minute, it will be ignored / skipped.
         """
         now = timeutils.utcnow()
-        target = now + datetime.timedelta(seconds=10)
+        target = now + datetime.timedelta(seconds=65)
         self._create_schedule(
             schedule={"minute": target.minute, "hour": target.hour},
             enabled=True,
         )
 
-        # Poll until an execution appears (up to 120 s).
-        deadline = time.monotonic() + 120
+        # Poll until an execution appears (up to 180 s).
+        deadline = time.monotonic() + 180
         execution = None
         while time.monotonic() < deadline:
             executions = self._client.transfer_executions.list(
@@ -97,6 +99,6 @@ class TransferScheduleTests(_TransferScheduleTestBase):
 
         self.assertIsNotNone(
             execution,
-            "No transfer execution was triggered within 120s by the schedule")
+            "No transfer execution was triggered within 180s by the schedule")
 
         self.assertExecutionCompleted(execution.id)
