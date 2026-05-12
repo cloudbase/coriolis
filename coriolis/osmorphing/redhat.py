@@ -120,7 +120,7 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
             self._write_config_file(network_cfg_file, network_cfg)
 
     def _write_nic_configs(self, nics_info):
-        for idx, _ in enumerate(nics_info):
+        for idx, _ in enumerate(nics_info or []):
             dev_name = "eth%d" % idx
             cfg_path = "etc/sysconfig/network-scripts/ifcfg-%s" % dev_name
             if self._test_path(cfg_path):

@@ -1433,7 +1433,7 @@ class ConductorServerEndpoint(object):
     def _check_valid_transfer_tasks_execution(transfer, force=False):
         sorted_executions = sorted(
             transfer.executions, key=lambda e: e.number, reverse=True)
-        if not sorted_executions:
+        if not sorted_executions and not force:
             raise exception.InvalidTransferState(
                 "The Transfer has never been executed.")
 

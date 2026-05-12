@@ -372,6 +372,18 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             transfer_id, shutdown_instances=False)
         self.assertExecutionCompleted(execution.id, timeout=timeout)
 
+    def _execute_transfer_and_deployment(self, deployment_kwargs=None):
+        deployment_kwargs = deployment_kwargs or {}
+
+        self._execute_and_wait(self._transfer.id)
+        deployment = self._client.deployments.create_from_transfer(
+            self._transfer.id,
+            skip_os_morphing=False,
+            **deployment_kwargs,
+        )
+        self.addCleanup(self._cleanup_deployment, deployment.id)
+        self.assertDeploymentCompleted(deployment.id)
+
     def _cleanup_execution(self, transfer_id, execution_id):
         """Cancel a running execution if needed, then delete it.
 

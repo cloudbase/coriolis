@@ -35,18 +35,6 @@ class OsMorphingDeploymentTest(integration_base.ReplicaIntegrationTestBase):
         super().setUp()
         test_utils.write_os_image_to_disk(self._src_device, "ubuntu:24.04")
 
-    def _execute_transfer_and_deployment(self, deployment_kwargs=None):
-        deployment_kwargs = deployment_kwargs or {}
-
-        self._execute_and_wait(self._transfer.id)
-        deployment = self._client.deployments.create_from_transfer(
-            self._transfer.id,
-            skip_os_morphing=False,
-            **deployment_kwargs,
-        )
-        self.addCleanup(self._cleanup_deployment, deployment.id)
-        self.assertDeploymentCompleted(deployment.id)
-
     def test_deployment_with_os_morphing(self):
         self.assertFalse(
             test_utils.path_exists_on_device(self._src_device, "usr/bin/jq"),

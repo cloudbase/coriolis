@@ -553,12 +553,14 @@ def connect_ssh(hostname, port, username, pkey=None, password=None,
                 connect_timeout=None, banner_timeout=None):
     """Open and return a connected paramiko SSHClient.
 
-    :param pkey: a paramiko.PKey instance or None.
+    :param pkey: a paramiko.PKey instance, a serialized PEM string, or None.
     :param password: plaintext password or None.
     :param connect_timeout: socket-level timeout in seconds (None = default).
     :param banner_timeout: banner timeout in seconds passed to paramiko.
     :raises: exception.CoriolisException on failure.
     """
+    if isinstance(pkey, str):
+        pkey = deserialize_key(pkey)
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     kwargs = dict(
