@@ -253,8 +253,8 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
         self.os_mount_tools.dismount_os.assert_called_once()
 
         mock_get_os_mount_tools.assert_called_once_with(
-            'linux', mock.sentinel.connection_info, self.event_manager, [], 60)
-        mock_EventManager.assert_called_with(self.event_handler)
+            'linux', mock.sentinel.connection_info, self.event_manager, [], 60,
+            osmorphing_info=self.osmorphing_info)
 
         self.os_mount_tools.dismount_os.assert_called_once()
 
@@ -278,7 +278,8 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
             self.event_handler)
 
         mock_get_os_mount_tools.assert_called_once_with(
-            'linux', mock.sentinel.connection_info, self.event_manager, [], 60)
+            'linux', mock.sentinel.connection_info, self.event_manager, [], 60,
+            osmorphing_info=self.osmorphing_info)
         mock_EventManager.assert_called_once_with(self.event_handler)
 
         mock_get_osmorphing_tools_class.assert_not_called()

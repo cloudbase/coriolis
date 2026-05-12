@@ -14,6 +14,7 @@ from oslo_log import log as logging
 from six import with_metaclass
 
 from coriolis import exception
+from coriolis.osmorphing.osmount import luks_mixin
 from coriolis import utils
 
 LOG = logging.getLogger(__name__)
@@ -24,12 +25,13 @@ MAJOR_COLUMN_INDEX = 4
 class BaseOSMountTools(object, with_metaclass(abc.ABCMeta)):
 
     def __init__(self, connection_info, event_manager, ignore_devices,
-                 operation_timeout):
+                 operation_timeout, osmorphing_info=None):
         self._event_manager = event_manager
         self._ignore_devices = ignore_devices
         self._environment = {}
         self._connection_info = connection_info
         self._osmount_operation_timeout = operation_timeout
+        self._osmorphing_info = osmorphing_info or {}
         self._connect()
 
     @abc.abstractmethod
@@ -56,6 +58,12 @@ class BaseOSMountTools(object, with_metaclass(abc.ABCMeta)):
         pass
 
     def set_proxy(self, proxy_settings):
+        pass
+
+    def remove_encryption_artifacts(self, os_root_dir):
+        pass
+
+    def install_encryption_firstboot_setup(self, os_root_dir):
         pass
 
     def get_environment(self):
@@ -122,7 +130,7 @@ class BaseSSHOSMountTools(BaseOSMountTools):
         return self._ssh
 
 
-class BaseLinuxOSMountTools(BaseSSHOSMountTools):
+class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
     def _get_pvs(self):
         out = self._exec_cmd("sudo pvdisplay -c").splitlines()
         LOG.debug("Output of 'pvdisplay -c' command: %s", out)
@@ -560,6 +568,8 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
                 "sudo ls -1 %s*" % volume_dev).splitlines()
         LOG.debug("All simple devices to scan: %s", dev_paths)
 
+        self._unlock_luks_devices(dev_paths)
+
         lvm_dev_paths = []
         self._check_vgs()
         vgs = self._get_vgs()
@@ -642,6 +652,8 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         self._exec_cmd('sudo fuser --kill --mount %s || true' % root_dir)
         self._exec_cmd(
             'mountpoint -q %s && sudo umount -R %s' % (root_dir, root_dir))
+
+        self._close_luks_devices()
 
     def set_proxy(self, proxy_settings):
         url = proxy_settings.get('url')
