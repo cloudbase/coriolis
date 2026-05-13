@@ -66,10 +66,10 @@ LOG = logging.getLogger(__name__)
 # Dotted paths to the export (source) and import (destination) provider
 # classes.
 _TEST_EXPORT_PROVIDER = (
-    "coriolis.tests.integration.providers.test_provider.exp.TestExportProvider"
+    "coriolis.tests.integration.test_provider.exp.TestExportProvider"
 )
 _TEST_IMPORT_PROVIDER = (
-    "coriolis.tests.integration.providers.test_provider.imp.TestImportProvider"
+    "coriolis.tests.integration.test_provider.imp.TestImportProvider"
 )
 
 # Fixed project used for all test requests.

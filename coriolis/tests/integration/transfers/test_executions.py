@@ -7,7 +7,7 @@ Integration tests for the transfer executions.
 
 from coriolis import constants
 from coriolis.tests.integration import base
-from coriolis.tests.integration.providers.test_provider import imp
+from coriolis.tests.integration.test_provider import imp
 
 
 class TransferExecutionsTests(base.ReplicaIntegrationTestBase):
