@@ -16,7 +16,7 @@ Must be run as root; requires the scsi_debug kernel module.
 from unittest import mock
 
 from coriolis.tests.integration import base
-from coriolis.tests.integration.providers.test_provider import imp
+from coriolis.tests.integration.test_provider import imp
 
 
 class TransferFailureIntegrationTest(base.ReplicaIntegrationTestBase):
