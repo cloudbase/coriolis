@@ -990,6 +990,21 @@ def update_task_progress_update(
             "Could not find progress update for task with ID '%s' and "
             "index %s in the DB for updating." % (task_id, update_index))
 
+    # Quick progress updates may be processed out of order.
+    # We're trying to mitigate this by checking the current step.
+    #
+    # TODO(ffulga): the current approach is still prone to race conditions
+    # since `task_progress_update.current_step` may be out of date.
+    # The safest approach would be to use a db-level `compare-and-update`
+    # sql operation.
+    if new_current_step < task_progress_update.current_step:
+        LOG.debug(
+            "Ignoring out-of-order progress update for task '%s' "
+            "index %s: new_current_step=%s is behind stored current_step=%s",
+            task_id, update_index, new_current_step,
+            task_progress_update.current_step)
+        return
+
     task_progress_update.current_step = new_current_step
     if new_total_steps is not None:
         task_progress_update.total_steps = new_total_steps
