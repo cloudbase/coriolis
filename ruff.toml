@@ -1,0 +1,26 @@
+line-length = 88
+target-version = "py310"
+
+extend-exclude = [
+    "doc",
+    "tools",
+    "*openstack/common*",
+    "*lib/python*",
+    "*egg",
+]
+
+[lint]
+select = ["E", "W", "F", "I"]
+
+ignore = [
+    "E251",  # Skipped due to https://github.com/jcrocholl/pep8/issues/301
+    "E305",  # Expected 2 blank lines after function/class
+    "E731",  # Do not assign a lambda; use def
+    "E117",  # Over-indented
+    "W605",  # Invalid escape sequence in string literal
+    "F632",  # Use ==/!= to compare str, bytes, and int literals
+    "E501",  # Line length enforced by ruff format (line-length above), not lint
+]
+
+[format]
+quote-style = "preserve"
