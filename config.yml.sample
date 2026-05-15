@@ -29,6 +29,9 @@ enable_profiling_for: []
 coriolis_export_providers: ["openstack", "azure", "scvmm", "vmware", "aws", "metal", "ovirt"]
 coriolis_import_providers: ["openstack", "azure", "oci", "aws", "vmware", "ovirt", "kubevirt", "lxd", "proxmox", "libvirt"]
 
+custom_coriolis_export_modules: {}
+custom_coriolis_import_modules: {}
+
 # In the case that some repo needs to be cloned on some other branch instead of
 # the default cloudbase/master that can be set using the two following dict
 # variables.

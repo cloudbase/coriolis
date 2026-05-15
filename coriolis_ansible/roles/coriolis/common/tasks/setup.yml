@@ -54,6 +54,8 @@
     - { src: policy.yml.j2,    dest: "{{ coriolis_config_dir }}/policy.yml" }
   vars:
     coriolis_providers: "{{ coriolis_export_providers | union(coriolis_import_providers) }}"
+    merged_import_modules: "{{ import_provider_modules | combine(custom_coriolis_import_modules) }}"
+    merged_export_modules: "{{ export_provider_modules | combine(custom_coriolis_export_modules) }}"
   notify:
     - "restart coriolis core components"
 

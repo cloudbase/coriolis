@@ -13,10 +13,10 @@ logging_context_format_string = %(asctime)s.%(msecs)03d %(levelname)s %(name)s [
 
 providers=
 {%- for item in coriolis_export_providers %}
-{{ export_provider_modules[item] }},
+{{ merged_export_modules[item] }},
 {%- endfor %}
 {%- for item in coriolis_import_providers %}
-{{ import_provider_modules[item] }}{% if not loop.last %},{% endif %}
+{{ merged_import_modules[item] }}{% if not loop.last %},{% endif %}
 {% endfor %}
 
 caching = True
