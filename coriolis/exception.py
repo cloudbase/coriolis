@@ -509,6 +509,10 @@ class MinionMachineCommandTimeout(CoriolisException):
     pass
 
 
+class SSHCommandFailed(CoriolisException):
+    pass
+
+
 class SSHCommandNotFoundException(CoriolisException):
     pass
 
