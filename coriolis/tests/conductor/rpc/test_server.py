@@ -2102,8 +2102,8 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         (
             {
                 'instances': {
-                    "mock_instance_1": "mock_value_1\r\n",
-                    "mock_instance_2": "mock_value_2\r\n"
+                    "mock_instance_1": "mock_value_1\n",
+                    "mock_instance_2": "mock_value_2\n"
                 }
             },
             ["mock_instance_2"],
@@ -2116,11 +2116,11 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         (
             {
                 'global': {
-                    "linux": "mock_value_1\r\n"
+                    "linux": "mock_value_1\n"
                 },
                 'instances': {
-                    "mock_instance_1": "mock_value_1\n\r",
-                    "mock_instance_2": "mock_value_2\n\r"
+                    "mock_instance_1": "mock_value_1\n",
+                    "mock_instance_2": "mock_value_2\n"
                 }
             },
             ["mock_instance_2"],
@@ -2136,7 +2136,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         (
             {
                 'global': {
-                    "linux": "mock_value_1\n\r"
+                    "linux": "mock_value_1\n"
                 }
             },
             [],

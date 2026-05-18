@@ -55,21 +55,30 @@ class OSMorphingTask(base.TaskRunner):
         osmorphing_info = task_info.get('osmorphing_info', {})
 
         user_scripts = task_info.get("user_scripts")
-        instance_script = None
+        instance_scripts = None
         if user_scripts:
-            instance_script = user_scripts.get("instances", {}).get(instance)
-            if not instance_script:
+            instance_scripts = user_scripts.get("instances", {}).get(instance)
+            if not instance_scripts:
                 os_type = osmorphing_info.get("os_type")
                 if os_type:
-                    instance_script = user_scripts.get(
+                    instance_scripts = user_scripts.get(
                         "global", {}).get(os_type)
+
+        if isinstance(instance_scripts, str):
+            # Legacy record, convert to extended format.
+            instance_scripts = [
+                {
+                    "phase": constants.PHASE_OSMORPHING_POST_OS_MOUNT,
+                    "payload": instance_scripts,
+                }
+            ]
 
         osmorphing_manager.morph_image(
             origin_provider,
             destination_provider,
             osmorphing_connection_info,
             osmorphing_info,
-            instance_script,
+            instance_scripts,
             event_handler)
 
         return {}

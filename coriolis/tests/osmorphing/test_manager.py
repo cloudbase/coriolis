@@ -4,6 +4,7 @@
 import logging
 from unittest import mock
 
+from coriolis import constants
 from coriolis import exception
 from coriolis.osmorphing import base as base_osmorphing
 from coriolis.osmorphing import manager
@@ -19,6 +20,17 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
             'os_type': 'linux',
             'ignore_devices': []
         }
+        self._mock_user_scripts = [
+            {
+                "phase": constants.PHASE_OSMORPHING_PRE_OS_MOUNT,
+                "payload": "pre-os-mount-script",
+            },
+            {
+                "phase": constants.PHASE_OSMORPHING_POST_OS_MOUNT,
+                "payload": "post-os-mount-script",
+            },
+        ]
+
         manager.CONF.proxy.url = "http://127.0.0.1:8080"
         manager.CONF.proxy.username = "admin"
         manager.CONF.proxy.password = "Random-Password-123!"
@@ -211,7 +223,7 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
         manager.morph_image(
             mock.sentinel.origin_provider, mock.sentinel.destination_provider,
             mock.sentinel.connection_info, self.osmorphing_info,
-            mock.sentinel.user_script, self.event_handler)
+            self._mock_user_scripts, self.event_handler)
 
         expected_calls = [
             mock.call(
@@ -250,7 +262,7 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
             manager.morph_image, mock.sentinel.origin_provider,
             mock.sentinel.destination_provider,
             mock.sentinel.connection_info, self.osmorphing_info,
-            mock.sentinel.user_script,
+            self._mock_user_scripts,
             self.event_handler)
 
         mock_get_os_mount_tools.assert_called_once_with(
@@ -284,7 +296,7 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
                 manager.morph_image, mock.sentinel.origin_provider,
                 mock.sentinel.destination_provider,
                 mock.sentinel.connection_info, self.osmorphing_info,
-                mock.sentinel.user_script, self.event_handler)
+                self._mock_user_scripts, self.event_handler)
 
     @mock.patch.object(manager.osmount_factory, 'get_os_mount_tools')
     @mock.patch.object(manager.events, 'EventManager')
@@ -336,4 +348,4 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
             manager.morph_image, mock.sentinel.origin_provider,
             mock.sentinel.destination_provider,
             mock.sentinel.connection_info, self.osmorphing_info,
-            mock.sentinel.user_script, self.event_handler)
+            self._mock_user_scripts, self.event_handler)

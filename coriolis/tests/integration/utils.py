@@ -152,12 +152,20 @@ def devices_match(path_a, path_b):
 
 def _run(cmd, check=True):
     LOG.debug("Running: %s", " ".join(str(c) for c in cmd))
-    return subprocess.run(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
-        check=check,
-    )
+    try:
+        return subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=check,
+        )
+    except subprocess.CalledProcessError as ex:
+        LOG.error(
+            "Command failed: %s, return code: %s, stderr: %s",
+            " ".join(str(c) for c in cmd),
+            ex.returncode,
+            ex.stderr)
+        raise
 
 
 def wait_for_ssh(host, port, username, pkey_path, timeout=30):
@@ -276,10 +284,20 @@ def get_container_ip(container_id):
     :param container_id: container ID or name
     :returns: IP address string
     """
-    result = _run(
-        ["docker", "inspect", "--format",
-         "{{.NetworkSettings.IPAddress}}",
-         container_id])
+    try:
+        result = _run(
+            ["docker", "inspect", "--format",
+             "{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}",
+             container_id])
+    except subprocess.CalledProcessError as ex:
+        if "template parsing error" in ex.stderr:
+            # Fallback to the old format.
+            result = _run(
+                ["docker", "inspect", "--format",
+                 "{{.NetworkSettings.IPAddress}}",
+                 container_id])
+        else:
+            raise
     return result.stdout.decode().strip()
 
 
@@ -364,5 +382,21 @@ def path_exists_on_device(device_path, rel_path):
 
         try:
             return os.path.exists(os.path.join(mount_point, rel_path))
+        finally:
+            _run(["umount", mount_point])
+
+
+def read_file_from_device(device_path, rel_path):
+    """Retrieves the specified file from the filesystem of *device_path*.
+
+    Mounts the device read-only into a temporary directory, reads the file,
+    then unmounts.
+    """
+    with tempfile.TemporaryDirectory() as mount_point:
+        _run(["mount", "-o", "ro", device_path, mount_point])
+
+        try:
+            with open(os.path.join(mount_point, rel_path)) as f:
+                return f.read()
         finally:
             _run(["umount", mount_point])

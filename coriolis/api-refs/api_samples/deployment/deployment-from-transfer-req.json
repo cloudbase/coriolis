@@ -6,6 +6,20 @@
     "skip_os_morphing": false,
     "instance_osmorphing_minion_pool_mappings": {
       "instance1": "morphing_pool"
+    },
+    "user_scripts": {
+      "global": {
+        "linux": [
+          {
+              "phase": "osmorphing_pre_os_mount",
+              "payload": "echo 'unlocking encrypted OS partion'"
+          },
+          {
+              "phase": "osmorphing_post_os_mount",
+              "payload": "echo 'modifying replica OS filesystem'"
+          }
+        ]
+      }
     }
   }
 }

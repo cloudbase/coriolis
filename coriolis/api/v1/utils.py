@@ -86,7 +86,103 @@ def _build_keyerror_message(resource, method, key):
     return msg
 
 
+def _sanitize_newlines(payload: str) -> str:
+    # Convert \r\n or \n\r to \n.
+    return payload.replace('\r\n', '\n').replace('\n\r', '\n')
+
+
+def _process_user_scripts(
+    user_scripts: list[dict] | str | None,
+    sanitize_newlines: bool = False,
+) -> list[dict]:
+    # Process the user script(s), returning an "extended format"
+    # list. See 'validate_user_scripts for more details.
+    if user_scripts is None:
+        return []
+    elif isinstance(user_scripts, str):
+        # Basic script format.
+        payload = user_scripts
+        if sanitize_newlines:
+            payload = _sanitize_newlines(payload)
+        return [
+            {
+                "phase": constants.PHASE_OSMORPHING_POST_OS_MOUNT,
+                "payload": payload,
+            },
+        ]
+    elif isinstance(user_scripts, list):
+        # Extended format.
+        for script_item in user_scripts:
+            if not isinstance(script_item, dict):
+                raise exception.InvalidInput(
+                    reason="Invalid user script list item, expecting dict.")
+
+            allowed_keys = ["payload", "phase"]
+            for key in script_item:
+                if key not in allowed_keys:
+                    raise exception.InvalidInput(
+                        reason=(f"Invalid script item key: {key}, "
+                                f"allowed keys: {allowed_keys}"))
+
+            if not script_item.get("phase"):
+                script_item["phase"] = constants.PHASE_OSMORPHING_POST_OS_MOUNT
+            if script_item["phase"] not in constants.USER_SCRIPT_PHASES:
+                raise exception.InvalidInput(
+                    reason=(
+                        f"Unknown user script phase: {script_item['phase']}, "
+                        f"supported phases: {constants.USER_SCRIPT_PHASES}."))
+            if "payload" not in script_item:
+                raise exception.InvalidInput(
+                    reason="Missing 'payload' field.")
+            if not isinstance(script_item["payload"], str):
+                raise exception.InvalidInput(
+                    reason="Invalid payload type, expecting string.")
+
+            if sanitize_newlines:
+                script_item["payload"] = _sanitize_newlines(
+                    script_item["payload"])
+
+        return user_scripts
+    else:
+        raise exception.InvalidInput(
+            reason=("Invalid user script format. Expecting a string or a "
+                    "list of dicts containing the payload and phase."))
+
+
 def validate_user_scripts(user_scripts):
+    # Validate the top level user scripts dict.
+    # Example:
+    # {
+    #     # Globally executed scripts, used if there are no per-instance
+    #     # scripts.
+    #     'global': {
+    #         # Basic format: single script in string format.
+    #         # Executed
+    #         'windows': 'write-host "hello-world!"'
+    #         # Extended format: a list of scripts, allowing the execution
+    #         # phase to be specified.
+    #         'linux': [
+    #             {
+    #                 'phase': 'osmorphing_pre_os_mount',
+    #                 'payload': 'echo "configuring LUKS"',
+    #             },
+    #             {
+    #                 'phase': 'osmorphing_post_os_mount',
+    #                 'payload': 'echo "modifying OS configuration"'
+    #             }
+    #         ]
+    #     },
+    #     # Per instance scripts.
+    #     'instances': {
+    #         'instance-id': [
+    #             # Extended format without an explicit execution phase,
+    #             # Defaulting to osmorphing_post_os_mount.
+    #             {
+    #                 'payload': 'echo "modifying OS configuration"'
+    #             }
+    #         ]
+    #     }
+    # }
     if user_scripts is None:
         user_scripts = {}
     if not isinstance(user_scripts, dict):
@@ -104,6 +200,9 @@ def validate_user_scripts(user_scripts):
                 reason='The provided global user script os_type "%s" is '
                        'invalid. Must be one of the '
                        'following: %s' % (os_type, constants.VALID_OS_TYPES))
+        global_scripts[os_type] = _process_user_scripts(
+            global_scripts[os_type],
+            sanitize_newlines=(os_type == constants.OS_TYPE_LINUX))
 
     instance_scripts = user_scripts.get('instances', {})
     if not isinstance(instance_scripts, dict):
@@ -111,7 +210,14 @@ def validate_user_scripts(user_scripts):
             reason='"instances" must be a mapping between the identifiers of '
                    'the instances in the Replica/Migration and their '
                    'respective scripts.')
-
+    for instance_id in instance_scripts:
+        # The conductor used to do this, sanitizing newlines regardless
+        # of the instance OS types.
+        # TODO(lpetrut): consider moving it to the OS morphing side, which
+        # has the OS type at hand.
+        instance_scripts[instance_id] = _process_user_scripts(
+            instance_scripts[instance_id],
+            sanitize_newlines=True)
     return user_scripts
 
 
