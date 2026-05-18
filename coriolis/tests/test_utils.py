@@ -83,6 +83,26 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
 
         self.assertEqual(self.mock_func.call_count, 1)
 
+    def test_retry_on_error_not_in_list_of_retried(self):
+        self.mock_func.side_effect = ValueError
+
+        self.assertRaises(ValueError, utils.retry_on_error(
+            max_attempts=5, sleep_seconds=0,
+            terminal_exceptions=[],
+            retried_exceptions=(CoriolisTestException, ))(self.mock_func))
+
+        self.assertEqual(self.mock_func.call_count, 1)
+
+    def test_retry_on_error_in_list_of_retried(self):
+        self.mock_func.side_effect = CoriolisTestException
+
+        self.assertRaises(CoriolisTestException, utils.retry_on_error(
+            max_attempts=5, sleep_seconds=0,
+            terminal_exceptions=[],
+            retried_exceptions=(CoriolisTestException, ))(self.mock_func))
+
+        self.assertEqual(self.mock_func.call_count, 5)
+
     def test_retry_on_error_terminal_exception(self):
         self.mock_func.side_effect = CoriolisTestException
 
@@ -383,10 +403,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         self.mock_ssh.exec_command.return_value = (None, self.mock_stdout,
                                                    self.mock_stdout)
 
-        original_exec_ssh_cmd = testutils.get_wrapped_function(
-            utils.exec_ssh_cmd)
-
-        self.assertRaises(exception.CoriolisException, original_exec_ssh_cmd,
+        self.assertRaises(exception.SSHCommandFailed, utils.exec_ssh_cmd,
                           self.mock_ssh, "command")
 
         self.mock_ssh.exec_command.assert_called_once_with(
@@ -398,11 +415,8 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         self.mock_ssh.exec_command.return_value = (None, self.mock_stdout,
                                                    self.mock_stdout)
 
-        original_exec_ssh_cmd = testutils.get_wrapped_function(
-            utils.exec_ssh_cmd)
-
         self.assertRaises(exception.SSHCommandNotFoundException,
-                          original_exec_ssh_cmd, self.mock_ssh, "command")
+                          utils.exec_ssh_cmd, self.mock_ssh, "command")
 
     def test_exec_ssh_cmd_exit_code_127(self):
         self.mock_stdout.read.return_value = b''
@@ -410,11 +424,8 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         self.mock_ssh.exec_command.return_value = (None, self.mock_stdout,
                                                    self.mock_stdout)
 
-        original_exec_ssh_cmd = testutils.get_wrapped_function(
-            utils.exec_ssh_cmd)
-
         self.assertRaises(exception.SSHCommandNotFoundException,
-                          original_exec_ssh_cmd, self.mock_ssh, "command")
+                          utils.exec_ssh_cmd, self.mock_ssh, "command")
 
     def test_exec_ssh_cmd_chroot(self):
         self.mock_stdout.read.return_value = b'output\n'

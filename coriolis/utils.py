@@ -168,7 +168,8 @@ def get_single_result(lis):
 
 
 def retry_on_error(max_attempts=5, sleep_seconds=1,
-                   terminal_exceptions=[]):
+                   terminal_exceptions=[],
+                   retried_exceptions=(Exception, )):
     def _retry_on_error(func):
         @functools.wraps(func)
         def _exec_retry(*args, **kwargs):
@@ -180,7 +181,7 @@ def retry_on_error(max_attempts=5, sleep_seconds=1,
                     LOG.debug("Got a KeyboardInterrupt, skip retrying")
                     LOG.exception(ex)
                     raise
-                except Exception as ex:
+                except retried_exceptions as ex:
                     if any([isinstance(ex, tex)
                             for tex in terminal_exceptions]):
                         raise
@@ -314,10 +315,7 @@ def list_ssh_dir(ssh, remote_path):
         return [f for f in output.splitlines() if f.strip()]
 
 
-@retry_on_error(terminal_exceptions=[
-    exception.MinionMachineCommandTimeout,
-    exception.SSHCommandNotFoundException])
-def exec_ssh_cmd(ssh, cmd, environment=None, get_pty=False, timeout=None):
+def _exec_ssh_cmd(ssh, cmd, environment=None, get_pty=False, timeout=None):
     remote_str = "<undeterminable>"
     if timeout is not None:
         timeout = float(timeout)
@@ -350,7 +348,7 @@ def exec_ssh_cmd(ssh, cmd, environment=None, get_pty=False, timeout=None):
                 "command not found" in stdout_str or
                 "command not found" in stderr_str):
             raise exception.SSHCommandNotFoundException(msg)
-        raise exception.CoriolisException(msg)
+        raise exception.SSHCommandFailed(msg)
     # Most of the commands will use pseudo-terminal which unfortunately will
     # include a '\r' to every newline. This will affect all plugins too, so
     # best we can do now is replace them.
@@ -358,6 +356,34 @@ def exec_ssh_cmd(ssh, cmd, environment=None, get_pty=False, timeout=None):
 
     # Decode output with error handling for non-UTF-8 characters
     return std_out.decode('utf-8', errors='replace')
+
+
+def exec_ssh_cmd(
+    ssh,
+    cmd,
+    environment=None,
+    get_pty=False,
+    timeout=None,
+    max_attempts=5,
+    retry_interval=1,
+    terminal_exceptions=(
+        exception.MinionMachineCommandTimeout,
+        exception.SSHCommandNotFoundException,
+    ),
+    retried_exceptions=(paramiko.ssh_exception.SSHException,),
+):
+    # By default, we'll perform retries only in case of SSH failures.
+    #
+    # Add "SSHCommandFailed" to the list of retried exceptions if failed
+    # commands should be retried as well.
+
+    @retry_on_error(max_attempts=max_attempts, sleep_seconds=retry_interval,
+                    terminal_exceptions=terminal_exceptions,
+                    retried_exceptions=retried_exceptions)
+    def wrapper():
+        return _exec_ssh_cmd(ssh, cmd, environment, get_pty, timeout)
+
+    return wrapper()
 
 
 def exec_ssh_cmd_chroot(ssh, chroot_dir, cmd, environment=None, get_pty=False,
