@@ -3,6 +3,7 @@
 UTILS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GET_CONFIG_VALUE_SCRIPT="$UTILS_DIR/get_config_value.py"
 SET_CONFIG_VALUE_SCRIPT="$UTILS_DIR/set_config_value.py"
+GET_INI_CONFIG_VALUE_SCRIPT="$UTILS_DIR/get_ini_config_value.py"
 SET_INI_CONFIG_VALUE_SCRIPT="$UTILS_DIR/set_ini_config_value.py"
 CONFIG_FILE=$(readlink -f "$UTILS_DIR/../config.yml")
 ALL_VARS_FILE=$(readlink -f "$UTILS_DIR/../coriolis_ansible/group_vars/all.yml")

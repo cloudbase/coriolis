@@ -2,7 +2,7 @@
 
 
 # Options and prompt definitions:
-OPTIONS=("Show Appliance Stats" "Show UI Login Details" "Edit/Inspect Coriolis Configuration" "Edit/Inspect Network Settings" "Edit/Inspect Proxy Settings" "Expose Coriolis Services Endpoints" "Add Certificate to Coriolis Worker" "Restore to default Coriolis Worker certificate chain" "Change Coriolis API certificate chain" "Restore Coriolis API certificate chain" "Deploy External Worker" "Restart Coriolis Services" "Upgrade Coriolis Services")
+OPTIONS=("Show Appliance Stats" "Show UI Login Details" "Edit/Inspect Coriolis Configuration" "Edit/Inspect Network Settings" "Configure/Restore Appliance Proxy Settings" "Expose Coriolis Services Endpoints" "Add Certificate to Coriolis Worker" "Restore to default Coriolis Worker certificate chain" "Change Coriolis API certificate chain" "Restore Coriolis API certificate chain" "Deploy External Worker" "Restart Coriolis Services" "Upgrade Coriolis Services")
 
 
 WELCOME_PROMPT=$(cat <<EOP
@@ -58,19 +58,21 @@ After you are done editing, please exit this shell using exit or Ctrl^D.\n\n
 EOP
 )
 
+EDITING_CONTAINER_CONSOLE_PROMPT_PROXY=$(cat <<EOP
+Please edit the appliance proxy settings file by running:
+    * vim /etc/coriolis/proxy-settings.ini
+
+After you are done editing, please exit this shell using exit or Ctrl^D.
+WARNING: This operation requires restarting all Coriolis containers and docker service,
+please make sure no running executions are active.\n\n
+EOP
+)
+
 EXPOSING_CORIOLIS_SERVICES_PROMPT=$(cat <<EOP
 This will expose the Coriolis services endpoints by setting them on the main IP address of the
 appliance (instead of the default 127.0.0.1), thus allowing API access to external clients.
 
 WARNING: This operation requires stopping all Coriolis services while updating endpoint configuration,
-please make sure no running executions are active.\n\n
-EOP
-)
-
-PROXY_SETTINGS=$(cat <<EOP
-This will set-up HTTP/HTTPS/NO PROXY environment variables in coriolis-worker docker container.
-
-WARNING: This operation requires restarting all Coriolis containers and docker service,
 please make sure no running executions are active.\n\n
 EOP
 )
@@ -112,6 +114,12 @@ source "$BASE_DIR/utils/common.sh" 2> /dev/null
 CORIOLIS_CONSOLE_EDITOR_CONTAINER_NAME="coriolis-console-editor"
 ADMIN_OPENRC_FILE="$(get_global_config_value kolla_admin_openrc_filepath)"
 CORIOLIS_CONSOLE_EDITOR_EXTRA_PROPT_FILE_PATH="/opt/coriolis/extra-coriolis-editor-prompt.txt"
+CORIOLIS_CONFIG_DIR="$(get_global_config_value coriolis_config_dir)"
+APPLIANCE_PROXY_SETTINGS_FILE="$CORIOLIS_CONFIG_DIR/proxy-settings.ini"
+HOST_PROXY_ENV_FILE="/etc/profile.d/coriolis-proxy.sh"
+DOCKER_PROXY_SYSTEMD_DIR="/etc/systemd/system/docker.service.d"
+DOCKER_PROXY_SYSTEMD_FILE="$DOCKER_PROXY_SYSTEMD_DIR/coriolis-proxy.conf"
+APT_PROXY_CONFIG_FILE="/etc/apt/apt.conf.d/95coriolis-proxy"
 
 # Logging options:
 LOGDIR=`get_global_config_value coriolis_log_dir`
@@ -387,63 +395,259 @@ function restore-certificate-chain {
 }
 
 function display-proxy-settings {
-    CURR_PROXY_SETTINGS=$(run-logged-command "docker exec -ti coriolis-worker env|grep PROXY")
-    echo -e "Current Proxy settings:\n$CURR_PROXY_SETTINGS\n"
+    echo "Current host proxy settings:"
+    env | grep -i '_proxy=' || true
+    echo
+    echo "Current coriolis-worker proxy settings:"
+    run-logged-command "docker exec coriolis-worker env | grep -i '_proxy=' || true"
+    echo
 }
 
-#checks coriolis-worker .json configuration file for env. var. existence and creates new/updates values
-#$1 argument ccontains the env. variable name, $2 the value of it, $3 coriolis-worker container .json configuration file path
-function apply-proxy-variable {
-    VAR_PRESENT=$(run-logged-command "jq --arg value $1 '.Config.Env | contains(["'$value'"])' $2")
-    if [[ $VAR_PRESENT == "true" ]]; then
-        run-logged-command "jq --arg var1 $1 --arg value $1=$3 '(.Config.Env[] | select(contains("'$var1'"))) |= "'($value ? // .)'"' $2 > "$2.tmp" && mv "$2.tmp" "$2""
+function ensure-proxy-settings-file {
+    mkdir -p "$CORIOLIS_CONFIG_DIR"
+    if [ -f "$APPLIANCE_PROXY_SETTINGS_FILE" ]; then
+        return
+    fi
+
+    cat > "$APPLIANCE_PROXY_SETTINGS_FILE" <<EOF
+# Coriolis appliance proxy settings.
+#
+# Set proxy_host = true to configure the host.
+# Set this if you only need proxy connection for upgrading the appliance.
+#
+# Set proxy_worker = true to configure coriolis-worker.
+# Set this if you need to access cloud environments via the configured proxy server.
+#
+# Set both options to false to restore any managed proxy configurations.
+
+[proxy]
+proxy_host = false
+proxy_worker = false
+
+http_proxy =
+https_proxy =
+no_proxy =
+EOF
+}
+
+function proxy-setting-enabled {
+    local value
+    value="$(echo "$1" | tr '[:upper:]' '[:lower:]')"
+    [[ "$value" == "1" || "$value" == "yes" || "$value" == "true" || "$value" == "on" ]]
+}
+
+function load-proxy-settings {
+    ensure-proxy-settings-file
+
+    PROXY_HOST="false"
+    PROXY_WORKER="false"
+    PROXY_HTTP=""
+    PROXY_HTTPS=""
+    PROXY_NO_PROXY=""
+
+    PROXY_HOST="$("$GET_INI_CONFIG_VALUE_SCRIPT" -c "$APPLIANCE_PROXY_SETTINGS_FILE" -s proxy -n proxy_host)"
+    PROXY_WORKER="$("$GET_INI_CONFIG_VALUE_SCRIPT" -c "$APPLIANCE_PROXY_SETTINGS_FILE" -s proxy -n proxy_worker)"
+    PROXY_HTTP="$("$GET_INI_CONFIG_VALUE_SCRIPT" -c "$APPLIANCE_PROXY_SETTINGS_FILE" -s proxy -n http_proxy)"
+    PROXY_HTTPS="$("$GET_INI_CONFIG_VALUE_SCRIPT" -c "$APPLIANCE_PROXY_SETTINGS_FILE" -s proxy -n https_proxy)"
+    PROXY_NO_PROXY="$("$GET_INI_CONFIG_VALUE_SCRIPT" -c "$APPLIANCE_PROXY_SETTINGS_FILE" -s proxy -n no_proxy)"
+
+    PROXY_HOST="${PROXY_HOST:-false}"
+    PROXY_WORKER="${PROXY_WORKER:-false}"
+}
+
+function effective-no-proxy {
+    local appliance_ip no_proxy
+    appliance_ip="$(get-main-ip-address)"
+    no_proxy="127.0.0.1,localhost,$appliance_ip"
+    if [ -n "$PROXY_NO_PROXY" ]; then
+        no_proxy="$no_proxy,$PROXY_NO_PROXY"
+    fi
+    normalize-no-proxy-list "$no_proxy"
+}
+
+# Remove duplicate entries. Entries are case-insensitive, so that
+# `localhost` and `LocalHost` are treated as the same entry).
+function normalize-no-proxy-list {
+    local no_proxy="$1"
+
+    python3 -c '
+import sys
+
+seen = set()
+for entry in sys.argv[1].split(","):
+    seen.add(entry.strip().lower())
+
+print(",".join(list(seen)))
+' "$no_proxy"
+}
+
+# Escapes characters that are special inside bash double-quoted strings:
+# backslash, double quote, dollar sign, and backtick.
+function normalize_bash_env_value {
+    local value="$1"
+    value="${value//\\/\\\\}"
+    value="${value//\"/\\\"}"
+    value="${value//\$/\\$}"
+    value="${value//\`/\\\`}"
+    printf '"%s"' "$value"
+}
+
+function export-current-shell-proxy-settings {
+    load-proxy-settings
+
+    unset HTTP_PROXY HTTPS_PROXY NO_PROXY http_proxy https_proxy no_proxy
+    if proxy-setting-enabled "$PROXY_HOST"; then
+        local no_proxy
+        no_proxy="$(effective-no-proxy)"
+        export HTTP_PROXY="$PROXY_HTTP"
+        export HTTPS_PROXY="$PROXY_HTTPS"
+        export NO_PROXY="$no_proxy"
+        export http_proxy="$PROXY_HTTP"
+        export https_proxy="$PROXY_HTTPS"
+        export no_proxy="$no_proxy"
+    fi
+}
+
+function write-host-proxy-settings {
+    mkdir -p "$(dirname "$HOST_PROXY_ENV_FILE")"
+
+    local no_proxy
+    no_proxy="$(effective-no-proxy)"
+    {
+        echo "# Managed by Coriolis appliance console. Edit $APPLIANCE_PROXY_SETTINGS_FILE instead."
+        printf 'export HTTP_PROXY=%s\n' "$(normalize_bash_env_value "$PROXY_HTTP")"
+        printf 'export HTTPS_PROXY=%s\n' "$(normalize_bash_env_value "$PROXY_HTTPS")"
+        printf 'export NO_PROXY=%s\n' "$(normalize_bash_env_value "$no_proxy")"
+        printf 'export http_proxy=%s\n' "$(normalize_bash_env_value "$PROXY_HTTP")"
+        printf 'export https_proxy=%s\n' "$(normalize_bash_env_value "$PROXY_HTTPS")"
+        printf 'export no_proxy=%s\n' "$(normalize_bash_env_value "$no_proxy")"
+    } > "$HOST_PROXY_ENV_FILE"
+
+    mkdir -p "$DOCKER_PROXY_SYSTEMD_DIR"
+    {
+        echo "# Managed by Coriolis appliance console. Edit $APPLIANCE_PROXY_SETTINGS_FILE instead."
+        echo "[Service]"
+        printf 'Environment="HTTP_PROXY=%s"\n' "$PROXY_HTTP"
+        printf 'Environment="HTTPS_PROXY=%s"\n' "$PROXY_HTTPS"
+        printf 'Environment="NO_PROXY=%s"\n' "$no_proxy"
+        printf 'Environment="http_proxy=%s"\n' "$PROXY_HTTP"
+        printf 'Environment="https_proxy=%s"\n' "$PROXY_HTTPS"
+        printf 'Environment="no_proxy=%s"\n' "$no_proxy"
+    } > "$DOCKER_PROXY_SYSTEMD_FILE"
+
+    {
+        echo "// Managed by Coriolis appliance console. Edit $APPLIANCE_PROXY_SETTINGS_FILE instead."
+        if [ -n "$PROXY_HTTP" ]; then
+            printf 'Acquire::http::Proxy "%s";\n' "$PROXY_HTTP"
+        fi
+        if [ -n "$PROXY_HTTPS" ]; then
+            printf 'Acquire::https::Proxy "%s";\n' "$PROXY_HTTPS"
+        fi
+    } > "$APT_PROXY_CONFIG_FILE"
+}
+
+function remove-host-proxy-settings {
+    rm -f "$HOST_PROXY_ENV_FILE"
+    rm -f "$DOCKER_PROXY_SYSTEMD_FILE"
+    rm -f "$APT_PROXY_CONFIG_FILE"
+}
+
+function apply-worker-proxy-variable {
+    local variable="$1"
+    local value="$2"
+    local config_file="$3"
+    local tmp_file="$config_file.tmp"
+
+    if [ -n "$value" ]; then
+        jq --arg name "$variable" --arg value "$variable=$value" \
+            '.Config.Env = ((.Config.Env // []) | map(select(startswith($name + "=") | not)) + [$value])' \
+            "$config_file" > "$tmp_file" && mv "$tmp_file" "$config_file"
     else
-        run-logged-command "jq --arg var1 $1 --arg value $1=$3 '(.Config.Env += ["'$value'"])' $2 > "$2.tmp" && mv "$2.tmp" "$2""
+        jq --arg name "$variable" \
+            '.Config.Env = ((.Config.Env // []) | map(select(startswith($name + "=") | not)))' \
+            "$config_file" > "$tmp_file" && mv "$tmp_file" "$config_file"
+    fi
+}
+
+function write-worker-proxy-settings {
+    local worker_cont_id worker_cont_conf_file no_proxy
+
+    worker_cont_id=$(run-logged-command 'docker inspect --format="{{.Id}}" coriolis-worker')
+    if [ -z "$worker_cont_id" ]; then
+        echo "ERROR: Failed to find coriolis-worker container."
+        return 1
+    fi
+    worker_cont_conf_file="$DOCKER_CONTAINERS_FOLDER/$worker_cont_id/config.v2.json"
+    if [ ! -f "$worker_cont_conf_file" ]; then
+        echo "ERROR: Failed to find coriolis-worker Docker configuration file."
+        return 1
+    fi
+
+    if proxy-setting-enabled "$PROXY_WORKER"; then
+        no_proxy="$(effective-no-proxy)"
+        apply-worker-proxy-variable HTTP_PROXY "$PROXY_HTTP" "$worker_cont_conf_file"
+        apply-worker-proxy-variable HTTPS_PROXY "$PROXY_HTTPS" "$worker_cont_conf_file"
+        apply-worker-proxy-variable NO_PROXY "$no_proxy" "$worker_cont_conf_file"
+        apply-worker-proxy-variable http_proxy "$PROXY_HTTP" "$worker_cont_conf_file"
+        apply-worker-proxy-variable https_proxy "$PROXY_HTTPS" "$worker_cont_conf_file"
+        apply-worker-proxy-variable no_proxy "$no_proxy" "$worker_cont_conf_file"
+    else
+        apply-worker-proxy-variable HTTP_PROXY "" "$worker_cont_conf_file"
+        apply-worker-proxy-variable HTTPS_PROXY "" "$worker_cont_conf_file"
+        apply-worker-proxy-variable NO_PROXY "" "$worker_cont_conf_file"
+        apply-worker-proxy-variable http_proxy "" "$worker_cont_conf_file"
+        apply-worker-proxy-variable https_proxy "" "$worker_cont_conf_file"
+        apply-worker-proxy-variable no_proxy "" "$worker_cont_conf_file"
     fi
 }
 
 #127.0.0.1 and Coriolis Appliance IP@ needs to skip proxy since Coriolis internal endpoints are using it.
 function add-proxy {
-    printf "$PROXY_SETTINGS"
-    WORKER_CONT_ID=$(run-logged-command 'docker inspect --format="{{.Id}}" coriolis-worker')
-    WORKER_CONT_CONF_FILE="$DOCKER_CONTAINERS_FOLDER/$WORKER_CONT_ID/config.v2.json"
-    IP_ADDR=`get-main-ip-address`
-
+    ensure-proxy-settings-file
     display-proxy-settings
-    CONTINUE_SETUP=`prompt-for-confirmation-word "Continue setting-up proxy environment variables? "`
-    if [ "$CONTINUE_SETUP" = "0" ]; then
-        echo
+
+    run-coriolis-console-editor-shell "$EDITING_CONTAINER_CONSOLE_PROMPT_PROXY"
+
+    load-proxy-settings
+    echo
+    if proxy-setting-enabled "$PROXY_HOST" || proxy-setting-enabled "$PROXY_WORKER"; then
+        echo "Proxy settings will be applied from $APPLIANCE_PROXY_SETTINGS_FILE."
+    else
+        echo "Proxy settings are disabled for both host and worker; applying this will remove managed proxy settings."
+    fi
+
+    APPLY_PROXY=`prompt-for-confirmation-word "Apply proxy settings now? "`
+    if [ "$APPLY_PROXY" = "0" ]; then
         return
     fi
 
-    read -p "Enter HTTP proxy ( http://<HOST>:<PORT>, Enter=None ): " PROXY_HTTP
-    read -p "Enter HTTPS proxy ( http(s)://<HOST>:<PORT>, Enter=None ): " PROXY_HTTPS
-    read -p "Enter NO proxy ( *.test.example.com,.example2.com ): " PROXY_SKIP
-    APPLY_PROXY_WORKER=`prompt-for-confirmation-word "Apply Proxy settings to Coriolis Worker container? "`
-    if [ "$APPLY_PROXY_WORKER" = "1" ]; then
-        echo
-        echo 'Stopping coriolis-worker container'
-        run-logged-command "docker stop coriolis-worker 2>&1 > /dev/null"
-        if ! [ $? -eq 0 ]; then
-            echo "ERROR: Failed to stop coriolis-worker container."
-            return
-        fi
-        apply-proxy-variable HTTP_PROXY $WORKER_CONT_CONF_FILE $PROXY_HTTP
-        apply-proxy-variable HTTPS_PROXY $WORKER_CONT_CONF_FILE $PROXY_HTTPS
-        apply-proxy-variable NO_PROXY $WORKER_CONT_CONF_FILE 127.0.0.1,$IP_ADDR,$PROXY_SKIP
-        echo "Restarting docker service."
-        run-logged-command "systemctl restart docker"
-        echo "Starting coriolis-worker container."
-        run-logged-command "docker start coriolis-worker 2>&1 > /dev/null"
-        if ! [ $? -eq 0 ]; then
-            echo "ERROR: Failed to start coriolis-worker container."
-            return
-        fi
-        display-proxy-settings
-    else
-        echo
-        echo 'Proxy settings not applied to Coriolis Worker container.'
+    if { proxy-setting-enabled "$PROXY_HOST" || proxy-setting-enabled "$PROXY_WORKER"; } && [ -z "$PROXY_HTTP" ] && [ -z "$PROXY_HTTPS" ]; then
+        echo "ERROR: proxy_host = true or proxy_worker = true requires at least one of http_proxy or https_proxy."
+        return
     fi
+
+    if proxy-setting-enabled "$PROXY_HOST"; then
+        write-host-proxy-settings
+    else
+        remove-host-proxy-settings
+    fi
+    export-current-shell-proxy-settings
+
+    echo 'Stopping coriolis-worker container.'
+    run-logged-command "docker stop coriolis-worker 2>&1 > /dev/null || true"
+    if ! write-worker-proxy-settings; then
+        echo "ERROR: Failed to update coriolis-worker proxy settings."
+    fi
+
+    echo "Restarting docker service."
+    run-logged-command "systemctl daemon-reload"
+    run-logged-command "systemctl restart docker"
+
+    restart-coriolis-containers
+
+    echo
+    echo "Proxy settings applied."
+    display-proxy-settings
 }
 
 function change-api-certificate {
@@ -637,6 +841,7 @@ function deploy-external-worker {
 function upgrade-coriolis-services {
 
     pushd "$BASE_DIR"
+    export-current-shell-proxy-settings
     current_release=$(cat /etc/coriolis/coriolis.release)
     current_commit=$(git show --pretty="format:%H" --no-patch)
     coriolis_tag=$(confirm_input "Coriolis tag: ")
@@ -711,7 +916,7 @@ function interact {
                         confirm-restart-coriolis-containers
             break
                         ;;
-                "Edit/Inspect Proxy Settings")
+                "Configure/Restore Appliance Proxy Settings")
                         add-proxy
             break
                         ;;
@@ -747,6 +952,7 @@ function interact {
                         ;;
                 "Upgrade Coriolis Components")
                         run-coriolis-console-editor-shell "$EDITING_CONTAINER_CONSOLE_PROMPT_UPGRADE"
+                        export-current-shell-proxy-settings
                         $BASE_DIR/coriolis-ansible update
             break
                         ;;
