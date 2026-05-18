@@ -43,6 +43,9 @@ class TestBaseSSHOSMountTools(base.BaseSSHOSMountTools):
     def mount_os(self):
         pass
 
+    def run_user_script(self, user_script):
+        pass
+
 
 class BaseSSHOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
     """Test suite for the BaseSSHOSMountTools class."""

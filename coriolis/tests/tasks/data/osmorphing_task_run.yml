@@ -5,7 +5,7 @@
       osmorphing_connection_info:
         info1: value1
         info2: value2
-  expected_instance_script: ~
+  expected_instance_scripts: ~
 
 - config:
     instance: instance_1
@@ -17,7 +17,9 @@
       user_scripts:
         instances:
           instance_1: instance_script1
-  expected_instance_script: instance_script1
+  expected_instance_scripts:
+    - phase: osmorphing_post_os_mount
+      payload: instance_script1
 
 - config:
     instance: instance_1
@@ -29,8 +31,20 @@
         info2: value2
       user_scripts:
         global:
-          linux: linux_script1
-  expected_instance_script: linux_script1
+          linux:
+            - phase: osmorphing_pre_os_mount
+              payload: instance_script1
+            - phase: osmorphing_pre_os_mount
+              payload: instance_script2
+            - phase: osmorphing_post_os_mount
+              payload: instance_script3
+  expected_instance_scripts:
+    - phase: osmorphing_pre_os_mount
+      payload: instance_script1
+    - phase: osmorphing_pre_os_mount
+      payload: instance_script2
+    - phase: osmorphing_post_os_mount
+      payload: instance_script3
 
 - config:
     instance: instance_1
@@ -42,7 +56,7 @@
       user_scripts:
         global:
           linux: linux_script1
-  expected_instance_script: ~
+  expected_instance_scripts: ~
 
 - config:
     instance: instance_1
@@ -53,7 +67,7 @@
         info1: value1
         info2: value2
       user_scripts: {}
-  expected_instance_script: ~
+  expected_instance_scripts: ~
 
 - config:
     instance: instance_1
@@ -66,4 +80,4 @@
       user_scripts:
         global:
           windows: windows_script1
-  expected_instance_script: ~
+  expected_instance_scripts: ~

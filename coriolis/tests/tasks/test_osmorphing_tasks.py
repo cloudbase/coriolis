@@ -25,7 +25,7 @@ class OSMorphingTaskTestCase(test_base.CoriolisBaseTestCase):
     @ddt.file_data('data/osmorphing_task_run.yml')
     @ddt.unpack
     def test__run(self, mock_morph_image, mock_unmarshal, mock_get_provider,
-                  config, expected_instance_script):
+                  config, expected_instance_scripts):
         mock_get_provider.side_effect = [mock.sentinel.origin_provider,
                                          mock.sentinel.destination_provider]
         instance = config['instance']
@@ -48,10 +48,11 @@ class OSMorphingTaskTestCase(test_base.CoriolisBaseTestCase):
         mock_get_provider.assert_has_calls(expected_calls)
         mock_unmarshal.assert_called_once_with(
             task_info['osmorphing_connection_info'])
+
         mock_morph_image.assert_called_once_with(
             mock.sentinel.origin_provider, mock.sentinel.destination_provider,
             mock_unmarshal.return_value, osmorphing_info,
-            expected_instance_script, mock.sentinel.event_handler)
+            expected_instance_scripts, mock.sentinel.event_handler)
         self.assertEqual(result, {})
 
 

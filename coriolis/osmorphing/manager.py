@@ -6,6 +6,7 @@ import itertools
 from oslo_config import cfg
 from oslo_log import log as logging
 
+from coriolis import constants
 from coriolis import events
 from coriolis import exception
 from coriolis.osmorphing import base as base_osmorphing
@@ -126,11 +127,12 @@ def get_osmorphing_tools_class_for_provider(
 
 
 def morph_image(origin_provider, destination_provider, connection_info,
-                osmorphing_info, user_script, event_handler):
+                osmorphing_info, user_scripts, event_handler):
     event_manager = events.EventManager(event_handler)
 
     os_type = osmorphing_info.get('os_type')
     ignore_devices = osmorphing_info.get('ignore_devices', [])
+    user_scripts = user_scripts or []
 
     # instantiate and run OSMount tools:
     os_mount_tools = osmount_factory.get_os_mount_tools(
@@ -149,6 +151,19 @@ def morph_image(origin_provider, destination_provider, connection_info,
             "due to an incompatibility between the OS image used for the "
             "OSMorphing minion machine and the VM undergoing OSMorphing. "
             "Error was: %s" % str(err)) from err
+
+    pre_os_mount_user_scripts = [
+        script["payload"] for script in user_scripts
+        if script["phase"] == constants.PHASE_OSMORPHING_PRE_OS_MOUNT]
+    if not pre_os_mount_user_scripts:
+        event_manager.progress_update(
+            'No pre-os-mount OS morphing user script specified')
+    for user_script in pre_os_mount_user_scripts:
+        event_manager.progress_update(
+            'Running pre-os-mount OS morphing user script')
+        # We haven't detected the morphed OS partition yet, we'll use
+        # the mount tools to run pre-mount user scripts.
+        os_mount_tools.run_user_script(user_script)
 
     event_manager.progress_update("Discovering and mounting OS partitions")
     os_root_dir, os_root_dev = os_mount_tools.mount_os()
@@ -210,13 +225,16 @@ def morph_image(origin_provider, destination_provider, connection_info,
         CONF.default_osmorphing_operation_timeout)
     import_os_morphing_tools.set_environment(environment)
 
-    if user_script:
+    post_os_mount_user_scripts = [
+        script["payload"] for script in user_scripts
+        if script["phase"] == constants.PHASE_OSMORPHING_POST_OS_MOUNT]
+    for user_script in post_os_mount_user_scripts:
         event_manager.progress_update(
             'Running OS morphing user script')
         import_os_morphing_tools.run_user_script(user_script)
-    else:
+    if not post_os_mount_user_scripts:
         event_manager.progress_update(
-            'No OS morphing user script specified')
+            'No post-os-mount OS morphing user script specified')
 
     event_manager.progress_update(
         'OS being migrated: %s' % detected_os_info['friendly_release_name'])

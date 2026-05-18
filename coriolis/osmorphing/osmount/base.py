@@ -61,6 +61,11 @@ class BaseOSMountTools(object, with_metaclass(abc.ABCMeta)):
     def get_environment(self):
         return self._environment
 
+    @abc.abstractmethod
+    def run_user_script(self, user_script):
+        """Run pre-os-mount user script."""
+        pass
+
 
 class BaseSSHOSMountTools(BaseOSMountTools):
     @utils.retry_on_error(max_attempts=5, sleep_seconds=3)
@@ -674,3 +679,31 @@ class BaseLinuxOSMountTools(BaseSSHOSMountTools):
         if no_proxy:
             LOG.debug("Proxy exclusions: %s", no_proxy)
             self._environment["no_proxy"] = '.'.join(no_proxy)
+
+    def run_user_script(self, user_script):
+        if len(user_script) == 0:
+            return
+
+        script_path = "/tmp/coriolis_user_script"
+        try:
+            utils.write_ssh_file(
+                self._ssh,
+                script_path,
+                user_script)
+        except Exception as err:
+            raise exception.CoriolisException(
+                "Failed to copy user script to target system.") from err
+
+        try:
+            utils.exec_ssh_cmd(
+                self._ssh,
+                "sudo chmod +x %s" % script_path,
+                get_pty=True)
+
+            utils.exec_ssh_cmd(
+                self._ssh,
+                f'sudo "{script_path}"',
+                get_pty=True)
+        except Exception as err:
+            raise exception.CoriolisException(
+                "Failed to run user script.") from err

@@ -239,3 +239,29 @@ class WindowsMountTools(base.BaseOSMountTools):
 
     def dismount_os(self, root_drive):
         self._bring_nonboot_disks_offline()
+
+    def run_user_script(self, user_script):
+        if len(user_script) == 0:
+            return
+
+        script_path = "$env:TMP\\coriolis_user_script.ps1"
+        try:
+            utils.write_winrm_file(
+                self._conn,
+                script_path,
+                user_script)
+        except Exception as err:
+            raise exception.CoriolisException(
+                "Failed to copy user script to target system.") from err
+
+        cmd = ('$ErrorActionPreference = "Stop"; powershell.exe '
+               '-NonInteractive -ExecutionPolicy RemoteSigned '
+               '-File "%(script)s"') % {
+            "script": script_path,
+        }
+        try:
+            out = self._conn.exec_ps_command(cmd)
+            LOG.debug("User script output: %s" % out)
+        except Exception as err:
+            raise exception.CoriolisException(
+                "Failed to run user script.") from err
