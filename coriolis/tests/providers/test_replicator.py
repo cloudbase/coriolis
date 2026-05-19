@@ -807,10 +807,7 @@ class ReplicatorTestCase(test_base.CoriolisBaseTestCase):
     def test__copy_replicator_cmd(
             self, mock_exec_ssh_cmd, mock_copy_file,
             mock_get_resources_bin_dir, mock_join):
-        original_copy_replicator_cmd = testutils.get_wrapped_function(
-            self.replicator._copy_replicator_cmd)
-
-        original_copy_replicator_cmd(self.replicator, self._ssh)
+        self.replicator._copy_replicator_cmd(self._ssh)
 
         mock_get_resources_bin_dir.assert_called_once()
         mock_join.assert_called_once_with(
@@ -895,11 +892,8 @@ class ReplicatorTestCase(test_base.CoriolisBaseTestCase):
             "srv_crt": mock.sentinel.srv_crt,
             "srv_key": mock.sentinel.srv_key,
         }
-        original_exec_replicator = testutils.get_wrapped_function(
-            self.replicator._exec_replicator)
-
-        original_exec_replicator(
-            self.replicator, self._ssh, self.conn_info['port'], certs,
+        self.replicator._exec_replicator(
+            self._ssh, self.conn_info['port'], certs,
             mock.sentinel.state)
 
         mock_create_service.assert_called_once_with(
@@ -997,10 +991,7 @@ class ReplicatorTestCase(test_base.CoriolisBaseTestCase):
             mock_get_replicator_state_file):
         mock_setup_replicator_group.return_value = True
 
-        original_setup_replicator = testutils.get_wrapped_function(
-            self.replicator._setup_replicator)
-
-        result = original_setup_replicator(self.replicator, self._ssh)
+        result = self.replicator._setup_replicator(self._ssh)
 
         mock_get_replicator_state_file.assert_called_once()
         mock_copy_file.assert_called_once_with(

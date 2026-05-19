@@ -873,7 +873,6 @@ def _has_systemd(ssh):
             test_ssh_path(ssh, "/usr/lib/systemd/system"))
 
 
-@retry_on_error()
 def create_service(ssh, cmdline, svcname, run_as=None, start=True):
     # Simplistic check for init system. We usually use official images,
     # and none of the supported operating systems come with both upstart
@@ -889,7 +888,6 @@ def create_service(ssh, cmdline, svcname, run_as=None, start=True):
             "could not determine init system")
 
 
-@retry_on_error()
 def restart_service(ssh, svcname):
     if _has_systemd(ssh):
         exec_ssh_cmd(ssh, "sudo systemctl restart %s" % svcname, get_pty=True)
@@ -899,7 +897,6 @@ def restart_service(ssh, svcname):
         raise exception.UnrecognizedWorkerInitSystem()
 
 
-@retry_on_error()
 def start_service(ssh, svcname):
     if _has_systemd(ssh):
         exec_ssh_cmd(ssh, "sudo systemctl start %s" % svcname, get_pty=True)
@@ -909,7 +906,6 @@ def start_service(ssh, svcname):
         raise exception.UnrecognizedWorkerInitSystem()
 
 
-@retry_on_error()
 def stop_service(ssh, svcname):
     if _has_systemd(ssh):
         exec_ssh_cmd(ssh, "sudo systemctl stop %s" % svcname, get_pty=True)

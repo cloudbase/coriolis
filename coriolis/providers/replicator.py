@@ -570,7 +570,6 @@ class Replicator(object):
             ssh, "sudo mv %s %s" % (tmp, remotePath), get_pty=True)
         sftp.close()
 
-    @utils.retry_on_error()
     def _copy_replicator_cmd(self, ssh):
         local_path = os.path.join(
             utils.get_resources_bin_dir(), 'replicator')
@@ -616,7 +615,6 @@ class Replicator(object):
                 ssh, "sudo usermod -aG disk %s" % REPLICATOR_USERNAME,
                 get_pty=True)
 
-    @utils.retry_on_error()
     def _exec_replicator(self, ssh, port, certs, state_file):
         cmdline = ("%(replicator_path)s run -hash-method=%(hash_method)s "
                    "-ignore-mounted-disks=%(ignore_mounted)s "
@@ -738,7 +736,6 @@ class Replicator(object):
             LOG.warn("Could not change SELinux context of replicator binary. "
                      "Error was:%s", utils.get_exception_details())
 
-    @utils.retry_on_error()
     def _setup_replicator(self, ssh):
         # copy the binary, set up the service, generate certificates,
         # start service
