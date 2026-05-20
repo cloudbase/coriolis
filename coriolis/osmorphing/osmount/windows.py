@@ -254,11 +254,7 @@ class WindowsMountTools(base.BaseOSMountTools):
             raise exception.CoriolisException(
                 "Failed to copy user script to target system.") from err
 
-        cmd = ('$ErrorActionPreference = "Stop"; powershell.exe '
-               '-NonInteractive -ExecutionPolicy RemoteSigned '
-               '-File "%(script)s"') % {
-            "script": script_path,
-        }
+        cmd = f'& "{script_path}"; exit $LASTEXITCODE'
         try:
             out = self._conn.exec_ps_command(cmd)
             LOG.debug("User script output: %s" % out)

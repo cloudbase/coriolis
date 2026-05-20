@@ -338,11 +338,9 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_write_winrm_file.assert_called_once_with(
             self.conn, script_path, user_script)
         self.conn.exec_ps_command.assert_called_once_with(
-            ('$ErrorActionPreference = "Stop"; powershell.exe '
-             '-NonInteractive -ExecutionPolicy RemoteSigned '
-             '-File "%(script)s" "%(os_root_dir)s"') % {
-                 "script": script_path,
-                 "os_root_dir": self.os_root_dir,
+            ('& "%(script)s" "%(os_root_dir)s"; exit $LASTEXITCODE') % {
+                "script": script_path,
+                "os_root_dir": self.os_root_dir,
             }
         )
 
