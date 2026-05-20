@@ -149,7 +149,14 @@ class WSManConnection(object):
         LOG.debug("Executing PS command: %s", cmd)
         base64_cmd = base64.b64encode(cmd.encode('utf-16le')).decode()
         return self.exec_command(
-            "powershell.exe", ["-EncodedCommand", base64_cmd],
+            "powershell.exe",
+            [
+                "-EncodedCommand",
+                base64_cmd,
+                "-NonInteractive",
+                "-ExecutionPolicy",
+                "RemoteSigned",
+            ],
             timeout=timeout)[:-2]
 
     def test_path(self, remote_path):

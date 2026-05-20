@@ -71,10 +71,10 @@ class OsMorphingDeploymentTest(integration_base.ReplicaIntegrationTestBase):
 
     def test_os_morphing_instance_script_basic_format(self):
         expected_string = str(uuid.uuid4())
-        instance = self._src_device
         user_scripts = {
             'instances': {
-                instance: f"echo -n {expected_string} > $1/cookie\n\r"
+                self._instance_name: (
+                    f"echo -n {expected_string} > $1/cookie\n\r")
             }
         }
         deployment_kwargs = {

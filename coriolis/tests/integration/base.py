@@ -301,11 +301,11 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
         # Create transfer replica.
         # Use basename as instance name; real VM names do not contain slashes,
         # and some providers use the name as is in resource indentifiers.
-        instance_name = os.path.basename(self._src_device)
+        self._instance_name = os.path.basename(self._src_device)
         self._transfer = self._create_transfer(
             self._src_endpoint.id,
             self._dst_endpoint.id,
-            instances=[instance_name],
+            instances=[self._instance_name],
             destination_minion_pool_id=self._pool_id,
             source_environment={"block_device_path": self._src_device},
             destination_environment={"devices": [self._dst_device]},

@@ -148,7 +148,13 @@ class WSManConnectionTestCase(test_base.CoriolisBaseTestCase):
         self.conn.exec_command.return_value = "std_out\n\n"
         result = self.conn.exec_ps_command(self.cmd)
         self.conn.exec_command.assert_called_once_with(
-            "powershell.exe", ["-EncodedCommand", 'dABlAHMAdABfAGMAbQBkAA=='],
+            "powershell.exe",
+            [
+                "-EncodedCommand",
+                'dABlAHMAdABfAGMAbQBkAA==',
+                '-NonInteractive',
+                '-ExecutionPolicy', 'RemoteSigned',
+            ],
             timeout=None)
         self.assertEqual(result, "std_out")
 

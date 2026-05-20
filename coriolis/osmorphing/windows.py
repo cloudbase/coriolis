@@ -406,9 +406,7 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
             raise exception.CoriolisException(
                 "Failed to copy user script to target system.") from err
 
-        cmd = ('$ErrorActionPreference = "Stop"; powershell.exe '
-               '-NonInteractive -ExecutionPolicy RemoteSigned '
-               '-File "%(script)s" "%(os_root_dir)s"') % {
+        cmd = ('& "%(script)s" "%(os_root_dir)s"; exit $LASTEXITCODE') % {
             "script": script_path,
             "os_root_dir": self._os_root_dir,
         }
