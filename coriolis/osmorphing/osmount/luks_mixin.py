@@ -15,6 +15,17 @@ from coriolis import utils
 LOG = logging.getLogger(__name__)
 
 _LUKS_KEYFILE_DIR = "/etc/luks"
+_DRACUT_LUKS_CONF_PATH = "/etc/dracut.conf.d/99-coriolis-luks.conf"
+
+# cryptsetup loads TPM2 token plugins via dlopen, so dracut's ldd analysis
+# misses them. List candidate paths in order of preference; the first one
+# found in the guest OS will be added to install_items so dracut includes
+# both the plugin and its libtss2 dependencies.
+_CRYPTSETUP_TPM2_PLUGIN_PATHS = [
+    "/usr/lib64/cryptsetup/libcryptsetup-token-systemd-tpm2.so",
+    "/usr/lib/cryptsetup/libcryptsetup-token-systemd-tpm2.so",
+    "/usr/lib/x86_64-linux-gnu/cryptsetup/libcryptsetup-token-systemd-tpm2.so",
+]
 
 _FIRSTBOOT_SCRIPT_PATH = "/usr/local/sbin/coriolis-luks-firstboot.sh"
 _SYSTEMD_UNIT_PATH = "/etc/systemd/system/coriolis-luks-firstboot.service"
@@ -29,6 +40,7 @@ def _load_script(filename):
 
 _LUKS_FIRSTBOOT_SCRIPTS = {
     "update-initramfs": _load_script("luks_firstboot_initramfs_tools.sh"),
+    "dracut": _load_script("luks_firstboot_dracut.sh"),
 }
 
 _SYSTEMD_UNIT = """\
@@ -379,12 +391,42 @@ class LinuxLUKSMixin:
         self._update_crypttab_keyfile(os_root_dir, uuid_to_keyfile)
 
         initramfs_tool = self._detect_initramfs_tool(os_root_dir)
-        if initramfs_tool == "update-initramfs":
+        if initramfs_tool == "dracut":
+            self._configure_dracut_keyfiles(os_root_dir, uuid_to_keyfile)
+        elif initramfs_tool == "update-initramfs":
             self._configure_initramfs_tools_keyfiles(os_root_dir)
         else:
             raise exception.CoriolisException(
                 "No initramfs tool found in OS at '%s'; cannot configure "
                 "keyfile-based LUKS auto-unlock." % os_root_dir)
+
+    def _configure_dracut_keyfiles(self, os_root_dir, uuid_to_keyfile):
+        """Write a dracut.conf.d snippet to embed keyfiles in the initramfs."""
+        install_items = list(uuid_to_keyfile.values())
+
+        # cryptsetup loads TPM2 token plugins via dlopen; add it
+        # explicitly so dracut includes it (and its libtss2 deps via
+        # ldd analysis of the .so) in the initramfs.
+        for plugin_path in _CRYPTSETUP_TPM2_PLUGIN_PATHS:
+            if utils.test_ssh_path(
+                    self._ssh,
+                    os.path.join(os_root_dir, plugin_path.lstrip("/"))):
+                install_items.append(plugin_path)
+                LOG.debug(
+                    "Including cryptsetup TPM2 token plugin in "
+                    "dracut install_items: %s", plugin_path)
+                break
+
+        conf_abs = os.path.join(
+            os_root_dir, _DRACUT_LUKS_CONF_PATH.lstrip("/"))
+        conf_content = 'install_items+=" %s "\n' % " ".join(install_items)
+        self._write_remote_file(conf_abs, conf_content)
+        self._exec_cmd(
+            "sudo chown root:root %s && sudo chmod 644 %s" % (
+                conf_abs, conf_abs))
+        LOG.info(
+            "Written dracut LUKS keyfile config at '%s'",
+            _DRACUT_LUKS_CONF_PATH)
 
     def _configure_initramfs_tools_keyfiles(self, os_root_dir):
         """Set KEYFILE_PATTERN in cryptsetup-initramfs conf-hook.
@@ -421,7 +463,40 @@ class LinuxLUKSMixin:
             if utils.test_ssh_path(self._ssh, path):
                 return "update-initramfs"
 
+        for dracut_bin in ["usr/bin/dracut", "usr/sbin/dracut", "sbin/dracut"]:
+            path = os.path.join(os_root_dir, dracut_bin)
+            if utils.test_ssh_path(self._ssh, path):
+                return "dracut"
+
         return None
+
+    def _build_dracut_include_args(self, os_root_dir):
+        """Return --include args that force-embed crypttab and LUKS keyfiles.
+
+        dracut's install_items embeds the keyfile but does not guarantee that
+        /etc/crypttab lands in the initramfs image. Without crypttab,
+        systemd-cryptsetup-generator names the mapper luks-<UUID> instead of
+        the crypttab mapper name and cannot find the keyfile.
+        """
+        args = []
+        crypttab = os.path.join(os_root_dir, "etc/crypttab")
+        if utils.test_ssh_path(self._ssh, crypttab):
+            args += ["--include", "/etc/crypttab", "/etc/crypttab"]
+
+        luks_dir = os.path.join(os_root_dir, _LUKS_KEYFILE_DIR.lstrip("/"))
+        try:
+            keyfiles = self._exec_cmd(
+                "sudo find %s -name 'coriolis_*.key' -type f 2>/dev/null"
+                % luks_dir).strip().splitlines()
+        except Exception:
+            keyfiles = []
+
+        for kf in keyfiles:
+            # strip os_root_dir prefix.
+            rel = kf[len(os_root_dir):]
+            args += ["--include", rel, rel]
+
+        return args
 
     def _rebuild_initramfs(self, os_root_dir):
         """Rebuild the initramfs inside the mounted OS chroot.
@@ -432,6 +507,19 @@ class LinuxLUKSMixin:
         if tool == "update-initramfs":
             self._exec_cmd(
                 "sudo chroot %s update-initramfs -u -k all" % os_root_dir)
+        elif tool == "dracut":
+            # --regenerate-all scans the chroot's own /lib/modules/ for
+            # installed kernels instead of relying on uname -r
+            #
+            # Explicitly --include the crypttab and any LUKS migration keyfiles
+            # so that systemd-cryptsetup-generator finds them in the initramfs
+            # and uses the crypttab mapper name (luks-root) and keyfile for
+            # auto-unlock. install_items in dracut.conf.d embeds the keyfile
+            # but does NOT guarantee that crypttab ends up in the image.
+            include_args = self._build_dracut_include_args(os_root_dir)
+            self._exec_cmd(
+                "sudo chroot %s dracut --regenerate-all --force %s"
+                % (os_root_dir, " ".join(include_args)))
         else:
             raise exception.CoriolisException(
                 "No initramfs tool found in OS at '%s'; cannot rebuild "
