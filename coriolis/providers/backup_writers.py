@@ -112,7 +112,10 @@ def _disable_lvm_metad_udev_rule(ssh):
     """
     rule_paths = [
         "/lib/udev/rules.d/69-lvm-metad.rules",
-        "/lib/udev/rules.d/69-dm-lvm.rules"]
+        "/lib/udev/rules.d/69-dm-lvm.rules",
+        "/lib/udev/rules.d/69-lvm.rules",
+        "/lib/udev/rules.d/56-lvm.rules",
+    ]
     for path in rule_paths:
         if utils.test_ssh_path(ssh, path):
             utils.exec_ssh_cmd(ssh, "sudo rm %s" % path, get_pty=True)
