@@ -49,21 +49,24 @@ class BackupWritersTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     def test__disable_lvm_metad_udev_rule(self, mock_exec_ssh_cmd,
                                           mock_test_ssh_path):
-        rule_path = ["/lib/udev/rules.d/69-lvm-metad.rules",
-                     "/lib/udev/rules.d/69-dm-lvm.rules"]
+        rule_paths = [
+            "/lib/udev/rules.d/69-lvm-metad.rules",
+            "/lib/udev/rules.d/69-dm-lvm.rules",
+            "/lib/udev/rules.d/69-lvm.rules",
+            "/lib/udev/rules.d/56-lvm.rules",
+        ]
         mock_test_ssh_path.return_value = True
 
         backup_writers._disable_lvm_metad_udev_rule(self.mock_ssh)
 
         mock_test_ssh_path.assert_has_calls(
-            [mock.call(self.mock_ssh, rule_path[0]),
-             mock.call(self.mock_ssh, rule_path[1])])
+            [mock.call(self.mock_ssh, rule_path)
+             for rule_path in rule_paths])
 
         expected_calls = [
-            mock.call(self.mock_ssh, 'sudo rm %s' % rule_path[0],
-                      get_pty=True),
-            mock.call(self.mock_ssh, 'sudo rm %s' % rule_path[1],
-                      get_pty=True)]
+            mock.call(self.mock_ssh, 'sudo rm %s' % rule_path,
+                      get_pty=True)
+            for rule_path in rule_paths]
         mock_exec_ssh_cmd.assert_has_calls(expected_calls)
 
     def test__check_deserialize_key(self):
