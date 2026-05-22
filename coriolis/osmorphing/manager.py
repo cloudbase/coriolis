@@ -155,6 +155,34 @@ def morph_image(origin_provider, destination_provider, connection_info,
 
     osmorphing_info['os_root_dir'] = os_root_dir
     osmorphing_info['os_root_dev'] = os_root_dev
+    try:
+        _morph_image(
+            origin_provider, destination_provider, connection_info,
+            osmorphing_info, user_script, event_handler, os_mount_tools,
+        )
+    finally:
+        event_manager.progress_update("Dismounting OS partitions")
+        try:
+            os_mount_tools.dismount_os(os_root_dir)
+        except Exception as err:
+            raise exception.CoriolisException(
+                "Failed to dismount the OS undergoing OSMorphing. This could "
+                "have been caused by minor FS corruption during the last disk "
+                "sync. Please ensure that any source-side FS integrity "
+                "mechanisms (e.g. filesystem quiescing, crash-consistent "
+                "backups, etc.) are enabled and available for the source "
+                "machine. If none are available, please try "
+                "migrating/replicating the source machine while it is powered "
+                "off. Error was: %s" % str(err)) from err
+
+
+def _morph_image(origin_provider, destination_provider, connection_info,
+                 osmorphing_info, user_script, event_handler, os_mount_tools):
+    event_manager = events.EventManager(event_handler)
+
+    os_type = osmorphing_info.get('os_type')
+    os_root_dir = osmorphing_info['os_root_dir']
+    os_root_dev = osmorphing_info['os_root_dev']
     conn = os_mount_tools.get_connection()
 
     environment = os_mount_tools.get_environment()
@@ -261,16 +289,3 @@ def morph_image(origin_provider, destination_provider, connection_info,
 
     LOG.info("Post packages install")
     import_os_morphing_tools.post_packages_install(packages_add)
-
-    event_manager.progress_update("Dismounting OS partitions")
-    try:
-        os_mount_tools.dismount_os(os_root_dir)
-    except Exception as err:
-        raise exception.CoriolisException(
-            "Failed to dismount the OS undergoing OSMorphing. This could have "
-            "been caused by minor FS corruption during the last disk sync. "
-            "Please ensure that any source-side FS integrity mechanisms (e.g. "
-            "filesystem quiescing, crash-consistent backups, etc.) are "
-            "enabled and available for the source machine. If none are "
-            "available, please try migrating/replicating the source machine "
-            "while it is powered off. Error was: %s" % str(err)) from err
