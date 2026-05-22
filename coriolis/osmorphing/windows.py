@@ -38,14 +38,10 @@ CLOUDBASE_INIT_DEFAULT_PLUGINS = [
     '.NTPClientPlugin',
     'cloudbaseinit.plugins.common.sethostname'
     '.SetHostNamePlugin',
-    'cloudbaseinit.plugins.windows.createuser'
-    '.CreateUserPlugin',
     'cloudbaseinit.plugins.common.networkconfig'
     '.NetworkConfigPlugin',
     'cloudbaseinit.plugins.windows.licensing'
     '.WindowsLicensingPlugin',
-    'cloudbaseinit.plugins.common.sshpublickeys'
-    '.SetUserSSHPublicKeysPlugin',
     'cloudbaseinit.plugins.windows.extendvolumes'
     '.ExtendVolumesPlugin',
     'cloudbaseinit.plugins.common.userdata.UserDataPlugin',
