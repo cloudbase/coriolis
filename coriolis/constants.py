@@ -75,6 +75,16 @@ CANCELED_TASK_STATUSES = [
     TASK_STATUS_FAILED_TO_CANCEL
 ]
 
+# Statuses that indicate a non-error parent task completed its work and
+# may have created resources that on-error cleanup tasks must destroy.
+# CANCELED_AFTER_COMPLETION means the task ran to completion (result saved,
+# resources created) but was marked cancelled because a cancellation was
+# already in flight when the completion arrived.
+CLEANUP_TASK_TRIGGER_STATUSES = [
+    TASK_STATUS_COMPLETED,
+    TASK_STATUS_CANCELED_AFTER_COMPLETION,
+]
+
 FINALIZED_TASK_STATUSES = [
     TASK_STATUS_COMPLETED,
     TASK_STATUS_ERROR,

@@ -2722,9 +2722,13 @@ class ConductorServerEndpoint(object):
                                 parent_task_statuses)
                             task_statuses[task.id] = _start_task(task)
                         # start on-error tasks only if at least one non-error
-                        # parent task has completed successfully:
-                        elif constants.TASK_STATUS_COMPLETED in (
-                                non_error_parents.values()):
+                        # parent task has completed (COMPLETED or
+                        # CANCELED_AFTER_COMPLETION both mean the task
+                        # finished its work and may have created resources
+                        # that need cleaning up):
+                        elif any(
+                                s in constants.CLEANUP_TASK_TRIGGER_STATUSES
+                                for s in non_error_parents.values()):
                             LOG.info(
                                 "Starting on-error task '%s' as all parent "
                                 "tasks have been finalized and at least one "
