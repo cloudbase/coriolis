@@ -166,6 +166,7 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
         args = {
             "transfer_id": "mock_transfer_id",
             "include_tasks": False,
+            "filters": {"status": "RUNNING"},
             **self._mock_pagination_args,
         }
         self._test(self.client.get_transfer_tasks_executions, args)
@@ -210,6 +211,7 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
         args = {
             "include_tasks_executions": False,
             "include_task_info": False,
+            "filters": {"status": "RUNNING"},
             **self._mock_pagination_args,
         }
         self._test(self.client.get_transfers, args)

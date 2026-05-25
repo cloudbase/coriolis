@@ -147,7 +147,8 @@ class ConductorClient(rpc.BaseRPCClient):
                                       marker=None,
                                       limit=None,
                                       sort_keys=None,
-                                      sort_dirs=None):
+                                      sort_dirs=None,
+                                      filters=None):
         return self._call(
             ctxt, 'get_transfer_tasks_executions',
             transfer_id=transfer_id,
@@ -156,6 +157,7 @@ class ConductorClient(rpc.BaseRPCClient):
             limit=limit,
             sort_keys=sort_keys,
             sort_dirs=sort_dirs,
+            filters=filters,
         )
 
     def get_transfer_tasks_execution(self, ctxt, transfer_id, execution_id,
@@ -208,7 +210,8 @@ class ConductorClient(rpc.BaseRPCClient):
     def get_transfers(self, ctxt, include_tasks_executions=False,
                       include_task_info=False,
                       marker=None, limit=None,
-                      sort_keys=None, sort_dirs=None):
+                      sort_keys=None, sort_dirs=None,
+                      filters=None):
         return self._call(
             ctxt, 'get_transfers',
             include_tasks_executions=include_tasks_executions,
@@ -217,6 +220,7 @@ class ConductorClient(rpc.BaseRPCClient):
             limit=limit,
             sort_keys=sort_keys,
             sort_dirs=sort_dirs,
+            filters=filters,
         )
 
     def get_transfer(self, ctxt, transfer_id, include_task_info=False):
@@ -235,7 +239,8 @@ class ConductorClient(rpc.BaseRPCClient):
     def get_deployments(self, ctxt, include_tasks=False,
                         include_task_info=False,
                         marker=None, limit=None,
-                        sort_keys=None, sort_dirs=None):
+                        sort_keys=None, sort_dirs=None,
+                        filters=None):
         return self._call(
             ctxt, 'get_deployments', include_tasks=include_tasks,
             include_task_info=include_task_info,
@@ -243,6 +248,7 @@ class ConductorClient(rpc.BaseRPCClient):
             limit=limit,
             sort_keys=sort_keys,
             sort_dirs=sort_dirs,
+            filters=filters,
         )
 
     def get_deployment(self, ctxt, deployment_id, include_task_info=False):

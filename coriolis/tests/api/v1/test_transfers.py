@@ -107,6 +107,9 @@ class TransferControllerTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.marker,
             mock.sentinel.limit,
         )
+        mock_req.GET = {
+            "status": "RUNNING",
+        }
 
         mock_get_bool_url_arg.side_effect = [False, False]
 
@@ -132,6 +135,7 @@ class TransferControllerTestCase(test_base.CoriolisBaseTestCase):
             limit=mock.sentinel.limit,
             sort_keys=mock.sentinel.sort_keys,
             sort_dirs=mock.sentinel.sort_dirs,
+            filters={"status": "RUNNING"},
         )
         mock_collection.assert_called_once_with(
             mock_get_transfers.return_value)

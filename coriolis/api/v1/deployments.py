@@ -8,6 +8,7 @@ from coriolis.api import common
 from coriolis.api.v1 import utils as api_utils
 from coriolis.api.v1.views import deployment_view
 from coriolis.api import wsgi as api_wsgi
+from coriolis import constants
 from coriolis.deployments import api
 from coriolis.endpoints import api as endpoints_api
 from coriolis import exception
@@ -36,6 +37,18 @@ class DeploymentsController(api_wsgi.Controller):
 
         return deployment_view.single(deployment)
 
+    def _get_filters(self, req) -> dict:
+        filters = {}
+        # For simplicity and consistency, we'll use "status" to search for a
+        # given "last_execution_status".
+        status = req.GET.get("status")
+        if status is not None:
+            if status not in constants.ALL_EXECUTION_STATUSES:
+                raise exc.HTTPBadRequest(
+                    explanation=f"Unknown deployment status: {status}")
+            filters["status"] = status
+        return filters
+
     def _list(self, req):
         show_deleted = api_utils.get_bool_url_arg(
             req, "show_deleted", default=False)
@@ -47,6 +60,7 @@ class DeploymentsController(api_wsgi.Controller):
 
         marker, limit = common.get_paging_params(req)
         sort_keys, sort_dirs = common.get_sort_params(req)
+        filters = self._get_filters(req)
 
         return deployment_view.collection(
             self._deployment_api.get_deployments(
@@ -55,6 +69,7 @@ class DeploymentsController(api_wsgi.Controller):
                 include_task_info=include_task_info,
                 marker=marker, limit=limit,
                 sort_keys=sort_keys, sort_dirs=sort_dirs,
+                filters=filters,
             ))
 
     def index(self, req):

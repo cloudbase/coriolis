@@ -55,6 +55,7 @@ class APITestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.limit,
             mock.sentinel.sort_keys,
             mock.sentinel.sort_dirs,
+            mock.sentinel.filters,
         )
 
         self.rpc_client.get_transfer_tasks_executions.assert_called_once_with(
@@ -64,6 +65,7 @@ class APITestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.limit,
             mock.sentinel.sort_keys,
             mock.sentinel.sort_dirs,
+            mock.sentinel.filters,
         )
         self.assertEqual(
             result, self.rpc_client.get_transfer_tasks_executions.return_value)

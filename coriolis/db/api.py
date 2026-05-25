@@ -1,6 +1,7 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+import copy
 import uuid
 
 from oslo_config import cfg
@@ -281,6 +282,7 @@ def get_transfer_tasks_executions(context, transfer_id, include_tasks=False,
                                   limit=None,
                                   sort_keys: list[str] | None = None,
                                   sort_dirs: list[str] | None = None,
+                                  filters: dict | None = None,
                                   to_dict=False):
     q = _soft_delete_aware_query(context, models.TasksExecution)
     q = q.join(models.Transfer)
@@ -292,6 +294,13 @@ def get_transfer_tasks_executions(context, transfer_id, include_tasks=False,
         q = q.filter(models.Transfer.project_id == context.project_id)
 
     q = q.filter(models.Transfer.id == transfer_id)
+
+    filters = copy.deepcopy(filters or {})
+    if "status" in filters:
+        status = filters.pop("status")
+        q = q.filter(models.TasksExecution.status == status)
+    if filters:
+        raise ValueError("Unsupported filters: %s" % filters)
 
     sort_keys, sort_dirs = process_sort_params(
         sort_keys,
@@ -458,6 +467,7 @@ def get_transfers(context,
                   limit=None,
                   sort_keys: list[str] | None = None,
                   sort_dirs: list[str] | None = None,
+                  filters: dict | None = None,
                   to_dict=False):
     q = _soft_delete_aware_query(context, models.Transfer)
     if include_tasks_executions:
@@ -470,6 +480,13 @@ def get_transfers(context,
     if is_user_context(context):
         q = q.filter(
             models.Transfer.project_id == context.project_id)
+
+    filters = copy.deepcopy(filters or {})
+    if "status" in filters:
+        status = filters.pop("status")
+        q = q.filter(models.Transfer.last_execution_status == status)
+    if filters:
+        raise ValueError("Unsupported filters: %s" % filters)
 
     sort_keys, sort_dirs = process_sort_params(
         sort_keys,
@@ -588,6 +605,7 @@ def get_deployments(context,
                     limit=None,
                     sort_keys: list[str] | None = None,
                     sort_dirs: list[str] | None = None,
+                    filters: dict | None = None,
                     to_dict=False):
     q = _soft_delete_aware_query(context, models.Deployment)
     if include_tasks:
@@ -599,6 +617,13 @@ def get_deployments(context,
 
     if is_user_context(context):
         q = q.filter_by(project_id=context.project_id)
+
+    filters = copy.deepcopy(filters or {})
+    if "status" in filters:
+        status = filters.pop("status")
+        q = q.filter(models.Deployment.last_execution_status == status)
+    if filters:
+        raise ValueError("Unsupported filters: %s" % filters)
 
     sort_keys, sort_dirs = process_sort_params(
         sort_keys,

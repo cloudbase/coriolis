@@ -70,11 +70,13 @@ class APITestCase(test_base.CoriolisBaseTestCase):
     def test_get_transfers(self):
         result = self.api.get_transfers(
             self.ctxt, include_tasks_executions=False, include_task_info=False,
+            filters={"status": "RUNNING"},
             **self._mock_pagination_args,
         )
 
         self.rpc_client.get_transfers.assert_called_once_with(
             self.ctxt, False, include_task_info=False,
+            filters={"status": "RUNNING"},
             **self._mock_pagination_args,
         )
         self.assertEqual(result, self.rpc_client.get_transfers.return_value)

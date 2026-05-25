@@ -1156,7 +1156,8 @@ class ConductorServerEndpoint(object):
                                       marker=None,
                                       limit=None,
                                       sort_keys=None,
-                                      sort_dirs=None):
+                                      sort_dirs=None,
+                                      filters=None):
         return db_api.get_transfer_tasks_executions(
             ctxt, transfer_id, include_tasks,
             include_task_info=include_task_info,
@@ -1164,6 +1165,7 @@ class ConductorServerEndpoint(object):
             limit=limit,
             sort_keys=sort_keys,
             sort_dirs=sort_dirs,
+            filters=filters,
             to_dict=True)
 
     @tasks_execution_synchronized
@@ -1217,7 +1219,8 @@ class ConductorServerEndpoint(object):
     def get_transfers(ctxt, include_tasks_executions=False,
                       include_task_info=False,
                       marker=None, limit=None,
-                      sort_keys=None, sort_dirs=None):
+                      sort_keys=None, sort_dirs=None,
+                      filters=None):
         return db_api.get_transfers(
             ctxt, include_tasks_executions=include_tasks_executions,
             include_task_info=include_task_info,
@@ -1225,6 +1228,7 @@ class ConductorServerEndpoint(object):
             limit=limit,
             sort_keys=sort_keys,
             sort_dirs=sort_dirs,
+            filters=filters,
             to_dict=True)
 
     @transfer_synchronized
@@ -1383,7 +1387,8 @@ class ConductorServerEndpoint(object):
     @staticmethod
     def get_deployments(ctxt, include_tasks, include_task_info=False,
                         marker=None, limit=None,
-                        sort_keys=None, sort_dirs=None):
+                        sort_keys=None, sort_dirs=None,
+                        filters=None):
         return db_api.get_deployments(
             ctxt, include_tasks,
             include_task_info=include_task_info,
@@ -1391,6 +1396,7 @@ class ConductorServerEndpoint(object):
             limit=limit,
             sort_keys=sort_keys,
             sort_dirs=sort_dirs,
+            filters=filters,
             to_dict=True)
 
     @deployment_synchronized
