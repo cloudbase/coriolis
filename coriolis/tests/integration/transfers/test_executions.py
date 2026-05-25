@@ -7,7 +7,6 @@ Integration tests for the transfer executions.
 
 from coriolis import constants
 from coriolis.tests.integration import base
-from coriolis.tests.integration.test_provider import imp
 
 
 class TransferExecutionsTests(base.ReplicaIntegrationTestBase):
@@ -93,7 +92,7 @@ class TransferExecutionsTests(base.ReplicaIntegrationTestBase):
         """
         # Artificially bump the execution time of a transfer.
         self._patch_add_delay(
-            imp.TestImportProvider,
+            self._harness.imp_provider_class,
             "deploy_replica_target_resources",
         )
 

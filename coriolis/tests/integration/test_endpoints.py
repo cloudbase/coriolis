@@ -23,16 +23,12 @@ class EndpointCapabilitiesTest(base.CoriolisIntegrationTestBase):
         self._src_endpoint = self._create_endpoint(
             name="cap-src",
             endpoint_type=self._exp_platform,
-            connection_info={
-                "pkey_path": self._harness.ssh_key_path,
-            },
+            connection_info=self._exp_conn_info,
         )
         self._dst_endpoint = self._create_endpoint(
             name="cap-dest",
             endpoint_type=self._imp_platform,
-            connection_info={
-                "pkey_path": self._harness.ssh_key_path,
-            },
+            connection_info=self._imp_conn_info,
         )
 
     def test_validate_connection(self):

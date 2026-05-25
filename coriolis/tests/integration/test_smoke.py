@@ -51,7 +51,6 @@ class HarnessSmokeTest(base.CoriolisIntegrationTestBase):
         instances = ["smoke-instance"]
         transfer = self._create_transfer(
             src.id, dst.id, instances=instances,
-            destination_environment={"devices": ["foo"]},
         )
 
         self.assertEqual(src.id, transfer.origin_endpoint_id)
