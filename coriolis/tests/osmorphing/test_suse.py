@@ -393,3 +393,64 @@ class BaseSUSEMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
 
         with self.assertLogs('coriolis.osmorphing.suse', level=logging.WARN):
             self.morphing_tools.uninstall_packages(self.package_names)
+
+    def test__get_sle_modules_default(self):
+        result = self.morphing_tools._get_sle_modules()
+
+        self.assertEqual(result, ["sle-module-public-cloud"])
+
+    @mock.patch.object(suse.BaseSUSEMorphingTools, '_enable_sles_module')
+    @mock.patch.object(suse.BaseSUSEMorphingTools, '_get_sle_modules')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, 'pre_packages_install')
+    def test_pre_packages_install_sles_old_version(
+            self, mock_super_pre, mock_get_sle_modules,
+            mock_enable_sles_module):
+        mock_get_sle_modules.return_value = ["mod1", "mod2"]
+
+        self.morphing_tools.pre_packages_install(self.package_names)
+
+        mock_super_pre.assert_called_once_with(self.package_names)
+        mock_enable_sles_module.assert_has_calls([
+            mock.call("mod1"),
+            mock.call("mod2"),
+        ])
+
+    @mock.patch.object(suse.BaseSUSEMorphingTools, '_enable_sles_module')
+    @mock.patch.object(suse.BaseSUSEMorphingTools, '_get_sle_modules')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, 'pre_packages_install')
+    def test_pre_packages_install_sles_16(
+            self, mock_super_pre, mock_get_sle_modules,
+            mock_enable_sles_module):
+        self.morphing_tools._version = "16"
+
+        self.morphing_tools.pre_packages_install(self.package_names)
+
+        mock_super_pre.assert_called_once_with(self.package_names)
+        mock_get_sle_modules.assert_not_called()
+        mock_enable_sles_module.assert_not_called()
+
+    @mock.patch.object(suse.BaseSUSEMorphingTools, '_add_cloud_tools_repo')
+    @mock.patch.object(suse.BaseSUSEMorphingTools, '_enable_sles_module')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, 'pre_packages_install')
+    def test_pre_packages_install_opensuse(
+            self, mock_super_pre, mock_enable_sles_module,
+            mock_add_cloud_tools_repo):
+        self.morphing_tools._distro = suse.OPENSUSE_DISTRO_IDENTIFIER
+
+        self.morphing_tools.pre_packages_install(self.package_names)
+
+        mock_super_pre.assert_called_once_with(self.package_names)
+        mock_add_cloud_tools_repo.assert_called_once()
+        mock_enable_sles_module.assert_not_called()
+
+    @mock.patch.object(suse.BaseSUSEMorphingTools, '_add_cloud_tools_repo')
+    @mock.patch.object(suse.BaseSUSEMorphingTools, '_enable_sles_module')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, 'pre_packages_install')
+    def test_pre_packages_install_no_packages(
+            self, mock_super_pre, mock_enable_sles_module,
+            mock_add_cloud_tools_repo):
+        self.morphing_tools.pre_packages_install([])
+
+        mock_super_pre.assert_called_once_with([])
+        mock_enable_sles_module.assert_not_called()
+        mock_add_cloud_tools_repo.assert_not_called()

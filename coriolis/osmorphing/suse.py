@@ -129,6 +129,23 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
         except Exception:
             return False
 
+    def _get_sle_modules(self):
+        return ["sle-module-public-cloud"]
+
+    def pre_packages_install(self, package_names):
+        super(BaseSUSEMorphingTools, self).pre_packages_install(package_names)
+        if package_names:
+            if self._distro == SLES_DISTRO_IDENTIFIER:
+                if self._version_supported_util(self._version, minimum=16):
+                    LOG.info(
+                        "SLES %s does not use the module system. "
+                        "Skipping module activation.", self._version)
+                else:
+                    for module in self._get_sle_modules():
+                        self._enable_sles_module(module)
+            else:
+                self._add_cloud_tools_repo()
+
     def post_packages_install(self, package_names):
         self._configure_cloud_init()
         self._run_dracut()
