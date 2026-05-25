@@ -329,6 +329,31 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             transfer_id, shutdown_instances=False)
         self.assertExecutionCompleted(execution.id, timeout=timeout)
 
+    def _cleanup_execution(self, transfer_id, execution_id):
+        """Cancel a running execution if needed, then delete it.
+
+        Cancels the transfer execution if it has not yet reached a terminal
+        state, waits up to 60s for it to finish, then deletes it.
+
+        This avoids the 400 HTTP "cannot delete a RUNNING execution" error that
+        occurs when an execution is still in-flight at cleanup time, which can
+        happen with slow providers when a test fails or times out before the
+        execution completes.
+        """
+        ctxt = self._get_db_context()
+        try:
+            execution = db_api.get_tasks_execution(ctxt, execution_id)
+        except exception.NotFound:
+            LOG.info(
+                "Task execution '%s' not found. Skip cleanup.", execution_id)
+            return
+
+        if execution.status not in constants.FINALIZED_EXECUTION_STATUSES:
+            self._client.transfer_executions.cancel(transfer_id, execution_id)
+            self.wait_for_execution(execution_id, timeout=60)
+
+        self._client.transfer_executions.delete(transfer_id, execution_id)
+
     def wait_for_execution(self, execution_id, timeout=300,
                            desired_statuses=None):
         """Block until *execution_id* reaches a terminal state.
@@ -350,9 +375,9 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
                 return execution
             time.sleep(1)
         self.fail(
-            "Execution %s did not reach one of the states %r within %ds"
+            "Execution %s did not reach one of the states %r within %ds "
             "(last status: %s)"
-            % (execution_id, timeout, desired_statuses, execution.status)
+            % (execution_id, desired_statuses, timeout, execution.status)
         )
 
     def assertExecutionCompleted(self, execution_id, timeout=300):
@@ -389,6 +414,31 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             % (execution_id, execution.status),
         )
 
+    def _cleanup_deployment(self, deployment_id):
+        """Cancel a running deployment if needed, then delete it.
+
+        Cancels the deployment if it has not yet reached a terminal state,
+        waits up to 60s for it to finish, then deletes it.
+
+        This avoids the 400 HTTP "cannot delete a RUNNING deployment" error
+        that occurs when a deployment is still in-flight at cleanup time, which
+        can happen with slow providers when a test fails or times out before
+        the deployment completes.
+        """
+        ctxt = self._get_db_context()
+        deployment = db_api.get_deployment(ctxt, deployment_id)
+        if deployment is None:
+            LOG.info(
+                "Deployment '%s' not found. Skip cleanup.", deployment_id)
+            return
+
+        if deployment.last_execution_status in (
+                constants.ACTIVE_EXECUTION_STATUSES):
+            self._client.deployments.cancel(deployment_id)
+            self.wait_for_deployment(deployment_id, timeout=60)
+
+        self._client.deployments.delete(deployment_id)
+
     def wait_for_deployment(self, deployment_id, timeout=300,
                             desired_statuses=None):
         """Block until *deployment_id* reaches any terminal state.
@@ -407,8 +457,10 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
                 return deployment
             time.sleep(1)
         self.fail(
-            "Deployment %s did not reach one of the states %r within %ds"
-            % (deployment_id, desired_statuses, timeout)
+            "Deployment %s did not reach one of the states %r within %ds "
+            "(last status: %s)"
+            % (deployment_id, desired_statuses, timeout,
+               deployment.last_execution_status)
         )
 
     def assertDeploymentCompleted(self, deployment_id, timeout=300):

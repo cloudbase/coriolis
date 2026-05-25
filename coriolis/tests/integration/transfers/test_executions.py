@@ -22,8 +22,10 @@ class TransferExecutionsTests(base.ReplicaIntegrationTestBase):
         execution = self._client.transfer_executions.create(
             self._transfer.id, shutdown_instances=False)
         self.addCleanup(
-            self._ignoreExc(self._client.transfer_executions.delete),
-            self._transfer.id, execution.id)
+            self._cleanup_execution,
+            self._transfer.id,
+            execution.id,
+        )
 
         self.assertExecutionCompleted(execution.id)
         executions = self._client.transfer_executions.list(self._transfer.id)
@@ -48,8 +50,10 @@ class TransferExecutionsTests(base.ReplicaIntegrationTestBase):
         execution = self._client.transfer_executions.create(
             self._transfer.id, shutdown_instances=True)
         self.addCleanup(
-            self._client.transfer_executions.delete,
-            self._transfer.id, execution.id)
+            self._cleanup_execution,
+            self._transfer.id,
+            execution.id,
+        )
 
         self.assertExecutionCompleted(execution.id)
 
@@ -60,8 +64,11 @@ class TransferExecutionsTests(base.ReplicaIntegrationTestBase):
             auto_deploy=True,
         )
         self.addCleanup(
-            self._client.transfer_executions.delete,
-            self._transfer.id, execution.id)
+            self._cleanup_execution,
+            self._transfer.id,
+            execution.id,
+        )
+
         self.assertExecutionCompleted(execution.id)
 
         deployments = self._client.deployments.list()
@@ -70,7 +77,7 @@ class TransferExecutionsTests(base.ReplicaIntegrationTestBase):
         ]
         self.assertEqual(1, len(transfer_deployments))
         self.addCleanup(
-            self._client.deployments.delete, transfer_deployments[0].id)
+            self._cleanup_deployment, transfer_deployments[0].id)
 
     def test_cancel_running_execution(self):
         self._test_cancel_running_execution(False)
@@ -93,8 +100,10 @@ class TransferExecutionsTests(base.ReplicaIntegrationTestBase):
         execution = self._client.transfer_executions.create(
             self._transfer.id, shutdown_instances=False)
         self.addCleanup(
-            self._client.transfer_executions.delete,
-            self._transfer.id, execution.id)
+            self._cleanup_execution,
+            self._transfer.id,
+            execution.id,
+        )
 
         # Wait until the execution is RUNNING before issuing the cancel.
         self.wait_for_execution(
