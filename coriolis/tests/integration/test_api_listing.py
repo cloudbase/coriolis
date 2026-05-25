@@ -7,6 +7,7 @@ import datetime
 import operator
 import uuid
 
+from keystoneauth1.exceptions import http as http_exc
 from oslo_utils import timeutils
 
 from coriolis import constants
@@ -17,7 +18,7 @@ from coriolis import exception
 from coriolis.tests.integration import base
 
 
-class PaginationTest(base.CoriolisIntegrationTestBase):
+class APIListingTestBase(base.CoriolisIntegrationTestBase):
     FAKE_USER_ID = "fake-user-id"
     FAKE_PROJECT_ID = "fake-project-id"
 
@@ -175,6 +176,8 @@ class PaginationTest(base.CoriolisIntegrationTestBase):
             "created_at": created_at,
         }
 
+
+class PaginationTest(APIListingTestBase):
     def test_transfer_execution_list(self):
         executions = self._client.transfer_executions.list(
             self._transfers[0].id)
@@ -295,3 +298,78 @@ class PaginationTest(base.CoriolisIntegrationTestBase):
         ret_transfer_summary = [self._get_record_summary(t) for t in transfers]
         self.assertEqual(
             exp_sorted_transfer_summary[2:4], ret_transfer_summary)
+
+
+class APIFilterTest(APIListingTestBase):
+    @classmethod
+    def _setup_mocks(cls):
+        super()._setup_mocks()
+
+        # We'll create a few more resources, some in error state, some in
+        # completed state.
+        cls._completed_transfer = cls._create_db_transfer(
+            origin_endpoint_id=cls._src_endpoint.id,
+            destination_endpoint_id=cls._dst_endpoint.id,
+            last_execution_status=constants.TASK_STATUS_COMPLETED,
+        )
+
+        cls._failed_execution = cls._create_db_execution(
+            transfer=cls._completed_transfer,
+            status=constants.EXECUTION_STATUS_ERROR,
+        )
+        cls._completed_execution = cls._create_db_execution(
+            transfer=cls._completed_transfer,
+            status=constants.EXECUTION_STATUS_COMPLETED,
+        )
+
+        cls._failed_deployment = cls._create_db_deployment(
+            transfer_id=cls._completed_transfer.id,
+            origin_endpoint_id=cls._src_endpoint.id,
+            destination_endpoint_id=cls._dst_endpoint.id,
+            last_execution_status=constants.EXECUTION_STATUS_ERROR,
+        )
+        cls._completed_deployment = cls._create_db_deployment(
+            transfer_id=cls._completed_transfer.id,
+            origin_endpoint_id=cls._src_endpoint.id,
+            destination_endpoint_id=cls._dst_endpoint.id,
+            last_execution_status=constants.EXECUTION_STATUS_COMPLETED,
+        )
+
+    def test_transfer_execution_filter(self):
+        executions = self._client.transfer_executions.list(
+            self._completed_transfer.id,
+            filters={"status": constants.EXECUTION_STATUS_COMPLETED})
+        ret_summary = [self._get_record_summary(e) for e in executions]
+        exp_summary = [self._get_record_summary(self._completed_execution)]
+        self.assertEqual(exp_summary, ret_summary)
+
+    def test_transfer_filter(self):
+        executions = self._client.transfers.list(
+            filters={"status": constants.TASK_STATUS_COMPLETED})
+        ret_summary = [self._get_record_summary(e) for e in executions]
+        exp_summary = [self._get_record_summary(self._completed_transfer)]
+        self.assertEqual(exp_summary, ret_summary)
+
+    def test_deployment_filter(self):
+        executions = self._client.deployments.list(
+            filters={"status": constants.EXECUTION_STATUS_COMPLETED})
+        ret_summary = [self._get_record_summary(e) for e in executions]
+        exp_summary = [self._get_record_summary(self._completed_deployment)]
+        self.assertEqual(exp_summary, ret_summary)
+
+    def test_invalid_filter(self):
+        self.assertRaises(
+            http_exc.BadRequest,
+            self._client.deployments.list,
+            filters={"status": "fake-status"})
+
+        self.assertRaises(
+            http_exc.BadRequest,
+            self._client.transfers.list,
+            filters={"status": "fake-status"})
+
+        self.assertRaises(
+            http_exc.BadRequest,
+            self._client.transfer_executions.list,
+            self._completed_transfer.id,
+            filters={"status": "fake-status"})

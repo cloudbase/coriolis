@@ -28,11 +28,14 @@ class API(object):
     def get_deployments(self, ctxt, include_tasks=False,
                         include_task_info=False,
                         marker=None, limit=None,
-                        sort_keys=None, sort_dirs=None):
+                        sort_keys=None, sort_dirs=None,
+                        filters=None):
         return self._rpc_client.get_deployments(
             ctxt, include_tasks, include_task_info=include_task_info,
             marker=marker, limit=limit,
-            sort_keys=sort_keys, sort_dirs=sort_dirs)
+            sort_keys=sort_keys, sort_dirs=sort_dirs,
+            filters=filters,
+        )
 
     def get_deployment(self, ctxt, deployment_id, include_task_info=False):
         return self._rpc_client.get_deployment(

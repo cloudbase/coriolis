@@ -4,6 +4,7 @@
 from coriolis.api import common
 from coriolis.api.v1.views import transfer_tasks_execution_view
 from coriolis.api import wsgi as api_wsgi
+from coriolis import constants
 from coriolis import exception
 from coriolis.policies import transfer_tasks_executions as executions_policies
 from coriolis.transfer_tasks_executions import api
@@ -27,6 +28,16 @@ class TransferTasksExecutionController(api_wsgi.Controller):
 
         return transfer_tasks_execution_view.single(execution)
 
+    def _get_filters(self, req) -> dict:
+        filters = {}
+        status = req.GET.get("status")
+        if status is not None:
+            if status not in constants.ALL_EXECUTION_STATUSES:
+                raise exc.HTTPBadRequest(
+                    explanation=f"Unknown task execution status: {status}")
+            filters["status"] = status
+        return filters
+
     def index(self, req, transfer_id):
         context = req.environ["coriolis.context"]
         context.can(
@@ -34,12 +45,14 @@ class TransferTasksExecutionController(api_wsgi.Controller):
 
         marker, limit = common.get_paging_params(req)
         sort_keys, sort_dirs = common.get_sort_params(req)
+        filters = self._get_filters(req)
 
         return transfer_tasks_execution_view.collection(
             self._transfer_tasks_execution_api.get_executions(
                 context, transfer_id, include_tasks=False,
                 marker=marker, limit=limit,
-                sort_keys=sort_keys, sort_dirs=sort_dirs))
+                sort_keys=sort_keys, sort_dirs=sort_dirs,
+                filters=filters))
 
     def detail(self, req, transfer_id):
         context = req.environ["coriolis.context"]

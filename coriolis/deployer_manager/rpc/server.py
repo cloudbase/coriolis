@@ -123,10 +123,10 @@ class DeployerManagerServerEndpoint:
             try:
                 deployments = self._rpc_conductor_client.get_deployments(
                     self._admin_ctx, include_tasks=False,
-                    include_task_info=False)
-                for d in deployments:
-                    if d['last_execution_status'] == PENDING_STATUS:
-                        self._check_deployer_status(d['id'])
+                    include_task_info=False,
+                    filters={'status': PENDING_STATUS})
+                for pending_deployment in deployments:
+                    self._check_deployer_status(pending_deployment['id'])
             except Exception:
                 LOG.warning(
                     f"Deployer manager failed to list pending deployments. "

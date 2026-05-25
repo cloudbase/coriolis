@@ -1451,6 +1451,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.transfer_id,
             mock.sentinel.execution_id,
             include_task_info=False,
+            filters={"status": "RUNNING"},
             **self._mock_pagination_args,
         )
 
@@ -1464,6 +1465,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.execution_id,
             include_task_info=False,
             **self._mock_pagination_args,
+            filters={"status": "RUNNING"},
             to_dict=True,
         )
 
@@ -1681,6 +1683,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.context,
             include_tasks_executions=False,
             include_task_info=False,
+            filters={"status": "RUNNING"},
             **self._mock_pagination_args,
         )
 
@@ -1692,6 +1695,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.context,
             include_tasks_executions=False,
             include_task_info=False,
+            filters={"status": "RUNNING"},
             to_dict=True,
             **self._mock_pagination_args,
         )
