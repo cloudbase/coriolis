@@ -26,8 +26,7 @@ class ReplicaDeploymentIntegrationTest(base.ReplicaIntegrationTestBase):
 
         deployment = self._client.deployments.create_from_transfer(
             self._transfer.id, **kwargs)
-        self.addCleanup(
-            self._ignoreExc(self._client.deployments.delete), deployment.id)
+        self.addCleanup(self._cleanup_deployment, deployment.id)
 
         return deployment
 

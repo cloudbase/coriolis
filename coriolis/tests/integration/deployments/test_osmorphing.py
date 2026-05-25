@@ -33,7 +33,7 @@ class OsMorphingDeploymentTest(integration_base.ReplicaIntegrationTestBase):
             self._transfer.id,
             skip_os_morphing=False,
         )
-        self.addCleanup(self._client.deployments.delete, deployment.id)
+        self.addCleanup(self._cleanup_deployment, deployment.id)
 
         self.assertDeploymentCompleted(deployment.id)
         self.assertTrue(
