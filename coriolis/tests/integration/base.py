@@ -29,6 +29,7 @@ import oslo_messaging as messaging
 from coriolis import constants
 from coriolis import context
 from coriolis.db import api as db_api
+from coriolis import exception
 from coriolis.providers import factory as providers_factory
 from coriolis.tests.integration import harness
 from coriolis.tests.integration import utils as test_utils
@@ -64,7 +65,11 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
         cls._lock_path = cls._harness.lock_path
         cls._api_port = cls._harness.api_port
         cls._exp_platform = cls._harness.exp_provider_platform
+        cls._exp_conn_info = cls._harness.exp_conn_info
+
         cls._imp_platform = cls._harness.imp_provider_platform
+        cls._imp_conn_info = cls._harness.imp_conn_info
+
         cls._client = cls.get_client()
 
     def setUp(self):
@@ -202,7 +207,7 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
             time.sleep(1)
         pool = db_api.get_minion_pool(ctxt, pool_id)
         last = pool.status if pool else "not found"
-        cls.fail(
+        raise AssertionError(
             "Pool %s did not reach one of %r within %ds (last: %s)"
             % (pool_id, terminal_statuses, timeout, last)
         )
@@ -252,20 +257,14 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             name="test-src",
             endpoint_type=cls._exp_platform,
             description="integration source endpoint",
-            connection_info={
-                "pkey_path": cls._harness.ssh_key_path,
-                "role": "source",
-            },
+            connection_info=cls._exp_conn_info,
         )
 
         cls._dst_endpoint = cls._create_endpoint(
             name="test-dest",
             endpoint_type=cls._imp_platform,
             description="integration destination endpoint",
-            connection_info={
-                "pkey_path": cls._harness.ssh_key_path,
-                "role": "destination",
-            },
+            connection_info=cls._imp_conn_info,
         )
 
         # Create minion pool if needed.
@@ -277,7 +276,7 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
 
             pool_obj = cls._wait_for_pool(pool.id, MINION_ALLOCATED_TERMINAL)
             if pool_obj.status != constants.MINION_POOL_STATUS_ALLOCATED:
-                cls.fail(
+                raise AssertionError(
                     "Pool did not reach ALLOCATED (got %s)" % pool_obj.status,
                 )
 
@@ -300,10 +299,13 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
         test_utils.write_test_pattern(self._src_device, 8192)
 
         # Create transfer replica.
+        # Use basename as instance name; real VM names do not contain slashes,
+        # and some providers use the name as is in resource indentifiers.
+        instance_name = os.path.basename(self._src_device)
         self._transfer = self._create_transfer(
             self._src_endpoint.id,
             self._dst_endpoint.id,
-            instances=[self._src_device],
+            instances=[instance_name],
             destination_minion_pool_id=self._pool_id,
             source_environment={"block_device_path": self._src_device},
             destination_environment={"devices": [self._dst_device]},
@@ -498,15 +500,19 @@ class MinionPoolTestBase(CoriolisIntegrationTestBase):
 
     @classmethod
     def setUpClass(cls):
-        super().setUpClass()
-
+        # Check before super(), so that ReplicaIntegrationTestBase.setUpClass
+        # does not attempt pool creation against a provider that doesn't
+        # support it.
+        h = harness._IntegrationHarness.get()
         available = providers_factory.get_available_providers()
-        imp_types = available.get(cls._imp_platform, {}).get("types", [])
+        imp_types = available.get(h.imp_provider_platform, {}).get("types", [])
         if constants.PROVIDER_TYPE_DESTINATION_MINION_POOL not in imp_types:
             raise unittest.SkipTest(
                 "Import provider '%s' does not support minion pools"
-                % cls._imp_platform
+                % h.imp_provider_platform
             )
+
+        super().setUpClass()
 
 
 class MinionPoolReplicaTestBase(
