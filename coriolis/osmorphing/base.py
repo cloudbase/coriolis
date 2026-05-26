@@ -28,6 +28,48 @@ DEFAULT_CLOUD_USER = "cloud-user"
 CLOUD_INIT_SERVICE_UNIT_NAME = "cloud-init"
 CLOUD_INIT_SERVICE_UNIT_NAME_FALLBACK = "cloud-init-main"
 
+FIRST_BOOT_SCRIPT_RUNNER = """#!/bin/bash
+function run_scripts {
+    script_dir=$1
+
+    for f in $script_dir/*.sh; do
+        if [ -x "$f" ]; then
+            echo "Invoking script: $f"
+            "$f"
+            echo "Exit code: $?"
+        fi
+    done
+}
+
+# Run Coriolis provided scripts.
+run_scripts /usr/lib/coriolis/firstboot/service
+
+# Run user provided scripts.
+run_scripts /usr/lib/coriolis/firstboot/user
+
+mkdir -p /var/lib/coriolis
+touch /var/lib/coriolis/firstboot-complete
+"""
+FIRST_BOOT_SCRIPT_RUNNER_PATH = "/usr/lib/coriolis/firstboot/run-firstboot.sh"
+FIRST_BOOT_SYSTEMD_UNIT = """
+[Unit]
+Description=Coriolis replica first-boot scripts.
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=!/var/lib/coriolis/firstboot-complete
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/coriolis/firstboot/run-firstboot.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+"""
+FIRST_BOOT_SYSTEMD_UNIT_NAME = "coriolis-firstboot.service"
+FIRST_BOOT_SYSTEMD_UNIT_PATH = (
+    f"/etc/systemd/system/{FIRST_BOOT_SYSTEMD_UNIT_NAME}")
+
 
 class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
 
@@ -98,6 +140,15 @@ class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
 
     @abc.abstractmethod
     def run_user_script(self, user_script):
+        pass
+
+    @abc.abstractmethod
+    def register_firstboot_script(
+        self,
+        script: str,
+        index: int = 0,
+        user_provided=True,
+    ):
         pass
 
     @abc.abstractmethod
@@ -719,3 +770,53 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         self._add_net_udev_rules(net_ifaces_info)
 
         return
+
+    def register_firstboot_script(
+        self,
+        script: str,
+        index: int = 0,
+        user_provided=True,
+    ):
+        if len(script) == 0:
+            LOG.debug("Empty first-boot script, skipping...")
+            return
+
+        if user_provided:
+            script_dir = "/usr/lib/coriolis/firstboot/user"
+        else:
+            script_dir = "/usr/lib/coriolis/firstboot/service"
+        unique_id = str(uuid.uuid4()).split("-")[0]
+        script_path = os.path.join(script_dir, f"{index:02d}-{unique_id}.sh")
+
+        self._exec_cmd_chroot(f"mkdir -p {script_dir}")
+        self._write_file_sudo(script_path, script)
+        self._exec_cmd_chroot(f"chown root:root {script_path}")
+        self._exec_cmd_chroot(f"chmod 755 {script_path}")
+
+        # systemd unit used to launch first-boot scripts.
+        if not self._test_path(FIRST_BOOT_SYSTEMD_UNIT_PATH):
+            self._write_file_sudo(
+                FIRST_BOOT_SYSTEMD_UNIT_PATH, FIRST_BOOT_SYSTEMD_UNIT)
+            self._exec_cmd_chroot(
+                "chown root:root %s" % FIRST_BOOT_SYSTEMD_UNIT_PATH)
+            self._exec_cmd_chroot(
+                "chmod 644 %s" % FIRST_BOOT_SYSTEMD_UNIT_PATH)
+            wants_dir = "/etc/systemd/system/multi-user.target.wants"
+            self._exec_cmd_chroot("mkdir -p %s" % wants_dir)
+            self._exec_cmd_chroot(
+                "ln -sf %s %s/%s" % (
+                    FIRST_BOOT_SYSTEMD_UNIT_PATH,
+                    wants_dir,
+                    FIRST_BOOT_SYSTEMD_UNIT_NAME))
+
+        # A script that iterates over "/usr/lib/coriolis/firstboot/*.sh"
+        # scripts and runs them.
+        if not self._test_path(FIRST_BOOT_SCRIPT_RUNNER_PATH):
+            self._write_file_sudo(
+                FIRST_BOOT_SCRIPT_RUNNER_PATH, FIRST_BOOT_SCRIPT_RUNNER)
+            self._exec_cmd_chroot(
+                "chown root:root %s" % FIRST_BOOT_SCRIPT_RUNNER_PATH)
+            self._exec_cmd_chroot(
+                "chmod 755 %s" % FIRST_BOOT_SCRIPT_RUNNER_PATH)
+
+        LOG.info(f"Registered first-boot script: {script_path}")

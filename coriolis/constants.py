@@ -390,12 +390,11 @@ MINION_MACHINE_POWER_STATUS_POWERING_OFF = "POWERING_OFF"
 PHASE_OSMORPHING_PRE_OS_MOUNT = "osmorphing_pre_os_mount"
 # Scripts that are executed after the OS partition is mounted (the default).
 PHASE_OSMORPHING_POST_OS_MOUNT = "osmorphing_post_os_mount"
-# We may eventually add "PHASE_REPLICA_FIRST_BOOT" for convenience, although
-# the users can already achieve this by using os-morphing scripts to schedule
-# scripts that will be executed at the next boot. This may require import
-# provider support.
+# Scripts that are executed when the replica VM starts for the first time.
+PHASE_REPLICA_FIRST_BOOT = "replica_first_boot"
 
 USER_SCRIPT_PHASES = [
     PHASE_OSMORPHING_PRE_OS_MOUNT,
     PHASE_OSMORPHING_POST_OS_MOUNT,
+    PHASE_REPLICA_FIRST_BOOT,
 ]

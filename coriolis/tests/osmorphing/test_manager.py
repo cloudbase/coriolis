@@ -29,6 +29,10 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
                 "phase": constants.PHASE_OSMORPHING_POST_OS_MOUNT,
                 "payload": "post-os-mount-script",
             },
+            {
+                "phase": constants.PHASE_REPLICA_FIRST_BOOT,
+                "payload": "fist-boot-script",
+            },
         ]
 
         manager.CONF.proxy.url = "http://127.0.0.1:8080"
@@ -201,6 +205,14 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
             pass
 
         def uninstall_packages(self, packages_remove):
+            pass
+
+        def register_firstboot_script(
+            self,
+            script: str,
+            index: int = 0,
+            user_provided=True,
+        ):
             pass
 
     @mock.patch.object(manager.osmount_factory, 'get_os_mount_tools')
