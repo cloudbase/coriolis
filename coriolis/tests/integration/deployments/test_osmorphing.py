@@ -7,6 +7,8 @@ Exercises deployments with skip_os_morphing=False, OS detection, and package
 installation in the target OS.
 """
 
+import os
+import re
 import uuid
 
 from coriolis.tests.integration import base as integration_base
@@ -135,3 +137,54 @@ class OsMorphingDeploymentTest(integration_base.ReplicaIntegrationTestBase):
         # the replica OS disk was mounted.
         self.assertNotIn(self._dst_device, pre_mounts)
         self.assertIn(self._dst_device, post_mounts)
+
+    def test_os_morphing_global_script_first_boot(self):
+        payload = "mount > /boot_mounts"
+        user_scripts = {
+            'global': {
+                'linux': [
+                    {
+                        "phase": "replica_first_boot",
+                        "payload": "mount > /boot_mounts",
+                    },
+                ],
+                'windows': [
+                    {
+                        "phase": "replica_first_boot",
+                        "payload": "should-not-get-executed",
+                    },
+                ]
+            }
+        }
+        deployment_kwargs = {
+            "user_scripts": user_scripts,
+        }
+        self._execute_transfer_and_deployment(deployment_kwargs)
+
+        # TODO(lpetrut): the test import provider doesn't actually create
+        # replica instances (containers). If it did, we'd have no way to clean
+        # them up using Coriolis APIs.
+        #
+        # For this reason, we can't ensure that the first boot scripts
+        # actually get executed. We'll merely verify that those files
+        # have been injected at the expected location.
+        first_boot_script_dir = "usr/lib/coriolis/firstboot/user"
+        first_boot_scripts = test_utils.list_files_from_device(
+            self._dst_device, first_boot_script_dir)
+        if not first_boot_scripts:
+            raise AssertionError("Couldn't find first boot script dir.")
+
+        found = False
+        for file_name in first_boot_scripts:
+            if re.match(r"\d+-\w+\.sh", file_name):
+                first_boot_script_path = os.path.join(
+                    first_boot_script_dir, file_name)
+                first_boot_script = test_utils.read_file_from_device(
+                    self._dst_device,
+                    first_boot_script_path)
+                if payload == first_boot_script:
+                    found = True
+
+        if not found:
+            raise AssertionError(
+                "Couldn't find the expected first boot script.")

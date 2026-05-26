@@ -400,3 +400,18 @@ def read_file_from_device(device_path, rel_path):
                 return f.read()
         finally:
             _run(["umount", mount_point])
+
+
+def list_files_from_device(device_path, rel_path):
+    """Enumerates files from the filesystem of *device_path*.
+
+    Mounts the device read-only into a temporary directory, enumerates files,
+    then unmounts.
+    """
+    with tempfile.TemporaryDirectory() as mount_point:
+        _run(["mount", "-o", "ro", device_path, mount_point])
+
+        try:
+            return os.listdir(os.path.join(mount_point, rel_path))
+        finally:
+            _run(["umount", mount_point])

@@ -521,7 +521,7 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             self.conn, conf_file_path, conf_content)
 
         mock_write_local_script.assert_called_once_with(
-            'C:\\Cloudbase-Init', mocked_full_path, priority=99)
+            'C:\\Cloudbase-Init', mocked_full_path, priority=10)
 
     @mock.patch.object(windows.utils, 'write_winrm_file')
     @mock.patch.object(windows.BaseWindowsMorphingTools, '_write_local_script')
@@ -946,3 +946,21 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_unload_registry_hive.assert_not_called()
 
         self.assertIsNone(result)
+
+    @mock.patch.object(windows.utils, 'write_winrm_file')
+    @mock.patch("uuid.uuid4")
+    def test_register_firstboot_script(self, mock_uuid, mock_write_winrm_file):
+        mock_uuid.return_value = "37c27abd-85ff-4cb8-8d31-4e7067e145ab"
+        mock_script = "mock-script"
+
+        self.morphing_tools.register_firstboot_script(
+            mock_script,
+            index=10,
+            user_provided=True)
+
+        self.morphing_tools._conn.exec_ps_command.assert_called_once_with(
+            "mkdir -Force C:\\Cloudbase-Init\\LocalScripts")
+        mock_write_winrm_file.assert_called_once_with(
+            self.morphing_tools._conn,
+            "C:\\Cloudbase-Init\\LocalScripts/61-37c27abd.ps1",
+            mock_script)

@@ -307,3 +307,13 @@ def _morph_image(origin_provider, destination_provider, connection_info,
 
     LOG.info("Post packages install")
     import_os_morphing_tools.post_packages_install(packages_add)
+
+    first_boot_user_scripts = [
+        script["payload"] for script in user_scripts
+        if script["phase"] == constants.PHASE_REPLICA_FIRST_BOOT]
+    for script_idx, user_script in enumerate(first_boot_user_scripts):
+        event_manager.progress_update('Registering first-boot user script')
+        import_os_morphing_tools.register_firstboot_script(
+            user_script, script_idx, user_provided=True)
+    if not first_boot_user_scripts:
+        event_manager.progress_update('No first-boot user script specified')

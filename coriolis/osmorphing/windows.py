@@ -456,14 +456,19 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
 
     def _write_local_script(self, base_dir, script_path, priority=50):
         scripts_dir = self._get_cbslinit_scripts_dir(base_dir)
-        script = "%s\\%d-%s" % (
+        remote_script_path = "%s\\%02d-%s" % (
             scripts_dir, priority,
             os.path.basename(script_path))
 
         with open(script_path, 'r') as fd:
             contents = fd.read()
             utils.write_winrm_file(
-                self._conn, script, contents)
+                self._conn, remote_script_path, contents)
+
+        LOG.info(
+            "Registered first-boot Coriolis script: %s -> %s",
+            script_path,
+            remote_script_path)
 
     def _write_cloudbase_init_conf(self, cloudbaseinit_base_dir,
                                    local_base_dir, com_port="COM1",
@@ -525,7 +530,7 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
 
         self._write_local_script(
             cloudbaseinit_base_dir, disks_script,
-            priority=99)
+            priority=10)
 
     def _install_cloudbase_init(self, download_url,
                                 metadata_services=None, enabled_plugins=None,
@@ -723,3 +728,38 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
 
     def post_packages_uninstall(self, package_names):
         pass
+
+    def register_firstboot_script(
+        self,
+        script: str,
+        index: int = 0,
+        user_provided=True,
+    ):
+        if len(script) == 0:
+            LOG.debug("Empty first-boot script, skipping...")
+            return
+
+        if user_provided:
+            # The default priority for Coriolis scripts is "50",
+            # some using below 50.
+            #
+            # The scripts are executed in alphabetical order, so the
+            # ones with a lower "priority" will be executed first.
+            #
+            # We'll bump the priority here so that user scripts will
+            # run after the Coriolis internal scripts.
+            index += 51
+
+        cbslinit_base_dir = self._get_cbslinit_base_dir()
+        script_dir = self._get_cbslinit_scripts_dir(cbslinit_base_dir)
+        unique_id = str(uuid.uuid4()).split("-")[0]
+        script_path = os.path.join(
+            script_dir, f"{index:02d}-{unique_id}.ps1")
+
+        self._conn.exec_ps_command(f"mkdir -Force {script_dir}")
+        utils.write_winrm_file(
+            self._conn,
+            script_path,
+            script)
+
+        LOG.info(f"Registered first-boot script: {script_path}")
