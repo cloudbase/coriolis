@@ -68,44 +68,30 @@ class BaseRedHatMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             'grub2-mkconfig -o %s' % mock_get_grub2_cfg_location.return_value
         )
 
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path_chroot')
-    def test__get_grub2_cfg_location_bios(self, mock_test_path_chroot,
-                                          mock_exec_cmd_chroot):
+    def test__get_grub2_cfg_location_bios(self, mock_test_path_chroot):
         mock_test_path_chroot.return_value = True
 
         result = self.morphing_tools._get_grub2_cfg_location()
 
         self.assertEqual(result, '/boot/grub2/grub.cfg')
-        mock_exec_cmd_chroot.assert_has_calls([
-            mock.call("mount /boot || true"),
-            mock.call("mount /boot/efi || true")
-        ])
         mock_test_path_chroot.assert_called_once_with(
             '/boot/grub2/grub.cfg')
 
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path_chroot')
-    def test__get_grub2_cfg_location_uefi(self, mock_test_path_chroot,
-                                          mock_exec_cmd_chroot):
+    def test__get_grub2_cfg_location_uefi(self, mock_test_path_chroot):
         mock_test_path_chroot.side_effect = [False, True]
 
         result = self.morphing_tools._get_grub2_cfg_location()
 
         self.assertEqual(result, '/boot/efi/EFI/redhat/grub.cfg')
-        mock_exec_cmd_chroot.assert_has_calls([
-            mock.call("mount /boot || true"),
-            mock.call("mount /boot/efi || true")
-        ])
         mock_test_path_chroot.assert_has_calls([
             mock.call('/boot/grub2/grub.cfg'),
             mock.call('/boot/efi/EFI/redhat/grub.cfg')
         ])
 
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path_chroot')
-    def test__get_grub2_cfg_location_unknown(self, mock_test_path_chroot,
-                                             mock_exec_cmd_chroot):
+    def test__get_grub2_cfg_location_unknown(self, mock_test_path_chroot):
         mock_test_path_chroot.return_value = False
 
         self.assertRaisesRegex(
@@ -114,10 +100,6 @@ class BaseRedHatMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             self.morphing_tools._get_grub2_cfg_location
         )
 
-        mock_exec_cmd_chroot.assert_has_calls([
-            mock.call("mount /boot || true"),
-            mock.call("mount /boot/efi || true")
-        ])
         mock_test_path_chroot.assert_has_calls([
             mock.call('/boot/grub2/grub.cfg'),
             mock.call('/boot/efi/EFI/redhat/grub.cfg')
