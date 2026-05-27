@@ -982,26 +982,13 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')
     def test_dismount_os(self, mock_exec_cmd):
         root_dir = "/mnt/root_dir"
-        mock_exec_cmd.side_effect = [
-            None,
-            ("/dev/sda1 /mnt/root_dir/sub_dir type ext4\n"
-             "/dev/sda2 /mnt/root_dir/dev type ext4\n"
-             "/dev/sda3 /mnt/root_dir type ext4\n"),
-            None,
-            None,
-            None,
-        ]
 
         self.base_os_mount_tools.dismount_os(root_dir)
 
         mock_exec_cmd.assert_has_calls([
             mock.call("sudo fuser --kill --mount /mnt/root_dir || true"),
-            mock.call("cat /proc/mounts"),
-            mock.call("sudo umount /mnt/root_dir/sub_dir"),
-            mock.call("mountpoint -q /mnt/root_dir/dev"
-                      " && sudo umount /mnt/root_dir/dev"),
             mock.call(
-                "mountpoint -q /mnt/root_dir && sudo umount /mnt/root_dir"),
+                "mountpoint -q /mnt/root_dir && sudo umount -R /mnt/root_dir"),
         ])
 
     @mock.patch.object(base.utils, 'get_url_with_credentials')
