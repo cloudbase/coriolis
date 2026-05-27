@@ -149,32 +149,317 @@ class BaseRedHatMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
                       mock_read_config_file.return_value)
         ])
 
+    @mock.patch.object(
+        redhat.BaseRedHatMorphingTools, '_backup_all_ifcfg_configs')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_write_file_sudo')
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path')
     def test_write_nic_configs(
-            self, mock_test_path, mock_exec_cmd_chroot, mock_write_file_sudo):
+            self, mock_write_file_sudo, mock_backup_all_ifcfg_configs):
         nics_info = [{'name': 'eth0'}, {'name': 'eth1'}]
-        mock_test_path.return_value = True
 
         self.morphing_tools._write_nic_configs(nics_info)
 
+        mock_backup_all_ifcfg_configs.assert_called_once_with()
         mock_write_file_sudo.assert_has_calls([
             mock.call(
                 "etc/sysconfig/network-scripts/ifcfg-eth0",
-                redhat.IFCFG_TEMPLATE % {"device_name": "eth0"},
+                redhat.IFCFG_TEMPLATE % {
+                    "device_name": "eth0",
+                    "nm_controlled": "no",
+                },
             ),
             mock.call(
                 "etc/sysconfig/network-scripts/ifcfg-eth1",
-                redhat.IFCFG_TEMPLATE % {"device_name": "eth1"},
+                redhat.IFCFG_TEMPLATE % {
+                    "device_name": "eth1",
+                    "nm_controlled": "no",
+                },
             )
         ])
+
+    @mock.patch.object(
+        redhat.BaseRedHatMorphingTools, '_backup_all_ifcfg_configs')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_write_file_sudo')
+    def test_write_nic_configs_rhel8(
+            self, mock_write_file_sudo, mock_backup_all_ifcfg_configs):
+        self.morphing_tools._version = '8.10'
+        nics_info = [{'name': 'eth0'}]
+
+        self.morphing_tools._write_nic_configs(nics_info)
+
+        mock_backup_all_ifcfg_configs.assert_called_once_with()
+        mock_write_file_sudo.assert_called_once_with(
+            "etc/sysconfig/network-scripts/ifcfg-eth0",
+            redhat.IFCFG_TEMPLATE % {
+                "device_name": "eth0",
+                "nm_controlled": "yes",
+            },
+        )
+
+    @ddt.data(('6', 'no'), ('7.9', 'no'), ('8.10', 'yes'))
+    @ddt.unpack
+    def test__get_ifcfg_nm_controlled(self, release_version, expected):
+        self.morphing_tools._version = release_version
+
+        result = self.morphing_tools._get_ifcfg_nm_controlled()
+
+        self.assertEqual(expected, result)
+
+    @mock.patch.object(
+        redhat.BaseRedHatMorphingTools, '_backup_all_ifcfg_configs'
+    )
+    @mock.patch.object(
+        redhat.BaseRedHatMorphingTools, '_backup_nmconnection_files'
+    )
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_write_file_sudo')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
+    def test_write_nmconnection_configs(
+            self, mock_exec_cmd_chroot, mock_write_file_sudo,
+            mock_backup_nmconnection_files,
+            mock_backup_all_ifcfg_configs):
+        nics_info = [{'name': 'eth0'}]
+        nmconnection_files = [
+            'etc/NetworkManager/system-connections/eth0.nmconnection']
+
+        self.morphing_tools._write_nmconnection_configs(
+            nics_info, nmconnection_files)
+
+        mock_backup_nmconnection_files.assert_called_once_with(
+            nmconnection_files)
+        mock_backup_all_ifcfg_configs.assert_called_once_with()
+        mock_write_file_sudo.assert_called_once()
+        args, _ = mock_write_file_sudo.call_args
+        self.assertEqual(
+            args[0],
+            "etc/NetworkManager/system-connections/eth0.nmconnection")
+        self.assertIn("[connection]", args[1])
+        self.assertIn("interface-name=eth0", args[1])
+        self.assertIn("method=auto", args[1])
+        self.assertIn("may-fail=false", args[1])
+        mock_exec_cmd_chroot.assert_called_once_with(
+            "chmod 600 /etc/NetworkManager/system-connections/"
+            "eth0.nmconnection"
+        )
+
+    @mock.patch.object(
+        redhat.BaseRedHatMorphingTools, '_backup_all_ifcfg_configs'
+    )
+    @mock.patch.object(
+        redhat.BaseRedHatMorphingTools, '_backup_nmconnection_files'
+    )
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_write_file_sudo')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
+    def test_write_nmconnection_configs_no_nics(
+            self, mock_exec_cmd_chroot, mock_write_file_sudo,
+            mock_backup_nmconnection_files,
+            mock_backup_all_ifcfg_configs):
+        self.morphing_tools._write_nmconnection_configs(
+            None, ['etc/NetworkManager/system-connections/eth0.nmconnection'])
+
+        mock_backup_nmconnection_files.assert_not_called()
+        mock_backup_all_ifcfg_configs.assert_not_called()
+        mock_write_file_sudo.assert_not_called()
+        mock_exec_cmd_chroot.assert_not_called()
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
+    def test__backup_nmconnection_files(self, mock_exec_cmd_chroot):
+        nmconnection_files = [
+            'etc/NetworkManager/system-connections/ens192.nmconnection',
+        ]
+
+        self.morphing_tools._backup_nmconnection_files(nmconnection_files)
+
+        mock_exec_cmd_chroot.assert_called_once_with(
+            'mv "etc/NetworkManager/system-connections/'
+            'ens192.nmconnection" '
+            '"etc/NetworkManager/system-connections/'
+            'ens192.nmconnection.bak"'
+        )
+
+    @mock.patch.object(
+        redhat.BaseRedHatMorphingTools,
+        '_get_existing_ethernet_nmconnection_files')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
+    def test__backup_nmconnection_files_fetches_files(
+            self, mock_exec_cmd_chroot,
+            mock_get_ethernet_nm_files):
+        mock_get_ethernet_nm_files.return_value = [
+            'etc/NetworkManager/system-connections/eth0.nmconnection']
+
+        self.morphing_tools._backup_nmconnection_files()
+
+        mock_get_ethernet_nm_files.assert_called_once_with()
+        mock_exec_cmd_chroot.assert_called_once()
+
+    @mock.patch.object(
+        redhat.BaseRedHatMorphingTools,
+        '_get_existing_ethernet_nmconnection_files')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
+    def test__backup_nmconnection_files_no_files(
+            self, mock_exec_cmd_chroot,
+            mock_get_ethernet_nm_files):
+        mock_get_ethernet_nm_files.return_value = []
+
+        self.morphing_tools._backup_nmconnection_files()
+
+        mock_exec_cmd_chroot.assert_not_called()
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_get_ifcfgs_by_type')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path')
+    def test__backup_all_ifcfg_configs(self, mock_test_path,
+                                       mock_get_ifcfgs_by_type,
+                                       mock_exec_cmd_chroot):
+        mock_test_path.return_value = True
+        mock_get_ifcfgs_by_type.return_value = [
+            ("etc/sysconfig/network-scripts/ifcfg-ens33",
+             {"TYPE": "Ethernet"}),
+            ("etc/sysconfig/network-scripts/ifcfg-eth0",
+             {"TYPE": "Ethernet"}),
+        ]
+
+        self.morphing_tools._backup_all_ifcfg_configs()
+
+        mock_get_ifcfgs_by_type.assert_called_once_with(
+            "Ethernet", self.morphing_tools._NETWORK_SCRIPTS_PATH)
         mock_exec_cmd_chroot.assert_has_calls([
-            mock.call("cp etc/sysconfig/network-scripts/ifcfg-eth0 "
-                      "etc/sysconfig/network-scripts/ifcfg-eth0.bak"),
-            mock.call("cp etc/sysconfig/network-scripts/ifcfg-eth1 "
-                      "etc/sysconfig/network-scripts/ifcfg-eth1.bak")
+            mock.call(
+                'mv "etc/sysconfig/network-scripts/ifcfg-ens33" '
+                '"etc/sysconfig/network-scripts/ifcfg-ens33.bak"'
+            ),
+            mock.call(
+                'mv "etc/sysconfig/network-scripts/ifcfg-eth0" '
+                '"etc/sysconfig/network-scripts/ifcfg-eth0.bak"'
+            ),
         ])
+        self.assertEqual(mock_exec_cmd_chroot.call_count, 2)
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_get_ifcfgs_by_type')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path')
+    def test__backup_all_ifcfg_configs_no_dir(self, mock_test_path,
+                                              mock_get_ifcfgs_by_type,
+                                              mock_exec_cmd_chroot):
+        mock_test_path.return_value = False
+
+        self.morphing_tools._backup_all_ifcfg_configs()
+
+        mock_get_ifcfgs_by_type.assert_not_called()
+        mock_exec_cmd_chroot.assert_not_called()
+
+    @mock.patch.object(
+        base.BaseLinuxOSMorphingTools, '_get_keyfiles_by_type')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path')
+    def test__get_existing_ethernet_nmconnection_files(
+            self, mock_test_path, mock_get_keyfiles_by_type):
+        mock_test_path.return_value = True
+        mock_get_keyfiles_by_type.return_value = [
+            ('etc/NetworkManager/system-connections/eth0.nmconnection',
+             {'type': 'ethernet'})]
+
+        result = (
+            self.morphing_tools._get_existing_ethernet_nmconnection_files())
+
+        mock_get_keyfiles_by_type.assert_called_once_with(
+            "ethernet", self.morphing_tools._NM_CONNECTIONS_PATH)
+        self.assertEqual(
+            result,
+            ['etc/NetworkManager/system-connections/eth0.nmconnection'])
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path')
+    def test__get_existing_ethernet_nmconnection_files_no_dir(
+            self, mock_test_path):
+        mock_test_path.return_value = False
+
+        result = (
+            self.morphing_tools._get_existing_ethernet_nmconnection_files())
+
+        self.assertEqual(result, [])
+
+    @mock.patch.object(
+        redhat.BaseRedHatMorphingTools, 'disable_predictable_nic_names'
+    )
+    @mock.patch.object(redhat.BaseRedHatMorphingTools, '_write_nic_configs')
+    @mock.patch.object(
+        redhat.BaseRedHatMorphingTools, '_write_nmconnection_configs'
+    )
+    @mock.patch.object(
+        redhat.BaseRedHatMorphingTools,
+        '_get_existing_ethernet_nmconnection_files',
+    )
+    def test_set_net_config_dhcp(
+            self, mock_get_existing_ethernet_nmconnection_files,
+            mock_write_nmconnection_configs,
+            mock_write_nic_configs,
+            mock_disable_predictable_nic_names):
+        mock_get_existing_ethernet_nmconnection_files.return_value = []
+        nics_info = [{
+            'mac_address': mock.sentinel.mac_address,
+        }]
+        dhcp = True
+
+        self.morphing_tools.set_net_config(nics_info, dhcp)
+
+        mock_get_existing_ethernet_nmconnection_files.assert_called_once_with()
+        mock_write_nmconnection_configs.assert_not_called()
+        mock_disable_predictable_nic_names.assert_called_once()
+        mock_write_nic_configs.assert_called_once_with(nics_info)
+
+    @mock.patch.object(
+        redhat.BaseRedHatMorphingTools, 'disable_predictable_nic_names'
+    )
+    @mock.patch.object(
+        redhat.BaseRedHatMorphingTools, '_write_nmconnection_configs'
+    )
+    @mock.patch.object(redhat.BaseRedHatMorphingTools, '_write_nic_configs')
+    @mock.patch.object(
+        redhat.BaseRedHatMorphingTools,
+        '_get_existing_ethernet_nmconnection_files',
+    )
+    def test_set_net_config_dhcp_nmconnection(
+            self, mock_get_existing_ethernet_nmconnection_files,
+            mock_write_nic_configs,
+            mock_write_nmconnection_configs,
+            mock_disable_predictable_nic_names):
+        nm_files = [
+            'etc/NetworkManager/system-connections/eth0.nmconnection']
+        mock_get_existing_ethernet_nmconnection_files.return_value = nm_files
+        nics_info = [{
+            'mac_address': mock.sentinel.mac_address,
+        }]
+        dhcp = True
+
+        self.morphing_tools.set_net_config(nics_info, dhcp)
+
+        mock_disable_predictable_nic_names.assert_called_once()
+        mock_write_nmconnection_configs.assert_called_once_with(
+            nics_info, nm_files)
+        mock_write_nic_configs.assert_not_called()
+
+    @mock.patch.object(
+        redhat.BaseRedHatMorphingTools, 'disable_predictable_nic_names'
+    )
+    @mock.patch.object(
+        redhat.BaseRedHatMorphingTools, '_write_nmconnection_configs'
+    )
+    @mock.patch.object(redhat.BaseRedHatMorphingTools, '_write_nic_configs')
+    @mock.patch.object(
+        redhat.BaseRedHatMorphingTools,
+        '_get_existing_ethernet_nmconnection_files',
+    )
+    def test_set_net_config_dhcp_nmconnection_no_nics(
+            self, mock_get_existing_ethernet_nmconnection_files,
+            mock_write_nic_configs,
+            mock_write_nmconnection_configs,
+            mock_disable_predictable_nic_names):
+        mock_get_existing_ethernet_nmconnection_files.return_value = [
+            'etc/NetworkManager/system-connections/eth0.nmconnection']
+
+        self.morphing_tools.set_net_config(None, True)
+
+        mock_get_existing_ethernet_nmconnection_files.assert_not_called()
+        mock_disable_predictable_nic_names.assert_not_called()
+        mock_write_nmconnection_configs.assert_not_called()
+        mock_write_nic_configs.assert_not_called()
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd')
     @mock.patch.object(redhat.utils, 'list_ssh_dir')
@@ -239,22 +524,6 @@ class BaseRedHatMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
                 "/root/etc/sysconfig/network-scripts/ifcfg-eth1"
             ),
         ])
-
-    @mock.patch.object(
-        redhat.BaseRedHatMorphingTools, 'disable_predictable_nic_names'
-    )
-    @mock.patch.object(redhat.BaseRedHatMorphingTools, '_write_nic_configs')
-    def test_set_net_config_dhcp(self, mock_write_nic_configs,
-                                 mock_disable_predictable_nic_names):
-        nics_info = [{
-            'mac_address': mock.sentinel.mac_address,
-        }]
-        dhcp = True
-
-        self.morphing_tools.set_net_config(nics_info, dhcp)
-
-        mock_disable_predictable_nic_names.assert_called_once()
-        mock_write_nic_configs.assert_called_once_with(nics_info)
 
     @mock.patch.object(
         redhat.BaseRedHatMorphingTools, 'disable_predictable_nic_names'

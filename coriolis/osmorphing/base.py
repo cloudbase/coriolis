@@ -220,6 +220,8 @@ class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
 class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
 
     _packages = {}
+    _NETWORK_SCRIPTS_PATH = "etc/sysconfig/network-scripts"
+    _NM_CONNECTIONS_PATH = "etc/NetworkManager/system-connections"
 
     def __init__(self, conn, os_root_dir, os_root_dev, hypervisor,
                  event_manager, detected_os_info, osmorphing_parameters,
@@ -431,6 +433,37 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         content = self._read_file_sudo(chroot_path)
         config = utils.parse_ini_config(content)
         return config
+
+    def _get_net_config_files(self, network_scripts_path):
+        dir_content = self._list_dir(network_scripts_path)
+        return [os.path.join(network_scripts_path, f) for f in
+                dir_content if re.match("^ifcfg-(.*)", f)]
+
+    def _get_ifcfgs_by_type(self, ifcfg_type, network_scripts_path):
+        ifcfgs = []
+        for ifcfg_file in self._get_net_config_files(network_scripts_path):
+            ifcfg = self._read_config_file_sudo(ifcfg_file)
+            detected_type = ifcfg.get('TYPE')
+            if not detected_type:
+                detected_type = "Ethernet"
+                ifcfg["TYPE"] = detected_type
+            if detected_type.lower() == ifcfg_type.lower():
+                ifcfgs.append((ifcfg_file, ifcfg))
+        return ifcfgs
+
+    def _get_nmconnection_files(self, network_scripts_path):
+        dir_content = self._list_dir(network_scripts_path)
+        return [os.path.join(network_scripts_path, f)
+                for f in dir_content if re.match(
+                    r"^(.*\.nmconnection)$", f)]
+
+    def _get_keyfiles_by_type(self, nmconnection_type, network_scripts_path):
+        keyfiles = []
+        for file in self._get_nmconnection_files(network_scripts_path):
+            keyfile = self._read_config_file_sudo(file)
+            if keyfile.get("type") == nmconnection_type:
+                keyfiles.append((file, keyfile))
+        return keyfiles
 
     def _copy_resolv_conf(self):
         resolv_conf = "etc/resolv.conf"

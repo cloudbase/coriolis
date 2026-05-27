@@ -496,6 +496,94 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
 
         mock_read_file_sudo.assert_not_called()
 
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_list_dir')
+    def test__get_net_config_files(self, mock_list_dir):
+        network_scripts_path = (
+            base.BaseLinuxOSMorphingTools._NETWORK_SCRIPTS_PATH)
+        mock_list_dir.return_value = ['ifcfg-eth0', 'ifcfg-lo', 'other-file']
+
+        result = self.os_morphing_tools._get_net_config_files(
+            network_scripts_path)
+
+        mock_list_dir.assert_called_once_with(network_scripts_path)
+        self.assertEqual(
+            result,
+            [
+                'etc/sysconfig/network-scripts/ifcfg-eth0',
+                'etc/sysconfig/network-scripts/ifcfg-lo',
+            ])
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_read_config_file_sudo')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_get_net_config_files')
+    def test__get_ifcfgs_by_type(self, mock_get_net_config_files,
+                                 mock_read_config_file_sudo):
+        network_scripts_path = (
+            base.BaseLinuxOSMorphingTools._NETWORK_SCRIPTS_PATH)
+        mock_get_net_config_files.return_value = [mock.sentinel.ifcfg_file]
+        mock_read_config_file_sudo.side_effect = [{"TYPE": "Ethernet"}]
+
+        result = self.os_morphing_tools._get_ifcfgs_by_type(
+            "Ethernet", network_scripts_path)
+
+        mock_get_net_config_files.assert_called_once_with(network_scripts_path)
+        mock_read_config_file_sudo.assert_called_once_with(
+            mock.sentinel.ifcfg_file)
+        self.assertEqual(
+            result, [(mock.sentinel.ifcfg_file, {"TYPE": "Ethernet"})])
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_read_config_file_sudo')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_get_net_config_files')
+    def test__get_ifcfgs_by_type_default_type(self, mock_get_net_config_files,
+                                              mock_read_config_file_sudo):
+        network_scripts_path = (
+            base.BaseLinuxOSMorphingTools._NETWORK_SCRIPTS_PATH)
+        mock_get_net_config_files.return_value = [mock.sentinel.ifcfg_file]
+        mock_read_config_file_sudo.side_effect = [{}]
+
+        result = self.os_morphing_tools._get_ifcfgs_by_type(
+            "Ethernet", network_scripts_path)
+
+        self.assertEqual(
+            result, [(mock.sentinel.ifcfg_file, {"TYPE": "Ethernet"})])
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_list_dir')
+    def test__get_nmconnection_files(self, mock_list_dir):
+        network_scripts_path = (
+            base.BaseLinuxOSMorphingTools._NM_CONNECTIONS_PATH)
+        mock_list_dir.return_value = [
+            'eth0.nmconnection', 'eth1.nmconnection', 'other-file']
+
+        result = self.os_morphing_tools._get_nmconnection_files(
+            network_scripts_path)
+
+        mock_list_dir.assert_called_once_with(network_scripts_path)
+        self.assertEqual(
+            result,
+            [
+                'etc/NetworkManager/system-connections/eth0.nmconnection',
+                'etc/NetworkManager/system-connections/eth1.nmconnection',
+            ])
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_read_config_file_sudo')
+    @mock.patch.object(
+        base.BaseLinuxOSMorphingTools, '_get_nmconnection_files')
+    def test__get_keyfiles_by_type(self, mock_get_nmconnection_files,
+                                   mock_read_config_file_sudo):
+        network_scripts_path = (
+            base.BaseLinuxOSMorphingTools._NM_CONNECTIONS_PATH)
+        mock_get_nmconnection_files.return_value = [mock.sentinel.nmconn_file]
+        mock_read_config_file_sudo.side_effect = [{"type": "ethernet"}]
+
+        result = self.os_morphing_tools._get_keyfiles_by_type(
+            "ethernet", network_scripts_path)
+
+        mock_get_nmconnection_files.assert_called_once_with(
+            network_scripts_path)
+        mock_read_config_file_sudo.assert_called_once_with(
+            mock.sentinel.nmconn_file)
+        self.assertEqual(
+            result, [(mock.sentinel.nmconn_file, {"type": "ethernet"})])
+
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd')
     def test__copy_resolv_conf(self, mock_exec_cmd, mock_test_path):

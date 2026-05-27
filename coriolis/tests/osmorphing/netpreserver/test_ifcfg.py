@@ -33,43 +33,8 @@ class IfcfgNetPreserverTestCase(test_base.CoriolisBaseTestCase):
                 mock.sentinel.osmorphing_parameters,
                 mock.sentinel.operation_timeout))
 
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_read_config_file_sudo')
-    @mock.patch.object(ifcfg.IfcfgNetPreserver, '_get_net_config_files')
-    def test_get_ifcfgs_by_type(self, mock_get_net_config_files,
-                                mock_read_config_file_sudo):
-        mock_get_net_config_files.return_value = [mock.sentinel.ifcfg_file]
-        mock_read_config_file_sudo.side_effect = [{"TYPE": "Ethernet"}]
-
-        result = self.netpreserver._get_ifcfgs_by_type(
-            "Ethernet", self.netpreserver.network_scripts_path)
-
-        mock_read_config_file_sudo.assert_called_once_with(
-            mock.sentinel.ifcfg_file)
-        mock_get_net_config_files.assert_called_once_with(
-            self.netpreserver.network_scripts_path)
-
-        self.assertEqual(
-            result, [(mock.sentinel.ifcfg_file, {"TYPE": "Ethernet"})])
-
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_list_dir')
-    def test_get_net_config_files(self, mock_list_dir):
-        mock_list_dir.return_value = ['ifcfg-eth0', 'ifcfg-lo', 'other-file']
-
-        result = self.netpreserver._get_net_config_files(
-            self.netpreserver.network_scripts_path)
-
-        expected_result = [
-            'etc/sysconfig/network-scripts/ifcfg-eth0',
-            'etc/sysconfig/network-scripts/ifcfg-lo'
-        ]
-
-        mock_list_dir.assert_called_once_with(
-            self.netpreserver.network_scripts_path)
-
-        self.assertEqual(result, expected_result)
-
-    @mock.patch.object(ifcfg.IfcfgNetPreserver, '_get_ifcfgs_by_type')
-    @mock.patch.object(ifcfg.IfcfgNetPreserver, '_get_net_config_files')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_get_ifcfgs_by_type')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_get_net_config_files')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path')
     def test_check_net_preserver_True(self, mock_test_path,
                                       mock_get_net_config_files,
@@ -97,8 +62,8 @@ class IfcfgNetPreserverTestCase(test_base.CoriolisBaseTestCase):
 
         self.assertTrue(result)
 
-    @mock.patch.object(ifcfg.IfcfgNetPreserver, '_get_ifcfgs_by_type')
-    @mock.patch.object(ifcfg.IfcfgNetPreserver, '_get_net_config_files')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_get_ifcfgs_by_type')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_get_net_config_files')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path')
     def test_check_net_preserver_no_ifcfg_files(self, mock_test_path,
                                                 mock_get_net_config_files,
@@ -114,7 +79,7 @@ class IfcfgNetPreserverTestCase(test_base.CoriolisBaseTestCase):
 
         self.assertFalse(result)
 
-    @mock.patch.object(ifcfg.IfcfgNetPreserver, '_get_ifcfgs_by_type')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_get_ifcfgs_by_type')
     def test_parse_network(self, mock_get_ifcfgs_by_type):
         ifcfg_file_with_device = "etc/sysconfig/network-scripts/ifcfg-eth0"
         ifcfg_with_device = {
