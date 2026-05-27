@@ -173,7 +173,7 @@ def morph_image(origin_provider, destination_provider, connection_info,
     try:
         _morph_image(
             origin_provider, destination_provider, connection_info,
-            osmorphing_info, user_script, event_handler, os_mount_tools,
+            osmorphing_info, user_scripts, event_handler, os_mount_tools,
         )
     finally:
         event_manager.progress_update("Dismounting OS partitions")
@@ -192,7 +192,7 @@ def morph_image(origin_provider, destination_provider, connection_info,
 
 
 def _morph_image(origin_provider, destination_provider, connection_info,
-                 osmorphing_info, user_script, event_handler, os_mount_tools):
+                 osmorphing_info, user_scripts, event_handler, os_mount_tools):
     event_manager = events.EventManager(event_handler)
 
     os_type = osmorphing_info.get('os_type')
