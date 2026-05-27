@@ -82,8 +82,6 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
         return "grub2-mkconfig -o %s" % location
 
     def _get_grub2_cfg_location(self):
-        self._exec_cmd_chroot("mount /boot || true")
-        self._exec_cmd_chroot("mount /boot/efi || true")
         uefi_cfg = os.path.join(self.UEFI_GRUB_LOCATION, "grub.cfg")
         bios_cfg = os.path.join(self.BIOS_GRUB_LOCATION, "grub.cfg")
         if self._test_path_chroot(uefi_cfg):

@@ -117,43 +117,27 @@ class BaseSUSEMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             "grub2-mkconfig -o %s" % mock_get_grub2_cfg_location.return_value
         )
 
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path_chroot')
-    def test__get_grub2_cfg_location_uefi(self, mock_test_path_chroot,
-                                          mock_exec_cmd_chroot):
+    def test__get_grub2_cfg_location_uefi(self, mock_test_path_chroot):
         mock_test_path_chroot.return_value = True
 
         result = self.morphing_tools._get_grub2_cfg_location()
 
         self.assertEqual(result, '/boot/efi/EFI/suse/grub.cfg')
-        mock_exec_cmd_chroot.assert_has_calls([
-            mock.call("mount /boot || true"),
-            mock.call("mount /boot/efi || true")
-        ])
         mock_test_path_chroot.assert_called_once_with(
             '/boot/efi/EFI/suse/grub.cfg')
 
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path_chroot')
-    def test__get_grub2_cfg_location_bios(self, mock_test_path_chroot,
-                                          mock_exec_cmd_chroot):
+    def test__get_grub2_cfg_location_bios(self, mock_test_path_chroot):
         mock_test_path_chroot.side_effect = [False, True]
 
         result = self.morphing_tools._get_grub2_cfg_location()
 
-        mock_exec_cmd_chroot.assert_has_calls([
-            mock.call("mount /boot || true"),
-            mock.call("mount /boot/efi || true")
-        ])
-        mock_test_path_chroot.assert_called_with(
-            '/boot/grub2/grub.cfg')
-
+        mock_test_path_chroot.assert_called_with('/boot/grub2/grub.cfg')
         self.assertEqual(result, '/boot/grub2/grub.cfg')
 
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path_chroot')
-    def test__get_grub2_cfg_location_not_found(self, mock_test_path_chroot,
-                                               mock_exec_cmd_chroot):
+    def test__get_grub2_cfg_location_not_found(self, mock_test_path_chroot):
         mock_test_path_chroot.return_value = False
 
         self.assertRaisesRegex(
@@ -161,10 +145,6 @@ class BaseSUSEMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             "could not determine grub location. boot partition not mounted?",
             self.morphing_tools._get_grub2_cfg_location
         )
-        mock_exec_cmd_chroot.assert_has_calls([
-            mock.call("mount /boot || true"),
-            mock.call("mount /boot/efi || true")
-        ])
         mock_test_path_chroot.assert_has_calls([
             mock.call('/boot/efi/EFI/suse/grub.cfg'),
             mock.call('/boot/grub2/grub.cfg')

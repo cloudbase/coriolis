@@ -76,8 +76,6 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         refuses to overwrite the wrapper and requires output to
         /boot/grub2/grub.cfg. Prefer the BIOS path when it exists.
         """
-        self._exec_cmd_chroot("mount /boot || true")
-        self._exec_cmd_chroot("mount /boot/efi || true")
         uefi_cfg = os.path.join(self.UEFI_GRUB_LOCATION, "grub.cfg")
         bios_cfg = os.path.join(self.BIOS_GRUB_LOCATION, "grub.cfg")
         # Prefer /boot/grub2/grub.cfg - on RHEL 9.4+ UEFI, the EFI file is a
