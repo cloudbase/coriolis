@@ -10,6 +10,7 @@ target_conn_info that BackupWritersFactory expects.
 """
 
 import os
+import unittest
 import uuid
 
 from oslo_log import log as logging
@@ -24,6 +25,7 @@ from coriolis.providers.base import BaseEndpointStorageProvider
 from coriolis.providers.base import BaseReplicaImportProvider
 from coriolis.providers.base import BaseReplicaImportValidationProvider
 from coriolis.providers.base import BaseUpdateDestinationReplicaProvider
+from coriolis.tests.integration import provider_test_base
 from coriolis.tests.integration.test_provider import osmorphing
 from coriolis.tests.integration import utils as test_utils
 from coriolis import utils as coriolis_utils
@@ -32,6 +34,13 @@ LOG = logging.getLogger(__name__)
 
 # Port used by the test writer binary inside the container.
 WRITER_TEST_PORT = 6677
+
+# Name prefixes used by _create_minion callers.
+_CONTAINER_PREFIXES = (
+    "coriolis-writer-",
+    "coriolis-osmorphing-",
+    "coriolis-pool-minion-",
+)
 
 
 class TestImportProvider(
@@ -42,7 +51,8 @@ class TestImportProvider(
         BaseUpdateDestinationReplicaProvider,
         BaseReplicaImportProvider,
         BaseReplicaImportValidationProvider,
-        BaseDestinationMinionPoolProvider):
+        BaseDestinationMinionPoolProvider,
+        provider_test_base.BaseTestImportProvider):
     """Destination-side provider backed by a local `scsi_debug` block device.
 
     ``connection_info`` (the destination endpoint's connection info) has the
@@ -62,6 +72,36 @@ class TestImportProvider(
 
     def __init__(self, event_handler):
         self._event_handler = event_handler
+
+    # BaseTestImportProvider - test only
+
+    def initialize(self, connection_info: dict):
+        self._initial_containers = test_utils.list_containers(
+            _CONTAINER_PREFIXES
+        )
+
+    def teardown(self, connection_info: dict):
+        new_containers = test_utils.list_containers(_CONTAINER_PREFIXES)
+        leaked_containers = new_containers - self._initial_containers
+
+        if not leaked_containers:
+            return
+
+        for name in leaked_containers:
+            test_utils.remove_container(name)
+
+        raise AssertionError(
+            "Found leaked containers during teardown: %s" % leaked_containers
+        )
+
+    def check_prerequisites(self):
+        if not test_utils.container_image_exists(test_utils.DATA_MINION_IMAGE):
+            raise unittest.SkipTest(
+                "Docker image '%s' not found; build it with: "
+                "docker build -t %s "
+                "coriolis/tests/integration/dockerfiles/data-minion/"
+                % (test_utils.DATA_MINION_IMAGE, test_utils.DATA_MINION_IMAGE)
+            )
 
     # BaseProvider / BaseEndpointProvider
 

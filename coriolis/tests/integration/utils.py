@@ -197,6 +197,29 @@ def wait_for_ssh(host, port, username, pkey_path, timeout=30):
 # Docker utils
 
 
+def list_containers(prefixes) -> set:
+    result = subprocess.run(
+        ["docker", "ps", "-a", "--format", "{{.Names}}"],
+        capture_output=True,
+        text=True,
+    )
+
+    return {
+        name for name in result.stdout.splitlines()
+        if any(name.startswith(p) for p in prefixes)
+    }
+
+
+def container_image_exists(image_name):
+    result = subprocess.run(
+        ["docker", "image", "inspect", image_name],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    return result.returncode == 0
+
+
 def start_container(container_id):
     """Start a stopped Docker container."""
     _run(["docker", "start", container_id], check=False)
