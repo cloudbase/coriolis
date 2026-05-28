@@ -67,8 +67,10 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
         cls._exp_platform = cls._harness.exp_provider_platform
         cls._exp_conn_info = cls._harness.exp_conn_info
 
+        cls._imp_provider = cls._harness.imp_provider
         cls._imp_platform = cls._harness.imp_provider_platform
         cls._imp_conn_info = cls._harness.imp_conn_info
+        cls._imp_env_options = cls._harness.imp_env_options
 
         cls._client = cls.get_client()
 
@@ -289,8 +291,6 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
 
         self._src_device = test_utils.add_scsi_debug_device()
         self.addCleanup(test_utils.remove_scsi_debug_device)
-        self._dst_device = test_utils.add_scsi_debug_device()
-        self.addCleanup(test_utils.remove_scsi_debug_device)
 
         # Write a test pattern on the src device.
         # Incremental transfer tests update the second chunk (offset=4096).
@@ -308,8 +308,11 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             instances=[self._instance_name],
             destination_minion_pool_id=self._pool_id,
             source_environment={"block_device_path": self._src_device},
-            destination_environment={"devices": [self._dst_device]},
         )
+        # Safety-net cleanup for destination devices allocated by the provider.
+        # Must be registered after the transfer, so it runs (LIFO) before the
+        # transfer delete, while the volumes_info is still in the DB.
+        self.addCleanup(self._cleanup_provider_dst_devices)
 
         # mock a few commands that are going to be ran through ssh; they won't
         # pass anyway.
@@ -324,6 +327,48 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             mocker = mock.patch(prop)
             mocker.start()
             self.addCleanup(mocker.stop)
+
+    @property
+    def _dst_device(self):
+        """First destination dev path from the transfer's volumes_info."""
+        ctxt = self._get_db_context()
+
+        transfer = db_api.get_transfer(
+            ctxt, self._transfer.id, include_task_info=True)
+        info = transfer.get("info", {}).get(self._instance_name, {})
+        for vol in info.get("volumes_info", []):
+            if vol.get("volume_dev"):
+                return vol["volume_dev"]
+
+        return None
+
+    def _cleanup_provider_dst_devices(self):
+        """Remove any devices the provider allocated for this test."""
+        ctxt = self._get_db_context()
+
+        try:
+            transfer = db_api.get_transfer(
+                ctxt, self._transfer.id, include_task_info=True)
+            volumes_info = transfer.get("info", {}).get(
+                self._instance_name, {}).get('volumes_info', [])
+        except Exception as ex:
+            LOG.warn("Could not get volumes info for cleanup. Ex: %s", ex)
+            return
+
+        if not volumes_info:
+            LOG.info("No volume info. Nothing to cleanup.")
+            return
+
+        try:
+            self._imp_provider.delete_replica_disks(
+                ctxt,
+                self._imp_conn_info,
+                self._imp_env_options,
+                volumes_info,
+            )
+        except Exception as ex:
+            LOG.warn(
+                "Could not clean up provider dst devices. Ex: %s", ex)
 
     def _execute_and_wait(self, transfer_id, timeout=300):
         """Trigger one execution of *transfer_id* and wait for completion."""

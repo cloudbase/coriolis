@@ -25,6 +25,7 @@ import shutil
 import socket
 import subprocess
 import tempfile
+from unittest import mock
 import uuid
 
 from cheroot.workers import threadpool as cheroot_threadpool
@@ -50,6 +51,7 @@ from coriolis.deployer_manager.rpc import server as deployer_manager_rpc_server
 from coriolis import exception
 from coriolis.minion_manager.rpc import server as minion_manager_rpc_server
 from coriolis import policy as policy_module
+from coriolis.providers import factory as providers_factory
 from coriolis import rpc as rpc_module
 from coriolis.scheduler.rpc import server as scheduler_rpc_server
 from coriolis import service
@@ -311,10 +313,16 @@ class _IntegrationHarness:
 
         self.imp_provider_class = _get_provider(_TEST_IMPORT_PROVIDER)
         self.imp_provider_platform = self.imp_provider_class.platform
+        self.imp_provider = providers_factory.get_provider(
+            self.imp_provider_platform,
+            constants.PROVIDER_TYPE_TRANSFER_IMPORT,
+            event_handler=mock.MagicMock(),
+        )
         self.imp_conn_info = {
             "pkey_path": self.ssh_key_path,
             "role": "destination",
         }
+        self.imp_env_options = {}
 
         self._wsgi_server = None
         self._wsgi_server_thread = None
