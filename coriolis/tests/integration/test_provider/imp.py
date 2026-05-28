@@ -55,7 +55,6 @@ class TestImportProvider(
     ``target_environment`` (per-transfer destination settings) has the form::
 
         {
-            "devices": ["/dev/sdY", ...],  # pre-allocated destination devs
         }
     """
 
@@ -86,12 +85,7 @@ class TestImportProvider(
     def get_target_environment_schema(self):
         return {
             "type": "object",
-            "properties": {
-                "devices": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                },
-            },
+            "properties": {},
             "required": [],
         }
 
@@ -131,25 +125,14 @@ class TestImportProvider(
     def deploy_replica_disks(
             self, ctxt, connection_info, target_environment, instance_name,
             export_info, volumes_info):
-        """Map each source disk in export_info to a destination device.
-
-        Returns a volumes_info list where each entry has ``disk_id`` (from
-        the source) and ``volume_dev`` (the destination block device path).
-        """
-        dest_devices = list(target_environment["devices"])
+        """Allocate disks and return volumes_info."""
         src_disks = export_info.get("devices", {}).get("disks", [])
-
-        if len(src_disks) > len(dest_devices):
-            raise ValueError(
-                "Not enough destination devices (%d) for %d source disks"
-                % (len(dest_devices), len(src_disks))
-            )
 
         result = []
         for i, disk in enumerate(src_disks):
             result.append({
                 "disk_id": disk["id"],
-                "volume_dev": dest_devices[i],
+                "volume_dev": test_utils.add_scsi_debug_device(),
             })
 
         return result
@@ -221,7 +204,10 @@ class TestImportProvider(
 
     def delete_replica_disks(
             self, ctxt, connection_info, target_environment, volumes_info):
-        # scsi_debug devices are managed externally; nothing to delete here.
+        for vol in volumes_info:
+            device = vol.get('volume_dev')
+            if device and os.path.exists(device):
+                test_utils.remove_scsi_debug_device()
         return volumes_info
 
     def create_replica_disk_snapshots(
@@ -240,7 +226,14 @@ class TestImportProvider(
     def deploy_replica_instance(
             self, ctxt, connection_info, target_environment, instance_name,
             export_info, volumes_info, clone_disks):
-        return {"instance_deployment_info": {}}
+        devices = [
+            vol["volume_dev"] for vol in volumes_info if vol.get("volume_dev")
+        ]
+        return {
+            "instance_deployment_info": {
+                "devices": devices,
+            },
+        }
 
     def finalize_replica_instance_deployment(
             self, ctxt, connection_info, target_environment,
@@ -277,7 +270,7 @@ class TestImportProvider(
     def deploy_os_morphing_resources(
             self, ctxt, connection_info, target_environment,
             instance_deployment_info):
-        devices = list(target_environment.get("devices", []))
+        devices = list(instance_deployment_info.get("devices", []))
 
         # lsblk inside the container sees all the host block devices because
         # Docker containers share the host kernel's sysfs (/sys/block/).
