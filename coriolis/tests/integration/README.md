@@ -98,6 +98,39 @@ sudo tox -e integration -- --no-discover coriolis.tests.integration.transfers.te
 > `sudo` is required because `tox` itself must run as root so that the
 > test process inherits root privileges.
 
+## Using an external destination provider
+
+By default, the harness uses the built-in Docker test provider for both source
+and destination. To run the integration suite against a real destination
+provider, install the provider package via `CORIOLIS_PROVIDER_PACKAGE` and
+supply provider configuration via `CORIOLIS_PROVIDERS_YAML`.
+
+### What the harness does with `providers.yaml`
+
+1. Registers the destination provider class with `oslo.config`.
+2. Creates a destination endpoint with `destination.connection_info`.
+3. Uses `destination.environment` as `destination_environment` and
+   `destination.storage_mappings` as `storage_mappings` for each transfer.
+
+### Running
+
+Set `CORIOLIS_PROVIDER_PACKAGE` to a local path or any pip-compatible specifier
+(`git+file://`, `git+https://`, etc.); tox installs it into the virtualenv
+before running the tests. Leave it unset to use only the built-in test provider.
+
+```bash
+sudo -E CORIOLIS_PROVIDER_PACKAGE=/path/to/provider \
+  CORIOLIS_PROVIDERS_YAML=./providers.yaml tox -e integration
+```
+
+Supply `CORIOLIS_CONFIG_FILE` when provider-specific configurations are required:
+
+```bash
+sudo -E CORIOLIS_PROVIDER_PACKAGE=/path/to/provider \
+  CORIOLIS_CONFIG_FILE=./provider.conf \
+  CORIOLIS_PROVIDERS_YAML=./providers.yaml tox -e integration
+```
+
 ## Test modules
 
 ### No block devices (extend `CoriolisIntegrationTestBase`)

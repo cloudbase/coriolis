@@ -28,6 +28,8 @@ import tempfile
 from unittest import mock
 import uuid
 
+import yaml
+
 from cheroot.workers import threadpool as cheroot_threadpool
 from cheroot import wsgi as cheroot_wsgi
 from oslo_config import cfg
@@ -57,6 +59,7 @@ from coriolis.scheduler.rpc import server as scheduler_rpc_server
 from coriolis import service
 from coriolis.taskflow import runner as taskflow_runner
 from coriolis.tasks import factory as task_runners_factory
+from coriolis.tests.integration import provider_test_base
 from coriolis.tests.integration.test_provider import imp as test_provider_imp
 from coriolis.tests.integration import utils as test_utils
 from coriolis.transfer_cron.rpc import server as transfer_cron_rpc_server
@@ -77,6 +80,44 @@ _TEST_IMPORT_PROVIDER = (
 
 # Fixed project used for all test requests.
 _TEST_PROJECT_ID = 'integration-project'
+
+# Path to an optional YAML file that configures the destination provider,
+# its connection_info, environment, and storage mappings.
+_PROVIDERS_YAML = os.environ.get("CORIOLIS_PROVIDERS_YAML")
+
+
+def _load_providers_config():
+    """Returns the provider configurations.
+
+    If set, loads and returns the YAML file from the CORIOLIS_PROVIDERS_YAML
+    env variable.
+    If not set, returns a default configuration for the test providers.
+    """
+    providers_config = {}
+
+    if _PROVIDERS_YAML:
+        with open(_PROVIDERS_YAML) as f:
+            providers_config = yaml.safe_load(f) or {}
+
+    dest_config = providers_config.get("destination", {})
+    dest_provider_path = dest_config.get("provider") or _TEST_IMPORT_PROVIDER
+    dest_provider_cls = _get_provider(dest_provider_path)
+
+    if not issubclass(
+        dest_provider_cls, provider_test_base.BaseTestImportProvider
+    ):
+        raise TypeError(
+            "%s must subclass BaseTestImportProvider" % dest_provider_path)
+
+    return {
+        "destination": {
+            "provider": dest_provider_path,
+            "provider_cls": dest_provider_cls,
+            "connection_info": dest_config.get("connection_info"),
+            "environment": dest_config.get("environment") or {},
+            "storage_mappings": dest_config.get("storage_mappings") or {},
+        },
+    }
 
 
 def _get_provider(dotted_path):
@@ -276,11 +317,18 @@ class _IntegrationHarness:
         )
 
         coriolis_conf.init_common_opts()
-        cfg.CONF([], project='coriolis', version='1.0.0',
+        _config_file = os.environ.get("CORIOLIS_CONFIG_FILE")
+        _conf_args = (
+            ['--config-file', _config_file] if _config_file else []
+        )
+        cfg.CONF(_conf_args, project='coriolis', version='1.0.0',
                  default_config_files=[], default_config_dirs=[])
         cfg.CONF.set_override('messaging_transport_url', 'fake://')
+
+        providers_config = _load_providers_config()
+        imp_provider = providers_config["destination"]["provider"]
         cfg.CONF.set_override(
-            'providers', [_TEST_EXPORT_PROVIDER, _TEST_IMPORT_PROVIDER])
+            'providers', [_TEST_EXPORT_PROVIDER, imp_provider])
         db_url = ('mysql+pymysql://%(user)s:%(password)s'
                   '@localhost:13306/%(database)s') % {
             "user": self._mysql_username,
@@ -305,6 +353,7 @@ class _IntegrationHarness:
         # Policy enforcer: reset so it re-reads the new CONF (no policy file).
         policy_module.reset()
 
+        # Init exporter.
         self.exp_provider_class = _get_provider(_TEST_EXPORT_PROVIDER)
         self.exp_provider_platform = self.exp_provider_class.platform
         self.exp_conn_info = {
@@ -312,19 +361,25 @@ class _IntegrationHarness:
             "role": "source",
         }
 
-        self.imp_provider_class = _get_provider(_TEST_IMPORT_PROVIDER)
+        # Init importer.
+        imp_provider_cls = providers_config["destination"]["provider_cls"]
+        self.imp_provider_class = imp_provider_cls
         self.imp_provider_platform = self.imp_provider_class.platform
         self.imp_provider = providers_factory.get_provider(
             self.imp_provider_platform,
             constants.PROVIDER_TYPE_TRANSFER_IMPORT,
             event_handler=mock.MagicMock(),
         )
-        self.imp_conn_info = {
+        conn_info = providers_config["destination"]["connection_info"]
+        self.imp_conn_info = conn_info or {
             "pkey_path": self.ssh_key_path,
             "role": "destination",
         }
         self.imp_provider.initialize(self.imp_conn_info)
-        self.imp_env_options = {}
+        self.imp_env_options = providers_config["destination"]["environment"]
+        self.imp_storage_mappings = (
+            providers_config["destination"]["storage_mappings"]
+        )
 
         self._wsgi_server = None
         self._wsgi_server_thread = None
