@@ -22,10 +22,7 @@ class MinionPoolLifecycleTest(base.MinionPoolTestBase):
         self._endpoint = self._create_endpoint(
             name="pool-dst",
             endpoint_type=self._imp_platform,
-            connection_info={
-                "devices": [],
-                "pkey_path": self._harness.ssh_key_path,
-            },
+            connection_info=self._imp_conn_info,
         )
 
     def test_minion_pool_crud(self):

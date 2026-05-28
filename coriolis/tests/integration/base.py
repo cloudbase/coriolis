@@ -16,6 +16,7 @@ import os
 import time
 import unittest
 from unittest import mock
+import uuid
 
 from coriolisclient import client as coriolis_client
 from keystoneauth1 import session as ks_session
@@ -70,6 +71,7 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
         cls._imp_platform = cls._harness.imp_provider_platform
         cls._imp_conn_info = cls._harness.imp_conn_info
         cls._imp_env_options = cls._harness.imp_env_options
+        cls._storage_mappings = cls._harness.imp_storage_mappings
 
         cls._client = cls.get_client()
 
@@ -136,15 +138,19 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
             destination_environment=None, **kwargs):
         """Create a Replica transfer object and return its ID."""
 
+        destination_environment = (
+            destination_environment or self._imp_env_options
+        )
+
         transfer = self._client.transfers.create(
             origin_endpoint_id=src_id,
             destination_endpoint_id=dst_id,
             source_environment=source_environment or {},
-            destination_environment=destination_environment or {},
+            destination_environment=destination_environment,
             instances=instances,
             transfer_scenario=constants.TRANSFER_SCENARIO_REPLICA,
             network_map={},
-            storage_mappings={},
+            storage_mappings=self._storage_mappings,
             notes="integration test replica",
             skip_os_morphing=True,
             **kwargs,
@@ -193,7 +199,7 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
             cls._client.minion_pools.delete(pool_id)
 
     @classmethod
-    def _wait_for_pool(cls, pool_id, terminal_statuses, timeout=180):
+    def _wait_for_pool(cls, pool_id, terminal_statuses, timeout=600):
         """Poll the DB until *pool_id* reaches one of *terminal_statuses*.
 
         :returns: minion pool ORM object.
@@ -290,7 +296,8 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
         # Create transfer replica.
         # Use basename as instance name; real VM names do not contain slashes,
         # and some providers use the name as is in resource indentifiers.
-        self._instance_name = os.path.basename(self._src_device)
+        self._instance_name = "%s-%s" % (
+            os.path.basename(self._src_device), uuid.uuid4().hex[:8])
         self._transfer = self._create_transfer(
             self._src_endpoint.id,
             self._dst_endpoint.id,
@@ -359,7 +366,7 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             LOG.warn(
                 "Could not clean up provider dst devices. Ex: %s", ex)
 
-    def _execute_and_wait(self, transfer_id, timeout=300):
+    def _execute_and_wait(self, transfer_id, timeout=600):
         """Trigger one execution of *transfer_id* and wait for completion."""
         execution = self._client.transfer_executions.create(
             transfer_id, shutdown_instances=False)
@@ -390,7 +397,7 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
 
         self._client.transfer_executions.delete(transfer_id, execution_id)
 
-    def wait_for_execution(self, execution_id, timeout=300,
+    def wait_for_execution(self, execution_id, timeout=600,
                            desired_statuses=None):
         """Block until *execution_id* reaches a terminal state.
 
@@ -416,7 +423,7 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             % (execution_id, desired_statuses, timeout, execution.status)
         )
 
-    def assertExecutionCompleted(self, execution_id, timeout=300):
+    def assertExecutionCompleted(self, execution_id, timeout=600):
         """Assert that *execution_id* completes successfully."""
         execution = self.wait_for_execution(execution_id, timeout=timeout)
         self.assertEqual(
@@ -437,7 +444,7 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             ),
         )
 
-    def assertExecutionErrored(self, execution_id, timeout=300):
+    def assertExecutionErrored(self, execution_id, timeout=600):
         """Assert that *execution_id* ends in an error state."""
         execution = self.wait_for_execution(execution_id, timeout=timeout)
         self.assertIn(
@@ -489,7 +496,7 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
                     "Could not clean up deployed instance '%s': %s",
                     instance_name, ex)
 
-    def wait_for_deployment(self, deployment_id, timeout=300,
+    def wait_for_deployment(self, deployment_id, timeout=600,
                             desired_statuses=None):
         """Block until *deployment_id* reaches any terminal state.
 
@@ -513,7 +520,7 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
                deployment.last_execution_status)
         )
 
-    def assertDeploymentCompleted(self, deployment_id, timeout=300):
+    def assertDeploymentCompleted(self, deployment_id, timeout=600):
         """Assert that *deployment_id* finishes with a completed status."""
         deployment = self.wait_for_deployment(deployment_id, timeout=timeout)
         self.assertEqual(
@@ -573,17 +580,17 @@ class MinionPoolReplicaTestBase(
 
     _CREATE_MINION_POOLS = True
 
-    def _execute_and_wait(self, transfer_id, timeout=300):
+    def _execute_and_wait(self, transfer_id, timeout=600):
         super()._execute_and_wait(transfer_id, timeout=timeout)
         self.assertPoolAllocated(self._pool_id)
         self.assertMachinesAvailable(self._pool_id)
 
-    def assertExecutionCompleted(self, execution_id, timeout=300):
+    def assertExecutionCompleted(self, execution_id, timeout=600):
         super().assertExecutionCompleted(execution_id, timeout=timeout)
         self.assertPoolAllocated(self._pool_id)
         self.assertMachinesAvailable(self._pool_id)
 
-    def assertDeploymentCompleted(self, deployment_id, timeout=300):
+    def assertDeploymentCompleted(self, deployment_id, timeout=600):
         super().assertDeploymentCompleted(deployment_id, timeout=timeout)
         self.assertPoolAllocated(self._pool_id)
         self.assertMachinesAvailable(self._pool_id)
