@@ -165,7 +165,7 @@ function run-logged-command {
 
 # Returns the names of all currently-defined Coriolis containers. (including currently stopped ones)
 function get-coriolis-containers {
-    echo "$(run-logged-command 'docker ps -a | awk "{print \$NF}" | grep "coriolis-*" | tr "\n" " "')"
+    echo "$(run-logged-command 'docker ps -a | awk "{print \$NF}" | grep "coriolis-*" | tr "\n" " "') barbican_api keystone"
 }
 
 # Returns the IP address on the main external interface:

@@ -123,7 +123,10 @@ coriolis_minion_manager_locks_dir_host: "{{ coriolis_locks_dir_host }}/minion-ma
 
 # Mountpoints on the coriolis-console-editor container:
 coriolis_console_editor_extra_prompt_file: "{{ appliance_coriolis_opt_dir }}/extra-coriolis-editor-prompt.txt"
-kolla_admin_openrc_filepath: "/etc/kolla/admin-openrc.sh"
+kolla_dirpath: "/etc/kolla"
+kolla_admin_openrc_filepath: "{{ kolla_dirpath }}/admin-openrc.sh"
+kolla_barbican_api_uwsgi_filepath: "{{ kolla_dirpath }}/barbican-api/vassals/barbican-api.ini"
+kolla_keystone_wsgi_filepath: "{{ kolla_dirpath }}/keystone/wsgi-keystone.conf"
 appliance_etc_hosts_filepath: "/etc/hosts"
 appliance_etc_resolvconf_filepath: "/etc/resolv.conf"
 appliance_networking_config_filepath: "/etc/netplan"
@@ -133,6 +136,8 @@ coriolis_ansible_docker_config_file: "{{ coriolis_ansible_install_dir }}/docker-
 coriolis_logger_conf_file: "/etc/coriolis-logger/coriolis-logger.toml"
 coriolis_console_editor_mountdirs:
   - "{{ kolla_admin_openrc_filepath }}:{{ kolla_admin_openrc_filepath }}:rw"
+  - "{{ kolla_barbican_api_uwsgi_filepath }}:{{ kolla_barbican_api_uwsgi_filepath }}"
+  - "{{ kolla_keystone_wsgi_filepath }}:{{ kolla_keystone_wsgi_filepath }}"
   - "{{ appliance_etc_hosts_filepath }}:{{ appliance_etc_hosts_filepath }}:rw"
   - "{{ appliance_etc_resolvconf_filepath }}:{{ appliance_etc_resolvconf_filepath }}:rw"
   - "{{ appliance_networking_config_filepath }}:{{ appliance_networking_config_filepath }}:rw"
