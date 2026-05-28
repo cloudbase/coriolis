@@ -57,6 +57,7 @@ from coriolis.scheduler.rpc import server as scheduler_rpc_server
 from coriolis import service
 from coriolis.taskflow import runner as taskflow_runner
 from coriolis.tasks import factory as task_runners_factory
+from coriolis.tests.integration.test_provider import imp as test_provider_imp
 from coriolis.tests.integration import utils as test_utils
 from coriolis.transfer_cron.rpc import server as transfer_cron_rpc_server
 from coriolis import utils as coriolis_utils
@@ -322,6 +323,7 @@ class _IntegrationHarness:
             "pkey_path": self.ssh_key_path,
             "role": "destination",
         }
+        self.imp_provider.initialize(self.imp_conn_info)
         self.imp_env_options = {}
 
         self._wsgi_server = None
@@ -340,6 +342,7 @@ class _IntegrationHarness:
         sqlalchemy_api._facade = None
         rpc_module._TRANSPORT = None
 
+        atexit.register(self.imp_provider.teardown, self.imp_conn_info)
         atexit.register(self._teardown)
 
         self._start_db_container()
@@ -522,3 +525,10 @@ class _IntegrationHarness:
             test_utils.destroy_scsi_debug()
         except Exception:
             pass
+
+    def uses_core_test_import_provider(self):
+        """Returns True when the test import provider is being used."""
+        return isinstance(
+            self.imp_provider,
+            test_provider_imp.TestImportProvider,
+        )

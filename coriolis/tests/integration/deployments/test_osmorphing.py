@@ -9,9 +9,11 @@ installation in the target OS.
 
 import os
 import re
+import unittest
 import uuid
 
 from coriolis.tests.integration import base as integration_base
+from coriolis.tests.integration import harness as integration_harness
 from coriolis.tests.integration import utils as test_utils
 
 
@@ -20,6 +22,14 @@ class OsMorphingDeploymentTest(integration_base.ReplicaIntegrationTestBase):
     # NOTE(claudiub): Size must be high enough to contain the tested OS and
     # any new packages to be added during OS morphing.
     _SCSI_DEBUG_SIZE_MB = 256
+
+    @classmethod
+    def setUpClass(cls):
+        harness = integration_harness._IntegrationHarness.get()
+        if not harness.uses_core_test_import_provider():
+            raise unittest.SkipTest(
+                "OS morphing tests require local disk access")
+        super().setUpClass()
 
     def setUp(self):
         super().setUp()

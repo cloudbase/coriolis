@@ -13,7 +13,6 @@ Subclasses must be run as root.
 """
 
 import os
-import subprocess
 import time
 import unittest
 from unittest import mock
@@ -241,17 +240,7 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
 
     @classmethod
     def setUpClass(cls):
-        result = subprocess.run(
-            ["docker", "image", "inspect", test_utils.DATA_MINION_IMAGE],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        if result.returncode != 0:
-            raise unittest.SkipTest(
-                "Docker image not found; build it with: "
-                "docker build -t %s "
-                "coriolis/tests/integration/dockerfiles/data-minion/"
-                % test_utils.DATA_MINION_IMAGE)
+        harness._IntegrationHarness.get().imp_provider.check_prerequisites()
 
         super().setUpClass()
 
@@ -471,6 +460,9 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
         that occurs when a deployment is still in-flight at cleanup time, which
         can happen with slow providers when a test fails or times out before
         the deployment completes.
+
+        Calls ``_imp_provider.delete_deployed_instance`` for every deployment
+        instance, so that finalized VMs at the destination are destroyed.
         """
         ctxt = self._get_db_context()
         deployment = db_api.get_deployment(ctxt, deployment_id)
@@ -479,12 +471,23 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
                 "Deployment '%s' not found. Skip cleanup.", deployment_id)
             return
 
+        instances = list(deployment.instances or [])
+
         if deployment.last_execution_status in (
                 constants.ACTIVE_EXECUTION_STATUSES):
             self._client.deployments.cancel(deployment_id)
             self.wait_for_deployment(deployment_id, timeout=60)
 
         self._client.deployments.delete(deployment_id)
+
+        for instance_name in instances:
+            try:
+                self._imp_provider.delete_deployed_instance(
+                    self._imp_conn_info, instance_name)
+            except Exception as ex:
+                LOG.warning(
+                    "Could not clean up deployed instance '%s': %s",
+                    instance_name, ex)
 
     def wait_for_deployment(self, deployment_id, timeout=300,
                             desired_statuses=None):
