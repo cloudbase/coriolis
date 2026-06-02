@@ -29,14 +29,24 @@ CLOUD_INIT_SERVICE_UNIT_NAME = "cloud-init"
 CLOUD_INIT_SERVICE_UNIT_NAME_FALLBACK = "cloud-init-main"
 
 FIRST_BOOT_SCRIPT_RUNNER = """#!/bin/bash
+
+first_error=0
+
 function run_scripts {
     script_dir=$1
 
-    for f in $script_dir/*.sh; do
+    for f in "$script_dir"/*.sh; do
         if [ -x "$f" ]; then
             echo "Invoking script: $f"
             "$f"
-            echo "Exit code: $?"
+            rc=$?
+            echo "Exit code: $rc"
+
+            if [ $rc -ne 0 ] && [ $first_error -eq 0 ]; then
+                first_error=$rc
+            fi
+        else
+            echo "Ignoring script, not executable: $f"
         fi
     done
 }
@@ -47,9 +57,17 @@ run_scripts /usr/lib/coriolis/firstboot/service
 # Run user provided scripts.
 run_scripts /usr/lib/coriolis/firstboot/user
 
-mkdir -p /var/lib/coriolis
-touch /var/lib/coriolis/firstboot-complete
+if [ $first_error -eq 0 ]; then
+    echo "All the scripts completed successfully, creating /var/lib/coriolis/firstboot-complete"
+    mkdir -p /var/lib/coriolis
+    touch /var/lib/coriolis/firstboot-complete
+else
+    echo "One of the scripts failed, won't create /var/lib/coriolis/firstboot-complete"
+fi
+
+exit $first_error
 """
+
 FIRST_BOOT_SCRIPT_RUNNER_PATH = "/usr/lib/coriolis/firstboot/run-firstboot.sh"
 FIRST_BOOT_SYSTEMD_UNIT = """
 [Unit]
@@ -62,10 +80,13 @@ ConditionPathExists=!/var/lib/coriolis/firstboot-complete
 Type=oneshot
 ExecStart=/usr/lib/coriolis/firstboot/run-firstboot.sh
 RemainAfterExit=yes
+StandardOutput=journal+console
+StandardError=journal+console
 
 [Install]
 WantedBy=multi-user.target
 """
+
 FIRST_BOOT_SYSTEMD_UNIT_NAME = "coriolis-firstboot.service"
 FIRST_BOOT_SYSTEMD_UNIT_PATH = (
     f"/etc/systemd/system/{FIRST_BOOT_SYSTEMD_UNIT_NAME}")
