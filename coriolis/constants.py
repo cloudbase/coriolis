@@ -274,6 +274,10 @@ DEFAULT_OS_TYPE = OS_TYPE_LINUX
 VALID_OS_TYPES = [OS_TYPE_BSD, OS_TYPE_LINUX,
                   OS_TYPE_OS_X, OS_TYPE_SOLARIS, OS_TYPE_WINDOWS]
 
+PROTOCOL_SSH = "ssh"
+# WinRM is the Microsoft implementation of WSMAN.
+PROTOCOL_WINRM = "winrm"
+
 TMP_DIRS_KEY = "__tmp_dirs"
 
 COMPRESSION_FORMAT_GZIP = "gzip"
