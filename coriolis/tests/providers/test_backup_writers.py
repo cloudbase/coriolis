@@ -164,6 +164,49 @@ class BackupWritersFactoryTestCase(test_base.CoriolisBaseTestCase):
         self.assertRaises(exception.CoriolisException,
                           self._get_factory, {"backend": "ssh"})
 
+    @mock.patch.object(backup_writers, "HTTPBackupWriterBootstrapper")
+    def test_get_conn_info_https(self, mock_https_bootstrapper):
+        mechanism = backup_writers.DATA_TRANSFER_MECHANISM_HTTPS
+        factory = backup_writers.BackupWritersFactory
+        writer_conn_info = factory.get_backup_writer_connection_info(
+            event_manager=mock.Mock(),
+            ssh_connection_info=mock.sentinel.instance_conn_info,
+            data_transfer_mechanism=mechanism,
+        )
+        self.assertEqual(
+            writer_conn_info["backend"], backup_writers.BACKUP_WRITER_HTTP)
+        self.assertEqual(
+            writer_conn_info["connection_details"],
+            mock_https_bootstrapper.return_value.setup_writer.return_value)
+        mock_https_bootstrapper.assert_called_once_with(
+            mock.sentinel.instance_conn_info,
+            backup_writers.DATA_TRANSFER_MECHANISM_HTTPS_PORT,
+        )
+
+    def test_get_conn_info_ssh(self):
+        mechanism = backup_writers.DATA_TRANSFER_MECHANISM_SSH
+        factory = backup_writers.BackupWritersFactory
+        writer_conn_info = factory.get_backup_writer_connection_info(
+            event_manager=mock.Mock(),
+            ssh_connection_info=mock.sentinel.instance_conn_info,
+            data_transfer_mechanism=mechanism,
+        )
+        self.assertEqual(
+            writer_conn_info["backend"], backup_writers.BACKUP_WRITER_SSH)
+        self.assertEqual(
+            writer_conn_info["connection_details"],
+            mock.sentinel.instance_conn_info)
+
+    def test_get_conn_info_unsupported(self):
+        factory = backup_writers.BackupWritersFactory
+        self.assertRaises(
+            ValueError,
+            factory.get_backup_writer_connection_info,
+            event_manager=mock.Mock(),
+            ssh_connection_info=mock.sentinel.instance_conn_info,
+            data_transfer_mechanism="fake-mechanism",
+        )
+
 
 class BaseBackupWriterTestCase(test_base.CoriolisBaseTestCase):
     """Test suite for the Coriolis BaseBackupWriter class."""

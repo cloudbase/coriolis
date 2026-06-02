@@ -22,6 +22,7 @@ from six import with_metaclass
 
 from coriolis import constants
 from coriolis import data_transfer
+from coriolis import events
 from coriolis import exception
 from coriolis.providers import provider_utils
 from coriolis import utils
@@ -50,6 +51,18 @@ BACKUP_WRITERS = [
     BACKUP_WRITER_HTTP,
     BACKUP_WRITER_FILE
 ]
+
+# Common data transfer mechanisms exposed to Coriolis users.
+DATA_TRANSFER_MECHANISM_SSH = "SSH"
+DATA_TRANSFER_MECHANISM_HTTPS = "HTTPS"
+# Can't be the same as replicator port.
+DATA_TRANSFER_MECHANISM_HTTPS_PORT = 5566
+
+# The file writer is meant for testing purposes and will not be exposed here.
+DATA_TRANSFER_MECHANISM_MAP = {
+    DATA_TRANSFER_MECHANISM_SSH: BACKUP_WRITER_SSH,
+    DATA_TRANSFER_MECHANISM_HTTPS: BACKUP_WRITER_HTTP,
+}
 
 _WRITER_ERR_MAP = {
     -1: "ERR_MORE_MSG",
@@ -175,6 +188,54 @@ class BackupWritersFactory(object):
         if wrt_conn_info is None:
             raise exception.CoriolisException(
                 "Missing credentials in connection info")
+
+    @classmethod
+    def get_backup_writer_connection_info(
+        cls,
+        event_manager: events.EventManager,
+        ssh_connection_info: dict,
+        data_transfer_mechanism: str,
+    ) -> dict:
+        """Initialize the backup writer and obtain connection info.
+
+        :param ssh_connection_info: a dict containing the following keys:
+            * ip
+            * port - usually SSH port (22)
+            * username
+            * password
+            * pkey - Paramiko keypair
+        :param data_transfer_mechanism: SSH or HTTPS
+        :returns: a dict describing the backend type and backup writer
+                  connection details, used to subsequently retrieve the
+                  backup writer.
+        """
+        if data_transfer_mechanism == DATA_TRANSFER_MECHANISM_HTTPS:
+            event_manager.progress_update(
+                "Setting up HTTPS backup writer service on disk copy worker VM"
+            )
+            writer_bootstrapper = HTTPBackupWriterBootstrapper(
+                ssh_connection_info,
+                DATA_TRANSFER_MECHANISM_HTTPS_PORT,
+            )
+            https_conn_info = writer_bootstrapper.setup_writer()
+            writer_conn_info = {
+                "backend": DATA_TRANSFER_MECHANISM_MAP[
+                    DATA_TRANSFER_MECHANISM_HTTPS],
+                "connection_details": https_conn_info,
+            }
+        elif data_transfer_mechanism == DATA_TRANSFER_MECHANISM_SSH:
+            writer_conn_info = {
+                "backend": DATA_TRANSFER_MECHANISM_MAP[
+                    DATA_TRANSFER_MECHANISM_SSH],
+                "connection_details": ssh_connection_info,
+            }
+        else:
+            raise ValueError(
+                "Unhandleable data transfer mechanism '%s'" % (
+                    data_transfer_mechanism)
+            )
+
+        return writer_conn_info
 
 
 class BaseBackupWriterImpl(with_metaclass(abc.ABCMeta)):
