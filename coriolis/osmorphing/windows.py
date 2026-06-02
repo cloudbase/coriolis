@@ -733,9 +733,10 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
         self,
         script: str,
         index: int = 0,
-        user_provided=True,
+        user_provided: bool = True,
+        script_filename: str | None = None,
     ):
-        if len(script) == 0:
+        if not script:
             LOG.debug("Empty first-boot script, skipping...")
             return
 
@@ -752,9 +753,10 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
 
         cbslinit_base_dir = self._get_cbslinit_base_dir()
         script_dir = self._get_cbslinit_scripts_dir(cbslinit_base_dir)
-        unique_id = str(uuid.uuid4()).split("-")[0]
-        script_path = os.path.join(
-            script_dir, f"{index:02d}-{unique_id}.ps1")
+        if not script_filename:
+            unique_id = str(uuid.uuid4()).split("-")[0]
+            script_filename = f"{index:02d}-{unique_id}.ps1"
+        script_path = os.path.join(script_dir, script_filename)
 
         self._conn.exec_ps_command(f"mkdir -Force {script_dir}")
         utils.write_winrm_file(

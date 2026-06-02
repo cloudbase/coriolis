@@ -31,7 +31,7 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
             },
             {
                 "phase": constants.PHASE_REPLICA_FIRST_BOOT,
-                "payload": "fist-boot-script",
+                "payload": "first-boot-script",
             },
         ]
 

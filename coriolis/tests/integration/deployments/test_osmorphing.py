@@ -184,6 +184,9 @@ class OsMorphingDeploymentTest(integration_base.ReplicaIntegrationTestBase):
                     first_boot_script_path)
                 if payload == first_boot_script:
                     found = True
+                if payload == "should-not-get-executed":
+                    raise AssertionError(
+                        "Linux instance contains Windows script.")
 
         if not found:
             raise AssertionError(

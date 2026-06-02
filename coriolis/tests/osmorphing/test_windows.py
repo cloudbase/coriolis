@@ -964,3 +964,28 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             self.morphing_tools._conn,
             "C:\\Cloudbase-Init\\LocalScripts/61-37c27abd.ps1",
             mock_script)
+
+    @mock.patch.object(windows.utils, 'write_winrm_file')
+    @mock.patch("uuid.uuid4")
+    def test_register_firstboot_script_explicit_fname(
+        self,
+        mock_uuid,
+        mock_write_winrm_file,
+    ):
+        mock_uuid.return_value = "37c27abd-85ff-4cb8-8d31-4e7067e145ab"
+        mock_script = "mock-script"
+        script_filename = "test-filename.ps1"
+
+        self.morphing_tools.register_firstboot_script(
+            mock_script,
+            index=10,
+            user_provided=True,
+            script_filename=script_filename,
+        )
+
+        self.morphing_tools._conn.exec_ps_command.assert_called_once_with(
+            "mkdir -Force C:\\Cloudbase-Init\\LocalScripts")
+        mock_write_winrm_file.assert_called_once_with(
+            self.morphing_tools._conn,
+            f"C:\\Cloudbase-Init\\LocalScripts/{script_filename}",
+            mock_script)

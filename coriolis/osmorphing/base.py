@@ -58,11 +58,13 @@ run_scripts /usr/lib/coriolis/firstboot/service
 run_scripts /usr/lib/coriolis/firstboot/user
 
 if [ $first_error -eq 0 ]; then
-    echo "All the scripts completed successfully, creating /var/lib/coriolis/firstboot-complete"
+    echo "All the scripts completed successfully."
+    echo "Creating /var/lib/coriolis/firstboot-complete"
     mkdir -p /var/lib/coriolis
     touch /var/lib/coriolis/firstboot-complete
 else
-    echo "One of the scripts failed, won't create /var/lib/coriolis/firstboot-complete"
+    echo "One of the scripts failed."
+    echo "Won't create /var/lib/coriolis/firstboot-complete"
 fi
 
 exit $first_error
@@ -168,8 +170,23 @@ class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
         self,
         script: str,
         index: int = 0,
-        user_provided=True,
+        user_provided: bool = True,
+        script_filename: str | None = None,
     ):
+        """Register a script to be executed during the first replica boot.
+
+        :param script: the script content
+        :param index: script execution index (0-99), used as a script filename
+                      prefix. The scripts will be executed in alphabetic order,
+                      the Coriolis scripts first and then user provided scripts
+                      afterwards.
+        :param user_provider: whether this is a Coriolis internal script
+                              (executed first) or user provided script.
+        :param script_filename: optional script filename. The index parameter
+                                will be ignored when explicitly specifying
+                                the filename. Coriolis internal scripts should
+                                specify a filename to facilitate debugging.
+        """
         pass
 
     @abc.abstractmethod
@@ -796,9 +813,11 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         self,
         script: str,
         index: int = 0,
-        user_provided=True,
+        user_provided: bool = True,
+        script_filename: str | None = None,
     ):
-        if len(script) == 0:
+
+        if not script:
             LOG.debug("Empty first-boot script, skipping...")
             return
 
@@ -806,8 +825,12 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             script_dir = "/usr/lib/coriolis/firstboot/user"
         else:
             script_dir = "/usr/lib/coriolis/firstboot/service"
-        unique_id = str(uuid.uuid4()).split("-")[0]
-        script_path = os.path.join(script_dir, f"{index:02d}-{unique_id}.sh")
+
+        if not script_filename:
+            unique_id = str(uuid.uuid4()).split("-")[0]
+            script_filename = f"{index:02d}-{unique_id}.sh"
+
+        script_path = os.path.join(script_dir, script_filename)
 
         self._exec_cmd_chroot(f"mkdir -p {script_dir}")
         self._write_file_sudo(script_path, script)
