@@ -1274,6 +1274,134 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         self.assertRaises(exception.UnrecognizedWorkerInitSystem,
                           stop_svc_undecorated, self.mock_ssh, 'svc_name')
 
+    def _get_mock_conn_info(self):
+        return {
+            "ip": "1.2.3.4",
+            "port": 2222,
+            "username": "someUser",
+            "password": "pwned",
+            "pkey": mock.Mock(),
+        }
+
+    @mock.patch.object(utils, "connect_ssh")
+    @mock.patch.object(utils, "exec_ssh_cmd")
+    @mock.patch("time.sleep")
+    def test_poll_instance_ssh(
+        self,
+        mock_sleep,
+        mock_exec_ssh,
+        mock_connect,
+    ):
+        mock_ssh_conn = mock.Mock()
+        mock_connect.side_effect = [
+            Exception,
+            mock_ssh_conn,
+            mock_ssh_conn,
+        ]
+        mock_exec_ssh.side_effect = [
+            Exception,
+            mock.sentinel.stdout,
+        ]
+        poll_interval = 5
+
+        connection_info = self._get_mock_conn_info()
+        utils.poll_instance_until_reachable(
+            connection_info=connection_info,
+            protocol=constants.PROTOCOL_SSH,
+            timeout=30,
+            poll_interval=poll_interval,
+        )
+
+        mock_connect.assert_has_calls(
+            [
+                mock.call(
+                    hostname=connection_info["ip"],
+                    port=connection_info["port"],
+                    username=connection_info["username"],
+                    password=connection_info["password"],
+                    pkey=connection_info["pkey"],
+                )
+            ] * 2)
+        mock_exec_ssh.assert_has_calls(
+            [mock.call(mock_ssh_conn, "exit 0")] * 2)
+        mock_ssh_conn.close.assert_has_calls([mock.call()] * 2)
+        mock_sleep.assert_has_calls([mock.call(poll_interval)] * 2)
+
+    @mock.patch.object(utils, "connect_ssh")
+    @mock.patch.object(utils, "exec_ssh_cmd")
+    @mock.patch("time.sleep")
+    @mock.patch("time.time")
+    def test_poll_instance_ssh_timeout(
+        self,
+        mock_time,
+        mock_sleep,
+        mock_exec_ssh,
+        mock_connect,
+    ):
+        poll_interval = 5
+        mock_time.side_effect = [x * 10 for x in range(20)]
+        mock_connect.side_effect = IOError
+        connection_info = self._get_mock_conn_info()
+        self.assertRaises(
+            exception.CoriolisException,
+            utils.poll_instance_until_reachable,
+            connection_info=connection_info,
+            protocol=constants.PROTOCOL_SSH,
+            timeout=30,
+            poll_interval=poll_interval,
+        )
+
+    @mock.patch("coriolis.wsman.WSManConnection", new_callable=mock.Mock)
+    @mock.patch("time.sleep")
+    def test_poll_instance_winrm(
+        self,
+        mock_sleep,
+        mock_wsman,
+    ):
+        mock_conn = mock.Mock()
+        mock_conn.exec_ps_command.side_effect = [
+            Exception, mock.sentinel.stdout]
+        mock_wsman.from_connection_info.return_value = mock_conn
+        poll_interval = 5
+
+        connection_info = self._get_mock_conn_info()
+        utils.poll_instance_until_reachable(
+            connection_info=connection_info,
+            protocol=constants.PROTOCOL_WINRM,
+            timeout=30,
+            poll_interval=poll_interval,
+        )
+
+        mock_wsman.from_connection_info.assert_has_calls(
+            [mock.call(connection_info)] * 2, any_order=True)
+        mock_conn.exec_ps_command.assert_has_calls(
+            [mock.call("whoami")] * 2)
+        mock_sleep.assert_called_once_with(poll_interval)
+
+    @mock.patch("coriolis.wsman.WSManConnection", new_callable=mock.Mock)
+    @mock.patch("time.sleep")
+    @mock.patch("time.time")
+    def test_poll_instance_winrm_timeout(
+        self,
+        mock_time,
+        mock_sleep,
+        mock_wsman,
+    ):
+        poll_interval = 5
+        mock_time.side_effect = [x * 10 for x in range(20)]
+        mock_conn = mock.Mock()
+        mock_conn.exec_ps_command.side_effect = IOError
+        mock_wsman.from_connection_info.return_value = mock_conn
+        connection_info = self._get_mock_conn_info()
+        self.assertRaises(
+            exception.CoriolisException,
+            utils.poll_instance_until_reachable,
+            connection_info=connection_info,
+            protocol=constants.PROTOCOL_WINRM,
+            timeout=30,
+            poll_interval=poll_interval,
+        )
+
 
 @ddt.ddt
 class Grub2ConfigEditorTestCase(test_base.CoriolisBaseTestCase):
