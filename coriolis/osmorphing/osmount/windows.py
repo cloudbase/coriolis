@@ -6,6 +6,7 @@ import uuid
 
 from oslo_log import log as logging
 
+from coriolis import constants
 from coriolis import exception
 from coriolis.osmorphing.osmount import base
 from coriolis import utils
@@ -223,9 +224,73 @@ class WindowsMountTools(base.BaseOSMountTools):
                         f"Error was: {utils.get_exception_details()}")
             self._rebring_disks_online(disk_nums=disk_nums)
 
+    def _get_encrypted_volume_ids(self):
+        out = self._conn.exec_ps_command(
+            'gwmi -ns "Root\\CIMV2\\Security\\MicrosoftVolumeEncryption" '
+            '-class Win32_EncryptableVolume | % {$_.DeviceID}')
+        return [x for x in out.replace("\r\n", "\n").split("\n") if x]
+
+    def _unlock_encrypted_volume(self, volume_id: str, recovery_password: str):
+        self._conn.exec_ps_command(
+            f'manage-bde -unlock "{volume_id}" '
+            f'-RecoveryPassword "{recovery_password}"')
+
+    def _suspend_bitlocker(self, volume_id: str):
+        """Suspend BitLocker until the next reboot for a given volume.
+
+        It doesn't decrypt the device, it just adds a publicly accessible
+        BitLocker protector that automatically unlocks the volume.
+
+        When the replica instance boots, BitLocker will be automatically
+        enabled again and the TPM protector reconfigured.
+        """
+        self._conn.exec_ps_command(f'Suspend-BitLocker "{volume_id}"')
+
+    def _unlock_encrypted_volumes(self):
+        recovery_password = self._osmorphing_info.get(
+            constants.ENCRYPTED_DISKS_PASS)
+        if not recovery_password:
+            LOG.info("No encrypted disk password specified, "
+                     "skipping BitLocker unlock.")
+            return
+
+        encrypted_volume_ids = self._get_encrypted_volume_ids()
+        if not encrypted_volume_ids:
+            LOG.warning("Received encrypted disk password but no "
+                        "BitLocker encrypted volumes found.")
+            return
+
+        unlocked = False
+        for encrypted_volume_id in encrypted_volume_ids:
+            try:
+                self._unlock_encrypted_volume(
+                    encrypted_volume_id, recovery_password)
+                LOG.info(
+                    "Successfully unlocked BitLocker encrypted volume: %s",
+                    encrypted_volume_id)
+                unlocked = True
+            except Exception:
+                LOG.info(
+                    "Could not unlock volume %s using the specified "
+                    "recovery password.",
+                    encrypted_volume_id)
+                continue
+
+            # Suspend BitLocker until the replica boots.
+            #
+            # We'll intentionally propagate the failure if we managed to
+            # unlock the volume but failed to suspend BitLocker.
+            self._suspend_bitlocker(encrypted_volume_id)
+
+        if not unlocked:
+            raise exception.CoriolisException(
+                "Could not unlock any volume using the specified "
+                "BitLocker recovery password.")
+
     def mount_os(self):
         self._set_basic_disks_rw_mode()
         self._bring_disks_online()
+        self._unlock_encrypted_volumes()
         self._set_volumes_drive_letter()
         fs_roots = utils.retry_on_error(sleep_seconds=5)(self._get_fs_roots)(
             fail_if_empty=True)
