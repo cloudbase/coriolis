@@ -4,6 +4,7 @@
 import logging
 from unittest import mock
 
+from coriolis import constants
 from coriolis import exception
 from coriolis.osmorphing.osmount import windows
 from coriolis.tests import test_base
@@ -336,3 +337,147 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
 
         self.tools._conn.exec_ps_command.assert_called_once_with(
             '(Get-Disk | Where-Object { $_.IsBoot -eq $False }).Number')
+
+    def test_get_encrypted_volume_ids(self):
+        # Powershell wouldn't mix line endings, we're just ensuring that
+        # we can properly handle both line ending types.
+        self.tools._conn.exec_ps_command.return_value = (
+            "\\\\?\\Volume{2750d574-b333-4e7b-a0a2-d739279d39e9}\\\r\n"
+            "\\\\?\\Volume{7723f315-c13c-450c-8be6-f58e06f4ad45}\\\r\n"
+            "\\\\?\\Volume{cb7399af-8f6a-4a7b-a55c-e885ec3ff5fd}\\\n"
+        )
+
+        exp_ret = [
+            "\\\\?\\Volume{2750d574-b333-4e7b-a0a2-d739279d39e9}\\",
+            "\\\\?\\Volume{7723f315-c13c-450c-8be6-f58e06f4ad45}\\",
+            "\\\\?\\Volume{cb7399af-8f6a-4a7b-a55c-e885ec3ff5fd}\\",
+        ]
+        ret = self.tools._get_encrypted_volume_ids()
+
+        self.assertEqual(exp_ret, ret)
+        self.tools._conn.exec_ps_command.assert_called_once_with(
+            'gwmi -ns "Root\\CIMV2\\Security\\MicrosoftVolumeEncryption" '
+            '-class Win32_EncryptableVolume | % {$_.DeviceID}')
+
+    def test_unlock_encrypted_volume(self):
+        vol = "\\\\?\\Volume{2750d574-b333-4e7b-a0a2-d739279d39e9}\\"
+        password = "6010ba47-28e4-4105-8b0a-69eed0a54283"
+
+        self.tools._unlock_encrypted_volume(vol, password)
+
+        exp_cmd = 'manage-bde -unlock "%s" -RecoveryPassword "%s"' % (
+            vol, password)
+        self.tools._conn.exec_ps_command.assert_called_once_with(
+            exp_cmd)
+
+    def test_suspend_bitlocker(self):
+        vol = "\\\\?\\Volume{2750d574-b333-4e7b-a0a2-d739279d39e9}\\"
+
+        self.tools._suspend_bitlocker(vol)
+
+        exp_cmd = 'Suspend-BitLocker "%s"' % (vol)
+        self.tools._conn.exec_ps_command.assert_called_once_with(
+            exp_cmd)
+
+    @mock.patch.object(windows.WindowsMountTools, "_get_encrypted_volume_ids")
+    def test_unlock_encrypted_volumes_no_password(
+        self,
+        mock_get_encrypted_volume_ids,
+    ):
+        self.tools._unlock_encrypted_volumes()
+        mock_get_encrypted_volume_ids.assert_not_called()
+
+    @mock.patch.object(windows.WindowsMountTools, "_get_encrypted_volume_ids")
+    @mock.patch.object(windows.WindowsMountTools, "_unlock_encrypted_volume")
+    def test_unlock_encrypted_volumes_not_encrypted(
+        self,
+        mock_unlock_encrypted_volume,
+        mock_get_encrypted_volume_ids,
+    ):
+        fake_pass = "fake-recovery-password"
+        self.tools._osmorphing_info[constants.ENCRYPTED_DISKS_PASS] = fake_pass
+
+        mock_get_encrypted_volume_ids.return_value = []
+
+        self.tools._unlock_encrypted_volumes()
+        mock_unlock_encrypted_volume.assert_not_called()
+
+    @mock.patch.object(windows.WindowsMountTools, "_get_encrypted_volume_ids")
+    @mock.patch.object(windows.WindowsMountTools, "_unlock_encrypted_volume")
+    @mock.patch.object(windows.WindowsMountTools, "_suspend_bitlocker")
+    def test_unlock_encrypted_volumes_all_failed(
+        self,
+        mock_suspend_bitlocker,
+        mock_unlock_encrypted_volume,
+        mock_get_encrypted_volume_ids,
+    ):
+        fake_pass = "fake-recovery-password"
+        self.tools._osmorphing_info[constants.ENCRYPTED_DISKS_PASS] = fake_pass
+
+        mock_get_encrypted_volume_ids.return_value = [
+            mock.sentinel.volume0,
+            mock.sentinel.volume1,
+        ]
+        mock_unlock_encrypted_volume.side_effect = ValueError
+
+        self.assertRaises(
+            exception.CoriolisException,
+            self.tools._unlock_encrypted_volumes,
+        )
+
+    @mock.patch.object(windows.WindowsMountTools, "_get_encrypted_volume_ids")
+    @mock.patch.object(windows.WindowsMountTools, "_unlock_encrypted_volume")
+    @mock.patch.object(windows.WindowsMountTools, "_suspend_bitlocker")
+    def test_unlock_encrypted_volumes_one_failed(
+        self,
+        mock_suspend_bitlocker,
+        mock_unlock_encrypted_volume,
+        mock_get_encrypted_volume_ids,
+    ):
+        fake_pass = "fake-recovery-password"
+        self.tools._osmorphing_info[constants.ENCRYPTED_DISKS_PASS] = fake_pass
+
+        encrypted_volume_ids = [
+            mock.sentinel.volume0,
+            mock.sentinel.volume1,
+        ]
+        mock_get_encrypted_volume_ids.return_value = encrypted_volume_ids
+        mock_unlock_encrypted_volume.side_effect = [ValueError, None]
+
+        self.tools._unlock_encrypted_volumes()
+
+        mock_unlock_encrypted_volume.assert_has_calls(
+            [mock.call(vol_id, fake_pass) for vol_id in encrypted_volume_ids])
+        mock_suspend_bitlocker.assert_called_once_with(
+            mock.sentinel.volume1)
+
+    @mock.patch.object(windows.WindowsMountTools, "_get_encrypted_volume_ids")
+    @mock.patch.object(windows.WindowsMountTools, "_unlock_encrypted_volume")
+    @mock.patch.object(windows.WindowsMountTools, "_suspend_bitlocker")
+    def test_unlock_encrypted_volumes_suspend_failed(
+        self,
+        mock_suspend_bitlocker,
+        mock_unlock_encrypted_volume,
+        mock_get_encrypted_volume_ids,
+    ):
+        fake_pass = "fake-recovery-password"
+        self.tools._osmorphing_info[constants.ENCRYPTED_DISKS_PASS] = fake_pass
+
+        encrypted_volume_ids = [
+            mock.sentinel.volume0,
+            mock.sentinel.volume1,
+            mock.sentinel.volume2
+        ]
+        mock_get_encrypted_volume_ids.return_value = encrypted_volume_ids
+        mock_unlock_encrypted_volume.side_effect = [ValueError, None, None]
+        mock_suspend_bitlocker.side_effect = [IOError, None]
+
+        # It should error out immediately when failing to suspend BitLocker.
+        self.assertRaises(
+            IOError,
+            self.tools._unlock_encrypted_volumes,
+        )
+        mock_unlock_encrypted_volume.assert_has_calls(
+            [mock.call(mock.sentinel.volume0, fake_pass),
+             mock.call(mock.sentinel.volume1, fake_pass)]
+        )
