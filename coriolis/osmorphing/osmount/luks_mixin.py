@@ -27,9 +27,6 @@ _CRYPTSETUP_TPM2_PLUGIN_PATHS = [
     "/usr/lib/x86_64-linux-gnu/cryptsetup/libcryptsetup-token-systemd-tpm2.so",
 ]
 
-_FIRSTBOOT_SCRIPT_PATH = "/usr/local/sbin/coriolis-luks-firstboot.sh"
-_SYSTEMD_UNIT_PATH = "/etc/systemd/system/coriolis-luks-firstboot.service"
-
 _RESOURCES_DIR = os.path.join(os.path.dirname(__file__), "resources")
 
 
@@ -42,23 +39,6 @@ _LUKS_FIRSTBOOT_SCRIPTS = {
     "update-initramfs": _load_script("luks_firstboot_initramfs_tools.sh"),
     "dracut": _load_script("luks_firstboot_dracut.sh"),
 }
-
-_SYSTEMD_UNIT = """\
-[Unit]
-Description=Coriolis LUKS migration firstboot cleanup
-After=local-fs.target
-ConditionPathExists=/etc/luks
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/sbin/coriolis-luks-firstboot.sh
-RemainAfterExit=yes
-StandardOutput=journal+console
-StandardError=journal+console
-
-[Install]
-WantedBy=multi-user.target
-"""
 
 
 class LinuxLUKSMixin:
@@ -525,65 +505,8 @@ class LinuxLUKSMixin:
                 "No initramfs tool found in OS at '%s'; cannot rebuild "
                 "initramfs for LUKS auto-unlock." % os_root_dir)
 
-    def _detect_init_system(self, os_root_dir):
-        path = os.path.join(os_root_dir, "lib/systemd/systemd")
-        if utils.test_ssh_path(self._ssh, path):
-            return "systemd"
-
-        path = os.path.join(os_root_dir, "sbin/openrc")
-        if utils.test_ssh_path(self._ssh, path):
-            return "openrc"
-
-        path = os.path.join(os_root_dir, "sbin/initctl")
-        if utils.test_ssh_path(self._ssh, path):
-            return "upstart"
-
-        return "sysvinit"
-
-    def _register_firstboot_script_systemd(self, os_root_dir):
-        unit_abs = os.path.join(os_root_dir, _SYSTEMD_UNIT_PATH.lstrip("/"))
-        self._write_remote_file(unit_abs, _SYSTEMD_UNIT)
-        self._exec_cmd(
-            "sudo chown root:root %s && sudo chmod 644 %s" % (
-                unit_abs, unit_abs))
-
-        wants_dir = os.path.join(
-            os_root_dir, "etc/systemd/system/multi-user.target.wants")
-        self._exec_cmd("sudo mkdir -p %s" % wants_dir)
-        self._exec_cmd(
-            "sudo ln -sf %s %s/coriolis-luks-firstboot.service" % (
-                _SYSTEMD_UNIT_PATH, wants_dir))
-
-    def _install_luks_firstboot_script(self, os_root_dir):
-        """Write firstboot cleanup script and register with the init system."""
-        initramfs_tool = self._detect_initramfs_tool(os_root_dir)
-        script_content = _LUKS_FIRSTBOOT_SCRIPTS.get(initramfs_tool)
-        if script_content is None:
-            raise exception.CoriolisException(
-                "No initramfs tool found in OS at '%s'; cannot install "
-                "LUKS firstboot cleanup script." % os_root_dir)
-
-        script_abs = os.path.join(
-            os_root_dir, _FIRSTBOOT_SCRIPT_PATH.lstrip("/"))
-        self._exec_cmd("sudo mkdir -p %s" % os.path.dirname(script_abs))
-        self._write_remote_file(script_abs, script_content)
-        self._exec_cmd(
-            "sudo chown root:root %s && sudo chmod 500 %s" % (
-                script_abs, script_abs))
-
-        init_system = self._detect_init_system(os_root_dir)
-        LOG.info(
-            "Detected init system '%s'; installing LUKS firstboot script",
-            init_system)
-
-        if init_system == "systemd":
-            self._register_firstboot_script_systemd(os_root_dir)
-        else:
-            raise exception.CoriolisException(
-                "For VMs with LUKS-encrypted devices, only systemd-based VMs "
-                "are supported.")
-
-    def install_encryption_firstboot_setup(self, os_root_dir):
+    def install_encryption_firstboot_setup(
+            self, os_root_dir, os_morphing_tools):
         """Install a firstboot script to re-enroll TPM2."""
         if not self._luks_opened:
             return
@@ -595,7 +518,17 @@ class LinuxLUKSMixin:
         self._write_migration_keyfiles(os_root_dir)
         self._fix_grub_luks_root(os_root_dir)
         self._rebuild_initramfs(os_root_dir)
-        self._install_luks_firstboot_script(os_root_dir)
+
+        initramfs_tool = self._detect_initramfs_tool(os_root_dir)
+        script_content = _LUKS_FIRSTBOOT_SCRIPTS.get(initramfs_tool)
+        if script_content is None:
+            raise exception.CoriolisException(
+                "No initramfs tool found in OS at '%s'; cannot install "
+                "LUKS firstboot cleanup script." % os_root_dir)
+
+        os_morphing_tools.register_firstboot_script(
+            script_content, user_provided=False,
+            script_filename="luks-firstboot.sh")
 
     def _fix_grub_luks_root(self, os_root_dir):
         """Patch grub.cfg to use crypttab mapper names for LUKS root devices.

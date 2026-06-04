@@ -602,139 +602,46 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
             _OS_ROOT_DIR,
         )
 
-    @mock.patch.object(luks_mixin.utils, 'test_ssh_path')
-    def test__detect_init_system(self, mock_test):
-        mock_test.side_effect = lambda _ssh, path: 'systemd/systemd' in path
-        self.assertEqual(
-            self.mixin._detect_init_system(_OS_ROOT_DIR), 'systemd'
-        )
-
-        mock_test.side_effect = lambda _ssh, path: path.endswith('openrc')
-        self.assertEqual(
-            self.mixin._detect_init_system(_OS_ROOT_DIR), 'openrc'
-        )
-
-        mock_test.side_effect = lambda _ssh, path: path.endswith('initctl')
-        self.assertEqual(
-            self.mixin._detect_init_system(_OS_ROOT_DIR), 'upstart'
-        )
-
-        # sysvinit fallback.
-        mock_test.side_effect = None
-        mock_test.return_value = False
-        self.assertEqual(
-            self.mixin._detect_init_system(_OS_ROOT_DIR), 'sysvinit'
-        )
-
-    @mock.patch.object(base.BaseSSHOSMountTools, "_exec_cmd")
-    @mock.patch.object(luks_mixin.LinuxLUKSMixin, "_write_remote_file")
-    def test__register_firstboot_script_systemd(self, mock_write, mock_exec):
-        self.mixin._register_firstboot_script_systemd(_OS_ROOT_DIR)
-
-        unit_abs = os.path.join(
-            _OS_ROOT_DIR, luks_mixin._SYSTEMD_UNIT_PATH.lstrip("/")
-        )
-        unit = luks_mixin._SYSTEMD_UNIT
-        mock_write.assert_called_once_with(unit_abs, unit)
-        wants_dir = os.path.join(
-            _OS_ROOT_DIR, 'etc/systemd/system/multi-user.target.wants'
-        )
-        mock_exec.assert_any_call('sudo mkdir -p %s' % wants_dir)
-        mock_exec.assert_has_calls(
-            [
-                mock.call(
-                    "sudo chown root:root %s && sudo chmod 644 %s"
-                    % (unit_abs, unit_abs)
-                ),
-                mock.call('sudo mkdir -p %s' % wants_dir),
-                mock.call(
-                    "sudo ln -sf %s %s/coriolis-luks-firstboot.service"
-                    % (luks_mixin._SYSTEMD_UNIT_PATH, wants_dir)
-                ),
-            ]
-        )
-
-    @mock.patch.object(
-        luks_mixin.LinuxLUKSMixin, '_register_firstboot_script_systemd'
-    )
-    @mock.patch.object(
-        luks_mixin.LinuxLUKSMixin,
-        '_detect_init_system',
-        return_value='systemd',
-    )
-    @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')
-    @mock.patch.object(luks_mixin.LinuxLUKSMixin, "_write_remote_file")
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, '_detect_initramfs_tool')
-    def test__install_luks_firstboot_script(
-        self,
-        mock_detect_tool,
-        mock_write,
-        mock_exec,
-        mock_detect_init,
-        mock_reg_systemd,
-    ):
-        # no initramfs tool found.
-        mock_detect_tool.return_value = None
-        self.assertRaises(
-            exception.CoriolisException,
-            self.mixin._install_luks_firstboot_script,
-            _OS_ROOT_DIR,
-        )
-
-        # update-initramfs.
-        mock_detect_tool.return_value = 'update-initramfs'
-        mock_detect_init.return_value = "systemd"
-
-        self.mixin._install_luks_firstboot_script(_OS_ROOT_DIR)
-
-        script_abs = os.path.join(
-            _OS_ROOT_DIR, luks_mixin._FIRSTBOOT_SCRIPT_PATH.lstrip("/")
-        )
-        mock_exec.assert_has_calls(
-            [
-                mock.call("sudo mkdir -p %s" % os.path.dirname(script_abs)),
-                mock.call(
-                    "sudo chown root:root %s && sudo chmod 500 %s"
-                    % (script_abs, script_abs)
-                ),
-            ]
-        )
-        mock_reg_systemd.assert_called_once_with(_OS_ROOT_DIR)
-        script = luks_mixin._LUKS_FIRSTBOOT_SCRIPTS['update-initramfs']
-        mock_write.assert_called_once_with(script_abs, script)
-
-        # dracut.
-        mock_detect_tool.return_value = 'dracut'
-        mock_write.reset_mock()
-
-        self.mixin._install_luks_firstboot_script(_OS_ROOT_DIR)
-
-        script = luks_mixin._LUKS_FIRSTBOOT_SCRIPTS['dracut']
-        mock_write.assert_called_once_with(script_abs, script)
-
-    @mock.patch.object(
-        luks_mixin.LinuxLUKSMixin, '_install_luks_firstboot_script'
-    )
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, '_rebuild_initramfs')
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, '_fix_grub_luks_root')
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, '_write_migration_keyfiles')
     def test_install_encryption_firstboot_setup(
-        self, mock_write_keyfiles, mock_grub, mock_rebuild, mock_install
+        self, mock_write_keyfiles, mock_grub, mock_rebuild, mock_detect_tool
     ):
-        # No LUKS opened.
+        mock_morphing_tools = mock.MagicMock()
+
+        # No LUKS opened: early return, nothing called.
         self.mixin._luks_opened = []
-        self.mixin.install_encryption_firstboot_setup(_OS_ROOT_DIR)
+        self.mixin.install_encryption_firstboot_setup(
+            _OS_ROOT_DIR, mock_morphing_tools)
         mock_write_keyfiles.assert_not_called()
+        mock_morphing_tools.register_firstboot_script.assert_not_called()
 
-        # LUKS opened.
+        # LUKS opened, dracut.
         self.mixin._luks_opened = [("coriolis_sda", _DEV)]
+        mock_detect_tool.return_value = "dracut"
 
-        self.mixin.install_encryption_firstboot_setup(_OS_ROOT_DIR)
+        self.mixin.install_encryption_firstboot_setup(
+            _OS_ROOT_DIR, mock_morphing_tools)
 
         mock_write_keyfiles.assert_called_once_with(_OS_ROOT_DIR)
         mock_grub.assert_called_once_with(_OS_ROOT_DIR)
         mock_rebuild.assert_called_once_with(_OS_ROOT_DIR)
-        mock_install.assert_called_once_with(_OS_ROOT_DIR)
+        mock_morphing_tools.register_firstboot_script.assert_called_once_with(
+            luks_mixin._LUKS_FIRSTBOOT_SCRIPTS["dracut"],
+            user_provided=False,
+            script_filename="luks-firstboot.sh",
+        )
+
+        # No initramfs tool found: CoriolisException.
+        mock_detect_tool.return_value = None
+        self.assertRaises(
+            exception.CoriolisException,
+            self.mixin.install_encryption_firstboot_setup,
+            _OS_ROOT_DIR,
+            mock_morphing_tools,
+        )
 
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, '_write_remote_file')
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, '_get_luks_uuid')

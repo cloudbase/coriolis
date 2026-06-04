@@ -88,13 +88,6 @@ remove_migration_keyslots() {
     done
 }
 
-deregister_service() {
-    # Only disable, do NOT delete the unit file, or daemon-reload while the
-    # service is still running. systemd would detect "Current command vanished"
-    # and kill this process immediately.
-    systemctl disable coriolis-luks-firstboot.service 2>/dev/null || true
-}
-
 # main
 
 shopt -s nullglob
@@ -137,8 +130,6 @@ echo "Rebuilding initramfs."
 # Suppress needrestart: it reboots the VM after initramfs rebuild, which doesn't
 # allow us to continue with the rest of the script.
 NEEDRESTART_SUSPEND=1 DEBIAN_FRONTEND=noninteractive update-initramfs -u -k all
-
-deregister_service
 
 echo "Firstboot LUKS cleanup complete."
 rm -f "$0"
