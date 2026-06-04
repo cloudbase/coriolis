@@ -104,6 +104,10 @@ def _process_user_scripts(
         payload = user_scripts
         if sanitize_newlines:
             payload = _sanitize_newlines(payload)
+        if not payload.strip("\r\n "):
+            raise exception.InvalidInput(
+                "Empty script received. "
+                "Use 'None' if the script should be removed.")
         return [
             {
                 "phase": constants.PHASE_OSMORPHING_POST_OS_MOUNT,
@@ -141,6 +145,10 @@ def _process_user_scripts(
             if sanitize_newlines:
                 script_item["payload"] = _sanitize_newlines(
                     script_item["payload"])
+            if not script_item["payload"].strip("\r\n "):
+                raise exception.InvalidInput(
+                    "Empty script received. "
+                    "Use 'None' if the script should be removed.")
 
         return user_scripts
     else:

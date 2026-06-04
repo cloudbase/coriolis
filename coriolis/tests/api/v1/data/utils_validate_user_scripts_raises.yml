@@ -14,3 +14,30 @@
       linux: 'mock_scripts_linux'
       windows: 'mock_scripts_windows'
     instances: "invalid"
+
+- user_scripts:
+    global:
+      linux: ''
+
+- user_scripts:
+    global:
+      instances:
+        some_instance: ''
+
+- user_scripts:
+    global:
+      linux:
+      - phase: osmorphing_post_os_mount
+        payload: ''
+
+- user_scripts:
+    global:
+      instances:
+        some_instance: ''
+
+- user_scripts:
+    global:
+      instances:
+        some_instance:
+        - phase: osmorphing_post_os_mount
+          payload: ''
