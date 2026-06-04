@@ -320,4 +320,5 @@ def _morph_image(origin_provider, destination_provider, connection_info,
         event_manager.progress_update('No first-boot user script specified')
 
     os_mount_tools.remove_encryption_artifacts(os_root_dir)
-    os_mount_tools.install_encryption_firstboot_setup(os_root_dir)
+    os_mount_tools.install_encryption_firstboot_setup(
+        os_root_dir, import_os_morphing_tools)

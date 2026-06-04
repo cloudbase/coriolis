@@ -108,13 +108,6 @@ remove_migration_keyslots() {
     done
 }
 
-deregister_service() {
-    # Only disable, do NOT delete the unit file, or daemon-reload while the
-    # service is still running. systemd would detect "Current command vanished"
-    # and kill this process immediately.
-    systemctl disable coriolis-luks-firstboot.service 2>/dev/null || true
-}
-
 # main
 
 shopt -s nullglob
@@ -157,8 +150,6 @@ echo "Rebuilding initramfs."
 # are still picked up here.
 dracut --force --include /etc/crypttab /etc/crypttab
 rm -f "$DRACUT_CONF"
-
-deregister_service
 
 echo "Firstboot LUKS cleanup complete."
 rm -f "$0"

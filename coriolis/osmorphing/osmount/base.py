@@ -63,7 +63,8 @@ class BaseOSMountTools(object, with_metaclass(abc.ABCMeta)):
     def remove_encryption_artifacts(self, os_root_dir):
         pass
 
-    def install_encryption_firstboot_setup(self, os_root_dir):
+    def install_encryption_firstboot_setup(
+            self, os_root_dir, os_morphing_tools):
         pass
 
     def get_environment(self):

@@ -72,10 +72,11 @@ class _LUKSOSMorphingMixin:
     def _assert_luks_common_firstboot_files(self):
         dst_basename = os.path.basename(self._dst_device)
         for path in [
-            "usr/local/sbin/coriolis-luks-firstboot.sh",
-            "etc/systemd/system/coriolis-luks-firstboot.service",
+            "usr/lib/coriolis/firstboot/service/luks-firstboot.sh",
+            "usr/lib/coriolis/firstboot/run-firstboot.sh",
+            "etc/systemd/system/coriolis-firstboot.service",
             "etc/systemd/system/multi-user.target.wants/"
-            "coriolis-luks-firstboot.service",
+            "coriolis-firstboot.service",
             "etc/luks/coriolis_%s.key" % dst_basename,
         ]:
             self.assertTrue(
