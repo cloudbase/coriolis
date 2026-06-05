@@ -451,6 +451,9 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_suspend_bitlocker.assert_called_once_with(
             mock.sentinel.volume1)
 
+        self.assertEqual(
+            self.tools._unlocked_volumes, [mock.sentinel.volume1])
+
     @mock.patch.object(windows.WindowsMountTools, "_get_encrypted_volume_ids")
     @mock.patch.object(windows.WindowsMountTools, "_unlock_encrypted_volume")
     @mock.patch.object(windows.WindowsMountTools, "_suspend_bitlocker")
@@ -481,3 +484,25 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
             [mock.call(mock.sentinel.volume0, fake_pass),
              mock.call(mock.sentinel.volume1, fake_pass)]
         )
+
+    def test_install_encryption_firstboot_setup_noop(self):
+        # No unlocked volumes, nothing to do.
+        mock_morphing_tools = mock.Mock()
+        self.tools.install_encryption_firstboot_setup(
+            mock.sentinel.os_root_dir,
+            mock_morphing_tools)
+        mock_morphing_tools.register_firstboot_script.assert_not_called()
+
+    def test_install_encryption_firstboot_setup(self):
+        self.tools._unlocked_volumes = ["vol1", "vol2"]
+        mock_morphing_tools = mock.Mock()
+        self.tools.install_encryption_firstboot_setup(
+            mock.sentinel.os_root_dir,
+            mock_morphing_tools)
+
+        expected_script = (
+            'Resume-BitLocker "vol1"\r\nResume-BitLocker "vol2"\r\n')
+        mock_morphing_tools.register_firstboot_script.assert_called_once_with(
+            expected_script,
+            user_provided=False,
+            script_filename="11-bitlocker-firstboot.ps1")
