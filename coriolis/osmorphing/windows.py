@@ -10,6 +10,7 @@ import re
 import uuid
 
 from oslo_log import log as logging
+from packaging import version
 
 from coriolis import constants
 from coriolis import exception
@@ -704,6 +705,114 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
                     "Static IP configuration will be skipped.")
         finally:
             self._unload_registry_hive("HKLM\\%s" % key_name)
+
+    def _add_virtio_drivers(self):
+        arch = "amd64"
+
+        CLIENT = 1
+        SERVER = 2
+
+        # Ordered by version number
+        virtio_dirs = [
+            ("xp", version.Version("5.1"), CLIENT),
+            ("2k3", version.Version("5.2"), SERVER),
+            ("2k8", version.Version("6.0"), SERVER | CLIENT),
+            ("w7", version.Version("6.1"), CLIENT),
+            ("2k8R2", version.Version("6.1"), SERVER),
+            ("w8", version.Version("6.2"), CLIENT),
+            ("2k12", version.Version("6.2"), SERVER),
+            ("w8.1", version.Version("6.3"), CLIENT),
+            ("2k12R2", version.Version("6.3"), SERVER),
+            # NOTE: although modern VirtIO releases feature a dedicated '2k19'
+            # directory for Server 2019, some just use 'w10' for both:
+            ("w10", version.Version("10.0"), SERVER | CLIENT),
+            # NOTE: this list is traversed in reverse, so the Server-specific
+            # one should come after the shared 'w10' ones:
+            ("2k16", version.Version("10.0.14393"), SERVER),
+            ("2k19", version.Version("10.0.17763"), SERVER),
+            ("2k22", version.Version("10.0.20348"), SERVER),
+            ("w11", version.Version("10.0.22000"), CLIENT),
+            ("2k25", version.Version("10.0.26100"), SERVER),
+        ]
+
+        # The list of all possible editions is huge, this is a simplification
+        if "Server" in self._edition_id:
+            edition_type = SERVER
+        else:
+            edition_type = CLIENT
+
+        drivers = [
+            "Balloon",
+            "NetKVM",
+            "qxl",
+            "qxldod",
+            "pvpanic",
+            "viorng",
+            "vioscsi",
+            "vioserial",
+            "viostor",
+            "viogpudo",
+        ]
+
+        self._event_manager.progress_update("Downloading virtio-win drivers")
+
+        virtio_iso_path = "c:\\virtio-win.iso"
+        virtio_iso_url = self._osmorphing_parameters["windows_virtio_iso_url"]
+        utils.retry_on_error(sleep_seconds=5)(self._conn.download_file)(
+            virtio_iso_url, virtio_iso_path
+        )
+
+        self._event_manager.progress_update("Adding virtio-win drivers")
+
+        virtio_drive = self._mount_disk_image(virtio_iso_path)
+        try:
+            virtio_dir = None
+
+            for main_dir, dir_version, dir_edition_type in reversed(
+                    virtio_dirs):
+                if version.Version(
+                    str(self._version_number)) >= dir_version and (
+                        edition_type & dir_edition_type
+                ):
+                    path = "%s:\\Balloon\\%s\\%s" % (
+                        virtio_drive, main_dir, arch)
+                    if self._conn.test_path(path):
+                        virtio_dir = main_dir
+                        break
+
+            if not virtio_dir:
+                raise exception.CoriolisException(
+                    "Could not determine virtio driver directory "
+                    "for OS '%s' (edition '%s'). "
+                    "Check virtio-win ISO contents and mount status."
+                    % (self._version_number, self._edition_id)
+                )
+
+            driver_paths = [
+                "%s:\\%s\\%s\\%s" % (
+                    virtio_drive, d, virtio_dir, arch) for d in drivers
+            ]
+
+            sid = self._get_sid()
+            # Fails on Nano Server without explicitly granting permissions
+            file_repo_path = (
+                "%sWindows\\System32\\DriverStore\\FileRepository" %
+                self._os_root_dir
+            )
+            self._grant_permissions(file_repo_path, "*%s" % sid)
+            try:
+                for driver_path in driver_paths:
+                    if self._conn.test_path(driver_path):
+                        self._add_dism_driver(driver_path)
+                    else:
+                        LOG.warn(
+                            "Could not locate driver dir '%s', skipping.",
+                            driver_path
+                        )
+            finally:
+                self._revoke_permissions(file_repo_path, "*%s" % sid)
+        finally:
+            self._dismount_disk_image(virtio_iso_path)
 
     def get_packages(self):
         return [], []
