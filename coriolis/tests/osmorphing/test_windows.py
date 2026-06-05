@@ -6,6 +6,9 @@ import json
 import logging
 from unittest import mock
 
+import ddt
+from distutils import version
+
 from coriolis import exception
 from coriolis.osmorphing import windows
 from coriolis.tests import test_base
@@ -25,8 +28,11 @@ class CoriolisTestException(Exception):
     pass
 
 
+@ddt.ddt
 class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
     """Test suite for the BaseWindowsMorphingTools class."""
+
+    _FAKE_VIRTIO_ISO_URL = "fake-virtio-url"
 
     def setUp(self):
         super(BaseWindowsMorphingToolsTestCase, self).setUp()
@@ -43,11 +49,14 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         self.conn = mock.MagicMock()
         self.event_manager = mock.MagicMock()
         self.os_root_dir = 'C:\\'
+        self.osmorphing_parameters = {
+            "windows_virtio_iso_url": self._FAKE_VIRTIO_ISO_URL
+        }
         self.morphing_tools = windows.BaseWindowsMorphingTools(
             self.conn, self.os_root_dir,
             mock.sentinel.os_root_dev, mock.sentinel.hypervisor,
             self.event_manager, self.detected_os_info,
-            mock.sentinel.osmorphing_parameters,
+            self.osmorphing_parameters,
             mock.sentinel.operation_timeout)
 
     def test_get_required_detected_os_info_fields(self):
@@ -989,3 +998,207 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             self.morphing_tools._conn,
             f"C:\\Cloudbase-Init\\LocalScripts/{script_filename}",
             mock_script)
+
+    @ddt.data(
+        {
+            "version_number": version.LooseVersion("10.0.26500"),
+            "edition_id": "ServerDatacenterEval",
+            "exp_virtio_dir": "2k25",
+        },
+        {
+            "version_number": version.LooseVersion("10.0.23000"),
+            "edition_id": "Enterprise",
+            "exp_virtio_dir": "w11",
+        }
+    )
+    @ddt.unpack
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_mount_disk_image")
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_get_sid")
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_grant_permissions")
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_add_dism_driver")
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_revoke_permissions")
+    @mock.patch.object(
+        windows.BaseWindowsMorphingTools, "_dismount_disk_image")
+    def test_add_virtio_drivers(
+        self,
+        mock_dismount,
+        mock_revoke_permissions,
+        mock_add_dism_driver,
+        mock_grant_permissions,
+        mock_get_sid,
+        mock_mount_disk_image,
+        version_number=None,
+        edition_id=None,
+        exp_virtio_dir=None,
+    ):
+        null_sid = "S-1-0-0"
+        mock_get_sid.return_value = null_sid
+
+        self.morphing_tools._version_number = version_number
+        self.morphing_tools._edition_id = edition_id
+
+        fake_image_mountpoint = "e"
+        mock_mount_disk_image.return_value = fake_image_mountpoint
+
+        self.morphing_tools._add_virtio_drivers()
+
+        exp_iso_path = "c:\\virtio-win.iso"
+        self.morphing_tools._conn.download_file.assert_called_once_with(
+            self._FAKE_VIRTIO_ISO_URL, exp_iso_path)
+        mock_mount_disk_image.assert_called_once_with(exp_iso_path)
+        mock_dismount.assert_called_once_with(exp_iso_path)
+
+        exp_repo_path = "C:\\Windows\\System32\\DriverStore\\FileRepository"
+        mock_grant_permissions.assert_called_once_with(
+            exp_repo_path, f"*{null_sid}")
+        mock_revoke_permissions.assert_called_once_with(
+            exp_repo_path, f"*{null_sid}")
+
+        drivers = [
+            "Balloon",
+            "NetKVM",
+            "qxl",
+            "qxldod",
+            "pvpanic",
+            "viorng",
+            "vioscsi",
+            "vioserial",
+            "viostor",
+            "viogpudo",
+        ]
+        exp_driver_paths = [
+            f"{fake_image_mountpoint}:\\{driver}\\{exp_virtio_dir}\\amd64"
+            for driver in drivers]
+        mock_add_dism_driver.assert_has_calls(
+            [mock.call(path) for path in exp_driver_paths])
+
+    @ddt.data(
+        {
+            "version_number": version.LooseVersion("10.0.26500"),
+            "edition_id": "ServerDatacenterEval",
+        },
+    )
+    @ddt.unpack
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_mount_disk_image")
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_get_sid")
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_grant_permissions")
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_add_dism_driver")
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_revoke_permissions")
+    @mock.patch.object(
+        windows.BaseWindowsMorphingTools, "_dismount_disk_image")
+    def test_add_virtio_drivers_failure(
+        self,
+        mock_dismount,
+        mock_revoke_permissions,
+        mock_add_dism_driver,
+        mock_grant_permissions,
+        mock_get_sid,
+        mock_mount_disk_image,
+        version_number=None,
+        edition_id=None,
+    ):
+        # Ensure proper cleanup in case of driver installation failure.
+        null_sid = "S-1-0-0"
+        mock_get_sid.return_value = null_sid
+
+        self.morphing_tools._version_number = version_number
+        self.morphing_tools._edition_id = edition_id
+
+        fake_image_mountpoint = "e"
+        mock_mount_disk_image.return_value = fake_image_mountpoint
+        mock_add_dism_driver.side_effect = IOError
+
+        self.assertRaises(
+            IOError,
+            self.morphing_tools._add_virtio_drivers)
+
+        exp_iso_path = "c:\\virtio-win.iso"
+        self.morphing_tools._conn.download_file.assert_called_once_with(
+            self._FAKE_VIRTIO_ISO_URL, exp_iso_path)
+        mock_mount_disk_image.assert_called_once_with(exp_iso_path)
+        mock_dismount.assert_called_once_with(exp_iso_path)
+
+        exp_repo_path = "C:\\Windows\\System32\\DriverStore\\FileRepository"
+        mock_grant_permissions.assert_called_once_with(
+            exp_repo_path, f"*{null_sid}")
+        mock_revoke_permissions.assert_called_once_with(
+            exp_repo_path, f"*{null_sid}")
+
+    @ddt.data(
+        {
+            "version_number": version.LooseVersion("10.0.26500"),
+            "edition_id": "ServerDatacenterEval",
+        },
+    )
+    @ddt.unpack
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_mount_disk_image")
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_get_sid")
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_grant_permissions")
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_add_dism_driver")
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_revoke_permissions")
+    @mock.patch.object(
+        windows.BaseWindowsMorphingTools, "_dismount_disk_image")
+    def test_add_virtio_drivers_missing_virtio_dir(
+        self,
+        mock_dismount,
+        mock_revoke_permissions,
+        mock_add_dism_driver,
+        mock_grant_permissions,
+        mock_get_sid,
+        mock_mount_disk_image,
+        version_number=None,
+        edition_id=None,
+    ):
+        self.morphing_tools._version_number = version_number
+        self.morphing_tools._edition_id = edition_id
+        self.conn.test_path.return_value = False
+
+        self.assertRaises(
+            exception.CoriolisException,
+            self.morphing_tools._add_virtio_drivers)
+
+        exp_iso_path = "c:\\virtio-win.iso"
+        self.morphing_tools._conn.download_file.assert_called_once_with(
+            self._FAKE_VIRTIO_ISO_URL, exp_iso_path)
+        mock_mount_disk_image.assert_called_once_with(exp_iso_path)
+        mock_dismount.assert_called_once_with(exp_iso_path)
+        mock_add_dism_driver.assert_not_called()
+
+    @ddt.data(
+        {
+            "version_number": version.LooseVersion("3.1"),
+            "edition_id": "Sever",
+        },
+    )
+    @ddt.unpack
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_mount_disk_image")
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_get_sid")
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_grant_permissions")
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_add_dism_driver")
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_revoke_permissions")
+    @mock.patch.object(
+        windows.BaseWindowsMorphingTools, "_dismount_disk_image")
+    def test_add_virtio_drivers_unsupported_version(
+        self,
+        mock_dismount,
+        mock_revoke_permissions,
+        mock_add_dism_driver,
+        mock_grant_permissions,
+        mock_get_sid,
+        mock_mount_disk_image,
+        version_number=None,
+        edition_id=None,
+    ):
+        self.morphing_tools._version_number = version_number
+        self.morphing_tools._edition_id = edition_id
+
+        self.assertRaises(
+            exception.CoriolisException,
+            self.morphing_tools._add_virtio_drivers)
+
+        exp_iso_path = "c:\\virtio-win.iso"
+        self.morphing_tools._conn.download_file.assert_called_once_with(
+            self._FAKE_VIRTIO_ISO_URL, exp_iso_path)
+        mock_mount_disk_image.assert_called_once_with(exp_iso_path)
+        mock_dismount.assert_called_once_with(exp_iso_path)
+        mock_add_dism_driver.assert_not_called()
