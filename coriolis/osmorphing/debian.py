@@ -2,6 +2,8 @@
 # All Rights Reserved.
 
 from io import StringIO
+import os
+import re
 
 from oslo_log import log as logging
 import yaml
@@ -97,6 +99,42 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
             }
         return yaml.dump(cfg, default_flow_style=False)
 
+    # NOTE(apilotti): wheezy backports are required in order to install
+    # cloud-init on debian 7
+    def _add_wheezy_backports(self):
+        sources = self._read_file("etc/apt/sources.list")
+        backports = (
+            b"deb http://archive.debian.org/debian wheezy-backports main")
+        regex = b"^" + backports
+
+        repo_found = re.search(regex, sources, flags=re.MULTILINE)
+        if not repo_found:
+            self._event_manager.progress_update("Adding wheezy backports")
+            sources_updated = sources + b"\n" + backports + b"\n"
+            self._write_file_sudo("etc/apt/sources.list", sources_updated)
+            self._exec_cmd_chroot("apt-get update -y")
+
+    def _install_uefi_fallback_bootloader(self):
+        bootloader_dir = "/boot/efi/EFI/BOOT"
+        arch_map = {"x86_64": "BOOTX64.efi"}
+        arch = self._exec_cmd_chroot("uname -m").splitlines()[0]
+        if not arch_map.get(arch):
+            LOG.warning(
+                "Can't create bootloader for "
+                f"unsupported architecture: {arch}")
+            return
+
+        if self._test_path_chroot(os.path.join(bootloader_dir,
+                                  arch_map[arch])):
+            LOG.info("Fallback bootloader exists. Skipping")
+            return
+
+        self._exec_cmd_chroot(
+            f"grub-install --removable --target={arch}-efi "
+            "--efi-directory=/boot/efi --uefi-secure-boot"
+        )
+        self._exec_cmd_chroot("update-grub")
+
     def set_net_config(self, nics_info, dhcp):
         if not dhcp:
             LOG.info("Setting static IP configuration")
@@ -139,6 +177,8 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
                 self._event_manager.progress_update("Updating packages list")
                 self._exec_cmd_chroot('apt-get clean')
                 self._exec_cmd_chroot('apt-get update -y')
+                if self._version.startswith("7"):
+                    self._add_wheezy_backports()
         except Exception as err:
             raise exception.PackageManagerOperationException(
                 "Failed to refresh apt repositories. Please ensure that *all* "
