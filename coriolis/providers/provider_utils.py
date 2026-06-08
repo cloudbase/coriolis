@@ -1,9 +1,15 @@
 # Copyright 2018 Cloudbase Solutions Srl
 # All Rights Reserved.
-from oslo_log import log as logging
 import requests
+import time
 
+from oslo_log import log as logging
+import paramiko
+
+from coriolis import constants
 from coriolis import exception
+from coriolis import utils
+from coriolis import wsman
 
 LOG = logging.getLogger(__name__)
 
@@ -140,3 +146,98 @@ class ProviderSession(requests.Session):
         verify = self.verify
         return super(ProviderSession, self).merge_environment_settings(
             url, proxies, stream, verify, *args, **kwargs)
+
+
+def _poll_instance_until_reachable_ssh(
+    connection_info: dict,
+    timeout: int = 600,
+    poll_interval: int = 10,
+):
+    start = time.time()
+    while (time.time() - start) < timeout:
+        try:
+            ssh = utils.connect_ssh(
+                hostname=connection_info["ip"],
+                port=connection_info["port"],
+                username=connection_info["username"],
+                password=connection_info["password"],
+                pkey=connection_info["pkey"],
+            )
+            try:
+                # "exit 0" should work across platforms.
+                # "whoami" would also work.
+                utils.exec_ssh_cmd(ssh, "exit 0")
+            finally:
+                ssh.close()
+            LOG.debug("Instance reachable: %s", connection_info["ip"])
+            return
+        except Exception as err:
+            LOG.debug(
+                f"Could not connect to remote instance: {str(err)}. "
+                f"Retrying, time left: {timeout - (time.time() - start)}."
+            )
+        time.sleep(poll_interval)
+
+    raise exception.CoriolisException(
+        f"Operation timed out after waiting {timeout}s for the instance to be "
+        f"accessible via SSH."
+    )
+
+
+def _poll_instance_until_reachable_winrm(
+    connection_info: dict,
+    timeout: int = 600,
+    poll_interval: int = 10,
+):
+    start = time.time()
+    while (time.time() - start) < timeout:
+        try:
+            conn = wsman.WSManConnection.from_connection_info(connection_info)
+            conn.exec_ps_command("whoami")
+            return
+        except Exception as ex:
+            LOG.debug(
+                f"Could not conect to Windows host: {str(ex)}. "
+                f"Retrying, time left: {timeout - (time.time() - start)}."
+            )
+        time.sleep(poll_interval)
+
+    raise exception.CoriolisException(
+        f"Operation timed out after waiting {timeout}s for Windows host to "
+        f"be accessible via WinRM."
+    )
+
+
+def poll_instance_until_reachable(
+    connection_info: dict,
+    protocol: str = constants.PROTOCOL_SSH,
+    timeout: int = 600,
+    poll_interval: int = 10,
+) -> paramiko.SSHClient:
+    """Poll until a given instance becomes reachable.
+
+    :param connection_info: a dict containing the following keys:
+        * ip
+        * port
+        * username
+        * password
+        * pkey - Paramiko keypair
+    :param protocol: connection protocol, "ssh" or "winrm"
+    :param timeout: the maximum amount of time to wait
+    :param poll_interval: the amount of time to wait between retries
+    """
+    # TODO(lpetrut): consider including the connection protocol in the
+    # connection info. We'd have to modify a few schemas used during os
+    # morphing. We currently pick the protocol based on the OS type but
+    # we may want to use SSH on Windows as well.
+    if protocol == constants.PROTOCOL_SSH:
+        helper = _poll_instance_until_reachable_ssh
+    elif protocol == constants.PROTOCOL_WINRM:
+        helper = _poll_instance_until_reachable_winrm
+    else:
+        raise exception.InvalidInput(
+            f"Unsupported instance connection protocol: {protocol}")
+    return helper(
+        connection_info=connection_info,
+        timeout=timeout,
+        poll_interval=poll_interval)
