@@ -254,6 +254,25 @@ class BaseDebianMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, 'pre_packages_install')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_exec_cmd_chroot')
+    @mock.patch.object(debian.BaseDebianMorphingTools, '_add_wheezy_backports')
+    def test_pre_packages_install_wheezy(
+        self,
+        mock_add_wheezy_backports,
+        mock_exec_cmd_chroot,
+        mock_pre_packages_install,
+    ):
+        self.morpher._version = "7"
+        self.morpher.pre_packages_install(self.package_names)
+
+        mock_pre_packages_install.assert_called_once_with(self.package_names)
+        mock_exec_cmd_chroot.assert_has_calls([
+            mock.call('apt-get clean'),
+            mock.call('apt-get update -y')
+        ])
+        mock_add_wheezy_backports.assert_called_once_with()
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, 'pre_packages_install')
+    @mock.patch.object(debian.BaseDebianMorphingTools, '_exec_cmd_chroot')
     def test_pre_packages_install_with_exception(self, mock_exec_cmd_chroot,
                                                  mock_pre_packages_install):
         mock_exec_cmd_chroot.side_effect = Exception()
@@ -312,3 +331,130 @@ class BaseDebianMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
 
         self.assertRaises(exception.FailedPackageUninstallationException,
                           self.morpher.uninstall_packages, self.package_names)
+
+    @mock.patch.object(debian.BaseDebianMorphingTools, '_read_file')
+    @mock.patch.object(debian.BaseDebianMorphingTools, '_write_file_sudo')
+    @mock.patch.object(debian.BaseDebianMorphingTools, '_exec_cmd_chroot')
+    def test_add_wheezy_backports(
+        self,
+        mock_exec_cmd_chroot,
+        mock_write_file_sudo,
+        mock_read_file,
+    ):
+        existing_sources = b"""
+deb http://archive.debian.org/debian wheezy main non-free-firmware
+deb http://archive.debian.org/debian wheezy-updates main non-free-firmware
+"""
+        exp_updated_sources = b"""
+deb http://archive.debian.org/debian wheezy main non-free-firmware
+deb http://archive.debian.org/debian wheezy-updates main non-free-firmware
+
+deb http://archive.debian.org/debian wheezy-backports main
+"""
+        mock_read_file.return_value = existing_sources
+
+        self.morpher._add_wheezy_backports()
+
+        mock_read_file.assert_called_once_with("etc/apt/sources.list")
+        mock_write_file_sudo.assert_called_once_with(
+            "etc/apt/sources.list",
+            exp_updated_sources)
+        mock_exec_cmd_chroot.assert_called_once_with("apt-get update -y")
+
+    @mock.patch.object(debian.BaseDebianMorphingTools, '_read_file')
+    @mock.patch.object(debian.BaseDebianMorphingTools, '_write_file_sudo')
+    @mock.patch.object(debian.BaseDebianMorphingTools, '_exec_cmd_chroot')
+    def test_add_wheezy_backports_already_included(
+        self,
+        mock_exec_cmd_chroot,
+        mock_write_file_sudo,
+        mock_read_file,
+    ):
+        existing_sources = b"""
+deb http://archive.debian.org/debian wheezy main non-free-firmware
+deb http://archive.debian.org/debian wheezy-backports main
+deb http://archive.debian.org/debian wheezy-updates main non-free-firmware
+"""
+        mock_read_file.return_value = existing_sources
+
+        self.morpher._add_wheezy_backports()
+
+        mock_read_file.assert_called_once_with("etc/apt/sources.list")
+        mock_write_file_sudo.assert_not_called()
+        mock_exec_cmd_chroot.assert_not_called()
+
+
+    @mock.patch.object(debian.BaseDebianMorphingTools, '_test_path_chroot')
+    @mock.patch.object(debian.BaseDebianMorphingTools, '_exec_cmd_chroot')
+    def test_install_uefi_fallback_bootloader(
+        self,
+        mock_exec_cmd_chroot,
+        mock_test_path_chroot,
+    ):
+        mock_exec_cmd_chroot.side_effect = [
+            # uname -m
+            "x86_64",
+            # grub-install
+            "",
+            # update-grub
+            "",
+        ]
+        mock_test_path_chroot.return_value = False
+
+        self.morpher._install_uefi_fallback_bootloader()
+
+        mock_exec_cmd_chroot.assert_has_calls([
+            mock.call("uname -m"),
+            mock.call(
+                "grub-install --removable --target=x86_64-efi "
+                "--efi-directory=/boot/efi --uefi-secure-boot"),
+            mock.call("update-grub"),
+        ])
+        mock_test_path_chroot.assert_called_once_with(
+            "/boot/efi/EFI/BOOT/BOOTX64.efi")
+
+    @mock.patch.object(debian.BaseDebianMorphingTools, '_test_path_chroot')
+    @mock.patch.object(debian.BaseDebianMorphingTools, '_exec_cmd_chroot')
+    def test_install_uefi_fallback_bootloader_unsupported_arch(
+        self,
+        mock_exec_cmd_chroot,
+        mock_test_path_chroot,
+    ):
+        mock_exec_cmd_chroot.side_effect = [
+            # uname -m
+            "x86",
+            # grub-install
+            "",
+            # update-grub,
+        ]
+        mock_test_path_chroot.return_value = False
+
+        self.morpher._install_uefi_fallback_bootloader()
+
+        mock_exec_cmd_chroot.assert_has_calls([
+            mock.call("uname -m"),
+        ])
+        mock_test_path_chroot.assert_not_called()
+
+    @mock.patch.object(debian.BaseDebianMorphingTools, '_test_path_chroot')
+    @mock.patch.object(debian.BaseDebianMorphingTools, '_exec_cmd_chroot')
+    def test_install_uefi_fallback_bootloader_already_exists(
+        self,
+        mock_exec_cmd_chroot,
+        mock_test_path_chroot,
+    ):
+        mock_exec_cmd_chroot.side_effect = [
+            # uname -m
+            "x86_64",
+            # grub-install, shouldn't get here.
+            IOError,
+        ]
+        mock_test_path_chroot.return_value = True
+
+        self.morpher._install_uefi_fallback_bootloader()
+
+        mock_exec_cmd_chroot.assert_has_calls([
+            mock.call("uname -m"),
+        ])
+        mock_test_path_chroot.assert_called_once_with(
+            "/boot/efi/EFI/BOOT/BOOTX64.efi")
