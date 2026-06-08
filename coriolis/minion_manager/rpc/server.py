@@ -7,6 +7,7 @@ import uuid
 
 from oslo_config import cfg
 from oslo_log import log as logging
+from oslo_utils import strutils
 from oslo_utils import timeutils
 from taskflow import deciders as taskflow_deciders
 from taskflow.patterns import graph_flow
@@ -508,7 +509,9 @@ class MinionManagerServerEndpoint(object):
                         pool_id, instances, action['id']))
         LOG.debug(
             "Successfully validated minion pool selections for action '%s' "
-            "with properties: %s", action['id'], action)
+            "with properties: %s",
+            action['id'],
+            strutils.mask_dict_password(action))
 
     def allocate_minion_machines_for_transfer(
             self, ctxt, transfer):

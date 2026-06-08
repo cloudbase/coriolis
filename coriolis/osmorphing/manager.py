@@ -5,6 +5,7 @@ import itertools
 
 from oslo_config import cfg
 from oslo_log import log as logging
+from oslo_utils import strutils
 
 from coriolis import constants
 from coriolis import events
@@ -84,7 +85,8 @@ def get_osmorphing_tools_class_for_provider(
     LOG.debug(
         "OSMorphing tools classes returned by provider '%s' for os_type '%s' "
         "and 'osmorphing_info' %s: %s",
-        type(provider), os_type, osmorphing_info, available_tools_cls)
+        type(provider), os_type,
+        strutils.mask_dict_password(osmorphing_info), available_tools_cls)
 
     osmorphing_base_class = base_osmorphing.BaseOSMorphingTools
     for toolscls in available_tools_cls:
