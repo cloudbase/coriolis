@@ -4,6 +4,8 @@
 import logging
 from unittest import mock
 
+from oslo_utils import strutils
+
 from coriolis import constants
 from coriolis import exception
 from coriolis.osmorphing.osmount import windows

@@ -27,6 +27,7 @@ from io import StringIO
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
+from oslo_utils import strutils
 
 import netifaces
 import paramiko
@@ -316,6 +317,7 @@ def list_ssh_dir(ssh, remote_path):
 
 
 def _exec_ssh_cmd(ssh, cmd, environment=None, get_pty=False, timeout=None):
+    sanitized_cmd = strutils.mask_password(cmd)
     remote_str = "<undeterminable>"
     if timeout is not None:
         timeout = float(timeout)
@@ -327,7 +329,7 @@ def _exec_ssh_cmd(ssh, cmd, environment=None, get_pty=False, timeout=None):
             get_exception_details())
     LOG.debug(
         "Executing the following SSH command on '%s' with "
-        "environment %s: '%s'", remote_str, environment, cmd)
+        "environment %s: '%s'", remote_str, environment, sanitized_cmd)
 
     _, stdout, stderr = ssh.exec_command(
         cmd, environment=environment, get_pty=get_pty, timeout=timeout)
@@ -343,7 +345,7 @@ def _exec_ssh_cmd(ssh, cmd, environment=None, get_pty=False, timeout=None):
         msg = (
             "Command \"%s\" failed on host '%s' with exit code: %s\n"
             "stdout: %s\nstd_err: %s" %
-            (cmd, remote_str, exit_code, stdout_str, stderr_str))
+            (sanitized_cmd, remote_str, exit_code, stdout_str, stderr_str))
         if (exit_code == 127 or
                 "command not found" in stdout_str or
                 "command not found" in stderr_str):

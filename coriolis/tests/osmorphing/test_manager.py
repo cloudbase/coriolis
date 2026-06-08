@@ -76,16 +76,16 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
         result = manager.run_os_detect(
             self.provider, self.destination_provider, self.worker_connection,
             mock.sentinel.os_type, mock.sentinel.os_root_dir,
-            mock.sentinel.osmorphing_info, tools_environment={})
+            self.osmorphing_info, tools_environment={})
 
         self.assertEqual(result, mock_detect_os.return_value)
 
         self.provider.get_custom_os_detect_tools.\
             assert_called_once_with(mock.sentinel.os_type,
-                                    mock.sentinel.osmorphing_info)
+                                    self.osmorphing_info)
         self.destination_provider.get_custom_os_detect_tools.\
             assert_called_once_with(mock.sentinel.os_type,
-                                    mock.sentinel.osmorphing_info)
+                                    self.osmorphing_info)
         mock_detect_os.assert_called_once_with(
             self.worker_connection, mock.sentinel.os_type,
             mock.sentinel.os_root_dir,
@@ -112,7 +112,7 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
 
         result = manager.get_osmorphing_tools_class_for_provider(
             self.provider, mock.sentinel.detected_os_info,
-            mock.sentinel.os_type, mock.sentinel.osmorphing_info)
+            mock.sentinel.os_type, self.osmorphing_info)
 
         self.assertEqual(result, MockToolsClass)
 
@@ -126,7 +126,7 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
         self.assertRaises(exception.InvalidOSMorphingTools,
                           manager.get_osmorphing_tools_class_for_provider,
                           self.provider, mock.sentinel.detected_os_info,
-                          mock.sentinel.os_type, mock.sentinel.osmorphing_info)
+                          mock.sentinel.os_type, self.osmorphing_info)
 
     def test_get_osmorphing_tools_class_for_provider_invalid_os_params(self):
         class MockToolsClass(base_osmorphing.BaseOSMorphingTools):
@@ -144,7 +144,7 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
             'coriolis.osmorphing.manager', level=logging.WARN):
             result = manager.get_osmorphing_tools_class_for_provider(
                 self.provider, mock.sentinel.detected_os_info,
-                mock.sentinel.os_type, mock.sentinel.osmorphing_info)
+                mock.sentinel.os_type, self.osmorphing_info)
 
         self.assertIsNone(result)
 
@@ -164,7 +164,7 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
             'coriolis.osmorphing.manager', level=logging.DEBUG):
             result = manager.get_osmorphing_tools_class_for_provider(
                 self.provider, self.detected_os_info,
-                mock.sentinel.os_type, mock.sentinel.osmorphing_info)
+                mock.sentinel.os_type, self.osmorphing_info)
 
         self.assertIsNone(result)
 
