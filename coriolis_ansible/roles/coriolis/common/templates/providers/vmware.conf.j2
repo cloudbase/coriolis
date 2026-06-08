@@ -53,8 +53,7 @@ vixdisklib_config_location = {{ coriolis_vmware_vix_disklib_config_path }}
 
 # Whether or not Coriolis should attempt to enable CBT on migrated VMs.
 # Note that the selected datastores for the VM must support CBT (NFS or VMFS2)
-# Internal default is false.
-# import_enable_cbt = true
+import_enable_cbt = false
 
 # The VMware guest ID (e.g. 'ubuntu64Guest') for the VMs to be migrated to VMware.
 # Must be supported by the host(s) within the selected 'import_cluster'.
@@ -73,8 +72,12 @@ vixdisklib_config_location = {{ coriolis_vmware_vix_disklib_config_path }}
 # If using a paravirtual device model like 'VMXNET3', enabling the OSMorphing
 # process before final VM creation is recommended.
 # Must be one of "E1000", "E1000e", or "VMXNET3".
-# Internal default is "E1000e"
-# nics_device_model = VMXNET3
+nics_device_model = VMXNET3
+
+# Whether or not Coriolis should create virtual disks as First Class Disks.
+# Requires vCenter >= 6.7. If disabled, a shell VM template must be configured
+# via 'migr_disk_shell_template'. Cloning Replica disks is only supported with FCD.
+use_first_class_disks = true
 
 # The VMware hardware version (e.g. 'vmx-12') for the migrated VMs.
 # Must be supported by the selected 'import_cluster'.

@@ -32,8 +32,10 @@ set_dhcp = true
 migr_worker_cpu_limit = 2
 # Memory limit (in GiB) to be set to the worker VMs
 migr_worker_memory_limit = 4
+# Worker root disk size (in GiB) to be created when deploying a worker machine from a VM Image
+migr_worker_disk_size = 15
 # Location of the virtio-win ISO
-windows_virtio_iso_url = https://github.com/SUSE/vmdp/releases/download/2.5.4.2/VMDP-WIN-2.5.4.2-Community.iso
+# windows_virtio_iso_url = https://github.com/SUSE/vmdp/releases/download/v2.5.5.1/VMDP-WIN-2.5.5.1-Community.iso
 # Location of the Cloudbase-Init ZIP for amd64 systems
 cloudbaseinit_x64_url = https://www.cloudbase.it/downloads/CloudbaseInitSetup_x64.zip
 # Location of the Cloudbase-Init ZIP for x86 systems
