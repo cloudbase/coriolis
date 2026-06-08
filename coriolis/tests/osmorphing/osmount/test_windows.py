@@ -372,6 +372,17 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
         self.tools._conn.exec_ps_command.assert_called_once_with(
             exp_cmd)
 
+    def test_sanitize_recovery_password(self):
+        vol = "\\\\?\\Volume{2750d574-b333-4e7b-a0a2-d739279d39e9}\\"
+        password = "6010ba47-28e4-4105-8b0a-69eed0a54283"
+
+        cmd = 'manage-bde -unlock "%s" -RecoveryPassword "%s"' % (
+            vol, password)
+        exp_cmd = 'manage-bde -unlock "%s" -RecoveryPassword "%s"' % (
+            vol, '***')
+
+        self.assertEqual(exp_cmd, strutils.mask_password(exp_cmd))
+
     def test_suspend_bitlocker(self):
         vol = "\\\\?\\Volume{2750d574-b333-4e7b-a0a2-d739279d39e9}\\"
 

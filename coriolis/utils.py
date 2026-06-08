@@ -765,6 +765,7 @@ def sanitize_task_info(task_info):
                                 ["<redacted>"])
             new['volumes_info'].append(vol_cpy)
 
+    new = strutils.mask_dict_password(new)
     return new
 
 

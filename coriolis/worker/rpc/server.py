@@ -12,6 +12,7 @@ import time
 
 from oslo_config import cfg
 from oslo_log import log as logging
+from oslo_utils import strutils
 import psutil
 from six.moves import queue
 
@@ -688,7 +689,8 @@ def _task_process(ctxt, task_id, task_type, origin, destination, instance,
                   "origin: %(origin)s, destination: %(destination)s, "
                   "instance: %(instance)s, task_info: %(task_info)s",
                   {"task_id": task_id, "task_type": task_type,
-                   "origin": origin, "destination": destination,
+                   "origin": origin,
+                   "destination": strutils.mask_dict_password(destination),
                    "instance": instance,
                    "task_info": utils.sanitize_task_info(
                        task_info)})

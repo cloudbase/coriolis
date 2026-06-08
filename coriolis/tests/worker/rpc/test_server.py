@@ -1265,9 +1265,11 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_task_runner = mock_get_task_runner_class.return_value.return_value
         mock_task_result = mock_task_runner.run.return_value
 
+        mock_destination = {'connection_info': "fake-conn-info"}
+
         server._task_process(mock.sentinel.ctxt, mock.sentinel.task_id,
                              mock.sentinel.task_type, mock.sentinel.origin,
-                             mock.sentinel.destination, mock.sentinel.instance,
+                             mock_destination, mock.sentinel.instance,
                              task_info, mp_q, mp_log_q)
         mock_setup_task_process.assert_called_once_with(mp_log_q)
         mock_get_task_runner_class.assert_called_once_with(
@@ -1277,7 +1279,7 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
                                                        mock.sentinel.task_id)
         mock_task_runner.run.assert_called_once_with(
             mock.sentinel.ctxt, mock.sentinel.instance, mock.sentinel.origin,
-            mock.sentinel.destination, task_info,
+            mock_destination, task_info,
             mock_get_event_handler.return_value)
         mock_is_serializable.assert_called_once_with(mock_task_result)
         mp_q.put.assert_called_once_with(mock_task_result)
