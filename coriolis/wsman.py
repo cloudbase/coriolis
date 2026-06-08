@@ -5,6 +5,7 @@ import base64
 import requests
 
 from oslo_log import log as logging
+from oslo_utils import strutils
 
 from winrm import exceptions as winrm_exceptions
 from winrm import protocol
@@ -97,7 +98,13 @@ class WSManConnection(object):
     @utils.retry_on_error(
         terminal_exceptions=[winrm_exceptions.InvalidCredentialsError,
                              exception.OSMorphingWinRMOperationTimeout])
-    def _exec_command(self, cmd, args=[], timeout=None):
+    def _exec_command(self, cmd, args=[], timeout=None, sanitizable=True):
+        if sanitizable:
+            sanitized_cmd = strutils.mask_password(
+                "%s %s" % (cmd, " ".join(args)))
+        else:
+            sanitized_cmd = "***"
+
         timeout = int(timeout or self._conn_timeout)
         self.set_timeout(timeout)
         shell_id = None
@@ -111,7 +118,7 @@ class WSManConnection(object):
                     shell_id, command_id)
             except requests.exceptions.ReadTimeout:
                 raise exception.OSMorphingWinRMOperationTimeout(
-                    cmd=("%s %s" % (cmd, " ".join(args))), timeout=timeout)
+                    cmd=sanitized_cmd, timeout=timeout)
             finally:
                 self._protocol.cleanup_command(shell_id, command_id)
 
@@ -132,21 +139,29 @@ class WSManConnection(object):
             if shell_id:
                 self._protocol.close_shell(shell_id)
 
-    def exec_command(self, cmd, args=[], timeout=None):
-        LOG.debug("Executing WSMAN command: %s", str([cmd] + args))
+    def exec_command(self, cmd, args=[], timeout=None, sanitizable=True):
+        # Our sanitization helpers do not work for base64 encoded commands,
+        # in which case we'll avoid logging it so that we won't leak
+        # sensitive information.
+        if sanitizable:
+            sanitized_cmd = strutils.mask_password(
+                "%s %s" % (cmd, " ".join(args)))
+        else:
+            sanitized_cmd = "***"
+        LOG.debug("Executing WSMAN command: %s", sanitized_cmd)
         std_out, std_err, exit_code = self._exec_command(
-            cmd, args, timeout=timeout)
+            cmd, args, timeout=timeout, sanitizable=sanitizable)
 
         if exit_code:
             raise exception.CoriolisException(
                 "Command \"%s\" failed with exit code: %s\n"
                 "stdout: %s\nstd_err: %s" %
-                (str([cmd] + args), exit_code, std_out, std_err))
+                (sanitized_cmd, exit_code, std_out, std_err))
 
         return std_out
 
     def exec_ps_command(self, cmd, ignore_stdout=False, timeout=None):
-        LOG.debug("Executing PS command: %s", cmd)
+        LOG.debug("Executing PS command: %s", strutils.mask_password(cmd))
         base64_cmd = base64.b64encode(cmd.encode('utf-16le')).decode()
         return self.exec_command(
             "powershell.exe",
@@ -157,7 +172,8 @@ class WSManConnection(object):
                 "-ExecutionPolicy",
                 "RemoteSigned",
             ],
-            timeout=timeout)[:-2]
+            timeout=timeout,
+            sanitizable=False)[:-2]
 
     def test_path(self, remote_path):
         ret_val = self.exec_ps_command("Test-Path -Path \"%s\"" % remote_path)

@@ -1,6 +1,7 @@
 # Copyright 2023 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+import logging
 from unittest import mock
 
 import requests
@@ -20,7 +21,8 @@ class WSManConnectionTestCase(test_base.CoriolisBaseTestCase):
         self.conn._protocol = mock.Mock()
         self.conn._conn_timeout = 10
         self.cmd = "test_cmd"
-        self.args = ["arg1", "arg2"]
+        self.args = ["-RecoveryPassword", "'ShouldNotBeLogged'"]
+        self.sanitized_cmd = "test_cmd -RecoveryPassword '***'"
         self.url = "http://example.com/file"
         self.remote_path = "/remote/path"
 
@@ -134,8 +136,13 @@ class WSManConnectionTestCase(test_base.CoriolisBaseTestCase):
     def test_exec_command(self):
         self.conn._protocol.get_command_output.return_value = (
             "std_out", "std_err", 0)
-        std_out = self.conn.exec_command(self.cmd, self.args)
-        self.assertEqual(std_out, "std_out")
+        exp_sanitized_log = (
+            "DEBUG:coriolis.wsman:Executing WSMAN command: %s" %
+            self.sanitized_cmd)
+        with self.assertLogs("coriolis.wsman", level=logging.DEBUG) as log_cm:
+            std_out = self.conn.exec_command(self.cmd, self.args)
+            self.assertEqual(std_out, "std_out")
+        self.assertIn(exp_sanitized_log, log_cm.output)
 
     def test_exec_command_exception(self):
         self.conn._protocol.get_command_output.return_value = (
@@ -155,7 +162,8 @@ class WSManConnectionTestCase(test_base.CoriolisBaseTestCase):
                 '-NonInteractive',
                 '-ExecutionPolicy', 'RemoteSigned',
             ],
-            timeout=None)
+            timeout=None,
+            sanitizable=False)
         self.assertEqual(result, "std_out")
 
     def test_test_path(self):
