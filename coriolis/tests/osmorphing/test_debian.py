@@ -383,7 +383,6 @@ deb http://archive.debian.org/debian wheezy-updates main non-free-firmware
         mock_write_file_sudo.assert_not_called()
         mock_exec_cmd_chroot.assert_not_called()
 
-
     @mock.patch.object(debian.BaseDebianMorphingTools, '_test_path_chroot')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_exec_cmd_chroot')
     def test_install_uefi_fallback_bootloader(
