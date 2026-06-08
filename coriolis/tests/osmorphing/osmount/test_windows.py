@@ -381,7 +381,7 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
         exp_cmd = 'manage-bde -unlock "%s" -RecoveryPassword "%s"' % (
             vol, '***')
 
-        self.assertEqual(exp_cmd, strutils.mask_password(exp_cmd))
+        self.assertEqual(exp_cmd, strutils.mask_password(cmd))
 
     def test_suspend_bitlocker(self):
         vol = "\\\\?\\Volume{2750d574-b333-4e7b-a0a2-d739279d39e9}\\"
@@ -389,6 +389,15 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
         self.tools._suspend_bitlocker(vol)
 
         exp_cmd = 'Suspend-BitLocker "%s"' % (vol)
+        self.tools._conn.exec_ps_command.assert_called_once_with(
+            exp_cmd)
+
+    def test_resume_bitlocker(self):
+        vol = "\\\\?\\Volume{2750d574-b333-4e7b-a0a2-d739279d39e9}\\"
+
+        self.tools._resume_bitlocker(vol)
+
+        exp_cmd = 'Resume-BitLocker "%s"' % (vol)
         self.tools._conn.exec_ps_command.assert_called_once_with(
             exp_cmd)
 
@@ -417,10 +426,8 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(windows.WindowsMountTools, "_get_encrypted_volume_ids")
     @mock.patch.object(windows.WindowsMountTools, "_unlock_encrypted_volume")
-    @mock.patch.object(windows.WindowsMountTools, "_suspend_bitlocker")
     def test_unlock_encrypted_volumes_all_failed(
         self,
-        mock_suspend_bitlocker,
         mock_unlock_encrypted_volume,
         mock_get_encrypted_volume_ids,
     ):
@@ -440,10 +447,8 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(windows.WindowsMountTools, "_get_encrypted_volume_ids")
     @mock.patch.object(windows.WindowsMountTools, "_unlock_encrypted_volume")
-    @mock.patch.object(windows.WindowsMountTools, "_suspend_bitlocker")
     def test_unlock_encrypted_volumes_one_failed(
         self,
-        mock_suspend_bitlocker,
         mock_unlock_encrypted_volume,
         mock_get_encrypted_volume_ids,
     ):
@@ -461,42 +466,9 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
 
         mock_unlock_encrypted_volume.assert_has_calls(
             [mock.call(vol_id, fake_pass) for vol_id in encrypted_volume_ids])
-        mock_suspend_bitlocker.assert_called_once_with(
-            mock.sentinel.volume1)
 
         self.assertEqual(
             self.tools._unlocked_volumes, [mock.sentinel.volume1])
-
-    @mock.patch.object(windows.WindowsMountTools, "_get_encrypted_volume_ids")
-    @mock.patch.object(windows.WindowsMountTools, "_unlock_encrypted_volume")
-    @mock.patch.object(windows.WindowsMountTools, "_suspend_bitlocker")
-    def test_unlock_encrypted_volumes_suspend_failed(
-        self,
-        mock_suspend_bitlocker,
-        mock_unlock_encrypted_volume,
-        mock_get_encrypted_volume_ids,
-    ):
-        fake_pass = "fake-recovery-password"
-        self.tools._osmorphing_info[constants.ENCRYPTED_DISKS_PASS] = fake_pass
-
-        encrypted_volume_ids = [
-            mock.sentinel.volume0,
-            mock.sentinel.volume1,
-            mock.sentinel.volume2
-        ]
-        mock_get_encrypted_volume_ids.return_value = encrypted_volume_ids
-        mock_unlock_encrypted_volume.side_effect = [ValueError, None, None]
-        mock_suspend_bitlocker.side_effect = [IOError, None]
-
-        # It should error out immediately when failing to suspend BitLocker.
-        self.assertRaises(
-            IOError,
-            self.tools._unlock_encrypted_volumes,
-        )
-        mock_unlock_encrypted_volume.assert_has_calls(
-            [mock.call(mock.sentinel.volume0, fake_pass),
-             mock.call(mock.sentinel.volume1, fake_pass)]
-        )
 
     def test_install_encryption_firstboot_setup_noop(self):
         # No unlocked volumes, nothing to do.
@@ -506,7 +478,8 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
             mock_morphing_tools)
         mock_morphing_tools.register_firstboot_script.assert_not_called()
 
-    def test_install_encryption_firstboot_setup(self):
+    @mock.patch.object(windows.WindowsMountTools, "_suspend_bitlocker")
+    def test_install_encryption_firstboot_setup(self, mock_suspend_bitlocker):
         self.tools._unlocked_volumes = ["vol1", "vol2"]
         mock_morphing_tools = mock.Mock()
         self.tools.install_encryption_firstboot_setup(
@@ -519,3 +492,50 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
             expected_script,
             user_provided=False,
             script_filename="11-bitlocker-firstboot.ps1")
+        mock_suspend_bitlocker.assert_has_calls(
+            [mock.call(volume) for volume in self.tools._unlocked_volumes])
+
+    @mock.patch.object(windows.WindowsMountTools, "_suspend_bitlocker")
+    @mock.patch.object(windows.WindowsMountTools, "_resume_bitlocker")
+    def test_install_encryption_firstboot_setup_register_failure(
+        self,
+        mock_resume_bitlocker,
+        mock_suspend_bitlocker
+    ):
+        self.tools._unlocked_volumes = ["vol1", "vol2"]
+        mock_morphing_tools = mock.Mock()
+        mock_morphing_tools.register_firstboot_script.side_effect = IOError
+        self.assertRaises(
+            IOError,
+            self.tools.install_encryption_firstboot_setup,
+            mock.sentinel.os_root_dir,
+            mock_morphing_tools)
+
+        mock_suspend_bitlocker.assert_has_calls(
+            [mock.call(volume) for volume in self.tools._unlocked_volumes])
+        mock_resume_bitlocker.assert_has_calls(
+            [mock.call(volume) for volume in self.tools._unlocked_volumes])
+
+    @mock.patch.object(windows.WindowsMountTools, "_suspend_bitlocker")
+    @mock.patch.object(windows.WindowsMountTools, "_resume_bitlocker")
+    def test_install_encryption_firstboot_setup_suspend_failure(
+        self,
+        mock_resume_bitlocker,
+        mock_suspend_bitlocker
+    ):
+        self.tools._unlocked_volumes = ["vol1", "vol2"]
+        mock_morphing_tools = mock.Mock()
+        mock_suspend_bitlocker.side_effect = [None, IOError]
+        # Let resume-bitlocker fail to ensure that we're still trying to
+        # cover all volumes.
+        mock_resume_bitlocker.side_effect = ValueError
+        self.assertRaises(
+            IOError,
+            self.tools.install_encryption_firstboot_setup,
+            mock.sentinel.os_root_dir,
+            mock_morphing_tools)
+
+        mock_suspend_bitlocker.assert_has_calls(
+            [mock.call(volume) for volume in self.tools._unlocked_volumes])
+        mock_resume_bitlocker.assert_has_calls(
+            [mock.call(volume) for volume in self.tools._unlocked_volumes])
