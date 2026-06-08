@@ -242,20 +242,6 @@ class WindowsMountTools(base.BaseOSMountTools):
             f'manage-bde -unlock "{volume_id}" '
             f'-RecoveryPassword "{recovery_password}"')
 
-    def _suspend_bitlocker(self, volume_id: str):
-        """Suspend BitLocker until the next reboot for a given volume.
-
-        It doesn't decrypt the device, it just adds a publicly accessible
-        BitLocker protector that automatically unlocks the volume.
-
-        When the replica instance boots, the TPM protector will be reconfigured
-        automatically. Unfortunately the '-RebootCount' parameter isn't
-        honored, perhaps due to the fact that the disks are attached to a
-        separate VM. For this reason, we'll use a first-boot script to resume
-        BitLocker explicitly.
-        """
-        self._conn.exec_ps_command(f'Suspend-BitLocker "{volume_id}"')
-
     def _unlock_encrypted_volumes(self):
         recovery_password = self._osmorphing_info.get(
             constants.ENCRYPTED_DISKS_PASS)
@@ -285,18 +271,29 @@ class WindowsMountTools(base.BaseOSMountTools):
                     "recovery password.",
                     encrypted_volume_id)
                 continue
-
-            # Suspend BitLocker until the replica boots.
-            #
-            # We'll intentionally propagate the failure if we managed to
-            # unlock the volume but failed to suspend BitLocker.
-            self._suspend_bitlocker(encrypted_volume_id)
             self._unlocked_volumes.append(encrypted_volume_id)
 
         if not unlocked:
             raise exception.CoriolisException(
                 "Could not unlock any volume using the specified "
                 "BitLocker recovery password.")
+
+    def _suspend_bitlocker(self, volume_id: str):
+        """Suspend BitLocker until the next reboot for a given volume.
+
+        It doesn't decrypt the device, it just adds a publicly accessible
+        BitLocker protector that automatically unlocks the volume.
+
+        When the replica instance boots, the TPM protector will be reconfigured
+        automatically. Unfortunately the '-RebootCount' parameter isn't
+        honored, perhaps due to the fact that the disks are attached to a
+        separate VM. For this reason, we'll use a first-boot script to resume
+        BitLocker explicitly.
+        """
+        self._conn.exec_ps_command(f'Suspend-BitLocker "{volume_id}"')
+
+    def _resume_bitlocker(self, volume_id: str):
+        self._conn.exec_ps_command(f'Resume-BitLocker "{volume_id}"')
 
     def install_encryption_firstboot_setup(
         self,
@@ -313,18 +310,36 @@ class WindowsMountTools(base.BaseOSMountTools):
         # isn't honored, perhaps due to the fact that the disks are attached
         # to a different VM.
         script_content = ""
-        for encrypted_volume_id in self._unlocked_volumes:
-            LOG.info(
-                "Resuming BitLocker after first boot, volume: %s",
-                encrypted_volume_id)
-            script_content += f'Resume-BitLocker "{encrypted_volume_id}"\r\n'
 
-        # Resume BitLocker after bringing the disks online, which has a script
-        # priority of 10.
-        os_morphing_tools.register_firstboot_script(
-            script_content,
-            user_provided=False,
-            script_filename="11-bitlocker-firstboot.ps1")
+        try:
+            for encrypted_volume_id in self._unlocked_volumes:
+                LOG.info(
+                    "Suspending BitLocker for volume %s, scheduling it to be "
+                    "resumed after first-boot.",
+                    encrypted_volume_id)
+                # Suspend BitLocker until the replica boots.
+                self._suspend_bitlocker(encrypted_volume_id)
+                # Add a resume command to the first-boot script.
+                script_content += (
+                    f'Resume-BitLocker "{encrypted_volume_id}"\r\n')
+
+            # Resume BitLocker after bringing the disks online,
+            # which has a script priority of 10.
+            os_morphing_tools.register_firstboot_script(
+                script_content,
+                user_provided=False,
+                script_filename="11-bitlocker-firstboot.ps1")
+        except Exception:
+            LOG.exception("First-boot preparation failed, attempting to "
+                          "resume BitLocker.")
+            for encrypted_volume_id in self._unlocked_volumes:
+                try:
+                    self._resume_bitlocker(encrypted_volume_id)
+                except Exception:
+                    LOG.exception(
+                        "Unable to resume BitLocker for volume: %s" %
+                        encrypted_volume_id)
+            raise
 
     def mount_os(self):
         self._set_basic_disks_rw_mode()
