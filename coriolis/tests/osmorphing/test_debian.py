@@ -2,12 +2,16 @@
 # All Rights Reserved.
 from unittest import mock
 
+import ddt
+
+from coriolis import constants
 from coriolis import exception
 from coriolis.osmorphing import base
 from coriolis.osmorphing import debian
 from coriolis.tests import test_base
 
 
+@ddt.ddt
 class BaseDebianMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
     """Test suite for the BaseDebianMorphingTools class."""
 
@@ -286,19 +290,55 @@ class BaseDebianMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(
         debian.BaseDebianMorphingTools,
         '_run_update_initramfs')
+    @mock.patch.object(
+        debian.BaseDebianMorphingTools,
+        '_install_uefi_fallback_bootloader')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_configure_cloud_init')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, 'post_packages_install')
     def test_post_packages_install(
         self,
         mock_post_packages_install,
         mock__configure_cloud_init,
+        mock_install_uefi_fallback_bootloader,
         mock_run_update_initramfs,
+
     ):
+        self.morpher._osmorphing_parameters = {}
         self.morpher.post_packages_install(self.package_names)
 
         mock__configure_cloud_init.assert_called_once()
         mock_run_update_initramfs.assert_called_once_with()
         mock_post_packages_install.assert_called_once_with(self.package_names)
+
+        # We haven't set the firmware type, this shouldn't run.
+        mock_install_uefi_fallback_bootloader.assert_not_called()
+
+    @mock.patch.object(
+        debian.BaseDebianMorphingTools,
+        '_run_update_initramfs')
+    @mock.patch.object(
+        debian.BaseDebianMorphingTools,
+        '_install_uefi_fallback_bootloader')
+    @mock.patch.object(debian.BaseDebianMorphingTools, '_configure_cloud_init')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, 'post_packages_install')
+    def test_post_packages_install_uefi(
+        self,
+        mock_post_packages_install,
+        mock__configure_cloud_init,
+        mock_install_uefi_fallback_bootloader,
+        mock_run_update_initramfs,
+
+    ):
+        self.morpher._osmorphing_parameters = {
+            "firmware_type": constants.FIRMWARE_TYPE_EFI,
+        }
+        self.morpher.post_packages_install(self.package_names)
+
+        mock__configure_cloud_init.assert_called_once()
+        mock_run_update_initramfs.assert_called_once_with()
+        mock_post_packages_install.assert_called_once_with(self.package_names)
+
+        mock_install_uefi_fallback_bootloader.assert_called_once_with()
 
     @mock.patch.object(debian.BaseDebianMorphingTools, '_exec_cmd_chroot')
     def test_install_packages(self, mock_exec_cmd_chroot):
