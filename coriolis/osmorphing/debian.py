@@ -169,7 +169,15 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
         # Using 'env' rather than a shell assignment prefix because
         # _exec_cmd_chroot runs the command directly via chroot (no shell),
         # so "LC_ALL=C cmd" would be treated as the binary name.
-        raw = self._exec_cmd_chroot("env LC_ALL=C linux-version list")
+        try:
+            raw = self._exec_cmd_chroot("env LC_ALL=C linux-version list")
+        except exception.SSHCommandNotFoundException as ex:
+            # Container images such as the ones used by the integration tests
+            # do not include the "linux-version" binary.
+            LOG.warning(
+                "Unable to enumerate kernel versions, skipping "
+                "update-initramfs. Exception: %s", ex)
+            return
 
         kernel_versions = [v for v in raw.splitlines() if v and v[0].isdigit()]
         if not kernel_versions:
