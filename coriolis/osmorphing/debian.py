@@ -162,6 +162,25 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
             cfg_name = "%s/coriolis_netplan.yaml" % self.netplan_base
             self._write_file_sudo(cfg_name, new_cfg)
 
+    def _run_update_initramfs(self):
+        # env LC_ALL=C suppresses Perl/shell locale warnings that would
+        # otherwise appear in stdout and get mixed into the version list.
+        # Using 'env' rather than a shell assignment prefix because
+        # _exec_cmd_chroot runs the command directly via chroot (no shell),
+        # so "LC_ALL=C cmd" would be treated as the binary name.
+        raw = self._exec_cmd_chroot("env LC_ALL=C linux-version list")
+
+        kernel_versions = [v for v in raw.splitlines() if v and v[0].isdigit()]
+        if not kernel_versions:
+            LOG.warning(
+                "No kernel versions found via 'linux-version list'; "
+                "skipping update-initramfs. Raw output was: %r",
+                raw,
+            )
+            return
+        for version in kernel_versions:
+            self._exec_cmd_chroot(f"update-initramfs -k {version} -u")
+
     def get_installed_packages(self):
         cmd = "dpkg-query -f '${binary:Package}\\n' -W"
         try:
@@ -196,6 +215,7 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
 
     def post_packages_install(self, package_names):
         self._configure_cloud_init()
+        self._run_update_initramfs()
         super(BaseDebianMorphingTools, self).post_packages_install(
             package_names)
 

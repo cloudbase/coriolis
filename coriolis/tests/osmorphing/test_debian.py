@@ -283,14 +283,21 @@ class BaseDebianMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
 
         mock_pre_packages_install.assert_called_once_with(self.package_names)
 
+    @mock.patch.object(
+        debian.BaseDebianMorphingTools,
+        '_run_update_initramfs')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_configure_cloud_init')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, 'post_packages_install')
     def test_post_packages_install(
-            self, mock_post_packages_install, mock__configure_cloud_init):
-
+        self,
+        mock_post_packages_install,
+        mock__configure_cloud_init,
+        mock_run_update_initramfs,
+    ):
         self.morpher.post_packages_install(self.package_names)
 
         mock__configure_cloud_init.assert_called_once()
+        mock_run_update_initramfs.assert_called_once_with()
         mock_post_packages_install.assert_called_once_with(self.package_names)
 
     @mock.patch.object(debian.BaseDebianMorphingTools, '_exec_cmd_chroot')
@@ -457,3 +464,34 @@ deb http://archive.debian.org/debian wheezy-updates main non-free-firmware
         ])
         mock_test_path_chroot.assert_called_once_with(
             "/boot/efi/EFI/BOOT/BOOTX64.efi")
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
+    def test_update_initramfs(self, mock_exec_cmd_chroot):
+        mock_exec_cmd_chroot.side_effect = [
+            # 'linux-version list' output
+            "6.8.0-111-generic\n6.8.0-124-generic\n",
+            # 'update-initramfs' output
+            "",
+            "",
+        ]
+
+        self.morpher._run_update_initramfs()
+
+        mock_exec_cmd_chroot.assert_has_calls([
+            mock.call("env LC_ALL=C linux-version list"),
+            mock.call("update-initramfs -k 6.8.0-111-generic -u"),
+            mock.call("update-initramfs -k 6.8.0-124-generic -u"),
+        ])
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
+    def test_update_initramfs_no_kernels(self, mock_exec_cmd_chroot):
+        mock_exec_cmd_chroot.side_effect = [
+            # 'linux-version list' output
+            ""
+        ]
+
+        self.morpher._run_update_initramfs()
+
+        mock_exec_cmd_chroot.assert_has_calls([
+            mock.call("env LC_ALL=C linux-version list"),
+        ])

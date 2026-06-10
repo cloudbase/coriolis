@@ -170,34 +170,3 @@ class BaseUbuntuMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
                 self.os_root_dir, self.os_root_dir))
         mock_write_file_sudo.assert_called_once_with(
             'etc/netplan/file1.yaml', ubuntu.yaml.dump(config_data))
-
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
-    def test_update_initramfs(self, mock_exec_cmd_chroot):
-        mock_exec_cmd_chroot.side_effect = [
-            # 'linux-version list' output
-            "6.8.0-111-generic\n6.8.0-124-generic\n",
-            # 'update-initramfs' output
-            "",
-            "",
-        ]
-
-        self.morphing_tools._run_update_initramfs()
-
-        mock_exec_cmd_chroot.assert_has_calls([
-            mock.call("env LC_ALL=C linux-version list"),
-            mock.call("update-initramfs -k 6.8.0-111-generic -u"),
-            mock.call("update-initramfs -k 6.8.0-124-generic -u"),
-        ])
-
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
-    def test_update_initramfs_no_kernels(self, mock_exec_cmd_chroot):
-        mock_exec_cmd_chroot.side_effect = [
-            # 'linux-version list' output
-            ""
-        ]
-
-        self.morphing_tools._run_update_initramfs()
-
-        mock_exec_cmd_chroot.assert_has_calls([
-            mock.call("env LC_ALL=C linux-version list"),
-        ])
