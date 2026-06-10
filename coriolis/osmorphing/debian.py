@@ -8,6 +8,7 @@ import re
 from oslo_log import log as logging
 import yaml
 
+from coriolis import constants
 from coriolis import exception
 from coriolis.osmorphing import base
 from coriolis.osmorphing.osdetect import debian as debian_osdetect
@@ -216,6 +217,9 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
     def post_packages_install(self, package_names):
         self._configure_cloud_init()
         self._run_update_initramfs()
+        if (self._osmorphing_parameters.get("firmware_type") ==
+                constants.FIRMWARE_TYPE_EFI):
+            self._install_uefi_fallback_bootloader()
         super(BaseDebianMorphingTools, self).post_packages_install(
             package_names)
 
