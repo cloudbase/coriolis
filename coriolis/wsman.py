@@ -139,7 +139,14 @@ class WSManConnection(object):
             if shell_id:
                 self._protocol.close_shell(shell_id)
 
-    def exec_command(self, cmd, args=[], timeout=None, sanitizable=True):
+    def exec_command(
+        self,
+        cmd,
+        args=[],
+        timeout=None,
+        sanitizable=True,
+        include_stderr=False,
+    ):
         # Our sanitization helpers do not work for base64 encoded commands,
         # in which case we'll avoid logging it so that we won't leak
         # sensitive information.
@@ -158,12 +165,20 @@ class WSManConnection(object):
                 "stdout: %s\nstd_err: %s" %
                 (sanitized_cmd, exit_code, std_out, std_err))
 
+        if include_stderr:
+            return std_out, std_err
         return std_out
 
-    def exec_ps_command(self, cmd, ignore_stdout=False, timeout=None):
+    def exec_ps_command(
+        self,
+        cmd,
+        ignore_stdout=False,
+        timeout=None,
+        include_stderr=False,
+    ):
         LOG.debug("Executing PS command: %s", strutils.mask_password(cmd))
         base64_cmd = base64.b64encode(cmd.encode('utf-16le')).decode()
-        return self.exec_command(
+        ret = self.exec_command(
             "powershell.exe",
             [
                 "-EncodedCommand",
@@ -173,7 +188,14 @@ class WSManConnection(object):
                 "RemoteSigned",
             ],
             timeout=timeout,
-            sanitizable=False)[:-2]
+            sanitizable=False,
+            include_stderr=include_stderr)
+        if include_stderr:
+            stdout, stderr = ret
+            return stdout[:-2], stderr
+        else:
+            stdout = ret
+            return stdout[:-2]
 
     def test_path(self, remote_path):
         ret_val = self.exec_ps_command("Test-Path -Path \"%s\"" % remote_path)

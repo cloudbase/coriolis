@@ -153,7 +153,10 @@ class WSManConnectionTestCase(test_base.CoriolisBaseTestCase):
     def test_exec_ps_command(self):
         self.conn.exec_command = mock.Mock()
         self.conn.exec_command.return_value = "std_out\n\n"
-        result = self.conn.exec_ps_command(self.cmd)
+        result = self.conn.exec_ps_command(
+            self.cmd,
+            include_stderr=False,
+        )
         self.conn.exec_command.assert_called_once_with(
             "powershell.exe",
             [
@@ -163,8 +166,29 @@ class WSManConnectionTestCase(test_base.CoriolisBaseTestCase):
                 '-ExecutionPolicy', 'RemoteSigned',
             ],
             timeout=None,
-            sanitizable=False)
+            sanitizable=False,
+            include_stderr=False)
         self.assertEqual(result, "std_out")
+
+    def test_exec_ps_command_with_stderr(self):
+        self.conn.exec_command = mock.Mock()
+        self.conn.exec_command.return_value = "std_out\n\n", "stderr"
+        result = self.conn.exec_ps_command(
+            self.cmd,
+            include_stderr=True,
+        )
+        self.conn.exec_command.assert_called_once_with(
+            "powershell.exe",
+            [
+                "-EncodedCommand",
+                'dABlAHMAdABfAGMAbQBkAA==',
+                '-NonInteractive',
+                '-ExecutionPolicy', 'RemoteSigned',
+            ],
+            timeout=None,
+            sanitizable=False,
+            include_stderr=True)
+        self.assertEqual(result, ("std_out", "stderr"))
 
     def test_test_path(self):
         self.conn.exec_ps_command = mock.Mock()

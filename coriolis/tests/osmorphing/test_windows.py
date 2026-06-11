@@ -203,14 +203,24 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_get_worker_os_drive_path.assert_called()
 
     def test__mount_disk_image(self):
+        self.conn.exec_ps_command.return_value = ("fake-letter", "fake stderr")
         result = self.morphing_tools._mount_disk_image(
             mock.sentinel.path)
 
         self.conn.exec_ps_command.assert_called_once_with(
             "(Mount-DiskImage '%s' -PassThru | Get-Volume).DriveLetter" %
-            mock.sentinel.path)
+            mock.sentinel.path,
+            include_stderr=True)
 
-        self.assertEqual(result, self.conn.exec_ps_command.return_value)
+        self.assertEqual("fake-letter", result)
+
+    def test__mount_disk_image_missing_letter(self):
+        self.conn.exec_ps_command.side_effect = [
+            ("", "fake stderr"), "fake-size"]
+        self.assertRaises(
+            exception.CoriolisException,
+            self.morphing_tools._mount_disk_image,
+            mock.sentinel.path)
 
     def test__dismount_disk_image(self):
         self.morphing_tools._dismount_disk_image(mock.sentinel.path)

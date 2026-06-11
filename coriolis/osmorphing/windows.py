@@ -274,9 +274,19 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
 
     def _mount_disk_image(self, path):
         LOG.info("Mounting disk image: %s" % path)
-        return self._conn.exec_ps_command(
+        drive_letter, stderr = self._conn.exec_ps_command(
             "(Mount-DiskImage '%s' -PassThru | Get-Volume).DriveLetter" %
-            path)
+            path,
+            include_stderr=True)
+        if not drive_letter:
+            # Couldn't mount the image, let's fetch the file size. It may
+            # help us spot invalid images.
+            file_size = self._conn.exec_ps_command(f"(ls '{path}').Length")
+            raise exception.CoriolisException(
+                f"Could not mount image: '{path}', "
+                f"file size: {file_size}, "
+                f"mount stderr: {stderr}")
+        return drive_letter
 
     def _dismount_disk_image(self, path):
         LOG.info("Unmounting disk image: %s" % path)
