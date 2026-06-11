@@ -6,7 +6,7 @@
   with_items:
     - { src: "README.md.j2",  dest: "{{ build_dir }}/README.md" }
     - { src: "Dockerfile.j2", dest: "{{ build_dir }}/coriolis-console-editor.Dockerfile" }
-    - { src: "free_libvirt_raw_disk.py.j2", dest: "{{ build_dir }}/free_libvirt_raw_disk.py" }
+    - { src: "free_libvirt_resources.py.j2", dest: "{{ build_dir }}/free_libvirt_resources.py" }
   notify:
     - "build coriolis-console-editor"
 
