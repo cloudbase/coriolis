@@ -1,0 +1,64 @@
+[cloudstack_migration_provider]
+
+# Default CloudStack zone ID or name for imports.
+# zone =
+
+# Linux cloud-init template in the target zone (replication minion, Linux OS morphing, finalize shell VM).
+# Default CloudStack Ubuntu 22.04 (or newer) templates work out of the box; set the template name or UUID.
+# linux_template =
+
+# Windows template for OS morphing minion only (WS2022 or newer; not used for disk replication).
+# Must have cloudbase-init (UserDataPlugin, WinRM HTTPS on 5986) configured for CloudStack userdata.
+# windows_template =
+
+# Custom flexible disk offering for replica volumes. Optional; the provider
+# auto-selects an active custom offering when unset.
+# disk_offering = "Coriolis custom disk"
+
+# Compute offering for temporary minion VMs (replication and OS morphing). Flexible custom offering recommended.
+# At deploy: 2 vCPU and 2048 MB RAM when the offering has flexible CPU/RAM in CloudStack.
+# minion_service_offering = "Coriolis worker"
+
+# Compute offering for the final migrated VM. Flexible custom offering recommended.
+# At deploy: CPU and RAM from the source VM when the offering has flexible CPU/RAM in CloudStack.
+# migrated_vm_service_offering = "Coriolis migrated VM"
+
+# Default KVM disk controller for migrated VMs (rootDiskController / dataDiskController).
+disk_controller = "virtio"
+
+# Optional CloudStack guest OS type ID for final deploy. Windows migrations default to Other (64-bit).
+# guest_os_id =
+
+# Associate a public IP (static NAT) on the final migrated VM primary NIC.
+# When false, the final VM is deployed with no public IP.
+use_floating_ip = true
+
+# Optional existing allocated public IP (CloudStack UUID) for the final VM.
+# When unset, a new public IP is allocated at cutover. Ignored when use_floating_ip is false.
+# final_vm_public_ip =
+
+# Allowed Firewall Ports: comma-separated TCP ports (and optional icmp) opened on
+# that public IP when use_floating_ip is enabled. Empty = static NAT only.
+# Ignored when final_vm_public_ip is set or use_floating_ip is false.
+final_vm_firewall_ports = ""
+
+# Configure migrated guests to use DHCP during OS morphing. When false, preserve static IPs where possible.
+set_dhcp = false
+
+# Retain existing user credentials during OS morphing (cloud-init / cloudbase-init).
+retain_user_credentials = true
+
+# URL to a virtio-win ISO for Windows OS morphing. Must be reachable from the morphing minion.
+windows_virtio_iso_url = "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
+
+# HTTP(S) URL of the Cloudbase-Init ZIP (amd64) installed during Windows OS morphing.
+cloudbaseinit_x64_url = "https://www.cloudbase.it/downloads/CloudbaseInitSetup_x64.zip"
+
+# Disk data transfer mechanism to the replication minion: SSH (TCP/22) or HTTPS (TCP/5566).
+# Choices are "SSH" or "HTTPS". Default is HTTPS.
+data_transfer_mechanism = HTTPS
+
+# Optional extra CloudStack deployVirtualMachine / updateVirtualMachine parameters for
+# the final migrated VM (e.g. boottype: UEFI). Comma-separated key: value pairs;
+# validated via a probe VM when set.
+# advanced_migrated_vm_options = boottype: UEFI

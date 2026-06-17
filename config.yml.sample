@@ -27,7 +27,7 @@ coriolis_profiling_dir_host: /opt/coriolis/profiling
 enable_profiling_for: []
 
 coriolis_export_providers: ["openstack", "azure", "scvmm", "vmware", "aws", "metal", "ovirt", "nutanix"]
-coriolis_import_providers: ["openstack", "azure", "oci", "aws", "vmware", "ovirt", "kubevirt", "lxd", "proxmox", "libvirt"]
+coriolis_import_providers: ["openstack", "azure", "oci", "aws", "vmware", "ovirt", "kubevirt", "lxd", "proxmox", "libvirt", "cloudstack"]
 
 custom_coriolis_export_modules: {}
 custom_coriolis_import_modules: {}
