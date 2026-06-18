@@ -613,6 +613,48 @@ class TransferTasksExecutionDBAPITestCase(BaseDBAPITestCase):
             self.context, self.valid_transfer.id)
         self.assertIn(self.valid_tasks_execution, result)
 
+    def test_get_transfer_tasks_executions_single_status_filter(self):
+        result = api.get_transfer_tasks_executions(
+            self.context, self.valid_transfer.id,
+            filters={"status": DEFAULT_EXECUTION_STATUS})
+        self.assertIn(self.valid_tasks_execution, result)
+
+        result = api.get_transfer_tasks_executions(
+            self.context, self.valid_transfer.id,
+            filters={"status": constants.EXECUTION_STATUS_COMPLETED})
+        self.assertNotIn(self.valid_tasks_execution, result)
+
+    def test_get_transfer_tasks_executions_multi_status_filter(self):
+        result = api.get_transfer_tasks_executions(
+            self.context, self.valid_transfer.id,
+            filters={"status": [
+                DEFAULT_EXECUTION_STATUS,
+                constants.EXECUTION_STATUS_COMPLETED]})
+        self.assertIn(self.valid_tasks_execution, result)
+
+        result = api.get_transfer_tasks_executions(
+            self.context, self.valid_transfer.id,
+            filters={"status": [
+                constants.EXECUTION_STATUS_COMPLETED,
+                constants.EXECUTION_STATUS_ERROR]})
+        self.assertNotIn(self.valid_tasks_execution, result)
+
+    def test_get_transfer_tasks_executions_type_filter(self):
+        result = api.get_transfer_tasks_executions(
+            self.context, self.valid_transfer.id,
+            filters={"type": constants.EXECUTION_TYPE_TRANSFER_EXECUTION})
+        self.assertIn(self.valid_tasks_execution, result)
+
+        result = api.get_transfer_tasks_executions(
+            self.context, self.valid_transfer.id,
+            filters={"type": constants.EXECUTION_TYPE_DEPLOYMENT})
+        self.assertNotIn(self.valid_tasks_execution, result)
+
+    def test_get_transfer_tasks_executions_limit(self):
+        result = api.get_transfer_tasks_executions(
+            self.context, self.valid_transfer.id, limit=1)
+        self.assertEqual(1, len(result))
+
     def test_get_transfer_tasks_executions_admin(self):
         self.context.is_admin = True
         result = api.get_transfer_tasks_executions(
