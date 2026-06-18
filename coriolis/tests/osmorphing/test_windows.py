@@ -1217,3 +1217,51 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
 
         self.morphing_tools._conn.download_file.assert_not_called()
         mock_mount_disk_image.assert_not_called()
+
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_get_sid")
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_grant_permissions")
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_add_dism_driver")
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_revoke_permissions")
+    def test_install_dism_drivers(
+            self, mock_revoke_permissions, mock_add_dism_driver,
+            mock_grant_permissions, mock_get_sid):
+        null_sid = "S-1-0-0"
+        mock_get_sid.return_value = null_sid
+
+        existing_driver_path = "e:\\NetKVM\\w11\\amd64"
+        missing_driver_path = "e:\\Missing\\w11\\amd64"
+        driver_paths = [existing_driver_path, missing_driver_path]
+        self.conn.test_path.side_effect = lambda path: (
+            path == existing_driver_path)
+
+        self.morphing_tools._install_dism_drivers(driver_paths)
+
+        exp_repo_path = "C:\\Windows\\System32\\DriverStore\\FileRepository"
+        mock_grant_permissions.assert_called_once_with(
+            exp_repo_path, f"*{null_sid}")
+        mock_revoke_permissions.assert_called_once_with(
+            exp_repo_path, f"*{null_sid}")
+        # Only the existing driver path should be installed:
+        mock_add_dism_driver.assert_called_once_with(existing_driver_path)
+
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_get_sid")
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_grant_permissions")
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_add_dism_driver")
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_revoke_permissions")
+    def test_install_dism_drivers_revokes_on_failure(
+            self, mock_revoke_permissions, mock_add_dism_driver,
+            mock_grant_permissions, mock_get_sid):
+        null_sid = "S-1-0-0"
+        mock_get_sid.return_value = null_sid
+        mock_add_dism_driver.side_effect = IOError
+
+        self.assertRaises(
+            IOError,
+            self.morphing_tools._install_dism_drivers, ["e:\\NetKVM"])
+
+        exp_repo_path = "C:\\Windows\\System32\\DriverStore\\FileRepository"
+        mock_grant_permissions.assert_called_once_with(
+            exp_repo_path, f"*{null_sid}")
+        # Permissions must be revoked even if driver installation fails:
+        mock_revoke_permissions.assert_called_once_with(
+            exp_repo_path, f"*{null_sid}")

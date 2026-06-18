@@ -800,26 +800,36 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
                     virtio_drive, d, virtio_dir, arch) for d in drivers
             ]
 
-            sid = self._get_sid()
-            # Fails on Nano Server without explicitly granting permissions
-            file_repo_path = (
-                "%sWindows\\System32\\DriverStore\\FileRepository" %
-                self._os_root_dir
-            )
-            self._grant_permissions(file_repo_path, "*%s" % sid)
-            try:
-                for driver_path in driver_paths:
-                    if self._conn.test_path(driver_path):
-                        self._add_dism_driver(driver_path)
-                    else:
-                        LOG.warn(
-                            "Could not locate driver dir '%s', skipping.",
-                            driver_path
-                        )
-            finally:
-                self._revoke_permissions(file_repo_path, "*%s" % sid)
+            self._install_dism_drivers(driver_paths)
         finally:
             self._dismount_disk_image(VIRTIO_WIN_ISO_PATH)
+
+    def _install_dism_drivers(self, driver_paths):
+        """Installs the drivers located at the given paths into the offline
+        Windows image via DISM.
+
+        Temporarily grants permissions on the DriverStore FileRepository
+        (required on Nano Server) for the duration of the installation.
+        Paths which do not exist are skipped with a warning.
+        """
+        sid = self._get_sid()
+        # Fails on Nano Server without explicitly granting permissions
+        file_repo_path = (
+            "%sWindows\\System32\\DriverStore\\FileRepository" %
+            self._os_root_dir
+        )
+        self._grant_permissions(file_repo_path, "*%s" % sid)
+        try:
+            for driver_path in driver_paths:
+                if self._conn.test_path(driver_path):
+                    self._add_dism_driver(driver_path)
+                else:
+                    LOG.warning(
+                        "Could not locate driver dir '%s', skipping.",
+                        driver_path
+                    )
+        finally:
+            self._revoke_permissions(file_repo_path, "*%s" % sid)
 
     def get_packages(self):
         return [], []
