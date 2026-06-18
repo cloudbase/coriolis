@@ -71,6 +71,8 @@ CLOUDBASE_INIT_DEFAULT_METADATA_SVCS = [
 REQUIRED_DETECTED_WINDOWS_OS_FIELDS = [
     "version_number", "edition_id", "installation_type", "product_name"]
 
+VIRTIO_WIN_ISO_PATH = "c:\\virtio-win.iso"
+
 INTERFACES_PATH_FORMAT = (
     "HKLM:\\%s\\ControlSet001\\Services\\Tcpip\\Parameters\\Interfaces")
 
@@ -764,17 +766,22 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
             "viogpudo",
         ]
 
+        virtio_iso_url = self._osmorphing_parameters.get(
+            "windows_virtio_iso_url")
+        if not virtio_iso_url:
+            raise exception.CoriolisException(
+                "VirtIO drivers ISO URL ('windows_virtio_iso_url') not set "
+                "in the OSMorphing parameters")
+
         self._event_manager.progress_update("Downloading virtio-win drivers")
 
-        virtio_iso_path = "c:\\virtio-win.iso"
-        virtio_iso_url = self._osmorphing_parameters["windows_virtio_iso_url"]
         utils.retry_on_error(sleep_seconds=5)(self._conn.download_file)(
-            virtio_iso_url, virtio_iso_path
+            virtio_iso_url, VIRTIO_WIN_ISO_PATH
         )
 
         self._event_manager.progress_update("Adding virtio-win drivers")
 
-        virtio_drive = self._mount_disk_image(virtio_iso_path)
+        virtio_drive = self._mount_disk_image(VIRTIO_WIN_ISO_PATH)
         try:
             virtio_dir = None
 
@@ -822,7 +829,7 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
             finally:
                 self._revoke_permissions(file_repo_path, "*%s" % sid)
         finally:
-            self._dismount_disk_image(virtio_iso_path)
+            self._dismount_disk_image(VIRTIO_WIN_ISO_PATH)
 
     def get_packages(self):
         return [], []
