@@ -1416,34 +1416,43 @@ class ConductorServerEndpoint(object):
                     "Transfer '%s' is currently being deployed" % transfer_id)
 
     @staticmethod
-    def _check_running_executions(action):
-        running_executions = [
-            e.id for e in action.executions
-            if e.status in constants.ACTIVE_EXECUTION_STATUSES]
+    def _check_running_executions(ctxt, transfer):
+        running_executions = db_api.get_transfer_tasks_executions(
+            ctxt, transfer.id,
+            filters={"status": constants.ACTIVE_EXECUTION_STATUSES})
         if running_executions:
             raise exception.InvalidActionTasksExecutionState(
                 "Another tasks execution is in progress: %s" % (
-                    running_executions))
+                    [e.id for e in running_executions]))
 
     def _check_transfer_running_executions(self, ctxt, transfer):
-        self._check_running_executions(transfer)
+        self._check_running_executions(ctxt, transfer)
         self._check_running_transfer_deployments(ctxt, transfer.id)
 
     @staticmethod
-    def _check_valid_transfer_tasks_execution(transfer, force=False):
-        sorted_executions = sorted(
-            transfer.executions, key=lambda e: e.number, reverse=True)
-        if not sorted_executions and not force:
-            raise exception.InvalidTransferState(
-                "The Transfer has never been executed.")
+    def _get_last_transfer_execution(ctxt, transfer_id, status=None,
+                                     execution_type=None):
+        filters = {}
+        if status is not None:
+            filters["status"] = status
+        if execution_type is not None:
+            filters["type"] = execution_type
+        executions = db_api.get_transfer_tasks_executions(
+            ctxt, transfer_id, filters=filters,
+            sort_keys=["number"], sort_dirs=["desc"], limit=1)
+        return executions[0] if executions else None
 
-        if not [e for e in sorted_executions
-                if e.type == constants.EXECUTION_TYPE_TRANSFER_EXECUTION and (
-                    e.status == constants.EXECUTION_STATUS_COMPLETED)]:
-            if not force:
-                raise exception.InvalidTransferState(
-                    "A transfer must have been executed successfully at least "
-                    "once in order to be deployed")
+    def _check_transfer_deploy_ability(self, ctxt, transfer, force=False):
+        if force:
+            return
+
+        completed_execution = self._get_last_transfer_execution(
+            ctxt, transfer.id, status=constants.EXECUTION_STATUS_COMPLETED,
+            execution_type=constants.EXECUTION_TYPE_TRANSFER_EXECUTION)
+        if completed_execution is None:
+            raise exception.InvalidTransferState(
+                "A transfer must have been executed successfully at least "
+                "once in order to be deployed")
 
     def _get_provider_types(self, ctxt, endpoint):
         provider_types = self.get_available_providers(ctxt).get(endpoint.type)
@@ -1454,7 +1463,7 @@ class ConductorServerEndpoint(object):
 
     def _validate_deployment_inputs(self, ctxt, deployment, transfer, force):
         self._check_transfer_running_executions(ctxt, transfer)
-        self._check_valid_transfer_tasks_execution(transfer, force)
+        self._check_transfer_deploy_ability(ctxt, transfer, force)
         for instance, info in transfer.info.items():
             if not info.get("volumes_info"):
                 raise exception.InvalidTransferState(
@@ -1874,18 +1883,6 @@ class ConductorServerEndpoint(object):
             db_api.update_transfer_action_info_for_instance(
                 ctxt, action.id, instance, action.info[instance])
 
-    def _get_last_execution_for_transfer(self, ctxt, transfer, requery=False):
-        if requery:
-            transfer = self._get_transfer(ctxt, transfer.id)
-        last_transfer_execution = None
-        if not transfer.executions:
-            raise exception.InvalidTransferState(
-                "Transfer with ID '%s' has no existing Trasnfer "
-                "executions." % transfer.id)
-        last_transfer_execution = sorted(
-            transfer.executions, key=lambda e: e.number)[-1]
-        return last_transfer_execution
-
     def _get_execution_for_deployment(self, ctxt, deployment, requery=False,
                                       raise_on_executions_empty=True):
         if requery:
@@ -1917,8 +1914,12 @@ class ConductorServerEndpoint(object):
                 "have minion machines allocated for it." % (
                     transfer.last_execution_status, awaiting_minions_status))
 
-        last_transfer_execution = self._get_last_execution_for_transfer(
-            ctxt, transfer, requery=False)
+        last_transfer_execution = self._get_last_transfer_execution(
+            ctxt, transfer.id)
+        if last_transfer_execution is None:
+            raise exception.InvalidTransferState(
+                "Transfer with ID '%s' has no existing Transfer "
+                "executions." % transfer.id)
         self._update_task_info_for_minion_allocations(
             ctxt, transfer, minion_machine_allocations)
 
@@ -1939,8 +1940,12 @@ class ConductorServerEndpoint(object):
                 "have minion machines allocations fail for it." % (
                     transfer.last_execution_status, awaiting_minions_status))
 
-        last_transfer_execution = self._get_last_execution_for_transfer(
-            ctxt, transfer, requery=False)
+        last_transfer_execution = self._get_last_transfer_execution(
+            ctxt, transfer.id)
+        if last_transfer_execution is None:
+            raise exception.InvalidTransferState(
+                "Transfer with ID '%s' has no existing Transfer "
+                "executions." % transfer.id)
         LOG.warn(
             "Error occurred while allocating minion machines for Transfer "
             "'%s'. Cancelling the current Transfer Execution ('%s'). "
@@ -3520,7 +3525,7 @@ class ConductorServerEndpoint(object):
             self._check_minion_pools_for_action(ctxt, dummy)
 
         self._check_transfer_running_executions(ctxt, transfer)
-        self._check_valid_transfer_tasks_execution(transfer, force=True)
+        self._check_transfer_deploy_ability(ctxt, transfer, force=True)
         if updated_properties.get('user_scripts'):
             transfer.user_scripts = updated_properties['user_scripts']
         execution = models.TasksExecution()

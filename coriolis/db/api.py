@@ -298,7 +298,16 @@ def get_transfer_tasks_executions(context, transfer_id, include_tasks=False,
     filters = copy.deepcopy(filters or {})
     if "status" in filters:
         status = filters.pop("status")
-        q = q.filter(models.TasksExecution.status == status)
+        if isinstance(status, (list, tuple, set)):
+            q = q.filter(models.TasksExecution.status.in_(status))
+        else:
+            q = q.filter(models.TasksExecution.status == status)
+    if "type" in filters:
+        execution_type = filters.pop("type")
+        if isinstance(execution_type, (list, tuple, set)):
+            q = q.filter(models.TasksExecution.type.in_(execution_type))
+        else:
+            q = q.filter(models.TasksExecution.type == execution_type)
     if filters:
         raise ValueError("Unsupported filters: %s" % filters)
 
@@ -520,7 +529,6 @@ def get_transfer(context, transfer_id,
                  include_task_info=False,
                  to_dict=False):
     q = _soft_delete_aware_query(context, models.Transfer)
-    q = _get_transfer_with_tasks_executions_options(q)
     if include_task_info:
         q = q.options(orm.undefer('info'))
     if transfer_scenario:
@@ -533,7 +541,9 @@ def get_transfer(context, transfer_id,
     transfer = q.filter(
         models.Transfer.id == transfer_id).first()
     if to_dict and transfer is not None:
-        return transfer.to_dict(include_task_info=include_task_info)
+        return transfer.to_dict(
+            include_task_info=include_task_info,
+            include_executions=False)
 
     return transfer
 
