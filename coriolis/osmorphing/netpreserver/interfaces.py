@@ -31,7 +31,7 @@ class InterfacesNetPreserver(base.BaseNetPreserver):
             curr_ip_address = None
             curr_iface = None
             interfaces_contents = self.osmorphing_tool._read_file_sudo(
-                interface_file).decode()
+                interface_file)
             LOG.debug(
                 "Fetched %s contents: %s", interface_file, interfaces_contents)
             for line in interfaces_contents.splitlines():
