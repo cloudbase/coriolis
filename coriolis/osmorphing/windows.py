@@ -71,7 +71,20 @@ CLOUDBASE_INIT_DEFAULT_METADATA_SVCS = [
 REQUIRED_DETECTED_WINDOWS_OS_FIELDS = [
     "version_number", "edition_id", "installation_type", "product_name"]
 
+QEMU_GUEST_AGENT_INSTALL_SCRIPT_FORMAT = (
+    "msiexec.exe /i '%(agent_msi_path)s' /qn /passive "
+    "/L*V '%(agent_msi_log_dir)s/qemu-guest-agent-msiexec.log'")
+
+QEMU_GUEST_AGENT_INSTALL_FROM_DIR_SCRIPT_FORMAT = (
+    "$dst = 'C:\\Program Files\\Qemu-ga'\n"
+    "New-Item -ItemType Directory -Force -Path $dst | Out-Null\n"
+    "Copy-Item '%(qemu_ga_dir)s\\x64\\*' -Destination $dst -Force\n"
+    "Copy-Item '%(qemu_ga_dir)s\\mingw64\\*' -Destination $dst -Force\n"
+    '& "$dst\\qemu-ga.exe" --service install\n'
+    "Start-Service QEMU-GA")
+
 VIRTIO_WIN_ISO_PATH = "c:\\virtio-win.iso"
+QEMU_GA_MSI_NAME = "qemu-ga.msi"
 
 INTERFACES_PATH_FORMAT = (
     "HKLM:\\%s\\ControlSet001\\Services\\Tcpip\\Parameters\\Interfaces")
@@ -830,6 +843,67 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
                     )
         finally:
             self._revoke_permissions(file_repo_path, "*%s" % sid)
+
+    def _setup_qemu_agent_installation_local_script(
+            self, msi_source_path=None, msi_url=None,
+            qemu_ga_source_dir=None):
+        """Stages the QEMU guest agent in the Cloudbase-Init directory and
+        registers a first-boot script which installs it.
+
+        Two source modes are supported:
+          * MSI: pass 'msi_source_path' or 'msi_url'. The MSI is staged
+            and installed via msiexec on first boot.
+          * Directory: pass 'qemu_ga_source_dir' pointing at a 'qemu-ga'
+            directory (e.g. on the SUSE VMDP ISO) containing 'x64' and
+            'mingw64' subdirs.
+        """
+
+        if not any([msi_source_path, msi_url, qemu_ga_source_dir]):
+            raise exception.CoriolisException(
+                "No QEMU guest agent source provided: one of "
+                "'msi_source_path', 'msi_url' or 'qemu_ga_source_dir' "
+                "must be set.")
+
+        cloudbaseinit_base_dir = self._get_cbslinit_base_dir()
+        guest_cloudbase_init_base_dir = "C%s" % cloudbaseinit_base_dir[1:]
+
+        self._event_manager.progress_update(
+            "Setting up guest local script for installing the "
+            "QEMU guest agent on first boot")
+
+        if qemu_ga_source_dir:
+            qemu_ga_exe_path = "%s\\x64\\qemu-ga.exe" % qemu_ga_source_dir
+            if not self._conn.test_path(qemu_ga_exe_path):
+                LOG.warning(
+                    "qemu-ga is not packaged in the configured source. "
+                    "Skipping qemu-ga installation.")
+                return
+            # Copy qemu-ga/ to the Cloudbase-Init directory on the migrated
+            # disk:
+            self._conn.exec_ps_command(
+                "Copy-Item -Recurse -Force '%s' '%s'" % (
+                    qemu_ga_source_dir, cloudbaseinit_base_dir),
+                ignore_stdout=True)
+            local_script = QEMU_GUEST_AGENT_INSTALL_FROM_DIR_SCRIPT_FORMAT % {
+                "qemu_ga_dir": "%s\\qemu-ga" % guest_cloudbase_init_base_dir}
+        else:
+            msi_dest_path = "%s\\%s" % (
+                cloudbaseinit_base_dir, QEMU_GA_MSI_NAME)
+            if msi_url:
+                utils.retry_on_error(sleep_seconds=5)(
+                    self._conn.download_file)(msi_url, msi_dest_path)
+            else:
+                self._conn.exec_ps_command(
+                    "Copy-Item '%s' -Destination '%s'" % (
+                        msi_source_path, msi_dest_path))
+            local_script = QEMU_GUEST_AGENT_INSTALL_SCRIPT_FORMAT % {
+                "agent_msi_path": "%s\\%s" % (
+                    guest_cloudbase_init_base_dir, QEMU_GA_MSI_NAME),
+                "agent_msi_log_dir": guest_cloudbase_init_base_dir}
+
+        self.register_firstboot_script(
+            local_script, user_provided=False,
+            script_filename="coriolis_qemu_agent_install.ps1")
 
     def get_packages(self):
         return [], []

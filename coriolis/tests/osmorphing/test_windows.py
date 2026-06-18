@@ -1265,3 +1265,96 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         # Permissions must be revoked even if driver installation fails:
         mock_revoke_permissions.assert_called_once_with(
             exp_repo_path, f"*{null_sid}")
+
+    @mock.patch.object(
+        windows.BaseWindowsMorphingTools, "register_firstboot_script")
+    def test_setup_qemu_agent_installation_local_script_from_url(
+            self, mock_register_firstboot_script):
+        fake_msi_url = "fake-qemu-ga-msi-url"
+
+        self.morphing_tools._setup_qemu_agent_installation_local_script(
+            msi_url=fake_msi_url)
+
+        exp_msi_dest_path = "C:\\Cloudbase-Init\\qemu-ga.msi"
+        self.morphing_tools._conn.download_file.assert_called_once_with(
+            fake_msi_url, exp_msi_dest_path)
+        self.morphing_tools._conn.exec_ps_command.assert_not_called()
+
+        exp_script = windows.QEMU_GUEST_AGENT_INSTALL_SCRIPT_FORMAT % {
+            "agent_msi_path": exp_msi_dest_path,
+            "agent_msi_log_dir": "C:\\Cloudbase-Init"}
+        mock_register_firstboot_script.assert_called_once_with(
+            exp_script, user_provided=False,
+            script_filename="coriolis_qemu_agent_install.ps1")
+
+    @mock.patch.object(
+        windows.BaseWindowsMorphingTools, "register_firstboot_script")
+    def test_setup_qemu_agent_installation_local_script_from_path(
+            self, mock_register_firstboot_script):
+        fake_msi_source_path = "e:\\guest-agent\\qemu-ga-x86_64.msi"
+
+        self.morphing_tools._setup_qemu_agent_installation_local_script(
+            msi_source_path=fake_msi_source_path)
+
+        exp_msi_dest_path = "C:\\Cloudbase-Init\\qemu-ga.msi"
+        self.morphing_tools._conn.download_file.assert_not_called()
+        self.morphing_tools._conn.exec_ps_command.assert_called_once_with(
+            "Copy-Item '%s' -Destination '%s'" % (
+                fake_msi_source_path, exp_msi_dest_path))
+
+        exp_script = windows.QEMU_GUEST_AGENT_INSTALL_SCRIPT_FORMAT % {
+            "agent_msi_path": exp_msi_dest_path,
+            "agent_msi_log_dir": "C:\\Cloudbase-Init"}
+        mock_register_firstboot_script.assert_called_once_with(
+            exp_script, user_provided=False,
+            script_filename="coriolis_qemu_agent_install.ps1")
+
+    @mock.patch.object(
+        windows.BaseWindowsMorphingTools, "register_firstboot_script")
+    def test_setup_qemu_agent_installation_local_script_no_source(
+            self, mock_register_firstboot_script):
+        self.assertRaises(
+            exception.CoriolisException,
+            self.morphing_tools._setup_qemu_agent_installation_local_script)
+
+        self.morphing_tools._conn.download_file.assert_not_called()
+        self.morphing_tools._conn.exec_ps_command.assert_not_called()
+        mock_register_firstboot_script.assert_not_called()
+
+    @mock.patch.object(
+        windows.BaseWindowsMorphingTools, "register_firstboot_script")
+    def test_setup_qemu_agent_installation_local_script_from_qemu_ga_dir(
+            self, mock_register_firstboot_script):
+        fake_qemu_ga_source_dir = "f:\\qemu-ga"
+        self.morphing_tools._conn.test_path.return_value = True
+
+        self.morphing_tools._setup_qemu_agent_installation_local_script(
+            qemu_ga_source_dir=fake_qemu_ga_source_dir)
+
+        self.morphing_tools._conn.test_path.assert_called_once_with(
+            "%s\\x64\\qemu-ga.exe" % fake_qemu_ga_source_dir)
+        self.morphing_tools._conn.download_file.assert_not_called()
+        self.morphing_tools._conn.exec_ps_command.assert_called_once_with(
+            "Copy-Item -Recurse -Force '%s' '%s'" % (
+                fake_qemu_ga_source_dir, "C:\\Cloudbase-Init"),
+            ignore_stdout=True)
+
+        exp_script = (
+            windows.QEMU_GUEST_AGENT_INSTALL_FROM_DIR_SCRIPT_FORMAT % {
+                "qemu_ga_dir": "C:\\Cloudbase-Init\\qemu-ga"})
+        mock_register_firstboot_script.assert_called_once_with(
+            exp_script, user_provided=False,
+            script_filename="coriolis_qemu_agent_install.ps1")
+
+    @mock.patch.object(
+        windows.BaseWindowsMorphingTools, "register_firstboot_script")
+    def test_setup_qemu_agent_installation_local_script_qemu_ga_dir_missing(
+            self, mock_register_firstboot_script):
+        self.morphing_tools._conn.test_path.return_value = False
+
+        self.morphing_tools._setup_qemu_agent_installation_local_script(
+            qemu_ga_source_dir="f:\\qemu-ga")
+
+        self.morphing_tools._conn.download_file.assert_not_called()
+        self.morphing_tools._conn.exec_ps_command.assert_not_called()
+        mock_register_firstboot_script.assert_not_called()
