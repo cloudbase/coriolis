@@ -1202,3 +1202,18 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_mount_disk_image.assert_called_once_with(exp_iso_path)
         mock_dismount.assert_called_once_with(exp_iso_path)
         mock_add_dism_driver.assert_not_called()
+
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_mount_disk_image")
+    def test_add_virtio_drivers_missing_iso_url(
+            self, mock_mount_disk_image):
+        self.morphing_tools._version_number = version.LooseVersion(
+            "10.0.26500")
+        self.morphing_tools._edition_id = "ServerDatacenterEval"
+        self.morphing_tools._osmorphing_parameters = {}
+
+        self.assertRaises(
+            exception.CoriolisException,
+            self.morphing_tools._add_virtio_drivers)
+
+        self.morphing_tools._conn.download_file.assert_not_called()
+        mock_mount_disk_image.assert_not_called()
