@@ -33,14 +33,15 @@
     name: kolla_toolbox
     state: absent
 
-- name: Copy Coriolis logrotate configuration.
+- name: Render templates
   ansible.builtin.template:
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
     mode: "{{ item.mode }}"
     backup: "{{ item.backup }}"
   with_items:
-    - { src: templates/coriolis-logrotate-conf.j2, dest: /etc/logrotate.d/coriolis-logrotate-conf, mode: '0644', backup: no}
+    - { src: templates/coriolis-logrotate-conf.j2, dest: /etc/logrotate.d/coriolis-logrotate-conf, mode: '0644', backup: no }
+    - { src: templates/rc.local.j2, dest: /etc/rc.local, mode: '0755', backup: no }
 
 - name: Copy logrotate.timer to a new location
   ansible.builtin.copy:

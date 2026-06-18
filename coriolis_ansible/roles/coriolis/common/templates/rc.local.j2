@@ -2,4 +2,5 @@
 CORIOLIS_DOCKER_PATH=/root/coriolis-docker
 $CORIOLIS_DOCKER_PATH/utils/configure_step_ca.py setdnsnames && docker restart step-ca
 dmesg -D
+export HOME=/root
 openvt -s -w -- /bin/bash -l -c $CORIOLIS_DOCKER_PATH/console-script.sh
