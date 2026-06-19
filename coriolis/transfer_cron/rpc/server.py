@@ -2,6 +2,8 @@
 # All Rights Reserved.
 
 import json
+import os
+import threading
 
 from oslo_log import log as logging
 from oslo_utils import timeutils
@@ -38,7 +40,21 @@ class TransferCronServerEndpoint(object):
         # Setup cron loop
         self._cron = cron.Cron()
         self._admin_ctx = context.get_admin_context()
-        self._init_cron()
+        self._cron_lock = threading.Lock()
+        self._cron_started = False
+        # NOTE (fabi200123): oslo_service forks worker processes even when
+        # workers=1. The cron loop must run in the same process as the RPC
+        # handlers that register/unregister jobs, otherwise the loop checks
+        # a job registry in the parent process while registrations land in
+        # the forked child. Defer cron startup until after the fork.
+        os.register_at_fork(after_in_child=self._ensure_cron_started)
+
+    def _ensure_cron_started(self):
+        with self._cron_lock:
+            if self._cron_started:
+                return
+            self._init_cron()
+            self._cron_started = True
 
     def _deserialize_schedule(self, sched):
         expires = sched.get("expiration_date")
@@ -88,12 +104,14 @@ class TransferCronServerEndpoint(object):
         return schedules
 
     def register(self, ctxt, schedule):
+        self._ensure_cron_started()
         now = timeutils.utcnow()
         LOG.debug("Registering new schedule %s: %r" % (
             schedule["id"], schedule["schedule"]))
         self._register_schedule(schedule, date=now)
 
     def unregister(self, ctxt, schedule):
+        self._ensure_cron_started()
         schedule_id = schedule["id"]
         LOG.debug("removing schedule %s" % schedule_id)
         self._cron.unregister(schedule_id)
