@@ -56,9 +56,31 @@ class TransferCronServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     """Test suite for the Coriolis TransferCronServerEndpoint class."""
 
     @mock.patch.object(server.TransferCronServerEndpoint, '_init_cron')
-    def setUp(self, _):
+    @mock.patch.object(server.os, 'register_at_fork')
+    def setUp(self, mock_register_at_fork, _):
         super(TransferCronServerEndpointTestCase, self).setUp()
         self.server = server.TransferCronServerEndpoint()
+        # Pretend cron is already running so register/unregister don't
+        # trigger a lazy _init_cron() during these isolated tests.
+        self.server._cron_started = True
+
+    @mock.patch.object(server.os, 'register_at_fork')
+    @mock.patch.object(server.TransferCronServerEndpoint, '_init_cron')
+    def test_init_defers_cron_to_after_fork(
+            self, mock_init_cron, mock_register_at_fork):
+        srv = server.TransferCronServerEndpoint()
+
+        mock_init_cron.assert_not_called()
+        mock_register_at_fork.assert_called_once_with(
+            after_in_child=srv._ensure_cron_started)
+
+    @mock.patch.object(server.TransferCronServerEndpoint, '_init_cron')
+    def test_ensure_cron_started_is_idempotent(self, mock_init_cron):
+        self.server._cron_started = False
+        self.server._ensure_cron_started()
+        self.server._ensure_cron_started()
+
+        mock_init_cron.assert_called_once()
 
     @ddt.data(
         {
