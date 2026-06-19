@@ -130,3 +130,34 @@
     name: iptables-restore.service
     enabled: true
     daemon_reload: true
+
+- name: Check whether sshd_config includes the drop-in directory
+  ansible.builtin.command:
+    cmd: grep -qiE '^[[:space:]]*Include[[:space:]]+/etc/ssh/sshd_config\.d' /etc/ssh/sshd_config
+  register: sshd_include
+  changed_when: false
+  failed_when: false
+
+- name: Harden sshd via drop-in (OpenSSH with Include support)
+  ansible.builtin.template:
+    src: templates/sshd-hardening.conf.j2
+    dest: /etc/ssh/sshd_config.d/99-coriolis-hardening.conf
+    mode: '0644'
+    backup: yes
+  when: sshd_include.rc == 0
+  notify: Reload sshd
+
+- name: Harden sshd in main config (OpenSSH without Include support)
+  ansible.builtin.blockinfile:
+    path: /etc/ssh/sshd_config
+    marker: "# {mark} CORIOLIS SSH HARDENING"
+    backup: yes
+    block: |
+      MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com
+  when: sshd_include.rc != 0
+  notify: Reload sshd
+
+- name: Validate sshd configuration
+  ansible.builtin.command:
+    cmd: sshd -t
+  changed_when: false

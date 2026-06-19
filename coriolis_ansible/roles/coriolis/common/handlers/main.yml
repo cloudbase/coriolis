@@ -13,3 +13,8 @@
   vars:
     image_name: coriolis-common
     image_tag: "{{ coriolis_common_docker_image_tag }}"
+
+- name: Reload sshd
+  ansible.builtin.systemd_service:
+    name: ssh
+    state: reloaded

@@ -1,0 +1,5 @@
+# Managed by Coriolis appliance bootstrap — SSH MAC hardening.
+# Removes the weak Message Authentication Code algorithms (hmac-sha1, umac-64 and
+# their -etm variants) flagged by the vulnerability scanner, leaving only strong
+# encrypt-then-MAC algorithms. Edit the bootstrap role to change.
+MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com
