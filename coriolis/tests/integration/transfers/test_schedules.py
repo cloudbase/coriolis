@@ -34,6 +34,20 @@ class _TransferScheduleTestBase(base.ReplicaIntegrationTestBase):
 
         return sched
 
+    def _wait_for_scheduled_execution(self, timeout=180):
+        """Poll until the schedule triggers a transfer execution.
+
+        Returns the first execution that appears, or None on timeout.
+        """
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            executions = self._client.transfer_executions.list(
+                self._transfer.id, limit=1)
+            if executions:
+                return executions[0]
+            time.sleep(2)
+        return None
+
 
 class TransferScheduleBasicTests(_TransferScheduleTestBase):
 
@@ -84,19 +98,42 @@ class TransferScheduleTests(_TransferScheduleTestBase):
             enabled=True,
         )
 
-        # Poll until an execution appears (up to 180 s).
-        deadline = time.monotonic() + 180
-        execution = None
-        while time.monotonic() < deadline:
-            executions = self._client.transfer_executions.list(
-                self._transfer.id)
-            if executions:
-                execution = executions[0]
-                break
-            time.sleep(2)
+        execution = self._wait_for_scheduled_execution(timeout=180)
 
         self.assertIsNotNone(
             execution,
             "No transfer execution was triggered within 180s by the schedule")
+
+        self.assertExecutionCompleted(execution.id)
+
+    def test_updated_schedule_triggers_execution(self):
+        """Editing a schedule must re-register it with the new timing.
+
+        Covers the case where a schedule is created with one timing and then
+        updated: the updated schedule must fire. If register/update were
+        handled out-of-band from the running cron loop, the new timing would
+        never take effect.
+        """
+        now = timeutils.utcnow()
+        # Create with a timing far enough away that it will not fire during
+        # the test (top of an hour several hours from now).
+        sched = self._create_schedule(
+            schedule={"hour": (now.hour + 5) % 24, "minute": 0},
+            enabled=True,
+        )
+
+        # Update it to the next wall-clock minute.
+        target = timeutils.utcnow() + datetime.timedelta(seconds=65)
+        self._client.transfer_schedules.update(
+            self._transfer.id,
+            sched.id,
+            {"schedule": {"minute": target.minute, "hour": target.hour}},
+        )
+
+        execution = self._wait_for_scheduled_execution(timeout=180)
+        self.assertIsNotNone(
+            execution,
+            "Updated schedule did not trigger a transfer execution within "
+            "180s")
 
         self.assertExecutionCompleted(execution.id)
