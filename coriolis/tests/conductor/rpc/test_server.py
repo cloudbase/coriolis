@@ -4986,8 +4986,6 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(utils, "sanitize_task_info")
     @mock.patch.object(models, "TasksExecution")
     @mock.patch.object(server.ConductorServerEndpoint,
-                       "_check_transfer_deploy_ability")
-    @mock.patch.object(server.ConductorServerEndpoint,
                        "_check_transfer_running_executions")
     @mock.patch.object(server.ConductorServerEndpoint,
                        "_check_minion_pools_for_action")
@@ -5001,7 +4999,6 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_transfer,
         mock_check_minion_pools_for_action,
         mock_check_transfer_running_executions,
-        mock_check_transfer_deploy_ability,
         mock_TasksExecution,
         mock_sanitize_task_info,
         mock_create_task,
@@ -5043,11 +5040,6 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_check_transfer_running_executions.assert_called_once_with(
             mock.sentinel.context,
             mock_get_transfer.return_value,
-        )
-        mock_check_transfer_deploy_ability.assert_called_once_with(
-            mock.sentinel.context,
-            mock_get_transfer.return_value,
-            force=True,
         )
         self.assertEqual(
             execution.action,

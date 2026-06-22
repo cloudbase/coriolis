@@ -3525,7 +3525,6 @@ class ConductorServerEndpoint(object):
             self._check_minion_pools_for_action(ctxt, dummy)
 
         self._check_transfer_running_executions(ctxt, transfer)
-        self._check_transfer_deploy_ability(ctxt, transfer, force=True)
         if updated_properties.get('user_scripts'):
             transfer.user_scripts = updated_properties['user_scripts']
         execution = models.TasksExecution()
