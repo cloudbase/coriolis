@@ -48,15 +48,16 @@ class BaseDebianMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
 
         self.assertFalse(result)
 
+    @mock.patch.object(
+        debian.BaseDebianMorphingTools, '_schedule_grub2_update')
     @mock.patch('coriolis.utils.Grub2ConfigEditor')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_test_path_chroot')
-    @mock.patch.object(debian.BaseDebianMorphingTools, '_exec_cmd_chroot')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_write_file_sudo')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_read_file_sudo')
     def test_disable_predictable_nic_names(
             self, mock_read_file_sudo, mock_write_file_sudo,
-            mock_exec_cmd_chroot, mock_test_path_chroot,
-            mock_grub2_cfg_editor):
+            mock_test_path_chroot, mock_grub2_cfg_editor,
+            mock_schedule_grub2_update):
         mock_test_path_chroot.return_value = True
 
         self.morpher.disable_predictable_nic_names()
@@ -87,7 +88,7 @@ class BaseDebianMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_read_file_sudo.assert_called_once_with('etc/default/grub')
         mock_write_file_sudo.assert_called_once_with(
             "etc/default/grub", mock_grub2_cfg_editor.return_value.dump())
-        mock_exec_cmd_chroot.assert_called_once_with("/usr/sbin/update-grub")
+        mock_schedule_grub2_update.assert_called_once_with()
 
     @mock.patch('coriolis.utils.Grub2ConfigEditor')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_exec_cmd_chroot')
@@ -430,19 +431,20 @@ deb http://archive.debian.org/debian wheezy-updates main non-free-firmware
         mock_write_file_sudo.assert_not_called()
         mock_exec_cmd_chroot.assert_not_called()
 
+    @mock.patch.object(
+        debian.BaseDebianMorphingTools, '_schedule_grub2_update')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_test_path_chroot')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_exec_cmd_chroot')
     def test_install_uefi_fallback_bootloader(
         self,
         mock_exec_cmd_chroot,
         mock_test_path_chroot,
+        mock_schedule_grub2_update,
     ):
         mock_exec_cmd_chroot.side_effect = [
             # uname -m
             "x86_64",
             # grub-install
-            "",
-            # update-grub
             "",
         ]
         mock_test_path_chroot.return_value = False
@@ -454,8 +456,9 @@ deb http://archive.debian.org/debian wheezy-updates main non-free-firmware
             mock.call(
                 "grub-install --removable --target=x86_64-efi "
                 "--efi-directory=/boot/efi --uefi-secure-boot"),
-            mock.call("update-grub"),
         ])
+        # The grub update must be deferred (scheduled) rather than run now.
+        mock_schedule_grub2_update.assert_called_once_with()
         mock_test_path_chroot.assert_called_once_with(
             "/boot/efi/EFI/BOOT/BOOTX64.efi")
 
