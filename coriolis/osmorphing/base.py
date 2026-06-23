@@ -229,6 +229,10 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             detected_os_info, osmorphing_parameters, operation_timeout)
         self._ssh = conn
 
+    @property
+    def datasource_list(self):
+        return []
+
     @classmethod
     def get_required_detected_os_info_fields(cls):
         return REQUIRED_DETECTED_OS_FIELDS
@@ -562,7 +566,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             cloud_cfg_user_retention = {
                 'disable_root': False,
                 'ssh_pwauth': True,
-                'users': None
+                'users': []
             }
             cloud_cfg_mods.update(cloud_cfg_user_retention)
         else:
@@ -575,6 +579,12 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             if 'update_etc_hosts' in modules:
                 modules = [m for m in modules if m != 'update_etc_hosts']
                 cloud_cfg_mods.update({'cloud_init_modules': modules})
+
+        if self.datasource_list:
+            datasource_cfg = {'datasource_list': self.datasource_list}
+            cloud_cfg_mods.update(datasource_cfg)
+        else:
+            LOG.warning("No datasource_list passed to cloud-init")
 
         self._write_cloud_init_mods_config(cloud_cfg_mods)
 
