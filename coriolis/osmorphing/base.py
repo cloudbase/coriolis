@@ -228,6 +228,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             conn, os_root_dir, os_root_dev, hypervisor, event_manager,
             detected_os_info, osmorphing_parameters, operation_timeout)
         self._ssh = conn
+        self._grub2_update_scheduled = False
 
     @classmethod
     def get_required_detected_os_info_fields(cls):
@@ -335,6 +336,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         self._copy_resolv_conf()
 
     def post_packages_install(self, package_names):
+        self._run_scheduled_grub2_update()
         self._restore_resolv_conf()
 
     def pre_packages_uninstall(self, package_names):
@@ -517,7 +519,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         if self._test_path(grub_conf_disabler):
             self._exec_cmd_chroot(
                 "sed -i '/cloud-init=disabled/d' %s" % grub_conf_disabler)
-            self._execute_update_grub()
+            self._schedule_grub2_update()
 
     def _reset_cloud_init_run(self):
         self._exec_cmd_chroot("cloud-init clean --logs")
@@ -707,6 +709,25 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         update_cmd = self.get_update_grub2_command()
         self._exec_cmd_chroot(update_cmd)
 
+    def _schedule_grub2_update(self):
+        """Flags that the GRUB2 config needs to be regenerated.
+
+        This is used to avoid running the potentially slow update command
+        multiple times during OSMorphing. Instead, the update is deferred and
+        run once at the end of the process, in 'post_packages_install'.
+        """
+        self._grub2_update_scheduled = True
+
+    def _run_scheduled_grub2_update(self):
+        """Runs the deferred GRUB2 config regeneration, if one was scheduled.
+
+        The pending flag is cleared so that a subsequent call is a no-op
+        unless another GRUB modification schedules an update again.
+        """
+        if self._grub2_update_scheduled:
+            self._execute_update_grub()
+            self._grub2_update_scheduled = False
+
     def _apply_grub2_config(self, config_obj,
                             execute_update_grub=True):
         self._validate_grub_config_obj(config_obj)
@@ -714,7 +735,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             "mv -f %s %s" % (
                 config_obj["location"], config_obj["source"]))
         if execute_update_grub:
-            self._execute_update_grub()
+            self._schedule_grub2_update()
 
     def _set_grub2_console_settings(self, consoles=None, speed=None,
                                     parity=None, grub_conf=None,

@@ -262,10 +262,14 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         self.os_morphing_tools.pre_packages_install(mock.sentinel.package_name)
         mock_copy_resolv_conf.assert_called_once_with()
 
+    @mock.patch.object(
+        base.BaseLinuxOSMorphingTools, '_run_scheduled_grub2_update')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_restore_resolv_conf')
-    def test_post_packages_install(self, mock_restore_resolv_conf):
+    def test_post_packages_install(self, mock_restore_resolv_conf,
+                                   mock_run_scheduled_grub2_update):
         self.os_morphing_tools.post_packages_install(
             mock.sentinel.package_name)
+        mock_run_scheduled_grub2_update.assert_called_once_with()
         mock_restore_resolv_conf.assert_called_once_with()
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_copy_resolv_conf')
@@ -636,12 +640,13 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         ], True)
     )
     @ddt.unpack
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, "_execute_update_grub")
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, "_schedule_grub2_update")
     @mock.patch.object(base.BaseLinuxOSMorphingTools, "_exec_cmd_chroot")
     @mock.patch.object(base.BaseLinuxOSMorphingTools, "_test_path")
     def test__ensure_cloud_init_not_disabled(
             self, test_path_results, expected_cmds, updates_grub,
-            mock__test_path, mock__exec_cmd_chroot, mock__execute_update_grub):
+            mock__test_path, mock__exec_cmd_chroot,
+            mock__schedule_grub2_update):
         mock__test_path.side_effect = test_path_results
 
         self.os_morphing_tools._ensure_cloud_init_not_disabled()
@@ -650,9 +655,9 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
             call.args[0] for call in mock__exec_cmd_chroot.call_args_list]
         self.assertEqual(called_cmds, expected_cmds)
         if updates_grub:
-            mock__execute_update_grub.assert_called_once()
+            mock__schedule_grub2_update.assert_called_once()
         else:
-            mock__execute_update_grub.assset_not_called()
+            mock__schedule_grub2_update.assert_not_called()
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, "_exec_cmd_chroot")
     def test__reset_cloud_init_run(self, mock__exec_cmd_chroot):
@@ -1066,9 +1071,44 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         )
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_execute_update_grub')
+    def test__schedule_grub2_update(self, mock_execute_update_grub):
+        self.assertFalse(self.os_morphing_tools._grub2_update_scheduled)
+
+        self.os_morphing_tools._schedule_grub2_update()
+
+        self.assertTrue(self.os_morphing_tools._grub2_update_scheduled)
+        # Scheduling must not run the (slow) update command itself.
+        mock_execute_update_grub.assert_not_called()
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_execute_update_grub')
+    def test__run_scheduled_grub2_update_when_scheduled(
+            self, mock_execute_update_grub):
+        self.os_morphing_tools._grub2_update_scheduled = True
+
+        self.os_morphing_tools._run_scheduled_grub2_update()
+
+        mock_execute_update_grub.assert_called_once_with()
+        # The pending flag must be cleared so subsequent calls are no-ops.
+        self.assertFalse(self.os_morphing_tools._grub2_update_scheduled)
+
+        # Running the update again must be a no-op.
+        self.os_morphing_tools._run_scheduled_grub2_update()
+        # Check that the update command was called only once.
+        self.assertEqual(1, mock_execute_update_grub.call_count)
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_execute_update_grub')
+    def test__run_scheduled_grub2_update_when_not_scheduled(
+            self, mock_execute_update_grub):
+        self.os_morphing_tools._grub2_update_scheduled = False
+
+        self.os_morphing_tools._run_scheduled_grub2_update()
+
+        mock_execute_update_grub.assert_not_called()
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_schedule_grub2_update')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     def test__apply_grub2_config(self, mock_exec_cmd_chroot,
-                                 mock_execute_update_grub):
+                                 mock_schedule_grub2_update):
         config_obj = {
             'location': mock.sentinel.location,
             'source': mock.sentinel.source,
@@ -1083,12 +1123,12 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         mock_exec_cmd_chroot.assert_called_once_with(
             'mv -f %s %s' % (config_obj['location'], config_obj['source'])
         )
-        mock_execute_update_grub.assert_called_once_with()
+        mock_schedule_grub2_update.assert_called_once_with()
 
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_execute_update_grub')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_schedule_grub2_update')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     def test__apply_grub2_config_no_update_grub(self, mock_exec_cmd_chroot,
-                                                mock_execute_update_grub):
+                                                mock_schedule_grub2_update):
         config_obj = {
             'location': mock.sentinel.location,
             'source': mock.sentinel.source,
@@ -1103,7 +1143,7 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         mock_exec_cmd_chroot.assert_called_once_with(
             'mv -f %s %s' % (config_obj['location'], config_obj['source'])
         )
-        mock_execute_update_grub.assert_not_called()
+        mock_schedule_grub2_update.assert_not_called()
 
     def test__set_grub2_console_settings_invalid_parity(self):
         self.assertRaises(

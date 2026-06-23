@@ -60,7 +60,7 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
             "GRUB_CMDLINE_LINUX",
             {"opt_type": "key_val", "opt_key": "biosdevname", "opt_val": 0})
         self._write_file_sudo("etc/default/grub", cfg.dump())
-        self._exec_cmd_chroot("/usr/sbin/update-grub")
+        self._schedule_grub2_update()
 
     def get_update_grub2_command(self):
         return "update-grub"
@@ -134,7 +134,7 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
             f"grub-install --removable --target={arch}-efi "
             "--efi-directory=/boot/efi --uefi-secure-boot"
         )
-        self._exec_cmd_chroot("update-grub")
+        self._schedule_grub2_update()
 
     def set_net_config(self, nics_info, dhcp):
         if not dhcp:
