@@ -116,6 +116,10 @@ class LUKSRockyLinuxOSMorphingDeploymentTest(
         _LUKSOSMorphingMixin, integration_base.ReplicaIntegrationTestBase):
     """LUKS + dracut OS morphing test using Rocky Linux 9."""
 
+    # kernel-core (~150 MB installed) needs extra room on top of the base
+    # container image and the other morphing packages.
+    _SCSI_DEBUG_SIZE_MB = 777
+
     def _prepare_src_device(self):
         test_utils.make_luks_device(
             self._src_device, self._key_file, "rockylinux:9")

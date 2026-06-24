@@ -307,6 +307,16 @@ class LinuxLUKSMixin:
 
     def _update_crypttab_keyfile(self, os_root_dir, uuid_to_keyfile):
         """Update the keyfile column in crypttab for matching LUKS UUIDs."""
+        # cryptsetup-initramfs (Ubuntu 22.04+) only embeds crypttab entries
+        # in the initramfs when the device is verifiable at build time OR when
+        # the 'initramfs' option is present. Inside a chroot (no udev, no
+        # /dev/disk/by-uuid/), verification always fails, so we force-add
+        # 'initramfs' for update-initramfs systems.
+        # On dracut systems the option is unnecessary and may confuse the
+        # crypttab parser.
+        add_initramfs_opt = (
+            self._detect_initramfs_tool(os_root_dir) == "update-initramfs")
+
         def _set_keyfile(parts):
             if len(parts) < 2:
                 return None
@@ -316,7 +326,7 @@ class LinuxLUKSMixin:
             if not m:
                 return None
 
-            keyfile = uuid_to_keyfile.get(m.group(1))
+            keyfile = uuid_to_keyfile.get(m.group(1).lower())
             if keyfile is None:
                 return None
 
@@ -324,13 +334,8 @@ class LinuxLUKSMixin:
                 parts.append("")
 
             parts[2] = keyfile
-            # cryptsetup-initramfs (Ubuntu 22.04+) only embeds crypttab
-            # entries in the initramfs when the device is verifiable at build
-            # time OR when the 'initramfs' option is present. Inside a chroot
-            # (no udev, no /dev/disk/by-uuid/), verification always fails, so
-            # we force-add 'initramfs' here.
             opts_list = [o for o in parts[3].split(",") if o]
-            if "initramfs" not in opts_list:
+            if add_initramfs_opt and "initramfs" not in opts_list:
                 opts_list.append("initramfs")
 
             parts[3] = ",".join(opts_list)
@@ -357,7 +362,12 @@ class LinuxLUKSMixin:
 
         uuid_to_keyfile = {}
         for _, dev_path in self._luks_opened:
-            luks_uuid = self._get_luks_uuid(dev_path)
+            try:
+                luks_uuid = self._get_luks_uuid(dev_path)
+            except Exception as ex:
+                raise exception.CoriolisException(
+                    "Could not determine LUKS UUID for '%s'; "
+                    "cannot write migration keyfile." % dev_path) from ex
 
             keyfile_path = self._get_migration_keyfile_path(dev_path)
             abs_path = os.path.join(os_root_dir, keyfile_path.lstrip("/"))
@@ -399,7 +409,16 @@ class LinuxLUKSMixin:
 
         conf_abs = os.path.join(
             os_root_dir, _DRACUT_LUKS_CONF_PATH.lstrip("/"))
-        conf_content = 'install_items+=" %s "\n' % " ".join(install_items)
+        # hostonly="no" forces a generic initramfs, so the rebuilt image works
+        # on the target hypervisor (e.g.: virtio_blk on KVM), regardless of
+        # what hardware is visible inside the OS morphing minion at build time.
+        # add_dracutmodules ensures the crypt module is included even when
+        # dracut's host-detection runs inside a minion without LUKS devices.
+        conf_content = (
+            'hostonly="no"\n'
+            'add_dracutmodules+=" crypt "\n'
+            'install_items+=" %s "\n'
+        ) % " ".join(install_items)
         self._write_remote_file(conf_abs, conf_content)
         self._exec_cmd(
             "sudo chown root:root %s && sudo chmod 644 %s" % (
@@ -488,18 +507,7 @@ class LinuxLUKSMixin:
             self._exec_cmd(
                 "sudo chroot %s update-initramfs -u -k all" % os_root_dir)
         elif tool == "dracut":
-            # --regenerate-all scans the chroot's own /lib/modules/ for
-            # installed kernels instead of relying on uname -r
-            #
-            # Explicitly --include the crypttab and any LUKS migration keyfiles
-            # so that systemd-cryptsetup-generator finds them in the initramfs
-            # and uses the crypttab mapper name (luks-root) and keyfile for
-            # auto-unlock. install_items in dracut.conf.d embeds the keyfile
-            # but does NOT guarantee that crypttab ends up in the image.
-            include_args = self._build_dracut_include_args(os_root_dir)
-            self._exec_cmd(
-                "sudo chroot %s dracut --regenerate-all --force %s"
-                % (os_root_dir, " ".join(include_args)))
+            self._rebuild_initramfs_dracut(os_root_dir)
         else:
             raise exception.CoriolisException(
                 "No initramfs tool found in OS at '%s'; cannot rebuild "
@@ -529,6 +537,36 @@ class LinuxLUKSMixin:
         os_morphing_tools.register_firstboot_script(
             script_content, user_provided=False,
             script_filename="luks-firstboot.sh")
+
+    def _rebuild_initramfs_dracut(self, os_root_dir):
+        """Rebuild all dracut initramfs images inside the OS chroot."""
+        include_args = self._build_dracut_include_args(os_root_dir)
+
+        try:
+            kvers_out = self._exec_cmd(
+                "sudo ls -1 '%s/lib/modules/' 2>/dev/null" % os_root_dir
+            ).strip().splitlines()
+            kvers = [k.strip() for k in kvers_out if k.strip()]
+        except Exception:
+            kvers = []
+
+        if not kvers:
+            raise exception.CoriolisException(
+                "No kernel versions found under '%s/lib/modules/'; "
+                "cannot rebuild the initramfs for LUKS auto-unlock." %
+                os_root_dir)
+
+        for kver in kvers:
+            LOG.info("Rebuilding dracut initramfs for kernel %s", kver)
+            # --no-hostonly and --add crypt override conf.d settings that
+            # could be ignored in a chroot without running udevd / uname.
+            # --add-drivers dm-crypt directly embeds dm-crypt.ko, so the
+            # crypt DM target type is available even when instmods can't
+            # resolve it via modules.dep (e.g.: stripped cloud images).
+            self._exec_cmd(
+                "sudo chroot '%s' dracut -f --kver '%s' "
+                "--no-hostonly --add crypt --add-drivers dm-crypt %s"
+                % (os_root_dir, kver, " ".join(include_args)))
 
     def _fix_grub_luks_root(self, os_root_dir):
         """Patch grub.cfg to use crypttab mapper names for LUKS root devices.

@@ -340,9 +340,11 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
             "sudo cryptsetup luksUUID %s" % _DEV
         )
 
+    @mock.patch.object(luks_mixin.LinuxLUKSMixin, "_detect_initramfs_tool")
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, "_transform_crypttab")
-    def test__update_crypttab_keyfile(self, mock_transform):
+    def test__update_crypttab_keyfile(self, mock_transform, mock_detect_tool):
         mock_transform.return_value = True
+        mock_detect_tool.return_value = "update-initramfs"
         self.mixin._update_crypttab_keyfile(_OS_ROOT_DIR, {_UUID: _KEYFILE})
         mock_transform.assert_called_once()
 
@@ -365,15 +367,31 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
         ]
         self.assertIsNone(transform(parts))
 
-        # UUID= format match; 'initramfs' always appended.
+        # UUID= format match; update-initramfs -> 'initramfs' option added.
         result = transform(["luks-root", "UUID=%s" % _UUID, "none", "none"])
         self.assertEqual(result[2], _KEYFILE)
         self.assertIn("initramfs", result[3].split(","))
+
+        # Case-insensitive UUID match: uppercase UUID in crypttab still matches
+        # lowercase key in the map.
+        result = transform(
+            ["luks-root", "UUID=%s" % _UUID.upper(), "none", "none"])
+        self.assertEqual(result[2], _KEYFILE)
 
         # /by-uuid/ path also matches.
         parts = ["luks-root", "/dev/disk/by-uuid/%s" % _UUID, "none", "none"]
         result = transform(parts)
         self.assertEqual(result[2], _KEYFILE)
+
+        # dracut -> 'initramfs' option NOT added.
+        mock_transform.reset_mock()
+        mock_detect_tool.return_value = "dracut"
+        self.mixin._update_crypttab_keyfile(_OS_ROOT_DIR, {_UUID: _KEYFILE})
+        transform_dracut = mock_transform.call_args[0][1]
+        result = transform_dracut(
+            ["luks-root", "UUID=%s" % _UUID, "none", "none"])
+        self.assertEqual(result[2], _KEYFILE)
+        self.assertNotIn("initramfs", result[3].split(","))
 
         # transform returns False -> exception.
         mock_transform.return_value = False
@@ -452,6 +470,16 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
             _OS_ROOT_DIR,
         )
 
+        # _get_luks_uuid raises: wrapped in CoriolisException.
+        mock_detect_tool.return_value = "dracut"
+        mock_uuid.side_effect = Exception("cryptsetup went boom")
+        self.mixin._luks_opened = [("coriolis_sda", _DEV)]
+        self.assertRaises(
+            exception.CoriolisException,
+            self.mixin._write_migration_keyfiles,
+            _OS_ROOT_DIR,
+        )
+
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, "_write_remote_file")
     @mock.patch.object(base.BaseSSHOSMountTools, "_exec_cmd")
     @mock.patch.object(luks_mixin.utils, "test_ssh_path")
@@ -471,6 +499,8 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
         written = mock_write.call_args[0][1]
         self.assertIn(_KEYFILE, written)
         self.assertIn("install_items+=", written)
+        self.assertIn('hostonly="no"', written)
+        self.assertIn('add_dracutmodules+=" crypt "', written)
         self.assertNotIn(plugin_path, written)
         mock_exec.assert_called_once_with(
             "sudo chown root:root %s && sudo chmod 644 %s"
@@ -565,11 +595,11 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
         ]
         self.assertEqual(result, expected)
 
-    @mock.patch.object(luks_mixin.LinuxLUKSMixin, "_build_dracut_include_args")
+    @mock.patch.object(luks_mixin.LinuxLUKSMixin, "_rebuild_initramfs_dracut")
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, "_detect_initramfs_tool")
     @mock.patch.object(base.BaseSSHOSMountTools, "_exec_cmd")
     def test__rebuild_initramfs(
-        self, mock_exec, mock_detect, mock_include_args
+        self, mock_exec, mock_detect, mock_rebuild_dracut
     ):
         # update-initramfs.
         mock_detect.return_value = "update-initramfs"
@@ -577,22 +607,15 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
         mock_exec.assert_called_once_with(
             "sudo chroot %s update-initramfs -u -k all" % _OS_ROOT_DIR
         )
+        mock_rebuild_dracut.assert_not_called()
 
-        # dracut: --regenerate-all --force with --include args.
+        # dracut: delegates to _rebuild_initramfs_dracut.
         mock_exec.reset_mock()
         mock_detect.return_value = "dracut"
-        mock_include_args.return_value = [
-            "--include",
-            "/etc/crypttab",
-            "/etc/crypttab",
-        ]
         self.mixin._rebuild_initramfs(_OS_ROOT_DIR)
 
-        mock_include_args.assert_called_once_with(_OS_ROOT_DIR)
-        mock_exec.assert_called_once_with(
-            "sudo chroot %s dracut --regenerate-all --force "
-            "--include /etc/crypttab /etc/crypttab" % _OS_ROOT_DIR
-        )
+        mock_rebuild_dracut.assert_called_once_with(_OS_ROOT_DIR)
+        mock_exec.assert_not_called()
 
         # no tool found.
         mock_detect.return_value = None
@@ -600,6 +623,49 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
             exception.CoriolisException,
             self.mixin._rebuild_initramfs,
             _OS_ROOT_DIR,
+        )
+
+    @mock.patch.object(luks_mixin.LinuxLUKSMixin, "_build_dracut_include_args")
+    @mock.patch.object(base.BaseSSHOSMountTools, "_exec_cmd")
+    def test__rebuild_initramfs_dracut(self, mock_exec, mock_include_args):
+        # ls raises: treated as empty kernel list -> CoriolisException.
+        mock_exec.side_effect = Exception("ls failed")
+        self.assertRaises(
+            exception.CoriolisException,
+            self.mixin._rebuild_initramfs_dracut,
+            _OS_ROOT_DIR,
+        )
+        mock_include_args.assert_called_once_with(_OS_ROOT_DIR)
+
+        # ls succeeds but returns empty output -> CoriolisException.
+        mock_exec.reset_mock()
+        mock_exec.side_effect = None
+        mock_exec.return_value = "  \n\n"
+        self.assertRaises(
+            exception.CoriolisException,
+            self.mixin._rebuild_initramfs_dracut,
+            _OS_ROOT_DIR,
+        )
+
+        # initramfs rebuilt.
+        mock_include_args.return_value = [
+            "--include",
+            "/etc/crypttab",
+            "/etc/crypttab",
+        ]
+
+        mock_exec.reset_mock()
+        mock_exec.side_effect = [
+            "5.15.0-generic\n",  # ls /lib/modules/
+            None,                # dracut call
+        ]
+        self.mixin._rebuild_initramfs_dracut(_OS_ROOT_DIR)
+
+        self.assertEqual(mock_exec.call_count, 2)
+        mock_exec.assert_any_call(
+            "sudo chroot '%s' dracut -f --kver '5.15.0-generic' "
+            "--no-hostonly --add crypt --add-drivers dm-crypt "
+            "--include /etc/crypttab /etc/crypttab" % _OS_ROOT_DIR
         )
 
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, '_detect_initramfs_tool')

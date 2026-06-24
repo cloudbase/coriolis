@@ -401,7 +401,8 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
                 mounted_device_numbers.append(
                     self._exec_cmd(dev_nmb_cmd % dev_name).rstrip())
 
-        block_devs = self._exec_cmd("ls -al /dev | grep ^b").splitlines()
+        block_devs = self._exec_cmd(
+            "ls -al /dev | grep ^b || true").splitlines()
         for dev_line in block_devs:
             dev = dev_line.split()
             major_minor = "%s:%s" % (

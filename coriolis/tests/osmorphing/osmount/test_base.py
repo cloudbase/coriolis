@@ -605,7 +605,7 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
             mock.call("cat /proc/mounts"),
             mock.call("readlink -en /dev/sda1"),
             mock.call("mountpoint -x /dev/sda1"),
-            mock.call("ls -al /dev | grep ^b"),
+            mock.call("ls -al /dev | grep ^b || true"),
         ])
 
         self.assertEqual(result, ['/dev/sda1', '/dev/sda2'])
@@ -629,7 +629,7 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_exec_cmd.assert_has_calls([
             mock.call("cat /proc/mounts"),
             mock.call("readlink -en /dev/sda1"),
-            mock.call("ls -al /dev | grep ^b")
+            mock.call("ls -al /dev | grep ^b || true")
         ])
 
         mock_test_ssh_path.assert_called_once_with(
