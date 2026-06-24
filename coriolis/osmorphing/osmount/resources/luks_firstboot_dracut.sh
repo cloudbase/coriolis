@@ -144,11 +144,27 @@ rm -f "${keyfiles[@]}"
 rmdir "$KEYFILE_DIR" 2>/dev/null || true
 
 echo "Rebuilding initramfs."
+# Rebuild every installed kernel so none of them retain the embedded keyfile.
+kvers=()
+for kdir in /lib/modules/*/; do
+    kver="${kdir%/}"
+    kver="${kver##*/}"
+    [ -n "$kver" ] && kvers+=("$kver")
+done
+
+if [ "${#kvers[@]}" -eq 0 ]; then
+    echo "ERROR: no kernel versions found under /lib/modules/; cannot rebuild initramfs." >&2
+    exit 1
+fi
+
 # Embed the updated crypttab, so systemd-cryptsetup-generator uses the crypttab
 # mapper name and tpm2-device=auto for auto-unlock. The Coriolis dracut.conf.d
 # entry is deleted after this rebuild, so its install_items (TPM2 plugin + libtss2)
 # are still picked up here.
-dracut --force --include /etc/crypttab /etc/crypttab
+for kver in "${kvers[@]}"; do
+    echo "Rebuilding dracut initramfs for kernel $kver."
+    dracut --force --kver "$kver" --include /etc/crypttab /etc/crypttab
+done
 rm -f "$DRACUT_CONF"
 
 echo "Firstboot LUKS cleanup complete."
