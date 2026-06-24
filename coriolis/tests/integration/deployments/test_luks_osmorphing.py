@@ -23,7 +23,7 @@ import unittest
 from coriolis import constants
 from coriolis.tests.integration import base as integration_base
 from coriolis.tests.integration import harness as integration_harness
-from coriolis.tests.integration import utils as test_utils
+from coriolis.tests.integration import osmorphing_utils
 
 _LUKS_PASSPHRASE = "it-luks-encrypted"
 
@@ -53,7 +53,7 @@ class _LUKSOSMorphingMixin:
         self._prepare_src_device()
 
     def _prepare_src_device(self):
-        test_utils.make_luks_device(
+        osmorphing_utils.make_luks_device(
             self._src_device, self._key_file, "ubuntu:24.04")
 
         dest_env = {
@@ -66,8 +66,8 @@ class _LUKSOSMorphingMixin:
         )
 
     def _check_path_exists(self, device, path):
-        with test_utils.luks_open(device, self._key_file) as mapper_path:
-            return test_utils.path_exists_on_device(mapper_path, path)
+        with osmorphing_utils.luks_open(device, self._key_file) as mapper_path:
+            return osmorphing_utils.path_exists_on_device(mapper_path, path)
 
     def _assert_luks_common_firstboot_files(self):
         dst_basename = os.path.basename(self._dst_device)
@@ -121,7 +121,7 @@ class LUKSRockyLinuxOSMorphingDeploymentTest(
     _SCSI_DEBUG_SIZE_MB = 777
 
     def _prepare_src_device(self):
-        test_utils.make_luks_device(
+        osmorphing_utils.make_luks_device(
             self._src_device, self._key_file, "rockylinux:9")
 
         dest_env = {

@@ -14,7 +14,7 @@ import uuid
 
 from coriolis.tests.integration import base as integration_base
 from coriolis.tests.integration import harness as integration_harness
-from coriolis.tests.integration import utils as test_utils
+from coriolis.tests.integration import osmorphing_utils
 
 
 class OsMorphingDeploymentTest(integration_base.ReplicaIntegrationTestBase):
@@ -33,18 +33,21 @@ class OsMorphingDeploymentTest(integration_base.ReplicaIntegrationTestBase):
 
     def setUp(self):
         super().setUp()
-        test_utils.write_os_image_to_disk(self._src_device, "ubuntu:24.04")
+        osmorphing_utils.write_os_image_to_disk(
+            self._src_device, "ubuntu:24.04")
 
     def test_deployment_with_os_morphing(self):
         self.assertFalse(
-            test_utils.path_exists_on_device(self._src_device, "usr/bin/jq"),
+            osmorphing_utils.path_exists_on_device(
+                self._src_device, "usr/bin/jq"),
             "jq was found on the source device before OS morphing",
         )
 
         self._execute_transfer_and_deployment()
 
         self.assertTrue(
-            test_utils.path_exists_on_device(self._dst_device, "usr/bin/jq"),
+            osmorphing_utils.path_exists_on_device(
+                self._dst_device, "usr/bin/jq"),
             "jq was not found on the destination device after OS morphing",
         )
 
@@ -64,7 +67,7 @@ class OsMorphingDeploymentTest(integration_base.ReplicaIntegrationTestBase):
         }
         self._execute_transfer_and_deployment(deployment_kwargs)
 
-        file_contents = test_utils.read_file_from_device(
+        file_contents = osmorphing_utils.read_file_from_device(
             self._dst_device,
             "cookie")
         self.assertEqual(expected_string, file_contents)
@@ -82,7 +85,7 @@ class OsMorphingDeploymentTest(integration_base.ReplicaIntegrationTestBase):
         }
         self._execute_transfer_and_deployment(deployment_kwargs)
 
-        file_contents = test_utils.read_file_from_device(
+        file_contents = osmorphing_utils.read_file_from_device(
             self._dst_device,
             "cookie")
         self.assertEqual(expected_string, file_contents)
@@ -124,10 +127,10 @@ class OsMorphingDeploymentTest(integration_base.ReplicaIntegrationTestBase):
         }
         self._execute_transfer_and_deployment(deployment_kwargs)
 
-        pre_mounts = test_utils.read_file_from_device(
+        pre_mounts = osmorphing_utils.read_file_from_device(
             self._dst_device,
             "pre_mounts")
-        post_mounts = test_utils.read_file_from_device(
+        post_mounts = osmorphing_utils.read_file_from_device(
             self._dst_device,
             "post_mounts")
 
@@ -167,7 +170,7 @@ class OsMorphingDeploymentTest(integration_base.ReplicaIntegrationTestBase):
         # actually get executed. We'll merely verify that those files
         # have been injected at the expected location.
         first_boot_script_dir = "usr/lib/coriolis/firstboot/user"
-        first_boot_scripts = test_utils.list_files_from_device(
+        first_boot_scripts = osmorphing_utils.list_files_from_device(
             self._dst_device, first_boot_script_dir)
         if not first_boot_scripts:
             raise AssertionError("Couldn't find first boot script dir.")
@@ -177,7 +180,7 @@ class OsMorphingDeploymentTest(integration_base.ReplicaIntegrationTestBase):
             if re.match(r"\d+-\w+\.sh", file_name):
                 first_boot_script_path = os.path.join(
                     first_boot_script_dir, file_name)
-                first_boot_script = test_utils.read_file_from_device(
+                first_boot_script = osmorphing_utils.read_file_from_device(
                     self._dst_device,
                     first_boot_script_path)
                 if payload == first_boot_script:
