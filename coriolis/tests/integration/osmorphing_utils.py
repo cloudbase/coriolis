@@ -8,6 +8,7 @@ LUKS / OS morphing helpers (loopback, LUKS, bootable VM disk setup)
 """
 
 import contextlib
+import json
 import os
 import subprocess
 import tempfile
@@ -105,30 +106,147 @@ def make_luks_device(device_path, key_file, container_image):
     when configuring initramfs auto-unlock during OS morphing.
     """
     _run([
-        "cryptsetup", "luksFormat", "--batch-mode", "--key-file", key_file,
-        device_path,
+        "cryptsetup", "luksFormat", "--batch-mode", "--type", "luks2",
+        "--key-file", key_file, device_path,
     ])
 
-    luks_uuid = _run(
-        ["cryptsetup", "luksUUID", device_path]).stdout.decode().strip()
+    luks_uuid = get_luks_uuid(device_path)
 
     with luks_open(device_path, key_file) as mapper_path:
         write_os_image_to_disk(mapper_path, container_image)
         _fixup_luks_inner_os(mapper_path, luks_uuid)
 
 
+def get_luks_uuid(device_path):
+    """Return the LUKS UUID of `device_path`."""
+    result = _run(["cryptsetup", "luksUUID", device_path])
+    return result.stdout.decode().strip()
+
+
 @contextlib.contextmanager
-def luks_open(device_path, key_file):
+def luks_open(device_path, key_file, disable_keyring=False):
     mapper_name = "coriolis_luks_setup_%s" % os.path.basename(device_path)
-    _run([
-        "cryptsetup", "luksOpen", "--key-file", key_file, device_path,
-        mapper_name,
-    ])
+    cmd = ["cryptsetup", "luksOpen", "--key-file", key_file]
+    if disable_keyring:
+        cmd.append("--disable-keyring")
+    cmd += [device_path, mapper_name]
+
+    _run(cmd)
 
     try:
         yield "/dev/mapper/%s" % mapper_name
     finally:
         _run(["cryptsetup", "luksClose", mapper_name])
+
+
+def luks_can_open(device_path, key_file):
+    """Return True if `key_file` can unlock `device_path`, False otherwise."""
+    result = _run([
+        "cryptsetup", "luksOpen", "--test-passphrase",
+        "--key-file", key_file, device_path,
+    ], check=False)
+
+    return result.returncode == 0
+
+
+def luks_add_tpm2_token(device_path, keyslot_id):
+    """Inject a systemd-tpm2 token into device_path pointing at keyslot_id.
+
+    The token contains no real TPM material, it exists only so the LUKS2
+    header reports a systemd-tpm2 token, letting tests verify that Coriolis
+    removes it during OS morphing.
+    """
+    token = json.dumps(
+        {"type": "systemd-tpm2", "keyslots": [str(keyslot_id)]})
+    # --disable-external-tokens bypasses the libcryptsetup-token-systemd-tpm2
+    # plugin that validates real systemd-tpm2 token fields (tpm2-pcrs, blob,
+    # etc.). Our token is intentionally minimal, just enough for the test to
+    # verify Coriolis removes it during OS morphing.
+    subprocess.run(
+        [
+            "cryptsetup", "token", "import",
+            "--disable-external-tokens", device_path,
+        ],
+        input=token.encode(),
+        stdout=subprocess.DEVNULL,
+        check=True,
+    )
+
+
+def luks_has_tpm2_token(device_path):
+    """Return True if `device_path` has any systemd-tpm2 LUKS2 tokens."""
+    result = _run(["cryptsetup", "luksDump", device_path], check=False)
+    return result.returncode == 0 and b"systemd-tpm2" in result.stdout
+
+
+def write_file_on_luks_device(device_path, key_file, rel_path, content):
+    """Write content into the given rel_path on the given LUKS device.
+
+    Open `device_path` with `key_file`, mount it, and write `content` to
+    `rel_path` inside the filesystem, creating parent directories as needed.
+    """
+    with luks_open(device_path, key_file) as mapper_path:
+        with mounted(mapper_path) as mount_point:
+            full_path = os.path.join(mount_point, rel_path)
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+            with open(full_path, "w") as fh:
+                fh.write(content)
+
+
+def read_file_from_luks_device(device_path, key_file, rel_path):
+    """Read the rel_path file from the given LUKS device.
+
+    Open `device_path` with `key_file`, mount read-only, and return the
+    contents of `rel_path`, or None if the path does not exist.
+    """
+    with luks_open(device_path, key_file) as mapper_path:
+        with mounted(mapper_path, read_only=True) as mount_point:
+            full_path = os.path.join(mount_point, rel_path)
+            if not os.path.exists(full_path):
+                return None
+            with open(full_path) as fh:
+                return fh.read()
+
+
+def luks_add_key(device_path, existing_key_file, new_key_file):
+    """Add a new keyslot to `device_path` using `existing_key_file` to auth."""
+    _run([
+        "cryptsetup", "luksAddKey",
+        "--pbkdf-memory", "65536",
+        "--key-file", existing_key_file,
+        device_path, new_key_file,
+    ])
+
+
+def luks_add_key_from_mapper(mapper_path, device_path, new_key_file):
+    """Add a new keyslot to `device_path` to an open dm-crypt device.
+
+    Does not require the original passphrase, the master key is extracted
+    directly from the live, already mounted device via dmsetup.
+    """
+    mapper_name = os.path.basename(mapper_path)
+    result = _run(["dmsetup", "table", "--showkeys", mapper_name])
+    fields = result.stdout.decode().split()
+
+    # dmsetup may prefix the line with "<name>: "; detect by trailing colon.
+    offset = 1 if fields[0].endswith(':') else 0
+
+    # dm-crypt table: <start> <end> crypt <cipher> <key> ...
+    master_key_hex = fields[offset + 4]
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".key") as fh:
+        master_key_path = fh.name
+        fh.write(bytes.fromhex(master_key_hex))
+
+    try:
+        _run([
+            "cryptsetup", "luksAddKey",
+            "--pbkdf-memory", "65536",
+            "--master-key-file", master_key_path,
+            device_path, new_key_file,
+        ])
+    finally:
+        os.unlink(master_key_path)
 
 
 def path_exists_on_device(device_path, rel_path):
