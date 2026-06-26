@@ -62,6 +62,24 @@ class CentOSOSDetectToolsTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(base.BaseLinuxOSDetectTools, '_test_path')
     @mock.patch.object(base.BaseLinuxOSDetectTools, '_read_file')
+    def test_detect_os_centos_stream_10(self, mock_read_file, mock_test_path):
+        mock_test_path.return_value = True
+        mock_read_file.return_value = b"CentOS Stream release 10"
+
+        expected_info = {
+            "os_type": centos.constants.OS_TYPE_LINUX,
+            "distribution_name": centos.CENTOS_STREAM_DISTRO_IDENTIFIER,
+            "release_version": '10',
+            "friendly_release_name": "%s Version %s" % (
+                centos.CENTOS_STREAM_DISTRO_IDENTIFIER, '10')
+        }
+
+        result = self.centos_os_detect_tools.detect_os()
+
+        self.assertEqual(result, expected_info)
+
+    @mock.patch.object(base.BaseLinuxOSDetectTools, '_test_path')
+    @mock.patch.object(base.BaseLinuxOSDetectTools, '_read_file')
     def test_detect_os_not_centos(self, mock_read_file, mock_test_path):
         mock_test_path.return_value = True
         mock_read_file.return_value = b"dummy release 8.3"

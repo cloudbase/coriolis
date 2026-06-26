@@ -21,7 +21,7 @@ class RockyLinuxOSDetectTools(base.BaseLinuxOSDetectTools):
             release_info = self._read_file(
                 redhat_release_path).decode().splitlines()
             if release_info:
-                m = re.match(r"^(.*) release ([0-9](\.[0-9])*)( \(.*\))?.*$",
+                m = re.match(r"^(.*) release ([0-9]+(\.[0-9]+)*)( \(.*\))?.*$",
                              release_info[0].strip())
                 if m:
                     distro, version, _, _ = m.groups()
