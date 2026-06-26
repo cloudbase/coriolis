@@ -36,6 +36,28 @@ class RockyLinuxOSDetectToolsTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(base.BaseLinuxOSDetectTools, '_test_path')
     @mock.patch.object(base.BaseLinuxOSDetectTools, '_read_file')
+    def test_detect_os_rocky_10(self, mock_read_file, mock_test_path):
+        mock_test_path.return_value = True
+        mock_read_file.return_value = (
+            b"Rocky Linux release 10.1 (Red Quartz)")
+
+        expected_info = {
+            "os_type": rocky.constants.OS_TYPE_LINUX,
+            "distribution_name": rocky.ROCKY_LINUX_DISTRO_IDENTIFIER,
+            "release_version": '10.1',
+            "friendly_release_name": "Rocky Linux Version 10.1"
+        }
+
+        rocky_os_detect_tools = rocky.RockyLinuxOSDetectTools(
+            mock.sentinel.conn, mock.sentinel.os_root_dir,
+            mock.sentinel.operation_timeout)
+
+        result = rocky_os_detect_tools.detect_os()
+
+        self.assertEqual(result, expected_info)
+
+    @mock.patch.object(base.BaseLinuxOSDetectTools, '_test_path')
+    @mock.patch.object(base.BaseLinuxOSDetectTools, '_read_file')
     def test_detect_os_no_rocky(self, mock_read_file, mock_test_path):
         mock_test_path.return_value = True
         mock_read_file.return_value = b"CentOS Linux release 8.4"
