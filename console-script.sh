@@ -132,6 +132,7 @@ DOCKER_CONTAINERS_FOLDER="/var/lib/docker/containers"
 CORIOLIS_CERT_FOLDER=$(get_global_config_value coriolis_certificate_store)
 API_CA_PATH=$(get_global_config_value coriolis_appliance_tls_cacert)
 API_CUSTOM_LOCAL_CA_PATH="/usr/local/share/ca-certificates/coriolis-custom-ca.crt"
+WORKER_SYSTEM_CA_CERT_PATH="/usr/local/share/ca-certificates/coriolis-worker-custom-ca.crt"
 API_CERT_PATH=$(get_global_config_value coriolis_appliance_tls_certificate)
 API_KEY_PATH=$(get_global_config_value coriolis_appliance_tls_key)
 METAL_ENABLED=$(get_global_config_value coriolis_export_providers | grep metal)
@@ -381,6 +382,8 @@ function add-certificate-to-worker {
     if [[ $cert_setup = 0 ]]; then
         run-logged-command "docker exec coriolis-worker bash -c 'if [ ! -f $CACERT_PEM_PATH.bak ]; then cp $CACERT_PEM_PATH $CACERT_PEM_PATH.bak; fi'"
         run-logged-command "docker exec coriolis-worker bash -c 'cat $TMP_WORKER_CERTIFICATE_PATH >> $CACERT_PEM_PATH; echo >> $CACERT_PEM_PATH'"
+        run-logged-command "docker exec coriolis-worker bash -c 'cat $TMP_WORKER_CERTIFICATE_PATH >> $WORKER_SYSTEM_CA_CERT_PATH; echo >> $WORKER_SYSTEM_CA_CERT_PATH'"
+        run-logged-command "docker exec coriolis-worker update-ca-certificates"
     fi
 }
 
@@ -391,6 +394,8 @@ function restore-certificate-chain {
     CACERT_PEM_PATH="$CERTIFI_DIR/cacert.pem"
     if [ "$CONFIRMED" = "1" ]; then
         run-logged-command "docker exec coriolis-worker bash -c 'if [ -f $CACERT_PEM_PATH.bak ]; then cp $CACERT_PEM_PATH.bak $CACERT_PEM_PATH; fi'"
+        run-logged-command "docker exec coriolis-worker bash -c 'rm -f $WORKER_SYSTEM_CA_CERT_PATH'"
+        run-logged-command "docker exec coriolis-worker update-ca-certificates --fresh"
     fi
 }
 
