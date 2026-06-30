@@ -8,10 +8,9 @@ import uuid
 
 from oslo_log import log as logging
 
-from coriolis import exception
+from coriolis import exception, utils
 from coriolis.osmorphing import base
 from coriolis.osmorphing.osdetect import suse as suse_detect
-from coriolis import utils
 
 LOG = logging.getLogger(__name__)
 
@@ -19,23 +18,26 @@ DETECTED_SUSE_RELEASE_FIELD_NAME = suse_detect.DETECTED_SUSE_RELEASE_FIELD_NAME
 SLES_DISTRO_IDENTIFIER = suse_detect.SLES_DISTRO_IDENTIFIER
 OPENSUSE_DISTRO_IDENTIFIER = suse_detect.OPENSUSE_DISTRO_IDENTIFIER
 OPENSUSE_TUMBLEWEED_VERSION_IDENTIFIER = (
-    suse_detect.OPENSUSE_TUMBLEWEED_VERSION_IDENTIFIER)
+    suse_detect.OPENSUSE_TUMBLEWEED_VERSION_IDENTIFIER
+)
 CLOUD_TOOLS_REPO_URI_FORMAT = (
-    "https://download.opensuse.org/repositories/Cloud:/Tools/%s%s")
+    "https://download.opensuse.org/repositories/Cloud:/Tools/%s%s"
+)
 CLOUD_TOOLS_REPO_URI_VERSION_ONLY_FORMAT = (
-    "https://download.opensuse.org/repositories/Cloud:/Tools/%s/")
+    "https://download.opensuse.org/repositories/Cloud:/Tools/%s/"
+)
 CLOUD_TOOLS_NEW_URL_MINIMUM_VERSION = 16
 
 
 class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
-
     BIOS_GRUB_LOCATION = "/boot/grub2"
     UEFI_GRUB_LOCATION = "/boot/efi/EFI/suse"
 
     @classmethod
     def get_required_detected_os_info_fields(cls):
         common_fields = super(
-            BaseSUSEMorphingTools, cls).get_required_detected_os_info_fields()
+            BaseSUSEMorphingTools, cls
+        ).get_required_detected_os_info_fields()
         fields = copy.deepcopy(common_fields)
         fields.append(DETECTED_SUSE_RELEASE_FIELD_NAME)
         return fields
@@ -43,8 +45,7 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
     @classmethod
     def check_os_supported(cls, detected_os_info):
         distro = detected_os_info['distribution_name']
-        if distro not in (
-                SLES_DISTRO_IDENTIFIER, OPENSUSE_DISTRO_IDENTIFIER):
+        if distro not in (SLES_DISTRO_IDENTIFIER, OPENSUSE_DISTRO_IDENTIFIER):
             return False
 
         version = detected_os_info['release_version']
@@ -52,11 +53,9 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
             if version == OPENSUSE_TUMBLEWEED_VERSION_IDENTIFIER:
                 return True
             else:
-                return cls._version_supported_util(
-                    version, minimum=15)
+                return cls._version_supported_util(version, minimum=15)
         elif distro == SLES_DISTRO_IDENTIFIER:
-            return cls._version_supported_util(
-                version, minimum=12)
+            return cls._version_supported_util(version, minimum=12)
 
         return False
 
@@ -89,8 +88,8 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
         if self._test_path_chroot(bios_cfg):
             return bios_cfg
         raise Exception(
-            "could not determine grub location."
-            " boot partition not mounted?")
+            "could not determine grub location. boot partition not mounted?"
+        )
 
     def _run_dracut(self):
         self._exec_cmd_chroot("dracut --regenerate-all -f")
@@ -101,21 +100,22 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
             # NOTE: on SLES<12, the `mkinitrd` executable
             # must be run with no arguments:
             self._exec_cmd_chroot("mkinitrd")
-            self._event_manager.progress_update(
-                "Successfully rebuilt initrds")
+            self._event_manager.progress_update("Successfully rebuilt initrds")
         except Exception:
             # NOTE: old version of `mkinitrd` can error out due to
             # incompatibilities with sysfs/procfs:
             self._event_manager.progress_update(
-                "Error occurred while rebuilding initrds, skipping")
+                "Error occurred while rebuilding initrds, skipping"
+            )
             LOG.warn(
-                "Exception occured while rebuilding SLES initrds:\n%s" % (
-                    utils.get_exception_details()))
+                "Exception occured while rebuilding SLES initrds:\n%s"
+                % (utils.get_exception_details())
+            )
 
     def _rebuild_initrds(self):
         if self._version_supported_util(
-                self._detected_os_info['release_version'],
-                minimum=0, maximum=12):
+            self._detected_os_info['release_version'], minimum=0, maximum=12
+        ):
             self._run_mkinitrd()
         else:
             self._run_dracut()
@@ -137,7 +137,9 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
                 if self._version_supported_util(self._version, minimum=16):
                     LOG.info(
                         "SLES %s does not use the module system. "
-                        "Skipping module activation.", self._version)
+                        "Skipping module activation.",
+                        self._version,
+                    )
                 else:
                     for module in self._get_sle_modules():
                         self._enable_sles_module(module)
@@ -150,62 +152,69 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
         super(BaseSUSEMorphingTools, self).post_packages_install(package_names)
 
     def _enable_sles_module(self, module):
-        available_modules = self._exec_cmd_chroot(
-            "SUSEConnect --list-extensions")
+        available_modules = self._exec_cmd_chroot("SUSEConnect --list-extensions")
         module_match = re.search("%s.*" % module, available_modules)
         try:
             module_path = module_match.group(0)
-            self._event_manager.progress_update(
-                "Enabling module: %s" % module_path)
+            self._event_manager.progress_update("Enabling module: %s" % module_path)
             conf = "/etc/zypp/zypp.conf"
             self._exec_cmd_chroot("cp %s %s.tmp" % (conf, conf))
             self._exec_cmd_chroot(
-                "sed -i -e 's/^gpgcheck.*//g' -e '$ a\gpgcheck = off' %s" % (
-                    conf))
+                "sed -i -e 's/^gpgcheck.*//g' -e '$ a\gpgcheck = off' %s" % (conf)
+            )
             self._exec_cmd_chroot("SUSEConnect -p %s" % module_path)
             self._exec_cmd_chroot("mv -f %s.tmp %s" % (conf, conf))
-            self._exec_cmd_chroot(
-                "zypper --non-interactive --no-gpg-checks refresh")
+            self._exec_cmd_chroot("zypper --non-interactive --no-gpg-checks refresh")
         except Exception as err:
             raise exception.CoriolisException(
                 "Failed to activate SLES module: %s. Please check whether the "
                 "SUSE system registration is still valid on the source VM "
-                "and retry. Review logs for more details. Error was: %s" %
-                (module, str(err))) from err
+                "and retry. Review logs for more details. Error was: %s"
+                % (module, str(err))
+            ) from err
 
     def _add_cloud_tools_repo(self):
         if self._version == OPENSUSE_TUMBLEWEED_VERSION_IDENTIFIER:
             repo = CLOUD_TOOLS_REPO_URI_FORMAT % (
-                self._detected_os_info[
-                    DETECTED_SUSE_RELEASE_FIELD_NAME].replace(" ", "_"),
-                "")
+                self._detected_os_info[DETECTED_SUSE_RELEASE_FIELD_NAME].replace(
+                    " ", "_"
+                ),
+                "",
+            )
         elif self._version_supported_util(
-                self._version, minimum=CLOUD_TOOLS_NEW_URL_MINIMUM_VERSION):
+            self._version, minimum=CLOUD_TOOLS_NEW_URL_MINIMUM_VERSION
+        ):
             repo = CLOUD_TOOLS_REPO_URI_VERSION_ONLY_FORMAT % self._version
         else:
             repo = CLOUD_TOOLS_REPO_URI_FORMAT % (
-                self._detected_os_info[
-                    DETECTED_SUSE_RELEASE_FIELD_NAME].replace(" ", "_"),
-                "_%s" % self._version)
+                self._detected_os_info[DETECTED_SUSE_RELEASE_FIELD_NAME].replace(
+                    " ", "_"
+                ),
+                "_%s" % self._version,
+            )
         try:
             self._add_repo(repo, 'Cloud-Tools')
         except Exception:
             LOG.warning(
                 "Failed to add Cloud-Tools repo '%s'. If custom "
                 "repositories are configured on the target, this may be "
-                "safely ignored. Error was: %s", repo,
-                utils.get_exception_details())
+                "safely ignored. Error was: %s",
+                repo,
+                utils.get_exception_details(),
+            )
             self._event_manager.progress_update(
                 "Warning: failed to add Cloud-Tools repo '%s'. If the "
                 "required packages are available in already-configured "
                 "repositories, the migration may still succeed. If not, "
                 "please ensure the worker has internet access or "
-                "appropriate custom repositories are set up." % repo)
+                "appropriate custom repositories are set up." % repo
+            )
 
     def _get_repos(self):
         repos = {}
         repos_list = self._exec_cmd_chroot(
-            "zypper repos -u | awk -F '|' '/^\s[0-9]+/ {print $2 $7}'")
+            "zypper repos -u | awk -F '|' '/^\s[0-9]+/ {print $2 $7}'"
+        )
         for repo in repos_list.splitlines():
             alias, uri = repo.strip().split()
             repos[alias] = uri
@@ -217,30 +226,36 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
         if repos.get(alias):
             if repos[alias] == uri:
                 LOG.debug(
-                    'Repo with alias %s already exists and has the same '
-                    'URI. Enabling', alias)
-                self._event_manager.progress_update(
-                    "Enabling repository: %s" % alias)
+                    'Repo with alias %s already exists and has the same URI. Enabling',
+                    alias,
+                )
+                self._event_manager.progress_update("Enabling repository: %s" % alias)
                 self._exec_cmd_chroot(
-                    'zypper --non-interactive modifyrepo -e %s' % alias)
+                    'zypper --non-interactive modifyrepo -e %s' % alias
+                )
                 self._exec_cmd_chroot(
-                    "zypper --non-interactive --no-gpg-checks refresh")
+                    "zypper --non-interactive --no-gpg-checks refresh"
+                )
                 return
             else:
-                LOG.debug('Repo with alias %s already exists, but has a '
-                          'different URI. Renaming alias', alias)
+                LOG.debug(
+                    'Repo with alias %s already exists, but has a '
+                    'different URI. Renaming alias',
+                    alias,
+                )
                 alias = "%s%s" % (alias, str(uuid.uuid4()))
 
         self._event_manager.progress_update("Adding repository: %s" % alias)
         try:
             self._exec_cmd_chroot(
-                "zypper --non-interactive addrepo -f %s %s" % (uri, alias))
-            self._exec_cmd_chroot(
-                "zypper --non-interactive --no-gpg-checks refresh")
+                "zypper --non-interactive addrepo -f %s %s" % (uri, alias)
+            )
+            self._exec_cmd_chroot("zypper --non-interactive --no-gpg-checks refresh")
         except Exception as err:
             raise exception.CoriolisException(
                 "Failed to add %s repo: %s. Please review logs"
-                " for more details." % (alias, uri)) from err
+                " for more details." % (alias, uri)
+            ) from err
 
     def install_packages(self, package_names):
         try:
@@ -249,17 +264,19 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
             )
         except exception.CoriolisException as err:
             raise exception.FailedPackageInstallationException(
-                package_names=package_names, package_manager='zypper',
-                error=str(err)) from err
+                package_names=package_names, package_manager='zypper', error=str(err)
+            ) from err
 
     def uninstall_packages(self, package_names):
         try:
             self._exec_cmd_chroot(
-                'zypper --non-interactive remove %s' %
-                " ".join(package_names))
+                'zypper --non-interactive remove %s' % " ".join(package_names)
+            )
         except Exception:
             self._event_manager.progress_update(
-                "Error occured while uninstalling packages. Ignoring")
+                "Error occured while uninstalling packages. Ignoring"
+            )
             LOG.warn(
-                "Error occured while uninstalling packages. Ignoring. "
-                "Exception:\n%s", utils.get_exception_details())
+                "Error occured while uninstalling packages. Ignoring. Exception:\n%s",
+                utils.get_exception_details(),
+            )

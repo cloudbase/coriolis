@@ -4,8 +4,7 @@
 
 from unittest import mock
 
-from coriolis.osmorphing.osdetect import amazon
-from coriolis.osmorphing.osdetect import base
+from coriolis.osmorphing.osdetect import amazon, base
 from coriolis.tests import test_base
 
 
@@ -17,19 +16,21 @@ class AmazonLinuxOSDetectToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_get_os_release.return_value = {
             "ID": "amzn",
             "VERSION": mock.sentinel.version,
-            "NAME": "Amazon Linux"
+            "NAME": "Amazon Linux",
         }
 
         expected_info = {
             "os_type": amazon.constants.OS_TYPE_LINUX,
             "distribution_name": amazon.AMAZON_DISTRO_NAME,
             "release_version": mock.sentinel.version,
-            "friendly_release_name": "Amazon Linux %s" % mock.sentinel.version
+            "friendly_release_name": "Amazon Linux %s" % mock.sentinel.version,
         }
 
         amazon_os_detect_tools = amazon.AmazonLinuxOSDetectTools(
-            mock.sentinel.conn, mock.sentinel.os_root_dir,
-            mock.sentinel.operation_timeout)
+            mock.sentinel.conn,
+            mock.sentinel.os_root_dir,
+            mock.sentinel.operation_timeout,
+        )
 
         result = amazon_os_detect_tools.detect_os()
 

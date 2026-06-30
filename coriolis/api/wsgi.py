@@ -18,17 +18,15 @@ import inspect
 import math
 import time
 
-from oslo_log import log as logging
-from oslo_serialization import jsonutils
-from oslo_utils import excutils
 import six
 import webob
 import webob.dec
+from oslo_log import log as logging
+from oslo_serialization import jsonutils
+from oslo_utils import excutils
 
-from coriolis import exception
-from coriolis import i18n
-from coriolis.i18n import _, _LE, _LI  # noqa
-
+from coriolis import exception, i18n
+from coriolis.i18n import _LE, _LI, _  # noqa
 
 LOG = logging.getLogger(__name__)
 
@@ -228,12 +226,12 @@ class Request(webob.Request):
         self.cache_db_items(self.path, [volume], 'id')
 
     def get_db_volumes(self):
-        return (self.get_db_items('volumes') or
-                self.get_db_items(self.path))
+        return self.get_db_items('volumes') or self.get_db_items(self.path)
 
     def get_db_volume(self, volume_id):
-        return (self.get_db_item('volumes', volume_id) or
-                self.get_db_item(self.path, volume_id))
+        return self.get_db_item('volumes', volume_id) or self.get_db_item(
+            self.path, volume_id
+        )
 
     def cache_db_volume_types(self, volume_types):
         self.cache_db_items('volume_types', volume_types, 'id')
@@ -287,8 +285,9 @@ class Request(webob.Request):
             if not content_type:
                 content_type = self.accept.best_match(SUPPORTED_CONTENT_TYPES)
 
-            self.environ['coriolis.best_content_type'] = (content_type or
-                                                          'application/json')
+            self.environ['coriolis.best_content_type'] = (
+                content_type or 'application/json'
+            )
 
         return self.environ['coriolis.best_content_type']
 
@@ -346,8 +345,10 @@ class Middleware(Application):
         You could of course re-implement the `factory` method in subclasses,
         but using the kwarg passing it shouldn't be necessary.
         """
+
         def _factory(app):
             return cls(app, **local_config)
+
         return _factory
 
     def __init__(self, application):
@@ -399,7 +400,6 @@ class TextDeserializer(ActionDispatcher):
 
 
 class JSONDeserializer(TextDeserializer):
-
     def _from_json(self, datastring):
         try:
             return jsonutils.loads(datastring)
@@ -448,6 +448,7 @@ def serializers(**serializers):
             func.wsgi_serializers = {}
         func.wsgi_serializers.update(serializers)
         return func
+
     return decorator
 
 
@@ -464,6 +465,7 @@ def deserializers(**deserializers):
             func.wsgi_deserializers = {}
         func.wsgi_deserializers.update(deserializers)
         return func
+
     return decorator
 
 
@@ -478,6 +480,7 @@ def response(code):
     def decorator(func):
         func.wsgi_code = code
         return func
+
     return decorator
 
 
@@ -567,8 +570,7 @@ class ResponseObject(object):
         be accessed by extensions for, e.g., template extension.
         """
 
-        mtype, serializer = self.get_serializer(content_type,
-                                                default_serializers)
+        mtype, serializer = self.get_serializer(content_type, default_serializers)
         self.media_type = mtype
         self.serializer = serializer()
 
@@ -588,8 +590,7 @@ class ResponseObject(object):
         if self.serializer:
             serializer = self.serializer
         else:
-            _mtype, _serializer = self.get_serializer(content_type,
-                                                      default_serializers)
+            _mtype, _serializer = self.get_serializer(content_type, default_serializers)
             serializer = _serializer()
 
         response = webob.Response()
@@ -654,13 +655,16 @@ class ResourceExceptionHandler(object):
         if isinstance(ex_value, exception.NotAuthorized):
             raise Fault(webob.exc.HTTPForbidden(explanation=ex_value.msg))
         elif isinstance(ex_value, exception.Invalid):
-            raise Fault(exception.ConvertedException(
-                code=ex_value.code, explanation=ex_value.msg))
+            raise Fault(
+                exception.ConvertedException(
+                    code=ex_value.code, explanation=ex_value.msg
+                )
+            )
         elif isinstance(ex_value, TypeError):
             exc_info = (ex_type, ex_value, ex_traceback)
-            LOG.error(_LE(
-                'Exception handling resource: %s'),
-                ex_value, exc_info=exc_info)
+            LOG.error(
+                _LE('Exception handling resource: %s'), ex_value, exc_info=exc_info
+            )
             raise Fault(webob.exc.HTTPBadRequest())
         elif isinstance(ex_value, Fault):
             LOG.info(_LI("Fault thrown: %s"), ex_value)
@@ -705,8 +709,7 @@ class Resource(Application):
         default_deserializers.update(deserializers)
 
         self.default_deserializers = default_deserializers
-        self.default_serializers = dict(json=JSONDictSerializer,
-                                        csv=CSVSerializer)
+        self.default_serializers = dict(json=JSONDictSerializer, csv=CSVSerializer)
 
         self.action_peek = dict(json=action_peek_json)
         self.action_peek.update(action_peek or {})
@@ -832,8 +835,7 @@ class Resource(Application):
         # Run post-processing in the reverse order
         return None, reversed(post)
 
-    def post_process_extensions(self, extensions, resp_obj, request,
-                                action_args):
+    def post_process_extensions(self, extensions, resp_obj, request, action_args):
         for ext in extensions:
             response = None
             if inspect.isgenerator(ext):
@@ -851,8 +853,7 @@ class Resource(Application):
                 # Regular functions get post-processing...
                 try:
                     with ResourceExceptionHandler():
-                        response = ext(req=request, resp_obj=resp_obj,
-                                       **action_args)
+                        response = ext(req=request, resp_obj=resp_obj, **action_args)
                 except Fault as ex:
                     response = ex
 
@@ -866,9 +867,9 @@ class Resource(Application):
     def __call__(self, request):
         """WSGI method that controls (de)serialization and method dispatch."""
 
-        LOG.info(_LI("%(method)s %(url)s"),
-                 {"method": request.method,
-                  "url": request.url})
+        LOG.info(
+            _LI("%(method)s %(url)s"), {"method": request.method, "url": request.url}
+        )
 
         # Identify the action, its arguments, and the requested
         # content type
@@ -882,17 +883,16 @@ class Resource(Application):
         #            function.  If we try to audit __call__(), we can
         #            run into troubles due to the @webob.dec.wsgify()
         #            decorator.
-        return self._process_stack(request, action, action_args,
-                                   content_type, body, accept)
+        return self._process_stack(
+            request, action, action_args, content_type, body, accept
+        )
 
-    def _process_stack(self, request, action, action_args,
-                       content_type, body, accept):
+    def _process_stack(self, request, action, action_args, content_type, body, accept):
         """Implement the processing stack."""
 
         # Get the implementing method
         try:
-            meth, extensions = self.get_method(request, action,
-                                               content_type, body)
+            meth, extensions = self.get_method(request, action, content_type, body)
         except (AttributeError, TypeError):
             return Fault(webob.exc.HTTPNotFound())
         except KeyError as ex:
@@ -920,13 +920,12 @@ class Resource(Application):
 
         project_id = action_args.pop("project_id", None)
         context = request.environ.get('coriolis.context')
-        if (context and project_id and (project_id != context.project_id)):
+        if context and project_id and (project_id != context.project_id):
             msg = _("Malformed request url")
             return Fault(webob.exc.HTTPBadRequest(explanation=msg))
 
         # Run pre-processing extensions
-        response, post = self.pre_process_extensions(extensions,
-                                                     request, action_args)
+        response, post = self.pre_process_extensions(extensions, request, action_args)
 
         if not response:
             try:
@@ -957,12 +956,12 @@ class Resource(Application):
                 resp_obj.preserialize(accept, self.default_serializers)
 
                 # Process post-processing extensions
-                response = self.post_process_extensions(post, resp_obj,
-                                                        request, action_args)
+                response = self.post_process_extensions(
+                    post, resp_obj, request, action_args
+                )
 
             if resp_obj and not response:
-                response = resp_obj.serialize(request, accept,
-                                              self.default_serializers)
+                response = resp_obj.serialize(request, accept, self.default_serializers)
 
         try:
             msg_dict = dict(url=request.url, status=response.status_int)
@@ -986,10 +985,12 @@ class Resource(Application):
                 meth = getattr(self.controller, action)
         except AttributeError as e:
             with excutils.save_and_reraise_exception(e) as ctxt:
-                if (not self.wsgi_actions or action not in ['action',
-                                                            'create',
-                                                            'delete',
-                                                            'update']):
+                if not self.wsgi_actions or action not in [
+                    'action',
+                    'create',
+                    'delete',
+                    'update',
+                ]:
                     LOG.exception(_LE('Get method error.'))
                 else:
                     ctxt.reraise = False
@@ -1005,8 +1006,10 @@ class Resource(Application):
             action_name = action
 
         # Look up the action method
-        return (self.wsgi_actions[action_name],
-                self.wsgi_action_extensions.get(action_name, []))
+        return (
+            self.wsgi_actions[action_name],
+            self.wsgi_action_extensions.get(action_name, []),
+        )
 
     def dispatch(self, method, request, action_args):
         """Dispatch a call to the action-specific method."""
@@ -1026,6 +1029,7 @@ def action(name):
     def decorator(func):
         func.wsgi_action = name
         return func
+
     return decorator
 
 
@@ -1086,8 +1090,7 @@ class ControllerMetaclass(type):
         cls_dict['wsgi_actions'] = actions
         cls_dict['wsgi_extensions'] = extensions
 
-        return super(ControllerMetaclass, mcs).__new__(mcs, name, bases,
-                                                       cls_dict)
+        return super(ControllerMetaclass, mcs).__new__(mcs, name, bases, cls_dict)
 
 
 @six.add_metaclass(ControllerMetaclass)
@@ -1132,8 +1135,9 @@ class Controller(object):
         #       V2 api 'HTTPBadRequest' exception is getting raised.
         if not Controller.is_valid_body(body, entity_name):
             raise webob.exc.HTTPBadRequest(
-                explanation=_("Missing required element '%s' in "
-                              "request body.") % entity_name)
+                explanation=_("Missing required element '%s' in request body.")
+                % entity_name
+            )
 
     @staticmethod
     def validate_name_and_description(body):
@@ -1142,22 +1146,23 @@ class Controller(object):
             if isinstance(name, six.string_types):
                 body['name'] = name.strip()
             try:
-                _check_string_length(body['name'], 'Name',
-                                     min_length=0, max_length=255)
+                _check_string_length(body['name'], 'Name', min_length=0, max_length=255)
             except exception.InvalidInput as error:
                 raise webob.exc.HTTPBadRequest(explanation=error.msg)
 
         description = body.get('description')
         if description is not None:
             try:
-                _check_string_length(description, 'Description',
-                                     min_length=0, max_length=255)
+                _check_string_length(
+                    description, 'Description', min_length=0, max_length=255
+                )
             except exception.InvalidInput as error:
                 raise webob.exc.HTTPBadRequest(explanation=error.msg)
 
     @staticmethod
-    def validate_string_length(value, entity_name, min_length=0,
-                               max_length=None, remove_whitespaces=False):
+    def validate_string_length(
+        value, entity_name, min_length=0, max_length=None, remove_whitespaces=False
+    ):
         """Check the length of specified string.
 
         :param value: the value of the string
@@ -1170,9 +1175,9 @@ class Controller(object):
         if isinstance(value, six.string_types) and remove_whitespaces:
             value = value.strip()
         try:
-            _check_string_length(value, entity_name,
-                                 min_length=min_length,
-                                 max_length=max_length)
+            _check_string_length(
+                value, entity_name, min_length=min_length, max_length=max_length
+            )
         except exception.InvalidInput as error:
             raise webob.exc.HTTPBadRequest(explanation=error.msg)
 
@@ -1189,17 +1194,24 @@ class Controller(object):
         try:
             value = int(value)
         except (TypeError, ValueError, UnicodeEncodeError):
-            raise webob.exc.HTTPBadRequest(explanation=(
-                _('%s must be an integer.') % name))
+            raise webob.exc.HTTPBadRequest(
+                explanation=(_('%s must be an integer.') % name)
+            )
 
         if min_value is not None and value < min_value:
             raise webob.exc.HTTPBadRequest(
-                explanation=(_('%(value_name)s must be >= %(min_value)d') %
-                             {'value_name': name, 'min_value': min_value}))
+                explanation=(
+                    _('%(value_name)s must be >= %(min_value)d')
+                    % {'value_name': name, 'min_value': min_value}
+                )
+            )
         if max_value is not None and value > max_value:
             raise webob.exc.HTTPBadRequest(
-                explanation=(_('%(value_name)s must be <= %(max_value)d') %
-                             {'value_name': name, 'max_value': max_value}))
+                explanation=(
+                    _('%(value_name)s must be <= %(max_value)d')
+                    % {'value_name': name, 'max_value': max_value}
+                )
+            )
 
         return value
 
@@ -1207,16 +1219,18 @@ class Controller(object):
 class Fault(webob.exc.HTTPException):
     """Wrap webob.exc.HTTPException to provide API friendly response."""
 
-    _fault_names = {400: "badRequest",
-                    401: "unauthorized",
-                    403: "forbidden",
-                    404: "itemNotFound",
-                    405: "badMethod",
-                    409: "conflictingRequest",
-                    413: "overLimit",
-                    415: "badMediaType",
-                    501: "notImplemented",
-                    503: "serviceUnavailable"}
+    _fault_names = {
+        400: "badRequest",
+        401: "unauthorized",
+        403: "forbidden",
+        404: "itemNotFound",
+        405: "badMethod",
+        409: "conflictingRequest",
+        413: "overLimit",
+        415: "badMediaType",
+        501: "notImplemented",
+        503: "serviceUnavailable",
+    }
 
     def __init__(self, exception):
         """Create a Fault for the given webob.exc.exception."""
@@ -1235,7 +1249,9 @@ class Fault(webob.exc.HTTPException):
             'error': {
                 'fault': fault_name,
                 'code': code,
-                'message': i18n.translate(explanation, locale)}}
+                'message': i18n.translate(explanation, locale),
+            }
+        }
         if code == 413:
             retry = self.wrapped_exc.headers.get('Retry-After', None)
             if retry:
@@ -1278,13 +1294,17 @@ def _check_string_length(value, name, min_length=0, max_length=None):
         raise exception.InvalidInput(message=msg)
 
     if len(value) < min_length:
-        msg = _("%(name)s has a minimum character requirement of "
-                "%(min_length)s.") % {'name': name, 'min_length': min_length}
+        msg = _("%(name)s has a minimum character requirement of %(min_length)s.") % {
+            'name': name,
+            'min_length': min_length,
+        }
         raise exception.InvalidInput(message=msg)
 
     if max_length and len(value) > max_length:
-        msg = _("%(name)s has more than %(max_length)s "
-                "characters.") % {'name': name, 'max_length': max_length}
+        msg = _("%(name)s has more than %(max_length)s characters.") % {
+            'name': name,
+            'max_length': max_length,
+        }
         raise exception.InvalidInput(message=msg)
 
 
@@ -1319,10 +1339,12 @@ class OverLimitFault(webob.exc.HTTPException):
             locale = request.best_match_language()
             return i18n.translate(msg, locale)
 
-        self.content['overLimitFault']['message'] = \
-            translate(self.content['overLimitFault']['message'])
-        self.content['overLimitFault']['details'] = \
-            translate(self.content['overLimitFault']['details'])
+        self.content['overLimitFault']['message'] = translate(
+            self.content['overLimitFault']['message']
+        )
+        self.content['overLimitFault']['details'] = translate(
+            self.content['overLimitFault']['details']
+        )
 
         serializer = {
             'application/json': JSONDictSerializer(),

@@ -7,8 +7,7 @@ import itertools
 from oslo_log import log as logging
 from six import with_metaclass
 
-from coriolis import context
-from coriolis import exception
+from coriolis import context, exception
 from coriolis.osmorphing import base as base_osmorphing
 from coriolis.osmorphing.osdetect import base as base_osdetect
 
@@ -16,7 +15,6 @@ LOG = logging.getLogger(__name__)
 
 
 class BaseProvider(object, with_metaclass(abc.ABCMeta)):
-
     @property
     def platform(self) -> str:
         """Platform type."""
@@ -24,7 +22,6 @@ class BaseProvider(object, with_metaclass(abc.ABCMeta)):
 
 
 class BaseEndpointProvider(BaseProvider):
-
     @abc.abstractmethod
     def validate_connection(
         self,
@@ -139,8 +136,7 @@ class BaseProviderSetupExtraLibsMixin(object, with_metaclass(abc.ABCMeta)):
         return []
 
 
-class BaseEndpointDestinationOptionsProvider(
-        object, with_metaclass(abc.ABCMeta)):
+class BaseEndpointDestinationOptionsProvider(object, with_metaclass(abc.ABCMeta)):
     @abc.abstractmethod
     def get_target_environment_options(
         self,
@@ -206,8 +202,7 @@ class BaseEndpointDestinationOptionsProvider(
         pass
 
 
-class BaseEndpointSourceOptionsProvider(
-        object, with_metaclass(abc.ABCMeta)):
+class BaseEndpointSourceOptionsProvider(object, with_metaclass(abc.ABCMeta)):
     @abc.abstractmethod
     def get_source_environment_options(
         self,
@@ -274,7 +269,6 @@ class BaseEndpointSourceOptionsProvider(
 
 
 class BaseInstanceProvider(BaseProvider):
-
     @abc.abstractmethod
     def get_os_morphing_tools(
         self,
@@ -316,7 +310,6 @@ class BaseInstanceProvider(BaseProvider):
 
 
 class BaseImportInstanceProvider(BaseInstanceProvider):
-
     @abc.abstractmethod
     def get_target_environment_schema(self) -> str:
         """Retrieve the provider specific target environment schema.
@@ -342,10 +335,11 @@ class BaseImportInstanceProvider(BaseInstanceProvider):
         :param instance_name: fallback instance name
         """
         dest_instance_name = export_info.get("name", instance_name)
-        LOG.debug('Destination instance name for "%(instance_name)s": '
-                  '"%(dest_instance_name)s"',
-                  {"instance_name": instance_name,
-                   "dest_instance_name": dest_instance_name})
+        LOG.debug(
+            'Destination instance name for "%(instance_name)s": '
+            '"%(dest_instance_name)s"',
+            {"instance_name": instance_name, "dest_instance_name": dest_instance_name},
+        )
         return dest_instance_name
 
     @abc.abstractmethod
@@ -399,8 +393,7 @@ class BaseImportInstanceProvider(BaseInstanceProvider):
         pass
 
 
-class BaseReplicaExportValidationProvider(
-        object, with_metaclass(abc.ABCMeta)):
+class BaseReplicaExportValidationProvider(object, with_metaclass(abc.ABCMeta)):
     """Validate replica export parameters."""
 
     @abc.abstractmethod
@@ -424,8 +417,7 @@ class BaseReplicaExportValidationProvider(
         return {}
 
 
-class BaseReplicaImportValidationProvider(
-        object, with_metaclass(abc.ABCMeta)):
+class BaseReplicaImportValidationProvider(object, with_metaclass(abc.ABCMeta)):
     """Validate replica import parameters."""
 
     @abc.abstractmethod
@@ -479,7 +471,6 @@ class BaseReplicaImportValidationProvider(
 
 
 class BaseReplicaImportProvider(BaseImportInstanceProvider):
-
     @abc.abstractmethod
     def deploy_replica_instance(
         self,
@@ -809,7 +800,6 @@ class BaseReplicaImportProvider(BaseImportInstanceProvider):
 
 
 class BaseExportInstanceProvider(BaseInstanceProvider):
-
     @abc.abstractmethod
     def get_source_environment_schema(self) -> str:
         """Retrieve the provider specific source environment schema.
@@ -824,7 +814,6 @@ class BaseExportInstanceProvider(BaseInstanceProvider):
 
 
 class BaseReplicaExportProvider(BaseExportInstanceProvider):
-
     @abc.abstractmethod
     def get_replica_instance_info(
         self,
@@ -1002,18 +991,23 @@ class BaseInstanceFlavorProvider(BaseProvider):
         pass
 
 
-def get_os_morphing_tools_helper(conn, os_morphing_tools_clss,
-                                 hypervisor_type, os_type, os_root_dir,
-                                 os_root_dev, event_manager):
+def get_os_morphing_tools_helper(
+    conn,
+    os_morphing_tools_clss,
+    hypervisor_type,
+    os_type,
+    os_root_dir,
+    os_root_dev,
+    event_manager,
+):
     if os_type and os_type not in os_morphing_tools_clss:
-        raise exception.OSMorphingToolsNotFound(
-            "Unsupported OS type: %s" % os_type)
+        raise exception.OSMorphingToolsNotFound("Unsupported OS type: %s" % os_type)
 
     for cls in os_morphing_tools_clss.get(
-            os_type, itertools.chain(*os_morphing_tools_clss.values())):
+        os_type, itertools.chain(*os_morphing_tools_clss.values())
+    ):
         LOG.debug("Checking using OSMorphing class: %s", cls)
-        tools = cls(
-            conn, os_root_dir, os_root_dev, hypervisor_type, event_manager)
+        tools = cls(conn, os_root_dir, os_root_dev, hypervisor_type, event_manager)
         LOG.debug("Testing OS morphing tools: %s", cls.__name__)
         os_info = tools.check_os()
         if os_info:
@@ -1046,9 +1040,10 @@ class BaseEndpointStorageProvider(object, with_metaclass(abc.ABCMeta)):
 
 
 class BaseUpdateSourceReplicaProvider(object, with_metaclass(abc.ABCMeta)):
-    """ Class for replica export providers which offer the functionality
+    """Class for replica export providers which offer the functionality
     of updating the parameters for a replica.
     """
+
     @abc.abstractmethod
     def check_update_source_environment_params(
         self,
@@ -1059,7 +1054,7 @@ class BaseUpdateSourceReplicaProvider(object, with_metaclass(abc.ABCMeta)):
         old_params: dict,
         new_params: dict,
     ) -> list[dict]:
-        """ Checks that any existing replica resources for the VM given by its
+        """Checks that any existing replica resources for the VM given by its
         `export_info` which were replicated using the `old_params` is
         compatible with the `new_params`. The `old_params` and `new_params`
         refer to either the `source_environment` replica fields.
@@ -1074,11 +1069,11 @@ class BaseUpdateSourceReplicaProvider(object, with_metaclass(abc.ABCMeta)):
         """
 
 
-class BaseUpdateDestinationReplicaProvider(
-        object, with_metaclass(abc.ABCMeta)):
-    """ Class for replica import providers which offer the functionality
+class BaseUpdateDestinationReplicaProvider(object, with_metaclass(abc.ABCMeta)):
+    """Class for replica import providers which offer the functionality
     of updating the parameters for a replica.
     """
+
     @abc.abstractmethod
     def check_update_destination_environment_params(
         self,
@@ -1089,7 +1084,7 @@ class BaseUpdateDestinationReplicaProvider(
         old_params: dict,
         new_params: dict,
     ) -> list[dict]:
-        """ Checks that any existing replica resources for the VM given by its
+        """Checks that any existing replica resources for the VM given by its
         `export_info` which were replicated using the `old_params` is
         compatible with the `new_params`. The `old_params` and `new_params`
         refer to the `destination_environment` replica fields.
@@ -1104,8 +1099,7 @@ class BaseUpdateDestinationReplicaProvider(
         """
 
 
-class _BaseMinionPoolProvider(
-        object, with_metaclass(abc.ABCMeta)):
+class _BaseMinionPoolProvider(object, with_metaclass(abc.ABCMeta)):
     """Minion Pool management functionality.
 
     Coriolis users will choose whether minion pools should be used or not.
@@ -1395,8 +1389,7 @@ class _BaseMinionPoolProvider(
         pass
 
 
-class BaseEndpointInventoryExportProvider(
-        object, with_metaclass(abc.ABCMeta)):
+class BaseEndpointInventoryExportProvider(object, with_metaclass(abc.ABCMeta)):
     """Capability class for providers that support VM inventory CSV export.
 
     Providers that implement this class will be offered in the UI as
@@ -1406,8 +1399,7 @@ class BaseEndpointInventoryExportProvider(
     """
 
     @abc.abstractmethod
-    def export_instance_inventory(
-            self, ctxt, connection_info, source_environment):
+    def export_instance_inventory(self, ctxt, connection_info, source_environment):
         """Export the full VM inventory as a CSV-formatted string.
 
         :param ctxt: Coriolis request context
@@ -1429,7 +1421,6 @@ class BaseSourceMinionPoolProvider(_BaseMinionPoolProvider):
 
 
 class BaseDestinationMinionPoolProvider(_BaseMinionPoolProvider):
-
     @abc.abstractmethod
     def validate_osmorphing_minion_compatibility_for_transfer(
         self,
@@ -1439,7 +1430,7 @@ class BaseDestinationMinionPoolProvider(_BaseMinionPoolProvider):
         environment_options: list[dict],
         minion_properties: dict,
     ):
-        """ Validates compatibility between the OSMorphing pool's options and
+        """Validates compatibility between the OSMorphing pool's options and
         the options selected for a given transfer. Should raise if any options
         of the minions in the pool might be deemed incompatible with the
         desired transfer options.
@@ -1463,7 +1454,7 @@ class BaseDestinationMinionPoolProvider(_BaseMinionPoolProvider):
         target_environment: dict,
         instance_deployment_info: dict,
     ) -> dict:
-        """ This method should return any additional 'osmorphing_info'
+        """This method should return any additional 'osmorphing_info'
         as defined in coriolis.schemas.CORIOLIS_OS_MORPHING_RESOURCES_SCHEMA
 
         :param ctxt: Coriolis request context

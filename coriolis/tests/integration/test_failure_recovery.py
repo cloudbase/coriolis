@@ -50,8 +50,7 @@ class TransferFailureIntegrationTest(base.ReplicaIntegrationTestBase):
             % (task_type, cleanup_task.status, resource_key),
         )
 
-        action = db_api.get_action(
-            ctxt, execution.action_id, include_task_info=True)
+        action = db_api.get_action(ctxt, execution.action_id, include_task_info=True)
         for instance in execution.action.instances:
             self.assertIsNone(
                 action.info.get(instance, {}).get(resource_key),
@@ -94,7 +93,8 @@ class TransferFailureIntegrationTest(base.ReplicaIntegrationTestBase):
             _slow_then_fail,
         ):
             execution = self._client.transfer_executions.create(
-                self._transfer.id, shutdown_instances=False)
+                self._transfer.id, shutdown_instances=False
+            )
             self.assertExecutionErrored(execution.id)
 
         self.assertSourceResourcesCleaned(execution.id)
@@ -120,7 +120,8 @@ class TransferFailureIntegrationTest(base.ReplicaIntegrationTestBase):
             _slow_then_fail,
         ):
             execution = self._client.transfer_executions.create(
-                self._transfer.id, shutdown_instances=False)
+                self._transfer.id, shutdown_instances=False
+            )
             self.assertExecutionErrored(execution.id)
 
         self.assertTargetResourcesCleaned(execution.id)

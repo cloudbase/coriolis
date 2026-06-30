@@ -6,22 +6,21 @@
 Exercises diagnostics.get() via the Coriolis REST API.
 """
 
-import netifaces
 import socket
 
-from coriolis.tests.integration import base
+import netifaces
+
 from coriolis import utils
+from coriolis.tests.integration import base
 
 
 class DiagnosticsTest(base.CoriolisIntegrationTestBase):
-
     def test_get_diagnostics(self):
         diag_list = self._client.diagnostics.get()
 
         # Returns a list of Diagnostics resources, one per service.
         self.assertIsInstance(diag_list, list)
-        self.assertTrue(
-            len(diag_list) > 0, "Expected at least one diagnostics entry")
+        self.assertTrue(len(diag_list) > 0, "Expected at least one diagnostics entry")
 
         diag = diag_list[0]
         diag_ip_addr = diag.ip_addresses[0]

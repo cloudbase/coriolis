@@ -6,8 +6,7 @@ from unittest import mock
 
 from oslo_utils import strutils
 
-from coriolis import constants
-from coriolis import exception
+from coriolis import constants, exception
 from coriolis.osmorphing.osmount import windows
 from coriolis.tests import test_base
 
@@ -34,13 +33,16 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
             "ip": "127.0.0.1",
             "username": "random_username",
             "password": "random_password",
-            "pkey": "random_pkey"
+            "pkey": "random_pkey",
         }
         self.status = "Online"
         self.service_script_with_id_fmt = "SELECT DISK %s\r\nONLINE DISK"
         self.tools = windows.WindowsMountTools(
-            self.conn_info, self.event_manager, mock.sentinel.ignore_devices,
-            mock.sentinel.operation_timeout)
+            self.conn_info,
+            self.event_manager,
+            mock.sentinel.ignore_devices,
+            mock.sentinel.operation_timeout,
+        )
         self.tools._conn = mock_wsman_connection
 
     @mock.patch.object(windows.wsman.WSManConnection, 'from_connection_info')
@@ -49,34 +51,37 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
         self.assertIsNone(result)
 
         mock_from_connection_info.assert_called_once_with(
-            self.conn_info, mock.sentinel.operation_timeout)
+            self.conn_info, mock.sentinel.operation_timeout
+        )
 
     def test_get_connection(self):
         result = self.tools.get_connection()
         self.assertEqual(result, self.tools._conn)
 
     def test_check_os(self):
-        with self.assertLogs('coriolis.osmorphing.osmount.windows',
-                             level=logging.DEBUG):
+        with self.assertLogs(
+            'coriolis.osmorphing.osmount.windows', level=logging.DEBUG
+        ):
             result = self.tools.check_os()
             self.assertTrue(result)
 
         self.tools._conn.exec_ps_command.assert_called_once_with(
-            "(get-ciminstance Win32_OperatingSystem).Caption")
+            "(get-ciminstance Win32_OperatingSystem).Caption"
+        )
 
     def test_check_os_not_authorized(self):
-        self.tools._conn.exec_ps_command.side_effect = (
-            windows.exception.NotAuthorized)
+        self.tools._conn.exec_ps_command.side_effect = windows.exception.NotAuthorized
 
-        self.assertRaises(
-            windows.exception.NotAuthorized, self.tools.check_os)
+        self.assertRaises(windows.exception.NotAuthorized, self.tools.check_os)
 
     def test_check_os_with_exception(self):
         self.tools._conn.exec_ps_command.side_effect = (
-            windows.exception.CoriolisException)
+            windows.exception.CoriolisException
+        )
 
-        with self.assertLogs('coriolis.osmorphing.osmount.windows',
-                             level=logging.DEBUG):
+        with self.assertLogs(
+            'coriolis.osmorphing.osmount.windows', level=logging.DEBUG
+        ):
             result = self.tools.check_os()
             self.assertFalse(result)
 
@@ -87,18 +92,22 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
 
         mocked_file_path = r"%s\%s.txt" % (
             self.tools._conn.exec_ps_command.return_value,
-            mock_uuid4.return_value)
+            mock_uuid4.return_value,
+        )
 
         result = self.tools._run_diskpart_script(script)
         self.assertEqual(result, 'random_tempdir')
 
         self.tools._conn.write_file.assert_called_once_with(
-            mocked_file_path, b"random_script")
+            mocked_file_path, b"random_script"
+        )
 
-        self.tools._conn.exec_ps_command.assert_has_calls([
-            mock.call("$env:TEMP"),
-            mock.call("diskpart.exe /s '%s'" % mocked_file_path)
-        ])
+        self.tools._conn.exec_ps_command.assert_has_calls(
+            [
+                mock.call("$env:TEMP"),
+                mock.call("diskpart.exe /s '%s'" % mocked_file_path),
+            ]
+        )
 
     @mock.patch.object(windows.WindowsMountTools, '_run_diskpart_script')
     def test__service_disks_with_status(self, mock_run_script):
@@ -106,20 +115,22 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_run_script.side_effect = [
             "  Disk 0 Online\n  Disk 1 Online\n  Disk 2 Online\n",
             "  Disk 0 Online\n  Disk 1 Online\n  Disk 2 Online\n",
-            Exception()
+            Exception(),
         ]
 
-        with self.assertLogs('coriolis.osmorphing.osmount.windows',
-                             level=logging.WARN):
+        with self.assertLogs('coriolis.osmorphing.osmount.windows', level=logging.WARN):
             self.tools._service_disks_with_status(
-                self.status, self.service_script_with_id_fmt,
+                self.status,
+                self.service_script_with_id_fmt,
                 skip_on_error=True,
                 logmsg_fmt="Operating on disk with index '%s'",
-                disk_ids_to_skip=disk_ids_to_skip)
+                disk_ids_to_skip=disk_ids_to_skip,
+            )
 
     def test__service_disks_with_status_no_skip_ids(self):
         result = self.tools._service_disks_with_status(
-            self.status, mock.sentinel.service_script_with_id_fmt)
+            self.status, mock.sentinel.service_script_with_id_fmt
+        )
         self.assertIsNone(result)
 
     @mock.patch.object(windows.WindowsMountTools, '_run_diskpart_script')
@@ -128,16 +139,17 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_run_script.side_effect = [
             "  Disk 0 Online\n  Disk 1 Online\n  Disk 2 Online\n",
             "  Disk 0 Online\n  Disk 1 Online\n  Disk 2 Online\n",
-            CoriolisTestException()
+            CoriolisTestException(),
         ]
 
-        with self.assertLogs('coriolis.osmorphing.osmount.windows',
-                             level=logging.WARN):
+        with self.assertLogs('coriolis.osmorphing.osmount.windows', level=logging.WARN):
             self.tools._service_disks_with_status(
-                self.status, self.service_script_with_id_fmt,
+                self.status,
+                self.service_script_with_id_fmt,
                 skip_on_error=False,
                 logmsg_fmt="Operating on disk with index '%s'",
-                disk_ids_to_skip=disk_ids_to_skip)
+                disk_ids_to_skip=disk_ids_to_skip,
+            )
 
     @mock.patch.object(windows.WindowsMountTools, '_service_disks_with_status')
     def test__set_foreign_disks_rw_mode(self, mock_service_disks_with_status):
@@ -147,7 +159,7 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_service_disks_with_status.assert_called_once_with(
             "Foreign",
             "SELECT DISK %s\r\nATTRIBUTES DISK CLEAR READONLY\r\nEXIT",
-            logmsg_fmt="Clearing R/O flag on foreign disk with ID '%s'."
+            logmsg_fmt="Clearing R/O flag on foreign disk with ID '%s'.",
         )
 
     @mock.patch.object(windows.WindowsMountTools, '_service_disks_with_status')
@@ -158,7 +170,7 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_service_disks_with_status.assert_called_once_with(
             "Foreign",
             "SELECT DISK %s\r\nIMPORT\r\nEXIT",
-            logmsg_fmt="Importing foreign disk with ID '%s'."
+            logmsg_fmt="Importing foreign disk with ID '%s'.",
         )
 
     def test__bring_disks_online(self):
@@ -166,54 +178,69 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
         result = self.tools._bring_disks_online()
         self.assertIsNone(result)
 
-        self.tools._conn.exec_ps_command.assert_has_calls([
-            mock.call(
-                "(Get-Disk | Where-Object { $_.IsOffline -eq $True }).Number"),
-            mock.call("Set-Disk -IsOffline $False 1"),
-            mock.call("Set-Disk -IsOffline $False 2"),
-        ])
+        self.tools._conn.exec_ps_command.assert_has_calls(
+            [
+                mock.call(
+                    "(Get-Disk | Where-Object { $_.IsOffline -eq $True }).Number"
+                ),
+                mock.call("Set-Disk -IsOffline $False 1"),
+                mock.call("Set-Disk -IsOffline $False 2"),
+            ]
+        )
 
     def test__bring_disks_online_with_exception(self):
         self.tools._conn.exec_ps_command.side_effect = [
-            "1\n2", None, windows.exception.CoriolisException]
-        with self.assertLogs('coriolis.osmorphing.osmount.windows',
-                             level=logging.WARNING):
+            "1\n2",
+            None,
+            windows.exception.CoriolisException,
+        ]
+        with self.assertLogs(
+            'coriolis.osmorphing.osmount.windows', level=logging.WARNING
+        ):
             self.tools._bring_disks_online()
 
     def test__bring_disks_online_disk_nums(self):
         result = self.tools._bring_disks_online(disk_nums=['1', 2])
         self.assertIsNone(result)
 
-        self.tools._conn.exec_ps_command.assert_has_calls([
-            mock.call("Set-Disk -IsOffline $False 1"),
-            mock.call("Set-Disk -IsOffline $False 2"),
-        ])
+        self.tools._conn.exec_ps_command.assert_has_calls(
+            [
+                mock.call("Set-Disk -IsOffline $False 1"),
+                mock.call("Set-Disk -IsOffline $False 2"),
+            ]
+        )
 
     def test__set_basic_disks_rw_mode(self):
         self.tools._conn.exec_ps_command.return_value = "1\n2"
         result = self.tools._set_basic_disks_rw_mode()
         self.assertIsNone(result)
 
-        self.tools._conn.exec_ps_command.assert_has_calls([
-            mock.call("(Get-Disk | "
-                      "Where-Object { $_.IsReadOnly -eq $True }).Number"),
-            mock.call("Set-Disk -IsReadOnly $False 1"),
-            mock.call("Set-Disk -IsReadOnly $False 2"),
-        ])
+        self.tools._conn.exec_ps_command.assert_has_calls(
+            [
+                mock.call(
+                    "(Get-Disk | Where-Object { $_.IsReadOnly -eq $True }).Number"
+                ),
+                mock.call("Set-Disk -IsReadOnly $False 1"),
+                mock.call("Set-Disk -IsReadOnly $False 2"),
+            ]
+        )
 
     def test__set_basic_disks_rw_mode_with_exception(self):
         self.tools._conn.exec_ps_command.side_effect = [
-            "1\n2", None, windows.exception.CoriolisException]
-        with self.assertLogs('coriolis.osmorphing.osmount.windows',
-                             level=logging.WARNING):
+            "1\n2",
+            None,
+            windows.exception.CoriolisException,
+        ]
+        with self.assertLogs(
+            'coriolis.osmorphing.osmount.windows', level=logging.WARNING
+        ):
             self.tools._set_basic_disks_rw_mode()
 
     def test__get_system_drive(self):
         result = self.tools._get_system_drive()
         self.assertEqual(result, self.tools._conn.exec_ps_command.return_value)
 
-        self.tools._conn.exec_ps_command.assert_called_once_with(
-            "$env:SystemDrive")
+        self.tools._conn.exec_ps_command.assert_called_once_with("$env:SystemDrive")
 
     def test__get_fs_roots(self):
         self.tools._conn.exec_ps_command.return_value = "C:\\\nD:\\\nE:\\"
@@ -223,12 +250,15 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
         self.assertEqual(result, ["C:\\", "D:\\", "E:\\"])
 
         self.tools._conn.exec_ps_command.assert_called_once_with(
-            "(get-psdrive -PSProvider FileSystem).Root")
+            "(get-psdrive -PSProvider FileSystem).Root"
+        )
 
     def test__get_fs_roots_with_exception(self):
         self.assertRaises(
-            windows.exception.CoriolisException, self.tools._get_fs_roots,
-            fail_if_empty=True)
+            windows.exception.CoriolisException,
+            self.tools._get_fs_roots,
+            fail_if_empty=True,
+        )
 
     def test__bring_nonboot_disks_offline(self):
         self.tools._conn.exec_ps_command.return_value = "1\n2\n3"
@@ -236,13 +266,14 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
         result = self.tools._bring_nonboot_disks_offline()
         self.assertIsNone(result)
 
-        self.tools._conn.exec_ps_command.assert_has_calls([
-            mock.call(
-                "(Get-Disk | Where-Object { $_.IsBoot -eq $False }).Number"),
-            mock.call("Set-Disk -IsOffline $True 1"),
-            mock.call("Set-Disk -IsOffline $True 2"),
-            mock.call("Set-Disk -IsOffline $True 3")
-        ])
+        self.tools._conn.exec_ps_command.assert_has_calls(
+            [
+                mock.call("(Get-Disk | Where-Object { $_.IsBoot -eq $False }).Number"),
+                mock.call("Set-Disk -IsOffline $True 1"),
+                mock.call("Set-Disk -IsOffline $True 2"),
+                mock.call("Set-Disk -IsOffline $True 3"),
+            ]
+        )
 
     def test__bring_nonboot_disks_offline_with_exception(self):
         self.tools._conn.exec_ps_command.side_effect = [
@@ -252,24 +283,27 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
             None,
         ]
 
-        with self.assertLogs('coriolis.osmorphing.osmount.windows',
-                             level=logging.WARNING):
+        with self.assertLogs(
+            'coriolis.osmorphing.osmount.windows', level=logging.WARNING
+        ):
             self.tools._bring_nonboot_disks_offline()
 
     def test__bring_nonboot_disks_offline_disk_nums(self):
         result = self.tools._bring_nonboot_disks_offline(disk_nums=['1', 2])
         self.assertIsNone(result)
 
-        self.tools._conn.exec_ps_command.assert_has_calls([
-            mock.call('Set-Disk -IsOffline $True 1'),
-            mock.call('Set-Disk -IsOffline $True 2'),
-        ])
+        self.tools._conn.exec_ps_command.assert_has_calls(
+            [
+                mock.call('Set-Disk -IsOffline $True 1'),
+                mock.call('Set-Disk -IsOffline $True 2'),
+            ]
+        )
 
-    @mock.patch.object(windows.WindowsMountTools,
-                       '_bring_nonboot_disks_offline')
+    @mock.patch.object(windows.WindowsMountTools, '_bring_nonboot_disks_offline')
     @mock.patch.object(windows.WindowsMountTools, '_bring_disks_online')
-    def test__rebring_disks_online(self, bring_disks_online_mock,
-                                   bring_disks_offline_mock):
+    def test__rebring_disks_online(
+        self, bring_disks_online_mock, bring_disks_offline_mock
+    ):
         result = self.tools._rebring_disks_online()
         self.assertIsNone(result)
         bring_disks_offline_mock.assert_called()
@@ -281,26 +315,33 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
         result = self.tools._set_volumes_drive_letter()
         self.assertIsNone(result)
 
-        self.tools._conn.exec_ps_command.assert_has_calls([
-            mock.call(
-                'Get-Partition | Where-Object { $_.Type -eq "Basic" -and '
-                '$_.NoDefaultDriveLetter -eq $True } | Select-Object -Property'
-                ' DiskNumber,PartitionNumber'),
-            mock.call(
-                'Set-Partition -NoDefaultDriveLetter $False -DiskNumber 2 '
-                '-PartitionNumber 2'),
-            mock.call(
-                'Set-Partition -NoDefaultDriveLetter $False -DiskNumber 3 '
-                '-PartitionNumber 4'),
-        ])
+        self.tools._conn.exec_ps_command.assert_has_calls(
+            [
+                mock.call(
+                    'Get-Partition | Where-Object { $_.Type -eq "Basic" -and '
+                    '$_.NoDefaultDriveLetter -eq $True } | Select-Object -Property'
+                    ' DiskNumber,PartitionNumber'
+                ),
+                mock.call(
+                    'Set-Partition -NoDefaultDriveLetter $False -DiskNumber 2 '
+                    '-PartitionNumber 2'
+                ),
+                mock.call(
+                    'Set-Partition -NoDefaultDriveLetter $False -DiskNumber 3 '
+                    '-PartitionNumber 4'
+                ),
+            ]
+        )
         rebring_disks_mock.assert_called_once_with(disk_nums=['2', '3'])
 
     @mock.patch.object(windows.WindowsMountTools, '_rebring_disks_online')
     def test__set_volumes_drive_letter_exception(self, rebring_disks_mock):
         self.tools._conn.exec_ps_command.side_effect = [
-            GET_PARTITION_OUTPUT, None, exception.CoriolisException]
-        with self.assertLogs(
-                'coriolis.osmorphing.osmount.windows', logging.WARNING):
+            GET_PARTITION_OUTPUT,
+            None,
+            exception.CoriolisException,
+        ]
+        with self.assertLogs('coriolis.osmorphing.osmount.windows', logging.WARNING):
             self.tools._set_volumes_drive_letter()
         rebring_disks_mock.assert_called_once_with(disk_nums=['2'])
 
@@ -309,9 +350,14 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(windows.WindowsMountTools, '_set_volumes_drive_letter')
     @mock.patch.object(windows.WindowsMountTools, '_set_basic_disks_rw_mode')
     @mock.patch.object(windows.WindowsMountTools, '_bring_disks_online')
-    def test_mount_os(self, mock_bring_disks_online, mock_set_rw_mode,
-                      mock_set_drive_letters, mock_get_fs_roots,
-                      mock_get_system_drive):
+    def test_mount_os(
+        self,
+        mock_bring_disks_online,
+        mock_set_rw_mode,
+        mock_set_drive_letters,
+        mock_get_fs_roots,
+        mock_get_system_drive,
+    ):
         mock_get_fs_roots.return_value = ["C:\\", "D:\\", "E:\\"]
         mock_get_system_drive.return_value = "C:"
         self.tools._conn.test_path.side_effect = [True, False]
@@ -328,8 +374,9 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
         self.tools._conn.exec_ps_command.return_value = "C:\\\nD:\\\nE:\\"
         self.tools._conn.EOL = "\n"
 
-        self.assertRaises(windows.exception.OperatingSystemNotFound,
-                          self.tools.mount_os)
+        self.assertRaises(
+            windows.exception.OperatingSystemNotFound, self.tools.mount_os
+        )
 
     def test_dismount_os(self):
         root_drive = "C:\\"
@@ -338,7 +385,8 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
         self.assertIsNone(result)
 
         self.tools._conn.exec_ps_command.assert_called_once_with(
-            '(Get-Disk | Where-Object { $_.IsBoot -eq $False }).Number')
+            '(Get-Disk | Where-Object { $_.IsBoot -eq $False }).Number'
+        )
 
     def test_get_encrypted_volume_ids(self):
         # Powershell wouldn't mix line endings, we're just ensuring that
@@ -359,7 +407,8 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
         self.assertEqual(exp_ret, ret)
         self.tools._conn.exec_ps_command.assert_called_once_with(
             'gwmi -ns "Root\\CIMV2\\Security\\MicrosoftVolumeEncryption" '
-            '-class Win32_EncryptableVolume | % {$_.DeviceID}')
+            '-class Win32_EncryptableVolume | % {$_.DeviceID}'
+        )
 
     def test_unlock_encrypted_volume(self):
         vol = "\\\\?\\Volume{2750d574-b333-4e7b-a0a2-d739279d39e9}\\"
@@ -367,19 +416,15 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
 
         self.tools._unlock_encrypted_volume(vol, password)
 
-        exp_cmd = 'manage-bde -unlock "%s" -RecoveryPassword "%s"' % (
-            vol, password)
-        self.tools._conn.exec_ps_command.assert_called_once_with(
-            exp_cmd)
+        exp_cmd = 'manage-bde -unlock "%s" -RecoveryPassword "%s"' % (vol, password)
+        self.tools._conn.exec_ps_command.assert_called_once_with(exp_cmd)
 
     def test_sanitize_recovery_password(self):
         vol = "\\\\?\\Volume{2750d574-b333-4e7b-a0a2-d739279d39e9}\\"
         password = "6010ba47-28e4-4105-8b0a-69eed0a54283"
 
-        cmd = 'manage-bde -unlock "%s" -RecoveryPassword "%s"' % (
-            vol, password)
-        exp_cmd = 'manage-bde -unlock "%s" -RecoveryPassword "%s"' % (
-            vol, '***')
+        cmd = 'manage-bde -unlock "%s" -RecoveryPassword "%s"' % (vol, password)
+        exp_cmd = 'manage-bde -unlock "%s" -RecoveryPassword "%s"' % (vol, '***')
 
         self.assertEqual(exp_cmd, strutils.mask_password(cmd))
 
@@ -389,8 +434,7 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
         self.tools._suspend_bitlocker(vol)
 
         exp_cmd = 'Suspend-BitLocker "%s"' % (vol)
-        self.tools._conn.exec_ps_command.assert_called_once_with(
-            exp_cmd)
+        self.tools._conn.exec_ps_command.assert_called_once_with(exp_cmd)
 
     def test_resume_bitlocker(self):
         vol = "\\\\?\\Volume{2750d574-b333-4e7b-a0a2-d739279d39e9}\\"
@@ -398,8 +442,7 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
         self.tools._resume_bitlocker(vol)
 
         exp_cmd = 'Resume-BitLocker "%s"' % (vol)
-        self.tools._conn.exec_ps_command.assert_called_once_with(
-            exp_cmd)
+        self.tools._conn.exec_ps_command.assert_called_once_with(exp_cmd)
 
     @mock.patch.object(windows.WindowsMountTools, "_get_encrypted_volume_ids")
     def test_unlock_encrypted_volumes_no_password(
@@ -465,17 +508,17 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
         self.tools._unlock_encrypted_volumes()
 
         mock_unlock_encrypted_volume.assert_has_calls(
-            [mock.call(vol_id, fake_pass) for vol_id in encrypted_volume_ids])
+            [mock.call(vol_id, fake_pass) for vol_id in encrypted_volume_ids]
+        )
 
-        self.assertEqual(
-            self.tools._unlocked_volumes, [mock.sentinel.volume1])
+        self.assertEqual(self.tools._unlocked_volumes, [mock.sentinel.volume1])
 
     def test_install_encryption_firstboot_setup_noop(self):
         # No unlocked volumes, nothing to do.
         mock_morphing_tools = mock.Mock()
         self.tools.install_encryption_firstboot_setup(
-            mock.sentinel.os_root_dir,
-            mock_morphing_tools)
+            mock.sentinel.os_root_dir, mock_morphing_tools
+        )
         mock_morphing_tools.register_firstboot_script.assert_not_called()
 
     @mock.patch.object(windows.WindowsMountTools, "_suspend_bitlocker")
@@ -483,24 +526,23 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
         self.tools._unlocked_volumes = ["vol1", "vol2"]
         mock_morphing_tools = mock.Mock()
         self.tools.install_encryption_firstboot_setup(
-            mock.sentinel.os_root_dir,
-            mock_morphing_tools)
+            mock.sentinel.os_root_dir, mock_morphing_tools
+        )
 
-        expected_script = (
-            'Resume-BitLocker "vol1"\r\nResume-BitLocker "vol2"\r\n')
+        expected_script = 'Resume-BitLocker "vol1"\r\nResume-BitLocker "vol2"\r\n'
         mock_morphing_tools.register_firstboot_script.assert_called_once_with(
             expected_script,
             user_provided=False,
-            script_filename="11-bitlocker-firstboot.ps1")
+            script_filename="11-bitlocker-firstboot.ps1",
+        )
         mock_suspend_bitlocker.assert_has_calls(
-            [mock.call(volume) for volume in self.tools._unlocked_volumes])
+            [mock.call(volume) for volume in self.tools._unlocked_volumes]
+        )
 
     @mock.patch.object(windows.WindowsMountTools, "_suspend_bitlocker")
     @mock.patch.object(windows.WindowsMountTools, "_resume_bitlocker")
     def test_install_encryption_firstboot_setup_register_failure(
-        self,
-        mock_resume_bitlocker,
-        mock_suspend_bitlocker
+        self, mock_resume_bitlocker, mock_suspend_bitlocker
     ):
         self.tools._unlocked_volumes = ["vol1", "vol2"]
         mock_morphing_tools = mock.Mock()
@@ -509,19 +551,20 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
             IOError,
             self.tools.install_encryption_firstboot_setup,
             mock.sentinel.os_root_dir,
-            mock_morphing_tools)
+            mock_morphing_tools,
+        )
 
         mock_suspend_bitlocker.assert_has_calls(
-            [mock.call(volume) for volume in self.tools._unlocked_volumes])
+            [mock.call(volume) for volume in self.tools._unlocked_volumes]
+        )
         mock_resume_bitlocker.assert_has_calls(
-            [mock.call(volume) for volume in self.tools._unlocked_volumes])
+            [mock.call(volume) for volume in self.tools._unlocked_volumes]
+        )
 
     @mock.patch.object(windows.WindowsMountTools, "_suspend_bitlocker")
     @mock.patch.object(windows.WindowsMountTools, "_resume_bitlocker")
     def test_install_encryption_firstboot_setup_suspend_failure(
-        self,
-        mock_resume_bitlocker,
-        mock_suspend_bitlocker
+        self, mock_resume_bitlocker, mock_suspend_bitlocker
     ):
         self.tools._unlocked_volumes = ["vol1", "vol2"]
         mock_morphing_tools = mock.Mock()
@@ -533,9 +576,12 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
             IOError,
             self.tools.install_encryption_firstboot_setup,
             mock.sentinel.os_root_dir,
-            mock_morphing_tools)
+            mock_morphing_tools,
+        )
 
         mock_suspend_bitlocker.assert_has_calls(
-            [mock.call(volume) for volume in self.tools._unlocked_volumes])
+            [mock.call(volume) for volume in self.tools._unlocked_volumes]
+        )
         mock_resume_bitlocker.assert_has_calls(
-            [mock.call(volume) for volume in self.tools._unlocked_volumes])
+            [mock.call(volume) for volume in self.tools._unlocked_volumes]
+        )

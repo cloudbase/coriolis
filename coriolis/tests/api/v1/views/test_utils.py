@@ -16,10 +16,7 @@ class ViewUtilsTestCase(test_base.CoriolisBaseTestCase):
 
         result = view_utils.format_opt(mock_option, mock_keys)
 
-        self.assertEqual(
-            expected_result,
-            result
-        )
+        self.assertEqual(expected_result, result)
 
     def test_format_opt_key_not_in_options(self):
         mock_option = {"mock_key_1": "value_1", "mock_key_2": "value_2"}
@@ -29,10 +26,7 @@ class ViewUtilsTestCase(test_base.CoriolisBaseTestCase):
 
         result = view_utils.format_opt(mock_option, mock_keys)
 
-        self.assertEqual(
-            expected_result,
-            result
-        )
+        self.assertEqual(expected_result, result)
 
     def test_format_opt_keys_none(self):
         mock_option = {"mock_key_1": "value_1", "mock_key_2": "value_2"}
@@ -42,7 +36,4 @@ class ViewUtilsTestCase(test_base.CoriolisBaseTestCase):
 
         result = view_utils.format_opt(mock_option, mock_keys)
 
-        self.assertEqual(
-            expected_result,
-            result
-        )
+        self.assertEqual(expected_result, result)

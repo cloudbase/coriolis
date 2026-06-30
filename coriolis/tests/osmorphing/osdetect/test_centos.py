@@ -4,8 +4,7 @@
 import logging
 from unittest import mock
 
-from coriolis.osmorphing.osdetect import base
-from coriolis.osmorphing.osdetect import centos
+from coriolis.osmorphing.osdetect import base, centos
 from coriolis.tests import test_base
 
 
@@ -15,8 +14,10 @@ class CentOSOSDetectToolsTestCase(test_base.CoriolisBaseTestCase):
     def setUp(self):
         super(CentOSOSDetectToolsTestCase, self).setUp()
         self.centos_os_detect_tools = centos.CentOSOSDetectTools(
-            mock.sentinel.conn, mock.sentinel.os_root_dir,
-            mock.sentinel.operation_timeout)
+            mock.sentinel.conn,
+            mock.sentinel.os_root_dir,
+            mock.sentinel.operation_timeout,
+        )
 
     @mock.patch.object(base.BaseLinuxOSDetectTools, '_test_path')
     @mock.patch.object(base.BaseLinuxOSDetectTools, '_read_file')
@@ -28,8 +29,8 @@ class CentOSOSDetectToolsTestCase(test_base.CoriolisBaseTestCase):
             "os_type": centos.constants.OS_TYPE_LINUX,
             "distribution_name": centos.CENTOS_DISTRO_IDENTIFIER,
             "release_version": '7.9',
-            "friendly_release_name": "%s Version %s" % (
-                centos.CENTOS_DISTRO_IDENTIFIER, '7.9')
+            "friendly_release_name": "%s Version %s"
+            % (centos.CENTOS_DISTRO_IDENTIFIER, '7.9'),
         }
 
         result = self.centos_os_detect_tools.detect_os()
@@ -49,8 +50,8 @@ class CentOSOSDetectToolsTestCase(test_base.CoriolisBaseTestCase):
             "os_type": centos.constants.OS_TYPE_LINUX,
             "distribution_name": centos.CENTOS_STREAM_DISTRO_IDENTIFIER,
             "release_version": '8.3',
-            "friendly_release_name": "%s Version %s" % (
-                centos.CENTOS_STREAM_DISTRO_IDENTIFIER, '8.3')
+            "friendly_release_name": "%s Version %s"
+            % (centos.CENTOS_STREAM_DISTRO_IDENTIFIER, '8.3'),
         }
 
         result = self.centos_os_detect_tools.detect_os()
@@ -70,8 +71,8 @@ class CentOSOSDetectToolsTestCase(test_base.CoriolisBaseTestCase):
             "os_type": centos.constants.OS_TYPE_LINUX,
             "distribution_name": centos.CENTOS_STREAM_DISTRO_IDENTIFIER,
             "release_version": '10',
-            "friendly_release_name": "%s Version %s" % (
-                centos.CENTOS_STREAM_DISTRO_IDENTIFIER, '10')
+            "friendly_release_name": "%s Version %s"
+            % (centos.CENTOS_STREAM_DISTRO_IDENTIFIER, '10'),
         }
 
         result = self.centos_os_detect_tools.detect_os()
@@ -84,8 +85,9 @@ class CentOSOSDetectToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_test_path.return_value = True
         mock_read_file.return_value = b"dummy release 8.3"
 
-        with self.assertLogs('coriolis.osmorphing.osdetect.centos',
-                             level=logging.DEBUG):
+        with self.assertLogs(
+            'coriolis.osmorphing.osdetect.centos', level=logging.DEBUG
+        ):
             result = self.centos_os_detect_tools.detect_os()
 
             self.assertEqual(result, {})

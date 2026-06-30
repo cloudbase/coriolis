@@ -50,7 +50,8 @@ class PolicyTestCase(test_base.CoriolisBaseTestCase):
         result = policy.register_rules(mock_enforcer)
 
         mock_enforcer.register_defaults.assert_called_once_with(
-            ['rule1', 'rule2', 'rule3'])
+            ['rule1', 'rule2', 'rule3']
+        )
         self.assertEqual(result, None)
 
     @mock.patch.object(policy, 'init')
@@ -79,13 +80,17 @@ class PolicyTestCase(test_base.CoriolisBaseTestCase):
         mock_context = mock.Mock()
         mock_context.to_policy_values.return_value = 'test-credentials'
 
-        result = policy.check_policy_for_context(
-            mock_context, 'rule', 'target')
+        result = policy.check_policy_for_context(mock_context, 'rule', 'target')
 
         self.assertEqual(result, True)
         mock_enforcer.authorize.assert_called_once_with(
-            'rule', 'target', 'test-credentials', do_raise=True, exc=mock.ANY,
-            action='rule')
+            'rule',
+            'target',
+            'test-credentials',
+            do_raise=True,
+            exc=mock.ANY,
+            action='rule',
+        )
 
     @mock.patch.object(policy, '_ENFORCER')
     def test_check_policy_for_context_do_not_raise(self, mock_enforcer):
@@ -95,28 +100,42 @@ class PolicyTestCase(test_base.CoriolisBaseTestCase):
         mock_context.to_policy_values.return_value = 'test-credentials'
 
         result = policy.check_policy_for_context(
-            mock_context, 'rule', 'target', do_raise=False)
+            mock_context, 'rule', 'target', do_raise=False
+        )
 
         mock_enforcer.authorize.assert_called_once_with(
-            'rule', 'target', 'test-credentials', do_raise=False, exc=mock.ANY,
-            action='rule')
+            'rule',
+            'target',
+            'test-credentials',
+            do_raise=False,
+            exc=mock.ANY,
+            action='rule',
+        )
         self.assertEqual(result, False)
 
     @mock.patch.object(policy, '_ENFORCER')
     def test_check_policy_for_context_not_authorized(self, mock_enforcer):
-        mock_enforcer.authorize.side_effect = (
-            policy.exception.PolicyNotAuthorized)
+        mock_enforcer.authorize.side_effect = policy.exception.PolicyNotAuthorized
 
         mock_context = mock.Mock()
         mock_context.to_policy_values.return_value = 'test-credentials'
 
         self.assertRaises(
             policy.exception.PolicyNotAuthorized,
-            policy.check_policy_for_context, mock_context, 'rule', 'target')
+            policy.check_policy_for_context,
+            mock_context,
+            'rule',
+            'target',
+        )
 
         mock_enforcer.authorize.assert_called_once_with(
-            'rule', 'target', 'test-credentials', do_raise=True, exc=mock.ANY,
-            action='rule')
+            'rule',
+            'target',
+            'test-credentials',
+            do_raise=True,
+            exc=mock.ANY,
+            action='rule',
+        )
 
     @mock.patch.object(policy, '_ENFORCER')
     def test_check_policy_for_context_custom_exception(self, mock_enforcer):
@@ -126,5 +145,10 @@ class PolicyTestCase(test_base.CoriolisBaseTestCase):
         mock_context.to_policy_values.return_value = 'test-credentials'
 
         self.assertRaises(
-            ValueError, policy.check_policy_for_context, mock_context,
-            'rule', 'target', exc=ValueError)
+            ValueError,
+            policy.check_policy_for_context,
+            mock_context,
+            'rule',
+            'target',
+            exc=ValueError,
+        )

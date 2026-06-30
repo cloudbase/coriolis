@@ -3,16 +3,14 @@
 
 import oslo_messaging as messaging
 
-from coriolis import constants
-from coriolis import rpc
+from coriolis import constants, rpc
 
 VERSION = "1.0"
 
 
 class TransferCronClient(rpc.BaseRPCClient):
     def __init__(self, topic=constants.TRANSFER_CRON_MAIN_MESSAGING_TOPIC):
-        target = messaging.Target(
-            topic=topic, version=VERSION)
+        target = messaging.Target(topic=topic, version=VERSION)
         super(TransferCronClient, self).__init__(target)
 
     def register(self, ctxt, schedule):

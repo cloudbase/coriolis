@@ -25,45 +25,41 @@ import shutil
 import socket
 import subprocess
 import tempfile
-from unittest import mock
 import uuid
+from unittest import mock
 
+import webob.dec
 import yaml
-
-from cheroot.workers import threadpool as cheroot_threadpool
 from cheroot import wsgi as cheroot_wsgi
+from cheroot.workers import threadpool as cheroot_threadpool
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_middleware import request_id as request_id_middleware
 from oslo_service import wsgi as base_wsgi
-import webob.dec
 
 from coriolis import api as api_module
+from coriolis import conf as coriolis_conf
+from coriolis import constants, context, exception, service
+from coriolis import policy as policy_module
+from coriolis import rpc as rpc_module
+from coriolis import utils as coriolis_utils
+from coriolis.api import wsgi as api_wsgi
 from coriolis.api.middleware import fault as fault_middleware
 from coriolis.api.v1 import router as api_v1_router
-from coriolis.api import wsgi as api_wsgi
 from coriolis.conductor.rpc import server as conductor_rpc_server
-from coriolis import conf as coriolis_conf
-from coriolis import constants
-from coriolis import context
 from coriolis.db import api as db_api
 from coriolis.db.sqlalchemy import api as sqlalchemy_api
 from coriolis.db.sqlalchemy import migration as db_migration
 from coriolis.deployer_manager.rpc import server as deployer_manager_rpc_server
-from coriolis import exception
 from coriolis.minion_manager.rpc import server as minion_manager_rpc_server
-from coriolis import policy as policy_module
 from coriolis.providers import factory as providers_factory
-from coriolis import rpc as rpc_module
 from coriolis.scheduler.rpc import server as scheduler_rpc_server
-from coriolis import service
 from coriolis.taskflow import runner as taskflow_runner
 from coriolis.tasks import factory as task_runners_factory
 from coriolis.tests.integration import provider_test_base
-from coriolis.tests.integration.test_provider import imp as test_provider_imp
 from coriolis.tests.integration import utils as test_utils
+from coriolis.tests.integration.test_provider import imp as test_provider_imp
 from coriolis.transfer_cron.rpc import server as transfer_cron_rpc_server
-from coriolis import utils as coriolis_utils
 from coriolis.worker.rpc import server as worker_rpc_server
 
 CONF = cfg.CONF
@@ -103,11 +99,8 @@ def _load_providers_config():
     dest_provider_path = dest_config.get("provider") or _TEST_IMPORT_PROVIDER
     dest_provider_cls = _get_provider(dest_provider_path)
 
-    if not issubclass(
-        dest_provider_cls, provider_test_base.BaseTestImportProvider
-    ):
-        raise TypeError(
-            "%s must subclass BaseTestImportProvider" % dest_provider_path)
+    if not issubclass(dest_provider_cls, provider_test_base.BaseTestImportProvider):
+        raise TypeError("%s must subclass BaseTestImportProvider" % dest_provider_path)
 
     return {
         "destination": {
@@ -192,8 +185,10 @@ class _TestAPIRouter(api_v1_router.APIRouter):
             ('endpoint_actions', '/endpoints/{id}/actions'),
             ('deployment_actions', '/deployments/{id}/actions'),
             ('transfer_actions', '/transfers/{id}/actions'),
-            ('transfer_tasks_execution_actions',
-             '/transfers/{transfer_id}/executions/{id}/actions'),
+            (
+                'transfer_tasks_execution_actions',
+                '/transfers/{transfer_id}/executions/{id}/actions',
+            ),
         ]
         for action, url in action_url_pairs:
             mapper.connect(
@@ -214,26 +209,31 @@ class _InProcessWorkerServerEndpoint(worker_rpc_server.WorkerServerEndpoint):
     """
 
     def _exec_task_process(
-            self, ctxt, task_id, task_type, origin, destination, instance,
-            task_info, report_to_conductor=True):
+        self,
+        ctxt,
+        task_id,
+        task_type,
+        origin,
+        destination,
+        instance,
+        task_info,
+        report_to_conductor=True,
+    ):
         result_q = queue.Queue()
 
         if report_to_conductor:
-            self._rpc_conductor_client.set_task_host(
-                ctxt, task_id, self._server)
-            self._rpc_conductor_client.set_task_process(
-                ctxt, task_id, os.getpid())
+            self._rpc_conductor_client.set_task_host(ctxt, task_id, self._server)
+            self._rpc_conductor_client.set_task_process(ctxt, task_id, os.getpid())
 
         def _run():
             try:
-                task_runner = task_runners_factory.get_task_runner_class(
-                    task_type)()
-                event_handler = (
-                    worker_rpc_server._get_event_handler_for_task_type(
-                        task_type, ctxt, task_id))
+                task_runner = task_runners_factory.get_task_runner_class(task_type)()
+                event_handler = worker_rpc_server._get_event_handler_for_task_type(
+                    task_type, ctxt, task_id
+                )
                 task_result = task_runner.run(
-                    ctxt, instance, origin, destination, task_info,
-                    event_handler)
+                    ctxt, instance, origin, destination, task_info, event_handler
+                )
                 coriolis_utils.is_serializable(task_result)
                 result_q.put(task_result)
             except Exception as ex:
@@ -268,7 +268,8 @@ class _InProcessTaskflowRunner(taskflow_runner.TaskFlowRunner):
 
 
 class _InProcessMinionManagerServerEndpoint(
-        minion_manager_rpc_server.MinionManagerServerEndpoint):
+    minion_manager_rpc_server.MinionManagerServerEndpoint
+):
     """Minion manager endpoint that runs pool task flows in-thread."""
 
     @property
@@ -301,16 +302,26 @@ class _IntegrationHarness:
         self.lock_path = os.path.join(self.workdir, "locks")
         os.makedirs(self.lock_path)
 
-        self._mysql_container_name = "coriolis-test-mysql-%s" % str(
-            uuid.uuid4()).split("-")[0]
+        self._mysql_container_name = (
+            "coriolis-test-mysql-%s" % str(uuid.uuid4()).split("-")[0]
+        )
         self._mysql_username = "root"
         self._mysql_password = "coriolis"
         self._mysql_database = "coriolis"
 
         self.ssh_key_path = os.path.join(self.workdir, "id_rsa")
         subprocess.run(
-            ["ssh-keygen", "-t", "rsa", "-b", "2048",
-             "-f", self.ssh_key_path, "-N", ""],
+            [
+                "ssh-keygen",
+                "-t",
+                "rsa",
+                "-b",
+                "2048",
+                "-f",
+                self.ssh_key_path,
+                "-N",
+                "",
+            ],
             check=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -318,35 +329,35 @@ class _IntegrationHarness:
 
         coriolis_conf.init_common_opts()
         _config_file = os.environ.get("CORIOLIS_CONFIG_FILE")
-        _conf_args = (
-            ['--config-file', _config_file] if _config_file else []
+        _conf_args = ['--config-file', _config_file] if _config_file else []
+        cfg.CONF(
+            _conf_args,
+            project='coriolis',
+            version='1.0.0',
+            default_config_files=[],
+            default_config_dirs=[],
         )
-        cfg.CONF(_conf_args, project='coriolis', version='1.0.0',
-                 default_config_files=[], default_config_dirs=[])
         cfg.CONF.set_override('messaging_transport_url', 'fake://')
 
         providers_config = _load_providers_config()
         imp_provider = providers_config["destination"]["provider"]
-        cfg.CONF.set_override(
-            'providers', [_TEST_EXPORT_PROVIDER, imp_provider])
-        db_url = ('mysql+pymysql://%(user)s:%(password)s'
-                  '@localhost:13306/%(database)s') % {
+        cfg.CONF.set_override('providers', [_TEST_EXPORT_PROVIDER, imp_provider])
+        db_url = (
+            'mysql+pymysql://%(user)s:%(password)s@localhost:13306/%(database)s'
+        ) % {
             "user": self._mysql_username,
             "password": self._mysql_password,
             "database": self._mysql_database,
         }
-        cfg.CONF.set_override(
-            'connection', db_url, group='database')
-        cfg.CONF.set_override(
-            'retry_interval', 1, group='database')
-        cfg.CONF.set_override(
-            'lock_path', self.lock_path, group='oslo_concurrency')
+        cfg.CONF.set_override('connection', db_url, group='database')
+        cfg.CONF.set_override('retry_interval', 1, group='database')
+        cfg.CONF.set_override('lock_path', self.lock_path, group='oslo_concurrency')
 
         # Disable automatic pool-refresh cron jobs (they would try to contact
         # Keystone for trust maintenance).
         cfg.CONF.set_override(
-            'minion_pool_default_refresh_period_minutes', 0,
-            group='minion_manager')
+            'minion_pool_default_refresh_period_minutes', 0, group='minion_manager'
+        )
 
         coriolis_utils.setup_logging()
 
@@ -377,9 +388,7 @@ class _IntegrationHarness:
         }
         self.imp_provider.initialize(self.imp_conn_info)
         self.imp_env_options = providers_config["destination"]["environment"]
-        self.imp_storage_mappings = (
-            providers_config["destination"]["storage_mappings"]
-        )
+        self.imp_storage_mappings = providers_config["destination"]["storage_mappings"]
 
         self._wsgi_server = None
         self._wsgi_server_thread = None
@@ -417,10 +426,13 @@ class _IntegrationHarness:
                 self._mysql_container_name,
                 "-e",
                 f"MYSQL_ROOT_PASSWORD={self._mysql_password}",
-                "-e", f"MYSQL_DATABASE={self._mysql_database}",
-                "-p", "13306:3306",
+                "-e",
+                f"MYSQL_DATABASE={self._mysql_database}",
+                "-p",
+                "13306:3306",
                 "mariadb:10-jammy",
-            ])
+            ]
+        )
 
     def _start_coriolis_services(self):
         """Start conductor, scheduler, worker, and API in-process."""
@@ -542,25 +554,20 @@ class _IntegrationHarness:
         LOG.info("Teardown initiated.")
 
         try:
-            coriolis_utils.exec_process(
-                [
-                    "docker",
-                    "stop",
-                    self._mysql_container_name
-                ])
-            coriolis_utils.exec_process(
-                [
-                    "docker",
-                    "rm",
-                    self._mysql_container_name
-                ])
+            coriolis_utils.exec_process(["docker", "stop", self._mysql_container_name])
+            coriolis_utils.exec_process(["docker", "rm", self._mysql_container_name])
         except Exception:
             pass
 
-        for svc in [self._worker_host_svc, self._worker_svc,
-                    self._minion_manager_svc, self._deployer_manager_svc,
-                    self._transfer_cron_svc, self._scheduler_svc,
-                    self._conductor_svc]:
+        for svc in [
+            self._worker_host_svc,
+            self._worker_svc,
+            self._minion_manager_svc,
+            self._deployer_manager_svc,
+            self._transfer_cron_svc,
+            self._scheduler_svc,
+            self._conductor_svc,
+        ]:
             if not svc:
                 continue
             try:

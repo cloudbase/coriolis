@@ -22,12 +22,11 @@ class APITestCase(test_base.CoriolisBaseTestCase):
     def test_create(self):
         description = mock.sentinel.description
 
-        result = self.api.create(self.ctxt, self.region_name, description,
-                                 enabled=True)
+        result = self.api.create(self.ctxt, self.region_name, description, enabled=True)
 
         self.rpc_client.create_region.assert_called_once_with(
-            self.ctxt, self.region_name, description=description,
-            enabled=True)
+            self.ctxt, self.region_name, description=description, enabled=True
+        )
         self.assertEqual(result, self.rpc_client.create_region.return_value)
 
     def test_update(self):
@@ -36,14 +35,14 @@ class APITestCase(test_base.CoriolisBaseTestCase):
         result = self.api.update(self.ctxt, self.region_id, updated_values)
 
         self.rpc_client.update_region.assert_called_once_with(
-            self.ctxt, self.region_id, updated_values=updated_values)
+            self.ctxt, self.region_id, updated_values=updated_values
+        )
         self.assertEqual(result, self.rpc_client.update_region.return_value)
 
     def test_delete(self):
         self.api.delete(self.ctxt, self.region_id)
 
-        self.rpc_client.delete_region.assert_called_once_with(
-            self.ctxt, self.region_id)
+        self.rpc_client.delete_region.assert_called_once_with(self.ctxt, self.region_id)
 
     def test_get_regions(self):
         result = self.api.get_regions(self.ctxt)
@@ -54,6 +53,5 @@ class APITestCase(test_base.CoriolisBaseTestCase):
     def test_get_region(self):
         result = self.api.get_region(self.ctxt, self.region_id)
 
-        self.rpc_client.get_region.assert_called_once_with(
-            self.ctxt, self.region_id)
+        self.rpc_client.get_region.assert_called_once_with(self.ctxt, self.region_id)
         self.assertEqual(result, self.rpc_client.get_region.return_value)

@@ -3,12 +3,12 @@
 
 from unittest import mock
 
+from coriolis import utils
 from coriolis.api import common
 from coriolis.api.v1 import endpoint_instances as endpoint
 from coriolis.api.v1.views import endpoint_resources_view
 from coriolis.endpoint_resources import api
 from coriolis.tests import test_base
-from coriolis import utils
 
 
 class EndpointInstanceControllerTestCase(test_base.CoriolisBaseTestCase):
@@ -35,30 +35,29 @@ class EndpointInstanceControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_req.environ = {'coriolis.context': mock_context}
         env = mock.sentinel.env
         instance_name_pattern = mock.sentinel.instance_name_pattern
-        mock_req.GET = {
-            'env': env,
-            'name': instance_name_pattern
-        }
+        mock_req.GET = {'env': env, 'name': instance_name_pattern}
         marker = 'mock_marker'
         limit = 'mock_limit'
         mock_get_paging_params.return_value = (marker, limit)
 
         result = self.endpoint_api.index(mock_req, endpoint_id)
 
-        mock_context.can.assert_called_once_with(
-            'migration:endpoints:list_instances')
+        mock_context.can.assert_called_once_with('migration:endpoints:list_instances')
         mock_get_paging_params.assert_called_once_with(mock_req)
         mock_decode_base64_param.assert_called_once_with(env, is_json=True)
         mock_get_endpoint_instances.assert_called_once_with(
-            mock_context, endpoint_id,
+            mock_context,
+            endpoint_id,
             mock_decode_base64_param.return_value,
-            marker, limit, instance_name_pattern, refresh=False)
-        mock_instances_collection.assert_called_once_with(
-            mock_get_endpoint_instances.return_value)
-        self.assertEqual(
-            mock_instances_collection.return_value,
-            result
+            marker,
+            limit,
+            instance_name_pattern,
+            refresh=False,
         )
+        mock_instances_collection.assert_called_once_with(
+            mock_get_endpoint_instances.return_value
+        )
+        self.assertEqual(mock_instances_collection.return_value, result)
 
     @mock.patch.object(common, 'get_paging_params')
     @mock.patch.object(utils, 'decode_base64_param')
@@ -83,14 +82,12 @@ class EndpointInstanceControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_get_paging_params.assert_called_once_with(mock_req)
         mock_decode_base64_param.assert_not_called()
         mock_get_endpoint_instances.assert_called_once_with(
-            mock_context, endpoint_id,
-            {}, None, None, None, refresh=False)
-        mock_instances_collection.assert_called_once_with(
-            mock_get_endpoint_instances.return_value)
-        self.assertEqual(
-            mock_instances_collection.return_value,
-            result
+            mock_context, endpoint_id, {}, None, None, None, refresh=False
         )
+        mock_instances_collection.assert_called_once_with(
+            mock_get_endpoint_instances.return_value
+        )
+        self.assertEqual(mock_instances_collection.return_value, result)
 
     @mock.patch.object(utils, 'decode_base64_param')
     @mock.patch.object(endpoint_resources_view, 'instance_single')
@@ -114,23 +111,20 @@ class EndpointInstanceControllerTestCase(test_base.CoriolisBaseTestCase):
 
         expected_calls = [
             mock.call.mock_decode_base64_param(id),
-            mock.call.mock_decode_base64_param(env, is_json=True)]
+            mock.call.mock_decode_base64_param(env, is_json=True),
+        ]
 
         result = self.endpoint_api.show(mock_req, endpoint_id, id)
 
-        mock_context.can.assert_called_once_with(
-            'migration:endpoints:get_instance')
+        mock_context.can.assert_called_once_with('migration:endpoints:get_instance')
         mock_decode_base64_param.assert_has_calls(expected_calls)
         mock_get_endpoint_instance.assert_called_once_with(
-            mock_context, endpoint_id,
-            env,
-            id)
-        mock_instance_single.assert_called_once_with(
-            mock_get_endpoint_instance.return_value)
-        self.assertEqual(
-            mock_instance_single.return_value,
-            result
+            mock_context, endpoint_id, env, id
         )
+        mock_instance_single.assert_called_once_with(
+            mock_get_endpoint_instance.return_value
+        )
+        self.assertEqual(mock_instance_single.return_value, result)
 
     @mock.patch.object(utils, 'decode_base64_param')
     @mock.patch.object(endpoint_resources_view, 'instance_single')
@@ -152,11 +146,9 @@ class EndpointInstanceControllerTestCase(test_base.CoriolisBaseTestCase):
 
         mock_decode_base64_param.assert_called_once_with(id)
         mock_get_endpoint_instance.assert_called_once_with(
-            mock_context, endpoint_id, {},
-            mock_decode_base64_param.return_value)
-        mock_instance_single.assert_called_once_with(
-            mock_get_endpoint_instance.return_value)
-        self.assertEqual(
-            mock_instance_single.return_value,
-            result
+            mock_context, endpoint_id, {}, mock_decode_base64_param.return_value
         )
+        mock_instance_single.assert_called_once_with(
+            mock_get_endpoint_instance.return_value
+        )
+        self.assertEqual(mock_instance_single.return_value, result)

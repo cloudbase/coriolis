@@ -1,13 +1,13 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+import webob
 from oslo_log import log as logging
 from oslo_middleware import request_id
 from oslo_serialization import jsonutils
-import webob
 
-from coriolis.api import wsgi
 from coriolis import context
+from coriolis.api import wsgi
 from coriolis.i18n import _
 
 LOG = logging.getLogger(__name__)
@@ -23,14 +23,16 @@ class CoriolisKeystoneContext(wsgi.Middleware):
             return req.headers['X_TENANT']
         else:
             raise webob.exc.HTTPBadRequest(
-                explanation=_("No 'X_TENANT_ID' or 'X_TENANT' passed."))
+                explanation=_("No 'X_TENANT_ID' or 'X_TENANT' passed.")
+            )
 
     def _get_user(self, req):
         user = req.headers.get('X_USER')
         user = req.headers.get('X_USER_ID', user)
         if user is None:
             raise webob.exc.HTTPUnauthorized(
-                explanation=_("Neither X_USER_ID nor X_USER found in request"))
+                explanation=_("Neither X_USER_ID nor X_USER found in request")
+            )
         return user
 
     @webob.dec.wsgify(RequestClass=wsgi.Request)
@@ -64,18 +66,21 @@ class CoriolisKeystoneContext(wsgi.Middleware):
                 service_catalog = jsonutils.loads(catalog_header)
             except ValueError:
                 raise webob.exc.HTTPInternalServerError(
-                    explanation=_('Invalid service catalog json.'))
+                    explanation=_('Invalid service catalog json.')
+                )
 
-        ctx = context.RequestContext(user,
-                                     project_id,
-                                     project_name=project_name,
-                                     project_domain_name=project_domain_name,
-                                     user_domain_name=user_domain_name,
-                                     roles=roles,
-                                     auth_token=auth_token,
-                                     remote_address=remote_address,
-                                     service_catalog=service_catalog,
-                                     request_id=req_id)
+        ctx = context.RequestContext(
+            user,
+            project_id,
+            project_name=project_name,
+            project_domain_name=project_domain_name,
+            user_domain_name=user_domain_name,
+            roles=roles,
+            auth_token=auth_token,
+            remote_address=remote_address,
+            service_catalog=service_catalog,
+            request_id=req_id,
+        )
 
         req.environ['coriolis.context'] = ctx
         return self.application

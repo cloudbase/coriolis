@@ -1,15 +1,14 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from webob import exc
+
+from coriolis import constants, exception
 from coriolis.api import common
-from coriolis.api.v1.views import transfer_tasks_execution_view
 from coriolis.api import wsgi as api_wsgi
-from coriolis import constants
-from coriolis import exception
+from coriolis.api.v1.views import transfer_tasks_execution_view
 from coriolis.policies import transfer_tasks_executions as executions_policies
 from coriolis.transfer_tasks_executions import api
-
-from webob import exc
 
 
 class TransferTasksExecutionController(api_wsgi.Controller):
@@ -19,10 +18,10 @@ class TransferTasksExecutionController(api_wsgi.Controller):
 
     def show(self, req, transfer_id, id):
         context = req.environ["coriolis.context"]
-        context.can(
-            executions_policies.get_transfer_executions_policy_label("show"))
+        context.can(executions_policies.get_transfer_executions_policy_label("show"))
         execution = self._transfer_tasks_execution_api.get_execution(
-            context, transfer_id, id)
+            context, transfer_id, id
+        )
         if not execution:
             raise exc.HTTPNotFound()
 
@@ -34,14 +33,14 @@ class TransferTasksExecutionController(api_wsgi.Controller):
         if status is not None:
             if status not in constants.ALL_EXECUTION_STATUSES:
                 raise exc.HTTPBadRequest(
-                    explanation=f"Unknown task execution status: {status}")
+                    explanation=f"Unknown task execution status: {status}"
+                )
             filters["status"] = status
         return filters
 
     def index(self, req, transfer_id):
         context = req.environ["coriolis.context"]
-        context.can(
-            executions_policies.get_transfer_executions_policy_label("list"))
+        context.can(executions_policies.get_transfer_executions_policy_label("list"))
 
         marker, limit = common.get_paging_params(req)
         sort_keys, sort_dirs = common.get_sort_params(req)
@@ -49,24 +48,30 @@ class TransferTasksExecutionController(api_wsgi.Controller):
 
         return transfer_tasks_execution_view.collection(
             self._transfer_tasks_execution_api.get_executions(
-                context, transfer_id, include_tasks=False,
-                marker=marker, limit=limit,
-                sort_keys=sort_keys, sort_dirs=sort_dirs,
-                filters=filters))
+                context,
+                transfer_id,
+                include_tasks=False,
+                marker=marker,
+                limit=limit,
+                sort_keys=sort_keys,
+                sort_dirs=sort_dirs,
+                filters=filters,
+            )
+        )
 
     def detail(self, req, transfer_id):
         context = req.environ["coriolis.context"]
-        context.can(
-            executions_policies.get_transfer_executions_policy_label("show"))
+        context.can(executions_policies.get_transfer_executions_policy_label("show"))
 
         return transfer_tasks_execution_view.collection(
             self._transfer_tasks_execution_api.get_executions(
-                context, transfer_id, include_tasks=True))
+                context, transfer_id, include_tasks=True
+            )
+        )
 
     def create(self, req, transfer_id, body):
         context = req.environ["coriolis.context"]
-        context.can(
-            executions_policies.get_transfer_executions_policy_label("create"))
+        context.can(executions_policies.get_transfer_executions_policy_label("create"))
 
         # TODO(alexpilotti): validate body
 
@@ -76,12 +81,13 @@ class TransferTasksExecutionController(api_wsgi.Controller):
 
         return transfer_tasks_execution_view.single(
             self._transfer_tasks_execution_api.create(
-                context, transfer_id, shutdown_instances, auto_deploy))
+                context, transfer_id, shutdown_instances, auto_deploy
+            )
+        )
 
     def delete(self, req, transfer_id, id):
         context = req.environ["coriolis.context"]
-        context.can(
-            executions_policies.get_transfer_executions_policy_label("delete"))
+        context.can(executions_policies.get_transfer_executions_policy_label("delete"))
 
         try:
             self._transfer_tasks_execution_api.delete(context, transfer_id, id)

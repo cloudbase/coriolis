@@ -5,15 +5,14 @@ import sys
 
 from oslo_config import cfg
 
-from coriolis.db import api as db_api
 from coriolis import utils
+from coriolis.db import api as db_api
 
 CONF = cfg.CONF
 
 
 def main():
-    CONF(sys.argv[1:], project='coriolis',
-         version="1.0.0")
+    CONF(sys.argv[1:], project='coriolis', version="1.0.0")
     utils.setup_logging()
 
     db_api.db_sync(db_api.get_engine())

@@ -13,4 +13,5 @@ class API(object):
 
     def get_provider_schemas(self, ctxt, platform_name, provider_type):
         return self._rpc_client.get_provider_schemas(
-            ctxt, platform_name, int(provider_type))
+            ctxt, platform_name, int(provider_type)
+        )

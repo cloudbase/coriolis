@@ -3,11 +3,9 @@
 
 from oslo_log import log as logging
 
-from coriolis import exception
-from coriolis.osmorphing.osdetect import centos as centos_detect
+from coriolis import exception, utils
 from coriolis.osmorphing import redhat
-from coriolis import utils
-
+from coriolis.osmorphing.osdetect import centos as centos_detect
 
 CENTOS_DISTRO_IDENTIFIER = centos_detect.CENTOS_DISTRO_IDENTIFIER
 CENTOS_STREAM_DISTRO_IDENTIFIER = centos_detect.CENTOS_STREAM_DISTRO_IDENTIFIER
@@ -16,17 +14,16 @@ LOG = logging.getLogger(__name__)
 
 
 class BaseCentOSMorphingTools(redhat.BaseRedHatMorphingTools):
-
     UEFI_GRUB_LOCATION = "/boot/efi/EFI/centos"
 
     @classmethod
     def check_os_supported(cls, detected_os_info):
-        supported_oses = [
-            CENTOS_STREAM_DISTRO_IDENTIFIER, CENTOS_DISTRO_IDENTIFIER]
+        supported_oses = [CENTOS_STREAM_DISTRO_IDENTIFIER, CENTOS_DISTRO_IDENTIFIER]
         if detected_os_info['distribution_name'] not in supported_oses:
             return False
         return cls._version_supported_util(
-            detected_os_info['release_version'], minimum=6)
+            detected_os_info['release_version'], minimum=6
+        )
 
     def enable_repos(self, repo_names):
         """Enable repositories for CentOS.
@@ -52,8 +49,9 @@ class BaseCentOSMorphingTools(redhat.BaseRedHatMorphingTools):
             cmd = '%s %s' % (config_manager, enable_flag % repo)
             try:
                 self._exec_cmd_chroot(cmd)
-                LOG.info("Enabled repository '%s' using %s",
-                         repo, config_manager)
+                LOG.info("Enabled repository '%s' using %s", repo, config_manager)
             except exception.CoriolisException:
-                LOG.warning(f"Failed to enable repository {repo}. "
-                            f"Error was: {utils.get_exception_details()}")
+                LOG.warning(
+                    f"Failed to enable repository {repo}. "
+                    f"Error was: {utils.get_exception_details()}"
+                )

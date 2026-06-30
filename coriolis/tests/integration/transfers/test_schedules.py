@@ -16,7 +16,6 @@ from coriolis.tests.integration import base
 
 
 class _TransferScheduleTestBase(base.ReplicaIntegrationTestBase):
-
     def _create_schedule(self, **overrides):
         defaults = {
             "transfer": self._transfer.id,
@@ -30,7 +29,9 @@ class _TransferScheduleTestBase(base.ReplicaIntegrationTestBase):
         sched = self._client.transfer_schedules.create(**defaults)
         self.addCleanup(
             self._ignoreExc(self._client.transfer_schedules.delete),
-            self._transfer.id, sched.id)
+            self._transfer.id,
+            sched.id,
+        )
 
         return sched
 
@@ -42,7 +43,8 @@ class _TransferScheduleTestBase(base.ReplicaIntegrationTestBase):
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             executions = self._client.transfer_executions.list(
-                self._transfer.id, limit=1)
+                self._transfer.id, limit=1
+            )
             if executions:
                 return executions[0]
             time.sleep(2)
@@ -50,14 +52,12 @@ class _TransferScheduleTestBase(base.ReplicaIntegrationTestBase):
 
 
 class TransferScheduleBasicTests(_TransferScheduleTestBase):
-
     def test_schedule_crud(self):
         # Create.
         sched = self._create_schedule()
 
         # Get.
-        fetched = self._client.transfer_schedules.get(
-            self._transfer.id, sched.id)
+        fetched = self._client.transfer_schedules.get(self._transfer.id, sched.id)
         self.assertEqual(sched.id, fetched.id)
         self.assertTrue(fetched.enabled)
 
@@ -68,7 +68,8 @@ class TransferScheduleBasicTests(_TransferScheduleTestBase):
 
         # Update.
         updated = self._client.transfer_schedules.update(
-            self._transfer.id, sched.id, {"enabled": False})
+            self._transfer.id, sched.id, {"enabled": False}
+        )
         self.assertFalse(updated.enabled)
 
         # Delete.
@@ -80,7 +81,6 @@ class TransferScheduleBasicTests(_TransferScheduleTestBase):
 
 
 class TransferScheduleTests(_TransferScheduleTestBase):
-
     def test_scheduled_execution(self):
         """Verify that a schedule triggers a transfer execution.
 
@@ -101,8 +101,8 @@ class TransferScheduleTests(_TransferScheduleTestBase):
         execution = self._wait_for_scheduled_execution(timeout=180)
 
         self.assertIsNotNone(
-            execution,
-            "No transfer execution was triggered within 180s by the schedule")
+            execution, "No transfer execution was triggered within 180s by the schedule"
+        )
 
         self.assertExecutionCompleted(execution.id)
 
@@ -133,7 +133,7 @@ class TransferScheduleTests(_TransferScheduleTestBase):
         execution = self._wait_for_scheduled_execution(timeout=180)
         self.assertIsNotNone(
             execution,
-            "Updated schedule did not trigger a transfer execution within "
-            "180s")
+            "Updated schedule did not trigger a transfer execution within 180s",
+        )
 
         self.assertExecutionCompleted(execution.id)

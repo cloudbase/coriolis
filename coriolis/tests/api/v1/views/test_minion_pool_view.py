@@ -17,36 +17,40 @@ class MinionPoolViewTestCase(test_base.CoriolisApiViewsTestCase):
         mock_format_opt,
     ):
         mock_minion_pool_dict = {
-            'minion_machines': [{
-                'connection_info': {
-                    'pkey': 'mock_key',
-                    'password': 'mock_key',
-                    'certificates': {'key': 'mock_key'}
-                },
-                'backup_writer_connection_info': {
-                    'connection_details': {
+            'minion_machines': [
+                {
+                    'connection_info': {
                         'pkey': 'mock_key',
                         'password': 'mock_key',
-                        'certificates': {'key': 'mock_key'}
+                        'certificates': {'key': 'mock_key'},
+                    },
+                    'backup_writer_connection_info': {
+                        'connection_details': {
+                            'pkey': 'mock_key',
+                            'password': 'mock_key',
+                            'certificates': {'key': 'mock_key'},
+                        },
                     },
                 }
-            }],
+            ],
         }
         expected_result = {
-            'minion_machines': [{
-                'connection_info': {
-                    'pkey': '***',
-                    'password': '***',
-                    'certificates': {'key': '***'}
-                },
-                'backup_writer_connection_info': {
-                    'connection_details': {
+            'minion_machines': [
+                {
+                    'connection_info': {
                         'pkey': '***',
                         'password': '***',
-                        'certificates': {'key': '***'}
+                        'certificates': {'key': '***'},
+                    },
+                    'backup_writer_connection_info': {
+                        'connection_details': {
+                            'pkey': '***',
+                            'password': '***',
+                            'certificates': {'key': '***'},
+                        },
                     },
                 }
-            }],
+            ],
         }
         mock_format_opt.return_value = mock_minion_pool_dict
 
@@ -55,10 +59,7 @@ class MinionPoolViewTestCase(test_base.CoriolisApiViewsTestCase):
         result = view._format_minion_pool(endpoint, keys)
 
         mock_format_opt.assert_called_once_with(endpoint, keys)
-        self.assertEqual(
-            expected_result,
-            result
-        )
+        self.assertEqual(expected_result, result)
 
     @mock.patch.object(view_utils, 'format_opt')
     def test_format_minion_pool_connection_none(
@@ -66,20 +67,24 @@ class MinionPoolViewTestCase(test_base.CoriolisApiViewsTestCase):
         mock_format_opt,
     ):
         mock_minion_pool_dict = {
-            'minion_machines': [{
-                'connection_info': None,
-                'backup_writer_connection_info': {
-                    'connection_details': None,
+            'minion_machines': [
+                {
+                    'connection_info': None,
+                    'backup_writer_connection_info': {
+                        'connection_details': None,
+                    },
                 }
-            }],
+            ],
         }
         expected_result = {
-            'minion_machines': [{
-                'connection_info': None,
-                'backup_writer_connection_info': {
-                    'connection_details': None,
+            'minion_machines': [
+                {
+                    'connection_info': None,
+                    'backup_writer_connection_info': {
+                        'connection_details': None,
+                    },
                 }
-            }],
+            ],
         }
         mock_format_opt.return_value = mock_minion_pool_dict
 
@@ -88,10 +93,7 @@ class MinionPoolViewTestCase(test_base.CoriolisApiViewsTestCase):
         result = view._format_minion_pool(endpoint, keys)
 
         mock_format_opt.assert_called_once_with(endpoint, keys)
-        self.assertEqual(
-            expected_result,
-            result
-        )
+        self.assertEqual(expected_result, result)
 
     @mock.patch.object(view_utils, 'format_opt')
     def test_format_minion_pool_no_minion_machines(
@@ -106,10 +108,7 @@ class MinionPoolViewTestCase(test_base.CoriolisApiViewsTestCase):
         result = view._format_minion_pool(endpoint, keys)
 
         mock_format_opt.assert_called_once_with(endpoint, keys)
-        self.assertEqual(
-            expected_result,
-            result
-        )
+        self.assertEqual(expected_result, result)
 
     def test_single(self):
         fun = getattr(view, 'single')

@@ -3,7 +3,6 @@
 
 
 class BaseNetPreserver(object):
-
     def __init__(self, osmorphing_tool):
         self.osmorphing_tool = osmorphing_tool
         self.interface_info = dict()

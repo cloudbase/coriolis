@@ -8,10 +8,8 @@ import tempfile
 from unittest import mock
 
 from coriolis import exception
-from coriolis.providers import backup_writers
-from coriolis.providers import provider_utils
-from coriolis.tests import test_base
-from coriolis.tests import testutils
+from coriolis.providers import backup_writers, provider_utils
+from coriolis.tests import test_base, testutils
 
 
 class CoriolisTestException(Exception):
@@ -27,8 +25,7 @@ class BackupWritersTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch('coriolis.utils.test_ssh_path')
     @mock.patch('coriolis.utils.exec_ssh_cmd')
-    def test__disable_lvm2_lvmetad(self, mock_exec_ssh_cmd,
-                                   mock_test_ssh_path):
+    def test__disable_lvm2_lvmetad(self, mock_exec_ssh_cmd, mock_test_ssh_path):
         cfg = "/etc/lvm/lvm.conf"
         mock_test_ssh_path.return_value = True
 
@@ -38,17 +35,17 @@ class BackupWritersTestCase(test_base.CoriolisBaseTestCase):
         expected_calls = [
             mock.call(
                 self.mock_ssh,
-                'sudo sed -i "s/use_lvmetad.*=.*1/use_lvmetad = 0/g" %s' %
-                cfg, get_pty=True),
-            mock.call(self.mock_ssh,
-                      'sudo service lvm2-lvmetad stop', get_pty=True),
-            mock.call(self.mock_ssh, 'sudo vgchange -an', get_pty=True)]
+                'sudo sed -i "s/use_lvmetad.*=.*1/use_lvmetad = 0/g" %s' % cfg,
+                get_pty=True,
+            ),
+            mock.call(self.mock_ssh, 'sudo service lvm2-lvmetad stop', get_pty=True),
+            mock.call(self.mock_ssh, 'sudo vgchange -an', get_pty=True),
+        ]
         mock_exec_ssh_cmd.assert_has_calls(expected_calls)
 
     @mock.patch('coriolis.utils.test_ssh_path')
     @mock.patch('coriolis.utils.exec_ssh_cmd')
-    def test__disable_lvm_metad_udev_rule(self, mock_exec_ssh_cmd,
-                                          mock_test_ssh_path):
+    def test__disable_lvm_metad_udev_rule(self, mock_exec_ssh_cmd, mock_test_ssh_path):
         rule_paths = [
             "/lib/udev/rules.d/69-lvm-metad.rules",
             "/lib/udev/rules.d/69-dm-lvm.rules",
@@ -60,13 +57,13 @@ class BackupWritersTestCase(test_base.CoriolisBaseTestCase):
         backup_writers._disable_lvm_metad_udev_rule(self.mock_ssh)
 
         mock_test_ssh_path.assert_has_calls(
-            [mock.call(self.mock_ssh, rule_path)
-             for rule_path in rule_paths])
+            [mock.call(self.mock_ssh, rule_path) for rule_path in rule_paths]
+        )
 
         expected_calls = [
-            mock.call(self.mock_ssh, 'sudo rm %s' % rule_path,
-                      get_pty=True)
-            for rule_path in rule_paths]
+            mock.call(self.mock_ssh, 'sudo rm %s' % rule_path, get_pty=True)
+            for rule_path in rule_paths
+        ]
         mock_exec_ssh_cmd.assert_has_calls(expected_calls)
 
     def test__check_deserialize_key(self):
@@ -77,25 +74,26 @@ class BackupWritersTestCase(test_base.CoriolisBaseTestCase):
         self.assertEqual(result, mock_rsa_key)
 
     @mock.patch('coriolis.utils.deserialize_key')
-    def test__check_deserialize_key_with_pem_string(
-            self, mock_deserialize_key):
+    def test__check_deserialize_key_with_pem_string(self, mock_deserialize_key):
         mock_key = 'mock_key'
-        mock_deserialized_key = backup_writers.paramiko.RSAKey.generate(
-            bits=2048)
+        mock_deserialized_key = backup_writers.paramiko.RSAKey.generate(bits=2048)
         mock_deserialize_key.return_value = mock_deserialized_key
 
         backup_writers._check_deserialize_key(mock_key)
 
         mock_deserialize_key.assert_called_once_with(
-            mock_key, backup_writers.CONF.serialization.temp_keypair_password)
+            mock_key, backup_writers.CONF.serialization.temp_keypair_password
+        )
 
     @mock.patch('coriolis.utils.deserialize_key')
     def test__check_deserialize_key_with_exception(self, mock_deserialize_key):
         mock_deserialize_key.side_effect = exception.CoriolisException()
 
-        self.assertRaises(exception.CoriolisException,
-                          backup_writers._check_deserialize_key,
-                          mock.sentinel.key)
+        self.assertRaises(
+            exception.CoriolisException,
+            backup_writers._check_deserialize_key,
+            mock.sentinel.key,
+        )
 
 
 class BackupWritersFactoryTestCase(test_base.CoriolisBaseTestCase):
@@ -115,7 +113,8 @@ class BackupWritersFactoryTestCase(test_base.CoriolisBaseTestCase):
 
         result = factory.get_writer()
         mock_ssh_backup_writer.assert_called_with(
-            factory._conn_info, factory._volumes_info)
+            factory._conn_info, factory._volumes_info
+        )
 
         self.assertEqual(result, mock_ssh_backup_writer.return_value)
 
@@ -125,7 +124,8 @@ class BackupWritersFactoryTestCase(test_base.CoriolisBaseTestCase):
 
         result = factory.get_writer()
         mock_http_backup_writer.assert_called_with(
-            factory._conn_info, factory._volumes_info)
+            factory._conn_info, factory._volumes_info
+        )
 
         self.assertEqual(result, mock_http_backup_writer.return_value)
 
@@ -135,34 +135,39 @@ class BackupWritersFactoryTestCase(test_base.CoriolisBaseTestCase):
 
         result = factory.get_writer()
         mock_file_backup_writer.assert_called_with(
-            factory._conn_info, factory._volumes_info)
+            factory._conn_info, factory._volumes_info
+        )
 
         self.assertEqual(result, mock_file_backup_writer.return_value)
 
     def test_get_writer_with_exception(self):
-        with mock.patch.object(backup_writers.BackupWritersFactory,
-                               '_validate_info') as mock_validate_info:
+        with mock.patch.object(
+            backup_writers.BackupWritersFactory, '_validate_info'
+        ) as mock_validate_info:
             mock_validate_info.return_value = None
             factory = self._get_writer("invalid backup writer type")
             self.assertRaises(exception.CoriolisException, factory.get_writer)
 
     def test__validate_info_with_non_dict(self):
-        self.assertRaises(exception.CoriolisException,
-                          self._get_factory, "not a dict")
+        self.assertRaises(exception.CoriolisException, self._get_factory, "not a dict")
 
     def test__validate_info_with_missing_backend(self):
-        self.assertRaises(exception.CoriolisException,
-                          self._get_factory, {"connection_details": {}})
+        self.assertRaises(
+            exception.CoriolisException, self._get_factory, {"connection_details": {}}
+        )
 
     def test__validate_info_with_invalid_backend(self):
-        self.assertRaises(exception.CoriolisException,
-                          self._get_factory,
-                          {"backend": "invalid", "connection_details": {}})
+        self.assertRaises(
+            exception.CoriolisException,
+            self._get_factory,
+            {"backend": "invalid", "connection_details": {}},
+        )
 
     def test__validate_info_with_missing_connection_details(self):
         backup_writers.BackupWritersFactory._conn_info = None
-        self.assertRaises(exception.CoriolisException,
-                          self._get_factory, {"backend": "ssh"})
+        self.assertRaises(
+            exception.CoriolisException, self._get_factory, {"backend": "ssh"}
+        )
 
     @mock.patch.object(backup_writers, "HTTPBackupWriterBootstrapper")
     def test_get_conn_info_https(self, mock_https_bootstrapper):
@@ -173,11 +178,11 @@ class BackupWritersFactoryTestCase(test_base.CoriolisBaseTestCase):
             ssh_connection_info=mock.sentinel.instance_conn_info,
             data_transfer_mechanism=mechanism,
         )
-        self.assertEqual(
-            writer_conn_info["backend"], backup_writers.BACKUP_WRITER_HTTP)
+        self.assertEqual(writer_conn_info["backend"], backup_writers.BACKUP_WRITER_HTTP)
         self.assertEqual(
             writer_conn_info["connection_details"],
-            mock_https_bootstrapper.return_value.setup_writer.return_value)
+            mock_https_bootstrapper.return_value.setup_writer.return_value,
+        )
         mock_https_bootstrapper.assert_called_once_with(
             mock.sentinel.instance_conn_info,
             backup_writers.DATA_TRANSFER_MECHANISM_HTTPS_PORT,
@@ -191,11 +196,10 @@ class BackupWritersFactoryTestCase(test_base.CoriolisBaseTestCase):
             ssh_connection_info=mock.sentinel.instance_conn_info,
             data_transfer_mechanism=mechanism,
         )
+        self.assertEqual(writer_conn_info["backend"], backup_writers.BACKUP_WRITER_SSH)
         self.assertEqual(
-            writer_conn_info["backend"], backup_writers.BACKUP_WRITER_SSH)
-        self.assertEqual(
-            writer_conn_info["connection_details"],
-            mock.sentinel.instance_conn_info)
+            writer_conn_info["connection_details"], mock.sentinel.instance_conn_info
+        )
 
     def test_get_conn_info_unsupported(self):
         factory = backup_writers.BackupWritersFactory
@@ -211,19 +215,17 @@ class BackupWritersFactoryTestCase(test_base.CoriolisBaseTestCase):
 class BaseBackupWriterTestCase(test_base.CoriolisBaseTestCase):
     """Test suite for the Coriolis BaseBackupWriter class."""
 
-    @mock.patch.object(
-        backup_writers.BaseBackupWriter, '__abstractmethods__', set()
-    )
+    @mock.patch.object(backup_writers.BaseBackupWriter, '__abstractmethods__', set())
     def setUp(self):
         super(BaseBackupWriterTestCase, self).setUp()
         self.writer = backup_writers.BaseBackupWriter()
 
     @mock.patch.object(backup_writers.BaseBackupWriter, '_get_impl')
     def test_open(self, mock_get_impl):
-        with self.writer.open(
-                mock.sentinel.path, mock.sentinel.disk_id) as impl:
+        with self.writer.open(mock.sentinel.path, mock.sentinel.disk_id) as impl:
             mock_get_impl.assert_called_once_with(
-                mock.sentinel.path, mock.sentinel.disk_id)
+                mock.sentinel.path, mock.sentinel.disk_id
+            )
             impl._open.assert_called_once()
 
         impl.close.assert_called_once()
@@ -250,7 +252,8 @@ class FileBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
     def setUp(self):
         super(FileBackupWriterImplTestCase, self).setUp()
         self.writer = backup_writers.FileBackupWriterImpl(
-            mock.sentinel.path, mock.sentinel.disk_id)
+            mock.sentinel.path, mock.sentinel.disk_id
+        )
         self.mock_file = mock.MagicMock()
         self.writer._file = self.mock_file
 
@@ -258,9 +261,11 @@ class FileBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
     def test__open(self, mock_open):
         self.writer._open()
 
-        calls = [mock.call(self.writer._path, 'ab+'),
-                 mock.call().close(),
-                 mock.call(self.writer._path, 'rb+')]
+        calls = [
+            mock.call(self.writer._path, 'ab+'),
+            mock.call().close(),
+            mock.call(self.writer._path, 'rb+'),
+        ]
         mock_open.assert_has_calls(calls)
 
     def test_seek(self):
@@ -293,16 +298,17 @@ class FileBackupWriterTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(backup_writers, 'FileBackupWriterImpl')
     def test__get_impl(self, mock_file_backup_writer_impl):
-        result = self.writer._get_impl(
-            mock.sentinel.path, mock.sentinel.disk_id)
+        result = self.writer._get_impl(mock.sentinel.path, mock.sentinel.disk_id)
 
         mock_file_backup_writer_impl.assert_called_once_with(
-            mock.sentinel.path, mock.sentinel.disk_id)
+            mock.sentinel.path, mock.sentinel.disk_id
+        )
         self.assertEqual(result, mock_file_backup_writer_impl.return_value)
 
     def test_from_connection_info(self):
         result = backup_writers.FileBackupWriter.from_connection_info(
-            mock.sentinel.connection_info, mock.sentinel.volume_info)
+            mock.sentinel.connection_info, mock.sentinel.volume_info
+        )
 
         self.assertIsInstance(result, backup_writers.FileBackupWriter)
 
@@ -313,7 +319,8 @@ class SSHBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
     def setUp(self):
         super(SSHBackupWriterImplTestCase, self).setUp()
         self.writer = backup_writers.SSHBackupWriterImpl(
-            mock.sentinel.path, mock.sentinel.path)
+            mock.sentinel.path, mock.sentinel.path
+        )
         self._ssh = mock.MagicMock()
         self._stdin = mock.MagicMock()
         self._stdout = mock.MagicMock()
@@ -329,25 +336,29 @@ class SSHBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         self.assertEqual(self.writer._ssh, self._ssh)
 
     def test__exec_helper_cmd(self):
-        self._ssh.exec_command.return_value = (
-            self._stdin, self._stdout, self._stderr)
+        self._ssh.exec_command.return_value = (self._stdin, self._stdout, self._stderr)
 
         original_exec_helper_cmd = testutils.get_wrapped_function(
-            self.writer._exec_helper_cmd)
+            self.writer._exec_helper_cmd
+        )
 
         original_exec_helper_cmd(self.writer)
 
         self._ssh.exec_command.assert_called_once_with(
-            "chmod +x write_data && sudo ./write_data")
+            "chmod +x write_data && sudo ./write_data"
+        )
 
     @mock.patch('coriolis.data_transfer.encode_data')
     def test__encode_data(self, mock_encode_data):
-        result = self.writer._encode_data(
-            'test_content', mock.sentinel.offset, 456)
+        result = self.writer._encode_data('test_content', mock.sentinel.offset, 456)
 
         mock_encode_data.assert_called_once_with(
-            456, mock.sentinel.path, mock.sentinel.offset, 'test_content',
-            compress=self.writer._compress_transfer)
+            456,
+            mock.sentinel.path,
+            mock.sentinel.offset,
+            'test_content',
+            compress=self.writer._compress_transfer,
+        )
 
         self.assertEqual(result, mock_encode_data.return_value)
 
@@ -363,8 +374,7 @@ class SSHBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
     def test__send_msg(self):
         self._stdout.channel.exit_status_ready.return_value = False
 
-        original_send_msg = testutils.get_wrapped_function(
-            self.writer._send_msg)
+        original_send_msg = testutils.get_wrapped_function(self.writer._send_msg)
 
         original_send_msg(self.writer, mock.sentinel.data)
 
@@ -377,24 +387,33 @@ class SSHBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         self._stdout.channel.exit_status_ready.return_value = True
         self._stdout.channel.recv_exit_status.return_value = 1
 
-        original_send_msg = testutils.get_wrapped_function(
-            self.writer._send_msg)
+        original_send_msg = testutils.get_wrapped_function(self.writer._send_msg)
 
-        self.assertRaises(exception.CoriolisException, original_send_msg,
-                          self.writer, mock.sentinel.data)
+        self.assertRaises(
+            exception.CoriolisException,
+            original_send_msg,
+            self.writer,
+            mock.sentinel.data,
+        )
 
     @mock.patch('coriolis.utils.start_thread')
     @mock.patch.object(backup_writers.SSHBackupWriterImpl, '_encoder')
     @mock.patch.object(backup_writers.SSHBackupWriterImpl, '_sender')
     @mock.patch.object(backup_writers.SSHBackupWriterImpl, '_exec_helper_cmd')
-    def test__open(self, mock_exec_helper_cmd, mock_sender, mock_encoder,
-                   mock_start_thread):
+    def test__open(
+        self, mock_exec_helper_cmd, mock_sender, mock_encoder, mock_start_thread
+    ):
         self.writer._open()
 
         mock_exec_helper_cmd.assert_called_once()
         mock_start_thread.assert_has_calls(
-            [mock.call(mock_sender), mock.call(mock_encoder),
-             mock.call(mock_encoder), mock.call(mock_encoder)])
+            [
+                mock.call(mock_sender),
+                mock.call(mock_encoder),
+                mock.call(mock_encoder),
+                mock.call(mock_encoder),
+            ]
+        )
 
         self.assertEqual(len(self.writer._encoder_threads), 3)
 
@@ -404,14 +423,12 @@ class SSHBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(backup_writers.SSHBackupWriterImpl, '_send_msg')
     def test__sender(self, mock_send_msg):
-        mock_send_msg.side_effect = [
-            mock.sentinel.data, CoriolisTestException()]
+        mock_send_msg.side_effect = [mock.sentinel.data, CoriolisTestException()]
         self.writer._sender_q = self._sender_queue
 
         self.assertRaises(CoriolisTestException, self.writer._sender)
 
-        mock_send_msg.assert_called_with(
-            self.writer._sender_q.get.return_value)
+        mock_send_msg.assert_called_with(self.writer._sender_q.get.return_value)
         self.assertEqual(self._sender_queue.task_done.call_count, 2)
 
     @mock.patch.object(backup_writers.SSHBackupWriterImpl, '_encode_data')
@@ -420,23 +437,28 @@ class SSHBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         self.writer._sender_q = self._sender_queue
 
         mock_encode_data.side_effect = [
-            {"data": mock.sentinel.data,
-             "offset": mock.sentinel.offset,
-             "msg_id": mock.sentinel.msg_id},
-            CoriolisTestException()]
+            {
+                "data": mock.sentinel.data,
+                "offset": mock.sentinel.offset,
+                "msg_id": mock.sentinel.msg_id,
+            },
+            CoriolisTestException(),
+        ]
 
         self.assertRaises(CoriolisTestException, self.writer._encoder)
 
         mock_encode_data.assert_called_with(
             self.writer._enc_q.get.return_value["data"],
             self.writer._enc_q.get.return_value["offset"],
-            self.writer._enc_q.get.return_value["msg_id"]
+            self.writer._enc_q.get.return_value["msg_id"],
         )
 
         self._sender_queue.put.assert_called_once_with(
-            {"data": mock.sentinel.data,
-             "offset": mock.sentinel.offset,
-             "msg_id": mock.sentinel.msg_id}
+            {
+                "data": mock.sentinel.data,
+                "offset": mock.sentinel.offset,
+                "msg_id": mock.sentinel.msg_id,
+            }
         )
 
         self.assertEqual(self._enc_queue.task_done.call_count, 2)
@@ -450,24 +472,22 @@ class SSHBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
 
         self.writer.write('test_data')
 
-        expected_payload = {
-            "offset": 0,
-            "data": 'test_data',
-            "msg_id": 0
-        }
+        expected_payload = {"offset": 0, "data": 'test_data', "msg_id": 0}
         self._enc_queue.put.assert_called_once_with(expected_payload)
         self.assertEqual(self.writer._offset, len('test_data'))
         self.assertEqual(self.writer._msg_id, 1)
 
     def test_write_with_closing(self):
         self.writer._closing = True
-        self.assertRaises(exception.CoriolisException, self.writer.write,
-                          mock.sentinel.data)
+        self.assertRaises(
+            exception.CoriolisException, self.writer.write, mock.sentinel.data
+        )
 
     def test_write_with_exception(self):
         self.writer._exception = exception.CoriolisException()
-        self.assertRaises(exception.CoriolisException, self.writer.write,
-                          mock.sentinel.data)
+        self.assertRaises(
+            exception.CoriolisException, self.writer.write, mock.sentinel.data
+        )
 
     def test__wait_for_queues(self):
         self.writer._enc_q = mock.MagicMock()
@@ -480,12 +500,10 @@ class SSHBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         start_time = datetime.datetime.now()
         timeout_time = start_time + datetime.timedelta(seconds=600)
 
-        with mock.patch("datetime.datetime") as \
-            mock_datetime, mock.patch("time.sleep"):
+        with mock.patch("datetime.datetime") as mock_datetime, mock.patch("time.sleep"):
             mock_datetime.now.side_effect = [start_time, timeout_time]
 
-            self.assertRaises(exception.CoriolisException,
-                              self.writer._wait_for_queues)
+            self.assertRaises(exception.CoriolisException, self.writer._wait_for_queues)
 
     def test__wait_for_queues_no_unfinished_tasks(self):
         self.writer._enc_q = mock.MagicMock()
@@ -506,8 +524,7 @@ class SSHBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(backup_writers.SSHBackupWriterImpl, '_wait_for_queues')
     @mock.patch.object(backup_writers.SSHBackupWriterImpl, '_send_msg')
     @mock.patch.object(backup_writers.SSHBackupWriterImpl, '_encode_eod')
-    def test_close_with_ssh(self, mock_encode_eod, mock_send_msg,
-                            mock_wait_for_queues):
+    def test_close_with_ssh(self, mock_encode_eod, mock_send_msg, mock_wait_for_queues):
         self.writer._ssh = self._ssh
         mock_wait_for_queues.return_value = None
         self.writer._exception = None
@@ -543,8 +560,9 @@ class SSHBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         self.writer._stdout.channel.recv_exit_status.return_value = 1
         self.writer._ssh = self._ssh
 
-        self.assertRaises(exception.CoriolisException,
-                          self.writer._handle_exception, Exception())
+        self.assertRaises(
+            exception.CoriolisException, self.writer._handle_exception, Exception()
+        )
 
         self._ssh.close.assert_called_once()
         self.assertIsNone(self.writer._ssh)
@@ -553,8 +571,9 @@ class SSHBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         self.writer._stdout.channel.exit_status_ready.return_value = False
         self.writer._ssh = self._ssh
 
-        self.assertRaises(exception.CoriolisException,
-                          self.writer._handle_exception, Exception())
+        self.assertRaises(
+            exception.CoriolisException, self.writer._handle_exception, Exception()
+        )
 
         self._ssh.close.assert_called_once()
         self.assertIsNone(self.writer._ssh)
@@ -584,15 +603,21 @@ class SSHBackupWriterTestCase(test_base.CoriolisBaseTestCase):
             "password": mock.sentinel.password,
         }
         self.writer = backup_writers.SSHBackupWriter(
-            self.ip, self.port, mock.sentinel.username, self.pkey,
-            mock.sentinel.password, self.volume_info)
+            self.ip,
+            self.port,
+            mock.sentinel.username,
+            self.pkey,
+            mock.sentinel.password,
+            self.volume_info,
+        )
 
     @mock.patch.object(backup_writers, '_check_deserialize_key')
     def test_from_connection_info(self, mock_deserialize_key):
         self.conn_info["pkey"] = mock.sentinel.pkey
 
         result = backup_writers.SSHBackupWriter.from_connection_info(
-            self.conn_info, mock.sentinel.volume_info)
+            self.conn_info, mock.sentinel.volume_info
+        )
 
         mock_deserialize_key.assert_called_once_with(mock.sentinel.pkey)
 
@@ -602,39 +627,53 @@ class SSHBackupWriterTestCase(test_base.CoriolisBaseTestCase):
         # Remove the IP from the connection info to test the missing required.
         self.conn_info.pop("ip")
 
-        self.assertRaises(exception.CoriolisException,
-                          backup_writers.SSHBackupWriter.from_connection_info,
-                          self.conn_info, self.volume_info)
+        self.assertRaises(
+            exception.CoriolisException,
+            backup_writers.SSHBackupWriter.from_connection_info,
+            self.conn_info,
+            self.volume_info,
+        )
 
     def test_from_connection_info_missing_password(self):
         self.conn_info.pop("password")
 
-        self.assertRaises(exception.CoriolisException,
-                          backup_writers.SSHBackupWriter.from_connection_info,
-                          self.conn_info, self.volume_info)
+        self.assertRaises(
+            exception.CoriolisException,
+            backup_writers.SSHBackupWriter.from_connection_info,
+            self.conn_info,
+            self.volume_info,
+        )
 
     @mock.patch.object(backup_writers.SSHBackupWriter, '_connect_ssh')
     @mock.patch.object(backup_writers, '_disable_lvm_metad_udev_rule')
     @mock.patch.object(backup_writers, '_disable_lvm2_lvmetad')
     @mock.patch.object(backup_writers, 'SSHBackupWriterImpl')
     @mock.patch.object(backup_writers.SSHBackupWriter, '_copy_helper_cmd')
-    def test__get_impl(self, mock_copy_helper_cmd, mock_ssh_backup_writer_impl,
-                       mock_disable_lvm2_lvmetad,
-                       mock_disable_lvm_metad_udev_rule, mock_connect_ssh):
+    def test__get_impl(
+        self,
+        mock_copy_helper_cmd,
+        mock_ssh_backup_writer_impl,
+        mock_disable_lvm2_lvmetad,
+        mock_disable_lvm_metad_udev_rule,
+        mock_connect_ssh,
+    ):
         mock_connect_ssh.return_value = self._ssh
         self.writer._volumes_info = [self.volume_info]
 
         result = self.writer._get_impl(
-            self.volume_info["path"], self.volume_info["disk_id"])
+            self.volume_info["path"], self.volume_info["disk_id"]
+        )
 
         mock_connect_ssh.assert_called_once_with()
         mock_disable_lvm_metad_udev_rule.assert_called_once_with(self._ssh)
         mock_disable_lvm2_lvmetad.assert_called_once_with(self._ssh)
         mock_copy_helper_cmd.assert_called_once_with(self._ssh)
-        mock_ssh_backup_writer_impl.return_value.\
-            _set_ssh_client.assert_called_once_with(self._ssh)
+        mock_ssh_backup_writer_impl.return_value._set_ssh_client.assert_called_once_with(
+            self._ssh
+        )
         mock_ssh_backup_writer_impl.assert_called_once_with(
-            mock.sentinel.volume_dev, mock.sentinel.disk_id)
+            mock.sentinel.volume_dev, mock.sentinel.disk_id
+        )
 
         self.assertEqual(result, mock_ssh_backup_writer_impl.return_value)
 
@@ -642,24 +681,38 @@ class SSHBackupWriterTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(backup_writers, '_disable_lvm_metad_udev_rule')
     @mock.patch.object(backup_writers, '_disable_lvm2_lvmetad')
     def test__get_impl_no_matching_disk_id(
-            self, mock_disable_lvm2_lvmetad, mock_disable_lvm_metad_udev_rule,
-            mock_connect_ssh):
+        self,
+        mock_disable_lvm2_lvmetad,
+        mock_disable_lvm_metad_udev_rule,
+        mock_connect_ssh,
+    ):
         self.writer._volumes_info = [self.volume_info]
 
-        self.assertRaises(exception.CoriolisException, self.writer._get_impl,
-                          mock.sentinel.path, "invalid_disk_id")
+        self.assertRaises(
+            exception.CoriolisException,
+            self.writer._get_impl,
+            mock.sentinel.path,
+            "invalid_disk_id",
+        )
 
     @mock.patch.object(backup_writers.SSHBackupWriter, '_connect_ssh')
     @mock.patch.object(backup_writers, '_disable_lvm_metad_udev_rule')
     @mock.patch.object(backup_writers, '_disable_lvm2_lvmetad')
     def test__get_impl_multiple_matching_disks(
-            self, mock_disable_lvm2_lvmetad, mock_disable_lvm_metad_udev_rule,
-            mock_connect_ssh):
+        self,
+        mock_disable_lvm2_lvmetad,
+        mock_disable_lvm_metad_udev_rule,
+        mock_connect_ssh,
+    ):
         mock_connect_ssh.return_value = self._ssh
         self.writer._volumes_info = [self.volume_info, self.volume_info]
 
-        self.assertRaises(exception.CoriolisException, self.writer._get_impl,
-                          mock.sentinel.path, mock.sentinel.disk_id)
+        self.assertRaises(
+            exception.CoriolisException,
+            self.writer._get_impl,
+            mock.sentinel.path,
+            mock.sentinel.disk_id,
+        )
 
     @mock.patch('paramiko.SSHClient')
     def test__copy_helper_cmd(self, mock_ssh_client):
@@ -667,7 +720,8 @@ class SSHBackupWriterTestCase(test_base.CoriolisBaseTestCase):
         mock_ssh.open_sftp.return_value = self._sftp
 
         original_copy_helper_cmd = testutils.get_wrapped_function(
-            self.writer._copy_helper_cmd)
+            self.writer._copy_helper_cmd
+        )
 
         original_copy_helper_cmd(self.writer, mock_ssh)
 
@@ -678,17 +732,19 @@ class SSHBackupWriterTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(backup_writers.utils, 'get_resources_bin_dir')
     @mock.patch('paramiko.SSHClient')
     def test__copy_helper_cmd_file_does_not_exist(
-            self, mock_ssh_client, mock_get_resources_bin_dir):
+        self, mock_ssh_client, mock_get_resources_bin_dir
+    ):
         mock_ssh = mock_ssh_client.return_value
         mock_ssh.open_sftp.return_value = self._sftp
-        local_path = os.path.join(
-            mock_get_resources_bin_dir.return_value, 'write_data')
+        local_path = os.path.join(mock_get_resources_bin_dir.return_value, 'write_data')
 
         self._sftp.stat.side_effect = IOError(
-            backup_writers.errno.ENOENT, 'No such file or directory')
+            backup_writers.errno.ENOENT, 'No such file or directory'
+        )
 
         original_copy_helper_cmd = testutils.get_wrapped_function(
-            self.writer._copy_helper_cmd)
+            self.writer._copy_helper_cmd
+        )
 
         original_copy_helper_cmd(self.writer, mock_ssh)
 
@@ -702,10 +758,10 @@ class SSHBackupWriterTestCase(test_base.CoriolisBaseTestCase):
         self._sftp.stat.side_effect = IOError()
 
         original_copy_helper_cmd = testutils.get_wrapped_function(
-            self.writer._copy_helper_cmd)
+            self.writer._copy_helper_cmd
+        )
 
-        self.assertRaises(
-            IOError, original_copy_helper_cmd, self.writer, mock_ssh)
+        self.assertRaises(IOError, original_copy_helper_cmd, self.writer, mock_ssh)
 
         self._sftp.put.assert_not_called()
         self._sftp.close.assert_called_once()
@@ -714,8 +770,7 @@ class SSHBackupWriterTestCase(test_base.CoriolisBaseTestCase):
     def test__connect_ssh(self, mock_ssh_client):
         mock_ssh_client.return_value = self._ssh
 
-        original_connect_ssh = testutils.get_wrapped_function(
-            self.writer._connect_ssh)
+        original_connect_ssh = testutils.get_wrapped_function(self.writer._connect_ssh)
 
         result = original_connect_ssh(self.writer)
 
@@ -725,7 +780,7 @@ class SSHBackupWriterTestCase(test_base.CoriolisBaseTestCase):
             port=self.writer._port,
             username=self.writer._username,
             pkey=self.writer._pkey,
-            password=self.writer._password
+            password=self.writer._password,
         )
         self.assertEqual(result, self._ssh)
 
@@ -734,11 +789,9 @@ class SSHBackupWriterTestCase(test_base.CoriolisBaseTestCase):
         mock_ssh_client.return_value = self._ssh
         self._ssh.connect.side_effect = CoriolisTestException()
 
-        original_connect_ssh = testutils.get_wrapped_function(
-            self.writer._connect_ssh)
+        original_connect_ssh = testutils.get_wrapped_function(self.writer._connect_ssh)
 
-        self.assertRaises(CoriolisTestException, original_connect_ssh,
-                          self.writer)
+        self.assertRaises(CoriolisTestException, original_connect_ssh, self.writer)
 
         self._ssh.close.assert_called_once()
 
@@ -756,10 +809,9 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
             "client_crt": mock.sentinel.client_crt,
             "client_key": mock.sentinel.client_key,
             "ca_crt": mock.sentinel.ca_crt,
-            "id": mock.sentinel.id
+            "id": mock.sentinel.id,
         }
-        self.writer = backup_writers.HTTPBackupWriterImpl(
-            self.path, self.disk_id)
+        self.writer = backup_writers.HTTPBackupWriterImpl(self.path, self.disk_id)
 
     def test__set_info(self):
         self.writer._set_info(self.info)
@@ -771,8 +823,7 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         self.assertEqual(self.writer._id, self.info["id"])
 
     def test__set_info_missing_info(self):
-        self.assertRaises(exception.CoriolisException,
-                          self.writer._set_info, {})
+        self.assertRaises(exception.CoriolisException, self.writer._set_info, {})
 
     def test__uri(self):
         self.writer._ip = self.info["ip"]
@@ -781,15 +832,19 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
 
         result = self.writer._uri
 
-        self.assertEqual(result, "https://%s:%s/api/v2/device/%s" % (
-            self.writer._ip, self.writer._port, "cGF0aC90ZXN0X3BhdGg="))
+        self.assertEqual(
+            result,
+            "https://%s:%s/api/v2/device/%s"
+            % (self.writer._ip, self.writer._port, "cGF0aC90ZXN0X3BhdGg="),
+        )
 
     @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_ensure_session')
     @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_uri')
     @mock.patch.object(backup_writers, 'CONF')
     @mock.patch('requests.Session')
-    def test__acquire(self, mock_session_class, mock_conf, mock_uri,
-                      mock_ensure_session):
+    def test__acquire(
+        self, mock_session_class, mock_conf, mock_uri, mock_ensure_session
+    ):
         mock_response = mock.MagicMock()
         mock_response.status_code = 200
         mock_response.content = 'OK'
@@ -807,15 +862,17 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         mock_session.post.assert_called_once_with(
             f"{mock_uri}/acquire",
             headers={"X-Client-Token": self.writer._id},
-            timeout=mock_conf.default_requests_timeout)
+            timeout=mock_conf.default_requests_timeout,
+        )
         mock_response.raise_for_status.assert_called_once()
 
     @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_ensure_session')
     @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_uri')
     @mock.patch.object(backup_writers, 'CONF')
     @mock.patch('requests.Session')
-    def test__release(self, mock_session_class, mock_conf, mock_uri,
-                      mock_ensure_session):
+    def test__release(
+        self, mock_session_class, mock_conf, mock_uri, mock_ensure_session
+    ):
         mock_response = mock.Mock()
         mock_response.status_code = 200
         mock_response.content = 'OK'
@@ -833,7 +890,8 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         mock_session.post.assert_called_once_with(
             f"{mock_uri}/release",
             headers={"X-Client-Token": self.writer._id},
-            timeout=mock_conf.default_requests_timeout)
+            timeout=mock_conf.default_requests_timeout,
+        )
         mock_response.raise_for_status.assert_called_once()
 
     @mock.patch.object(provider_utils, 'ProviderSession')
@@ -849,8 +907,9 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         self.writer._session.close.assert_not_called()
 
         self.assertEqual(self.writer._session, mock_session_class.return_value)
-        self.assertEqual(self.writer._session.cert,
-                         (self.writer._crt, self.writer._key))
+        self.assertEqual(
+            self.writer._session.cert, (self.writer._crt, self.writer._key)
+        )
         self.assertEqual(self.writer._session.verify, self.writer._ca)
 
     @mock.patch.object(provider_utils, 'ProviderSession')
@@ -866,8 +925,9 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         mock_session_class.assert_called_once_with()
 
         self.assertEqual(self.writer._session, mock_session_class.return_value)
-        self.assertEqual(self.writer._session.cert,
-                         (self.writer._crt, self.writer._key))
+        self.assertEqual(
+            self.writer._session.cert, (self.writer._crt, self.writer._key)
+        )
         self.assertEqual(self.writer._session.verify, self.writer._ca)
 
     @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_init_session')
@@ -881,8 +941,8 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         mock_init_session.assert_called_once()
         mock_acquire.assert_called_once()
         mock_start_thread.assert_has_calls(
-            [mock.call(self.writer._sender),
-             mock.call(self.writer._compressor)])
+            [mock.call(self.writer._sender), mock.call(self.writer._compressor)]
+        )
 
         self.assertEqual(self.writer._compressor_count, 1)
 
@@ -890,14 +950,15 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_acquire')
     @mock.patch('coriolis.utils.start_thread')
     def test__open_compressor_count_not_none_or_zero(
-            self, mock_start_thread, mock_acquire, mock_init_session):
+        self, mock_start_thread, mock_acquire, mock_init_session
+    ):
         self.writer._compressor_count = 2
 
         self.writer._open()
 
         self.assertEqual(
-            len(self.writer._compressor_threads),
-            self.writer._compressor_count)
+            len(self.writer._compressor_threads), self.writer._compressor_count
+        )
         self.assertEqual(mock_start_thread.call_count, 3)
 
     def test_seek(self):
@@ -927,22 +988,28 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
 
         self.writer._comp_q.get.return_value = {
             "offset": mock.sentinel.offset,
-            "data": mock.sentinel.data}
+            "data": mock.sentinel.data,
+        }
 
         mock_compression_proxy.side_effect = [
             (mock.sentinel.data, True),
-            CoriolisTestException()]
+            CoriolisTestException(),
+        ]
 
         self.assertRaises(CoriolisTestException, self.writer._compressor)
 
         self.assertEqual(self.writer._comp_q.get.call_count, 2)
         mock_compression_proxy.assert_called_with(
             self.writer._comp_q.get.return_value["data"],
-            backup_writers.constants.COMPRESSION_FORMAT_GZIP)
+            backup_writers.constants.COMPRESSION_FORMAT_GZIP,
+        )
         self.writer._sender_q.put.assert_called_once_with(
-            {'encoding': 'gzip',
-             'offset': mock.sentinel.offset,
-             'chunk': mock.sentinel.data})
+            {
+                'encoding': 'gzip',
+                'offset': mock.sentinel.offset,
+                'chunk': mock.sentinel.data,
+            }
+        )
         self.assertEqual(self.writer._comp_q.task_done.call_count, 2)
 
     @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_ensure_session')
@@ -955,7 +1022,7 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
             "offset": mock.sentinel.offset,
             "data": mock.sentinel.data,
             "chunk": 'compressed_data',
-            "encoding": "gzip"
+            "encoding": "gzip",
         }
 
         mock_response = mock.MagicMock()
@@ -964,8 +1031,7 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         mock_response.raise_for_status.side_effect = [None, BaseException()]
         self.writer._session.post.return_value = mock_response
 
-        with self.assertLogs('coriolis.providers.backup_writers',
-                             level=logging.ERROR):
+        with self.assertLogs('coriolis.providers.backup_writers', level=logging.ERROR):
             self.assertRaises(BaseException, self.writer._sender)
 
         expected_headers = {
@@ -978,7 +1044,8 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
             mock_uri,
             headers=expected_headers,
             data='compressed_data',
-            timeout=mock_conf.default_requests_timeout)
+            timeout=mock_conf.default_requests_timeout,
+        )
 
         mock_ensure_session.assert_called()
         mock_response.raise_for_status.assert_called()
@@ -990,8 +1057,9 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_ensure_session')
     @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_uri')
     @mock.patch.object(backup_writers, 'CONF')
-    def test__sender_with_exception(self, mock_conf, mock_uri,
-                                    mock_ensure_session, mock_sleep):
+    def test__sender_with_exception(
+        self, mock_conf, mock_uri, mock_ensure_session, mock_sleep
+    ):
         self.writer._session = mock.MagicMock()
         self.writer._sender_q = mock.MagicMock()
         mock_response = mock.MagicMock()
@@ -1004,8 +1072,9 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
             "chunk": 'compressed_data',
         }
 
-        with self.assertLogs('coriolis.providers.backup_writers',
-                             level=logging.WARNING):
+        with self.assertLogs(
+            'coriolis.providers.backup_writers', level=logging.WARNING
+        ):
             self.assertRaises(CoriolisTestException, self.writer._sender)
 
         expected_headers = {
@@ -1017,7 +1086,8 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
             mock_uri,
             headers=expected_headers,
             data='compressed_data',
-            timeout=mock_conf.default_requests_timeout)
+            timeout=mock_conf.default_requests_timeout,
+        )
 
         mock_ensure_session.assert_called()
         self.writer._sender_q.task_done.assert_called_once()
@@ -1047,16 +1117,18 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
 
         original_write = testutils.get_wrapped_function(self.writer.write)
 
-        self.assertRaises(exception.CoriolisException, original_write,
-                          self.writer, mock.sentinel.data)
+        self.assertRaises(
+            exception.CoriolisException, original_write, self.writer, mock.sentinel.data
+        )
 
     def test_write_with_exception(self):
         self.writer._exception = exception.CoriolisException()
 
         original_write = testutils.get_wrapped_function(self.writer.write)
 
-        self.assertRaises(exception.CoriolisException, original_write,
-                          self.writer, mock.sentinel.data)
+        self.assertRaises(
+            exception.CoriolisException, original_write, self.writer, mock.sentinel.data
+        )
 
     @mock.patch('time.sleep')
     def test__wait_for_queues(self, mock_sleep):
@@ -1097,16 +1169,15 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         self.writer._exception = exception.CoriolisException()
         mock_release.side_effect = Exception()
 
-        with self.assertLogs('coriolis.providers.backup_writers',
-                             level=logging.ERROR):
+        with self.assertLogs('coriolis.providers.backup_writers', level=logging.ERROR):
             self.assertRaises(exception.CoriolisException, self.writer.close)
 
     @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_ensure_session')
-    @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_uri',
-                       new_callable=mock.PropertyMock)
+    @mock.patch.object(
+        backup_writers.HTTPBackupWriterImpl, '_uri', new_callable=mock.PropertyMock
+    )
     @mock.patch.object(backup_writers, 'CONF')
-    def test__create_checksum_job(self, mock_conf, mock_uri,
-                                  mock_ensure_session):
+    def test__create_checksum_job(self, mock_conf, mock_uri, mock_ensure_session):
         self.writer._set_info(self.info)
         mock_uri.return_value = "https://host:port/api/v2/device/b64path"
         self.writer._session = mock.MagicMock()
@@ -1120,17 +1191,17 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         self.writer._session.post.assert_called_once_with(
             "https://host:port/api/v2/device/b64path/checksumJob",
             headers={"X-Client-Token": self.info["id"]},
-            json={"start_offset": 0, "end_offset": 0,
-                  "checksum_algorithm": "sha256"},
-            timeout=mock_conf.default_requests_timeout)
+            json={"start_offset": 0, "end_offset": 0, "checksum_algorithm": "sha256"},
+            timeout=mock_conf.default_requests_timeout,
+        )
         mock_resp.raise_for_status.assert_called_once()
 
     @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_ensure_session')
-    @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_uri',
-                       new_callable=mock.PropertyMock)
+    @mock.patch.object(
+        backup_writers.HTTPBackupWriterImpl, '_uri', new_callable=mock.PropertyMock
+    )
     @mock.patch.object(backup_writers, 'CONF')
-    def test__get_checksum_job_status(self, mock_conf, mock_uri,
-                                      mock_ensure_session):
+    def test__get_checksum_job_status(self, mock_conf, mock_uri, mock_ensure_session):
         self.writer._set_info(self.info)
         mock_uri.return_value = "https://host:port/api/v2/device/b64path"
         self.writer._session = mock.MagicMock()
@@ -1142,15 +1213,16 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         self.assertEqual(result, mock_resp.json.return_value)
         self.writer._session.get.assert_called_once_with(
             "https://host:port/api/v2/device/b64path/checksumJob/test-job-id",
-            timeout=mock_conf.default_requests_timeout)
+            timeout=mock_conf.default_requests_timeout,
+        )
         mock_resp.raise_for_status.assert_called_once()
 
     @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_ensure_session')
-    @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_uri',
-                       new_callable=mock.PropertyMock)
+    @mock.patch.object(
+        backup_writers.HTTPBackupWriterImpl, '_uri', new_callable=mock.PropertyMock
+    )
     @mock.patch.object(backup_writers, 'CONF')
-    def test__delete_checksum_job(self, mock_conf, mock_uri,
-                                  mock_ensure_session):
+    def test__delete_checksum_job(self, mock_conf, mock_uri, mock_ensure_session):
         self.writer._set_info(self.info)
         mock_uri.return_value = "https://host:port/api/v2/device/b64path"
         self.writer._session = mock.MagicMock()
@@ -1161,18 +1233,15 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
 
         self.writer._session.delete.assert_called_once_with(
             "https://host:port/api/v2/device/b64path/checksumJob/test-job-id",
-            timeout=mock_conf.default_requests_timeout)
+            timeout=mock_conf.default_requests_timeout,
+        )
         mock_resp.raise_for_status.assert_called_once()
 
-    @mock.patch.object(backup_writers.HTTPBackupWriterImpl,
-                       '_delete_checksum_job')
-    @mock.patch.object(backup_writers.HTTPBackupWriterImpl,
-                       '_get_checksum_job_status')
-    @mock.patch.object(backup_writers.HTTPBackupWriterImpl,
-                       '_create_checksum_job')
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_delete_checksum_job')
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_get_checksum_job_status')
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_create_checksum_job')
     @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_wait_for_queues')
-    def test_get_disk_checksum(self, mock_wait, mock_create, mock_status,
-                               mock_delete):
+    def test_get_disk_checksum(self, mock_wait, mock_create, mock_status, mock_delete):
         self.writer._set_info(self.info)
         mock_create.return_value = "test-job-id"
         mock_status.return_value = {
@@ -1196,15 +1265,13 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         )
         mock_delete.assert_called_once_with("test-job-id")
 
-    @mock.patch.object(backup_writers.HTTPBackupWriterImpl,
-                       '_delete_checksum_job')
-    @mock.patch.object(backup_writers.HTTPBackupWriterImpl,
-                       '_get_checksum_job_status')
-    @mock.patch.object(backup_writers.HTTPBackupWriterImpl,
-                       '_create_checksum_job')
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_delete_checksum_job')
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_get_checksum_job_status')
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_create_checksum_job')
     @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_wait_for_queues')
-    def test_get_disk_checksum_job_failed(self, mock_wait, mock_create,
-                                          mock_status, mock_delete):
+    def test_get_disk_checksum_job_failed(
+        self, mock_wait, mock_create, mock_status, mock_delete
+    ):
         self.writer._set_info(self.info)
         mock_create.return_value = "test-job-id"
         mock_status.return_value = {
@@ -1213,38 +1280,38 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         }
 
         self.assertRaises(
-            exception.CoriolisException,
-            self.writer.get_disk_checksum, "sha256")
+            exception.CoriolisException, self.writer.get_disk_checksum, "sha256"
+        )
         mock_delete.assert_called_once_with("test-job-id")
 
-    @mock.patch.object(backup_writers.HTTPBackupWriterImpl,
-                       '_delete_checksum_job')
-    @mock.patch.object(backup_writers.HTTPBackupWriterImpl,
-                       '_create_checksum_job')
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_delete_checksum_job')
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_create_checksum_job')
     @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_wait_for_queues')
-    def test_get_disk_checksum_write_error(self, mock_wait, mock_create,
-                                           mock_delete):
+    def test_get_disk_checksum_write_error(self, mock_wait, mock_create, mock_delete):
         self.writer._set_info(self.info)
         self.writer._exception = exception.CoriolisException("write failed")
 
         self.assertRaises(
-            exception.CoriolisException,
-            self.writer.get_disk_checksum, "sha256")
+            exception.CoriolisException, self.writer.get_disk_checksum, "sha256"
+        )
         mock_create.assert_not_called()
         mock_delete.assert_not_called()
 
     @mock.patch('coriolis.providers.backup_writers.time.sleep')
     @mock.patch('coriolis.providers.backup_writers.time.monotonic')
-    @mock.patch.object(backup_writers.HTTPBackupWriterImpl,
-                       '_delete_checksum_job')
-    @mock.patch.object(backup_writers.HTTPBackupWriterImpl,
-                       '_get_checksum_job_status')
-    @mock.patch.object(backup_writers.HTTPBackupWriterImpl,
-                       '_create_checksum_job')
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_delete_checksum_job')
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_get_checksum_job_status')
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_create_checksum_job')
     @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_wait_for_queues')
-    def test_get_disk_checksum_timeout(self, mock_wait, mock_create,
-                                       mock_status, mock_delete,
-                                       mock_monotonic, mock_sleep):
+    def test_get_disk_checksum_timeout(
+        self,
+        mock_wait,
+        mock_create,
+        mock_status,
+        mock_delete,
+        mock_monotonic,
+        mock_sleep,
+    ):
         self.writer._set_info(self.info)
         mock_create.return_value = "test-job-id"
         mock_status.return_value = {"execution_status": "running"}
@@ -1252,8 +1319,8 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         mock_monotonic.side_effect = [0, 3601]
 
         self.assertRaises(
-            exception.CoriolisException,
-            self.writer.get_disk_checksum, "sha256")
+            exception.CoriolisException, self.writer.get_disk_checksum, "sha256"
+        )
         mock_delete.assert_called_once_with("test-job-id")
 
 
@@ -1274,41 +1341,43 @@ class HTTPBackupWriterBootstrapperTestcase(test_base.CoriolisBaseTestCase):
         self._ssh = mock_ssh_client.return_value
 
         self.bootstrapper = backup_writers.HTTPBackupWriterBootstrapper(
-            self.ssh_conn_info, self.writer_port)
+            self.ssh_conn_info, self.writer_port
+        )
 
     @mock.patch.object(backup_writers, '_check_deserialize_key')
-    @mock.patch.object(
-        backup_writers.HTTPBackupWriterBootstrapper, '_connect_ssh'
-    )
-    def test__init__missing_required_params(self, mock_connect_ssh,
-                                            mock_deserialize_key):
+    @mock.patch.object(backup_writers.HTTPBackupWriterBootstrapper, '_connect_ssh')
+    def test__init__missing_required_params(
+        self, mock_connect_ssh, mock_deserialize_key
+    ):
         # Remove the writer_port to test the missing required.
         self.ssh_conn_info.pop("ip")
 
-        self.assertRaises(exception.CoriolisException,
-                          backup_writers.HTTPBackupWriterBootstrapper,
-                          self.ssh_conn_info, self.writer_port)
+        self.assertRaises(
+            exception.CoriolisException,
+            backup_writers.HTTPBackupWriterBootstrapper,
+            self.ssh_conn_info,
+            self.writer_port,
+        )
 
     @mock.patch.object(backup_writers, '_check_deserialize_key')
-    @mock.patch.object(
-        backup_writers.HTTPBackupWriterBootstrapper, '_connect_ssh'
-    )
-    def test__init__missing_password(self, mock_connect_ssh,
-                                     mock_deserialize_key):
+    @mock.patch.object(backup_writers.HTTPBackupWriterBootstrapper, '_connect_ssh')
+    def test__init__missing_password(self, mock_connect_ssh, mock_deserialize_key):
         self.ssh_conn_info.pop("password")
-        self.assertRaises(exception.CoriolisException,
-                          backup_writers.HTTPBackupWriterBootstrapper,
-                          self.ssh_conn_info, self.writer_port)
+        self.assertRaises(
+            exception.CoriolisException,
+            backup_writers.HTTPBackupWriterBootstrapper,
+            self.ssh_conn_info,
+            self.writer_port,
+        )
 
     @mock.patch.object(backup_writers, '_check_deserialize_key')
-    @mock.patch.object(
-        backup_writers.HTTPBackupWriterBootstrapper, '_connect_ssh'
-    )
+    @mock.patch.object(backup_writers.HTTPBackupWriterBootstrapper, '_connect_ssh')
     def test__init__with_pkey(self, mock_connect_ssh, mock_deserialize_key):
         self.ssh_conn_info["pkey"] = mock.sentinel.pkey
 
         writer = backup_writers.HTTPBackupWriterBootstrapper(
-            self.ssh_conn_info, self.writer_port)
+            self.ssh_conn_info, self.writer_port
+        )
 
         mock_deserialize_key.assert_called_once_with(mock.sentinel.pkey)
         self.assertEqual(writer._pkey, mock_deserialize_key.return_value)
@@ -1318,7 +1387,8 @@ class HTTPBackupWriterBootstrapperTestcase(test_base.CoriolisBaseTestCase):
         mock_ssh = mock_ssh_client.return_value
 
         original_connect_ssh = testutils.get_wrapped_function(
-            self.bootstrapper._connect_ssh)
+            self.bootstrapper._connect_ssh
+        )
 
         result = original_connect_ssh(self.bootstrapper)
 
@@ -1328,7 +1398,7 @@ class HTTPBackupWriterBootstrapperTestcase(test_base.CoriolisBaseTestCase):
             port=self.bootstrapper._port,
             username=self.bootstrapper._username,
             pkey=self.bootstrapper._pkey,
-            password=self.bootstrapper._password
+            password=self.bootstrapper._password,
         )
         self.assertEqual(result, mock_ssh)
 
@@ -1338,7 +1408,8 @@ class HTTPBackupWriterBootstrapperTestcase(test_base.CoriolisBaseTestCase):
         self._ssh.connect.side_effect = [None, CoriolisTestException()]
 
         bootstrapper = backup_writers.HTTPBackupWriterBootstrapper(
-            self.ssh_conn_info, self.writer_port)
+            self.ssh_conn_info, self.writer_port
+        )
 
         original = testutils.get_wrapped_function(bootstrapper._connect_ssh)
 
@@ -1354,16 +1425,16 @@ class HTTPBackupWriterBootstrapperTestcase(test_base.CoriolisBaseTestCase):
             self._ssh,
             "sudo nft insert rule ip filter INPUT tcp dport %(port)s counter "
             "accept || "
-            "sudo iptables -I INPUT -p tcp --dport %(port)s -j ACCEPT" % {
-                "port": self.writer_port},
-            get_pty=True)
+            "sudo iptables -I INPUT -p tcp --dport %(port)s -j ACCEPT"
+            % {"port": self.writer_port},
+            get_pty=True,
+        )
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     def test__inject_dport_allow_rule_with_exception(self, mock_exec_ssh_cmd):
         mock_exec_ssh_cmd.side_effect = exception.CoriolisException()
 
-        with self.assertLogs('coriolis.providers.backup_writers',
-                             level=logging.WARN):
+        with self.assertLogs('coriolis.providers.backup_writers', level=logging.WARN):
             self.bootstrapper._inject_dport_allow_rule(self._ssh)
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
@@ -1372,15 +1443,15 @@ class HTTPBackupWriterBootstrapperTestcase(test_base.CoriolisBaseTestCase):
 
         mock_exec_ssh_cmd.assert_called_once_with(
             self._ssh,
-            "sudo firewall-cmd --add-port=%s/tcp" %
-            self.writer_port, get_pty=True)
+            "sudo firewall-cmd --add-port=%s/tcp" % self.writer_port,
+            get_pty=True,
+        )
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     def test__add_firewalld_port_with_exception(self, mock_exec_ssh_cmd):
         mock_exec_ssh_cmd.side_effect = exception.CoriolisException()
 
-        with self.assertLogs('coriolis.providers.backup_writers',
-                             level=logging.WARN):
+        with self.assertLogs('coriolis.providers.backup_writers', level=logging.WARN):
             self.bootstrapper._add_firewalld_port(self._ssh)
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
@@ -1388,15 +1459,14 @@ class HTTPBackupWriterBootstrapperTestcase(test_base.CoriolisBaseTestCase):
         self.bootstrapper._change_binary_se_context(self._ssh)
 
         mock_exec_ssh_cmd.assert_called_once_with(
-            self._ssh,
-            'sudo chcon -t bin_t /usr/bin/coriolis-writer', get_pty=True)
+            self._ssh, 'sudo chcon -t bin_t /usr/bin/coriolis-writer', get_pty=True
+        )
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     def test__change_binary_se_context_with_exception(self, mock_exec_ssh_cmd):
         mock_exec_ssh_cmd.side_effect = exception.CoriolisException()
 
-        with self.assertLogs('coriolis.providers.backup_writers',
-                             level=logging.WARN):
+        with self.assertLogs('coriolis.providers.backup_writers', level=logging.WARN):
             self.bootstrapper._change_binary_se_context(self._ssh)
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
@@ -1405,7 +1475,8 @@ class HTTPBackupWriterBootstrapperTestcase(test_base.CoriolisBaseTestCase):
         self._ssh.open_sftp.return_value = mock_sftp
 
         original_copy_writer_file = testutils.get_wrapped_function(
-            self.bootstrapper._copy_writer)
+            self.bootstrapper._copy_writer
+        )
 
         original_copy_writer_file(self.bootstrapper, self._ssh)
 
@@ -1416,34 +1487,42 @@ class HTTPBackupWriterBootstrapperTestcase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(backup_writers.utils, 'get_resources_bin_dir')
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     def test__copy_writer_file_does_not_exist(
-            self, mock_exec_ssh_cmd, mock_get_resources_bin_dir):
+        self, mock_exec_ssh_cmd, mock_get_resources_bin_dir
+    ):
         local_path = os.path.join(
             mock_get_resources_bin_dir.return_value,
-            backup_writers._CORIOLIS_HTTP_WRITER_CMD)
+            backup_writers._CORIOLIS_HTTP_WRITER_CMD,
+        )
 
-        remote_tmp_path = os.path.join(
-            "/tmp", backup_writers._CORIOLIS_HTTP_WRITER_CMD)
+        remote_tmp_path = os.path.join("/tmp", backup_writers._CORIOLIS_HTTP_WRITER_CMD)
 
         mock_sftp = mock.MagicMock()
         self._ssh.open_sftp.return_value = mock_sftp
         mock_sftp.stat.side_effect = IOError(
-            backup_writers.errno.ENOENT, 'No such file or directory')
+            backup_writers.errno.ENOENT, 'No such file or directory'
+        )
 
         original_copy_writer_file = testutils.get_wrapped_function(
-            self.bootstrapper._copy_writer)
+            self.bootstrapper._copy_writer
+        )
 
         original_copy_writer_file(self.bootstrapper, self._ssh)
 
         mock_sftp.put.assert_called_once_with(local_path, remote_tmp_path)
-        mock_exec_ssh_cmd.assert_has_calls([
-            mock.call(
-                self._ssh, "sudo mv %s %s" % (
-                    remote_tmp_path, self.bootstrapper._writer_cmd),
-                get_pty=True
-            ),
-            mock.call(
-                self._ssh, "sudo chmod +x %s" % self.bootstrapper._writer_cmd,
-                get_pty=True)])
+        mock_exec_ssh_cmd.assert_has_calls(
+            [
+                mock.call(
+                    self._ssh,
+                    "sudo mv %s %s" % (remote_tmp_path, self.bootstrapper._writer_cmd),
+                    get_pty=True,
+                ),
+                mock.call(
+                    self._ssh,
+                    "sudo chmod +x %s" % self.bootstrapper._writer_cmd,
+                    get_pty=True,
+                ),
+            ]
+        )
         mock_sftp.close.assert_called_once()
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
@@ -1451,12 +1530,15 @@ class HTTPBackupWriterBootstrapperTestcase(test_base.CoriolisBaseTestCase):
         mock_sftp = mock.MagicMock()
         self._ssh.open_sftp.return_value = mock_sftp
         mock_sftp.stat.side_effect = IOError(
-            backup_writers.errno.EACCES, 'Permission denied')
+            backup_writers.errno.EACCES, 'Permission denied'
+        )
 
         original_copy_writer_file = testutils.get_wrapped_function(
-            self.bootstrapper._copy_writer)
-        self.assertRaises(IOError, original_copy_writer_file,
-                          self.bootstrapper, self._ssh)
+            self.bootstrapper._copy_writer
+        )
+        self.assertRaises(
+            IOError, original_copy_writer_file, self.bootstrapper, self._ssh
+        )
 
         mock_sftp.put.assert_not_called()
         mock_exec_ssh_cmd.assert_not_called()
@@ -1467,14 +1549,16 @@ class HTTPBackupWriterBootstrapperTestcase(test_base.CoriolisBaseTestCase):
     def test__fetch_remote_file(self, mock_exec_ssh_cmd, mock_read_ssh_file):
         with mock.patch('builtins.open', mock.mock_open()) as data:
             self.bootstrapper._fetch_remote_file(
-                self._ssh, mock.sentinel.remote_file, mock.sentinel.local_file)
+                self._ssh, mock.sentinel.remote_file, mock.sentinel.local_file
+            )
             data.assert_called_once_with(mock.sentinel.local_file, 'wb')
             mock_exec_ssh_cmd.assert_called_once_with(
-                self._ssh, "sudo chmod +r %s" % mock.sentinel.remote_file,
-                get_pty=True)
+                self._ssh, "sudo chmod +r %s" % mock.sentinel.remote_file, get_pty=True
+            )
 
             data.return_value.write.assert_called_once_with(
-                mock_read_ssh_file.return_value)
+                mock_read_ssh_file.return_value
+            )
 
     @mock.patch('coriolis.utils.test_ssh_path')
     @mock.patch('coriolis.utils.exec_ssh_cmd')
@@ -1486,7 +1570,7 @@ class HTTPBackupWriterBootstrapperTestcase(test_base.CoriolisBaseTestCase):
             "srv_key": "/etc/coriolis-writer/srv-key.pem",
             "ca_crt": "/etc/coriolis-writer/ca-cert.pem",
             "client_crt": "/etc/coriolis-writer/client-cert.pem",
-            "client_key": "/etc/coriolis-writer/client-key.pem"
+            "client_key": "/etc/coriolis-writer/client-key.pem",
         }
 
         result = self.bootstrapper._setup_certificates(self._ssh)
@@ -1497,37 +1581,38 @@ class HTTPBackupWriterBootstrapperTestcase(test_base.CoriolisBaseTestCase):
     @mock.patch('coriolis.utils.test_ssh_path')
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     def test__setup_certificates_no_files_exist(
-            self, mock_exec_ssh_cmd, mock_test_ssh_path):
+        self, mock_exec_ssh_cmd, mock_test_ssh_path
+    ):
         mock_test_ssh_path.return_value = False
 
         self.bootstrapper._setup_certificates(self._ssh)
 
         mock_exec_ssh_cmd.assert_any_call(
-            self._ssh, "sudo mkdir -p /etc/coriolis-writer", get_pty=True)
+            self._ssh, "sudo mkdir -p /etc/coriolis-writer", get_pty=True
+        )
         mock_exec_ssh_cmd.assert_any_call(
             self._ssh,
             "sudo %(writer_cmd)s generate-certificates -output-dir "
-            "%(cert_dir)s -certificate-hosts %(extra_hosts)s" % {
+            "%(cert_dir)s -certificate-hosts %(extra_hosts)s"
+            % {
                 "writer_cmd": self.bootstrapper._writer_cmd,
                 "cert_dir": "/etc/coriolis-writer",
                 "extra_hosts": self.bootstrapper._ip,
             },
-            get_pty=True)
+            get_pty=True,
+        )
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     def test__read_remote_file_sudo(self, mock_exec_ssh_cmd):
-        result = self.bootstrapper._read_remote_file_sudo(
-            mock.sentinel.remote_path)
+        result = self.bootstrapper._read_remote_file_sudo(mock.sentinel.remote_path)
 
         mock_exec_ssh_cmd.assert_called_once_with(
-            self._ssh, 'sudo cat "%s"' % mock.sentinel.remote_path,
-            get_pty=True)
-        self.assertEqual(
-            result, mock_exec_ssh_cmd.return_value)
+            self._ssh, 'sudo cat "%s"' % mock.sentinel.remote_path, get_pty=True
+        )
+        self.assertEqual(result, mock_exec_ssh_cmd.return_value)
 
     @mock.patch.object(
-        backup_writers.HTTPBackupWriterBootstrapper,
-        '_change_binary_se_context'
+        backup_writers.HTTPBackupWriterBootstrapper, '_change_binary_se_context'
     )
     @mock.patch.object(
         backup_writers.HTTPBackupWriterBootstrapper, '_inject_dport_allow_rule'
@@ -1537,8 +1622,12 @@ class HTTPBackupWriterBootstrapperTestcase(test_base.CoriolisBaseTestCase):
     )
     @mock.patch('coriolis.utils.create_service')
     def test__init_writer(
-            self, mock_create_service, mock_add_firewalld_port,
-            mock_inject_dport_allow_rule, mock_change_binary_se_context):
+        self,
+        mock_create_service,
+        mock_add_firewalld_port,
+        mock_inject_dport_allow_rule,
+        mock_change_binary_se_context,
+    ):
         cert_paths = {
             "ca_crt": mock.sentinel.ca_crt,
             "srv_key": mock.sentinel.srv_key,
@@ -1550,7 +1639,8 @@ class HTTPBackupWriterBootstrapperTestcase(test_base.CoriolisBaseTestCase):
         mock_change_binary_se_context.assert_called_once_with(self._ssh)
         mock_create_service.assert_called_once_with(
             self._ssh,
-            "%s run -ca-cert %s -key %s -cert %s -listen-port %s" % (
+            "%s run -ca-cert %s -key %s -cert %s -listen-port %s"
+            % (
                 self.bootstrapper._writer_cmd,
                 cert_paths["ca_crt"],
                 cert_paths["srv_key"],
@@ -1566,21 +1656,22 @@ class HTTPBackupWriterBootstrapperTestcase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(
         backup_writers.HTTPBackupWriterBootstrapper, '_read_remote_file_sudo'
     )
-    @mock.patch.object(
-        backup_writers.HTTPBackupWriterBootstrapper, '_init_writer'
-    )
+    @mock.patch.object(backup_writers.HTTPBackupWriterBootstrapper, '_init_writer')
     @mock.patch.object(
         backup_writers.HTTPBackupWriterBootstrapper, '_setup_certificates'
     )
-    @mock.patch.object(
-        backup_writers.HTTPBackupWriterBootstrapper, '_copy_writer'
-    )
+    @mock.patch.object(backup_writers.HTTPBackupWriterBootstrapper, '_copy_writer')
     @mock.patch.object(backup_writers, '_disable_lvm2_lvmetad')
     @mock.patch.object(backup_writers, '_disable_lvm_metad_udev_rule')
-    def test_setup_writer(self, mock_disable_lvm_metad_udev,
-                          mock_disable_lvm2_lvmetad, mock_copy_writer,
-                          mock_setup_certificates, mock_init_writer,
-                          mock_read_remote_file_sudo):
+    def test_setup_writer(
+        self,
+        mock_disable_lvm_metad_udev,
+        mock_disable_lvm2_lvmetad,
+        mock_copy_writer,
+        mock_setup_certificates,
+        mock_init_writer,
+        mock_read_remote_file_sudo,
+    ):
         cert_paths = {
             "client_crt": mock.sentinel.client_crt,
             "client_key": mock.sentinel.client_key,
@@ -1603,7 +1694,7 @@ class HTTPBackupWriterBootstrapperTestcase(test_base.CoriolisBaseTestCase):
                 "client_crt": mock_read_remote_file_sudo.return_value,
                 "client_key": mock_read_remote_file_sudo.return_value,
                 "ca_crt": mock_read_remote_file_sudo.return_value,
-            }
+            },
         }
         self.assertEqual(result, expected_result)
 
@@ -1615,9 +1706,9 @@ class HTTPBackupWriterTestCase(test_base.CoriolisBaseTestCase):
         super(HTTPBackupWriterTestCase, self).setUp()
         self.ip = mock.sentinel.ip
         self.port = mock.sentinel.port
-        self.volumes_info = [{
-            "disk_id": mock.sentinel.disk_id,
-            "volume_dev": mock.sentinel.volume_dev}]
+        self.volumes_info = [
+            {"disk_id": mock.sentinel.disk_id, "volume_dev": mock.sentinel.volume_dev}
+        ]
         self.certificates = {
             "client_crt": mock.sentinel.client_crt,
             "client_key": mock.sentinel.client_key,
@@ -1625,17 +1716,23 @@ class HTTPBackupWriterTestCase(test_base.CoriolisBaseTestCase):
         }
 
         self.writer = backup_writers.HTTPBackupWriter(
-            self.ip, self.port, self.volumes_info, self.certificates)
+            self.ip, self.port, self.volumes_info, self.certificates
+        )
 
     def test__init__no_certificates(self):
         self.assertRaises(
-            exception.CoriolisException, backup_writers.HTTPBackupWriter,
-            self.ip, self.port, mock.sentinel.volumes_info, None)
+            exception.CoriolisException,
+            backup_writers.HTTPBackupWriter,
+            self.ip,
+            self.port,
+            mock.sentinel.volumes_info,
+            None,
+        )
 
     def test_from_connection_info(self):
-        volumes_info = [{
-            "disk_id": mock.sentinel.disk_id,
-            "volume_dev": mock.sentinel.volume_dev}]
+        volumes_info = [
+            {"disk_id": mock.sentinel.disk_id, "volume_dev": mock.sentinel.volume_dev}
+        ]
         certificates = {
             "client_crt": mock.sentinel.client_crt,
             "client_key": mock.sentinel.client_key,
@@ -1648,10 +1745,11 @@ class HTTPBackupWriterTestCase(test_base.CoriolisBaseTestCase):
                 "client_crt": certificates["client_crt"],
                 "client_key": certificates["client_key"],
                 "ca_crt": certificates["ca_crt"],
-            }
+            },
         }
         result = backup_writers.HTTPBackupWriter.from_connection_info(
-            conn_info, volumes_info)
+            conn_info, volumes_info
+        )
         self.assertIsInstance(result, backup_writers.HTTPBackupWriter)
         self.assertEqual(result._ip, conn_info["ip"])
         self.assertEqual(result._port, conn_info["port"])
@@ -1667,12 +1765,14 @@ class HTTPBackupWriterTestCase(test_base.CoriolisBaseTestCase):
         self.assertRaises(
             exception.CoriolisException,
             backup_writers.HTTPBackupWriter.from_connection_info,
-            conn_info, mock.sentinel.volumes_info)
+            conn_info,
+            mock.sentinel.volumes_info,
+        )
 
     def test_from_connection_info_missing_cert_options(self):
-        volumes_info = [{
-            "disk_id": mock.sentinel.disk_id,
-            "volume_dev": mock.sentinel.volume_dev}]
+        volumes_info = [
+            {"disk_id": mock.sentinel.disk_id, "volume_dev": mock.sentinel.volume_dev}
+        ]
         certificates = {
             "client_crt": mock.sentinel.client_crt,
             "client_key": mock.sentinel.client_key,
@@ -1684,13 +1784,15 @@ class HTTPBackupWriterTestCase(test_base.CoriolisBaseTestCase):
             "certificates": {
                 "client_crt": certificates.get("client_crt"),
                 "client_key": certificates.get("client_key"),
-            }
+            },
         }
 
         self.assertRaises(
             exception.CoriolisException,
             backup_writers.HTTPBackupWriter.from_connection_info,
-            conn_info, volumes_info)
+            conn_info,
+            volumes_info,
+        )
 
     def test__del__(self):
         # Create a temporary directory to test the deletion
@@ -1717,13 +1819,13 @@ class HTTPBackupWriterTestCase(test_base.CoriolisBaseTestCase):
         self.writer._wait_for_conn()
 
         mock_wait_for_port_connectivity.assert_called_once_with(
-            self.writer._ip, self.writer._port)
+            self.writer._ip, self.writer._port
+        )
 
     def test__write_cert_files_no_certificates(self):
         self.writer._certificates = None
 
-        self.assertRaises(
-            exception.CoriolisException, self.writer._write_cert_files)
+        self.assertRaises(exception.CoriolisException, self.writer._write_cert_files)
 
     def test__write_cert_files_exists(self):
         self.writer._cert_paths = {
@@ -1741,7 +1843,8 @@ class HTTPBackupWriterTestCase(test_base.CoriolisBaseTestCase):
         mock_mkstemp.side_effect = [
             (0, mock.sentinel.client_crt),
             (1, mock.sentinel.client_key),
-            (2, mock.sentinel.ca_crt)]
+            (2, mock.sentinel.ca_crt),
+        ]
         self.writer._certificates = self.certificates
 
         result = self.writer._write_cert_files()
@@ -1753,33 +1856,40 @@ class HTTPBackupWriterTestCase(test_base.CoriolisBaseTestCase):
         }
         self.assertEqual(result, expected_cert_paths)
 
-        mock_open.assert_has_calls([
-            mock.call(self.writer._cert_paths["client_crt"], "w"),
-            mock.call(self.writer._cert_paths["client_key"], "w"),
-            mock.call(self.writer._cert_paths["ca_crt"], "w")], any_order=True)
+        mock_open.assert_has_calls(
+            [
+                mock.call(self.writer._cert_paths["client_crt"], "w"),
+                mock.call(self.writer._cert_paths["client_key"], "w"),
+                mock.call(self.writer._cert_paths["ca_crt"], "w"),
+            ],
+            any_order=True,
+        )
 
     @mock.patch.object(backup_writers, 'HTTPBackupWriterImpl')
     @mock.patch.object(backup_writers.HTTPBackupWriter, '_wait_for_conn')
     @mock.patch.object(backup_writers.HTTPBackupWriter, '_write_cert_files')
-    def test__get_impl(self, mock_write_cert_files, mock_wait_for_conn,
-                       mock_http_backup_writer_impl):
-        result = self.writer._get_impl(mock.sentinel.volume_dev,
-                                       mock.sentinel.disk_id)
+    def test__get_impl(
+        self, mock_write_cert_files, mock_wait_for_conn, mock_http_backup_writer_impl
+    ):
+        result = self.writer._get_impl(mock.sentinel.volume_dev, mock.sentinel.disk_id)
 
         self.assertEqual(result, mock_http_backup_writer_impl.return_value)
 
         mock_write_cert_files.assert_called_once_with()
         mock_wait_for_conn.assert_called_once_with()
         mock_http_backup_writer_impl.assert_called_once_with(
-            mock.sentinel.volume_dev, mock.sentinel.disk_id,
+            mock.sentinel.volume_dev,
+            mock.sentinel.disk_id,
             compressor_count=self.writer._compressor_count,
-            compress_transfer=backup_writers.CONF.compress_transfers)
-        mock_http_backup_writer_impl.return_value._set_info.\
-            assert_called_once_with({
+            compress_transfer=backup_writers.CONF.compress_transfers,
+        )
+        mock_http_backup_writer_impl.return_value._set_info.assert_called_once_with(
+            {
                 "ip": self.ip,
                 "port": self.port,
                 "client_crt": mock_write_cert_files.return_value["client_crt"],
                 "client_key": mock_write_cert_files.return_value["client_key"],
                 "ca_crt": mock_write_cert_files.return_value["ca_crt"],
                 "id": self.writer._id,
-            })
+            }
+        )

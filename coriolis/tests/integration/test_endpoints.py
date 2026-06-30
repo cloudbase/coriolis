@@ -17,7 +17,6 @@ from coriolis.tests.integration import base
 
 
 class EndpointCapabilitiesTest(base.CoriolisIntegrationTestBase):
-
     def setUp(self):
         super().setUp()
         self._src_endpoint = self._create_endpoint(
@@ -33,11 +32,13 @@ class EndpointCapabilitiesTest(base.CoriolisIntegrationTestBase):
 
     def test_validate_connection(self):
         valid, message = self._client.endpoints.validate_connection(
-            self._src_endpoint.id)
+            self._src_endpoint.id
+        )
         self.assertTrue(valid, f"source: {message}")
 
         valid, message = self._client.endpoints.validate_connection(
-            self._dst_endpoint.id)
+            self._dst_endpoint.id
+        )
         self.assertTrue(valid, f"destination: {message}")
 
     def test_validate_connection_failure(self):
@@ -48,8 +49,7 @@ class EndpointCapabilitiesTest(base.CoriolisIntegrationTestBase):
                 "pkey_path": "/root/.ssh/coriolis-no-such-key",
             },
         )
-        valid, message = self._client.endpoints.validate_connection(
-            bad_endpoint.id)
+        valid, message = self._client.endpoints.validate_connection(bad_endpoint.id)
         self.assertFalse(valid)
         self.assertIsNotNone(message)
 
@@ -69,34 +69,27 @@ class EndpointCapabilitiesTest(base.CoriolisIntegrationTestBase):
 
     def test_list_storage(self):
         storage = self._client.endpoint_storage.list(self._dst_endpoint.id)
-        self.assertTrue(
-            len(storage) > 0, "Expected at least one storage backend")
+        self.assertTrue(len(storage) > 0, "Expected at least one storage backend")
         first = storage[0]
         self.assertIn("id", first._info)
 
         # The test provider's get_storage() does not set a config_default so
         # the value is expected to be None.
-        default = self._client.endpoint_storage.get_default(
-            self._dst_endpoint.id)
+        default = self._client.endpoint_storage.get_default(self._dst_endpoint.id)
         self.assertIsNone(default)
 
     def test_list_source_options(self):
-        options = self._client.endpoint_source_options.list(
-            self._src_endpoint.id)
+        options = self._client.endpoint_source_options.list(self._src_endpoint.id)
         self.assertIsInstance(options, list)
-        self.assertTrue(
-            len(options) > 0, "Expected at least one source option")
+        self.assertTrue(len(options) > 0, "Expected at least one source option")
 
     def test_list_destination_options(self):
-        options = self._client.endpoint_destination_options.list(
-            self._dst_endpoint.id)
+        options = self._client.endpoint_destination_options.list(self._dst_endpoint.id)
         self.assertIsInstance(options, list)
-        self.assertTrue(
-            len(options) > 0, "Expected at least one destination option")
+        self.assertTrue(len(options) > 0, "Expected at least one destination option")
 
     def test_list_instances(self):
-        instances = self._client.endpoint_instances.list(
-            self._src_endpoint.id, env={})
+        instances = self._client.endpoint_instances.list(self._src_endpoint.id, env={})
 
         self.assertIsInstance(instances, list)
         self.assertTrue(len(instances) > 0, "Expected at least one instance")
@@ -105,16 +98,17 @@ class EndpointCapabilitiesTest(base.CoriolisIntegrationTestBase):
         self.assertIn("name", first._info)
 
         instances = self._client.endpoint_instances.list(
-            self._src_endpoint.id, env={}, name="null")
+            self._src_endpoint.id, env={}, name="null"
+        )
         self.assertIsInstance(instances, list)
 
     def test_get_instance(self):
-        instances = self._client.endpoint_instances.list(
-            self._src_endpoint.id, env={})
+        instances = self._client.endpoint_instances.list(self._src_endpoint.id, env={})
 
         self.assertTrue(len(instances) > 0)
 
         instance = self._client.endpoint_instances.get(
-            self._src_endpoint.id, instances[0].name, env={})
+            self._src_endpoint.id, instances[0].name, env={}
+        )
 
         self.assertEqual(instances[0].name, instance.name)

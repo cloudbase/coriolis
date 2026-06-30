@@ -7,34 +7,24 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import strutils
 
-from coriolis import constants
-from coriolis import events
-from coriolis import exception
+from coriolis import constants, events, exception, schemas
 from coriolis.osmorphing import base as base_osmorphing
 from coriolis.osmorphing.osdetect import manager as osdetect_manager
 from coriolis.osmorphing.osmount import factory as osmount_factory
-from coriolis import schemas
-
 
 opts = [
-    cfg.IntOpt('default_osmorphing_operation_timeout',
-               help='Number of seconds to wait for a pending SSH or WinRM '
-                    'command before the socket times out.')
+    cfg.IntOpt(
+        'default_osmorphing_operation_timeout',
+        help='Number of seconds to wait for a pending SSH or WinRM '
+        'command before the socket times out.',
+    )
 ]
 
 proxy_opts = [
-    cfg.StrOpt('url',
-               default=None,
-               help='Proxy URL.'),
-    cfg.StrOpt('username',
-               default=None,
-               help='Proxy username.'),
-    cfg.StrOpt('password',
-               default=None,
-               help='Proxy password.'),
-    cfg.ListOpt('no_proxy',
-                default=[],
-                help='List of proxy exclusions.'),
+    cfg.StrOpt('url', default=None, help='Proxy URL.'),
+    cfg.StrOpt('username', default=None, help='Proxy username.'),
+    cfg.StrOpt('password', default=None, help='Proxy password.'),
+    cfg.ListOpt('no_proxy', default=[], help='List of proxy exclusions.'),
 ]
 
 CONF = cfg.CONF
@@ -54,54 +44,71 @@ def _get_proxy_settings():
 
 
 def run_os_detect(
-        origin_provider, destination_provider, worker_connection,
-        os_type, os_root_dir, osmorphing_info, tools_environment={}):
-    custom_export_os_detect_tools = (
-        origin_provider.get_custom_os_detect_tools(
-            os_type, osmorphing_info))
-    custom_import_os_detect_tools = (
-        destination_provider.get_custom_os_detect_tools(
-            os_type, osmorphing_info))
+    origin_provider,
+    destination_provider,
+    worker_connection,
+    os_type,
+    os_root_dir,
+    osmorphing_info,
+    tools_environment={},
+):
+    custom_export_os_detect_tools = origin_provider.get_custom_os_detect_tools(
+        os_type, osmorphing_info
+    )
+    custom_import_os_detect_tools = destination_provider.get_custom_os_detect_tools(
+        os_type, osmorphing_info
+    )
 
     detected_info = osdetect_manager.detect_os(
-        worker_connection, os_type, os_root_dir,
+        worker_connection,
+        os_type,
+        os_root_dir,
         CONF.default_osmorphing_operation_timeout,
         tools_environment=tools_environment,
         custom_os_detect_tools=list(
             itertools.chain(
-                custom_export_os_detect_tools,
-                custom_import_os_detect_tools)))
+                custom_export_os_detect_tools, custom_import_os_detect_tools
+            )
+        ),
+    )
 
     schemas.validate_value(
-        detected_info, schemas.CORIOLIS_DETECTED_OS_MORPHING_INFO_SCHEMA)
+        detected_info, schemas.CORIOLIS_DETECTED_OS_MORPHING_INFO_SCHEMA
+    )
 
     return detected_info
 
 
 def get_osmorphing_tools_class_for_provider(
-        provider, detected_os_info, os_type, osmorphing_info):
-    available_tools_cls = provider.get_os_morphing_tools(
-        os_type, osmorphing_info)
+    provider, detected_os_info, os_type, osmorphing_info
+):
+    available_tools_cls = provider.get_os_morphing_tools(os_type, osmorphing_info)
     LOG.debug(
         "OSMorphing tools classes returned by provider '%s' for os_type '%s' "
         "and 'osmorphing_info' %s: %s",
-        type(provider), os_type,
-        strutils.mask_dict_password(osmorphing_info), available_tools_cls)
+        type(provider),
+        os_type,
+        strutils.mask_dict_password(osmorphing_info),
+        available_tools_cls,
+    )
 
     osmorphing_base_class = base_osmorphing.BaseOSMorphingTools
     for toolscls in available_tools_cls:
         if not issubclass(toolscls, osmorphing_base_class):
             raise exception.InvalidOSMorphingTools(
                 "Provider class '%s' returned OSMorphing tools which are not "
-                "a subclass of '%s': %s" % (
-                    type(provider), osmorphing_base_class, toolscls))
+                "a subclass of '%s': %s"
+                % (type(provider), osmorphing_base_class, toolscls)
+            )
 
     detected_toolscls = None
     LOG.info(
         "Checking OSMorphing tools classes %s returned by provider '%s' "
         "for compatibility on detected OS info '%s'",
         [cls.__name__ for cls in available_tools_cls],
-        type(provider), detected_os_info)
+        type(provider),
+        detected_os_info,
+    )
     for toolscls in available_tools_cls:
         try:
             toolscls.check_detected_os_info_parameters(detected_os_info)
@@ -109,27 +116,39 @@ def get_osmorphing_tools_class_for_provider(
             LOG.warn(
                 "OSMorphing tools class %s will be skipped as it is "
                 "incompatbile with the detected OS info params %s. "
-                "Error was: %s" % (
-                    toolscls.__name__, detected_os_info, str(ex)))
+                "Error was: %s" % (toolscls.__name__, detected_os_info, str(ex))
+            )
             continue
 
         if toolscls.check_os_supported(detected_os_info):
             LOG.info(
                 "Found compatible OSMorphing tools class '%s' from provider "
                 "'%s' for detected OS info: %s",
-                toolscls.__name__, type(provider), detected_os_info)
+                toolscls.__name__,
+                type(provider),
+                detected_os_info,
+            )
             detected_toolscls = toolscls
             break
         else:
             LOG.debug(
                 "OSMorphing tools class '%s' is not compatible with detected "
-                "OS info: %s", toolscls.__name__, detected_os_info)
+                "OS info: %s",
+                toolscls.__name__,
+                detected_os_info,
+            )
 
     return detected_toolscls
 
 
-def morph_image(origin_provider, destination_provider, connection_info,
-                osmorphing_info, user_scripts, event_handler):
+def morph_image(
+    origin_provider,
+    destination_provider,
+    connection_info,
+    osmorphing_info,
+    user_scripts,
+    event_handler,
+):
     event_manager = events.EventManager(event_handler)
 
     os_type = osmorphing_info.get('os_type')
@@ -138,9 +157,13 @@ def morph_image(origin_provider, destination_provider, connection_info,
 
     # instantiate and run OSMount tools:
     os_mount_tools = osmount_factory.get_os_mount_tools(
-        os_type, connection_info, event_manager, ignore_devices,
+        os_type,
+        connection_info,
+        event_manager,
+        ignore_devices,
         CONF.default_osmorphing_operation_timeout,
-        osmorphing_info=osmorphing_info)
+        osmorphing_info=osmorphing_info,
+    )
 
     proxy_settings = _get_proxy_settings()
     os_mount_tools.set_proxy(proxy_settings)
@@ -153,17 +176,20 @@ def morph_image(origin_provider, destination_provider, connection_info,
             "Failed to set up the minion machine for OSMorphing. This may be "
             "due to an incompatibility between the OS image used for the "
             "OSMorphing minion machine and the VM undergoing OSMorphing. "
-            "Error was: %s" % str(err)) from err
+            "Error was: %s" % str(err)
+        ) from err
 
     pre_os_mount_user_scripts = [
-        script["payload"] for script in user_scripts
-        if script["phase"] == constants.PHASE_OSMORPHING_PRE_OS_MOUNT]
+        script["payload"]
+        for script in user_scripts
+        if script["phase"] == constants.PHASE_OSMORPHING_PRE_OS_MOUNT
+    ]
     if not pre_os_mount_user_scripts:
         event_manager.progress_update(
-            'No pre-os-mount OS morphing user script specified')
+            'No pre-os-mount OS morphing user script specified'
+        )
     for user_script in pre_os_mount_user_scripts:
-        event_manager.progress_update(
-            'Running pre-os-mount OS morphing user script')
+        event_manager.progress_update('Running pre-os-mount OS morphing user script')
         # We haven't detected the morphed OS partition yet, we'll use
         # the mount tools to run pre-mount user scripts.
         os_mount_tools.run_user_script(user_script)
@@ -175,8 +201,13 @@ def morph_image(origin_provider, destination_provider, connection_info,
     osmorphing_info['os_root_dev'] = os_root_dev
     try:
         _morph_image(
-            origin_provider, destination_provider, connection_info,
-            osmorphing_info, user_scripts, event_handler, os_mount_tools,
+            origin_provider,
+            destination_provider,
+            connection_info,
+            osmorphing_info,
+            user_scripts,
+            event_handler,
+            os_mount_tools,
         )
     finally:
         event_manager.progress_update("Dismounting OS partitions")
@@ -191,11 +222,19 @@ def morph_image(origin_provider, destination_provider, connection_info,
                 "backups, etc.) are enabled and available for the source "
                 "machine. If none are available, please try "
                 "migrating/replicating the source machine while it is powered "
-                "off. Error was: %s" % str(err)) from err
+                "off. Error was: %s" % str(err)
+            ) from err
 
 
-def _morph_image(origin_provider, destination_provider, connection_info,
-                 osmorphing_info, user_scripts, event_handler, os_mount_tools):
+def _morph_image(
+    origin_provider,
+    destination_provider,
+    connection_info,
+    osmorphing_info,
+    user_scripts,
+    event_handler,
+    os_mount_tools,
+):
     event_manager = events.EventManager(event_handler)
 
     os_type = osmorphing_info.get('os_type')
@@ -206,69 +245,93 @@ def _morph_image(origin_provider, destination_provider, connection_info,
     environment = os_mount_tools.get_environment()
 
     detected_os_info = run_os_detect(
-        origin_provider, destination_provider, conn,
-        os_type, os_root_dir, osmorphing_info,
-        tools_environment=environment)
+        origin_provider,
+        destination_provider,
+        conn,
+        os_type,
+        os_root_dir,
+        osmorphing_info,
+        tools_environment=environment,
+    )
 
     # TODO(aznashwan):
     # - export the source hypervisor type option in the VM's export info
     # - automatically detect the target hypervisor type from the worker VM
-    hypervisor_type = osmorphing_info.get(
-        'hypervisor_type', None)
+    hypervisor_type = osmorphing_info.get('hypervisor_type', None)
     osmorphing_parameters = osmorphing_info.get('osmorphing_parameters', {})
 
     export_os_morphing_tools = None
     try:
         export_tools_cls = get_osmorphing_tools_class_for_provider(
-            origin_provider, detected_os_info, os_type, osmorphing_info)
+            origin_provider, detected_os_info, os_type, osmorphing_info
+        )
         if export_tools_cls:
             LOG.info(
-                "Instantiating OSMorphing tools class '%s' for export provider"
-                " '%s'", export_tools_cls.__name__,
-                type(origin_provider))
+                "Instantiating OSMorphing tools class '%s' for export provider '%s'",
+                export_tools_cls.__name__,
+                type(origin_provider),
+            )
             export_os_morphing_tools = export_tools_cls(
-                conn, os_root_dir, os_root_dev, hypervisor_type,
-                event_manager, detected_os_info, osmorphing_parameters,
-                CONF.default_osmorphing_operation_timeout)
+                conn,
+                os_root_dir,
+                os_root_dev,
+                hypervisor_type,
+                event_manager,
+                detected_os_info,
+                osmorphing_parameters,
+                CONF.default_osmorphing_operation_timeout,
+            )
             export_os_morphing_tools.set_environment(environment)
         else:
             LOG.debug(
-                "No compatible OSMorphing tools class found for export "
-                "provider '%s'", type(origin_provider).__name__)
+                "No compatible OSMorphing tools class found for export provider '%s'",
+                type(origin_provider).__name__,
+            )
     except exception.OSMorphingToolsNotFound:
         LOG.warn(
-            "No tools found for export provider of type: %s",
-            type(origin_provider))
+            "No tools found for export provider of type: %s", type(origin_provider)
+        )
 
     import_os_morphing_tools_cls = get_osmorphing_tools_class_for_provider(
-        destination_provider, detected_os_info, os_type, osmorphing_info)
+        destination_provider, detected_os_info, os_type, osmorphing_info
+    )
     if not import_os_morphing_tools_cls:
         LOG.error(
             "No compatible OSMorphing tools found from import provider '%s' "
             "for the given detected OS info %s",
             type(destination_provider),
-            detected_os_info)
+            detected_os_info,
+        )
         raise exception.OSMorphingToolsNotFound(os_type=os_type)
 
     import_os_morphing_tools = import_os_morphing_tools_cls(
-        conn, os_root_dir, os_root_dev, hypervisor_type,
-        event_manager, detected_os_info, osmorphing_parameters,
-        CONF.default_osmorphing_operation_timeout)
+        conn,
+        os_root_dir,
+        os_root_dev,
+        hypervisor_type,
+        event_manager,
+        detected_os_info,
+        osmorphing_parameters,
+        CONF.default_osmorphing_operation_timeout,
+    )
     import_os_morphing_tools.set_environment(environment)
 
     post_os_mount_user_scripts = [
-        script["payload"] for script in user_scripts
-        if script["phase"] == constants.PHASE_OSMORPHING_POST_OS_MOUNT]
+        script["payload"]
+        for script in user_scripts
+        if script["phase"] == constants.PHASE_OSMORPHING_POST_OS_MOUNT
+    ]
     for user_script in post_os_mount_user_scripts:
-        event_manager.progress_update(
-            'Running OS morphing user script')
+        event_manager.progress_update('Running OS morphing user script')
         import_os_morphing_tools.run_user_script(user_script)
     if not post_os_mount_user_scripts:
         event_manager.progress_update(
-            'No post-os-mount OS morphing user script specified')
+            'No post-os-mount OS morphing user script specified'
+        )
 
     event_manager.progress_update(
-        'OS being migrated: %s' % detected_os_info['friendly_release_name'])
+        'OS being migrated: %s' % detected_os_info['friendly_release_name']
+    )
 
     (packages_add, _) = import_os_morphing_tools.get_packages()
 
@@ -282,7 +345,8 @@ def _morph_image(origin_provider, destination_provider, connection_info,
 
         if packages_remove:
             event_manager.progress_update(
-                "Removing packages: %s" % str(packages_remove))
+                "Removing packages: %s" % str(packages_remove)
+            )
             export_os_morphing_tools.uninstall_packages(packages_remove)
 
         LOG.info("Post packages uninstall")
@@ -291,7 +355,8 @@ def _morph_image(origin_provider, destination_provider, connection_info,
     LOG.info("Checking for packages already installed")
     import_os_morphing_tools.get_installed_packages()
     packages_add = list(
-        set(packages_add) - set(import_os_morphing_tools.installed_packages))
+        set(packages_add) - set(import_os_morphing_tools.installed_packages)
+    )
 
     LOG.info("Pre packages install")
     import_os_morphing_tools.pre_packages_install(packages_add)
@@ -302,25 +367,27 @@ def _morph_image(origin_provider, destination_provider, connection_info,
     LOG.info("Pre packages")
 
     if packages_add:
-        event_manager.progress_update(
-            "Adding packages: %s" % str(packages_add))
+        event_manager.progress_update("Adding packages: %s" % str(packages_add))
 
-        import_os_morphing_tools.install_packages(
-            packages_add)
+        import_os_morphing_tools.install_packages(packages_add)
 
     LOG.info("Post packages install")
     import_os_morphing_tools.post_packages_install(packages_add)
 
     first_boot_user_scripts = [
-        script["payload"] for script in user_scripts
-        if script["phase"] == constants.PHASE_REPLICA_FIRST_BOOT]
+        script["payload"]
+        for script in user_scripts
+        if script["phase"] == constants.PHASE_REPLICA_FIRST_BOOT
+    ]
     for script_idx, user_script in enumerate(first_boot_user_scripts):
         event_manager.progress_update('Registering first-boot user script')
         import_os_morphing_tools.register_firstboot_script(
-            user_script, script_idx, user_provided=True)
+            user_script, script_idx, user_provided=True
+        )
     if not first_boot_user_scripts:
         event_manager.progress_update('No first-boot user script specified')
 
     os_mount_tools.remove_encryption_artifacts(os_root_dir)
     os_mount_tools.install_encryption_firstboot_setup(
-        os_root_dir, import_os_morphing_tools)
+        os_root_dir, import_os_morphing_tools
+    )

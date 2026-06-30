@@ -7,13 +7,12 @@ import os
 import re
 import uuid
 
+import yaml
 from oslo_log import log as logging
 from six import with_metaclass
-import yaml
 
-from coriolis import exception
+from coriolis import exception, utils
 from coriolis.osmorphing.netpreserver import factory
-from coriolis import utils
 
 GRUB2_SERIAL = "serial --word=8 --stop=1 --speed=%d --parity=%s --unit=0"
 LOG = logging.getLogger(__name__)
@@ -22,8 +21,11 @@ LOG = logging.getLogger(__name__)
 # Required OS release fields which are expected from the OSDetect tools.
 # 'schemas.CORIOLIS_DETECTED_OS_MORPHING_INFO_SCHEMA' schema:
 REQUIRED_DETECTED_OS_FIELDS = [
-    "os_type", "distribution_name", "release_version",
-    "friendly_release_name"]
+    "os_type",
+    "distribution_name",
+    "release_version",
+    "friendly_release_name",
+]
 DEFAULT_CLOUD_USER = "cloud-user"
 CLOUD_INIT_SERVICE_UNIT_NAME = "cloud-init"
 CLOUD_INIT_SERVICE_UNIT_NAME_FALLBACK = "cloud-init-main"
@@ -90,16 +92,21 @@ WantedBy=multi-user.target
 """
 
 FIRST_BOOT_SYSTEMD_UNIT_NAME = "coriolis-firstboot.service"
-FIRST_BOOT_SYSTEMD_UNIT_PATH = (
-    f"/etc/systemd/system/{FIRST_BOOT_SYSTEMD_UNIT_NAME}")
+FIRST_BOOT_SYSTEMD_UNIT_PATH = f"/etc/systemd/system/{FIRST_BOOT_SYSTEMD_UNIT_NAME}"
 
 
 class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
-
     def __init__(
-            self, conn, os_root_dir, os_root_device, hypervisor,
-            event_manager, detected_os_info, osmorphing_parameters,
-            operation_timeout):
+        self,
+        conn,
+        os_root_dir,
+        os_root_device,
+        hypervisor,
+        event_manager,
+        detected_os_info,
+        osmorphing_parameters,
+        operation_timeout,
+    ):
 
         self.check_detected_os_info_parameters(detected_os_info)
 
@@ -124,30 +131,32 @@ class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
     def check_detected_os_info_parameters(cls, detected_os_info):
         required_fields = cls.get_required_detected_os_info_fields()
         missing_os_info_fields = [
-            field for field in required_fields
-            if field not in detected_os_info]
+            field for field in required_fields if field not in detected_os_info
+        ]
         if missing_os_info_fields:
             raise exception.InvalidDetectedOSParams(
                 "There are parameters (%s) which are required by %s but "
-                "are missing from the detected OS info: %s" % (
-                    missing_os_info_fields, cls.__name__, detected_os_info))
+                "are missing from the detected OS info: %s"
+                % (missing_os_info_fields, cls.__name__, detected_os_info)
+            )
 
         extra_os_info_fields = [
-            field for field in detected_os_info
-            if field not in required_fields]
+            field for field in detected_os_info if field not in required_fields
+        ]
         if extra_os_info_fields:
             raise exception.InvalidDetectedOSParams(
                 "There were detected OS info parameters (%s) which were not "
-                "expected by %s: %s" % (
-                    extra_os_info_fields, cls.__name__, detected_os_info))
+                "expected by %s: %s"
+                % (extra_os_info_fields, cls.__name__, detected_os_info)
+            )
         return True
 
     @classmethod
     @abc.abstractmethod
     def check_os_supported(cls, detected_os_info):
         raise NotImplementedError(
-            "OS compatibility check not implemented for tools class %s" % (
-                cls.__name__))
+            "OS compatibility check not implemented for tools class %s" % (cls.__name__)
+        )
 
     @abc.abstractmethod
     def get_installed_packages(self):
@@ -218,17 +227,31 @@ class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
 
 
 class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
-
     _packages = {}
     _NETWORK_SCRIPTS_PATH = "etc/sysconfig/network-scripts"
     _NM_CONNECTIONS_PATH = "etc/NetworkManager/system-connections"
 
-    def __init__(self, conn, os_root_dir, os_root_dev, hypervisor,
-                 event_manager, detected_os_info, osmorphing_parameters,
-                 operation_timeout=None):
+    def __init__(
+        self,
+        conn,
+        os_root_dir,
+        os_root_dev,
+        hypervisor,
+        event_manager,
+        detected_os_info,
+        osmorphing_parameters,
+        operation_timeout=None,
+    ):
         super(BaseLinuxOSMorphingTools, self).__init__(
-            conn, os_root_dir, os_root_dev, hypervisor, event_manager,
-            detected_os_info, osmorphing_parameters, operation_timeout)
+            conn,
+            os_root_dir,
+            os_root_dev,
+            hypervisor,
+            event_manager,
+            detected_os_info,
+            osmorphing_parameters,
+            operation_timeout,
+        )
         self._ssh = conn
         self._grub2_update_scheduled = False
 
@@ -238,7 +261,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
 
     @classmethod
     def _version_supported_util(cls, version, minimum, maximum=None):
-        """ Parses version strings which are prefixed with a floating point and
+        """Parses version strings which are prefixed with a floating point and
         checks whether the value is between the provided minimum and maximum
         (excluding the maximum).
         If a check for specific version is desired, the provided minimum and
@@ -250,59 +273,74 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
 
         if type(version) is not str:
             raise ValueError(
-                "Non-string version provided: %s (type %s)" % (
-                    version, type(version)))
+                "Non-string version provided: %s (type %s)" % (version, type(version))
+            )
 
         float_regex = "([0-9]+(\\.[0-9]+)?)"
         match = re.match(float_regex, version)
         if not match:
-            LOG.warn(
-                "Version string '%s' does not contain a float", version)
+            LOG.warn("Version string '%s' does not contain a float", version)
             return False
 
         version_float = None
         try:
             version_float = float(match.groups()[0])
         except ValueError:
-            LOG.warn(
-                "Failed to parse float OS release '%s'", match.groups()[0])
+            LOG.warn("Failed to parse float OS release '%s'", match.groups()[0])
             return False
         LOG.debug(
-            "Extracted float version from string '%s' is: %s",
-            version, version_float)
+            "Extracted float version from string '%s' is: %s", version, version_float
+        )
 
         if version_float < minimum:
             LOG.debug(
-                "Version '%s' smaller than the minimum of '%s' for "
-                "release: %s", version_float, minimum, version)
+                "Version '%s' smaller than the minimum of '%s' for release: %s",
+                version_float,
+                minimum,
+                version,
+            )
             return False
 
         if maximum:
             if maximum == minimum and version_float == minimum:
                 LOG.debug(
                     "Version '%s' coincides exactly with the required "
-                    "minimum/maximum version: %s", version_float, minimum)
+                    "minimum/maximum version: %s",
+                    version_float,
+                    minimum,
+                )
                 return True
             if version_float >= maximum:
                 LOG.debug(
                     "Version '%s' is larger or equal to the maximum of '%s' "
-                    "for release: %s", version_float, maximum, version)
+                    "for release: %s",
+                    version_float,
+                    maximum,
+                    version,
+                )
                 return False
 
         return True
 
     def get_packages(self):
-        k_add = [h for h in self._packages.keys() if
-                 h is None or h == self._hypervisor]
+        k_add = [h for h in self._packages.keys() if h is None or h == self._hypervisor]
 
-        add = [p[0] for p in itertools.chain.from_iterable(
-               [l for k, l in self._packages.items() if k in k_add])]
+        add = [
+            p[0]
+            for p in itertools.chain.from_iterable(
+                [pkg_list for k, pkg_list in self._packages.items() if k in k_add]
+            )
+        ]
 
         # If the second value in the tuple is True, the package must
         # be uninstalled on export
-        remove = [p[0] for p in itertools.chain.from_iterable(
-                  [l for k, l in self._packages.items()])
-                  if p[1]]
+        remove = [
+            p[0]
+            for p in itertools.chain.from_iterable(
+                [pkg_list for k, pkg_list in self._packages.items()]
+            )
+            if p[1]
+        ]
 
         return add, remove
 
@@ -312,27 +350,24 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
 
         script_path = "/tmp/coriolis_user_script"
         try:
-            utils.write_ssh_file(
-                self._conn,
-                script_path,
-                user_script)
+            utils.write_ssh_file(self._conn, script_path, user_script)
         except Exception as err:
             raise exception.CoriolisException(
-                "Failed to copy user script to target system.") from err
+                "Failed to copy user script to target system."
+            ) from err
 
         try:
             utils.exec_ssh_cmd(
-                self._conn,
-                "sudo chmod +x %s" % script_path,
-                get_pty=True)
+                self._conn, "sudo chmod +x %s" % script_path, get_pty=True
+            )
 
             utils.exec_ssh_cmd(
                 self._conn,
                 'sudo "%s" "%s"' % (script_path, self._os_root_dir),
-                get_pty=True)
+                get_pty=True,
+            )
         except Exception as err:
-            raise exception.CoriolisException(
-                "Failed to run user script.") from err
+            raise exception.CoriolisException("Failed to run user script.") from err
 
     def pre_packages_install(self, package_names):
         self._copy_resolv_conf()
@@ -375,22 +410,33 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             timeout = self._osmorphing_operation_timeout
         try:
             return utils.exec_ssh_cmd(
-                self._ssh, cmd, environment=self._environment, get_pty=True,
-                timeout=timeout)
+                self._ssh,
+                cmd,
+                environment=self._environment,
+                get_pty=True,
+                timeout=timeout,
+            )
         except exception.MinionMachineCommandTimeout as ex:
             raise exception.OSMorphingSSHOperationTimeout(
-                cmd=cmd, timeout=timeout) from ex
+                cmd=cmd, timeout=timeout
+            ) from ex
 
     def _exec_cmd_chroot(self, cmd, timeout=None):
         if not timeout:
             timeout = self._osmorphing_operation_timeout
         try:
             return utils.exec_ssh_cmd_chroot(
-                self._ssh, self._os_root_dir, cmd,
-                environment=self._environment, get_pty=True, timeout=timeout)
+                self._ssh,
+                self._os_root_dir,
+                cmd,
+                environment=self._environment,
+                get_pty=True,
+                timeout=timeout,
+            )
         except exception.MinionMachineCommandTimeout as ex:
             raise exception.OSMorphingSSHOperationTimeout(
-                cmd=cmd, timeout=timeout) from ex
+                cmd=cmd, timeout=timeout
+            ) from ex
 
     def _check_user_exists(self, username):
         try:
@@ -405,8 +451,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         self._write_file(tmp_file, content)
         self._exec_cmd_chroot("cp /%s /%s" % (tmp_file, chroot_path))
         self._exec_cmd_chroot("rm /%s" % tmp_file)
-        utils.exec_ssh_cmd(
-            self._ssh, "sudo sync", self._environment, get_pty=True)
+        utils.exec_ssh_cmd(self._ssh, "sudo sync", self._environment, get_pty=True)
 
     def _enable_systemd_service(self, service_name):
         self._exec_cmd_chroot("systemctl enable %s.service" % service_name)
@@ -415,8 +460,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         self._exec_cmd_chroot("systemctl disable %s.service" % service_name)
 
     def _disable_upstart_service(self, service_name):
-        self._exec_cmd_chroot(
-            "echo manual | tee /etc/init/%s.override" % service_name)
+        self._exec_cmd_chroot("echo manual | tee /etc/init/%s.override" % service_name)
 
     def _get_os_release(self):
         return self._read_config_file("etc/os-release", check_exists=True)
@@ -425,7 +469,8 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         chroot_path = chroot_path.lstrip('/')
         full_path = os.path.join(self._os_root_dir, chroot_path)
         return utils.read_ssh_ini_config_file(
-            self._ssh, full_path, check_exists=check_exists)
+            self._ssh, full_path, check_exists=check_exists
+        )
 
     def _read_config_file_sudo(self, chroot_path, check_exists=False):
         if self._test_path_chroot(chroot_path) is False:
@@ -438,8 +483,11 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
 
     def _get_net_config_files(self, network_scripts_path):
         dir_content = self._list_dir(network_scripts_path)
-        return [os.path.join(network_scripts_path, f) for f in
-                dir_content if re.match("^ifcfg-(.*)", f)]
+        return [
+            os.path.join(network_scripts_path, f)
+            for f in dir_content
+            if re.match("^ifcfg-(.*)", f)
+        ]
 
     def _get_ifcfgs_by_type(self, ifcfg_type, network_scripts_path):
         ifcfgs = []
@@ -455,9 +503,11 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
 
     def _get_nmconnection_files(self, network_scripts_path):
         dir_content = self._list_dir(network_scripts_path)
-        return [os.path.join(network_scripts_path, f)
-                for f in dir_content if re.match(
-                    r"^(.*\.nmconnection)$", f)]
+        return [
+            os.path.join(network_scripts_path, f)
+            for f in dir_content
+            if re.match(r"^(.*\.nmconnection)$", f)
+        ]
 
     def _get_keyfiles_by_type(self, nmconnection_type, network_scripts_path):
         keyfiles = []
@@ -474,9 +524,11 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
 
         if self._test_path(resolv_conf):
             self._exec_cmd(
-                "sudo mv -f %s %s" % (resolv_conf_path, resolv_conf_path_old))
-        self._exec_cmd('sudo cp -L --remove-destination /etc/resolv.conf %s' %
-                       resolv_conf_path)
+                "sudo mv -f %s %s" % (resolv_conf_path, resolv_conf_path_old)
+            )
+        self._exec_cmd(
+            'sudo cp -L --remove-destination /etc/resolv.conf %s' % resolv_conf_path
+        )
 
     def _restore_resolv_conf(self):
         resolv_conf = "etc/resolv.conf"
@@ -486,10 +538,12 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
 
         if self._test_path(resolv_conf_old):
             self._exec_cmd(
-                "sudo mv -f %s %s" % (resolv_conf_path_old, resolv_conf_path))
+                "sudo mv -f %s %s" % (resolv_conf_path_old, resolv_conf_path)
+            )
 
     def _replace_fstab_entries_device_prefix(
-            self, current_prefix="/dev/sd", new_prefix="/dev/sd"):
+        self, current_prefix="/dev/sd", new_prefix="/dev/sd"
+    ):
         fstab_chroot_path = "etc/fstab"
         fstab_contents = self._read_file(fstab_chroot_path).decode()
         LOG.debug("Contents of /%s: %s", fstab_chroot_path, fstab_contents)
@@ -501,24 +555,24 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             if re.match(regex, line):
                 found = True
                 LOG.debug(
-                    "Found FSTAB line starting with '%s': %s" % (
-                        current_prefix, line))
+                    "Found FSTAB line starting with '%s': %s" % (current_prefix, line)
+                )
                 fstab_contents_lines[i] = re.sub(regex, new_prefix, line)
 
         if found:
             self._event_manager.progress_update(
                 "Replacing all /etc/fstab entries prefixed with "
-                "'%s' to '%s'" % (current_prefix, new_prefix))
+                "'%s' to '%s'" % (current_prefix, new_prefix)
+            )
             self._exec_cmd_chroot(
-                "mv -f /%s /%s.bak" % (fstab_chroot_path, fstab_chroot_path))
-            self._write_file(
-                fstab_chroot_path, "\n".join(fstab_contents_lines))
+                "mv -f /%s /%s.bak" % (fstab_chroot_path, fstab_chroot_path)
+            )
+            self._write_file(fstab_chroot_path, "\n".join(fstab_contents_lines))
 
     def _set_selinux_autorelabel(self):
         LOG.debug("setting autorelabel on /")
         try:
-            self._exec_cmd_chroot(
-                "touch /.autorelabel")
+            self._exec_cmd_chroot("touch /.autorelabel")
         except Exception as err:
             LOG.warning("Failed to set autorelabel: %r" % err)
 
@@ -527,8 +581,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         cloud_config_path = f"{cloud_cfgs_dir}/99_coriolis.cfg"
         if not self._test_path(cloud_cfgs_dir):
             self._exec_cmd_chroot("mkdir -p %s" % cloud_cfgs_dir)
-        self._event_manager.progress_update(
-            "Customizing cloud-init configuration")
+        self._event_manager.progress_update("Customizing cloud-init configuration")
         new_cloud_cfg = yaml.dump(cloud_cfg, Dumper=yaml.SafeDumper)
         self._write_file_sudo(cloud_config_path, new_cloud_cfg)
 
@@ -536,9 +589,11 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         installer_config_path = "/etc/cloud/cloud.cfg.d/99-installer.cfg"
         if self._test_path(installer_config_path):
             self._event_manager.progress_update(
-                "Disabling installer-generated cloud-config")
+                "Disabling installer-generated cloud-config"
+            )
             self._exec_cmd_chroot(
-                f"mv {installer_config_path} {installer_config_path}.bak")
+                f"mv {installer_config_path} {installer_config_path}.bak"
+            )
 
     def _ensure_cloud_init_not_disabled(self):
         disabler_file = "/etc/cloud/cloud-init.disabled"
@@ -548,10 +603,12 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             self._exec_cmd_chroot(f"rm {disabler_file}")
         if self._test_path(system_conf_disabler):
             self._exec_cmd_chroot(
-                "sed -i '/cloud-init=disabled/d' %s" % system_conf_disabler)
+                "sed -i '/cloud-init=disabled/d' %s" % system_conf_disabler
+            )
         if self._test_path(grub_conf_disabler):
             self._exec_cmd_chroot(
-                "sed -i '/cloud-init=disabled/d' %s" % grub_conf_disabler)
+                "sed -i '/cloud-init=disabled/d' %s" % grub_conf_disabler
+            )
             self._schedule_grub2_update()
 
     def _reset_cloud_init_run(self):
@@ -573,8 +630,11 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             return DEFAULT_CLOUD_USER
         cloud_cfg_content = self._read_file_sudo(cloud_cfg_path)
         cloud_cfg = yaml.load(cloud_cfg_content, Loader=yaml.SafeLoader)
-        return cloud_cfg.get('system_info', {}).get('default_user', {}).get(
-            'name', DEFAULT_CLOUD_USER)
+        return (
+            cloud_cfg.get('system_info', {})
+            .get('default_user', {})
+            .get('name', DEFAULT_CLOUD_USER)
+        )
 
     def _create_cloudinit_user(self):
         cloud_user = self._get_default_cloud_user()
@@ -597,7 +657,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             cloud_cfg_user_retention = {
                 'disable_root': False,
                 'ssh_pwauth': True,
-                'users': None
+                'users': None,
             }
             cloud_cfg_mods.update(cloud_cfg_user_retention)
         else:
@@ -619,11 +679,11 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             except exception.CoriolisException:
                 LOG.warning(
                     "Failed to enable service unit with name "
-                    f"{CLOUD_INIT_SERVICE_UNIT_NAME}. Trying new name.")
+                    f"{CLOUD_INIT_SERVICE_UNIT_NAME}. Trying new name."
+                )
                 # NOTE(dvincze): New versions of cloud-init (>26) got its
                 # unit service name renamed.
-                self._enable_systemd_service(
-                    CLOUD_INIT_SERVICE_UNIT_NAME_FALLBACK)
+                self._enable_systemd_service(CLOUD_INIT_SERVICE_UNIT_NAME_FALLBACK)
 
     def _test_path_chroot(self, path):
         # This method uses _exec_cmd_chroot() instead of SFTP stat()
@@ -634,15 +694,15 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         # ensures you always run as root.
         if path.startswith('/') is False:
             path = "/%s" % path
-        exists = self._exec_cmd_chroot(
-            '[ -f "%s" ] && echo 1 || echo 0' % path).rstrip('\n')
+        exists = self._exec_cmd_chroot('[ -f "%s" ] && echo 1 || echo 0' % path).rstrip(
+            '\n'
+        )
         return exists == "1"
 
     def _read_file_sudo(self, chroot_path):
         if chroot_path.startswith("/") is False:
             chroot_path = "/%s" % chroot_path
-        contents = self._exec_cmd_chroot(
-            'cat "%s"' % chroot_path)
+        contents = self._exec_cmd_chroot('cat "%s"' % chroot_path)
         return contents
 
     def _read_grub_config(self, config):
@@ -664,8 +724,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         if self._test_path_chroot(grub_conf) is False:
             raise IOError("could not find %s" % grub_conf)
         tmp_file = self._exec_cmd_chroot("mktemp").rstrip('\n')
-        self._exec_cmd_chroot(
-            "/bin/cp -fp %s %s" % (grub_conf, tmp_file))
+        self._exec_cmd_chroot("/bin/cp -fp %s %s" % (grub_conf, tmp_file))
         config_file = self._read_grub_config(tmp_file)
         config_obj = {
             "source": grub_conf,
@@ -685,8 +744,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
                 missing.append(key)
 
         if len(missing) > 0:
-            raise ValueError(
-                "Invalid configObj. Missing: %s" % ", ".join(missing))
+            raise ValueError("Invalid configObj. Missing: %s" % ", ".join(missing))
 
     def set_grub_value(self, option, value, config_obj, replace=True):
         self._validate_grub_config_obj(config_obj)
@@ -695,7 +753,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             cmd = "sed -ie '$a%(o)s=\"%(v)s\"' %(cfg)s" % {
                 "o": opt,
                 "v": val,
-                "cfg": config_obj["location"]
+                "cfg": config_obj["location"],
             }
             self._exec_cmd_chroot(cmd)
 
@@ -703,7 +761,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             cmd = "sed -i 's|^%(o)s=.*|%(o)s=\"%(v)s\"|g' %(cfg)s" % {
                 "o": opt,
                 "v": val,
-                "cfg": config_obj["location"]
+                "cfg": config_obj["location"],
             }
             self._exec_cmd_chroot(cmd)
 
@@ -716,16 +774,13 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         LOG.warning("TEMP CONFIG IS: %r" % cfg)
 
     def _set_grub2_cmdline(self, config_obj, options, clobber=False):
-        kernel_cmd_def = config_obj["contents"].get(
-            "GRUB_CMDLINE_LINUX_DEFAULT")
-        kernel_cmd = config_obj["contents"].get(
-            "GRUB_CMDLINE_LINUX")
+        kernel_cmd_def = config_obj["contents"].get("GRUB_CMDLINE_LINUX_DEFAULT")
+        kernel_cmd = config_obj["contents"].get("GRUB_CMDLINE_LINUX")
         replace = kernel_cmd is not None
 
         if clobber:
             opt = " ".join(options)
-            self.set_grub_value(
-                "GRUB_CMDLINE_LINUX", opt, config_obj, replace=replace)
+            self.set_grub_value("GRUB_CMDLINE_LINUX", opt, config_obj, replace=replace)
             return
         kernel_cmd_def = kernel_cmd_def or ""
         kernel_cmd = kernel_cmd or ""
@@ -736,7 +791,8 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         if len(to_add):
             kernel_cmd = "%s %s" % (kernel_cmd, " ".join(to_add))
             self.set_grub_value(
-                "GRUB_CMDLINE_LINUX", kernel_cmd, config_obj, replace=replace)
+                "GRUB_CMDLINE_LINUX", kernel_cmd, config_obj, replace=replace
+            )
 
     def _execute_update_grub(self):
         update_cmd = self.get_update_grub2_command()
@@ -761,18 +817,22 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             self._execute_update_grub()
             self._grub2_update_scheduled = False
 
-    def _apply_grub2_config(self, config_obj,
-                            execute_update_grub=True):
+    def _apply_grub2_config(self, config_obj, execute_update_grub=True):
         self._validate_grub_config_obj(config_obj)
         self._exec_cmd_chroot(
-            "mv -f %s %s" % (
-                config_obj["location"], config_obj["source"]))
+            "mv -f %s %s" % (config_obj["location"], config_obj["source"])
+        )
         if execute_update_grub:
             self._schedule_grub2_update()
 
-    def _set_grub2_console_settings(self, consoles=None, speed=None,
-                                    parity=None, grub_conf=None,
-                                    execute_update_grub=True):
+    def _set_grub2_console_settings(
+        self,
+        consoles=None,
+        speed=None,
+        parity=None,
+        grub_conf=None,
+        execute_update_grub=True,
+    ):
         # This method updates the GRUB2 config file and adds serial console
         # support.
         #
@@ -785,7 +845,8 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         valid_parity = ["no", "odd", "even"]
         if parity and parity not in valid_parity:
             raise ValueError(
-                "Valid values for parity are: %s" % ", ".join(valid_parity))
+                "Valid values for parity are: %s" % ", ".join(valid_parity)
+            )
 
         speed = speed or 115200
         parity = parity or "no"
@@ -805,8 +866,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             options.append(c)
 
         self._set_grub2_cmdline(config_obj, options)
-        self._apply_grub2_config(
-            config_obj, execute_update_grub)
+        self._apply_grub2_config(config_obj, execute_update_grub)
 
     def _add_net_udev_rules(self, net_ifaces_info):
         coriolis_udev_rules_file = "etc/udev/rules.d/99-coriolis-net.rules"
@@ -821,11 +881,11 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         LOG.info("Using network preserver class: %s", net_preserver_class)
         if not net_preserver_class:
             raise exception.CoriolisException(
-                "Could not find any valid static network configuration")
+                "Could not find any valid static network configuration"
+            )
         netpreserver = net_preserver_class(self)
         netpreserver.parse_network()
-        LOG.info("Parsed network configuration: %s",
-                 netpreserver.interface_info)
+        LOG.info("Parsed network configuration: %s", netpreserver.interface_info)
 
         for nic in nics_info:
             nic_mac = nic.get('mac_address')
@@ -833,7 +893,8 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             if not nic_mac:
                 LOG.warning(
                     "Parsed NIC '%s' info does not contain MAC address"
-                    % nic.get('name'))
+                    % nic.get('name')
+                )
                 continue
 
             matching_ifaces = dict()
@@ -843,20 +904,27 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
                 if mac_address and mac_address == nic_mac:
                     LOG.info(
                         "Found matching interface for NIC '%s' with MAC '%s'",
-                        nic.get('name'), nic_mac)
+                        nic.get('name'),
+                        nic_mac,
+                    )
                     matching_ifaces[iface] = nic_mac
                     break
                 if ip_addresses and nic_ips:
                     if set(ip_addresses) & set(nic_ips):
                         LOG.info(
-                            "Found matching interface for NIC '%s' with MAC "
-                            "'%s'", nic.get('name'), nic_mac)
+                            "Found matching interface for NIC '%s' with MAC '%s'",
+                            nic.get('name'),
+                            nic_mac,
+                        )
                         matching_ifaces[iface] = nic_mac
                         break
             if not matching_ifaces:
                 LOG.warning(
                     "Could not find a matching guest interface for NIC '%s' "
-                    "with MAC address '%s'", nic, nic_mac)
+                    "with MAC address '%s'",
+                    nic,
+                    nic_mac,
+                )
             net_ifaces_info.update(matching_ifaces)
 
         self._add_net_udev_rules(net_ifaces_info)
@@ -893,28 +961,27 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
 
         # systemd unit used to launch first-boot scripts.
         if not self._test_path(FIRST_BOOT_SYSTEMD_UNIT_PATH):
-            self._write_file_sudo(
-                FIRST_BOOT_SYSTEMD_UNIT_PATH, FIRST_BOOT_SYSTEMD_UNIT)
-            self._exec_cmd_chroot(
-                "chown root:root %s" % FIRST_BOOT_SYSTEMD_UNIT_PATH)
-            self._exec_cmd_chroot(
-                "chmod 644 %s" % FIRST_BOOT_SYSTEMD_UNIT_PATH)
+            self._write_file_sudo(FIRST_BOOT_SYSTEMD_UNIT_PATH, FIRST_BOOT_SYSTEMD_UNIT)
+            self._exec_cmd_chroot("chown root:root %s" % FIRST_BOOT_SYSTEMD_UNIT_PATH)
+            self._exec_cmd_chroot("chmod 644 %s" % FIRST_BOOT_SYSTEMD_UNIT_PATH)
             wants_dir = "/etc/systemd/system/multi-user.target.wants"
             self._exec_cmd_chroot("mkdir -p %s" % wants_dir)
             self._exec_cmd_chroot(
-                "ln -sf %s %s/%s" % (
+                "ln -sf %s %s/%s"
+                % (
                     FIRST_BOOT_SYSTEMD_UNIT_PATH,
                     wants_dir,
-                    FIRST_BOOT_SYSTEMD_UNIT_NAME))
+                    FIRST_BOOT_SYSTEMD_UNIT_NAME,
+                )
+            )
 
         # A script that iterates over "/usr/lib/coriolis/firstboot/*.sh"
         # scripts and runs them.
         if not self._test_path(FIRST_BOOT_SCRIPT_RUNNER_PATH):
             self._write_file_sudo(
-                FIRST_BOOT_SCRIPT_RUNNER_PATH, FIRST_BOOT_SCRIPT_RUNNER)
-            self._exec_cmd_chroot(
-                "chown root:root %s" % FIRST_BOOT_SCRIPT_RUNNER_PATH)
-            self._exec_cmd_chroot(
-                "chmod 755 %s" % FIRST_BOOT_SCRIPT_RUNNER_PATH)
+                FIRST_BOOT_SCRIPT_RUNNER_PATH, FIRST_BOOT_SCRIPT_RUNNER
+            )
+            self._exec_cmd_chroot("chown root:root %s" % FIRST_BOOT_SCRIPT_RUNNER_PATH)
+            self._exec_cmd_chroot("chmod 755 %s" % FIRST_BOOT_SCRIPT_RUNNER_PATH)
 
         LOG.info(f"Registered first-boot script: {script_path}")

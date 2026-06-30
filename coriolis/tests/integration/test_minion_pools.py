@@ -15,7 +15,6 @@ from coriolis.tests.integration import base
 
 
 class MinionPoolLifecycleTest(base.MinionPoolTestBase):
-
     def setUp(self):
         super().setUp()
 
@@ -30,8 +29,7 @@ class MinionPoolLifecycleTest(base.MinionPoolTestBase):
         pool = self._create_pool(self._endpoint.id)
 
         self.assertEqual("test-pool", pool.name)
-        self.assertEqual(
-            constants.MINION_POOL_STATUS_DEALLOCATED, pool.status)
+        self.assertEqual(constants.MINION_POOL_STATUS_DEALLOCATED, pool.status)
 
         # List
         pools = self._client.minion_pools.list()
@@ -46,8 +44,7 @@ class MinionPoolLifecycleTest(base.MinionPoolTestBase):
         self.assertEqual("test-pool", fetched.name)
 
         # Update
-        updated = self._client.minion_pools.update(
-            pool.id, {"notes": "updated notes"})
+        updated = self._client.minion_pools.update(pool.id, {"notes": "updated notes"})
 
         self.assertEqual("updated notes", updated.notes)
 
@@ -59,8 +56,7 @@ class MinionPoolLifecycleTest(base.MinionPoolTestBase):
 
     def test_allocate_deallocate(self):
         pool = self._create_pool(self._endpoint.id)
-        self.assertEqual(
-            constants.MINION_POOL_STATUS_DEALLOCATED, pool.status)
+        self.assertEqual(constants.MINION_POOL_STATUS_DEALLOCATED, pool.status)
 
         # Allocate
         self._client.minion_pools.allocate_minion_pool(pool.id)

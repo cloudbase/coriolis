@@ -10,11 +10,13 @@ class API(object):
 
     def create(self, ctxt, region_name, description, enabled=True):
         return self._rpc_client.create_region(
-            ctxt, region_name, description=description, enabled=enabled)
+            ctxt, region_name, description=description, enabled=enabled
+        )
 
     def update(self, ctxt, region_id, updated_values):
         return self._rpc_client.update_region(
-            ctxt, region_id, updated_values=updated_values)
+            ctxt, region_id, updated_values=updated_values
+        )
 
     def delete(self, ctxt, region_id):
         self._rpc_client.delete_region(ctxt, region_id)

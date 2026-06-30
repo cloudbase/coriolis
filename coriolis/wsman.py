@@ -2,16 +2,14 @@
 # All Rights Reserved.
 
 import base64
-import requests
 
+import requests
 from oslo_log import log as logging
 from oslo_utils import strutils
-
 from winrm import exceptions as winrm_exceptions
 from winrm import protocol
 
-from coriolis import exception
-from coriolis import utils
+from coriolis import exception, utils
 
 AUTH_BASIC = "basic"
 AUTH_KERBEROS = "kerberos"
@@ -31,17 +29,20 @@ class WSManConnection(object):
     EOL = "\r\n"
 
     @utils.retry_on_error()
-    def connect(self, url, username, auth=None, password=None,
-                cert_pem=None, cert_key_pem=None):
+    def connect(
+        self, url, username, auth=None, password=None, cert_pem=None, cert_key_pem=None
+    ):
         if not auth:
             if cert_pem:
                 auth = AUTH_CERTIFICATE
             else:
                 auth = AUTH_BASIC
 
-        auth_transport_map = {AUTH_BASIC: 'plaintext',
-                              AUTH_KERBEROS: 'kerberos',
-                              AUTH_CERTIFICATE: 'ssl'}
+        auth_transport_map = {
+            AUTH_BASIC: 'plaintext',
+            AUTH_KERBEROS: 'kerberos',
+            AUTH_CERTIFICATE: 'ssl',
+        }
 
         self._protocol = protocol.Protocol(
             endpoint=url,
@@ -49,23 +50,25 @@ class WSManConnection(object):
             username=username,
             password=password,
             cert_pem=cert_pem,
-            cert_key_pem=cert_key_pem)
+            cert_key_pem=cert_key_pem,
+        )
 
     @classmethod
     def from_connection_info(cls, connection_info, timeout=DEFAULT_TIMEOUT):
-        """ Returns a wsman.WSManConnection obj for the provided conn info. """
+        """Returns a wsman.WSManConnection obj for the provided conn info."""
         if not isinstance(connection_info, dict):
             raise ValueError(
-                "WSMan connection must be a dict. Got type '%s', value: %s" %
-                (type(connection_info),
-                 connection_info))
+                "WSMan connection must be a dict. Got type '%s', value: %s"
+                % (type(connection_info), connection_info)
+            )
 
         required_keys = ["ip", "username", "password"]
         missing = [key for key in required_keys if key not in connection_info]
         if missing:
             raise ValueError(
                 "The following keys were missing from WSMan connection "
-                "info %s. Got: %s" % (missing, connection_info))
+                "info %s. Got: %s" % (missing, connection_info)
+            )
 
         host = connection_info["ip"]
         port = connection_info.get("port", 5986)
@@ -77,13 +80,20 @@ class WSManConnection(object):
 
         LOG.info("Connection info: %s", str(connection_info))
 
-        LOG.info("Waiting for connectivity on host: %(host)s:%(port)s",
-                 {"host": host, "port": port})
+        LOG.info(
+            "Waiting for connectivity on host: %(host)s:%(port)s",
+            {"host": host, "port": port},
+        )
         utils.wait_for_port_connectivity(host, port)
 
         conn = cls(timeout)
-        conn.connect(url=url, username=username, password=password,
-                     cert_pem=cert_pem, cert_key_pem=cert_key_pem)
+        conn.connect(
+            url=url,
+            username=username,
+            password=password,
+            cert_pem=cert_pem,
+            cert_key_pem=cert_key_pem,
+        )
 
         return conn
 
@@ -96,12 +106,14 @@ class WSManConnection(object):
             self._protocol.transport.timeout = timeout
 
     @utils.retry_on_error(
-        terminal_exceptions=[winrm_exceptions.InvalidCredentialsError,
-                             exception.OSMorphingWinRMOperationTimeout])
+        terminal_exceptions=[
+            winrm_exceptions.InvalidCredentialsError,
+            exception.OSMorphingWinRMOperationTimeout,
+        ]
+    )
     def _exec_command(self, cmd, args=[], timeout=None, sanitizable=True):
         if sanitizable:
-            sanitized_cmd = strutils.mask_password(
-                "%s %s" % (cmd, " ".join(args)))
+            sanitized_cmd = strutils.mask_password("%s %s" % (cmd, " ".join(args)))
         else:
             sanitized_cmd = "***"
 
@@ -112,13 +124,13 @@ class WSManConnection(object):
             shell_id = self._protocol.open_shell(codepage=CODEPAGE_UTF8)
             command_id = self._protocol.run_command(shell_id, cmd, args)
             try:
-                (std_out,
-                 std_err,
-                 exit_code) = self._protocol.get_command_output(
-                    shell_id, command_id)
+                (std_out, std_err, exit_code) = self._protocol.get_command_output(
+                    shell_id, command_id
+                )
             except requests.exceptions.ReadTimeout:
                 raise exception.OSMorphingWinRMOperationTimeout(
-                    cmd=sanitized_cmd, timeout=timeout)
+                    cmd=sanitized_cmd, timeout=timeout
+                )
             finally:
                 self._protocol.cleanup_command(shell_id, command_id)
 
@@ -126,15 +138,16 @@ class WSManConnection(object):
         except winrm_exceptions.InvalidCredentialsError as ex:
             raise exception.NotAuthorized(
                 message="The WinRM connection credentials are invalid. "
-                        "If you are using a template with a default "
-                        "pre-baked username/password, please ensure "
-                        "that you have passed the credentials to the "
-                        "destination Coriolis plugin you have selected,"
-                        " either via the Target Environment parameters "
-                        "set when creating the Migration/Replica, or "
-                        "by setting it in the destination plugin's "
-                        "dedicated section of the coriolis.conf "
-                        "static configuration file.") from ex
+                "If you are using a template with a default "
+                "pre-baked username/password, please ensure "
+                "that you have passed the credentials to the "
+                "destination Coriolis plugin you have selected,"
+                " either via the Target Environment parameters "
+                "set when creating the Migration/Replica, or "
+                "by setting it in the destination plugin's "
+                "dedicated section of the coriolis.conf "
+                "static configuration file."
+            ) from ex
         finally:
             if shell_id:
                 self._protocol.close_shell(shell_id)
@@ -151,19 +164,19 @@ class WSManConnection(object):
         # in which case we'll avoid logging it so that we won't leak
         # sensitive information.
         if sanitizable:
-            sanitized_cmd = strutils.mask_password(
-                "%s %s" % (cmd, " ".join(args)))
+            sanitized_cmd = strutils.mask_password("%s %s" % (cmd, " ".join(args)))
         else:
             sanitized_cmd = "***"
         LOG.debug("Executing WSMAN command: %s", sanitized_cmd)
         std_out, std_err, exit_code = self._exec_command(
-            cmd, args, timeout=timeout, sanitizable=sanitizable)
+            cmd, args, timeout=timeout, sanitizable=sanitizable
+        )
 
         if exit_code:
             raise exception.CoriolisException(
                 "Command \"%s\" failed with exit code: %s\n"
-                "stdout: %s\nstd_err: %s" %
-                (sanitized_cmd, exit_code, std_out, std_err))
+                "stdout: %s\nstd_err: %s" % (sanitized_cmd, exit_code, std_out, std_err)
+            )
 
         if include_stderr:
             return std_out, std_err
@@ -189,7 +202,8 @@ class WSManConnection(object):
             ],
             timeout=timeout,
             sanitizable=False,
-            include_stderr=include_stderr)
+            include_stderr=include_stderr,
+        )
         if include_stderr:
             stdout, stderr = ret
             return stdout[:-2], stderr
@@ -202,8 +216,10 @@ class WSManConnection(object):
         return ret_val == "True"
 
     def download_file(self, url, remote_path):
-        LOG.debug("Downloading: \"%(url)s\" to \"%(path)s\"",
-                  {"url": url, "path": remote_path})
+        LOG.debug(
+            "Downloading: \"%(url)s\" to \"%(path)s\"",
+            {"url": url, "path": remote_path},
+        )
         try:
             # Nano Server does not have Invoke-WebRequest and additionally
             # this is also faster
@@ -217,16 +233,18 @@ class WSManConnection(object):
                 "GetStreamAsync('%(url)s').Result.CopyTo("
                 "(New-Object IO.FileStream '%(outfile)s', Create, Write, "
                 "None), 1MB)" % {"url": url, "outfile": remote_path},
-                ignore_stdout=True)
+                ignore_stdout=True,
+            )
         except exception.CoriolisException as ex:
             LOG.trace(utils.get_exception_details())
             raise exception.CoriolisException(
                 "Failed to download file from URL: %s to path: %s. Please "
-                "check logs for more details." % (
-                    url, remote_path)) from ex
+                "check logs for more details." % (url, remote_path)
+            ) from ex
 
     def write_file(self, remote_path, content):
         self.exec_ps_command(
             "[IO.File]::WriteAllBytes('%s', [Convert]::FromBase64String('%s'))"
             % (remote_path, base64.b64encode(content).decode()),
-            ignore_stdout=True)
+            ignore_stdout=True,
+        )

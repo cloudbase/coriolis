@@ -3,8 +3,8 @@
 
 import webob.exc
 
-from coriolis.api import wsgi
 from coriolis import exception
+from coriolis.api import wsgi
 from coriolis.tests import test_base
 
 

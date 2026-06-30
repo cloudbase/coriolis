@@ -29,7 +29,6 @@ _LUKS_PASSPHRASE = "it-luks-encrypted"
 
 
 class _LUKSOSMorphingMixin:
-
     # Extra space for initramfs-tools and cryptsetup-initramfs packages that
     # the LUKS morphing tools install on top of the base OS image.
     _SCSI_DEBUG_SIZE_MB = 512
@@ -38,13 +37,11 @@ class _LUKSOSMorphingMixin:
     def setUpClass(cls):
         harness = integration_harness._IntegrationHarness.get()
         if not harness.uses_core_test_import_provider():
-            raise unittest.SkipTest(
-                "OS morphing tests require local disk access")
+            raise unittest.SkipTest("OS morphing tests require local disk access")
         super().setUpClass()
 
     def setUp(self):
-        with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".key", delete=False) as fh:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".key", delete=False) as fh:
             self._key_file = fh.name
             fh.write(_LUKS_PASSPHRASE)
         self.addCleanup(os.unlink, self._key_file)
@@ -53,8 +50,7 @@ class _LUKSOSMorphingMixin:
         self._prepare_src_device()
 
     def _prepare_src_device(self):
-        test_utils.make_luks_device(
-            self._src_device, self._key_file, "ubuntu:24.04")
+        test_utils.make_luks_device(self._src_device, self._key_file, "ubuntu:24.04")
 
         dest_env = {
             "devices": [self._dst_device],
@@ -75,8 +71,7 @@ class _LUKSOSMorphingMixin:
             "usr/lib/coriolis/firstboot/service/luks-firstboot.sh",
             "usr/lib/coriolis/firstboot/run-firstboot.sh",
             "etc/systemd/system/coriolis-firstboot.service",
-            "etc/systemd/system/multi-user.target.wants/"
-            "coriolis-firstboot.service",
+            "etc/systemd/system/multi-user.target.wants/coriolis-firstboot.service",
             "etc/luks/coriolis_%s.key" % dst_basename,
         ]:
             self.assertTrue(
@@ -100,25 +95,27 @@ class _LUKSOSMorphingMixin:
 
 
 class LUKSOSMorphingDeploymentTest(
-        _LUKSOSMorphingMixin, integration_base.ReplicaIntegrationTestBase):
+    _LUKSOSMorphingMixin, integration_base.ReplicaIntegrationTestBase
+):
     """LUKS + initramfs OS morphing test using Ubuntu 24.04."""
 
     def _assert_firstboot_setup(self):
         self._assert_luks_common_firstboot_files()
         self.assertTrue(
             self._check_path_exists(
-                self._dst_device, "etc/cryptsetup-initramfs/conf-hook"),
+                self._dst_device, "etc/cryptsetup-initramfs/conf-hook"
+            ),
             "cryptsetup-initramfs conf-hook not found after LUKS OS morphing",
         )
 
 
 class LUKSRockyLinuxOSMorphingDeploymentTest(
-        _LUKSOSMorphingMixin, integration_base.ReplicaIntegrationTestBase):
+    _LUKSOSMorphingMixin, integration_base.ReplicaIntegrationTestBase
+):
     """LUKS + dracut OS morphing test using Rocky Linux 9."""
 
     def _prepare_src_device(self):
-        test_utils.make_luks_device(
-            self._src_device, self._key_file, "rockylinux:9")
+        test_utils.make_luks_device(self._src_device, self._key_file, "rockylinux:9")
 
         dest_env = {
             "devices": [self._dst_device],
@@ -133,7 +130,7 @@ class LUKSRockyLinuxOSMorphingDeploymentTest(
         self._assert_luks_common_firstboot_files()
         self.assertTrue(
             self._check_path_exists(
-                self._dst_device,
-                "etc/dracut.conf.d/99-coriolis-luks.conf"),
+                self._dst_device, "etc/dracut.conf.d/99-coriolis-luks.conf"
+            ),
             "dracut LUKS keyfile config not found after LUKS OS morphing",
         )

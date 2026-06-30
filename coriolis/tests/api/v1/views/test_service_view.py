@@ -17,66 +17,52 @@ class ServiceViewTestCase(test_base.CoriolisApiViewsTestCase):
 
     @mock.patch.object(view_utils, 'format_opt')
     def test_format_service(self, mock_format_opt):
-            mock_format_opt.return_value = {
-                "mapped_regions": [{'id': 'mock_id1'}, {'id': 'mock_id2'}],
-                "mock_key": "mock_value"
-            }
+        mock_format_opt.return_value = {
+            "mapped_regions": [{'id': 'mock_id1'}, {'id': 'mock_id2'}],
+            "mock_key": "mock_value",
+        }
 
-            expected_result = {
-                "mapped_regions": ['mock_id1', 'mock_id2'],
-                'mock_key': 'mock_value'
-            }
+        expected_result = {
+            "mapped_regions": ['mock_id1', 'mock_id2'],
+            'mock_key': 'mock_value',
+        }
 
-            service = mock.sentinel.service
-            keys = mock.sentinel.keys
-            result = service_view._format_service(service, keys)
+        service = mock.sentinel.service
+        keys = mock.sentinel.keys
+        result = service_view._format_service(service, keys)
 
-            mock_format_opt.assert_called_once_with(service, keys)
-            self.assertEqual(
-                expected_result,
-                result
-            )
+        mock_format_opt.assert_called_once_with(service, keys)
+        self.assertEqual(expected_result, result)
 
     @mock.patch.object(view_utils, 'format_opt')
     def test_format_service_no_keys(self, mock_format_opt):
-            mock_format_opt.return_value = {
-                "mapped_regions": [{'id': 'mock_id1'}, {'id': 'mock_id2'}],
-            }
+        mock_format_opt.return_value = {
+            "mapped_regions": [{'id': 'mock_id1'}, {'id': 'mock_id2'}],
+        }
 
-            expected_result = {
-                "mapped_regions": ['mock_id1', 'mock_id2'],
-            }
+        expected_result = {
+            "mapped_regions": ['mock_id1', 'mock_id2'],
+        }
 
-            service = mock.sentinel.service
-            keys = mock.sentinel.keys
-            result = service_view._format_service(service, keys)
+        service = mock.sentinel.service
+        keys = mock.sentinel.keys
+        result = service_view._format_service(service, keys)
 
-            mock_format_opt.assert_called_once_with(service, keys)
-            self.assertEqual(
-                expected_result,
-                result
-            )
+        mock_format_opt.assert_called_once_with(service, keys)
+        self.assertEqual(expected_result, result)
 
     @mock.patch.object(view_utils, 'format_opt')
     def test_format_service_no_mapped_regions(self, mock_format_opt):
-            mock_format_opt.return_value = {
-                "mock_key": "mock_value"
-            }
+        mock_format_opt.return_value = {"mock_key": "mock_value"}
 
-            expected_result = {
-                'mapped_regions': [],
-                'mock_key': 'mock_value'
-            }
+        expected_result = {'mapped_regions': [], 'mock_key': 'mock_value'}
 
-            service = mock.sentinel.service
-            keys = mock.sentinel.keys
-            result = service_view._format_service(service, keys)
+        service = mock.sentinel.service
+        keys = mock.sentinel.keys
+        result = service_view._format_service(service, keys)
 
-            mock_format_opt.assert_called_once_with(service, keys)
-            self.assertEqual(
-                expected_result,
-                result
-            )
+        mock_format_opt.assert_called_once_with(service, keys)
+        self.assertEqual(expected_result, result)
 
     def test_single(self):
         fun = getattr(service_view, 'single')

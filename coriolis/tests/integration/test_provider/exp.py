@@ -11,18 +11,20 @@ manage the coriolis-replicator service and perform disk replication.
 import os
 import uuid
 
+import paramiko
 from oslo_config import cfg
 from oslo_log import log as logging
-import paramiko
 
 from coriolis import events
 from coriolis.providers import backup_writers
-from coriolis.providers.base import BaseEndpointInstancesProvider
-from coriolis.providers.base import BaseEndpointSourceOptionsProvider
-from coriolis.providers.base import BaseReplicaExportProvider
-from coriolis.providers.base import BaseReplicaExportValidationProvider
-from coriolis.providers.base import BaseUpdateSourceReplicaProvider
 from coriolis.providers import replicator as replicator_module
+from coriolis.providers.base import (
+    BaseEndpointInstancesProvider,
+    BaseEndpointSourceOptionsProvider,
+    BaseReplicaExportProvider,
+    BaseReplicaExportValidationProvider,
+    BaseUpdateSourceReplicaProvider,
+)
 from coriolis.tests.integration import utils as test_utils
 
 CONF = cfg.CONF
@@ -30,11 +32,12 @@ LOG = logging.getLogger(__name__)
 
 
 class TestExportProvider(
-        BaseEndpointInstancesProvider,
-        BaseEndpointSourceOptionsProvider,
-        BaseUpdateSourceReplicaProvider,
-        BaseReplicaExportProvider,
-        BaseReplicaExportValidationProvider):
+    BaseEndpointInstancesProvider,
+    BaseEndpointSourceOptionsProvider,
+    BaseUpdateSourceReplicaProvider,
+    BaseReplicaExportProvider,
+    BaseReplicaExportValidationProvider,
+):
     """Source-side provider backed by a local `scsi_debug` block device.
 
     ``connection_info`` (the source endpoint's connection info) has the form::
@@ -72,7 +75,8 @@ class TestExportProvider(
             "pkey": pkey,
         }
         return replicator_module.Replicator(
-            repl_conn_info, event_mgr, volumes_info, repl_state)
+            repl_conn_info, event_mgr, volumes_info, repl_state
+        )
 
     # BaseProvider / BaseEndpointProvider
 
@@ -103,13 +107,19 @@ class TestExportProvider(
 
     # BaseEndpointInstancesProvider
 
-    def get_instances(self, ctxt, connection_info, source_environment,
-                      limit=None, last_seen_id=None,
-                      instance_name_pattern=None, refresh=False):
+    def get_instances(
+        self,
+        ctxt,
+        connection_info,
+        source_environment,
+        limit=None,
+        last_seen_id=None,
+        instance_name_pattern=None,
+        refresh=False,
+    ):
         return [self._instance_info(source_environment)]
 
-    def get_instance(self, ctxt, connection_info, source_environment,
-                     instance_name):
+    def get_instance(self, ctxt, connection_info, source_environment, instance_name):
         return self._instance_info(source_environment)
 
     def _instance_info(self, source_environment):
@@ -136,7 +146,8 @@ class TestExportProvider(
     # BaseEndpointSourceOptionsProvider
 
     def get_source_environment_options(
-            self, ctxt, connection_info, env=None, option_names=None):
+        self, ctxt, connection_info, env=None, option_names=None
+    ):
         return [
             {
                 "name": "source_opt",
@@ -148,8 +159,8 @@ class TestExportProvider(
     # BaseUpdateSourceReplicaProvider
 
     def check_update_source_environment_params(
-            self, ctxt, connection_info, instance_name, volumes_info,
-            old_params, new_params):
+        self, ctxt, connection_info, instance_name, volumes_info, old_params, new_params
+    ):
         return volumes_info
 
     def get_os_morphing_tools(self, os_type, osmorphing_info):
@@ -158,7 +169,8 @@ class TestExportProvider(
     # BaseReplicaExportProvider
 
     def get_replica_instance_info(
-            self, ctxt, connection_info, source_environment, instance_name):
+        self, ctxt, connection_info, source_environment, instance_name
+    ):
         """Return minimal export info describing the source block device."""
         block_device_path = source_environment["block_device_path"]
         size_bytes = _get_block_device_size(block_device_path)
@@ -189,7 +201,8 @@ class TestExportProvider(
         }
 
     def deploy_replica_source_resources(
-            self, ctxt, connection_info, export_info, source_environment):
+        self, ctxt, connection_info, export_info, source_environment
+    ):
         block_device_path = source_environment["block_device_path"]
         pkey_path = connection_info["pkey_path"]
 
@@ -213,7 +226,8 @@ class TestExportProvider(
                 "pkey_path": pkey_path,
             }
             replicator = self._make_replicator(
-                src_conn_info, self._event_manager(), [], None)
+                src_conn_info, self._event_manager(), [], None
+            )
             replicator.init_replicator()
 
             disk_id = os.path.basename(block_device_path)
@@ -229,20 +243,29 @@ class TestExportProvider(
             raise
 
     def delete_replica_source_resources(
-            self, ctxt, connection_info, source_environment,
-            migr_resources_dict):
+        self, ctxt, connection_info, source_environment, migr_resources_dict
+    ):
         container_id = (migr_resources_dict or {}).get("container_id")
         if container_id:
             test_utils.remove_container(container_id)
 
     def replicate_disks(
-            self, ctxt, connection_info, source_environment, instance_name,
-            source_resources, source_conn_info, target_conn_info,
-            volumes_info, incremental):
+        self,
+        ctxt,
+        connection_info,
+        source_environment,
+        instance_name,
+        source_resources,
+        source_conn_info,
+        target_conn_info,
+        volumes_info,
+        incremental,
+    ):
         repl_state = _extract_repl_state(volumes_info) if incremental else None
 
         replicator = self._make_replicator(
-            source_conn_info, self._event_manager(), volumes_info, repl_state)
+            source_conn_info, self._event_manager(), volumes_info, repl_state
+        )
         replicator.init_replicator()
         replicator.wait_for_chunks()
 
@@ -256,25 +279,29 @@ class TestExportProvider(
         ]
 
         backup_writer = backup_writers.BackupWritersFactory(
-            target_conn_info, volumes_info).get_writer()
+            target_conn_info, volumes_info
+        ).get_writer()
 
         replicator.replicate_disks(source_volumes_info, backup_writer)
         return volumes_info
 
     def delete_replica_source_snapshots(
-            self, ctxt, connection_info, source_environment, volumes_info):
+        self, ctxt, connection_info, source_environment, volumes_info
+    ):
         # scsi_debug devices have no snapshots.
         return volumes_info
 
     def shutdown_instance(
-            self, ctxt, connection_info, source_environment, instance_name):
+        self, ctxt, connection_info, source_environment, instance_name
+    ):
         # Nothing to shut down for a block device.
         pass
 
     # BaseReplicaExportValidationProvider
 
     def validate_replica_export_input(
-            self, ctxt, connection_info, instance_name, source_environment):
+        self, ctxt, connection_info, instance_name, source_environment
+    ):
         return {}
 
 

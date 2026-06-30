@@ -10,7 +10,6 @@ from coriolis.tests.integration import base
 
 
 class TransferExecutionsTests(base.ReplicaIntegrationTestBase):
-
     def test_executions(self):
         # We didn't start the execution yet.
         executions = self._client.transfer_executions.list(self._transfer.id)
@@ -19,7 +18,8 @@ class TransferExecutionsTests(base.ReplicaIntegrationTestBase):
 
         # Start the execution.
         execution = self._client.transfer_executions.create(
-            self._transfer.id, shutdown_instances=False)
+            self._transfer.id, shutdown_instances=False
+        )
         self.addCleanup(
             self._cleanup_execution,
             self._transfer.id,
@@ -32,13 +32,11 @@ class TransferExecutionsTests(base.ReplicaIntegrationTestBase):
         self.assertIn(execution.id, ids)
 
         # Get the execution.
-        fetched = self._client.transfer_executions.get(
-            self._transfer.id, execution.id)
+        fetched = self._client.transfer_executions.get(self._transfer.id, execution.id)
         self.assertEqual(execution.id, fetched.id)
 
         # Delete the execution.
-        self._client.transfer_executions.delete(
-            self._transfer.id, execution.id)
+        self._client.transfer_executions.delete(self._transfer.id, execution.id)
 
         executions = self._client.transfer_executions.list(self._transfer.id)
         ids = [e.id for e in executions]
@@ -47,7 +45,8 @@ class TransferExecutionsTests(base.ReplicaIntegrationTestBase):
     def test_shutdown_instances(self):
         # shutdown_instances=True calls provider.shutdown_instance().
         execution = self._client.transfer_executions.create(
-            self._transfer.id, shutdown_instances=True)
+            self._transfer.id, shutdown_instances=True
+        )
         self.addCleanup(
             self._cleanup_execution,
             self._transfer.id,
@@ -75,8 +74,7 @@ class TransferExecutionsTests(base.ReplicaIntegrationTestBase):
             d for d in deployments if d.transfer_id == self._transfer.id
         ]
         self.assertEqual(1, len(transfer_deployments))
-        self.addCleanup(
-            self._cleanup_deployment, transfer_deployments[0].id)
+        self.addCleanup(self._cleanup_deployment, transfer_deployments[0].id)
 
     def test_cancel_running_execution(self):
         self._test_cancel_running_execution(False)
@@ -97,7 +95,8 @@ class TransferExecutionsTests(base.ReplicaIntegrationTestBase):
         )
 
         execution = self._client.transfer_executions.create(
-            self._transfer.id, shutdown_instances=False)
+            self._transfer.id, shutdown_instances=False
+        )
         self.addCleanup(
             self._cleanup_execution,
             self._transfer.id,
@@ -105,12 +104,12 @@ class TransferExecutionsTests(base.ReplicaIntegrationTestBase):
         )
 
         # Wait until the execution is RUNNING before issuing the cancel.
-        self.wait_for_execution(
-            execution.id, 30, [constants.EXECUTION_STATUS_RUNNING])
+        self.wait_for_execution(execution.id, 30, [constants.EXECUTION_STATUS_RUNNING])
 
         # Cancel the execution.
         self._client.transfer_executions.cancel(
-            self._transfer.id, execution.id, force=force)
+            self._transfer.id, execution.id, force=force
+        )
 
         final = self.wait_for_execution(execution.id)
         expected_statuses = [
@@ -121,11 +120,11 @@ class TransferExecutionsTests(base.ReplicaIntegrationTestBase):
         self.assertIn(
             final.status,
             expected_statuses,
-            "Expected a canceled/error status after cancel, got %s"
-            % final.status,
+            "Expected a canceled/error status after cancel, got %s" % final.status,
         )
 
 
 class MinionPoolTransferExecutionsTests(
-        base.MinionPoolReplicaTestBase, TransferExecutionsTests):
+    base.MinionPoolReplicaTestBase, TransferExecutionsTests
+):
     """Transfer executions that use a pre-allocated destination minion pool."""

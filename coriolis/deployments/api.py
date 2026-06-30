@@ -8,16 +8,27 @@ class API(object):
     def __init__(self):
         self._rpc_client = rpc_client.ConductorClient()
 
-    def deploy_transfer_instances(self, ctxt, transfer_id,
-                                  instance_osmorphing_minion_pool_mappings,
-                                  clone_disks=False, force=False,
-                                  skip_os_morphing=False, user_scripts=None):
+    def deploy_transfer_instances(
+        self,
+        ctxt,
+        transfer_id,
+        instance_osmorphing_minion_pool_mappings,
+        clone_disks=False,
+        force=False,
+        skip_os_morphing=False,
+        user_scripts=None,
+    ):
         return self._rpc_client.deploy_transfer_instances(
-            ctxt, transfer_id, instance_osmorphing_minion_pool_mappings=(
-                instance_osmorphing_minion_pool_mappings),
-            clone_disks=clone_disks, force=force,
+            ctxt,
+            transfer_id,
+            instance_osmorphing_minion_pool_mappings=(
+                instance_osmorphing_minion_pool_mappings
+            ),
+            clone_disks=clone_disks,
+            force=force,
             skip_os_morphing=skip_os_morphing,
-            user_scripts=user_scripts)
+            user_scripts=user_scripts,
+        )
 
     def delete(self, ctxt, deployment_id):
         self._rpc_client.delete_deployment(ctxt, deployment_id)
@@ -25,18 +36,29 @@ class API(object):
     def cancel(self, ctxt, deployment_id, force):
         self._rpc_client.cancel_deployment(ctxt, deployment_id, force)
 
-    def get_deployments(self, ctxt, include_tasks=False,
-                        include_task_info=False,
-                        marker=None, limit=None,
-                        sort_keys=None, sort_dirs=None,
-                        filters=None):
+    def get_deployments(
+        self,
+        ctxt,
+        include_tasks=False,
+        include_task_info=False,
+        marker=None,
+        limit=None,
+        sort_keys=None,
+        sort_dirs=None,
+        filters=None,
+    ):
         return self._rpc_client.get_deployments(
-            ctxt, include_tasks, include_task_info=include_task_info,
-            marker=marker, limit=limit,
-            sort_keys=sort_keys, sort_dirs=sort_dirs,
+            ctxt,
+            include_tasks,
+            include_task_info=include_task_info,
+            marker=marker,
+            limit=limit,
+            sort_keys=sort_keys,
+            sort_dirs=sort_dirs,
             filters=filters,
         )
 
     def get_deployment(self, ctxt, deployment_id, include_task_info=False):
         return self._rpc_client.get_deployment(
-            ctxt, deployment_id, include_task_info=include_task_info)
+            ctxt, deployment_id, include_task_info=include_task_info
+        )
