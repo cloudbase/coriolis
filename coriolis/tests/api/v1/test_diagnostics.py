@@ -18,11 +18,7 @@ class DiagnosticsControllerTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(api.API, 'get')
     @mock.patch.object(diagnostic_view, 'collection')
-    def test_index(
-        self,
-        mock_collection,
-        mock_get
-    ):
+    def test_index(self, mock_collection, mock_get):
         mock_req = mock.Mock()
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}

@@ -30,15 +30,12 @@ class TaskEventTestCase(test_base.CoriolisBaseTestCase):
             "created_at": mock.sentinel.created_at,
             "updated_at": mock.sentinel.updated_at,
             "deleted_at": mock.sentinel.deleted_at,
-            "deleted": mock.sentinel.deleted
+            "deleted": mock.sentinel.deleted,
         }
 
         result = task_event.to_dict()
 
-        self.assertEqual(
-            expected_result,
-            result
-        )
+        self.assertEqual(expected_result, result)
 
 
 class MinionPoolEventTestCase(test_base.CoriolisBaseTestCase):
@@ -64,15 +61,12 @@ class MinionPoolEventTestCase(test_base.CoriolisBaseTestCase):
             "created_at": mock.sentinel.created_at,
             "updated_at": mock.sentinel.updated_at,
             "deleted_at": mock.sentinel.deleted_at,
-            "deleted": mock.sentinel.deleted
+            "deleted": mock.sentinel.deleted,
         }
 
         result = minion_pool_event.to_dict()
 
-        self.assertEqual(
-            expected_result,
-            result
-        )
+        self.assertEqual(expected_result, result)
 
 
 class TaskProgressUpdateTestCase(test_base.CoriolisBaseTestCase):
@@ -100,15 +94,12 @@ class TaskProgressUpdateTestCase(test_base.CoriolisBaseTestCase):
             "created_at": mock.sentinel.created_at,
             "updated_at": mock.sentinel.updated_at,
             "deleted_at": mock.sentinel.deleted_at,
-            "deleted": mock.sentinel.deleted
+            "deleted": mock.sentinel.deleted,
         }
 
         result = task_progress_update.to_dict()
 
-        self.assertEqual(
-            expected_result,
-            result
-        )
+        self.assertEqual(expected_result, result)
 
 
 class MinionPoolProgressUpdateTestCase(test_base.CoriolisBaseTestCase):
@@ -139,15 +130,12 @@ class MinionPoolProgressUpdateTestCase(test_base.CoriolisBaseTestCase):
             "created_at": mock.sentinel.created_at,
             "updated_at": mock.sentinel.updated_at,
             "deleted_at": mock.sentinel.deleted_at,
-            "deleted": mock.sentinel.deleted
+            "deleted": mock.sentinel.deleted,
         }
 
         result = minion_pool_progress_update.to_dict()
 
-        self.assertEqual(
-            expected_result,
-            result
-        )
+        self.assertEqual(expected_result, result)
 
 
 class TaskTestCase(test_base.CoriolisBaseTestCase):
@@ -191,19 +179,17 @@ class TaskTestCase(test_base.CoriolisBaseTestCase):
             "events": [mock_event1.to_dict(), mock_event2.to_dict()],
             "progress_updates": [
                 mock_progress_update1.to_dict(),
-                mock_progress_update2.to_dict()],
+                mock_progress_update2.to_dict(),
+            ],
             "created_at": mock.sentinel.created_at,
             "updated_at": mock.sentinel.updated_at,
             "deleted_at": mock.sentinel.deleted_at,
-            "deleted": mock.sentinel.deleted
+            "deleted": mock.sentinel.deleted,
         }
 
         result = task.to_dict()
 
-        self.assertEqual(
-            expected_result,
-            result
-        )
+        self.assertEqual(expected_result, result)
 
 
 class TasksExecutionTestCase(test_base.CoriolisBaseTestCase):
@@ -233,15 +219,12 @@ class TasksExecutionTestCase(test_base.CoriolisBaseTestCase):
             "created_at": mock.sentinel.created_at,
             "updated_at": mock.sentinel.updated_at,
             "deleted_at": mock.sentinel.deleted_at,
-            "deleted": mock.sentinel.deleted
+            "deleted": mock.sentinel.deleted,
         }
 
         result = tasks_execution.to_dict()
 
-        self.assertEqual(
-            expected_result,
-            result
-        )
+        self.assertEqual(expected_result, result)
 
 
 class BaseTransferActionTestCase(test_base.CoriolisBaseTestCase):
@@ -254,16 +237,14 @@ class BaseTransferActionTestCase(test_base.CoriolisBaseTestCase):
         transfer.base_id = mock.sentinel.base_id
         transfer.user_id = mock.sentinel.user_id
         transfer.project_id = mock.sentinel.project_id
-        transfer.destination_environment = \
-            mock.sentinel.destination_environment
+        transfer.destination_environment = mock.sentinel.destination_environment
         transfer.type = mock.sentinel.type
         transfer.executions = [mock_execution1, mock_execution2]
         transfer.instances = mock.sentinel.instances
         transfer.reservation_id = mock.sentinel.reservation_id
         transfer.notes = mock.sentinel.notes
         transfer.origin_endpoint_id = mock.sentinel.origin_endpoint_id
-        transfer.destination_endpoint_id = \
-            mock.sentinel.destination_endpoint_id
+        transfer.destination_endpoint_id = mock.sentinel.destination_endpoint_id
         transfer.transfer_result = mock.sentinel.transfer_result
         transfer.network_map = mock.sentinel.network_map
         transfer.storage_mappings = mock.sentinel.storage_mappings
@@ -275,10 +256,10 @@ class BaseTransferActionTestCase(test_base.CoriolisBaseTestCase):
         transfer.deleted = mock.sentinel.deleted
         transfer.origin_minion_pool_id = mock.sentinel.origin_minion_pool_id
         transfer.deleted = mock.sentinel.deleted
-        transfer.destination_minion_pool_id = \
-            mock.sentinel.destination_minion_pool_id
-        transfer.instance_osmorphing_minion_pool_mappings = \
+        transfer.destination_minion_pool_id = mock.sentinel.destination_minion_pool_id
+        transfer.instance_osmorphing_minion_pool_mappings = (
             mock.sentinel.instance_osmorphing_minion_pool_mappings
+        )
         transfer.user_scripts = mock.sentinel.user_scripts
         transfer.info = mock.sentinel.info
         transfer.clone_disks = True
@@ -289,8 +270,7 @@ class BaseTransferActionTestCase(test_base.CoriolisBaseTestCase):
             "project_id": mock.sentinel.project_id,
             "destination_environment": mock.sentinel.destination_environment,
             "type": mock.sentinel.type,
-            "executions": [
-                mock_execution1.to_dict(), mock_execution2.to_dict()],
+            "executions": [mock_execution1.to_dict(), mock_execution2.to_dict()],
             "instances": mock.sentinel.instances,
             "reservation_id": mock.sentinel.reservation_id,
             "notes": mock.sentinel.notes,
@@ -306,10 +286,8 @@ class BaseTransferActionTestCase(test_base.CoriolisBaseTestCase):
             "deleted_at": mock.sentinel.deleted_at,
             "deleted": mock.sentinel.deleted,
             "origin_minion_pool_id": mock.sentinel.origin_minion_pool_id,
-            "destination_minion_pool_id":
-                mock.sentinel.destination_minion_pool_id,
-            "instance_osmorphing_minion_pool_mappings":
-                mock.sentinel.instance_osmorphing_minion_pool_mappings,
+            "destination_minion_pool_id": mock.sentinel.destination_minion_pool_id,
+            "instance_osmorphing_minion_pool_mappings": mock.sentinel.instance_osmorphing_minion_pool_mappings,
             "user_scripts": mock.sentinel.user_scripts,
             "info": mock.sentinel.info,
             "clone_disks": True,
@@ -318,10 +296,7 @@ class BaseTransferActionTestCase(test_base.CoriolisBaseTestCase):
 
         result = transfer.to_dict()
 
-        self.assertEqual(
-            expected_result,
-            result
-        )
+        self.assertEqual(expected_result, result)
 
 
 class ReplicaTestCase(test_base.CoriolisBaseTestCase):
@@ -333,10 +308,7 @@ class ReplicaTestCase(test_base.CoriolisBaseTestCase):
 
         result = transfer.to_dict()
 
-        self.assertEqual(
-            mock.sentinel.id,
-            result["id"]
-        )
+        self.assertEqual(mock.sentinel.id, result["id"])
 
 
 class DeploymentTestCase(test_base.CoriolisBaseTestCase):
@@ -377,8 +349,9 @@ class MinionMachineTestCase(test_base.CoriolisBaseTestCase):
         minion.connection_info = mock.sentinel.connection_info
         minion.allocated_action = mock.sentinel.allocated_action
         minion.last_used_at = mock.sentinel.last_used_at
-        minion.backup_writer_connection_info = \
+        minion.backup_writer_connection_info = (
             mock.sentinel.backup_writer_connection_info
+        )
         minion.provider_properties = mock.sentinel.provider_properties
         expected_result = {
             "id": mock.sentinel.id,
@@ -394,17 +367,13 @@ class MinionMachineTestCase(test_base.CoriolisBaseTestCase):
             "connection_info": mock.sentinel.connection_info,
             "allocated_action": mock.sentinel.allocated_action,
             "last_used_at": mock.sentinel.last_used_at,
-            "backup_writer_connection_info":
-                mock.sentinel.backup_writer_connection_info,
-            "provider_properties": mock.sentinel.provider_properties
+            "backup_writer_connection_info": mock.sentinel.backup_writer_connection_info,
+            "provider_properties": mock.sentinel.provider_properties,
         }
 
         result = minion.to_dict()
 
-        self.assertEqual(
-            expected_result,
-            result
-        )
+        self.assertEqual(expected_result, result)
 
 
 class MinionPoolTestCase(test_base.CoriolisBaseTestCase):
@@ -420,8 +389,7 @@ class MinionPoolTestCase(test_base.CoriolisBaseTestCase):
         mock_progress_update2 = models.MinionPoolProgressUpdate()
         minion.minion_machines = [mock_minion_machine1, mock_minion_machine2]
         minion.events = [mock_event1, mock_event2]
-        minion.progress_updates = [
-            mock_progress_update1, mock_progress_update2]
+        minion.progress_updates = [mock_progress_update1, mock_progress_update2]
         minion.id = mock.sentinel.id
         minion.name = mock.sentinel.name
         minion.notes = mock.sentinel.notes
@@ -439,8 +407,7 @@ class MinionPoolTestCase(test_base.CoriolisBaseTestCase):
         minion.minimum_minions = mock.sentinel.minimum_minions
         minion.maximum_minions = mock.sentinel.maximum_minions
         minion.minion_max_idle_time = mock.sentinel.minion_max_idle_time
-        minion.minion_retention_strategy = \
-            mock.sentinel.minion_retention_strategy
+        minion.minion_retention_strategy = mock.sentinel.minion_retention_strategy
         expected_result = {
             "id": mock.sentinel.id,
             "name": mock.sentinel.name,
@@ -459,22 +426,18 @@ class MinionPoolTestCase(test_base.CoriolisBaseTestCase):
             "minimum_minions": mock.sentinel.minimum_minions,
             "maximum_minions": mock.sentinel.maximum_minions,
             "minion_max_idle_time": mock.sentinel.minion_max_idle_time,
-            "minion_retention_strategy":
-                mock.sentinel.minion_retention_strategy,
+            "minion_retention_strategy": mock.sentinel.minion_retention_strategy,
             "minion_machines": [
                 mock_minion_machine1.to_dict(),
-                mock_minion_machine2.to_dict()],
-            "events": [
-                mock_event1.to_dict(),
-                mock_event2.to_dict()],
+                mock_minion_machine2.to_dict(),
+            ],
+            "events": [mock_event1.to_dict(), mock_event2.to_dict()],
             "progress_updates": [
                 mock_progress_update1.to_dict(),
-                mock_progress_update2.to_dict()],
+                mock_progress_update2.to_dict(),
+            ],
         }
 
         result = minion.to_dict()
 
-        self.assertEqual(
-            expected_result,
-            result
-        )
+        self.assertEqual(expected_result, result)

@@ -27,44 +27,56 @@ class APITestCase(test_base.CoriolisBaseTestCase):
         auto_deploy = mock.sentinel.auto_deploy
 
         result = self.api.create(
-            self.ctxt, self.transfer_id, schedule, enabled, exp_date,
-            shutdown_instance, auto_deploy)
+            self.ctxt,
+            self.transfer_id,
+            schedule,
+            enabled,
+            exp_date,
+            shutdown_instance,
+            auto_deploy,
+        )
 
         self.rpc_client.create_transfer_schedule.assert_called_once_with(
-            self.ctxt, self.transfer_id, schedule, enabled, exp_date,
-            shutdown_instance, auto_deploy)
-        self.assertEqual(result,
-                         self.rpc_client.create_transfer_schedule.return_value)
+            self.ctxt,
+            self.transfer_id,
+            schedule,
+            enabled,
+            exp_date,
+            shutdown_instance,
+            auto_deploy,
+        )
+        self.assertEqual(result, self.rpc_client.create_transfer_schedule.return_value)
 
     def test_get_schedules(self):
         result = self.api.get_schedules(self.ctxt, self.transfer_id)
 
         self.rpc_client.get_transfer_schedules.assert_called_once_with(
-            self.ctxt, self.transfer_id, expired=True)
-        self.assertEqual(result,
-                         self.rpc_client.get_transfer_schedules.return_value)
+            self.ctxt, self.transfer_id, expired=True
+        )
+        self.assertEqual(result, self.rpc_client.get_transfer_schedules.return_value)
 
     def test_get_schedule(self):
-        result = self.api.get_schedule(self.ctxt, self.transfer_id,
-                                       self.schedule_id)
+        result = self.api.get_schedule(self.ctxt, self.transfer_id, self.schedule_id)
 
         self.rpc_client.get_transfer_schedule.assert_called_once_with(
-            self.ctxt, self.transfer_id, self.schedule_id, expired=True)
-        self.assertEqual(result,
-                         self.rpc_client.get_transfer_schedule.return_value)
+            self.ctxt, self.transfer_id, self.schedule_id, expired=True
+        )
+        self.assertEqual(result, self.rpc_client.get_transfer_schedule.return_value)
 
     def test_update(self):
         update_values = mock.sentinel.update_values
 
-        result = self.api.update(self.ctxt, self.transfer_id, self.schedule_id,
-                                 update_values)
+        result = self.api.update(
+            self.ctxt, self.transfer_id, self.schedule_id, update_values
+        )
 
         self.rpc_client.update_transfer_schedule.assert_called_once_with(
-            self.ctxt, self.transfer_id, self.schedule_id, update_values)
-        self.assertEqual(result,
-                         self.rpc_client.update_transfer_schedule.return_value)
+            self.ctxt, self.transfer_id, self.schedule_id, update_values
+        )
+        self.assertEqual(result, self.rpc_client.update_transfer_schedule.return_value)
 
     def test_delete(self):
         self.api.delete(self.ctxt, self.transfer_id, self.schedule_id)
         self.rpc_client.delete_transfer_schedule.assert_called_once_with(
-            self.ctxt, self.transfer_id, self.schedule_id)
+            self.ctxt, self.transfer_id, self.schedule_id
+        )

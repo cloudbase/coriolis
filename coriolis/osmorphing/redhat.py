@@ -7,11 +7,10 @@ import uuid
 
 from oslo_log import log as logging
 
-from coriolis import exception
+from coriolis import exception, utils
 from coriolis.osmorphing import base
 from coriolis.osmorphing.osdetect import centos as centos_detect
 from coriolis.osmorphing.osdetect import redhat as redhat_detect
-from coriolis import utils
 
 RED_HAT_DISTRO_IDENTIFIER = redhat_detect.RED_HAT_DISTRO_IDENTIFIER
 
@@ -63,19 +62,33 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
 
     @classmethod
     def check_os_supported(cls, detected_os_info):
-        if detected_os_info['distribution_name'] != (
-                RED_HAT_DISTRO_IDENTIFIER):
+        if detected_os_info['distribution_name'] != (RED_HAT_DISTRO_IDENTIFIER):
             return False
         return cls._version_supported_util(
-            detected_os_info['release_version'], minimum=6)
+            detected_os_info['release_version'], minimum=6
+        )
 
-    def __init__(self, conn, os_root_dir, os_root_dev,
-                 hypervisor, event_manager, detected_os_info,
-                 osmorphing_parameters, operation_timeout=None):
-        super(
-            BaseRedHatMorphingTools, self).__init__(
-            conn, os_root_dir, os_root_dev, hypervisor, event_manager,
-            detected_os_info, osmorphing_parameters, operation_timeout)
+    def __init__(
+        self,
+        conn,
+        os_root_dir,
+        os_root_dev,
+        hypervisor,
+        event_manager,
+        detected_os_info,
+        osmorphing_parameters,
+        operation_timeout=None,
+    ):
+        super(BaseRedHatMorphingTools, self).__init__(
+            conn,
+            os_root_dir,
+            os_root_dev,
+            hypervisor,
+            event_manager,
+            detected_os_info,
+            osmorphing_parameters,
+            operation_timeout,
+        )
 
     def disable_predictable_nic_names(self):
         cmd = 'grubby --update-kernel=ALL --args="%s"'
@@ -102,8 +115,8 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         if self._test_path_chroot(uefi_cfg):
             return uefi_cfg
         raise Exception(
-            "could not determine grub location."
-            " boot partition not mounted?")
+            "could not determine grub location. boot partition not mounted?"
+        )
 
     def _has_systemd(self):
         try:
@@ -135,8 +148,7 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
                 self._write_config_file(ifcfg_file, iface_cfg)
 
         network_cfg_file = "etc/sysconfig/network"
-        network_cfg = self._read_config_file(network_cfg_file,
-                                             check_exists=True)
+        network_cfg = self._read_config_file(network_cfg_file, check_exists=True)
         if "GATEWAY" in network_cfg:
             del network_cfg["GATEWAY"]
             self._write_config_file(network_cfg_file, network_cfg)
@@ -144,28 +156,35 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
     def _get_existing_ethernet_nmconnection_files(self):
         if not self._test_path(self._NM_CONNECTIONS_PATH):
             return []
-        return [cfg_path for cfg_path, _ in self._get_keyfiles_by_type(
-            "ethernet", self._NM_CONNECTIONS_PATH)]
+        return [
+            cfg_path
+            for cfg_path, _ in self._get_keyfiles_by_type(
+                "ethernet", self._NM_CONNECTIONS_PATH
+            )
+        ]
 
-    def _backup_nmconnection_files(self, nmconnection_files=None,
-                                   backup_file_suffix=".bak"):
+    def _backup_nmconnection_files(
+        self, nmconnection_files=None, backup_file_suffix=".bak"
+    ):
         if nmconnection_files is None:
-            nmconnection_files = (
-                self._get_existing_ethernet_nmconnection_files())
+            nmconnection_files = self._get_existing_ethernet_nmconnection_files()
         for cfg_path in nmconnection_files:
             self._exec_cmd_chroot(
-                'mv "%s" "%s%s"' % (cfg_path, cfg_path, backup_file_suffix))
+                'mv "%s" "%s%s"' % (cfg_path, cfg_path, backup_file_suffix)
+            )
             LOG.debug("Backed up nmconnection profile '%s'", cfg_path)
 
     def _backup_all_ifcfg_configs(self, backup_file_suffix=".bak"):
         if not self._test_path(self._NETWORK_SCRIPTS_PATH):
             return
         for cfg_path, _ in self._get_ifcfgs_by_type(
-                "Ethernet", self._NETWORK_SCRIPTS_PATH):
+            "Ethernet", self._NETWORK_SCRIPTS_PATH
+        ):
             if os.path.basename(cfg_path) == "ifcfg-lo":
                 continue
             self._exec_cmd_chroot(
-                'mv "%s" "%s%s"' % (cfg_path, cfg_path, backup_file_suffix))
+                'mv "%s" "%s%s"' % (cfg_path, cfg_path, backup_file_suffix)
+            )
             LOG.debug("Backed up ifcfg profile '%s'", cfg_path)
 
     def _write_nic_configs(self, nics_info):
@@ -175,10 +194,12 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
             cfg_path = "%s/ifcfg-%s" % (self._NETWORK_SCRIPTS_PATH, dev_name)
             self._write_file_sudo(
                 cfg_path,
-                IFCFG_TEMPLATE % {
+                IFCFG_TEMPLATE
+                % {
                     "device_name": dev_name,
                     "nm_controlled": self._get_ifcfg_nm_controlled(),
-                })
+                },
+            )
 
     def _write_nmconnection_configs(self, nics_info, nmconnection_files):
         nics_info = nics_info or []
@@ -193,49 +214,50 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
 
         for idx, _ in enumerate(nics_info):
             dev_name = "eth%d" % idx
-            cfg_path = "%s/%s.nmconnection" % (
-                self._NM_CONNECTIONS_PATH, dev_name)
+            cfg_path = "%s/%s.nmconnection" % (self._NM_CONNECTIONS_PATH, dev_name)
             self._write_file_sudo(
                 cfg_path,
-                NMCONNECTION_TEMPLATE % {
+                NMCONNECTION_TEMPLATE
+                % {
                     "device_name": dev_name,
                     "connection_uuid": str(uuid.uuid4()),
-                })
+                },
+            )
             self._exec_cmd_chroot("chmod 600 /%s" % cfg_path)
 
     def _comment_keys_from_ifcfg_files(
-            self, keys, interfaces=None, backup_file_suffix=".bak"):
-        """ Comments the provided list of keys from all 'ifcfg-*' files.
+        self, keys, interfaces=None, backup_file_suffix=".bak"
+    ):
+        """Comments the provided list of keys from all 'ifcfg-*' files.
         Optinally skips ifcfg files for interfaces not listed in 'interfaces'.
         """
         if not interfaces:
             interfaces = []
-        scripts_dir = os.path.join(
-            self._os_root_dir, self._NETWORK_SCRIPTS_PATH)
+        scripts_dir = os.path.join(self._os_root_dir, self._NETWORK_SCRIPTS_PATH)
         all_ifcfg_files = utils.list_ssh_dir(self._ssh, scripts_dir)
         regex = "^(ifcfg-[a-z0-9]+)$"
 
         for ifcfgf in all_ifcfg_files:
             if not re.match(regex, ifcfgf):
-                LOG.debug(
-                    "Skipping ifcfg file with unknown filename '%s'." %
-                    ifcfgf)
+                LOG.debug("Skipping ifcfg file with unknown filename '%s'." % ifcfgf)
                 continue
 
             if interfaces and not any([i in ifcfgf for i in interfaces]):
                 LOG.debug(
                     "Skipping ifcfg file '%s' as it's not for one of the "
-                    "requested interfaces (%s)", ifcfgf, interfaces)
+                    "requested interfaces (%s)",
+                    ifcfgf,
+                    interfaces,
+                )
                 continue
 
             fullpath = os.path.join(scripts_dir, ifcfgf)
             for key in keys:
                 self._exec_cmd(
-                    "sudo sed -i%s -E -e 's/^(%s=.*)$/# \\1/g' %s" % (
-                        backup_file_suffix, key, fullpath))
-            LOG.debug(
-                "Commented all %s references from '%s'" % (
-                    keys, fullpath))
+                    "sudo sed -i%s -E -e 's/^(%s=.*)$/# \\1/g' %s"
+                    % (backup_file_suffix, key, fullpath)
+                )
+            LOG.debug("Commented all %s references from '%s'" % (keys, fullpath))
 
     def set_net_config(self, nics_info, dhcp):
         if dhcp:
@@ -243,11 +265,9 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
             if not nics_info:
                 return
             self.disable_predictable_nic_names()
-            nmconnection_files = (
-                self._get_existing_ethernet_nmconnection_files())
+            nmconnection_files = self._get_existing_ethernet_nmconnection_files()
             if nmconnection_files:
-                self._write_nmconnection_configs(
-                    nics_info, nmconnection_files)
+                self._write_nmconnection_configs(nics_info, nmconnection_files)
             else:
                 self._write_nic_configs(nics_info)
             return
@@ -269,13 +289,13 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
             yum_cmd = 'yum install %s -y %s %s' % (
                 " ".join(package_names),
                 "--setopt=strict=1",
-                "--setopt=skip_missing_names_on_install=0"
+                "--setopt=skip_missing_names_on_install=0",
             )
             self._exec_cmd_chroot(yum_cmd)
         except exception.CoriolisException as err:
             raise exception.FailedPackageInstallationException(
-                package_names=package_names, package_manager='yum',
-                error=str(err)) from err
+                package_names=package_names, package_manager='yum', error=str(err)
+            ) from err
 
     def _yum_uninstall(self, package_names):
         try:
@@ -284,8 +304,8 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
                 self._exec_cmd_chroot(yum_cmd)
         except exception.CoriolisException as err:
             raise exception.FailedPackageUninstallationException(
-                package_names=package_names, package_manager='yum',
-                error=str(err)) from err
+                package_names=package_names, package_manager='yum', error=str(err)
+            ) from err
 
     def _yum_clean_all(self):
         try:
@@ -294,8 +314,10 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
             # On systems with no enabled repos, yum clean fails with
             # "There are no enabled repos". This is non-fatal since
             # there is nothing to clean.
-            LOG.warning("yum clean all failed (e.g. no enabled repos), "
-                        "continuing. Error: %s", utils.get_exception_details())
+            LOG.warning(
+                "yum clean all failed (e.g. no enabled repos), continuing. Error: %s",
+                utils.get_exception_details(),
+            )
         if self._test_path('var/cache/yum'):
             self._exec_cmd_chroot("rm -rf /var/cache/yum")
 
@@ -317,15 +339,15 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
             cmd = 'subscription-manager repos --enable=%s' % repo
             try:
                 self._exec_cmd_chroot(cmd)
-                LOG.info("Enabled repository '%s' using subscription-manager",
-                         repo)
+                LOG.info("Enabled repository '%s' using subscription-manager", repo)
             except exception.CoriolisException:
-                LOG.warning(f"Failed to enable repository {repo}. "
-                            f"Error was: {utils.get_exception_details()}")
+                LOG.warning(
+                    f"Failed to enable repository {repo}. "
+                    f"Error was: {utils.get_exception_details()}"
+                )
 
     def pre_packages_install(self, package_names):
-        super(BaseRedHatMorphingTools, self).pre_packages_install(
-            package_names)
+        super(BaseRedHatMorphingTools, self).pre_packages_install(package_names)
         self._yum_clean_all()
         if 'grubby' not in self.installed_packages:
             self._yum_install(['grubby'])
@@ -335,8 +357,7 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
     def post_packages_install(self, package_names):
         self._configure_cloud_init()
         self._run_dracut()
-        super(BaseRedHatMorphingTools, self).post_packages_install(
-            package_names)
+        super(BaseRedHatMorphingTools, self).post_packages_install(package_names)
 
     def install_packages(self, package_names):
         repos_to_enable = self._get_repos_to_enable()
@@ -351,8 +372,7 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
 
     def _set_network_nozeroconf_config(self):
         network_cfg_file = "etc/sysconfig/network"
-        network_cfg = self._read_config_file(network_cfg_file,
-                                             check_exists=True)
+        network_cfg = self._read_config_file(network_cfg_file, check_exists=True)
         network_cfg["NOZEROCONF"] = "yes"
         self._write_config_file(network_cfg_file, network_cfg)
 
@@ -361,5 +381,4 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         self._write_file_sudo(chroot_path, content)
 
     def _get_config_file_content(self, config):
-        return "%s\n" % "\n".join(
-            ['%s="%s"' % (k, v) for k, v in config.items()])
+        return "%s\n" % "\n".join(['%s="%s"' % (k, v) for k, v in config.items()])

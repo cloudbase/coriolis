@@ -14,16 +14,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo_log import log as logging
 import six
 import webob.dec
 import webob.exc
+from oslo_log import log as logging
 
+from coriolis import exception, utils
 from coriolis.api import wsgi
-from coriolis import exception
-from coriolis.i18n import _, _LE, _LI  # noqa
-from coriolis import utils
-
+from coriolis.i18n import _LE, _LI, _  # noqa
 
 LOG = logging.getLogger(__name__)
 
@@ -39,12 +37,14 @@ class FaultWrapper(wsgi.Middleware):
             for clazz in utils.walk_class_hierarchy(webob.exc.HTTPError):
                 FaultWrapper._status_to_type[clazz.code] = clazz
         return FaultWrapper._status_to_type.get(
-            status, webob.exc.HTTPInternalServerError)()
+            status, webob.exc.HTTPInternalServerError
+        )()
 
     def _error(self, inner, req):
-        LOG.exception(_LE("Caught error: %(type)s %(error)s"),
-                      {'type': type(inner),
-                       'error': inner})
+        LOG.exception(
+            _LE("Caught error: %(type)s %(error)s"),
+            {'type': type(inner), 'error': inner},
+        )
         safe = getattr(inner, 'safe', False)
         headers = getattr(inner, 'headers', None)
         status = getattr(inner, 'code', 500)
@@ -57,10 +57,12 @@ class FaultWrapper(wsgi.Middleware):
         if headers:
             outer.headers = headers
         if safe:
-            msg = (inner.msg if isinstance(inner, exception.CoriolisException)
-                   else six.text_type(inner))
-            params = {'exception': inner.__class__.__name__,
-                      'explanation': msg}
+            msg = (
+                inner.msg
+                if isinstance(inner, exception.CoriolisException)
+                else six.text_type(inner)
+            )
+            params = {'exception': inner.__class__.__name__, 'explanation': msg}
             outer.explanation = _('%(exception)s: %(explanation)s') % params
         return wsgi.Fault(outer)
 

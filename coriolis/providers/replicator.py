@@ -7,15 +7,14 @@ import shutil
 import tempfile
 import time
 
+import paramiko
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import units
-import paramiko
 from sshtunnel import SSHTunnelForwarder
 
-from coriolis import exception
+from coriolis import exception, utils
 from coriolis.providers import provider_utils
-from coriolis import utils
 
 LOG = logging.getLogger(__name__)
 
@@ -32,12 +31,14 @@ REPLICATOR_SVC_NAME = "coriolis-replicator"
 DEFAULT_REPLICATOR_PORT = 4433
 
 replicator_opts = [
-    cfg.IntOpt('port',
-               default=DEFAULT_REPLICATOR_PORT,
-               help='The replicator TCP port.'),
-    cfg.IntOpt('default_requests_timeout',
-               default=60,
-               help='Number of seconds for HTTP request timeouts.'),
+    cfg.IntOpt(
+        'port', default=DEFAULT_REPLICATOR_PORT, help='The replicator TCP port.'
+    ),
+    cfg.IntOpt(
+        'default_requests_timeout',
+        default=60,
+        help='Number of seconds for HTTP request timeouts.',
+    ),
 ]
 
 CONF = cfg.CONF
@@ -45,10 +46,16 @@ CONF.register_opts(replicator_opts, 'replicator')
 
 
 class Client(object):
-
-    def __init__(self, ip, port, credentials, ssh_conn_info,
-                 event_handler, use_compression=False,
-                 use_tunnel=False):
+    def __init__(
+        self,
+        ip,
+        port,
+        credentials,
+        ssh_conn_info,
+        event_handler,
+        use_compression=False,
+        use_tunnel=False,
+    ):
         self._ip = ip
         self._use_tunnel = use_tunnel
         self._port = port
@@ -95,31 +102,33 @@ class Client(object):
             self._setup_tunnel_connection()
         else:
             self._event_manager.progress_update(
-                "Testing direct connection to replicator (%s:%s)" % (
-                    self._ip, self._port))
+                "Testing direct connection to replicator (%s:%s)"
+                % (self._ip, self._port)
+            )
             try:
-                utils.wait_for_port_connectivity(
-                    self._ip, self._port, max_wait=30)
+                utils.wait_for_port_connectivity(self._ip, self._port, max_wait=30)
                 return
             except BaseException as err:
-                LOG.debug("failed to connect to %s:%s Error: %s "
-                          "Trying tunneled connection" % (
-                              self._ip, self._port, err))
+                LOG.debug(
+                    "failed to connect to %s:%s Error: %s "
+                    "Trying tunneled connection" % (self._ip, self._port, err)
+                )
                 self._event_manager.progress_update(
-                    "Direct connection to replicator failed. "
-                    "Setting up tunnel.")
+                    "Direct connection to replicator failed. Setting up tunnel."
+                )
                 self._setup_tunnel_connection()
 
         self._event_manager.progress_update(
-            "Testing connection to replicator (%s:%s)" % (
-                self.repl_host, self.repl_port))
+            "Testing connection to replicator (%s:%s)"
+            % (self.repl_host, self.repl_port)
+        )
         try:
             utils.wait_for_port_connectivity(
-                self.repl_host, self.repl_port, max_wait=30)
+                self.repl_host, self.repl_port, max_wait=30
+            )
         except BaseException as err:
             self._tunnel.stop()
-            LOG.warning(
-                "failed to connect to replicator: %s" % err)
+            LOG.warning("failed to connect to replicator: %s" % err)
             raise
 
     def _get_ssh_tunnel(self):
@@ -135,8 +144,7 @@ class Client(object):
         pkey = self._ssh_conn_info.get("pkey")
         password = self._ssh_conn_info.get("password")
         if any([pkey, password]) is False:
-            raise exception.CoriolisException(
-                "Either password or pkey is required")
+            raise exception.CoriolisException("Either password or pkey is required")
 
         server = SSHTunnelForwarder(
             (remote_host, remote_port),
@@ -156,9 +164,7 @@ class Client(object):
 
     def _get_session(self):
         sess = provider_utils.ProviderSession()
-        sess.cert = (
-            self._creds["client_cert"],
-            self._creds["client_key"])
+        sess.cert = (self._creds["client_cert"], self._creds["client_key"])
         sess.verify = self._creds["ca_cert"]
         return sess
 
@@ -171,8 +177,8 @@ class Client(object):
             "brief": brief,
         }
         status = self._cli.get(
-            uri, params=params,
-            timeout=CONF.replicator.default_requests_timeout)
+            uri, params=params, timeout=CONF.replicator.default_requests_timeout
+        )
         status.raise_for_status()
         return status.json()
 
@@ -183,24 +189,22 @@ class Client(object):
             "skipZeros": skip_zeros,
         }
         chunks = self._cli.get(
-            uri, params=params,
-            timeout=CONF.replicator.default_requests_timeout)
+            uri, params=params, timeout=CONF.replicator.default_requests_timeout
+        )
         chunks.raise_for_status()
         return chunks.json()
 
     @utils.retry_on_error()
     def get_changes(self, device):
         uri = "%s/api/v1/dev/%s/chunks/changes/" % (self._base_uri, device)
-        chunks = self._cli.get(
-            uri, timeout=CONF.replicator.default_requests_timeout)
+        chunks = self._cli.get(uri, timeout=CONF.replicator.default_requests_timeout)
         chunks.raise_for_status()
         return chunks.json()
 
     @utils.retry_on_error()
     def get_disk_size(self, disk):
         diskUri = self.raw_disk_uri(disk)
-        info = self._cli.head(
-            diskUri, timeout=CONF.replicator.default_requests_timeout)
+        info = self._cli.head(diskUri, timeout=CONF.replicator.default_requests_timeout)
         info.raise_for_status()
         return int(info.headers["Content-Length"])
 
@@ -214,8 +218,7 @@ class Client(object):
         """
         uri = "%s/api/v1/dev/%s/checksum" % (self._base_uri, device)
 
-        resp = self._cli.get(
-            uri, timeout=CONF.replicator.default_requests_timeout)
+        resp = self._cli.get(uri, timeout=CONF.replicator.default_requests_timeout)
         resp.raise_for_status()
 
         return resp.json()
@@ -234,18 +237,26 @@ class Client(object):
             headers["Accept-encoding"] = "identity"
 
         data = self._cli.get(
-            diskUri, headers=headers,
-            timeout=CONF.replicator.default_requests_timeout)
+            diskUri, headers=headers, timeout=CONF.replicator.default_requests_timeout
+        )
         data.raise_for_status()
         return data.content
 
 
 class Replicator(object):
-
-    def __init__(self, conn_info, event_manager, volumes_info, replica_state,
-                 use_compression=None, ignore_mounted=True,
-                 hash_method=HASH_METHOD_SHA256, watch_devices=True,
-                 chunk_size=10485760, use_tunnel=False):
+    def __init__(
+        self,
+        conn_info,
+        event_manager,
+        volumes_info,
+        replica_state,
+        use_compression=None,
+        ignore_mounted=True,
+        hash_method=HASH_METHOD_SHA256,
+        watch_devices=True,
+        chunk_size=10485760,
+        use_tunnel=False,
+    ):
         self._event_manager = event_manager
         self._repl_state = replica_state
         self._conn_info = conn_info
@@ -268,28 +279,27 @@ class Replicator(object):
 
     def __del__(self):
         if self._cert_dir is not None:
-            utils.ignore_exceptions(
-                shutil.rmtree)(self._cert_dir)
+            utils.ignore_exceptions(shutil.rmtree)(self._cert_dir)
 
     def _init_replicator_client(self, credentials):
         """
         Helper function to create an instance of the replicator
         client.
         """
-        ssh_conn_info = self._parse_source_ssh_conn_info(
-            self._conn_info)
-        args = self._parse_replicator_conn_info(
-            self._conn_info)
+        ssh_conn_info = self._parse_source_ssh_conn_info(self._conn_info)
+        args = self._parse_replicator_conn_info(self._conn_info)
         self._cli = Client(
-            args["ip"], args["port"],
-            credentials, ssh_conn_info,
+            args["ip"],
+            args["port"],
+            credentials,
+            ssh_conn_info,
             self._event_manager,
             use_compression=self._use_compression,
-            use_tunnel=self._use_tunnel)
+            use_tunnel=self._use_tunnel,
+        )
 
     def _setup_ssh(self):
-        args = self._parse_source_ssh_conn_info(
-            self._conn_info)
+        args = self._parse_source_ssh_conn_info(self._conn_info)
         ssh = self._get_ssh_client(args)
         return ssh
 
@@ -303,20 +313,22 @@ class Replicator(object):
     def init_replicator(self):
         try:
             self._credentials = utils.retry_on_error(sleep_seconds=5)(
-                self._setup_replicator)(self._ssh)
+                self._setup_replicator
+            )(self._ssh)
         except Exception:
             LOG.warn("Failed to setup replicator, trying to reconnect ssh")
             self._reconnect_ssh()
             self._credentials = utils.retry_on_error(sleep_seconds=5)(
-                self._setup_replicator)(self._ssh)
-        utils.retry_on_error()(
-            self._init_replicator_client)(self._credentials)
+                self._setup_replicator
+            )(self._ssh)
+        utils.retry_on_error()(self._init_replicator_client)(self._credentials)
         LOG.debug(
             "Disk status after Replicator initialization: %s",
-            self._cli.get_status(device=None, brief=True))
+            self._cli.get_status(device=None, brief=True),
+        )
 
     def get_current_disks_status(self):
-        """ Returns a list of the current status of the attached data disks.
+        """Returns a list of the current status of the attached data disks.
         The root disk of the worker VM is NOT returned.
         The result is a list with elements of the following format:
         [{
@@ -347,9 +359,14 @@ class Replicator(object):
         return self._cli.get_status()
 
     def attach_new_disk(
-            self, disk_id, attachf, previous_disks_status=None,
-            retry_period=30, retry_count=10):
-        """ Returns the volumes_info for the disk attached by running
+        self,
+        disk_id,
+        attachf,
+        previous_disks_status=None,
+        retry_period=30,
+        retry_count=10,
+    ):
+        """Returns the volumes_info for the disk attached by running
         `attachf`. This is achieved by comparing the disk statuses before and
         after the execution of the attachment operation.
 
@@ -365,27 +382,26 @@ class Replicator(object):
         return: dict(): returns the volumes_info associated to the new disk.
         """
         # check if volume with given ID is present in self._volumes_info:
-        matching_vols = [
-            vol for vol in self._volumes_info
-            if vol['disk_id'] == disk_id]
+        matching_vols = [vol for vol in self._volumes_info if vol['disk_id'] == disk_id]
         if not matching_vols:
             raise exception.CoriolisException(
                 "No information regarding volume with ID '%s'. "
-                "Cannot track its attachment." % disk_id)
+                "Cannot track its attachment." % disk_id
+            )
         if len(matching_vols) > 1:
             raise exception.CoriolisException(
-                "Multiple volumes info with ID '%s' found: %s" % (
-                    disk_id, matching_vols))
+                "Multiple volumes info with ID '%s' found: %s"
+                % (disk_id, matching_vols)
+            )
         vol_info = matching_vols[0]
 
         # get/refresh current device paths:
         if not previous_disks_status:
             previous_disks_status = self._cli.get_status()
         LOG.debug(
-            "Disks status pre-attachment of %s: %s",
-            disk_id, previous_disks_status)
-        previous_device_paths = [
-            dev['device-path'] for dev in previous_disks_status]
+            "Disks status pre-attachment of %s: %s", disk_id, previous_disks_status
+        )
+        previous_device_paths = [dev['device-path'] for dev in previous_disks_status]
 
         # run attachment function and get new device paths:
         attachf()
@@ -396,25 +412,32 @@ class Replicator(object):
         for i in range(retry_count):
             try:
                 new_disks_status = self._cli.get_status()
-                new_device_paths = [dev['device-path']
-                                    for dev in new_disks_status]
+                new_device_paths = [dev['device-path'] for dev in new_disks_status]
                 LOG.debug(
                     "Polled devices while waiting for disk '%s' to attach "
-                    "(try %d/%d): %s", disk_id, i + 1, retry_count,
-                    new_device_paths)
+                    "(try %d/%d): %s",
+                    disk_id,
+                    i + 1,
+                    retry_count,
+                    new_device_paths,
+                )
 
                 # check for missing/multiple new device paths:
-                missing_device_paths = (
-                    set(previous_device_paths) - set(new_device_paths))
+                missing_device_paths = set(previous_device_paths) - set(
+                    new_device_paths
+                )
                 if missing_device_paths:
                     LOG.warn(
                         "The following devices from the previous disk state "
-                        "qeury are no longer detected: %s", [
-                            dev for dev in previous_disks_status
-                            if dev['device-path'] in missing_device_paths])
+                        "qeury are no longer detected: %s",
+                        [
+                            dev
+                            for dev in previous_disks_status
+                            if dev['device-path'] in missing_device_paths
+                        ],
+                    )
 
-                new_device_paths = set(
-                    new_device_paths) - set(previous_device_paths)
+                new_device_paths = set(new_device_paths) - set(previous_device_paths)
             except Exception:
                 LOG.debug("Failed to get new device status")
             if new_device_paths:
@@ -422,33 +445,45 @@ class Replicator(object):
             else:
                 LOG.debug(
                     "Sleeping %d seconds for disk '%s' to get attached.",
-                    retry_period, disk_id)
+                    retry_period,
+                    disk_id,
+                )
                 time.sleep(retry_period)
 
         if not new_device_paths:
             raise exception.CoriolisException(
                 "No new device paths have appeared after volume attachment of "
-                "disk with ID: %s" % disk_id)
+                "disk with ID: %s" % disk_id
+            )
         if len(new_device_paths) > 1:
             raise exception.CoriolisException(
                 "Multiple device paths have appeared after attachment of disk "
-                "with ID %s: %s" % (
+                "with ID %s: %s"
+                % (
                     disk_id,
-                    [dev for dev in new_disks_status
-                     if dev['device-path'] in new_device_paths]))
+                    [
+                        dev
+                        for dev in new_disks_status
+                        if dev['device-path'] in new_device_paths
+                    ],
+                )
+            )
 
         # record the new 'disk_path' for the volume:
         vol_info['disk_path'] = new_device_paths.pop()
         LOG.debug(
             "New device following attachment of disk '%s': %s",
-            disk_id, vol_info['disk_path'])
+            disk_id,
+            vol_info['disk_path'],
+        )
 
         return vol_info
 
     def wait_for_chunks(self):
         if self._cli is None:
             raise exception.CoriolisException(
-                "replicator not initialized. Run init_replicator()")
+                "replicator not initialized. Run init_replicator()"
+            )
         perc_steps = {}
 
         while True:
@@ -461,11 +496,12 @@ class Replicator(object):
                 if perc_step is None:
                     perc_step = self._event_manager.add_percentage_step(
                         "Performing chunking for disk %s (total size %.2f MB)"
-                        % (devName, dev_size), 100)
+                        % (devName, dev_size),
+                        100,
+                    )
                     perc_steps[devName] = perc_step
                 perc_done = vol["checksum-status"]["percentage"]
-                self._event_manager.set_percentage_step(
-                    perc_step, perc_done)
+                self._event_manager.set_percentage_step(perc_step, perc_done)
                 done.append(int(perc_done) == 100)
             if all(done):
                 break
@@ -497,9 +533,13 @@ class Replicator(object):
         gets a paramiko SSH client
         """
         return utils.connect_ssh(
-            args["hostname"], args["port"], args["username"],
-            pkey=args.get("pkey"), password=args.get("password"),
-            banner_timeout=args.get("banner_timeout"))
+            args["hostname"],
+            args["port"],
+            args["username"],
+            pkey=args.get("pkey"),
+            password=args.get("password"),
+            banner_timeout=args.get("banner_timeout"),
+        )
 
     def _parse_source_ssh_conn_info(self, conn_info):
         # if we get valid SSH connection info we can
@@ -510,22 +550,23 @@ class Replicator(object):
         port = conn_info.get('port', 22)
         password = conn_info.get('password', None)
         pkey = conn_info.get('pkey', None)
-        missing = [
-            field for field in required
-            if field not in conn_info]
+        missing = [field for field in required if field not in conn_info]
         if missing:
             raise exception.CoriolisException(
                 "Missing some required fields from source replication "
-                "worker VM connection info: %s" % missing)
+                "worker VM connection info: %s" % missing
+            )
         if any([password, pkey]) is False:
             raise exception.CoriolisException(
                 "Either 'password' or 'pkey' for source worker VM is required "
-                "to initialize the Coriolis replicator.")
+                "to initialize the Coriolis replicator."
+            )
 
         if pkey:
             if type(pkey) is str:
                 pkey = utils.deserialize_key(
-                    pkey, CONF.serialization.temp_keypair_password)
+                    pkey, CONF.serialization.temp_keypair_password
+                )
 
         args = {
             "hostname": conn_info["ip"],
@@ -566,37 +607,36 @@ class Replicator(object):
 
         sftp = paramiko.SFTPClient.from_transport(ssh.get_transport())
         sftp.put(localPath, tmp)
-        utils.exec_ssh_cmd(
-            ssh, "sudo mv %s %s" % (tmp, remotePath), get_pty=True)
+        utils.exec_ssh_cmd(ssh, "sudo mv %s %s" % (tmp, remotePath), get_pty=True)
         sftp.close()
 
     def _copy_replicator_cmd(self, ssh):
-        local_path = os.path.join(
-            utils.get_resources_bin_dir(), 'replicator')
+        local_path = os.path.join(utils.get_resources_bin_dir(), 'replicator')
         self._copy_file(ssh, local_path, REPLICATOR_PATH)
-        utils.exec_ssh_cmd(
-            ssh, "sudo chmod +x %s" % REPLICATOR_PATH, get_pty=True)
+        utils.exec_ssh_cmd(ssh, "sudo chmod +x %s" % REPLICATOR_PATH, get_pty=True)
 
     def _setup_replicator_group(self, ssh, group_name=REPLICATOR_GROUP_NAME):
-        """ Sets up a group with the given name and adds the
+        """Sets up a group with the given name and adds the
         user we're connected as to it.
 
         Returns True if the group already existed, else False.
         """
         group_exists = utils.exec_ssh_cmd(
             ssh,
-            "getent group %(group)s > /dev/null && echo 1 || echo 0" % {
-                "group": REPLICATOR_GROUP_NAME})
+            "getent group %(group)s > /dev/null && echo 1 || echo 0"
+            % {"group": REPLICATOR_GROUP_NAME},
+        )
         if int(group_exists) == 0:
-            utils.exec_ssh_cmd(
-                ssh, "sudo groupadd %s" % group_name, get_pty=True)
+            utils.exec_ssh_cmd(ssh, "sudo groupadd %s" % group_name, get_pty=True)
             # NOTE: this is required in order for the user we connected
             # as to be able to read the certs:
             # NOTE2: the group change will only take effect after we reconnect:
             utils.exec_ssh_cmd(
-                ssh, "sudo usermod -aG %s %s" % (
-                    REPLICATOR_GROUP_NAME, self._conn_info['username']),
-                get_pty=True)
+                ssh,
+                "sudo usermod -aG %s %s"
+                % (REPLICATOR_GROUP_NAME, self._conn_info['username']),
+                get_pty=True,
+            )
 
         return int(group_exists) == 1
 
@@ -604,46 +644,51 @@ class Replicator(object):
         # check for and create replicator user:
         user_exists = utils.exec_ssh_cmd(
             ssh,
-            "getent passwd %(user)s > /dev/null && echo 1 || echo 0" % {
-                "user": REPLICATOR_USERNAME})
+            "getent passwd %(user)s > /dev/null && echo 1 || echo 0"
+            % {"user": REPLICATOR_USERNAME},
+        )
         if int(user_exists) == 0:
             utils.exec_ssh_cmd(
-                ssh, "sudo useradd -m -s /bin/bash -g %s %s" % (
-                    REPLICATOR_GROUP_NAME, REPLICATOR_USERNAME),
-                get_pty=True)
+                ssh,
+                "sudo useradd -m -s /bin/bash -g %s %s"
+                % (REPLICATOR_GROUP_NAME, REPLICATOR_USERNAME),
+                get_pty=True,
+            )
             utils.exec_ssh_cmd(
-                ssh, "sudo usermod -aG disk %s" % REPLICATOR_USERNAME,
-                get_pty=True)
+                ssh, "sudo usermod -aG disk %s" % REPLICATOR_USERNAME, get_pty=True
+            )
 
     def _exec_replicator(self, ssh, port, certs, state_file):
-        cmdline = ("%(replicator_path)s run -hash-method=%(hash_method)s "
-                   "-ignore-mounted-disks=%(ignore_mounted)s "
-                   "-listen-port=%(listen_port)s "
-                   "-chunk-size=%(chunk_size)s "
-                   "-watch-devices=%(watch_devs)s "
-                   "-state-file=%(state_file)s "
-                   "-ca-cert=%(ca_cert)s -cert=%(srv_cert)s "
-                   "-key=%(srv_key)s" % {
-                       "replicator_path": REPLICATOR_PATH,
-                       "hash_method": self._hash_method,
-                       "ignore_mounted": json.dumps(self._ignore_mounted),
-                       "watch_devs": json.dumps(self._watch_devices),
-                       "listen_port": str(port),
-                       "state_file": state_file,
-                       "chunk_size": self._chunk_size,
-                       "ca_cert": certs["ca_crt"],
-                       "srv_cert": certs["srv_crt"],
-                       "srv_key": certs["srv_key"],
-                   })
+        cmdline = (
+            "%(replicator_path)s run -hash-method=%(hash_method)s "
+            "-ignore-mounted-disks=%(ignore_mounted)s "
+            "-listen-port=%(listen_port)s "
+            "-chunk-size=%(chunk_size)s "
+            "-watch-devices=%(watch_devs)s "
+            "-state-file=%(state_file)s "
+            "-ca-cert=%(ca_cert)s -cert=%(srv_cert)s "
+            "-key=%(srv_key)s"
+            % {
+                "replicator_path": REPLICATOR_PATH,
+                "hash_method": self._hash_method,
+                "ignore_mounted": json.dumps(self._ignore_mounted),
+                "watch_devs": json.dumps(self._watch_devices),
+                "listen_port": str(port),
+                "state_file": state_file,
+                "chunk_size": self._chunk_size,
+                "ca_cert": certs["ca_crt"],
+                "srv_cert": certs["srv_crt"],
+                "srv_key": certs["srv_key"],
+            }
+        )
         utils.create_service(
-            ssh, cmdline, REPLICATOR_SVC_NAME,
-            run_as=REPLICATOR_USERNAME)
+            ssh, cmdline, REPLICATOR_SVC_NAME, run_as=REPLICATOR_USERNAME
+        )
 
     def _fetch_remote_file(self, ssh, remote_file, local_file):
         # TODO(gsamfira): make this re-usable
         with open(local_file, 'wb') as fd:
-            data = utils.retry_on_error()(
-                utils.read_ssh_file)(ssh, remote_file)
+            data = utils.retry_on_error()(utils.read_ssh_file)(ssh, remote_file)
             fd.write(data)
 
     @utils.retry_on_error(sleep_seconds=5)
@@ -675,33 +720,47 @@ class Replicator(object):
         client_key = os.path.join(self._cert_dir, client_key_name)
 
         exist = []
-        for i in (remote_ca_crt, remote_client_crt, remote_client_key,
-                  remote_srv_crt, remote_srv_key):
+        for i in (
+            remote_ca_crt,
+            remote_client_crt,
+            remote_client_key,
+            remote_srv_crt,
+            remote_srv_key,
+        ):
             exist.append(utils.test_ssh_path(ssh, i))
 
         force_fetch = False
         if not all(exist):
-            utils.exec_ssh_cmd(
-                ssh, "sudo mkdir -p %s" % remote_base_dir, get_pty=True)
+            utils.exec_ssh_cmd(ssh, "sudo mkdir -p %s" % remote_base_dir, get_pty=True)
             utils.exec_ssh_cmd(
                 ssh,
                 "sudo %(replicator_cmd)s gen-certs -output-dir "
-                "%(cert_dir)s -certificate-hosts 127.0.0.1,%(extra_hosts)s" % {
+                "%(cert_dir)s -certificate-hosts 127.0.0.1,%(extra_hosts)s"
+                % {
                     "replicator_cmd": REPLICATOR_PATH,
                     "cert_dir": remote_base_dir,
                     "extra_hosts": ip,
                 },
-                get_pty=True)
+                get_pty=True,
+            )
             utils.exec_ssh_cmd(
-                ssh, "sudo chown -R %(user)s:%(group)s %(cert_dir)s" % {
+                ssh,
+                "sudo chown -R %(user)s:%(group)s %(cert_dir)s"
+                % {
                     "cert_dir": remote_base_dir,
                     "user": REPLICATOR_USERNAME,
-                    "group": REPLICATOR_GROUP_NAME
-                }, get_pty=True)
+                    "group": REPLICATOR_GROUP_NAME,
+                },
+                get_pty=True,
+            )
             utils.exec_ssh_cmd(
-                ssh, "sudo chmod -R g+r %(cert_dir)s" % {
+                ssh,
+                "sudo chmod -R g+r %(cert_dir)s"
+                % {
                     "cert_dir": remote_base_dir,
-                }, get_pty=True)
+                },
+                get_pty=True,
+            )
             force_fetch = True
 
         exists = []
@@ -733,31 +792,32 @@ class Replicator(object):
         try:
             utils.exec_ssh_cmd(ssh, cmd, get_pty=True)
         except exception.CoriolisException:
-            LOG.warn("Could not change SELinux context of replicator binary. "
-                     "Error was:%s", utils.get_exception_details())
+            LOG.warn(
+                "Could not change SELinux context of replicator binary. Error was:%s",
+                utils.get_exception_details(),
+            )
 
     def _setup_replicator(self, ssh):
         # copy the binary, set up the service, generate certificates,
         # start service
         state_file = self._get_replicator_state_file()
         self._copy_file(ssh, state_file, REPLICATOR_STATE)
-        utils.exec_ssh_cmd(
-            ssh, "sudo chmod 755 %s" % REPLICATOR_STATE, get_pty=True)
+        utils.exec_ssh_cmd(ssh, "sudo chmod 755 %s" % REPLICATOR_STATE, get_pty=True)
         os.remove(state_file)
 
         args = self._parse_replicator_conn_info(self._conn_info)
         self._copy_replicator_cmd(ssh)
         self._change_binary_se_context(ssh)
         group_existed = self._setup_replicator_group(
-            ssh, group_name=REPLICATOR_GROUP_NAME)
+            ssh, group_name=REPLICATOR_GROUP_NAME
+        )
         if not group_existed:
             # NOTE: we must reconnect so that our user being added to the new
             # Replicator group can take effect:
             ssh = self._reconnect_ssh()
         self._setup_replicator_user(ssh)
         certs = self._setup_certificates(ssh, args)
-        self._exec_replicator(
-            ssh, args["port"], certs["remote"], REPLICATOR_STATE)
+        self._exec_replicator(ssh, args["port"], certs["remote"], REPLICATOR_STATE)
         self.start()
         return certs["local"]
 
@@ -782,35 +842,42 @@ class Replicator(object):
           if the checksums do not match.
         """
         self._event_manager.progress_update(
-            "Verifying disk integrity for /dev/%s" % dev_name)
+            "Verifying disk integrity for /dev/%s" % dev_name
+        )
         source = self._cli.get_disk_checksum(dev_name)
         end_offset = self._cli.get_disk_size(dev_name)
         writer = destination.get_disk_checksum(
-            source["algorithm"], end_offset=end_offset)
+            source["algorithm"], end_offset=end_offset
+        )
         if writer is None:
             self._event_manager.progress_update(
                 "Disk integrity check skipped for /dev/%s "
-                "(writer does not support checksums)" % dev_name)
+                "(writer does not support checksums)" % dev_name
+            )
             return
 
         if source["algorithm"] != writer["algorithm"]:
             raise exception.ChecksumAlgorithmMismatch(
                 disk=dev_name,
                 source_alg=source["algorithm"],
-                dest_alg=writer["algorithm"])
+                dest_alg=writer["algorithm"],
+            )
 
         if source["checksum"] != writer["checksum"]:
             raise exception.ChecksumMismatch(
                 disk=dev_name,
                 source_checksum=source["checksum"],
-                dest_checksum=writer["checksum"])
+                dest_checksum=writer["checksum"],
+            )
 
         self._event_manager.progress_update(
-            "Disk integrity verified for /dev/%s (checksum: %s)" % (
-                dev_name, source["checksum"]))
+            "Disk integrity verified for /dev/%s (checksum: %s)"
+            % (dev_name, source["checksum"])
+        )
 
     def replicate_disks(
-            self, source_volumes_info, backup_writer, verify_checksum=False):
+        self, source_volumes_info, backup_writer, verify_checksum=False
+    ):
         """
         Fetch the block diff and send it to the backup_writer.
         If the target_is_zeroed parameter is set to True, on initial
@@ -843,7 +910,8 @@ class Replicator(object):
             if dst_vol_idx is None:
                 raise exception.CoriolisException(
                     "failed to find a coresponding volume in volumes_info"
-                    " for %s" % volume["disk_id"])
+                    " for %s" % volume["disk_id"]
+                )
 
             dst_vol = self._volumes_info[dst_vol_idx]
 
@@ -855,16 +923,16 @@ class Replicator(object):
             if isInitial and dst_vol.get("zeroed", False) is True:
                 # This is an initial sync of the disk, and we can
                 # skip zero chunks
-                chunks = self._cli.get_chunks(
-                    devName, skip_zeros=True)
+                chunks = self._cli.get_chunks(devName, skip_zeros=True)
             else:
                 # subsequent sync. Get changes.
                 chunks = self._cli.get_changes(devName)
 
             if not chunks:
                 self._event_manager.progress_update(
-                    "No new chunks to replicate for disk \"%s\" (%s)" % (
-                        volume['disk_id'], devName))
+                    "No new chunks to replicate for disk \"%s\" (%s)"
+                    % (volume['disk_id'], devName)
+                )
                 self._repl_state = curr_state
                 return self._repl_state
 
@@ -872,10 +940,9 @@ class Replicator(object):
 
             msg = (
                 "Replicating changed data for disk \"%s\" (device \"%s\", "
-                "written chunks: %.2f MB)") % (
-                    volume["disk_id"], devName, size)
-            perc_step = self._event_manager.add_percentage_step(
-                msg, len(chunks))
+                "written chunks: %.2f MB)"
+            ) % (volume["disk_id"], devName, size)
+            perc_step = self._event_manager.add_percentage_step(msg, len(chunks))
 
             total = 0
             with backup_writer.open("", volume['disk_id']) as destination:
@@ -885,8 +952,7 @@ class Replicator(object):
                     data = self._cli.download_chunk(devName, chunk)
                     destination.write(data)
                     total += 1
-                    self._event_manager.set_percentage_step(
-                        perc_step, total)
+                    self._event_manager.set_percentage_step(perc_step, total)
 
                 if verify_checksum:
                     self._verify_disk_checksum(devName, destination)
@@ -897,29 +963,27 @@ class Replicator(object):
         return self._repl_state
 
     def _download_full_disk(self, disk, path):
-        self._event_manager.progress_update(
-            "Downloading %s as thick file" % disk)
+        self._event_manager.progress_update("Downloading %s as thick file" % disk)
         diskUri = self._cli.raw_disk_uri(disk)
         size = self._cli.get_disk_size(disk)
 
         perc_step = self._event_manager.add_percentage_step(
-            "Downloading full disk /dev/%s" % disk, size)
+            "Downloading full disk /dev/%s" % disk, size
+        )
 
         total = 0
-        with self._cli._cli.get(diskUri, stream=True,
-                                timeout=(CONF.replicator.
-                                         default_requests_timeout)) as dw:
+        with self._cli._cli.get(
+            diskUri, stream=True, timeout=(CONF.replicator.default_requests_timeout)
+        ) as dw:
             with open(path, 'wb') as dsk:
                 for chunk in dw.iter_content(chunk_size=self._chunk_size):
                     if chunk:
                         writen = dsk.write(chunk)
                         total += writen
-                    self._event_manager.set_percentage_step(
-                        perc_step, total)
+                    self._event_manager.set_percentage_step(perc_step, total)
 
     def _download_sparse_disk(self, disk, path, chunks):
-        self._event_manager.progress_update(
-            "Downloading %s as sparse file" % disk)
+        self._event_manager.progress_update("Downloading %s as sparse file" % disk)
         size = self._cli.get_disk_size(disk)
         size_from_chunks = self._get_size_from_chunks(chunks)
         total = 0
@@ -927,8 +991,9 @@ class Replicator(object):
             # create sparse file
             fp.truncate(size)
             perc_step = self._event_manager.add_percentage_step(
-                "Downloading spart disk /dev/%s (%s MB)" % (
-                    disk, size_from_chunks), len(chunks))
+                "Downloading spart disk /dev/%s (%s MB)" % (disk, size_from_chunks),
+                len(chunks),
+            )
             for chunk in chunks:
                 offset = int(chunk["offset"])
                 # seek to offset
@@ -938,8 +1003,7 @@ class Replicator(object):
                 fp.write(data)
 
                 total += 1
-                self._event_manager.set_percentage_step(
-                    perc_step, total)
+                self._event_manager.set_percentage_step(perc_step, total)
 
     def download_disk(self, disk, path):
         """
@@ -952,8 +1016,7 @@ class Replicator(object):
         if diskName.startswith("/dev"):
             # just get the name
             diskName = diskName[5:]
-        chunks = self._cli.get_chunks(
-            device=diskName, skip_zeros=True)
+        chunks = self._cli.get_chunks(device=diskName, skip_zeros=True)
         if len(chunks) == 0:
             self._download_full_disk(diskName, path)
         else:

@@ -3,11 +3,9 @@
 
 from oslo_log import log as logging
 
-from coriolis import exception
-from coriolis.osmorphing.osdetect import amazon as amazon_detect
+from coriolis import exception, utils
 from coriolis.osmorphing import redhat
-from coriolis import utils
-
+from coriolis.osmorphing.osdetect import amazon as amazon_detect
 
 AMAZON_DISTRO_NAME_IDENTIFIER = amazon_detect.AMAZON_DISTRO_NAME
 
@@ -15,16 +13,15 @@ LOG = logging.getLogger(__name__)
 
 
 class BaseAmazonLinuxOSMorphingTools(redhat.BaseRedHatMorphingTools):
-
     UEFI_GRUB_LOCATION = "/boot/efi/EFI/amzn"
 
     @classmethod
     def check_os_supported(cls, detected_os_info):
-        if detected_os_info['distribution_name'] != (
-                AMAZON_DISTRO_NAME_IDENTIFIER):
+        if detected_os_info['distribution_name'] != (AMAZON_DISTRO_NAME_IDENTIFIER):
             return False
         return cls._version_supported_util(
-            detected_os_info['release_version'], minimum=2)
+            detected_os_info['release_version'], minimum=2
+        )
 
     def enable_repos(self, repo_names):
         """Enable repositories for Amazon Linux.
@@ -56,8 +53,9 @@ class BaseAmazonLinuxOSMorphingTools(redhat.BaseRedHatMorphingTools):
             cmd = '%s %s' % (config_manager, enable_flag % repo)
             try:
                 self._exec_cmd_chroot(cmd)
-                LOG.info("Enabled repository '%s' using %s",
-                         repo, config_manager)
+                LOG.info("Enabled repository '%s' using %s", repo, config_manager)
             except exception.CoriolisException:
-                LOG.warning(f"Failed to enable repository {repo}. "
-                            f"Error was: {utils.get_exception_details()}")
+                LOG.warning(
+                    f"Failed to enable repository {repo}. "
+                    f"Error was: {utils.get_exception_details()}"
+                )

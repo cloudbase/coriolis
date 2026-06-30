@@ -1,15 +1,11 @@
-
-extensions = [
-    'openstackdocstheme',
-    'os_api_ref'
-]
+extensions = ['openstackdocstheme', 'os_api_ref']
 
 source_suffix = '.rst'
 
 master_doc = 'index'
 
-project = u'Coriolis API Reference'
-copyright = u'2018-present, Cloudbase Solutions S.R.L'
+project = 'Coriolis API Reference'
+copyright = '2018-present, Cloudbase Solutions S.R.L'
 
 repository_name = 'cloudbase/coriolis'
 bug_project = 'coriolis'

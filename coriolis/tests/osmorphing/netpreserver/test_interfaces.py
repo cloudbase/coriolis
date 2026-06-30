@@ -29,7 +29,7 @@ class InterfacesNetPreserverTestCase(test_base.CoriolisBaseTestCase):
                 self.event_manager,
                 self.detected_os_info,
                 mock.sentinel.osmorphing_parameters,
-                mock.sentinel.operation_timeout
+                mock.sentinel.operation_timeout,
             )
         )
 
@@ -47,8 +47,7 @@ class InterfacesNetPreserverTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(debian.BaseDebianMorphingTools, '_list_dir')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_test_path')
-    def test_check_net_preserver_false_no_file(self, mock_test_path,
-                                               mock_list_dir):
+    def test_check_net_preserver_false_no_file(self, mock_test_path, mock_list_dir):
         mock_test_path.return_value = False
         mock_list_dir.return_value = []
 
@@ -59,8 +58,9 @@ class InterfacesNetPreserverTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(debian.BaseDebianMorphingTools, '_read_file_sudo')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_exec_cmd_chroot')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_test_path')
-    def test_parse_network_basic(self, mock_test_path, mock_exec_cmd_chroot,
-                                 mock_read_file_sudo):
+    def test_parse_network_basic(
+        self, mock_test_path, mock_exec_cmd_chroot, mock_read_file_sudo
+    ):
         interfaces_content = (
             "iface eth0 inet static\n"
             "hwaddress ether 00:11:22:33:44:55\n"
@@ -79,21 +79,18 @@ class InterfacesNetPreserverTestCase(test_base.CoriolisBaseTestCase):
         expected_info = {
             "eth0": {
                 "mac_address": "00:11:22:33:44:55",
-                "ip_addresses": ["192.168.1.10"]
+                "ip_addresses": ["192.168.1.10"],
             },
-            "eth1": {
-                "mac_address": "",
-                "ip_addresses": ["192.168.1.20"]
-            }
+            "eth1": {"mac_address": "", "ip_addresses": ["192.168.1.20"]},
         }
         self.assertEqual(self.netpreserver.interface_info, expected_info)
 
     @mock.patch.object(debian.BaseDebianMorphingTools, '_read_file_sudo')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_exec_cmd_chroot')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_test_path')
-    def test_parse_network_with_source(self, mock_test_path,
-                                       mock_exec_cmd_chroot,
-                                       mock_read_file_sudo):
+    def test_parse_network_with_source(
+        self, mock_test_path, mock_exec_cmd_chroot, mock_read_file_sudo
+    ):
         main_content = (
             "iface eth0 inet static\n"
             "hwaddress ether 00:11:22:33:44:55\n"
@@ -101,15 +98,13 @@ class InterfacesNetPreserverTestCase(test_base.CoriolisBaseTestCase):
             "source /etc/network/interfaces.d/\n"
         )
         extra_file = "extra_iface"
-        extra_content = (
-            "iface eth1 inet dhcp\n"
-            "address 192.168.1.20/24\n"
-        )
+        extra_content = "iface eth1 inet dhcp\naddress 192.168.1.20/24\n"
 
         mock_test_path.return_value = True
         mock_exec_cmd_chroot.return_value = extra_file
         mock_read_file_sudo.side_effect = (
-            main_content.encode(), extra_content.encode()
+            main_content.encode(),
+            extra_content.encode(),
         )
 
         self.netpreserver.parse_network()
@@ -117,25 +112,20 @@ class InterfacesNetPreserverTestCase(test_base.CoriolisBaseTestCase):
         expected_info = {
             "eth0": {
                 "mac_address": "00:11:22:33:44:55",
-                "ip_addresses": ["192.168.1.10"]
+                "ip_addresses": ["192.168.1.10"],
             },
-            "eth1": {
-                "mac_address": "",
-                "ip_addresses": ["192.168.1.20"]
-            }
+            "eth1": {"mac_address": "", "ip_addresses": ["192.168.1.20"]},
         }
         self.assertEqual(self.netpreserver.interface_info, expected_info)
 
     @mock.patch.object(debian.BaseDebianMorphingTools, '_read_file_sudo')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_exec_cmd_chroot')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_test_path')
-    def test_parse_network_with_trailing_hwaddress(self, mock_test_path,
-                                                   mock_exec_cmd_chroot,
-                                                   mock_read_file_sudo):
+    def test_parse_network_with_trailing_hwaddress(
+        self, mock_test_path, mock_exec_cmd_chroot, mock_read_file_sudo
+    ):
 
-        interfaces_content = (
-            "hwaddress ether 00:11:22:33:44:55\n"
-        )
+        interfaces_content = "hwaddress ether 00:11:22:33:44:55\n"
         mock_read_file_sudo.return_value = interfaces_content.encode()
         mock_test_path.return_value = True
         mock_exec_cmd_chroot.return_value = ""

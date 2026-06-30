@@ -12,9 +12,9 @@ def get_paging_params(req):
     return marker, limit
 
 
-def get_sort_params(req,
-                    default_keys=('created_at', 'id'),
-                    default_dirs=('desc', 'desc')):
+def get_sort_params(
+    req, default_keys=('created_at', 'id'), default_dirs=('desc', 'desc')
+):
     """Retrieves sort keys/directions parameters.
 
     Processes the parameters to create a list of sort keys and sort directions

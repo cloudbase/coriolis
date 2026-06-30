@@ -5,9 +5,9 @@ from unittest import mock
 
 from webob import exc
 
+from coriolis import exception
 from coriolis.api.v1 import transfer_tasks_executions as transfer_api
 from coriolis.api.v1.views import transfer_tasks_execution_view
-from coriolis import exception
 from coriolis.tests import test_base
 from coriolis.transfer_tasks_executions import api
 
@@ -21,11 +21,7 @@ class TransferTasksExecutionControllerTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(transfer_tasks_execution_view, 'single')
     @mock.patch.object(api.API, 'get_execution')
-    def test_show(
-        self,
-        mock_get_execution,
-        mock_single
-    ):
+    def test_show(self, mock_get_execution, mock_single):
         mock_req = mock.Mock()
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
@@ -34,24 +30,15 @@ class TransferTasksExecutionControllerTestCase(test_base.CoriolisBaseTestCase):
 
         result = self.transfer_api.show(mock_req, transfer_id, id)
 
-        self.assertEqual(
-            mock_single.return_value,
-            result
-        )
+        self.assertEqual(mock_single.return_value, result)
 
-        mock_context.can.assert_called_once_with(
-            "migration:transfer_executions:show")
-        mock_get_execution.assert_called_once_with(
-            mock_context, transfer_id, id)
+        mock_context.can.assert_called_once_with("migration:transfer_executions:show")
+        mock_get_execution.assert_called_once_with(mock_context, transfer_id, id)
         mock_single.assert_called_once_with(mock_get_execution.return_value)
 
     @mock.patch.object(transfer_tasks_execution_view, 'single')
     @mock.patch.object(api.API, 'get_execution')
-    def test_show_not_found(
-        self,
-        mock_get_execution,
-        mock_single
-    ):
+    def test_show_not_found(self, mock_get_execution, mock_single):
         mock_req = mock.Mock()
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
@@ -60,17 +47,11 @@ class TransferTasksExecutionControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_get_execution.return_value = None
 
         self.assertRaises(
-            exc.HTTPNotFound,
-            self.transfer_api.show,
-            mock_req,
-            transfer_id,
-            id
+            exc.HTTPNotFound, self.transfer_api.show, mock_req, transfer_id, id
         )
 
-        mock_context.can.assert_called_once_with(
-            "migration:transfer_executions:show")
-        mock_get_execution.assert_called_once_with(
-            mock_context, transfer_id, id)
+        mock_context.can.assert_called_once_with("migration:transfer_executions:show")
+        mock_get_execution.assert_called_once_with(mock_context, transfer_id, id)
         mock_single.assert_not_called()
 
     @mock.patch("coriolis.api.common.get_paging_params")
@@ -90,7 +71,8 @@ class TransferTasksExecutionControllerTestCase(test_base.CoriolisBaseTestCase):
         transfer_id = mock.sentinel.transfer_id
         mock_get_sort_params.return_value = (
             mock.sentinel.sort_keys,
-            mock.sentinel.sort_dirs)
+            mock.sentinel.sort_dirs,
+        )
         mock_get_paging_params.return_value = (
             mock.sentinel.marker,
             mock.sentinel.limit,
@@ -101,31 +83,24 @@ class TransferTasksExecutionControllerTestCase(test_base.CoriolisBaseTestCase):
 
         result = self.transfer_api.index(mock_req, transfer_id)
 
-        self.assertEqual(
-            mock_collection.return_value,
-            result
-        )
+        self.assertEqual(mock_collection.return_value, result)
 
-        mock_context.can.assert_called_once_with(
-            "migration:transfer_executions:list")
+        mock_context.can.assert_called_once_with("migration:transfer_executions:list")
         mock_get_executions.assert_called_once_with(
-            mock_context, transfer_id, include_tasks=False,
+            mock_context,
+            transfer_id,
+            include_tasks=False,
             marker=mock.sentinel.marker,
             limit=mock.sentinel.limit,
             sort_keys=mock.sentinel.sort_keys,
             sort_dirs=mock.sentinel.sort_dirs,
             filters={"status": "RUNNING"},
         )
-        mock_collection.assert_called_once_with(
-            mock_get_executions.return_value)
+        mock_collection.assert_called_once_with(mock_get_executions.return_value)
 
     @mock.patch.object(transfer_tasks_execution_view, 'collection')
     @mock.patch.object(api.API, 'get_executions')
-    def test_detail(
-        self,
-        mock_get_executions,
-        mock_collection
-    ):
+    def test_detail(self, mock_get_executions, mock_collection):
         mock_req = mock.Mock()
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
@@ -133,25 +108,17 @@ class TransferTasksExecutionControllerTestCase(test_base.CoriolisBaseTestCase):
 
         result = self.transfer_api.detail(mock_req, transfer_id)
 
-        self.assertEqual(
-            mock_collection.return_value,
-            result
-        )
+        self.assertEqual(mock_collection.return_value, result)
 
-        mock_context.can.assert_called_once_with(
-            "migration:transfer_executions:show")
+        mock_context.can.assert_called_once_with("migration:transfer_executions:show")
         mock_get_executions.assert_called_once_with(
-            mock_context, transfer_id, include_tasks=True)
-        mock_collection.assert_called_once_with(
-            mock_get_executions.return_value)
+            mock_context, transfer_id, include_tasks=True
+        )
+        mock_collection.assert_called_once_with(mock_get_executions.return_value)
 
     @mock.patch.object(transfer_tasks_execution_view, 'single')
     @mock.patch.object(api.API, 'create')
-    def test_create(
-        self,
-        mock_create,
-        mock_single
-    ):
+    def test_create(self, mock_create, mock_single):
         mock_req = mock.Mock()
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
@@ -161,24 +128,15 @@ class TransferTasksExecutionControllerTestCase(test_base.CoriolisBaseTestCase):
 
         result = self.transfer_api.create(mock_req, transfer_id, mock_body)
 
-        self.assertEqual(
-            mock_single.return_value,
-            result
-        )
+        self.assertEqual(mock_single.return_value, result)
 
-        mock_context.can.assert_called_once_with(
-            "migration:transfer_executions:create")
-        mock_create.assert_called_once_with(
-            mock_context, transfer_id, True, True)
+        mock_context.can.assert_called_once_with("migration:transfer_executions:create")
+        mock_create.assert_called_once_with(mock_context, transfer_id, True, True)
         mock_single.assert_called_once_with(mock_create.return_value)
 
     @mock.patch.object(transfer_tasks_execution_view, 'single')
     @mock.patch.object(api.API, 'create')
-    def test_create_no_executions(
-        self,
-        mock_create,
-        mock_single
-    ):
+    def test_create_no_executions(self, mock_create, mock_single):
         mock_req = mock.Mock()
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
@@ -187,22 +145,14 @@ class TransferTasksExecutionControllerTestCase(test_base.CoriolisBaseTestCase):
 
         result = self.transfer_api.create(mock_req, transfer_id, mock_body)
 
-        self.assertEqual(
-            mock_single.return_value,
-            result
-        )
+        self.assertEqual(mock_single.return_value, result)
 
-        mock_context.can.assert_called_once_with(
-            "migration:transfer_executions:create")
-        mock_create.assert_called_once_with(
-            mock_context, transfer_id, False, False)
+        mock_context.can.assert_called_once_with("migration:transfer_executions:create")
+        mock_create.assert_called_once_with(mock_context, transfer_id, False, False)
         mock_single.assert_called_once_with(mock_create.return_value)
 
     @mock.patch.object(api.API, 'delete')
-    def test_delete(
-        self,
-        mock_delete
-    ):
+    def test_delete(self, mock_delete):
         mock_req = mock.Mock()
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
@@ -210,22 +160,14 @@ class TransferTasksExecutionControllerTestCase(test_base.CoriolisBaseTestCase):
         id = mock.sentinel.id
 
         self.assertRaises(
-            exc.HTTPNoContent,
-            self.transfer_api.delete,
-            mock_req,
-            transfer_id,
-            id
+            exc.HTTPNoContent, self.transfer_api.delete, mock_req, transfer_id, id
         )
 
-        mock_context.can.assert_called_once_with(
-            "migration:transfer_executions:delete")
+        mock_context.can.assert_called_once_with("migration:transfer_executions:delete")
         mock_delete.assert_called_once_with(mock_context, transfer_id, id)
 
     @mock.patch.object(api.API, 'delete')
-    def test_delete_not_found(
-        self,
-        mock_delete
-    ):
+    def test_delete_not_found(self, mock_delete):
         mock_req = mock.Mock()
         mock_context = mock.Mock()
         mock_req.environ = {'coriolis.context': mock_context}
@@ -234,13 +176,8 @@ class TransferTasksExecutionControllerTestCase(test_base.CoriolisBaseTestCase):
         mock_delete.side_effect = exception.NotFound()
 
         self.assertRaises(
-            exc.HTTPNotFound,
-            self.transfer_api.delete,
-            mock_req,
-            transfer_id,
-            id
+            exc.HTTPNotFound, self.transfer_api.delete, mock_req, transfer_id, id
         )
 
-        mock_context.can.assert_called_once_with(
-            "migration:transfer_executions:delete")
+        mock_context.can.assert_called_once_with("migration:transfer_executions:delete")
         mock_delete.assert_called_once_with(mock_context, transfer_id, id)

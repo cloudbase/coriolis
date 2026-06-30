@@ -17,75 +17,60 @@ class RegionViewTestCase(test_base.CoriolisApiViewsTestCase):
 
     @mock.patch.object(view_utils, 'format_opt')
     def test_format_region(self, mock_format_opt):
-            mock_format_opt.return_value = {
-                "mapped_endpoints": [{'id': 'endpoint_1'},
-                                     {'id': 'endpoint_2'}],
-                "mapped_services": [{'id': 'service_1'},
-                                    {'id': 'service_2'}],
-                "mock_key": "mock_value"
-            }
+        mock_format_opt.return_value = {
+            "mapped_endpoints": [{'id': 'endpoint_1'}, {'id': 'endpoint_2'}],
+            "mapped_services": [{'id': 'service_1'}, {'id': 'service_2'}],
+            "mock_key": "mock_value",
+        }
 
-            expected_result = {
-                'mapped_endpoints': ['endpoint_1', 'endpoint_2'],
-                "mapped_services": ['service_1', 'service_2'],
-                'mock_key': 'mock_value'
-            }
+        expected_result = {
+            'mapped_endpoints': ['endpoint_1', 'endpoint_2'],
+            "mapped_services": ['service_1', 'service_2'],
+            'mock_key': 'mock_value',
+        }
 
-            region = mock.sentinel.region
-            keys = mock.sentinel.keys
-            result = region_view._format_region(region, keys)
+        region = mock.sentinel.region
+        keys = mock.sentinel.keys
+        result = region_view._format_region(region, keys)
 
-            mock_format_opt.assert_called_once_with(region, keys)
-            self.assertEqual(
-                expected_result,
-                result
-            )
+        mock_format_opt.assert_called_once_with(region, keys)
+        self.assertEqual(expected_result, result)
 
     @mock.patch.object(view_utils, 'format_opt')
     def test_format_region_no_keys(self, mock_format_opt):
-            mock_format_opt.return_value = {
-                'mapped_endpoints': [{'id': 'endpoint_1'},
-                                     {'id': 'endpoint_2'}],
-                'mapped_services': [{'id': 'service_1'},
-                                    {'id': 'service_2'}],
-            }
+        mock_format_opt.return_value = {
+            'mapped_endpoints': [{'id': 'endpoint_1'}, {'id': 'endpoint_2'}],
+            'mapped_services': [{'id': 'service_1'}, {'id': 'service_2'}],
+        }
 
-            expected_result = {
-                'mapped_endpoints': ['endpoint_1', 'endpoint_2'],
-                'mapped_services': ['service_1', 'service_2'],
-            }
+        expected_result = {
+            'mapped_endpoints': ['endpoint_1', 'endpoint_2'],
+            'mapped_services': ['service_1', 'service_2'],
+        }
 
-            region = mock.sentinel.region
-            keys = mock.sentinel.keys
-            result = region_view._format_region(region, keys)
+        region = mock.sentinel.region
+        keys = mock.sentinel.keys
+        result = region_view._format_region(region, keys)
 
-            mock_format_opt.assert_called_once_with(region, keys)
-            self.assertEqual(
-                expected_result,
-                result
-            )
+        mock_format_opt.assert_called_once_with(region, keys)
+        self.assertEqual(expected_result, result)
 
     @mock.patch.object(view_utils, 'format_opt')
     def test_format_region_no_mapped_regions(self, mock_format_opt):
-            mock_format_opt.return_value = {
-                "mock_key": "mock_value"
-            }
+        mock_format_opt.return_value = {"mock_key": "mock_value"}
 
-            expected_result = {
-                'mapped_endpoints': [],
-                'mapped_services': [],
-                'mock_key': 'mock_value'
-            }
+        expected_result = {
+            'mapped_endpoints': [],
+            'mapped_services': [],
+            'mock_key': 'mock_value',
+        }
 
-            region = mock.sentinel.region
-            keys = mock.sentinel.keys
-            result = region_view._format_region(region, keys)
+        region = mock.sentinel.region
+        keys = mock.sentinel.keys
+        result = region_view._format_region(region, keys)
 
-            mock_format_opt.assert_called_once_with(region, keys)
-            self.assertEqual(
-                expected_result,
-                result
-            )
+        mock_format_opt.assert_called_once_with(region, keys)
+        self.assertEqual(expected_result, result)
 
     def test_single(self):
         fun = getattr(region_view, 'single')

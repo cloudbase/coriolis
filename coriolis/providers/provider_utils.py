@@ -1,24 +1,25 @@
 # Copyright 2018 Cloudbase Solutions Srl
 # All Rights Reserved.
-import requests
 import time
 
-from oslo_log import log as logging
 import paramiko
+import requests
+from oslo_log import log as logging
 
-from coriolis import constants
-from coriolis import exception
-from coriolis import utils
-from coriolis import wsman
+from coriolis import constants, exception, utils, wsman
 
 LOG = logging.getLogger(__name__)
 
 
 def get_storage_mapping_for_disk(
-        storage_mappings, disk_info, storage_backends,
-        config_default=None, error_on_missing_mapping=True,
-        error_on_backend_not_found=True):
-    """ Returns the storage backend identifier from the given list of
+    storage_mappings,
+    disk_info,
+    storage_backends,
+    config_default=None,
+    error_on_missing_mapping=True,
+    error_on_backend_not_found=True,
+):
+    """Returns the storage backend identifier from the given list of
     `storage_backends` to map for the disk given by its `disk_info`.
 
     Order of mapping resolution is:
@@ -45,16 +46,24 @@ def get_storage_mapping_for_disk(
     """
     disk_mappings = {
         mapping['disk_id']: mapping['destination']
-        for mapping in storage_mappings.get("disk_mappings", [])}
+        for mapping in storage_mappings.get("disk_mappings", [])
+    }
     backend_mappings = {
         mapping['source']: mapping['destination']
-        for mapping in storage_mappings.get('backend_mappings', [])}
+        for mapping in storage_mappings.get('backend_mappings', [])
+    }
 
     LOG.debug(
         "Resolving disk storage backend mapping for disk '%s' from available "
         "backends: %s (disk_mappings=%s, backend_mappings=%s, default=%s, "
-        "config_default=%s)", disk_info, storage_backends, disk_mappings,
-        backend_mappings, storage_mappings.get('default'), config_default)
+        "config_default=%s)",
+        disk_info,
+        storage_backends,
+        disk_mappings,
+        backend_mappings,
+        storage_mappings.get('default'),
+        config_default,
+    )
 
     mapped_backend = None
 
@@ -67,56 +76,58 @@ def get_storage_mapping_for_disk(
         mapped_backend = disk_mappings[disk_id]
         LOG.debug(
             "Found mapping for disk ID '%s' in the 'disk_mappings': %s",
-            disk_id, mapped_backend)
+            disk_id,
+            mapped_backend,
+        )
 
     # 2) check for backend mapping if available:
     if not mapped_backend:
         if 'storage_backend_identifier' in disk_info:
             if disk_info['storage_backend_identifier'] in backend_mappings:
                 mapped_backend = backend_mappings[
-                    disk_info['storage_backend_identifier']]
+                    disk_info['storage_backend_identifier']
+                ]
                 LOG.debug(
-                    "Found mapping for disk ID '%s' in the "
-                    "'backend_mappings': %s", disk_id, mapped_backend)
+                    "Found mapping for disk ID '%s' in the 'backend_mappings': %s",
+                    disk_id,
+                    mapped_backend,
+                )
             else:
                 LOG.debug(
                     "'storage_backend_identifier' for disk '%s' is not mapped "
                     "in the 'backend_mappings' from the 'storage_mappings'.",
-                    disk_info)
+                    disk_info,
+                )
         else:
-            LOG.debug(
-                "No 'storage_backend_identifier' set for disk '%s'",
-                disk_info)
+            LOG.debug("No 'storage_backend_identifier' set for disk '%s'", disk_info)
 
     # 3) use provided default:
     if not mapped_backend:
         mapped_backend = storage_mappings.get('default', config_default)
 
     if mapped_backend is None:
-        LOG.warn(
-            "Could not find mapped storage backend for disk '%s'", disk_info)
+        LOG.warn("Could not find mapped storage backend for disk '%s'", disk_info)
         if error_on_missing_mapping:
             raise exception.DiskStorageMappingNotFound(id=disk_id)
 
     if mapped_backend:
-        if mapped_backend not in [
-                backend['name'] for backend in storage_backends]:
+        if mapped_backend not in [backend['name'] for backend in storage_backends]:
             LOG.warn(
                 "Mapped storage backend for disk '%s' ('%s') does not exist!",
-                disk_info, mapped_backend)
+                disk_info,
+                mapped_backend,
+            )
             if error_on_backend_not_found:
-                raise exception.StorageBackendNotFound(
-                    storage_name=mapped_backend)
+                raise exception.StorageBackendNotFound(storage_name=mapped_backend)
 
-    LOG.info(
-        "Mapped storage backend for disk '%s' is: %s",
-        disk_info, mapped_backend)
+    LOG.info("Mapped storage backend for disk '%s' is: %s", disk_info, mapped_backend)
 
     return mapped_backend
 
 
-def check_changed_storage_mappings(volumes_info, old_storage_mappings,
-                                   new_storage_mappings):
+def check_changed_storage_mappings(
+    volumes_info, old_storage_mappings, new_storage_mappings
+):
     if not volumes_info:
         return
 
@@ -125,27 +136,33 @@ def check_changed_storage_mappings(volumes_info, old_storage_mappings,
     new_backend_mappings = new_storage_mappings.get('backend_mappings', [])
     new_disk_mappings = new_storage_mappings.get('disk_mappings', [])
 
-    old_backend_mappings_set = set([
-        tuple(mapping.values()) for mapping in old_backend_mappings])
-    old_disk_mappings_set = set([
-        tuple(mapping.values()) for mapping in old_disk_mappings])
-    new_backend_mappings_set = set([
-        tuple(mapping.values()) for mapping in new_backend_mappings])
-    new_disk_mappings_set = set([
-        tuple(mapping.values()) for mapping in new_disk_mappings])
+    old_backend_mappings_set = set(
+        [tuple(mapping.values()) for mapping in old_backend_mappings]
+    )
+    old_disk_mappings_set = set(
+        [tuple(mapping.values()) for mapping in old_disk_mappings]
+    )
+    new_backend_mappings_set = set(
+        [tuple(mapping.values()) for mapping in new_backend_mappings]
+    )
+    new_disk_mappings_set = set(
+        [tuple(mapping.values()) for mapping in new_disk_mappings]
+    )
 
-    if (not old_backend_mappings_set.issubset(new_backend_mappings_set) or
-            not old_disk_mappings_set.issubset(new_disk_mappings_set)):
-        raise exception.CoriolisException("Modifying storage mappings is "
-                                          "not supported.")
+    if not old_backend_mappings_set.issubset(
+        new_backend_mappings_set
+    ) or not old_disk_mappings_set.issubset(new_disk_mappings_set):
+        raise exception.CoriolisException(
+            "Modifying storage mappings is not supported."
+        )
 
 
 class ProviderSession(requests.Session):
-    def merge_environment_settings(
-            self, url, proxies, stream, verify, *args, **kwargs):
+    def merge_environment_settings(self, url, proxies, stream, verify, *args, **kwargs):
         verify = self.verify
         return super(ProviderSession, self).merge_environment_settings(
-            url, proxies, stream, verify, *args, **kwargs)
+            url, proxies, stream, verify, *args, **kwargs
+        )
 
 
 def _poll_instance_until_reachable_ssh(
@@ -236,8 +253,8 @@ def poll_instance_until_reachable(
         helper = _poll_instance_until_reachable_winrm
     else:
         raise exception.InvalidInput(
-            f"Unsupported instance connection protocol: {protocol}")
+            f"Unsupported instance connection protocol: {protocol}"
+        )
     return helper(
-        connection_info=connection_info,
-        timeout=timeout,
-        poll_interval=poll_interval)
+        connection_info=connection_info, timeout=timeout, poll_interval=poll_interval
+    )

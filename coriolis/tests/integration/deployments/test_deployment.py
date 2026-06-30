@@ -19,13 +19,13 @@ from coriolis.tests.integration.test_provider import imp
 
 
 class ReplicaDeploymentIntegrationTest(base.ReplicaIntegrationTestBase):
-
     def _make_deployment(self, **kwargs):
         # replica execution
         self._execute_and_wait(self._transfer.id)
 
         deployment = self._client.deployments.create_from_transfer(
-            self._transfer.id, **kwargs)
+            self._transfer.id, **kwargs
+        )
         self.addCleanup(self._cleanup_deployment, deployment.id)
 
         return deployment
@@ -54,25 +54,25 @@ class ReplicaDeploymentIntegrationTest(base.ReplicaIntegrationTestBase):
     def test_replica_deployment_without_disk_cloning(self):
         # clone_disks=False reuses the already-transferred replica disks
         # directly instead of cloning them first.
-        deployment = self._make_deployment(
-            clone_disks=False, skip_os_morphing=True)
+        deployment = self._make_deployment(clone_disks=False, skip_os_morphing=True)
 
         self.assertDeploymentCompleted(deployment.id)
 
     def test_cancel_deployment(self):
         # Artificially bump the execution time of a deployment.
         self._patch_add_delay(
-            imp.TestImportProvider,
-            "finalize_replica_instance_deployment"
+            imp.TestImportProvider, "finalize_replica_instance_deployment"
         )
 
         deployment = self._client.deployments.create_from_transfer(
-            self._transfer.id, skip_os_morphing=True)
+            self._transfer.id, skip_os_morphing=True
+        )
         self.addCleanup(self._client.deployments.delete, deployment.id)
 
         # Wait until the deployment is RUNNING before issuing the cancel.
         self.wait_for_deployment(
-            deployment.id, 30, [constants.EXECUTION_STATUS_RUNNING])
+            deployment.id, 30, [constants.EXECUTION_STATUS_RUNNING]
+        )
 
         # Cancel the deployment.
         self._client.deployments.cancel(deployment.id)
@@ -88,5 +88,6 @@ class ReplicaDeploymentIntegrationTest(base.ReplicaIntegrationTestBase):
 
 
 class MinionPoolReplicaDeploymentTests(
-        base.MinionPoolReplicaTestBase, ReplicaDeploymentIntegrationTest):
+    base.MinionPoolReplicaTestBase, ReplicaDeploymentIntegrationTest
+):
     """Replica deployment that uses a pre-allocated destination minion pool."""

@@ -9,9 +9,7 @@ def upgrade(migrate_engine):
     meta.bind = migrate_engine
 
     # add 'type' column to 'tasks_execution':
-    tasks_execution = sqlalchemy.Table(
-        'tasks_execution', meta, autoload=True)
+    tasks_execution = sqlalchemy.Table('tasks_execution', meta, autoload=True)
 
-    execution_type = sqlalchemy.Column(
-        "type", sqlalchemy.String(20))
+    execution_type = sqlalchemy.Column("type", sqlalchemy.String(20))
     tasks_execution.create_column(execution_type)

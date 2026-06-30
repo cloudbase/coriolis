@@ -8,15 +8,13 @@ class API(object):
     def __init__(self):
         self._rpc_client = rpc_client.ConductorClient()
 
-    def create(
-            self, ctxt, host, binary, topic, mapped_regions,
-            enabled):
+    def create(self, ctxt, host, binary, topic, mapped_regions, enabled):
         return self._rpc_client.register_service(
-            ctxt, host, binary, topic, enabled, mapped_regions)
+            ctxt, host, binary, topic, enabled, mapped_regions
+        )
 
     def update(self, ctxt, service_id, updated_values):
-        return self._rpc_client.update_service(
-            ctxt, service_id, updated_values)
+        return self._rpc_client.update_service(ctxt, service_id, updated_values)
 
     def delete(self, ctxt, region_id):
         self._rpc_client.delete_service(ctxt, region_id)

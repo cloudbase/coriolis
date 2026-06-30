@@ -15,28 +15,28 @@ import threading
 import time
 import uuid
 
+import paramiko
 from oslo_config import cfg
 from oslo_log import log as logging
-import paramiko
 from six import with_metaclass
 
-from coriolis import constants
-from coriolis import data_transfer
-from coriolis import events
-from coriolis import exception
+from coriolis import constants, data_transfer, events, exception, utils
 from coriolis.providers import provider_utils
-from coriolis import utils
 
 CONF = cfg.CONF
 opts = [
-    cfg.BoolOpt('compress_transfers',
-                default=True,
-                help='Use compression if possible during disk transfers'),
-    cfg.IntOpt('disk_checksum_timeout',
-               default=3600,
-               help='Maximum number of seconds to wait for a disk checksum '
-                    'job to complete on the backup writer. Larger disks may '
-                    'require a higher value.'),
+    cfg.BoolOpt(
+        'compress_transfers',
+        default=True,
+        help='Use compression if possible during disk transfers',
+    ),
+    cfg.IntOpt(
+        'disk_checksum_timeout',
+        default=3600,
+        help='Maximum number of seconds to wait for a disk checksum '
+        'job to complete on the backup writer. Larger disks may '
+        'require a higher value.',
+    ),
 ]
 CONF.register_opts(opts)
 _CORIOLIS_HTTP_WRITER_CMD = "coriolis-writer"
@@ -46,11 +46,7 @@ BACKUP_WRITER_SSH = "ssh_backup_writer"
 BACKUP_WRITER_HTTP = "http_backup_writer"
 BACKUP_WRITER_FILE = "file_backup_writer"
 
-BACKUP_WRITERS = [
-    BACKUP_WRITER_SSH,
-    BACKUP_WRITER_HTTP,
-    BACKUP_WRITER_FILE
-]
+BACKUP_WRITERS = [BACKUP_WRITER_SSH, BACKUP_WRITER_HTTP, BACKUP_WRITER_FILE]
 
 # Common data transfer mechanisms exposed to Coriolis users.
 DATA_TRANSFER_MECHANISM_SSH = "SSH"
@@ -99,8 +95,9 @@ def _disable_lvm2_lvmetad(ssh):
     if utils.test_ssh_path(ssh, cfg):
         utils.exec_ssh_cmd(
             ssh,
-            'sudo sed -i "s/use_lvmetad.*=.*1/use_lvmetad = 0/g" '
-            '%s' % cfg, get_pty=True)
+            'sudo sed -i "s/use_lvmetad.*=.*1/use_lvmetad = 0/g" %s' % cfg,
+            get_pty=True,
+        )
         # NOTE: lvm2-lvmetad is the name of the lvmetad service
         # on both debian and RHEL based systems. It needs to be stopped
         # before we begin disk replication. We disable it in the config
@@ -108,12 +105,14 @@ def _disable_lvm2_lvmetad(ssh):
         # a dependency. As the service may not actually exist, even though
         # the config is present, we ignore errors when stopping it.
         utils.ignore_exceptions(utils.exec_ssh_cmd)(
-            ssh, "sudo service lvm2-lvmetad stop", get_pty=True)
+            ssh, "sudo service lvm2-lvmetad stop", get_pty=True
+        )
         # disable volume groups. Any volume groups that have volumes in use
         # will remain online. However, volume groups belonging to disks
         # that have been synced at least once, will be deactivated.
         utils.ignore_exceptions(utils.exec_ssh_cmd)(
-            ssh, "sudo vgchange -an", get_pty=True)
+            ssh, "sudo vgchange -an", get_pty=True
+        )
 
 
 def _disable_lvm_metad_udev_rule(ssh):
@@ -141,19 +140,17 @@ def _check_deserialize_key(key):
         res = key
     elif type(key) is str:
         LOG.trace("Deserializing PEM-encoded private key.")
-        res = utils.deserialize_key(
-            key, CONF.serialization.temp_keypair_password)
+        res = utils.deserialize_key(key, CONF.serialization.temp_keypair_password)
     else:
         raise exception.CoriolisException(
             "Private key must be either a PEM-encoded string or "
-            "a paramiko.RSAKey instance. Got type '%s'." % (
-                type(key)))
+            "a paramiko.RSAKey instance. Got type '%s'." % (type(key))
+        )
 
     return res
 
 
 class BackupWritersFactory(object):
-
     def __init__(self, writer_connection_info, volumes_info):
         self._validate_info(writer_connection_info)
         self._type = writer_connection_info["backend"]
@@ -163,31 +160,31 @@ class BackupWritersFactory(object):
     def get_writer(self):
         if self._type == BACKUP_WRITER_SSH:
             return SSHBackupWriter.from_connection_info(
-                self._conn_info, self._volumes_info)
+                self._conn_info, self._volumes_info
+            )
         elif self._type == BACKUP_WRITER_HTTP:
             return HTTPBackupWriter.from_connection_info(
-                self._conn_info, self._volumes_info)
+                self._conn_info, self._volumes_info
+            )
         elif self._type == BACKUP_WRITER_FILE:
             return FileBackupWriter.from_connection_info(
-                self._conn_info, self._volumes_info)
-        raise exception.CoriolisException(
-            "Invalid backup writer type: %s" % self._type)
+                self._conn_info, self._volumes_info
+            )
+        raise exception.CoriolisException("Invalid backup writer type: %s" % self._type)
 
     def _validate_info(self, info):
         if type(info) is not dict:
-            raise exception.CoriolisException(
-                "Invalid backup writer connection info.")
+            raise exception.CoriolisException("Invalid backup writer connection info.")
         wrt_type = info.get("backend", None)
         if wrt_type is None:
-            raise exception.CoriolisException(
-                "Missing backend name in connection info")
+            raise exception.CoriolisException("Missing backend name in connection info")
         if wrt_type not in BACKUP_WRITERS:
             raise exception.CoriolisException(
-                "Invalid backup writer type: %s" % wrt_type)
+                "Invalid backup writer type: %s" % wrt_type
+            )
         wrt_conn_info = info.get("connection_details")
         if wrt_conn_info is None:
-            raise exception.CoriolisException(
-                "Missing credentials in connection info")
+            raise exception.CoriolisException("Missing credentials in connection info")
 
     @classmethod
     def get_backup_writer_connection_info(
@@ -219,20 +216,17 @@ class BackupWritersFactory(object):
             )
             https_conn_info = writer_bootstrapper.setup_writer()
             writer_conn_info = {
-                "backend": DATA_TRANSFER_MECHANISM_MAP[
-                    DATA_TRANSFER_MECHANISM_HTTPS],
+                "backend": DATA_TRANSFER_MECHANISM_MAP[DATA_TRANSFER_MECHANISM_HTTPS],
                 "connection_details": https_conn_info,
             }
         elif data_transfer_mechanism == DATA_TRANSFER_MECHANISM_SSH:
             writer_conn_info = {
-                "backend": DATA_TRANSFER_MECHANISM_MAP[
-                    DATA_TRANSFER_MECHANISM_SSH],
+                "backend": DATA_TRANSFER_MECHANISM_MAP[DATA_TRANSFER_MECHANISM_SSH],
                 "connection_details": ssh_connection_info,
             }
         else:
             raise ValueError(
-                "Unhandleable data transfer mechanism '%s'" % (
-                    data_transfer_mechanism)
+                "Unhandleable data transfer mechanism '%s'" % (data_transfer_mechanism)
             )
 
         return writer_conn_info
@@ -340,8 +334,7 @@ class FileBackupWriter(BaseBackupWriter):
 
 
 class SSHBackupWriterImpl(BaseBackupWriterImpl):
-    def __init__(self, path, disk_id, compress_transfer=False,
-                 encoder_count=3):
+    def __init__(self, path, disk_id, compress_transfer=False, encoder_count=3):
         self._msg_id = None
         self._stdin = None
         self._stdout = None
@@ -374,21 +367,24 @@ class SSHBackupWriterImpl(BaseBackupWriterImpl):
         self._msg_id = 0
         self._offset = 0
         self._stdin, self._stdout, self._stderr = self._ssh.exec_command(
-            "chmod +x write_data && sudo ./write_data")
+            "chmod +x write_data && sudo ./write_data"
+        )
 
     def _encode_data(self, content, offset, msg_id):
         msg = data_transfer.encode_data(
-            msg_id, self._path,
-            offset, content,
-            compress=self._compress_transfer)
+            msg_id, self._path, offset, content, compress=self._compress_transfer
+        )
 
         LOG.debug(
             "Guest path: %(path)s, offset: %(offset)d, content len: "
             "%(content_len)d, msg len: %(msg_len)d",
-            {"path": self._path,
-             "offset": offset,
-             "content_len": len(content),
-             "msg_len": len(msg)})
+            {
+                "path": self._path,
+                "offset": offset,
+                "content_len": len(content),
+                "msg_len": len(msg),
+            },
+        )
         return msg
 
     def _encode_eod(self):
@@ -403,8 +399,9 @@ class SSHBackupWriterImpl(BaseBackupWriterImpl):
             ret_val = self._stdout.channel.recv_exit_status()
             if int(ret_val) > 0:
                 raise exception.CoriolisException(
-                    "write_data exited with error code %r (%s)" % (
-                        ret_val, _WRITER_ERR_MAP.get(int(ret_val))))
+                    "write_data exited with error code %r (%s)"
+                    % (ret_val, _WRITER_ERR_MAP.get(int(ret_val)))
+                )
 
         self._stdin.write(data)
         self._stdin.flush()
@@ -414,8 +411,7 @@ class SSHBackupWriterImpl(BaseBackupWriterImpl):
         self._exec_helper_cmd()
         self._sender_thread = utils.start_thread(self._sender)
         for _ in range(self._encoder_cnt):
-            self._encoder_threads.append(
-                utils.start_thread(self._encoder))
+            self._encoder_threads.append(utils.start_thread(self._encoder))
 
     def seek(self, pos):
         self._offset = pos
@@ -452,9 +448,8 @@ class SSHBackupWriterImpl(BaseBackupWriterImpl):
                 continue
             try:
                 data = self._encode_data(
-                    payload["data"],
-                    payload["offset"],
-                    payload["msg_id"])
+                    payload["data"], payload["offset"], payload["msg_id"]
+                )
                 self._sender_q.put(data)
             except BaseException as err:
                 LOG.error("Backup encoder failed.")
@@ -466,13 +461,12 @@ class SSHBackupWriterImpl(BaseBackupWriterImpl):
 
     def write(self, data):
         if self._closing:
-            raise exception.CoriolisException(
-                "Attempted to write to a closed writer.")
+            raise exception.CoriolisException("Attempted to write to a closed writer.")
 
         if self._exception:
             raise exception.CoriolisException(
-                "Failed to write data. See log "
-                "for details.") from self._exception
+                "Failed to write data. See log for details."
+            ) from self._exception
 
         payload = {
             "offset": self._offset,
@@ -486,16 +480,20 @@ class SSHBackupWriterImpl(BaseBackupWriterImpl):
     def _wait_for_queues(self):
         LOG.info("Waiting for unfinished transfers to complete")
         timeout = datetime.datetime.now() + datetime.timedelta(seconds=600)
-        while (self._enc_q.unfinished_tasks or
-               self._sender_q.unfinished_tasks) and not self._exception:
-            LOG.info("Waiting for unfinished transfers to complete, "
-                     f"encoder tasks: {self._enc_q.unfinished_tasks}, "
-                     f"sender tasks: {self._sender_q.unfinished_tasks}.")
+        while (
+            self._enc_q.unfinished_tasks or self._sender_q.unfinished_tasks
+        ) and not self._exception:
+            LOG.info(
+                "Waiting for unfinished transfers to complete, "
+                f"encoder tasks: {self._enc_q.unfinished_tasks}, "
+                f"sender tasks: {self._sender_q.unfinished_tasks}."
+            )
             time.sleep(0.5)
             now = datetime.datetime.now()
             if now >= timeout:
                 raise exception.CoriolisException(
-                    "Timed out waiting for data transfer to finish")
+                    "Timed out waiting for data transfer to finish"
+                )
 
     def close(self):
         self._closing = True
@@ -505,8 +503,8 @@ class SSHBackupWriterImpl(BaseBackupWriterImpl):
             # We can raise here. Any SSH socket cleanup will happen
             # in _handle_exception()
             raise exception.CoriolisException(
-                "Exception occurred during data transfer. "
-                "Check logs for more details.") from self._exception
+                "Exception occurred during data transfer. Check logs for more details."
+            ) from self._exception
 
         if self._ssh:
             self._send_msg(self._encode_eod())
@@ -541,11 +539,12 @@ class SSHBackupWriterImpl(BaseBackupWriterImpl):
             # TODO(alexpilotti): map error codes to error messages
             raise exception.CoriolisException(
                 "An exception occurred while writing data on target. "
-                "Exit code: %s" % ret_val)
+                "Exit code: %s" % ret_val
+            )
         else:
             raise exception.CoriolisException(
-                "An exception occurred while writing data on target: %s" %
-                ex)
+                "An exception occurred while writing data on target: %s" % ex
+            )
 
 
 class SSHBackupWriter(BaseBackupWriter):
@@ -571,10 +570,10 @@ class SSHBackupWriter(BaseBackupWriter):
         if not all([ip, port, username]):
             raise exception.CoriolisException(
                 "Connection info is invalid for SSHBackupWriter. "
-                "The following fields are required: %s" % ", ".join(required))
+                "The following fields are required: %s" % ", ".join(required)
+            )
         if pkey is None and password is None:
-            raise exception.CoriolisException(
-                "Either pkey or password are required")
+            raise exception.CoriolisException("Either pkey or password are required")
 
         if pkey:
             pkey = _check_deserialize_key(pkey)
@@ -586,18 +585,14 @@ class SSHBackupWriter(BaseBackupWriter):
         _disable_lvm_metad_udev_rule(ssh)
         _disable_lvm2_lvmetad(ssh)
 
-        matching_devs = [
-            v for v in self._volumes_info if v["disk_id"] == disk_id]
+        matching_devs = [v for v in self._volumes_info if v["disk_id"] == disk_id]
 
         if not matching_devs:
-            base_msg = (
-                "Could not locate disk with ID '%s' in volumes_info" %
-                disk_id)
+            base_msg = "Could not locate disk with ID '%s' in volumes_info" % disk_id
             LOG.error("%s: %s", base_msg, self._volumes_info)
             raise exception.CoriolisException(base_msg)
         elif len(matching_devs) > 1:
-            base_msg = (
-                "Multiple disks with ID '%s' in volumes_info" % disk_id)
+            base_msg = "Multiple disks with ID '%s' in volumes_info" % disk_id
             LOG.error("%s: %s", base_msg, self._volumes_info)
             raise exception.CoriolisException(base_msg)
 
@@ -612,8 +607,7 @@ class SSHBackupWriter(BaseBackupWriter):
     def _copy_helper_cmd(self, ssh):
         with self._lock:
             sftp = ssh.open_sftp()
-            local_path = os.path.join(
-                utils.get_resources_bin_dir(), 'write_data')
+            local_path = os.path.join(utils.get_resources_bin_dir(), 'write_data')
             try:
                 # Check if the remote file already exists
                 sftp.stat('write_data')
@@ -626,16 +620,21 @@ class SSHBackupWriter(BaseBackupWriter):
 
     @utils.retry_on_error(sleep_seconds=30)
     def _connect_ssh(self):
-        LOG.info("Connecting to SSH host: %(ip)s:%(port)s" %
-                 {"ip": self._ip, "port": self._port})
+        LOG.info(
+            "Connecting to SSH host: %(ip)s:%(port)s"
+            % {"ip": self._ip, "port": self._port}
+        )
         return utils.connect_ssh(
-            self._ip, self._port, self._username,
-            pkey=self._pkey, password=self._password)
+            self._ip,
+            self._port,
+            self._username,
+            pkey=self._pkey,
+            password=self._password,
+        )
 
 
 class HTTPBackupWriterImpl(BaseBackupWriterImpl):
-    def __init__(self, path, disk_id,
-                 compress_transfer=None, compressor_count=3):
+    def __init__(self, path, disk_id, compress_transfer=None, compressor_count=3):
         self._offset = None
         self._session = None
         self._ip = None
@@ -671,17 +670,15 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
         self._key = info.get("client_key")
         self._ca = info.get("ca_crt")
         self._id = info.get("id")
-        if not all([self._ip, self._port, self._crt,
-                    self._key, self._ca, self._id]):
+        if not all([self._ip, self._port, self._crt, self._key, self._ca, self._id]):
             raise exception.CoriolisException(
-                "Missing required info when creating HTTPBackupWriter")
+                "Missing required info when creating HTTPBackupWriter"
+            )
 
     @property
     def _uri(self):
         b64_path = base64.b64encode(self._path.encode()).decode()
-        return "https://%s:%s/api/v2/device/%s" % (
-            self._ip, self._port, b64_path
-        )
+        return "https://%s:%s/api/v2/device/%s" % (self._ip, self._port, b64_path)
 
     @utils.retry_on_error()
     def _acquire(self):
@@ -689,9 +686,9 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
         uri = "%s/acquire" % self._uri
         headers = {"X-Client-Token": self._id}
         resp = self._session.post(
-            uri, headers=headers, timeout=CONF.default_requests_timeout)
-        LOG.debug("Returned code: %d. Msg: %s" % (
-            resp.status_code, resp.content))
+            uri, headers=headers, timeout=CONF.default_requests_timeout
+        )
+        LOG.debug("Returned code: %d. Msg: %s" % (resp.status_code, resp.content))
         resp.raise_for_status()
 
     @utils.retry_on_error()
@@ -700,18 +697,16 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
         uri = "%s/release" % self._uri
         headers = {"X-Client-Token": self._id}
         resp = self._session.post(
-            uri, headers=headers, timeout=CONF.default_requests_timeout)
-        LOG.debug("Returned code: %d. Msg: %s" %
-                  (resp.status_code, resp.content))
+            uri, headers=headers, timeout=CONF.default_requests_timeout
+        )
+        LOG.debug("Returned code: %d. Msg: %s" % (resp.status_code, resp.content))
         resp.raise_for_status()
 
     def _init_session(self):
         if self._session:
             self._session.close()
         sess = provider_utils.ProviderSession()
-        sess.cert = (
-            self._crt,
-            self._key)
+        sess.cert = (self._crt, self._key)
         sess.verify = self._ca
         self._session = sess
 
@@ -724,8 +719,7 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
             self._compressor_count = 1
         self._compressor_threads = []
         for _ in range(self._compressor_count):
-            self._compressor_threads.append(
-                utils.start_thread(self._compressor))
+            self._compressor_threads.append(utils.start_thread(self._compressor))
 
     def seek(self, pos):
         self._offset = pos
@@ -757,7 +751,8 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
             if self._compress_transfer:
                 try:
                     chunk, compressed = data_transfer.compression_proxy(
-                        chunk, constants.COMPRESSION_FORMAT_GZIP)
+                        chunk, constants.COMPRESSION_FORMAT_GZIP
+                    )
                     if compressed:
                         send_payload["encoding"] = 'gzip'
                 except BaseException as err:
@@ -794,24 +789,28 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
                 LOG.debug(
                     "Guest path: %(path)s, offset: %(offset)d, content len: "
                     "%(content_len)d",
-                    {"path": self._path,
-                     "offset": offset,
-                     "content_len": len(chunk)})
+                    {"path": self._path, "offset": offset, "content_len": len(chunk)},
+                )
                 resp = self._session.post(
-                    self._uri, headers=headers, data=chunk,
-                    timeout=CONF.default_requests_timeout)
+                    self._uri,
+                    headers=headers,
+                    data=chunk,
+                    timeout=CONF.default_requests_timeout,
+                )
                 LOG.debug(
-                    "Response code: %r, content: %r" %
-                    (resp.status_code, resp.content))
+                    "Response code: %r, content: %r" % (resp.status_code, resp.content)
+                )
                 try:
                     resp.raise_for_status()
                     self._write_error = False
                 except Exception as err:
                     LOG.warning(
                         "Error writing chunk to disk %s at offset"
-                        " %s: %s" % (self._path, payload["offset"], err))
+                        " %s: %s" % (self._path, payload["offset"], err)
+                    )
                     self._write_error = True
                     raise
+
             try:
                 send()
             except BaseException as err:
@@ -830,9 +829,7 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
     @utils.retry_on_error()
     def write(self, data):
         if self._closing:
-            raise exception.CoriolisException(
-                "Attempted to write to a closed writer."
-            )
+            raise exception.CoriolisException("Attempted to write to a closed writer.")
         if self._exception:
             raise exception.CoriolisException(self._exception)
 
@@ -845,17 +842,21 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
 
     def _wait_for_queues(self):
         timeout = datetime.datetime.now() + datetime.timedelta(seconds=600)
-        while (self._comp_q.unfinished_tasks or
-               self._sender_q.unfinished_tasks) and not self._exception:
+        while (
+            self._comp_q.unfinished_tasks or self._sender_q.unfinished_tasks
+        ) and not self._exception:
             # No error recorded, and we have tasks in the queue
-            LOG.info("Waiting for unfinished transfers to complete, "
-                     f"compressor tasks: {self._comp_q.unfinished_tasks}, "
-                     f"sender tasks: {self._sender_q.unfinished_tasks}.")
+            LOG.info(
+                "Waiting for unfinished transfers to complete, "
+                f"compressor tasks: {self._comp_q.unfinished_tasks}, "
+                f"sender tasks: {self._sender_q.unfinished_tasks}."
+            )
             time.sleep(0.5)
             now = datetime.datetime.now()
             if now >= timeout:
                 raise exception.CoriolisException(
-                    "Timed out waiting for data transfer to finish")
+                    "Timed out waiting for data transfer to finish"
+                )
 
     def _create_checksum_job(self, algorithm, start_offset=0, end_offset=0):
         """Creates a full-disk checksum job on the writer.
@@ -878,8 +879,8 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
         }
 
         resp = self._session.post(
-            uri, headers=headers, json=body,
-            timeout=CONF.default_requests_timeout)
+            uri, headers=headers, json=body, timeout=CONF.default_requests_timeout
+        )
         resp.raise_for_status()
 
         return resp.json()["job_id"]
@@ -889,8 +890,7 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
         self._ensure_session()
         uri = "%s/checksumJob/%s" % (self._uri, job_id)
 
-        resp = self._session.get(
-            uri, timeout=CONF.default_requests_timeout)
+        resp = self._session.get(uri, timeout=CONF.default_requests_timeout)
         resp.raise_for_status()
 
         return resp.json()
@@ -900,8 +900,7 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
         self._ensure_session()
         uri = "%s/checksumJob/%s" % (self._uri, job_id)
 
-        resp = self._session.delete(
-            uri, timeout=CONF.default_requests_timeout)
+        resp = self._session.delete(uri, timeout=CONF.default_requests_timeout)
         resp.raise_for_status()
 
     def get_disk_checksum(self, algorithm, start_offset=0, end_offset=0):
@@ -919,8 +918,9 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
         self._wait_for_queues()
         if self._exception:
             raise exception.CoriolisException(
-                "Cannot checksum disk '%s', pending write error: %s" % (
-                    self._path, self._exception))
+                "Cannot checksum disk '%s', pending write error: %s"
+                % (self._path, self._exception)
+            )
 
         timeout = CONF.disk_checksum_timeout
         deadline = time.monotonic() + timeout
@@ -937,13 +937,15 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
 
                 if execution_status == _CHECKSUM_JOB_FAILED:
                     raise exception.CoriolisException(
-                        "Checksum job failed for disk '%s': %s" % (
-                            self._path, status.get("error_message", "")))
+                        "Checksum job failed for disk '%s': %s"
+                        % (self._path, status.get("error_message", ""))
+                    )
 
                 if time.monotonic() >= deadline:
                     raise exception.CoriolisException(
                         "Timed out waiting for checksum job for disk '%s' "
-                        "after %d seconds." % (self._path, timeout))
+                        "after %d seconds." % (self._path, timeout)
+                    )
 
                 time.sleep(_CHECKSUM_JOB_POLL_INTERVAL)
         finally:
@@ -951,8 +953,8 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
                 self._delete_checksum_job(job_id)
             except Exception:
                 LOG.warning(
-                    "Failed to delete checksum job %s for disk %s",
-                    job_id, self._path)
+                    "Failed to delete checksum job %s for disk %s", job_id, self._path
+                )
 
     def close(self):
         self._closing = True
@@ -964,8 +966,9 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
             try:
                 self._release()
             except Exception as err:
-                LOG.error("Failed to release disk %s: %s. Ignoring." % (
-                    self._path, err))
+                LOG.error(
+                    "Failed to release disk %s: %s. Ignoring." % (self._path, err)
+                )
             raise exception.CoriolisException(self._exception)
 
         self._release()
@@ -984,11 +987,9 @@ class HTTPBackupWriterImpl(BaseBackupWriterImpl):
 
 
 class HTTPBackupWriterBootstrapper(object):
-
     def __init__(self, ssh_conn_info, writer_port):
         self._lock = threading.Lock()
-        self._writer_cmd = os.path.join(
-            "/usr/bin", _CORIOLIS_HTTP_WRITER_CMD)
+        self._writer_cmd = os.path.join("/usr/bin", _CORIOLIS_HTTP_WRITER_CMD)
         self._writer_port = writer_port
         self._ip = ssh_conn_info.get("ip")
         self._port = ssh_conn_info.get("port", 22)
@@ -997,56 +998,68 @@ class HTTPBackupWriterBootstrapper(object):
         self._pkey = ssh_conn_info.get("pkey")
         if not all([self._ip, self._port, self._username]):
             raise exception.CoriolisException(
-                "Invalid SSH connection info. IP, port and"
-                " username are mandatory")
+                "Invalid SSH connection info. IP, port and username are mandatory"
+            )
         if self._password is None and self._pkey is None:
-            raise exception.CoriolisException(
-                "Either password or pkey are required")
+            raise exception.CoriolisException("Either password or pkey are required")
         if self._pkey:
             self._pkey = _check_deserialize_key(self._pkey)
         self._ssh = self._connect_ssh()
 
     @utils.retry_on_error(sleep_seconds=30)
     def _connect_ssh(self):
-        LOG.info("Connecting to SSH host: %(ip)s:%(port)s" %
-                 {"ip": self._ip, "port": self._port})
+        LOG.info(
+            "Connecting to SSH host: %(ip)s:%(port)s"
+            % {"ip": self._ip, "port": self._port}
+        )
         return utils.connect_ssh(
-            self._ip, self._port, self._username,
-            pkey=self._pkey, password=self._password)
+            self._ip,
+            self._port,
+            self._username,
+            pkey=self._pkey,
+            password=self._password,
+        )
 
     def _inject_dport_allow_rule(self, ssh):
         cmd = (
             "sudo nft insert rule ip filter INPUT tcp dport %(port)s counter "
             "accept || "
-            "sudo iptables -I INPUT -p tcp --dport %(port)s -j ACCEPT" % {
-                "port": self._writer_port})
+            "sudo iptables -I INPUT -p tcp --dport %(port)s -j ACCEPT"
+            % {"port": self._writer_port}
+        )
         try:
             utils.exec_ssh_cmd(ssh, cmd, get_pty=True)
         except exception.CoriolisException:
             LOG.warn(
                 "Could not inject TCP FW rule. Error was: %s",
-                utils.get_exception_details())
+                utils.get_exception_details(),
+            )
 
     def _add_firewalld_port(self, ssh):
         cmd = "sudo firewall-cmd --add-port=%s/tcp" % self._writer_port
         try:
             utils.exec_ssh_cmd(ssh, cmd, get_pty=True)
         except exception.CoriolisException:
-            LOG.warn("Could not add TCP port to firewalld. Error was: %s",
-                     utils.get_exception_details())
+            LOG.warn(
+                "Could not add TCP port to firewalld. Error was: %s",
+                utils.get_exception_details(),
+            )
 
     def _change_binary_se_context(self, ssh):
         cmd = "sudo chcon -t bin_t %s" % self._writer_cmd
         try:
             utils.exec_ssh_cmd(ssh, cmd, get_pty=True)
         except exception.CoriolisException:
-            LOG.warn("Could not change SELinux context of writer binary. "
-                     "Error was:%s", utils.get_exception_details())
+            LOG.warn(
+                "Could not change SELinux context of writer binary. Error was:%s",
+                utils.get_exception_details(),
+            )
 
     @utils.retry_on_error()
     def _copy_writer(self, ssh):
         local_path = os.path.join(
-            utils.get_resources_bin_dir(), _CORIOLIS_HTTP_WRITER_CMD)
+            utils.get_resources_bin_dir(), _CORIOLIS_HTTP_WRITER_CMD
+        )
         remote_tmp_path = os.path.join("/tmp", _CORIOLIS_HTTP_WRITER_CMD)
         with self._lock:
             sftp = ssh.open_sftp()
@@ -1059,25 +1072,19 @@ class HTTPBackupWriterBootstrapper(object):
                 sftp.put(local_path, remote_tmp_path)
                 utils.exec_ssh_cmd(
                     ssh,
-                    "sudo mv %s %s" % (
-                        remote_tmp_path, self._writer_cmd),
-                    get_pty=True
+                    "sudo mv %s %s" % (remote_tmp_path, self._writer_cmd),
+                    get_pty=True,
                 )
                 utils.exec_ssh_cmd(
-                    ssh,
-                    "sudo chmod +x %s" % self._writer_cmd,
-                    get_pty=True
+                    ssh, "sudo chmod +x %s" % self._writer_cmd, get_pty=True
                 )
             finally:
                 sftp.close()
 
     def _fetch_remote_file(self, ssh, remote_file, local_file):
         with open(local_file, 'wb') as fd:
-            utils.exec_ssh_cmd(
-                ssh,
-                "sudo chmod +r %s" % remote_file, get_pty=True)
-            data = utils.retry_on_error()(
-                utils.read_ssh_file)(ssh, remote_file)
+            utils.exec_ssh_cmd(ssh, "sudo chmod +r %s" % remote_file, get_pty=True)
+            data = utils.retry_on_error()(utils.read_ssh_file)(ssh, remote_file)
             fd.write(data)
 
     def _setup_certificates(self, ssh):
@@ -1097,49 +1104,57 @@ class HTTPBackupWriterBootstrapper(object):
         remote_srv_key = os.path.join(remote_base_dir, srv_key_name)
 
         exist = []
-        for i in (remote_ca_crt, remote_client_crt, remote_client_key,
-                  remote_srv_crt, remote_srv_key):
+        for i in (
+            remote_ca_crt,
+            remote_client_crt,
+            remote_client_key,
+            remote_srv_crt,
+            remote_srv_key,
+        ):
             exist.append(utils.test_ssh_path(ssh, i))
 
         if not all(exist):
-            utils.exec_ssh_cmd(
-                ssh, "sudo mkdir -p %s" % remote_base_dir, get_pty=True)
+            utils.exec_ssh_cmd(ssh, "sudo mkdir -p %s" % remote_base_dir, get_pty=True)
             utils.exec_ssh_cmd(
                 ssh,
                 "sudo %(writer_cmd)s generate-certificates -output-dir "
-                "%(cert_dir)s -certificate-hosts %(extra_hosts)s" % {
+                "%(cert_dir)s -certificate-hosts %(extra_hosts)s"
+                % {
                     "writer_cmd": self._writer_cmd,
                     "cert_dir": remote_base_dir,
                     "extra_hosts": self._ip,
                 },
-                get_pty=True)
+                get_pty=True,
+            )
 
         return {
             "srv_crt": remote_srv_crt,
             "srv_key": remote_srv_key,
             "ca_crt": remote_ca_crt,
             "client_crt": remote_client_crt,
-            "client_key": remote_client_key
+            "client_key": remote_client_key,
         }
 
     def _read_remote_file_sudo(self, remote_path):
         contents = utils.exec_ssh_cmd(
-            self._ssh, 'sudo cat "%s"' % remote_path, get_pty=True)
+            self._ssh, 'sudo cat "%s"' % remote_path, get_pty=True
+        )
         return contents
 
     def _init_writer(self, ssh, cert_paths):
-        cmdline = ("%(cmd)s run -ca-cert %(ca_cert)s -key "
-                   "%(srv_key)s -cert %(srv_cert)s -listen-port "
-                   "%(listen_port)s") % {
-                       "cmd": self._writer_cmd,
-                       "ca_cert": cert_paths["ca_crt"],
-                       "srv_key": cert_paths["srv_key"],
-                       "srv_cert": cert_paths["srv_crt"],
-                       "listen_port": self._writer_port,
+        cmdline = (
+            "%(cmd)s run -ca-cert %(ca_cert)s -key "
+            "%(srv_key)s -cert %(srv_cert)s -listen-port "
+            "%(listen_port)s"
+        ) % {
+            "cmd": self._writer_cmd,
+            "ca_cert": cert_paths["ca_crt"],
+            "srv_key": cert_paths["srv_key"],
+            "srv_cert": cert_paths["srv_crt"],
+            "listen_port": self._writer_port,
         }
         self._change_binary_se_context(ssh)
-        utils.create_service(
-            ssh, cmdline, _CORIOLIS_HTTP_WRITER_CMD, start=True)
+        utils.create_service(ssh, cmdline, _CORIOLIS_HTTP_WRITER_CMD, start=True)
         self._inject_dport_allow_rule(ssh)
         self._add_firewalld_port(ssh)
 
@@ -1147,25 +1162,21 @@ class HTTPBackupWriterBootstrapper(object):
         _disable_lvm_metad_udev_rule(self._ssh)
         _disable_lvm2_lvmetad(self._ssh)
         self._copy_writer(self._ssh)
-        paths = utils.retry_on_error()(
-            self._setup_certificates)(self._ssh)
-        utils.retry_on_error()(
-            self._init_writer)(self._ssh, paths)
+        paths = utils.retry_on_error()(self._setup_certificates)(self._ssh)
+        utils.retry_on_error()(self._init_writer)(self._ssh, paths)
         return {
             "ip": self._ip,
             "port": self._writer_port,
             "certificates": {
                 "client_crt": self._read_remote_file_sudo(paths["client_crt"]),
                 "client_key": self._read_remote_file_sudo(paths["client_key"]),
-                "ca_crt": self._read_remote_file_sudo(paths["ca_crt"])
-            }
+                "ca_crt": self._read_remote_file_sudo(paths["ca_crt"]),
+            },
         }
 
 
 class HTTPBackupWriter(BaseBackupWriter):
-
-    def __init__(self, ip, port, volumes_info, certificates,
-                 compressor_count=3):
+    def __init__(self, ip, port, volumes_info, certificates, compressor_count=3):
         self._ip = ip
         self._port = port
         self._volumes_info = volumes_info
@@ -1176,8 +1187,7 @@ class HTTPBackupWriter(BaseBackupWriter):
         self._certificates = certificates
         self._crt_dir = tempfile.mkdtemp()
         if not self._certificates:
-            raise exception.CoriolisException(
-                "certificates is mandatory")
+            raise exception.CoriolisException("certificates is mandatory")
         self._cert_paths = None
 
     @classmethod
@@ -1208,16 +1218,18 @@ class HTTPBackupWriter(BaseBackupWriter):
         required = ["ip", "port", "certificates"]
         if not all([ip, port, certs]):
             raise exception.CoriolisException(
-                "Missing required connection info: %s" % ", ".join(required))
+                "Missing required connection info: %s" % ", ".join(required)
+            )
 
         required_cert_options = ["client_crt", "client_key", "ca_crt"]
         missing_cert_options = [
-            opt for opt in required_cert_options
-            if opt not in certs]
+            opt for opt in required_cert_options if opt not in certs
+        ]
         if missing_cert_options:
             raise exception.CoriolisException(
                 "Missing the following HTTPBackupWriter fields from the "
-                "'certificates' options: %s" % missing_cert_options)
+                "'certificates' options: %s" % missing_cert_options
+            )
 
         return cls(ip, port, volumes_info, certs)
 
@@ -1230,15 +1242,14 @@ class HTTPBackupWriter(BaseBackupWriter):
 
     def _wait_for_conn(self):
         LOG.debug(
-            "waiting for coriolis-writer connectivity %s:%s" % (
-                self._ip, self._writer_port))
-        utils.wait_for_port_connectivity(
-            self._ip, self._writer_port)
+            "waiting for coriolis-writer connectivity %s:%s"
+            % (self._ip, self._writer_port)
+        )
+        utils.wait_for_port_connectivity(self._ip, self._writer_port)
 
     def _write_cert_files(self):
         if not self._certificates:
-            raise exception.CoriolisException(
-                "certificates not set")
+            raise exception.CoriolisException("certificates not set")
         if self._cert_paths:
             return self._cert_paths
 
@@ -1262,18 +1273,23 @@ class HTTPBackupWriter(BaseBackupWriter):
         cert_paths = self._write_cert_files()
         self._wait_for_conn()
 
-        path = [v for v in self._volumes_info
-                if v["disk_id"] == disk_id][0]["volume_dev"]
+        path = [v for v in self._volumes_info if v["disk_id"] == disk_id][0][
+            "volume_dev"
+        ]
         impl = HTTPBackupWriterImpl(
-            path, disk_id,
+            path,
+            disk_id,
             compressor_count=self._compressor_count,
-            compress_transfer=CONF.compress_transfers)
-        impl._set_info({
-            "ip": self._ip,
-            "port": self._writer_port,
-            "client_crt": cert_paths["client_crt"],
-            "client_key": cert_paths["client_key"],
-            "ca_crt": cert_paths["ca_crt"],
-            "id": self._id,
-        })
+            compress_transfer=CONF.compress_transfers,
+        )
+        impl._set_info(
+            {
+                "ip": self._ip,
+                "port": self._writer_port,
+                "client_crt": cert_paths["client_crt"],
+                "client_key": cert_paths["client_key"],
+                "ca_crt": cert_paths["ca_crt"],
+                "id": self._id,
+            }
+        )
         return impl

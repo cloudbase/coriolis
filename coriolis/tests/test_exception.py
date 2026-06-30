@@ -12,7 +12,8 @@ class ConvertedExceptionTestCase(test_base.CoriolisBaseTestCase):
 
     def test__init__(self):
         result = exception.ConvertedException(
-            code=403, title='Forbidden', explanation='test')
+            code=403, title='Forbidden', explanation='test'
+        )
 
         self.assertEqual(result.code, 403)
         self.assertEqual(result.title, 'Forbidden')
@@ -80,11 +81,13 @@ class CoriolisExceptionTestCase(test_base.CoriolisBaseTestCase):
 
         self.assertEqual(result.msg, CoriolisTestException.message)
         mock_log.exception.assert_called_once_with(
-            'Exception in string format operation')
+            'Exception in string format operation'
+        )
         expected_calls = [
-            mock.call("%(name)s: %(value)s",
-                      {'name': 'some_key', 'value': 'some_value'}),
-            mock.call("%(name)s: %(value)s", {'name': 'code', 'value': 500})
+            mock.call(
+                "%(name)s: %(value)s", {'name': 'some_key', 'value': 'some_value'}
+            ),
+            mock.call("%(name)s: %(value)s", {'name': 'code', 'value': 500}),
         ]
         mock_log.error.assert_has_calls(expected_calls)
         self.assertEqual(mock_log.error.call_count, 2)
@@ -108,8 +111,7 @@ class CoriolisExceptionTestCase(test_base.CoriolisBaseTestCase):
 
         exception_instance = CoriolisTestException(**kwargs)
         result = exception_instance.__unicode__()
-        self.assertEqual(
-            result, "Test message with missing placeholder: some_value")
+        self.assertEqual(result, "Test message with missing placeholder: some_value")
 
 
 class APIExceptionTestCase(test_base.CoriolisBaseTestCase):

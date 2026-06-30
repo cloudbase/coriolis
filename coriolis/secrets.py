@@ -4,13 +4,11 @@
 import copy
 import json
 
-from barbicanclient import client as barbican_client
 import keystoneauth1
+from barbicanclient import client as barbican_client
 from oslo_log import log as logging
 
-from coriolis import keystone
-from coriolis import utils
-
+from coriolis import keystone, utils
 
 LOG = logging.getLogger(__name__)
 
@@ -32,7 +30,9 @@ def get_secret(ctxt, secret_ref):
     except keystoneauth1.exceptions.http.Unauthorized:
         LOG.debug(
             "Error occured while fetching secret with trust ID, retrying "
-            "without. Error was: %s", utils.get_exception_details())
+            "without. Error was: %s",
+            utils.get_exception_details(),
+        )
         ctxt = copy.deepcopy(ctxt)
         ctxt.trust_id = None
         payload = _get_barbican_secret_payload(ctxt, secret_ref)

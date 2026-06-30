@@ -4,12 +4,10 @@
 from coriolis import constants
 from coriolis.osmorphing.osdetect import base
 
-
 UBUNTU_DISTRO_IDENTIFIER = "Ubuntu"
 
 
 class UbuntuOSDetectTools(base.BaseLinuxOSDetectTools):
-
     def detect_os(self):
         info = {}
         config = self._read_config_file("etc/lsb-release", check_exists=True)
@@ -20,5 +18,6 @@ class UbuntuOSDetectTools(base.BaseLinuxOSDetectTools):
                 "os_type": constants.OS_TYPE_LINUX,
                 "distribution_name": UBUNTU_DISTRO_IDENTIFIER,
                 "release_version": release,
-                "friendly_release_name": "Ubuntu %s" % release}
+                "friendly_release_name": "Ubuntu %s" % release,
+            }
         return info

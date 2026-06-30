@@ -10,8 +10,8 @@ def _format_transfer(transfer, keys=None):
 
     executions = transfer_dict.get('executions', [])
     transfer_dict['executions'] = [
-        view.format_transfer_tasks_execution(ex)
-        for ex in executions]
+        view.format_transfer_tasks_execution(ex) for ex in executions
+    ]
 
     return transfer_dict
 

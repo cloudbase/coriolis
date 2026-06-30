@@ -18,8 +18,8 @@ class APITestCase(test_base.CoriolisBaseTestCase):
         self.ctxt = mock.sentinel.ctxt
         self.transfer_id = mock.sentinel.transfer_id
         self._mock_pagination_args = dict(
-            marker="mock_marker", limit=5,
-            sort_keys=["mock_column"], sort_dirs=["desc"])
+            marker="mock_marker", limit=5, sort_keys=["mock_column"], sort_dirs=["desc"]
+        )
 
     def test_create(self):
         origin_endpoint_id = mock.sentinel.origin_endpoint_id
@@ -27,7 +27,8 @@ class APITestCase(test_base.CoriolisBaseTestCase):
         origin_minion_pool_id = mock.sentinel.origin_minion_pool_id
         destination_minion_pool_id = mock.sentinel.destination_minion_pool_id
         instance_osmorphing_minion_pool_mappings = (
-            mock.sentinel.instance_osmorphing_minion_pool_mappings)
+            mock.sentinel.instance_osmorphing_minion_pool_mappings
+        )
         source_environment = mock.sentinel.source_environment
         destination_environment = mock.sentinel.destination_environment
         instances = mock.sentinel.instances
@@ -35,47 +36,69 @@ class APITestCase(test_base.CoriolisBaseTestCase):
         storage_mappings = mock.sentinel.storage_mappings
 
         result = self.api.create(
-            self.ctxt, mock.sentinel.transfer_scenario,
-            origin_endpoint_id, destination_endpoint_id,
-            origin_minion_pool_id, destination_minion_pool_id,
-            instance_osmorphing_minion_pool_mappings, source_environment,
-            destination_environment, instances, network_map, storage_mappings)
+            self.ctxt,
+            mock.sentinel.transfer_scenario,
+            origin_endpoint_id,
+            destination_endpoint_id,
+            origin_minion_pool_id,
+            destination_minion_pool_id,
+            instance_osmorphing_minion_pool_mappings,
+            source_environment,
+            destination_environment,
+            instances,
+            network_map,
+            storage_mappings,
+        )
 
         self.rpc_client.create_instances_transfer.assert_called_once_with(
-            self.ctxt, mock.sentinel.transfer_scenario,
-            origin_endpoint_id, destination_endpoint_id,
-            origin_minion_pool_id, destination_minion_pool_id,
-            instance_osmorphing_minion_pool_mappings, source_environment,
-            destination_environment, instances, network_map, storage_mappings,
-            None, None, True, False)
-        self.assertEqual(
-            result, self.rpc_client.create_instances_transfer.return_value)
+            self.ctxt,
+            mock.sentinel.transfer_scenario,
+            origin_endpoint_id,
+            destination_endpoint_id,
+            origin_minion_pool_id,
+            destination_minion_pool_id,
+            instance_osmorphing_minion_pool_mappings,
+            source_environment,
+            destination_environment,
+            instances,
+            network_map,
+            storage_mappings,
+            None,
+            None,
+            True,
+            False,
+        )
+        self.assertEqual(result, self.rpc_client.create_instances_transfer.return_value)
 
     def test_update(self):
         updated_properties = mock.sentinel.updated_properties
 
-        result = self.api.update(self.ctxt, self.transfer_id,
-                                 updated_properties)
+        result = self.api.update(self.ctxt, self.transfer_id, updated_properties)
 
         self.rpc_client.update_transfer.assert_called_once_with(
-            self.ctxt, self.transfer_id, updated_properties)
-        self.assertEqual(result,
-                         self.rpc_client.update_transfer.return_value)
+            self.ctxt, self.transfer_id, updated_properties
+        )
+        self.assertEqual(result, self.rpc_client.update_transfer.return_value)
 
     def test_delete(self):
         self.api.delete(self.ctxt, self.transfer_id)
         self.rpc_client.delete_transfer.assert_called_once_with(
-            self.ctxt, self.transfer_id)
+            self.ctxt, self.transfer_id
+        )
 
     def test_get_transfers(self):
         result = self.api.get_transfers(
-            self.ctxt, include_tasks_executions=False, include_task_info=False,
+            self.ctxt,
+            include_tasks_executions=False,
+            include_task_info=False,
             filters={"status": "RUNNING"},
             **self._mock_pagination_args,
         )
 
         self.rpc_client.get_transfers.assert_called_once_with(
-            self.ctxt, False, include_task_info=False,
+            self.ctxt,
+            False,
+            include_task_info=False,
             filters={"status": "RUNNING"},
             **self._mock_pagination_args,
         )
@@ -85,13 +108,14 @@ class APITestCase(test_base.CoriolisBaseTestCase):
         result = self.api.get_transfer(self.ctxt, self.transfer_id)
 
         self.rpc_client.get_transfer.assert_called_once_with(
-            self.ctxt, self.transfer_id, include_task_info=False)
+            self.ctxt, self.transfer_id, include_task_info=False
+        )
         self.assertEqual(result, self.rpc_client.get_transfer.return_value)
 
     def test_delete_disks(self):
         result = self.api.delete_disks(self.ctxt, self.transfer_id)
 
         self.rpc_client.delete_transfer_disks.assert_called_once_with(
-            self.ctxt, self.transfer_id)
-        self.assertEqual(result,
-                         self.rpc_client.delete_transfer_disks.return_value)
+            self.ctxt, self.transfer_id
+        )
+        self.assertEqual(result, self.rpc_client.delete_transfer_disks.return_value)

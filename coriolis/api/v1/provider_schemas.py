@@ -15,8 +15,11 @@ class ProviderSchemasController(api_wsgi.Controller):
         super(ProviderSchemasController, self).__init__()
 
     def index(self, req, platform_name, provider_type):
-        return {"schemas": self._provider_api.get_provider_schemas(
-            req.environ["coriolis.context"], platform_name, provider_type)}
+        return {
+            "schemas": self._provider_api.get_provider_schemas(
+                req.environ["coriolis.context"], platform_name, provider_type
+            )
+        }
 
 
 def create_resource():

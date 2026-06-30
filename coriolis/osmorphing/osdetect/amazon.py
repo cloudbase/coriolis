@@ -4,13 +4,11 @@
 from coriolis import constants
 from coriolis.osmorphing.osdetect import base
 
-
 AMAZON_DISTRO_IDENTIFIER = "amzn"
 AMAZON_DISTRO_NAME = "Amazon Linux"
 
 
 class AmazonLinuxOSDetectTools(base.BaseLinuxOSDetectTools):
-
     def detect_os(self):
         info = {}
         os_release = self._get_os_release()
@@ -23,5 +21,6 @@ class AmazonLinuxOSDetectTools(base.BaseLinuxOSDetectTools):
                 "os_type": constants.OS_TYPE_LINUX,
                 "distribution_name": AMAZON_DISTRO_NAME,
                 "release_version": version,
-                "friendly_release_name": friendly_name}
+                "friendly_release_name": friendly_name,
+            }
         return info

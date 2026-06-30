@@ -5,31 +5,40 @@ import itertools
 
 from oslo_log import log as logging
 
-from coriolis import constants
-from coriolis import exception
-from coriolis.osmorphing.osmount import redhat
-from coriolis.osmorphing.osmount import suse
-from coriolis.osmorphing.osmount import ubuntu
-from coriolis.osmorphing.osmount import windows
+from coriolis import constants, exception
+from coriolis.osmorphing.osmount import redhat, suse, ubuntu, windows
 
 LOG = logging.getLogger(__name__)
 
 
-def get_os_mount_tools(os_type, connection_info, event_manager,
-                       ignore_devices, operation_timeout,
-                       osmorphing_info=None):
-    os_mount_tools = {constants.OS_TYPE_LINUX: [ubuntu.UbuntuOSMountTools,
-                                                redhat.RedHatOSMountTools,
-                                                suse.SUSEOSMountTools],
-                      constants.OS_TYPE_WINDOWS: [windows.WindowsMountTools]}
+def get_os_mount_tools(
+    os_type,
+    connection_info,
+    event_manager,
+    ignore_devices,
+    operation_timeout,
+    osmorphing_info=None,
+):
+    os_mount_tools = {
+        constants.OS_TYPE_LINUX: [
+            ubuntu.UbuntuOSMountTools,
+            redhat.RedHatOSMountTools,
+            suse.SUSEOSMountTools,
+        ],
+        constants.OS_TYPE_WINDOWS: [windows.WindowsMountTools],
+    }
 
     if os_type and os_type not in os_mount_tools:
         raise exception.CoriolisException("Unsupported OS type: %s" % os_type)
 
-    for cls in os_mount_tools.get(os_type,
-                                  itertools.chain(*os_mount_tools.values())):
-        tools = cls(connection_info, event_manager, ignore_devices,
-                    operation_timeout, osmorphing_info=osmorphing_info)
+    for cls in os_mount_tools.get(os_type, itertools.chain(*os_mount_tools.values())):
+        tools = cls(
+            connection_info,
+            event_manager,
+            ignore_devices,
+            operation_timeout,
+            osmorphing_info=osmorphing_info,
+        )
         LOG.debug("Testing OS mount tools: %s", cls.__name__)
         if tools.check_os():
             return tools

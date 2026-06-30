@@ -10,11 +10,10 @@ import uuid
 from keystoneauth1.exceptions import http as http_exc
 from oslo_utils import timeutils
 
-from coriolis import constants
+from coriolis import constants, exception
 from coriolis import context as coriolis_context
 from coriolis.db import api as db_api
 from coriolis.db.sqlalchemy import models
-from coriolis import exception
 from coriolis.tests.integration import base
 
 
@@ -31,8 +30,8 @@ class APIListingTestBase(base.CoriolisIntegrationTestBase):
         super().setUpClass()
 
         cls._ctx = coriolis_context.RequestContext(
-            user=cls.FAKE_USER_ID,
-            project_id=cls.FAKE_PROJECT_ID)
+            user=cls.FAKE_USER_ID, project_id=cls.FAKE_PROJECT_ID
+        )
         cls._admin_ctx = coriolis_context.get_admin_context()
 
         cls._setup_mocks()
@@ -49,13 +48,16 @@ class APIListingTestBase(base.CoriolisIntegrationTestBase):
         kwargs["instances"] = instances or []
         kwargs["origin_endpoint_id"] = origin_endpoint_id
         kwargs["destination_endpoint_id"] = destination_endpoint_id
-        kwargs["info"] = {instance: {
-            'volumes_info': []} for instance in kwargs["instances"]}
+        kwargs["info"] = {
+            instance: {'volumes_info': []} for instance in kwargs["instances"]
+        }
         transfer = models.Transfer(**kwargs)
         db_api.add_transfer(cls._ctx, transfer)
         cls.addClassCleanup(
             cls._ignoreExc(db_api.delete_transfer, exception.NotFound),
-            cls._admin_ctx, transfer.id)
+            cls._admin_ctx,
+            transfer.id,
+        )
         return transfer
 
     @classmethod
@@ -65,21 +67,18 @@ class APIListingTestBase(base.CoriolisIntegrationTestBase):
         **kwargs,
     ) -> models.TasksExecution:
         kwargs["action_id"] = transfer.id
-        kwargs["status"] = kwargs.get(
-            "status",
-            constants.EXECUTION_STATUS_UNEXECUTED)
-        kwargs["type"] = kwargs.get(
-            "type",
-            constants.EXECUTION_TYPE_TRANSFER_EXECUTION)
+        kwargs["status"] = kwargs.get("status", constants.EXECUTION_STATUS_UNEXECUTED)
+        kwargs["type"] = kwargs.get("type", constants.EXECUTION_TYPE_TRANSFER_EXECUTION)
         execution = models.TasksExecution(**kwargs)
         # "add_transfer_tasks_execution" expects "action" to be set,
         # despite not being declared by the model.
         execution.action = transfer
         db_api.add_transfer_tasks_execution(cls._admin_ctx, execution)
         cls.addClassCleanup(
-            cls._ignoreExc(db_api.delete_transfer_tasks_execution,
-                           exception.NotFound),
-            cls._admin_ctx, execution.id)
+            cls._ignoreExc(db_api.delete_transfer_tasks_execution, exception.NotFound),
+            cls._admin_ctx,
+            execution.id,
+        )
         return execution
 
     @classmethod
@@ -91,12 +90,13 @@ class APIListingTestBase(base.CoriolisIntegrationTestBase):
         kwargs["id"] = endpoint_id
         kwargs["name"] = kwargs.get("name", f"test-endpoint-{endpoint_id}")
         kwargs["type"] = kwargs.get("type", "openstack")
-        endpoint = models.Endpoint(
-            **kwargs)
+        endpoint = models.Endpoint(**kwargs)
         db_api.add_endpoint(cls._ctx, endpoint)
         cls.addClassCleanup(
             cls._ignoreExc(db_api.delete_endpoint, exception.NotFound),
-            cls._admin_ctx, endpoint.id)
+            cls._admin_ctx,
+            endpoint.id,
+        )
         return endpoint
 
     @classmethod
@@ -111,12 +111,13 @@ class APIListingTestBase(base.CoriolisIntegrationTestBase):
         kwargs["transfer_id"] = transfer_id
         kwargs["origin_endpoint_id"] = origin_endpoint_id
         kwargs["destination_endpoint_id"] = destination_endpoint_id
-        deployment = models.Deployment(
-            **kwargs)
+        deployment = models.Deployment(**kwargs)
         db_api.add_deployment(cls._ctx, deployment)
         cls.addClassCleanup(
             cls._ignoreExc(db_api.delete_deployment, exception.NotFound),
-            cls._admin_ctx, deployment.id)
+            cls._admin_ctx,
+            deployment.id,
+        )
         return deployment
 
     @classmethod
@@ -137,16 +138,18 @@ class APIListingTestBase(base.CoriolisIntegrationTestBase):
             transfer = cls._create_db_transfer(
                 origin_endpoint_id=cls._src_endpoint.id,
                 destination_endpoint_id=cls._dst_endpoint.id,
-                created_at=timeutils.utcnow() + datetime.timedelta(
-                    seconds=transfer_idx))
+                created_at=timeutils.utcnow()
+                + datetime.timedelta(seconds=transfer_idx),
+            )
             cls._transfers.append(transfer)
 
             cls._executions[transfer.id] = []
             for execution_idx in range(cls.EXECUTIONS_PER_TRANSFER):
                 execution = cls._create_db_execution(
                     transfer=transfer,
-                    created_at=timeutils.utcnow() + datetime.timedelta(
-                        seconds=execution_idx))
+                    created_at=timeutils.utcnow()
+                    + datetime.timedelta(seconds=execution_idx),
+                )
                 cls._executions[transfer.id].append(execution)
 
             cls._deployments[transfer.id] = []
@@ -155,8 +158,9 @@ class APIListingTestBase(base.CoriolisIntegrationTestBase):
                     transfer_id=transfer.id,
                     origin_endpoint_id=cls._src_endpoint.id,
                     destination_endpoint_id=cls._dst_endpoint.id,
-                    created_at=timeutils.utcnow() + datetime.timedelta(
-                        seconds=deployment_idx))
+                    created_at=timeutils.utcnow()
+                    + datetime.timedelta(seconds=deployment_idx),
+                )
                 cls._deployments[transfer.id].append(deployment)
                 cls._all_deployments.append(deployment)
 
@@ -179,35 +183,29 @@ class APIListingTestBase(base.CoriolisIntegrationTestBase):
 
 class PaginationTest(APIListingTestBase):
     def test_transfer_execution_list(self):
-        executions = self._client.transfer_executions.list(
-            self._transfers[0].id)
+        executions = self._client.transfer_executions.list(self._transfers[0].id)
         ret_exec_summary = [self._get_record_summary(e) for e in executions]
 
         exp_exec = self._executions[self._transfers[0].id]
         sorted_exp_exec = sorted(
-            exp_exec,
-            key=operator.attrgetter('created_at'),
-            reverse=True)
-        exp_sorted_exec_summary = [
-            self._get_record_summary(e) for e in sorted_exp_exec]
+            exp_exec, key=operator.attrgetter('created_at'), reverse=True
+        )
+        exp_sorted_exec_summary = [self._get_record_summary(e) for e in sorted_exp_exec]
 
         self.assertEqual(exp_sorted_exec_summary, ret_exec_summary)
 
     def test_transfer_execution_list_pagination(self):
         # Get the first 2 entries, sorted by ID in ascending order.
         executions = self._client.transfer_executions.list(
-            self._transfers[0].id,
-            limit=2,
-            sort_keys=['id'],
-            sort_dirs=['asc'])
+            self._transfers[0].id, limit=2, sort_keys=['id'], sort_dirs=['asc']
+        )
         ret_exec_summary = [self._get_record_summary(e) for e in executions]
 
         exp_exec = self._executions[self._transfers[0].id]
-        sorted_exp_exec = sorted(
-            exp_exec,
-            key=operator.attrgetter('id'))
+        sorted_exp_exec = sorted(exp_exec, key=operator.attrgetter('id'))
         exp_sorted_exec_summary = [
-            self._get_record_summary(e) for e in sorted_exp_exec][:2]
+            self._get_record_summary(e) for e in sorted_exp_exec
+        ][:2]
         self.assertEqual(exp_sorted_exec_summary, ret_exec_summary)
 
         # Get the next 2 entries.
@@ -216,13 +214,13 @@ class PaginationTest(APIListingTestBase):
             limit=2,
             marker=executions[-1].id,
             sort_keys=['id'],
-            sort_dirs=['asc'])
-        ret_exec_summary = [
-            self._get_record_summary(e)
-            for e in next_executions]
+            sort_dirs=['asc'],
+        )
+        ret_exec_summary = [self._get_record_summary(e) for e in next_executions]
 
         exp_sorted_exec_summary = [
-            self._get_record_summary(e) for e in sorted_exp_exec][2:4]
+            self._get_record_summary(e) for e in sorted_exp_exec
+        ][2:4]
         self.assertEqual(exp_sorted_exec_summary, ret_exec_summary)
 
     def test_deployment_list(self):
@@ -230,26 +228,26 @@ class PaginationTest(APIListingTestBase):
         ret_depl_summary = [self._get_record_summary(d) for d in deployments]
 
         exp_sorted_depl_summary = [
-            self._get_record_summary(d) for d in self._all_deployments]
+            self._get_record_summary(d) for d in self._all_deployments
+        ]
         exp_sorted_depl_summary = sorted(
             exp_sorted_depl_summary,
             key=lambda x: (x["created_at"], x["id"]),
-            reverse=True)
+            reverse=True,
+        )
         self.assertEqual(exp_sorted_depl_summary, ret_depl_summary)
 
     def test_deployment_list_pagination(self):
         # Get the first 2 entries, sorted by ID in ascending order.
         deployments = self._client.deployments.list(
-            limit=2,
-            sort_keys=['id'],
-            sort_dirs=['asc'])
+            limit=2, sort_keys=['id'], sort_dirs=['asc']
+        )
         ret_depl_summary = [self._get_record_summary(d) for d in deployments]
 
         exp_sorted_depl_summary = [
-            self._get_record_summary(d) for d in self._all_deployments]
-        exp_sorted_depl_summary = sorted(
-            exp_sorted_depl_summary,
-            key=lambda x: x["id"])
+            self._get_record_summary(d) for d in self._all_deployments
+        ]
+        exp_sorted_depl_summary = sorted(exp_sorted_depl_summary, key=lambda x: x["id"])
         self.assertEqual(exp_sorted_depl_summary[:2], ret_depl_summary)
 
         # Get the next 2 entries.
@@ -267,37 +265,36 @@ class PaginationTest(APIListingTestBase):
         ret_transfer_summary = [self._get_record_summary(t) for t in transfers]
 
         exp_sorted_transfer_summary = [
-            self._get_record_summary(d) for d in self._transfers]
+            self._get_record_summary(d) for d in self._transfers
+        ]
         exp_sorted_transfer_summary = sorted(
             exp_sorted_transfer_summary,
             key=lambda x: (x["created_at"], x["id"]),
-            reverse=True)
+            reverse=True,
+        )
         self.assertEqual(exp_sorted_transfer_summary, ret_transfer_summary)
 
     def test_transfer_list_pagination(self):
         # Get the first 2 entries, sorted by ID in ascending order.
         transfers = self._client.transfers.list(
-            limit=2,
-            sort_keys=['id'],
-            sort_dirs=['asc'])
+            limit=2, sort_keys=['id'], sort_dirs=['asc']
+        )
         ret_transfer_summary = [self._get_record_summary(t) for t in transfers]
 
         exp_sorted_transfer_summary = [
-            self._get_record_summary(d) for d in self._transfers]
+            self._get_record_summary(d) for d in self._transfers
+        ]
         exp_sorted_transfer_summary = sorted(
-            exp_sorted_transfer_summary,
-            key=lambda x: x["id"])
+            exp_sorted_transfer_summary, key=lambda x: x["id"]
+        )
         self.assertEqual(exp_sorted_transfer_summary[:2], ret_transfer_summary)
 
         # Get the next 2 entries.
         transfers = self._client.transfers.list(
-            limit=2,
-            sort_keys=['id'],
-            sort_dirs=['asc'],
-            marker=transfers[-1].id)
+            limit=2, sort_keys=['id'], sort_dirs=['asc'], marker=transfers[-1].id
+        )
         ret_transfer_summary = [self._get_record_summary(t) for t in transfers]
-        self.assertEqual(
-            exp_sorted_transfer_summary[2:4], ret_transfer_summary)
+        self.assertEqual(exp_sorted_transfer_summary[2:4], ret_transfer_summary)
 
 
 class APIFilterTest(APIListingTestBase):
@@ -338,21 +335,24 @@ class APIFilterTest(APIListingTestBase):
     def test_transfer_execution_filter(self):
         executions = self._client.transfer_executions.list(
             self._completed_transfer.id,
-            filters={"status": constants.EXECUTION_STATUS_COMPLETED})
+            filters={"status": constants.EXECUTION_STATUS_COMPLETED},
+        )
         ret_summary = [self._get_record_summary(e) for e in executions]
         exp_summary = [self._get_record_summary(self._completed_execution)]
         self.assertEqual(exp_summary, ret_summary)
 
     def test_transfer_filter(self):
         executions = self._client.transfers.list(
-            filters={"status": constants.TASK_STATUS_COMPLETED})
+            filters={"status": constants.TASK_STATUS_COMPLETED}
+        )
         ret_summary = [self._get_record_summary(e) for e in executions]
         exp_summary = [self._get_record_summary(self._completed_transfer)]
         self.assertEqual(exp_summary, ret_summary)
 
     def test_deployment_filter(self):
         executions = self._client.deployments.list(
-            filters={"status": constants.EXECUTION_STATUS_COMPLETED})
+            filters={"status": constants.EXECUTION_STATUS_COMPLETED}
+        )
         ret_summary = [self._get_record_summary(e) for e in executions]
         exp_summary = [self._get_record_summary(self._completed_deployment)]
         self.assertEqual(exp_summary, ret_summary)
@@ -361,15 +361,18 @@ class APIFilterTest(APIListingTestBase):
         self.assertRaises(
             http_exc.BadRequest,
             self._client.deployments.list,
-            filters={"status": "fake-status"})
+            filters={"status": "fake-status"},
+        )
 
         self.assertRaises(
             http_exc.BadRequest,
             self._client.transfers.list,
-            filters={"status": "fake-status"})
+            filters={"status": "fake-status"},
+        )
 
         self.assertRaises(
             http_exc.BadRequest,
             self._client.transfer_executions.list,
             self._completed_transfer.id,
-            filters={"status": "fake-status"})
+            filters={"status": "fake-status"},
+        )

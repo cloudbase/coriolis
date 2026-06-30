@@ -7,30 +7,50 @@ from oslo_context import context
 from oslo_db.sqlalchemy import enginefacade
 from oslo_utils import timeutils
 
-from coriolis import exception
-from coriolis import policy
+from coriolis import exception, policy
 
 
 @enginefacade.transaction_context_provider
 class RequestContext(context.RequestContext):
-    def __init__(self, user, project_id, is_admin=None,
-                 roles=None, project_name=None, remote_address=None,
-                 timestamp=None, request_id=None, auth_token=None,
-                 overwrite=True, domain_name=None, domain_id=None,
-                 user_domain_name=None, user_domain_id=None,
-                 project_domain_name=None, project_domain_id=None,
-                 show_deleted=None, trust_id=None,
-                 delete_trust_id=False, **kwargs):
+    def __init__(
+        self,
+        user,
+        project_id,
+        is_admin=None,
+        roles=None,
+        project_name=None,
+        remote_address=None,
+        timestamp=None,
+        request_id=None,
+        auth_token=None,
+        overwrite=True,
+        domain_name=None,
+        domain_id=None,
+        user_domain_name=None,
+        user_domain_id=None,
+        project_domain_name=None,
+        project_domain_id=None,
+        show_deleted=None,
+        trust_id=None,
+        delete_trust_id=False,
+        **kwargs,
+    ):
 
-        super(
-            RequestContext, self).__init__(
-            auth_token=auth_token, user=user, project_id=project_id,
-            domain_name=domain_name, domain_id=domain_id,
-            user_domain_name=user_domain_name, user_domain_id=user_domain_id,
+        super(RequestContext, self).__init__(
+            auth_token=auth_token,
+            user=user,
+            project_id=project_id,
+            domain_name=domain_name,
+            domain_id=domain_id,
+            user_domain_name=user_domain_name,
+            user_domain_id=user_domain_id,
             project_domain_name=(project_domain_name),
             project_domain_id=(project_domain_id),
-            is_admin=is_admin, show_deleted=show_deleted,
-            request_id=request_id, overwrite=overwrite)
+            is_admin=is_admin,
+            show_deleted=show_deleted,
+            request_id=request_id,
+            overwrite=overwrite,
+        )
         self.roles = roles or []
         self.project_name = project_name
         self.remote_address = remote_address
@@ -73,11 +93,10 @@ class RequestContext(context.RequestContext):
         return policy
 
     def can(self, action, target=None, fatal=True):
-        """ Validates policies allow the requested action to be
+        """Validates policies allow the requested action to be
         perfomed in the given context, and raises otherwise.
         """
-        default_target = {
-            'project_id': self.project_id, 'user_id': self.user_id}
+        default_target = {'project_id': self.project_id, 'user_id': self.user_id}
         if target is None:
             target = default_target
         else:
@@ -95,6 +114,4 @@ class RequestContext(context.RequestContext):
 
 
 def get_admin_context(trust_id=None):
-    return RequestContext(
-        user=None, project_id=None, is_admin=True,
-        trust_id=trust_id)
+    return RequestContext(user=None, project_id=None, is_admin=True, trust_id=trust_id)

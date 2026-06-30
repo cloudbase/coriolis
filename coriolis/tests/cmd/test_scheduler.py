@@ -4,12 +4,10 @@
 import sys
 from unittest import mock
 
+from coriolis import constants, service, utils
 from coriolis.cmd import scheduler
-from coriolis import constants
 from coriolis.scheduler.rpc import server as rpc_server
-from coriolis import service
 from coriolis.tests import test_base
-from coriolis import utils
 
 
 class SchedulerTestCase(test_base.CoriolisBaseTestCase):
@@ -21,8 +19,7 @@ class SchedulerTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(utils, 'setup_logging')
     @mock.patch('coriolis.cmd.scheduler.CONF')
     @mock.patch.object(sys, 'argv')
-    @mock.patch(
-        'oslo_reports.guru_meditation_report.TextGuruMeditation.setup_autorun')
+    @mock.patch('oslo_reports.guru_meditation_report.TextGuruMeditation.setup_autorun')
     def test_main(
         self,
         mock_gmr_setup,
@@ -31,23 +28,25 @@ class SchedulerTestCase(test_base.CoriolisBaseTestCase):
         mock_setup_logging,
         mock_SchedulerServerEndpoint,
         mock_MessagingService,
-        mock_service
+        mock_service,
     ):
         scheduler.main()
 
         mock_conf.assert_called_once_with(
-            mock_argv[1:], project='coriolis', version="1.0.0")
+            mock_argv[1:], project='coriolis', version="1.0.0"
+        )
         mock_setup_logging.assert_called_once()
         mock_SchedulerServerEndpoint.assert_called_once()
         mock_MessagingService.assert_called_once_with(
             constants.SCHEDULER_MAIN_MESSAGING_TOPIC,
             [mock_SchedulerServerEndpoint.return_value],
             rpc_server.VERSION,
-            worker_count=mock_conf.scheduler.worker_count)
+            worker_count=mock_conf.scheduler.worker_count,
+        )
         mock_service.launch.assert_called_once_with(
-            mock_conf, mock_MessagingService.return_value,
-            workers=mock_MessagingService.return_value.
-            get_workers_count.return_value)
+            mock_conf,
+            mock_MessagingService.return_value,
+            workers=mock_MessagingService.return_value.get_workers_count.return_value,
+        )
         mock_service.launch.return_value.wait.assert_called_once()
-        mock_gmr_setup.assert_called_once_with(
-            version="1.0.0", conf=mock_conf)
+        mock_gmr_setup.assert_called_once_with(version="1.0.0", conf=mock_conf)

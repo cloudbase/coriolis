@@ -8,9 +8,7 @@ import re
 
 from oslo_log import log as logging
 
-from coriolis import constants
-from coriolis import exception
-from coriolis import utils
+from coriolis import constants, exception, utils
 
 LOG = logging.getLogger(__name__)
 
@@ -74,8 +72,7 @@ class LinuxLUKSMixin:
                     continue
 
                 dev_paths[i] = mapper_path
-                self._luks_opened.append(
-                    (os.path.basename(mapper_path), dev_path))
+                self._luks_opened.append((os.path.basename(mapper_path), dev_path))
         except Exception:
             self._close_luks_devices()
             raise
@@ -92,11 +89,10 @@ class LinuxLUKSMixin:
 
         if is_luks and not passphrase:
             raise exception.CoriolisException(
-                f"{dev_path} is LUKS-encrypted, but no passphrase is "
-                "provided.")
+                f"{dev_path} is LUKS-encrypted, but no passphrase is provided."
+            )
         if not is_luks:
-            LOG.debug(
-                "Device '%s' is not a LUKS container; skipping.", dev_path)
+            LOG.debug("Device '%s' is not a LUKS container; skipping.", dev_path)
             return None
 
         mapper_name = "coriolis_%s" % os.path.basename(dev_path)
@@ -104,7 +100,8 @@ class LinuxLUKSMixin:
         with self._auth_luks(passphrase, key_path):
             self._exec_cmd(
                 "sudo cryptsetup luksOpen --disable-keyring "
-                "--key-file %s %s %s" % (key_path, dev_path, mapper_name))
+                "--key-file %s %s %s" % (key_path, dev_path, mapper_name)
+            )
 
         mapper_path = "/dev/mapper/%s" % mapper_name
         LOG.info("Unlocked LUKS device '%s' as '%s'", dev_path, mapper_path)
@@ -116,8 +113,10 @@ class LinuxLUKSMixin:
             self._exec_cmd("sudo cryptsetup isLuks %s" % dev_path)
             return True
         except exception.SSHCommandNotFoundException:
-            LOG.warn("cryptsetup missing from OS morpher; cannot check if "
-                     "device is LUKS-encrypted.")
+            LOG.warn(
+                "cryptsetup missing from OS morpher; cannot check if "
+                "device is LUKS-encrypted."
+            )
         except Exception:
             # if it's not LUKS, we'll get exit code 1.
             # The exception is already logged in self._exec_cmd.
@@ -128,8 +127,7 @@ class LinuxLUKSMixin:
     def _close_luks_devices(self):
         """Close any LUKS mapper devices opened by _unlock_luks_devices."""
         for mapper_name, _ in self._luks_opened:
-            self._exec_cmd(
-                "sudo cryptsetup luksClose %s || true" % mapper_name)
+            self._exec_cmd("sudo cryptsetup luksClose %s || true" % mapper_name)
 
         self._luks_opened = []
 
@@ -139,8 +137,8 @@ class LinuxLUKSMixin:
         utils.write_ssh_file(self._ssh, tmp, content.encode("utf-8"))
         if mode is not None:
             self._exec_cmd(
-                "sudo mv %s %s && sudo chmod %s %s" % (
-                    tmp, dest_path, mode, dest_path))
+                "sudo mv %s %s && sudo chmod %s %s" % (tmp, dest_path, mode, dest_path)
+            )
         else:
             self._exec_cmd("sudo mv %s %s" % (tmp, dest_path))
 
@@ -160,12 +158,15 @@ class LinuxLUKSMixin:
         """
         try:
             raw = self._exec_cmd(
-                "sudo cryptsetup luksDump --dump-json-metadata %s" % dev_path)
+                "sudo cryptsetup luksDump --dump-json-metadata %s" % dev_path
+            )
             header = json.loads(raw)
         except Exception:
             LOG.warning(
                 "Could not dump LUKS header for '%s': %s",
-                dev_path, utils.get_exception_details())
+                dev_path,
+                utils.get_exception_details(),
+            )
             return []
 
         results = []
@@ -191,29 +192,34 @@ class LinuxLUKSMixin:
         for token_id, keyslot_id in token_info:
             try:
                 self._exec_cmd(
-                    "sudo cryptsetup token remove --token-id %s %s" % (
-                        token_id, dev_path))
-                LOG.info(
-                    "Removed systemd-tpm2 token %s from '%s'",
-                    token_id, dev_path)
+                    "sudo cryptsetup token remove --token-id %s %s"
+                    % (token_id, dev_path)
+                )
+                LOG.info("Removed systemd-tpm2 token %s from '%s'", token_id, dev_path)
             except Exception:
                 LOG.warning(
                     "Failed to remove TPM2 token %s from '%s': %s",
-                    token_id, dev_path, utils.get_exception_details())
+                    token_id,
+                    dev_path,
+                    utils.get_exception_details(),
+                )
                 continue
 
             key_path = "/tmp/coriolis_%s.key" % os.path.basename(dev_path)
             try:
                 with self._auth_luks(passphrase, key_path):
                     self._exec_cmd(
-                        "sudo cryptsetup luksKillSlot --key-file %s %s %s" % (
-                            key_path, dev_path, keyslot_id))
-                LOG.info(
-                    "Killed TPM2 keyslot %s from '%s'", keyslot_id, dev_path)
+                        "sudo cryptsetup luksKillSlot --key-file %s %s %s"
+                        % (key_path, dev_path, keyslot_id)
+                    )
+                LOG.info("Killed TPM2 keyslot %s from '%s'", keyslot_id, dev_path)
             except Exception:
                 LOG.warning(
                     "Failed to kill TPM2 keyslot %s from '%s': %s",
-                    keyslot_id, dev_path, utils.get_exception_details())
+                    keyslot_id,
+                    dev_path,
+                    utils.get_exception_details(),
+                )
 
     def _transform_crypttab(self, os_root_dir, transform):
         """Apply transform to each non-comment entry in /etc/crypttab.
@@ -259,13 +265,12 @@ class LinuxLUKSMixin:
         Prevents the initramfs from attempting TPM2 unsealing on the target,
         which would fail because the source TPM is not present there.
         """
+
         def _strip_tpm2(parts):
             if len(parts) < 4:
                 return None
 
-            opts = [
-                o for o in parts[3].split(",") if not o.startswith("tpm2-")
-            ]
+            opts = [o for o in parts[3].split(",") if not o.startswith("tpm2-")]
             new_opts = ",".join(opts)
             if new_opts == parts[3]:
                 return None
@@ -273,8 +278,7 @@ class LinuxLUKSMixin:
             return [parts[0], parts[1], parts[2], new_opts]
 
         if self._transform_crypttab(os_root_dir, _strip_tpm2):
-            LOG.info(
-                "Removed TPM2 options from /etc/crypttab in '%s'", os_root_dir)
+            LOG.info("Removed TPM2 options from /etc/crypttab in '%s'", os_root_dir)
 
     def remove_encryption_artifacts(self, os_root_dir):
         """Remove stale TPM2 tokens, kill their keyslots, and strip tpm2-*
@@ -288,8 +292,7 @@ class LinuxLUKSMixin:
         if not self._luks_opened:
             return
 
-        self._event_manager.progress_update(
-            "Removing stale TPM2 LUKS artifacts")
+        self._event_manager.progress_update("Removing stale TPM2 LUKS artifacts")
 
         passphrase = self._osmorphing_info.get(constants.ENCRYPTED_DISKS_PASS)
         for _, dev_path in self._luks_opened:
@@ -298,21 +301,21 @@ class LinuxLUKSMixin:
         self._remove_tpm2_crypttab_options(os_root_dir)
 
     def _get_migration_keyfile_path(self, dev_path):
-        return "%s/coriolis_%s.key" % (
-            _LUKS_KEYFILE_DIR, os.path.basename(dev_path))
+        return "%s/coriolis_%s.key" % (_LUKS_KEYFILE_DIR, os.path.basename(dev_path))
 
     def _get_luks_uuid(self, dev_path):
-        return self._exec_cmd(
-            "sudo cryptsetup luksUUID %s" % dev_path).strip()
+        return self._exec_cmd("sudo cryptsetup luksUUID %s" % dev_path).strip()
 
     def _update_crypttab_keyfile(self, os_root_dir, uuid_to_keyfile):
         """Update the keyfile column in crypttab for matching LUKS UUIDs."""
+
         def _set_keyfile(parts):
             if len(parts) < 2:
                 return None
 
-            m = (re.match(r"UUID=([0-9a-f-]+)", parts[1], re.IGNORECASE) or
-                 re.match(r".*/by-uuid/([0-9a-f-]+)", parts[1], re.IGNORECASE))
+            m = re.match(r"UUID=([0-9a-f-]+)", parts[1], re.IGNORECASE) or re.match(
+                r".*/by-uuid/([0-9a-f-]+)", parts[1], re.IGNORECASE
+            )
             if not m:
                 return None
 
@@ -340,7 +343,8 @@ class LinuxLUKSMixin:
         if not self._transform_crypttab(os_root_dir, _set_keyfile):
             raise exception.CoriolisException(
                 "No /etc/crypttab entries matched LUKS UUIDs in '%s'; "
-                "cannot configure initramfs auto-unlock." % os_root_dir)
+                "cannot configure initramfs auto-unlock." % os_root_dir
+            )
 
         LOG.info("Updated crypttab keyfile entries in '%s'", os_root_dir)
 
@@ -352,8 +356,8 @@ class LinuxLUKSMixin:
 
         keyfile_dir = os.path.join(os_root_dir, _LUKS_KEYFILE_DIR.lstrip("/"))
         self._exec_cmd(
-            "sudo mkdir -p %s && sudo chmod 700 %s" % (
-                keyfile_dir, keyfile_dir))
+            "sudo mkdir -p %s && sudo chmod 700 %s" % (keyfile_dir, keyfile_dir)
+        )
 
         uuid_to_keyfile = {}
         for _, dev_path in self._luks_opened:
@@ -366,7 +370,9 @@ class LinuxLUKSMixin:
             uuid_to_keyfile[luks_uuid] = keyfile_path
             LOG.info(
                 "Written migration keyfile for LUKS device '%s' (UUID %s)",
-                dev_path, luks_uuid)
+                dev_path,
+                luks_uuid,
+            )
 
         self._update_crypttab_keyfile(os_root_dir, uuid_to_keyfile)
 
@@ -378,7 +384,8 @@ class LinuxLUKSMixin:
         else:
             raise exception.CoriolisException(
                 "No initramfs tool found in OS at '%s'; cannot configure "
-                "keyfile-based LUKS auto-unlock." % os_root_dir)
+                "keyfile-based LUKS auto-unlock." % os_root_dir
+            )
 
     def _configure_dracut_keyfiles(self, os_root_dir, uuid_to_keyfile):
         """Write a dracut.conf.d snippet to embed keyfiles in the initramfs."""
@@ -389,24 +396,23 @@ class LinuxLUKSMixin:
         # ldd analysis of the .so) in the initramfs.
         for plugin_path in _CRYPTSETUP_TPM2_PLUGIN_PATHS:
             if utils.test_ssh_path(
-                    self._ssh,
-                    os.path.join(os_root_dir, plugin_path.lstrip("/"))):
+                self._ssh, os.path.join(os_root_dir, plugin_path.lstrip("/"))
+            ):
                 install_items.append(plugin_path)
                 LOG.debug(
                     "Including cryptsetup TPM2 token plugin in "
-                    "dracut install_items: %s", plugin_path)
+                    "dracut install_items: %s",
+                    plugin_path,
+                )
                 break
 
-        conf_abs = os.path.join(
-            os_root_dir, _DRACUT_LUKS_CONF_PATH.lstrip("/"))
+        conf_abs = os.path.join(os_root_dir, _DRACUT_LUKS_CONF_PATH.lstrip("/"))
         conf_content = 'install_items+=" %s "\n' % " ".join(install_items)
         self._write_remote_file(conf_abs, conf_content)
         self._exec_cmd(
-            "sudo chown root:root %s && sudo chmod 644 %s" % (
-                conf_abs, conf_abs))
-        LOG.info(
-            "Written dracut LUKS keyfile config at '%s'",
-            _DRACUT_LUKS_CONF_PATH)
+            "sudo chown root:root %s && sudo chmod 644 %s" % (conf_abs, conf_abs)
+        )
+        LOG.info("Written dracut LUKS keyfile config at '%s'", _DRACUT_LUKS_CONF_PATH)
 
     def _configure_initramfs_tools_keyfiles(self, os_root_dir):
         """Set KEYFILE_PATTERN in cryptsetup-initramfs conf-hook.
@@ -430,11 +436,11 @@ class LinuxLUKSMixin:
         new_content = existing + '\nKEYFILE_PATTERN="%s"\n' % pattern
         self._write_remote_file(hook_abs, new_content)
         self._exec_cmd(
-            "sudo chown root:root %s && sudo chmod 644 %s" % (
-                hook_abs, hook_abs))
+            "sudo chown root:root %s && sudo chmod 644 %s" % (hook_abs, hook_abs)
+        )
         LOG.info(
-            "Set KEYFILE_PATTERN in cryptsetup-initramfs conf-hook at '%s'",
-            hook_abs)
+            "Set KEYFILE_PATTERN in cryptsetup-initramfs conf-hook at '%s'", hook_abs
+        )
 
     def _detect_initramfs_tool(self, os_root_dir):
         initramfs_bins = ["usr/sbin/update-initramfs", "sbin/update-initramfs"]
@@ -465,15 +471,19 @@ class LinuxLUKSMixin:
 
         luks_dir = os.path.join(os_root_dir, _LUKS_KEYFILE_DIR.lstrip("/"))
         try:
-            keyfiles = self._exec_cmd(
-                "sudo find %s -name 'coriolis_*.key' -type f 2>/dev/null"
-                % luks_dir).strip().splitlines()
+            keyfiles = (
+                self._exec_cmd(
+                    "sudo find %s -name 'coriolis_*.key' -type f 2>/dev/null" % luks_dir
+                )
+                .strip()
+                .splitlines()
+            )
         except Exception:
             keyfiles = []
 
         for kf in keyfiles:
             # strip os_root_dir prefix.
-            rel = kf[len(os_root_dir):]
+            rel = kf[len(os_root_dir) :]
             args += ["--include", rel, rel]
 
         return args
@@ -485,8 +495,7 @@ class LinuxLUKSMixin:
         """
         tool = self._detect_initramfs_tool(os_root_dir)
         if tool == "update-initramfs":
-            self._exec_cmd(
-                "sudo chroot %s update-initramfs -u -k all" % os_root_dir)
+            self._exec_cmd("sudo chroot %s update-initramfs -u -k all" % os_root_dir)
         elif tool == "dracut":
             # --regenerate-all scans the chroot's own /lib/modules/ for
             # installed kernels instead of relying on uname -r
@@ -499,21 +508,22 @@ class LinuxLUKSMixin:
             include_args = self._build_dracut_include_args(os_root_dir)
             self._exec_cmd(
                 "sudo chroot %s dracut --regenerate-all --force %s"
-                % (os_root_dir, " ".join(include_args)))
+                % (os_root_dir, " ".join(include_args))
+            )
         else:
             raise exception.CoriolisException(
                 "No initramfs tool found in OS at '%s'; cannot rebuild "
-                "initramfs for LUKS auto-unlock." % os_root_dir)
+                "initramfs for LUKS auto-unlock." % os_root_dir
+            )
 
-    def install_encryption_firstboot_setup(
-            self, os_root_dir, os_morphing_tools):
+    def install_encryption_firstboot_setup(self, os_root_dir, os_morphing_tools):
         """Install a firstboot script to re-enroll TPM2."""
         if not self._luks_opened:
             return
 
         self._event_manager.progress_update(
-            "Injecting migration keyfile and installing firstboot LUKS "
-            "cleanup")
+            "Injecting migration keyfile and installing firstboot LUKS cleanup"
+        )
 
         self._write_migration_keyfiles(os_root_dir)
         self._fix_grub_luks_root(os_root_dir)
@@ -524,11 +534,12 @@ class LinuxLUKSMixin:
         if script_content is None:
             raise exception.CoriolisException(
                 "No initramfs tool found in OS at '%s'; cannot install "
-                "LUKS firstboot cleanup script." % os_root_dir)
+                "LUKS firstboot cleanup script." % os_root_dir
+            )
 
         os_morphing_tools.register_firstboot_script(
-            script_content, user_provided=False,
-            script_filename="luks-firstboot.sh")
+            script_content, user_provided=False, script_filename="luks-firstboot.sh"
+        )
 
     def _fix_grub_luks_root(self, os_root_dir):
         """Patch grub.cfg to use crypttab mapper names for LUKS root devices.
@@ -545,8 +556,7 @@ class LinuxLUKSMixin:
         if not utils.test_ssh_path(self._ssh, crypttab_path):
             return
 
-        crypttab = utils.read_ssh_file(
-            self._ssh, crypttab_path).decode("utf-8")
+        crypttab = utils.read_ssh_file(self._ssh, crypttab_path).decode("utf-8")
 
         # Build UUID -> crypttab-mapper-name mapping.
         uuid_to_crypttab_name = {}
@@ -560,8 +570,9 @@ class LinuxLUKSMixin:
                 continue
 
             mapper_name = parts[0]
-            m = (re.match(r'UUID=([0-9a-f-]+)', parts[1], re.IGNORECASE) or
-                 re.match(r'.*/by-uuid/([0-9a-f-]+)', parts[1], re.IGNORECASE))
+            m = re.match(r'UUID=([0-9a-f-]+)', parts[1], re.IGNORECASE) or re.match(
+                r'.*/by-uuid/([0-9a-f-]+)', parts[1], re.IGNORECASE
+            )
             if m:
                 uuid_to_crypttab_name[m.group(1).lower()] = mapper_name
 

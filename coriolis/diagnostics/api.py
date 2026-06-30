@@ -1,9 +1,9 @@
 # Copyright 2024 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from coriolis import utils
 from coriolis.conductor.rpc import client as conductor_rpc
 from coriolis.transfer_cron.rpc import client as cron_rpc
-from coriolis import utils
 from coriolis.worker.rpc import client as worker_rpc
 
 

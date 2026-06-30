@@ -54,9 +54,15 @@ class DictToObject:
                 setattr(self, key, DictToObject(value, skip_attrs=skip_attrs))
             elif isinstance(value, list):
                 setattr(
-                    self, key,
-                    [DictToObject(item, skip_attrs=skip_attrs) if isinstance(
-                        item, dict) else item for item in value])
+                    self,
+                    key,
+                    [
+                        DictToObject(item, skip_attrs=skip_attrs)
+                        if isinstance(item, dict)
+                        else item
+                        for item in value
+                    ],
+                )
             else:
                 setattr(self, key, value)
 

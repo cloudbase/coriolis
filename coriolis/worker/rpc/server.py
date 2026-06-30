@@ -1,7 +1,6 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-from logging import handlers
 import multiprocessing
 import os
 import shutil
@@ -9,24 +8,20 @@ import signal
 import sys
 import threading
 import time
+from logging import handlers
 
+import psutil
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import strutils
-import psutil
 from six.moves import queue
 
+from coriolis import constants, context, exception, schemas, service, utils
 from coriolis.conductor.rpc import client as rpc_conductor_client
 from coriolis.conductor.rpc import utils as conductor_rpc_utils
-from coriolis import constants
-from coriolis import context
-from coriolis import exception
 from coriolis.minion_manager.rpc import client as rpc_minion_manager_client
 from coriolis.providers import factory as providers_factory
-from coriolis import schemas
-from coriolis import service
 from coriolis.tasks import factory as task_runners_factory
-from coriolis import utils
 
 CONF = cfg.CONF
 CONF.register_opts([], 'worker')
@@ -41,9 +36,9 @@ VERSION = "1.0"
 def _get_event_handler_for_task_type(task_type, ctxt, task_object_id):
     if task_type in constants.MINION_POOL_OPERATIONS_TASKS:
         return rpc_minion_manager_client.MinionManagerPoolRpcEventHandler(
-            ctxt, task_object_id)
-    return rpc_conductor_client.ConductorTaskRpcEventHandler(
-        ctxt, task_object_id)
+            ctxt, task_object_id
+        )
+    return rpc_conductor_client.ConductorTaskRpcEventHandler(ctxt, task_object_id)
 
 
 class WorkerServerEndpoint(object):
@@ -61,8 +56,7 @@ class WorkerServerEndpoint(object):
         # process" as well as forking child processes, it is safest to
         # re-instantiate the client every time:
         if self._rpc_conductor_client_instance is None:
-            self._rpc_conductor_client_instance = (
-                rpc_conductor_client.ConductorClient())
+            self._rpc_conductor_client_instance = rpc_conductor_client.ConductorClient()
         return self._rpc_conductor_client_instance
 
     def _register_worker_service(self):
@@ -72,18 +66,29 @@ class WorkerServerEndpoint(object):
             # TODO(aznashwan): we should ideally have a dedicated
             # user/pass/tenant just for service registration.
             # Either way, these values are not used and thus redundant.
-            "coriolis", "admin")
+            "coriolis",
+            "admin",
+        )
         status = self.get_service_status(dummy_context)
         service_registration = (
             conductor_rpc_utils.check_create_registration_for_service(
                 # NOTE: considering this only runs once on startup, we
                 # instantiate a fresh conductor client instance for it:
-                rpc_conductor_client.ConductorClient(), dummy_context, host,
-                binary, constants.WORKER_MAIN_MESSAGING_TOPIC, enabled=True,
-                providers=status['providers'], specs=status['specs']))
+                rpc_conductor_client.ConductorClient(),
+                dummy_context,
+                host,
+                binary,
+                constants.WORKER_MAIN_MESSAGING_TOPIC,
+                enabled=True,
+                providers=status['providers'],
+                specs=status['specs'],
+            )
+        )
         LOG.info(
             "Worker service is successfully registered with the following "
-            "parameters: %s", service_registration)
+            "parameters: %s",
+            service_registration,
+        )
         self._service_registration = service_registration
         return service_registration
 
@@ -102,18 +107,19 @@ class WorkerServerEndpoint(object):
             "binary": diagnostics["application"],
             "topic": constants.WORKER_MAIN_MESSAGING_TOPIC,
             "providers": self.get_available_providers(ctxt),
-            "specs": diagnostics
+            "specs": diagnostics,
         }
 
         return status
 
     def cancel_task(self, ctxt, task_id, process_id, force):
         LOG.debug(
-            "Received request to cancel task '%s' (process %s)",
-            task_id, process_id)
+            "Received request to cancel task '%s' (process %s)", task_id, process_id
+        )
         if not force and os.name == "nt":
-            LOG.warn("Windows does not support SIGINT, performing a "
-                     "forced task termination")
+            LOG.warn(
+                "Windows does not support SIGINT, performing a forced task termination"
+            )
             force = True
 
         try:
@@ -129,11 +135,10 @@ class WorkerServerEndpoint(object):
             msg = (
                 "Unable to find process '%s' for task '%s' for cancellation. "
                 "Presuming it was already canceled or had "
-                "completed/error'd." % (
-                    process_id, task_id))
+                "completed/error'd." % (process_id, task_id)
+            )
             LOG.error(msg)
-            self._rpc_conductor_client.confirm_task_cancellation(
-                ctxt, task_id, msg)
+            self._rpc_conductor_client.confirm_task_cancellation(ctxt, task_id, msg)
 
     def _handle_mp_log_events(self, p, mp_log_q):
         while True:
@@ -157,9 +162,8 @@ class WorkerServerEndpoint(object):
         else:
             return "%s:%s" % (original_ld_path, extra_libdirs)
 
-    def _start_process_with_custom_library_paths(
-            self, process, extra_library_paths):
-        """ Given a process instance, this method will add any shared libs
+    def _start_process_with_custom_library_paths(self, process, extra_library_paths):
+        """Given a process instance, this method will add any shared libs
         needed by the origin/destination provider plugins to the
         'LD_LIBRARY_PATH' env variable and start the process.
         This method will always restore the 'LD_LIBRARY_PATH' to the
@@ -175,30 +179,34 @@ class WorkerServerEndpoint(object):
             original_ld_path = os.environ.get('LD_LIBRARY_PATH', "")
             LOG.debug(
                 "Starting new worker process with extra libraries: '%s'",
-                extra_library_paths)
+                extra_library_paths,
+            )
             try:
                 os.environ['LD_LIBRARY_PATH'] = self._get_custom_ld_path(
-                    original_ld_path, extra_library_paths)
+                    original_ld_path, extra_library_paths
+                )
                 process.start()
             except TypeError:
                 LOG.warning(
                     "Failed to set extra library paths: %s. Error was: %s",
-                    extra_library_paths, utils.get_exception_details())
+                    extra_library_paths,
+                    utils.get_exception_details(),
+                )
             finally:
                 os.environ['LD_LIBRARY_PATH'] = original_ld_path
 
     def _get_extra_library_paths_for_providers(
-            self, ctxt, task_id, task_type, origin, destination):
-        """ Returns a list of strings with paths on the worker with shared
+        self, ctxt, task_id, task_type, origin, destination
+    ):
+        """Returns a list of strings with paths on the worker with shared
         libraries needed by the source/destination providers.
         """
-        event_handler = _get_event_handler_for_task_type(
-            task_type, ctxt, task_id)
-        task_runner = task_runners_factory.get_task_runner_class(
-            task_type)()
+        event_handler = _get_event_handler_for_task_type(task_type, ctxt, task_id)
+        task_runner = task_runners_factory.get_task_runner_class(task_type)()
 
         return task_runner.get_shared_libs_for_providers(
-            ctxt, origin, destination, event_handler)
+            ctxt, origin, destination, event_handler
+        )
 
     def _wait_for_process(self, p, mp_q):
         result = None
@@ -216,57 +224,78 @@ class WorkerServerEndpoint(object):
                     except BaseException:
                         pass
                 break
-            time.sleep(.2)
+            time.sleep(0.2)
         return result
 
     def _exec_task_process(
-            self, ctxt, task_id, task_type, origin, destination, instance,
-            task_info, report_to_conductor=True):
+        self,
+        ctxt,
+        task_id,
+        task_type,
+        origin,
+        destination,
+        instance,
+        task_info,
+        report_to_conductor=True,
+    ):
         mp_ctx = multiprocessing.get_context('spawn')
         mp_q = mp_ctx.Queue()
         mp_log_q = mp_ctx.Queue()
         p = mp_ctx.Process(
             target=_task_process,
-            args=(ctxt, task_id, task_type, origin, destination, instance,
-                  task_info, mp_q, mp_log_q))
+            args=(
+                ctxt,
+                task_id,
+                task_type,
+                origin,
+                destination,
+                instance,
+                task_info,
+                mp_q,
+                mp_log_q,
+            ),
+        )
 
         extra_library_paths = self._get_extra_library_paths_for_providers(
-            ctxt, task_id, task_type, origin, destination)
+            ctxt, task_id, task_type, origin, destination
+        )
 
         try:
             if report_to_conductor:
                 LOG.debug(
-                    "Attempting to set task host on Conductor for task '%s'.",
-                    task_id)
-                self._rpc_conductor_client.set_task_host(
-                    ctxt, task_id, self._server)
-            LOG.debug(
-                "Attempting to start process for task with ID '%s'", task_id)
-            self._start_process_with_custom_library_paths(
-                p, extra_library_paths)
+                    "Attempting to set task host on Conductor for task '%s'.", task_id
+                )
+                self._rpc_conductor_client.set_task_host(ctxt, task_id, self._server)
+            LOG.debug("Attempting to start process for task with ID '%s'", task_id)
+            self._start_process_with_custom_library_paths(p, extra_library_paths)
             LOG.info("Task process started: %s", task_id)
             if report_to_conductor:
                 LOG.debug(
-                    "Attempting to set task process on Conductor "
-                    "for task '%s'.",
-                    task_id)
-                self._rpc_conductor_client.set_task_process(
-                    ctxt, task_id, p.pid)
+                    "Attempting to set task process on Conductor for task '%s'.",
+                    task_id,
+                )
+                self._rpc_conductor_client.set_task_process(ctxt, task_id, p.pid)
             LOG.debug(
                 "Successfully started and reported task process for task "
-                "with ID '%s' (PID %d)", task_id, p.pid)
+                "with ID '%s' (PID %d)",
+                task_id,
+                p.pid,
+            )
         except (Exception, KeyboardInterrupt) as ex:
             LOG.debug(
-                "Exception occurred whilst setting host for task '%s'. Error "
-                "was: %s", task_id, utils.get_exception_details())
+                "Exception occurred whilst setting host for task '%s'. Error was: %s",
+                task_id,
+                utils.get_exception_details(),
+            )
             # NOTE: because the task error classes are wrapped,
             # it's easiest to just check that the messages align:
-            cancelling_msg = (
-                exception.TASK_ALREADY_CANCELLING_EXCEPTION_FMT % {
-                    "task_id": task_id})
+            cancelling_msg = exception.TASK_ALREADY_CANCELLING_EXCEPTION_FMT % {
+                "task_id": task_id
+            }
             if cancelling_msg in str(ex):
                 raise exception.TaskIsCancelling(
-                    "Task '%s' was already in cancelling status." % task_id)
+                    "Task '%s' was already in cancelling status." % task_id
+                )
             raise
 
         # TODO(lpetrut): one logger thread per subprocess may be excessive when
@@ -277,9 +306,7 @@ class WorkerServerEndpoint(object):
         # Note that asyncio coroutines can't directly consume multiprocessing
         # queues, we'd probably need pipes instead. There's also the option of
         # using select/poll/epoll directly.
-        utils.start_thread(
-            target=self._handle_mp_log_events,
-            args=(p, mp_log_q))
+        utils.start_thread(target=self._handle_mp_log_events, args=(p, mp_log_q))
 
         result = self._wait_for_process(p, mp_q)
         p.join()
@@ -288,42 +315,66 @@ class WorkerServerEndpoint(object):
             LOG.debug(
                 "No result from process (%s) running task '%s'. "
                 "Presuming task was cancelled.",
-                p.pid, task_id)
-            raise exception.TaskProcessCanceledException(
-                "Task was canceled.")
+                p.pid,
+                task_id,
+            )
+            raise exception.TaskProcessCanceledException("Task was canceled.")
 
         if isinstance(result, str):
             LOG.debug(
-                "Error message while running task '%s' on process "
-                "with PID '%s': %s", task_id, p.pid, result)
+                "Error message while running task '%s' on process with PID '%s': %s",
+                task_id,
+                p.pid,
+                result,
+            )
             raise exception.TaskProcessException(result)
         return result
 
-    def exec_task(self, ctxt, task_id, task_type, origin, destination,
-                  instance, task_info, report_to_conductor=True):
+    def exec_task(
+        self,
+        ctxt,
+        task_id,
+        task_type,
+        origin,
+        destination,
+        instance,
+        task_info,
+        report_to_conductor=True,
+    ):
         try:
             task_result = self._exec_task_process(
-                ctxt, task_id, task_type, origin, destination,
-                instance, task_info, report_to_conductor=report_to_conductor)
+                ctxt,
+                task_id,
+                task_type,
+                origin,
+                destination,
+                instance,
+                task_info,
+                report_to_conductor=report_to_conductor,
+            )
 
             LOG.info(
                 "Output of completed %s task with ID %s: %s",
-                task_type, task_id,
-                utils.sanitize_task_info(task_result))
+                task_type,
+                task_id,
+                utils.sanitize_task_info(task_result),
+            )
 
             if not report_to_conductor:
                 return task_result
-            self._rpc_conductor_client.task_completed(
-                ctxt, task_id, task_result)
+            self._rpc_conductor_client.task_completed(ctxt, task_id, task_result)
         except exception.TaskProcessCanceledException as ex:
             if report_to_conductor:
                 LOG.debug(
                     "Task with ID '%s' appears to have been cancelled. "
                     "Confirming cancellation to Conductor now. Error was: %s",
-                    task_id, utils.get_exception_details())
+                    task_id,
+                    utils.get_exception_details(),
+                )
                 LOG.exception(ex)
                 self._rpc_conductor_client.confirm_task_cancellation(
-                    ctxt, task_id, str(ex))
+                    ctxt, task_id, str(ex)
+                )
             else:
                 raise
         except exception.NoSuitableWorkerServiceError:
@@ -331,7 +382,9 @@ class WorkerServerEndpoint(object):
                 LOG.warn(
                     "A conductor-side scheduling error has occurred following "
                     "the completion of task '%s'. Ignoring. Error was: %s",
-                    task_id, utils.get_exception_details())
+                    task_id,
+                    utils.get_exception_details(),
+                )
             else:
                 raise
         except Exception as ex:
@@ -339,196 +392,226 @@ class WorkerServerEndpoint(object):
                 LOG.debug(
                     "Task with ID '%s' has error'd out. Reporting error to "
                     "Conductor now. Error was: %s",
-                    task_id, utils.get_exception_details())
+                    task_id,
+                    utils.get_exception_details(),
+                )
                 LOG.exception(ex)
-                self._rpc_conductor_client.set_task_error(
-                    ctxt, task_id, str(ex))
+                self._rpc_conductor_client.set_task_error(ctxt, task_id, str(ex))
             else:
                 raise
 
-    def get_endpoint_instances(self, ctxt, platform_name, connection_info,
-                               source_environment, marker, limit,
-                               instance_name_pattern, refresh=False):
+    def get_endpoint_instances(
+        self,
+        ctxt,
+        platform_name,
+        connection_info,
+        source_environment,
+        marker,
+        limit,
+        instance_name_pattern,
+        refresh=False,
+    ):
         export_provider = providers_factory.get_provider(
-            platform_name, constants.PROVIDER_TYPE_ENDPOINT_INSTANCES, None)
+            platform_name, constants.PROVIDER_TYPE_ENDPOINT_INSTANCES, None
+        )
 
-        secret_connection_info = utils.get_secret_connection_info(
-            ctxt, connection_info)
+        secret_connection_info = utils.get_secret_connection_info(ctxt, connection_info)
 
         instances_info = export_provider.get_instances(
-            ctxt, secret_connection_info, source_environment,
-            last_seen_id=marker, limit=limit,
-            instance_name_pattern=instance_name_pattern, refresh=refresh)
+            ctxt,
+            secret_connection_info,
+            source_environment,
+            last_seen_id=marker,
+            limit=limit,
+            instance_name_pattern=instance_name_pattern,
+            refresh=refresh,
+        )
         for instance_info in instances_info:
             schemas.validate_value(
-                instance_info, schemas.CORIOLIS_VM_INSTANCE_INFO_SCHEMA)
+                instance_info, schemas.CORIOLIS_VM_INSTANCE_INFO_SCHEMA
+            )
 
         return instances_info
 
-    def get_endpoint_instance(self, ctxt, platform_name, connection_info,
-                              source_environment, instance_name):
+    def get_endpoint_instance(
+        self, ctxt, platform_name, connection_info, source_environment, instance_name
+    ):
         provider = providers_factory.get_provider(
-            platform_name, constants.PROVIDER_TYPE_ENDPOINT_INSTANCES, None)
+            platform_name, constants.PROVIDER_TYPE_ENDPOINT_INSTANCES, None
+        )
 
-        secret_connection_info = utils.get_secret_connection_info(
-            ctxt, connection_info)
+        secret_connection_info = utils.get_secret_connection_info(ctxt, connection_info)
 
         instance_info = provider.get_instance(
-            ctxt, secret_connection_info, source_environment,
-            instance_name)
+            ctxt, secret_connection_info, source_environment, instance_name
+        )
 
-        schemas.validate_value(
-            instance_info, schemas.CORIOLIS_VM_EXPORT_INFO_SCHEMA)
+        schemas.validate_value(instance_info, schemas.CORIOLIS_VM_EXPORT_INFO_SCHEMA)
 
         return instance_info
 
     def get_endpoint_destination_options(
-            self, ctxt, platform_name, connection_info, env, option_names):
+        self, ctxt, platform_name, connection_info, env, option_names
+    ):
         provider = providers_factory.get_provider(
             platform_name,
             constants.PROVIDER_TYPE_DESTINATION_ENDPOINT_OPTIONS,
-            None, raise_if_not_found=False)
+            None,
+            raise_if_not_found=False,
+        )
         if not provider:
             raise exception.InvalidInput(
                 "Provider plugin for platform '%s' does not support listing "
-                "destination environment options." % platform_name)
+                "destination environment options." % platform_name
+            )
 
-        secret_connection_info = utils.get_secret_connection_info(
-            ctxt, connection_info)
+        secret_connection_info = utils.get_secret_connection_info(ctxt, connection_info)
 
         options = provider.get_target_environment_options(
-            ctxt, secret_connection_info, env=env, option_names=option_names)
+            ctxt, secret_connection_info, env=env, option_names=option_names
+        )
 
         schemas.validate_value(
-            options, schemas.CORIOLIS_DESTINATION_ENVIRONMENT_OPTIONS_SCHEMA)
+            options, schemas.CORIOLIS_DESTINATION_ENVIRONMENT_OPTIONS_SCHEMA
+        )
 
         return options
 
     def get_endpoint_source_minion_pool_options(
-            self, ctxt, platform_name, connection_info, env, option_names):
+        self, ctxt, platform_name, connection_info, env, option_names
+    ):
         provider = providers_factory.get_provider(
             platform_name,
             constants.PROVIDER_TYPE_SOURCE_MINION_POOL,
-            None, raise_if_not_found=False)
+            None,
+            raise_if_not_found=False,
+        )
         if not provider:
             raise exception.InvalidInput(
                 "Provider plugin for platform '%s' does not support source "
-                "minion pool creation or management." % platform_name)
+                "minion pool creation or management." % platform_name
+            )
 
-        secret_connection_info = utils.get_secret_connection_info(
-            ctxt, connection_info)
+        secret_connection_info = utils.get_secret_connection_info(ctxt, connection_info)
 
         options = provider.get_minion_pool_options(
-            ctxt, secret_connection_info, env=env,
-            option_names=option_names)
+            ctxt, secret_connection_info, env=env, option_names=option_names
+        )
 
         # NOTE: the structure of option values is the same for minion pools:
         schemas.validate_value(
-            options, schemas.CORIOLIS_DESTINATION_ENVIRONMENT_OPTIONS_SCHEMA)
+            options, schemas.CORIOLIS_DESTINATION_ENVIRONMENT_OPTIONS_SCHEMA
+        )
 
         return options
 
     def get_endpoint_destination_minion_pool_options(
-            self, ctxt, platform_name, connection_info, env, option_names):
+        self, ctxt, platform_name, connection_info, env, option_names
+    ):
         provider = providers_factory.get_provider(
             platform_name,
             constants.PROVIDER_TYPE_DESTINATION_MINION_POOL,
-            None, raise_if_not_found=False)
+            None,
+            raise_if_not_found=False,
+        )
         if not provider:
             raise exception.InvalidInput(
                 "Provider plugin for platform '%s' does not support "
-                "destination minion pool creation or management." % (
-                    platform_name))
+                "destination minion pool creation or management." % (platform_name)
+            )
 
-        secret_connection_info = utils.get_secret_connection_info(
-            ctxt, connection_info)
+        secret_connection_info = utils.get_secret_connection_info(ctxt, connection_info)
 
         options = provider.get_minion_pool_options(
-            ctxt, secret_connection_info, env=env,
-            option_names=option_names)
+            ctxt, secret_connection_info, env=env, option_names=option_names
+        )
 
         # NOTE: the structure of option values is the same for minion pools:
         schemas.validate_value(
-            options, schemas.CORIOLIS_DESTINATION_ENVIRONMENT_OPTIONS_SCHEMA)
+            options, schemas.CORIOLIS_DESTINATION_ENVIRONMENT_OPTIONS_SCHEMA
+        )
 
         return options
 
     def get_endpoint_source_options(
-            self, ctxt, platform_name, connection_info, env, option_names):
+        self, ctxt, platform_name, connection_info, env, option_names
+    ):
         provider = providers_factory.get_provider(
             platform_name,
             constants.PROVIDER_TYPE_SOURCE_ENDPOINT_OPTIONS,
-            None, raise_if_not_found=False)
+            None,
+            raise_if_not_found=False,
+        )
         if not provider:
             raise exception.InvalidInput(
                 "Provider plugin for platform '%s' does not support listing "
-                "source environment options." % platform_name)
+                "source environment options." % platform_name
+            )
 
-        secret_connection_info = utils.get_secret_connection_info(
-            ctxt, connection_info)
+        secret_connection_info = utils.get_secret_connection_info(ctxt, connection_info)
 
         options = provider.get_source_environment_options(
-            ctxt, secret_connection_info, env=env, option_names=option_names)
+            ctxt, secret_connection_info, env=env, option_names=option_names
+        )
 
         schemas.validate_value(
-            options, schemas.CORIOLIS_SOURCE_ENVIRONMENT_OPTIONS_SCHEMA)
+            options, schemas.CORIOLIS_SOURCE_ENVIRONMENT_OPTIONS_SCHEMA
+        )
 
         return options
 
-    def get_endpoint_networks(
-            self, ctxt, platform_name, connection_info, env):
+    def get_endpoint_networks(self, ctxt, platform_name, connection_info, env):
         env = env or {}
         provider = providers_factory.get_provider(
-            platform_name, constants.PROVIDER_TYPE_ENDPOINT_NETWORKS, None)
+            platform_name, constants.PROVIDER_TYPE_ENDPOINT_NETWORKS, None
+        )
 
-        secret_connection_info = utils.get_secret_connection_info(
-            ctxt, connection_info)
+        secret_connection_info = utils.get_secret_connection_info(ctxt, connection_info)
 
-        networks_info = provider.get_networks(
-            ctxt, secret_connection_info, env)
+        networks_info = provider.get_networks(ctxt, secret_connection_info, env)
         for network_info in networks_info:
-            schemas.validate_value(
-                network_info, schemas.CORIOLIS_VM_NETWORK_SCHEMA)
+            schemas.validate_value(network_info, schemas.CORIOLIS_VM_NETWORK_SCHEMA)
 
         return networks_info
 
     def get_endpoint_storage(self, ctxt, platform_name, connection_info, env):
         provider = providers_factory.get_provider(
-            platform_name, constants.PROVIDER_TYPE_ENDPOINT_STORAGE, None)
+            platform_name, constants.PROVIDER_TYPE_ENDPOINT_STORAGE, None
+        )
 
-        secret_connection_info = utils.get_secret_connection_info(
-            ctxt, connection_info)
+        secret_connection_info = utils.get_secret_connection_info(ctxt, connection_info)
 
-        storage = provider.get_storage(
-            ctxt, secret_connection_info, env)
+        storage = provider.get_storage(ctxt, secret_connection_info, env)
 
         schemas.validate_value(storage, schemas.CORIOLIS_VM_STORAGE_SCHEMA)
 
         return storage
 
     def get_endpoint_inventory_csv(
-            self, ctxt, platform_name, connection_info, source_environment):
+        self, ctxt, platform_name, connection_info, source_environment
+    ):
         provider = providers_factory.get_provider(
-            platform_name,
-            constants.PROVIDER_TYPE_ENDPOINT_INVENTORY_EXPORT, None)
+            platform_name, constants.PROVIDER_TYPE_ENDPOINT_INVENTORY_EXPORT, None
+        )
         if not provider:
             raise exception.InvalidInput(
                 "Provider plugin for platform '%s' does not support "
-                "VM inventory CSV export." % platform_name)
+                "VM inventory CSV export." % platform_name
+            )
 
-        secret_connection_info = utils.get_secret_connection_info(
-            ctxt, connection_info)
+        secret_connection_info = utils.get_secret_connection_info(ctxt, connection_info)
 
         return provider.export_instance_inventory(
-            ctxt, secret_connection_info, source_environment)
+            ctxt, secret_connection_info, source_environment
+        )
 
     def get_available_providers(self, ctxt):
         return providers_factory.get_available_providers()
 
-    def validate_endpoint_target_environment(
-            self, ctxt, platform_name, target_env):
+    def validate_endpoint_target_environment(self, ctxt, platform_name, target_env):
         provider = providers_factory.get_provider(
-            platform_name, constants.PROVIDER_TYPE_OS_MORPHING, None)
+            platform_name, constants.PROVIDER_TYPE_OS_MORPHING, None
+        )
         target_env_schema = provider.get_target_environment_schema()
 
         is_valid = True
@@ -542,10 +625,10 @@ class WorkerServerEndpoint(object):
 
         return (is_valid, message)
 
-    def validate_endpoint_source_environment(
-            self, ctxt, platform_name, source_env):
+    def validate_endpoint_source_environment(self, ctxt, platform_name, source_env):
         provider = providers_factory.get_provider(
-            platform_name, constants.PROVIDER_TYPE_TRANSFER_EXPORT, None)
+            platform_name, constants.PROVIDER_TYPE_TRANSFER_EXPORT, None
+        )
         source_env_schema = provider.get_source_environment_schema()
 
         is_valid = True
@@ -560,9 +643,11 @@ class WorkerServerEndpoint(object):
         return (is_valid, message)
 
     def validate_endpoint_source_minion_pool_options(
-            self, ctxt, platform_name, pool_environment):
+        self, ctxt, platform_name, pool_environment
+    ):
         provider = providers_factory.get_provider(
-            platform_name, constants.PROVIDER_TYPE_SOURCE_MINION_POOL, None)
+            platform_name, constants.PROVIDER_TYPE_SOURCE_MINION_POOL, None
+        )
         pool_options_schema = provider.get_minion_pool_environment_schema()
 
         is_valid = True
@@ -577,10 +662,11 @@ class WorkerServerEndpoint(object):
         return (is_valid, message)
 
     def validate_endpoint_destination_minion_pool_options(
-            self, ctxt, platform_name, pool_environment):
+        self, ctxt, platform_name, pool_environment
+    ):
         provider = providers_factory.get_provider(
-            platform_name, constants.PROVIDER_TYPE_DESTINATION_MINION_POOL,
-            None)
+            platform_name, constants.PROVIDER_TYPE_DESTINATION_MINION_POOL, None
+        )
         pool_options_schema = provider.get_minion_pool_environment_schema()
 
         is_valid = True
@@ -594,19 +680,19 @@ class WorkerServerEndpoint(object):
 
         return (is_valid, message)
 
-    def validate_endpoint_connection(self, ctxt, platform_name,
-                                     connection_info):
+    def validate_endpoint_connection(self, ctxt, platform_name, connection_info):
         provider = providers_factory.get_provider(
-            platform_name, constants.PROVIDER_TYPE_ENDPOINT, None)
+            platform_name, constants.PROVIDER_TYPE_ENDPOINT, None
+        )
 
-        secret_connection_info = utils.get_secret_connection_info(
-            ctxt, connection_info)
+        secret_connection_info = utils.get_secret_connection_info(ctxt, connection_info)
 
         is_valid = True
         message = None
         try:
             schemas.validate_value(
-                secret_connection_info, provider.get_connection_info_schema())
+                secret_connection_info, provider.get_connection_info_schema()
+            )
             provider.validate_connection(ctxt, secret_connection_info)
         except exception.SchemaValidationException as ex:
             LOG.debug("Connection info schema validation failed: %s", ex)
@@ -615,8 +701,8 @@ class WorkerServerEndpoint(object):
                 "Schema validation for the provided connection parameters has "
                 "failed. Please ensure that you have included all the "
                 "necessary connection parameters and they are all properly "
-                "formatted for the '%s' Coriolis plugin in use." %
-                (platform_name))
+                "formatted for the '%s' Coriolis plugin in use." % (platform_name)
+            )
         except exception.ConnectionValidationException as ex:
             LOG.warn(utils.get_exception_details())
             is_valid = False
@@ -624,15 +710,14 @@ class WorkerServerEndpoint(object):
         except BaseException as ex:
             LOG.warn(utils.get_exception_details())
             is_valid = False
-            message = (
-                "An unexpected connection validation exception "
-                "ocurred: %s" % str(ex))
+            message = "An unexpected connection validation exception ocurred: %s" % str(
+                ex
+            )
 
         return (is_valid, message)
 
     def get_provider_schemas(self, ctxt, platform_name, provider_type):
-        provider = providers_factory.get_provider(
-            platform_name, provider_type, None)
+        provider = providers_factory.get_provider(platform_name, provider_type, None)
 
         schemas = {}
 
@@ -675,28 +760,32 @@ def _setup_task_process(mp_log_q):
     log_root.addHandler(handlers.QueueHandler(mp_log_q))
 
 
-def _task_process(ctxt, task_id, task_type, origin, destination, instance,
-                  task_info, mp_q, mp_log_q):
+def _task_process(
+    ctxt, task_id, task_type, origin, destination, instance, task_info, mp_q, mp_log_q
+):
     try:
         _setup_task_process(mp_log_q)
 
-        task_runner = task_runners_factory.get_task_runner_class(
-            task_type)()
-        event_handler = _get_event_handler_for_task_type(
-            task_type, ctxt, task_id)
+        task_runner = task_runners_factory.get_task_runner_class(task_type)()
+        event_handler = _get_event_handler_for_task_type(task_type, ctxt, task_id)
 
-        LOG.debug("Executing task: %(task_id)s, type: %(task_type)s, "
-                  "origin: %(origin)s, destination: %(destination)s, "
-                  "instance: %(instance)s, task_info: %(task_info)s",
-                  {"task_id": task_id, "task_type": task_type,
-                   "origin": origin,
-                   "destination": strutils.mask_dict_password(destination),
-                   "instance": instance,
-                   "task_info": utils.sanitize_task_info(
-                       task_info)})
+        LOG.debug(
+            "Executing task: %(task_id)s, type: %(task_type)s, "
+            "origin: %(origin)s, destination: %(destination)s, "
+            "instance: %(instance)s, task_info: %(task_info)s",
+            {
+                "task_id": task_id,
+                "task_type": task_type,
+                "origin": origin,
+                "destination": strutils.mask_dict_password(destination),
+                "instance": instance,
+                "task_info": utils.sanitize_task_info(task_info),
+            },
+        )
 
         task_result = task_runner.run(
-            ctxt, instance, origin, destination, task_info, event_handler)
+            ctxt, instance, origin, destination, task_info, event_handler
+        )
         # mq_p.put() doesn't raise if new_task_info is not serializable
         utils.is_serializable(task_result)
         mp_q.put(task_result)
