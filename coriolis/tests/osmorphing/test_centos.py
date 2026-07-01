@@ -34,7 +34,7 @@ class BaseCentOSMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
     def test_check_os_supported(self):
         detected_os_info = {
             "distribution_name": centos.CENTOS_DISTRO_IDENTIFIER,
-            "release_version": "6"
+            "release_version": "7"
         }
 
         result = centos.BaseCentOSMorphingTools.check_os_supported(

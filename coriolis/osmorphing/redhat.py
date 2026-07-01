@@ -9,17 +9,15 @@ from oslo_log import log as logging
 
 from coriolis import exception
 from coriolis.osmorphing import base
-from coriolis.osmorphing.osdetect import centos as centos_detect
-from coriolis.osmorphing.osdetect import redhat as redhat_detect
 from coriolis import utils
 
-RED_HAT_DISTRO_IDENTIFIER = redhat_detect.RED_HAT_DISTRO_IDENTIFIER
+RED_HAT_DISTRO_IDENTIFIER = "Red Hat Enterprise Linux"
 
 LOG = logging.getLogger(__name__)
 
 # NOTE: some constants duplicated for backwards-compatibility:
 RELEASE_RHEL = RED_HAT_DISTRO_IDENTIFIER
-RELEASE_CENTOS = centos_detect.CENTOS_DISTRO_IDENTIFIER
+RELEASE_CENTOS = "CentOS"
 RELEASE_FEDORA = "Fedora"
 
 
@@ -34,7 +32,7 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
                 RED_HAT_DISTRO_IDENTIFIER):
             return False
         return cls._version_supported_util(
-            detected_os_info['release_version'], minimum=6)
+            detected_os_info['release_version'], minimum=7)
 
     def __init__(self, conn, os_root_dir, os_root_dev,
                  hypervisor, event_manager, detected_os_info,

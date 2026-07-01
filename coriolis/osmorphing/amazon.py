@@ -4,12 +4,11 @@
 from oslo_log import log as logging
 
 from coriolis import exception
-from coriolis.osmorphing.osdetect import amazon as amazon_detect
 from coriolis.osmorphing import redhat
 from coriolis import utils
 
 
-AMAZON_DISTRO_NAME_IDENTIFIER = amazon_detect.AMAZON_DISTRO_NAME
+AMAZON_DISTRO_NAME_IDENTIFIER = "Amazon Linux"
 
 LOG = logging.getLogger(__name__)
 

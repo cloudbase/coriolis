@@ -5,11 +5,10 @@ from oslo_log import log as logging
 
 from coriolis import exception
 from coriolis.osmorphing import centos
-from coriolis.osmorphing.osdetect import rocky as rocky_osdetect
 from coriolis import utils
 
 
-ROCKY_LINUX_DISTRO_IDENTIFIER = rocky_osdetect.ROCKY_LINUX_DISTRO_IDENTIFIER
+ROCKY_LINUX_DISTRO_IDENTIFIER = "Rocky Linux"
 
 LOG = logging.getLogger(__name__)
 

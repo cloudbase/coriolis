@@ -5,10 +5,14 @@
 import abc
 import os
 
+from oslo_log import log as logging
 from six import with_metaclass
 
+from coriolis import constants
 from coriolis import exception
 from coriolis import utils
+
+LOG = logging.getLogger(__name__)
 
 # Required OS release fields to be returned as declared in the
 # 'schemas.CORIOLIS_DETECTED_OS_MORPHING_INFO_SCHEMA' schema:
@@ -98,3 +102,36 @@ class BaseLinuxOSDetectTools(BaseOSDetectTools):
         except exception.MinionMachineCommandTimeout as ex:
             raise exception.OSMorphingSSHOperationTimeout(
                 cmd=cmd, timeout=timeout) from ex
+
+
+class LinuxOSDetectUsingOSRelease(BaseLinuxOSDetectTools):
+    """OS detection based on the standard /etc/os-release file."""
+
+    def detect_os(self):
+        """Detect a Linux distro from /etc/os-release."""
+        os_release = self._get_os_release()
+        if not os_release:
+            LOG.warning(
+                "Could not detect OS from /etc/os-release: os_release dict "
+                "was not provided")
+            return {}
+
+        distribution_name = os_release.get("NAME")
+        if not distribution_name:
+            LOG.warning(
+                "Could not detect OS from /etc/os-release: NAME is missing")
+            return {}
+
+        version = os_release.get("VERSION_ID")
+        if not version:
+            LOG.warning(
+                "Could not detect OS from /etc/os-release: VERSION_ID is "
+                "missing")
+            return {}
+
+        return {
+            "os_type": constants.OS_TYPE_LINUX,
+            "distribution_name": distribution_name,
+            "release_version": version,
+            "friendly_release_name": "%s Version %s" % (
+                distribution_name, version)}

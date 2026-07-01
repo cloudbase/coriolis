@@ -4,12 +4,12 @@
 from oslo_log import log as logging
 
 from coriolis import exception
-from coriolis.osmorphing.osdetect import oracle as oracle_detect
 from coriolis.osmorphing import redhat
 from coriolis import utils
 
 
-ORACLE_DISTRO_IDENTIFIER = oracle_detect.ORACLE_DISTRO_IDENTIFIER
+ORACLE_DISTRO_IDENTIFIER = "Oracle Linux"
+ORACLE_LINUX_SERVER_DISTRO_IDENTIFIER = "Oracle Linux Server"
 
 LOG = logging.getLogger(__name__)
 
@@ -18,11 +18,12 @@ class BaseOracleMorphingTools(redhat.BaseRedHatMorphingTools):
 
     @classmethod
     def check_os_supported(cls, detected_os_info):
-        if detected_os_info['distribution_name'] != (
-                ORACLE_DISTRO_IDENTIFIER):
+        if detected_os_info['distribution_name'] not in (
+                ORACLE_DISTRO_IDENTIFIER,
+                ORACLE_LINUX_SERVER_DISTRO_IDENTIFIER):
             return False
         return cls._version_supported_util(
-            detected_os_info['release_version'], minimum=6)
+            detected_os_info['release_version'], minimum=7)
 
     def enable_repos(self, repo_names):
         """Enable repositories for Oracle Linux.

@@ -21,7 +21,7 @@ class BaseRedHatMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         self.detected_os_info = {
             'os_type': 'linux',
             'distribution_name': redhat.RED_HAT_DISTRO_IDENTIFIER,
-            'release_version': '6',
+            'release_version': '7',
             'friendly_release_name': mock.sentinel.friendly_release_name,
         }
         self.package_names = ['package1', 'package2']

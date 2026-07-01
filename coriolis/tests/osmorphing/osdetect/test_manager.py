@@ -122,18 +122,10 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
                           mock.sentinel.operation_timeout)
 
     @mock.patch.object(manager, '_check_custom_os_detect_tools')
-    @mock.patch.object(manager.rocky.RockyLinuxOSDetectTools, 'detect_os')
-    @mock.patch.object(manager.redhat.RedHatOSDetectTools, 'detect_os')
-    @mock.patch.object(manager.centos.CentOSOSDetectTools, 'detect_os')
-    @mock.patch.object(manager.oracle.OracleOSDetectTools, 'detect_os')
+    @mock.patch.object(base.LinuxOSDetectUsingOSRelease, 'detect_os')
     def test_detect_os_no_detected_info(
-            self, mock_oracle_detect_os, mock_centos_detect_os,
-            mock_redhat_detect_os, mock_rocky_detect_os,
-            mock_check_custom_tools):
-        mock_rocky_detect_os.return_value = None
-        mock_redhat_detect_os.return_value = None
-        mock_centos_detect_os.return_value = None
-        mock_oracle_detect_os.return_value = None
+            self, mock_linux_os_detect, mock_check_custom_tools):
+        mock_linux_os_detect.return_value = None
         mock_os_detect_tool = MockOSDetectToolNoInfo
 
         self.assertRaises(exception.OSDetectToolsNotFound, manager.detect_os,
@@ -143,18 +135,10 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
         mock_check_custom_tools.assert_called_once_with([mock_os_detect_tool])
 
     @mock.patch.object(manager, '_check_custom_os_detect_tools')
-    @mock.patch.object(manager.rocky.RockyLinuxOSDetectTools, 'detect_os')
-    @mock.patch.object(manager.redhat.RedHatOSDetectTools, 'detect_os')
-    @mock.patch.object(manager.centos.CentOSOSDetectTools, 'detect_os')
-    @mock.patch.object(manager.oracle.OracleOSDetectTools, 'detect_os')
+    @mock.patch.object(base.LinuxOSDetectUsingOSRelease, 'detect_os')
     def test_detect_os_invalid_detected_info(
-            self, mock_oracle_detect_os, mock_centos_detect_os,
-            mock_redhat_detect_os, mock_rocky_detect_os,
-            mock_check_custom_tools):
-        mock_rocky_detect_os.return_value = None
-        mock_redhat_detect_os.return_value = None
-        mock_centos_detect_os.return_value = None
-        mock_oracle_detect_os.return_value = "invalid_detected_info"
+            self, mock_linux_os_detect, mock_check_custom_tools):
+        mock_linux_os_detect.return_value = "invalid_detected_info"
         mock_os_detect_tool = MockOSDetectToolNoInfo
 
         self.assertRaises(exception.InvalidDetectedOSParams, manager.detect_os,
@@ -164,18 +148,10 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
         mock_check_custom_tools.assert_called_once_with([mock_os_detect_tool])
 
     @mock.patch.object(manager, '_check_custom_os_detect_tools')
-    @mock.patch.object(manager.rocky.RockyLinuxOSDetectTools, 'detect_os')
-    @mock.patch.object(manager.redhat.RedHatOSDetectTools, 'detect_os')
-    @mock.patch.object(manager.centos.CentOSOSDetectTools, 'detect_os')
-    @mock.patch.object(manager.oracle.OracleOSDetectTools, 'detect_os')
+    @mock.patch.object(base.LinuxOSDetectUsingOSRelease, 'detect_os')
     def test_detect_os_missing_detected_info_fields(
-            self, mock_oracle_detect_os, mock_centos_detect_os,
-            mock_redhat_detect_os, mock_rocky_detect_os,
-            mock_check_custom_tools):
-        mock_rocky_detect_os.return_value = None
-        mock_redhat_detect_os.return_value = None
-        mock_centos_detect_os.return_value = None
-        mock_oracle_detect_os.return_value = None
+            self, mock_linux_os_detect, mock_check_custom_tools):
+        mock_linux_os_detect.return_value = None
         mock_os_detect_tool = MockOSDetectToolMissingFields
 
         self.assertRaises(exception.InvalidDetectedOSParams, manager.detect_os,
@@ -185,18 +161,10 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
         mock_check_custom_tools.assert_called_once_with([mock_os_detect_tool])
 
     @mock.patch.object(manager, '_check_custom_os_detect_tools')
-    @mock.patch.object(manager.rocky.RockyLinuxOSDetectTools, 'detect_os')
-    @mock.patch.object(manager.redhat.RedHatOSDetectTools, 'detect_os')
-    @mock.patch.object(manager.centos.CentOSOSDetectTools, 'detect_os')
-    @mock.patch.object(manager.oracle.OracleOSDetectTools, 'detect_os')
+    @mock.patch.object(base.LinuxOSDetectUsingOSRelease, 'detect_os')
     def test_detect_os_extra_detected_info_fields(
-            self, mock_oracle_detect_os, mock_centos_detect_os,
-            mock_redhat_detect_os, mock_rocky_detect_os,
-            mock_check_custom_tools):
-        mock_rocky_detect_os.return_value = None
-        mock_redhat_detect_os.return_value = None
-        mock_centos_detect_os.return_value = None
-        mock_oracle_detect_os.return_value = None
+            self, mock_linux_os_detect, mock_check_custom_tools):
+        mock_linux_os_detect.return_value = None
         mock_os_detect_tool = MockOSDetectToolExtraFields
 
         self.assertRaises(exception.InvalidDetectedOSParams, manager.detect_os,

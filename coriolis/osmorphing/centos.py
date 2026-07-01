@@ -4,13 +4,14 @@
 from oslo_log import log as logging
 
 from coriolis import exception
-from coriolis.osmorphing.osdetect import centos as centos_detect
 from coriolis.osmorphing import redhat
 from coriolis import utils
 
 
-CENTOS_DISTRO_IDENTIFIER = centos_detect.CENTOS_DISTRO_IDENTIFIER
-CENTOS_STREAM_DISTRO_IDENTIFIER = centos_detect.CENTOS_STREAM_DISTRO_IDENTIFIER
+CENTOS_DISTRO_IDENTIFIER = "CentOS"
+CENTOS_STREAM_DISTRO_IDENTIFIER = "CentOS Stream"
+CENTOS_LINUX_DISTRO_IDENTIFIER = "CentOS Linux"
+ALMALINUX_DISTRO_IDENTIFIER = "AlmaLinux"
 
 LOG = logging.getLogger(__name__)
 
@@ -22,11 +23,15 @@ class BaseCentOSMorphingTools(redhat.BaseRedHatMorphingTools):
     @classmethod
     def check_os_supported(cls, detected_os_info):
         supported_oses = [
-            CENTOS_STREAM_DISTRO_IDENTIFIER, CENTOS_DISTRO_IDENTIFIER]
+            CENTOS_STREAM_DISTRO_IDENTIFIER,
+            CENTOS_DISTRO_IDENTIFIER,
+            CENTOS_LINUX_DISTRO_IDENTIFIER,
+            ALMALINUX_DISTRO_IDENTIFIER,
+        ]
         if detected_os_info['distribution_name'] not in supported_oses:
             return False
         return cls._version_supported_util(
-            detected_os_info['release_version'], minimum=6)
+            detected_os_info['release_version'], minimum=7)
 
     def enable_repos(self, repo_names):
         """Enable repositories for CentOS.

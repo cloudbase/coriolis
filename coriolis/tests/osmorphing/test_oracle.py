@@ -9,7 +9,6 @@ import ddt
 from coriolis import exception
 from coriolis.osmorphing import base
 from coriolis.osmorphing import oracle
-from coriolis.osmorphing.osdetect import oracle as oracle_detect
 from coriolis.tests import test_base
 
 
@@ -21,8 +20,8 @@ class BaseOracleMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         super(BaseOracleMorphingToolsTestCase, self).setUp()
         self.detected_os_info = {
             'os_type': 'linux',
-            'distribution_name': oracle_detect.ORACLE_DISTRO_IDENTIFIER,
-            'release_version': '6',
+            'distribution_name': oracle.ORACLE_DISTRO_IDENTIFIER,
+            'release_version': '7',
             'friendly_release_name': mock.sentinel.friendly_release_name,
         }
         self.enable_repos = ['repo1', 'repo2']
