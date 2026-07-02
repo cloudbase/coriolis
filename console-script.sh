@@ -2,7 +2,7 @@
 
 
 # Options and prompt definitions:
-OPTIONS=("Show Appliance Stats" "Show UI Login Details" "Edit/Inspect Coriolis Configuration" "Edit/Inspect Network Settings" "Configure/Restore Appliance Proxy Settings" "Expose Coriolis Services Endpoints" "Add Certificate to Coriolis Worker" "Restore to default Coriolis Worker certificate chain" "Change Coriolis API certificate chain" "Restore Coriolis API certificate chain" "Deploy External Worker" "Restart Coriolis Services" "Upgrade Coriolis Services")
+OPTIONS=("Show Appliance Stats" "Show UI Login Details" "Edit/Inspect Coriolis Configuration" "Edit/Inspect Network Settings" "Configure/Restore Appliance Proxy Settings" "Expose Coriolis Services Endpoints" "Add Certificate to Coriolis Worker" "Restore to default Coriolis Worker certificate chain" "Change Coriolis API certificate chain" "Restore Coriolis API certificate chain" "Deploy External Worker" "Restart Coriolis Services" "Upgrade Coriolis Services" "Enable/Disable SSH Service")
 
 
 WELCOME_PROMPT=$(cat <<EOP
@@ -104,6 +104,12 @@ DEPLOY_EXTERNAL_WORKER_PROMPT=$(cat <<EOP
 This option will deploy a Coriolis Worker service node to an external machine.
 Coriolis services need to be exposed in order to facilitate inter-node communication.
 If the appliance is already exposed and its API is reachable, skip exposing in this command wizard.\n\n
+EOP
+)
+
+SSH_STATUS_PROMPT=$(cat <<EOP
+This option will switch the SSH service's status.
+The SSH access is currently only accessible by Coriolis Support team, and not allowed for public access.\n\n
 EOP
 )
 
@@ -897,6 +903,22 @@ function upgrade-coriolis-services {
     return
 }
 
+function modify-systemd-service-status {
+    SERVICE="$1"
+    if systemctl is-active --quiet "$SERVICE"; then
+        CONFIRMED=`prompt-for-confirmation-word "$SERVICE is active. Disable it?"`
+        [[ "$CONFIRMED" = "1" ]] && systemctl disable --now "$SERVICE"
+    else
+        CONFIRMED=`prompt-for-confirmation-word "$SERVICE is inactive. Enable it?"`
+        [[ "$CONFIRMED" = "1" ]] && sudo systemctl enable --now "$SERVICE"
+    fi
+}
+
+function modify-ssh-service-status {
+    printf "$SSH_STATUS_PROMPT"
+    modify-systemd-service-status "ssh"
+}
+
 function interact {
     echo "$OPTIONS_PROMPT"
     PS3="Select option: "
@@ -963,6 +985,10 @@ function interact {
                         ;;
                 "Upgrade Coriolis Services")
                         upgrade-coriolis-services
+            break
+                        ;;
+                "Enable/Disable SSH Service")
+                        modify-ssh-service-status
             break
                         ;;
                 "Open Shell")
