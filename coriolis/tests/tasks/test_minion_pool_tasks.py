@@ -555,15 +555,14 @@ class _BaseValidateMinionCompatibilityTaskTestCase(
         ("invalid", None),
     )
     def test__get_transfer_properties_task_info_field(self, data):
-        test_fun = mp_tasks._BaseValidateMinionCompatibilityTask\
-            ._get_transfer_properties_task_info_field
-        with mock.patch.object(mp_tasks._BaseValidateMinionCompatibilityTask,
-                               'get_required_platform', return_value=data[0]):
-            if not data[1]:
-                self.assertRaises(exception.CoriolisException, test_fun)
-                return
+        base_class = mp_tasks._BaseValidateMinionCompatibilityTask
+        test_fun = base_class._get_transfer_properties_task_info_field
+        base_class.get_required_platform.return_value = data[0]
+        if not data[1]:
+            self.assertRaises(exception.CoriolisException, test_fun)
+            return
 
-            self.assertEqual(test_fun(), data[1])
+        self.assertEqual(test_fun(), data[1])
 
     @mock.patch.object(mp_tasks._BaseValidateMinionCompatibilityTask,
                        '_get_transfer_properties_task_info_field',

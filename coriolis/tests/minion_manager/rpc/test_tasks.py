@@ -28,7 +28,7 @@ class MinionManagerTaskEventMixinTestCase(test_base.CoriolisBaseTestCase):
     def test__conductor_client(self):
         with mock.patch(
             'coriolis.conductor.rpc.client.ConductorClient',
-                return_value=mock.MagicMock(spec=ConductorClient)) as \
+                return_value=mock.MagicMock(autospec=ConductorClient)) as \
                 mock_Conductor_client:
             result = self.task._conductor_client
 
@@ -42,7 +42,7 @@ class MinionManagerTaskEventMixinTestCase(test_base.CoriolisBaseTestCase):
             'coriolis.conductor.rpc.client.ConductorClient') as \
                 mock_Conductor_client:
             self.task._conductor_client_instance = mock.MagicMock(
-                spec=ConductorClient)
+                autospec=ConductorClient)
 
             result = self.task._conductor_client
 
@@ -54,7 +54,7 @@ class MinionManagerTaskEventMixinTestCase(test_base.CoriolisBaseTestCase):
     def test__minion_manager_client(self):
         with mock.patch(
             'coriolis.minion_manager.rpc.client.MinionManagerClient',
-                return_value=mock.MagicMock(spec=MinionManagerClient)) as \
+                return_value=mock.MagicMock(autospec=MinionManagerClient)) as \
                 mock_Minion_Manager_Client:
             result = self.task._minion_manager_client
 
@@ -68,7 +68,7 @@ class MinionManagerTaskEventMixinTestCase(test_base.CoriolisBaseTestCase):
             'coriolis.minion_manager.rpc.client.MinionManagerClient') as \
                 mock_Minion_Manager_Client:
             self.task._minion_manager_client_instance = mock.MagicMock(
-                spec=MinionManagerClient)
+                autospec=MinionManagerClient)
 
             result = self.task._minion_manager_client
 
@@ -991,7 +991,7 @@ class AllocateMinionMachineTaskTestCase(test_base.CoriolisBaseTestCase):
             'pool_identifier': 'test_identifier',
             'pool_os_type': 'linux',
         }
-        self.mock_failure = mock.MagicMock(spec=failure.Failure)
+        self.mock_failure = mock.MagicMock(autospec=failure.Failure)
 
         self.task = tasks.AllocateMinionMachineTask(
             self.minion_pool_id, self.minion_machine_id,
@@ -1316,7 +1316,7 @@ class DeallocateMinionMachineTaskTestCase(test_base.CoriolisBaseTestCase):
         self.task_info = {
             'minion_provider_properties': None,
         }
-        self.mock_failure = mock.MagicMock(spec=failure.Failure)
+        self.mock_failure = mock.MagicMock(autospec=failure.Failure)
 
         self.task = tasks.DeallocateMinionMachineTask(
             self.minion_pool_id, self.minion_machine_id,

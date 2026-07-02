@@ -8,6 +8,7 @@ from unittest import mock
 from oslo_utils import units
 
 from coriolis import exception
+from coriolis.providers import backup_writers
 from coriolis.providers import provider_utils
 from coriolis.providers import replicator as replicator_module
 from coriolis.tests import test_base
@@ -1179,7 +1180,8 @@ class ReplicatorTestCase(test_base.CoriolisBaseTestCase):
         source_volumes_info = [
             {"disk_id": "test_disk", "disk_path": "/dev/sdb"}]
         self.replicator._repl_state = ['non-empty']
-        mock_destination = mock.MagicMock(spec=['seek', 'write'])
+        mock_destination = mock.MagicMock(
+            autospec=backup_writers.BaseBackupWriterImpl)
         self.backup_writer.open.return_value.__enter__.return_value = (
             mock_destination)
 
