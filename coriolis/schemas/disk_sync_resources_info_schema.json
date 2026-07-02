@@ -15,7 +15,7 @@
           },
           "volume_dev": {
             "type": "string",
-            "description": "String device path (ex: /dev/sdc) from within the temporary minion VM where the disk was attached."
+            "description": "Guest minion device path (e.g. /dev/disk/by-id/...) when the volume is attached; use \"\" for rows that do not represent a transferred block dev yet (e.g. shared-disk non-owners)."
           }
         },
         "required": ["disk_id", "volume_dev"],
