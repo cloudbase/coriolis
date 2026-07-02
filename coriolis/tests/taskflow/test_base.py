@@ -74,7 +74,7 @@ class BaseCoriolisTaskflowTaskTestCase(test_base.CoriolisBaseTestCase):
             self.task.revert(self.mock_instance, mock.ANY)
 
     def test_revert_with_error(self):
-        mock_failure = mock.Mock(spec=failure.Failure)
+        mock_failure = mock.Mock(autospec=failure.Failure)
         mock_failure.traceback_str = "Mock traceback"
         with self.assertLogs('coriolis.taskflow.base', level=logging.ERROR):
             self.task.revert(result=mock_failure)
@@ -95,7 +95,7 @@ class BaseRunWorkerTaskTestCase(test_base.CoriolisBaseTestCase):
         self.mock_cleanup_task_runner = mock.Mock()
 
     def test_scheduler_client_property(self):
-        mock_scheduler_client = mock.Mock(spec=SchedulerClient)
+        mock_scheduler_client = mock.Mock(autospec=SchedulerClient)
 
         with mock.patch('coriolis.scheduler.rpc.client.SchedulerClient',
                         return_value=mock_scheduler_client):
@@ -104,7 +104,7 @@ class BaseRunWorkerTaskTestCase(test_base.CoriolisBaseTestCase):
                              mock_scheduler_client)
 
     def test_scheduler_client_already_set(self):
-        mock_scheduler_client = mock.Mock(spec=SchedulerClient)
+        mock_scheduler_client = mock.Mock(autospec=SchedulerClient)
         self.task._scheduler_client_instance = mock_scheduler_client
 
         with mock.patch('coriolis.scheduler.rpc.client.SchedulerClient') as \

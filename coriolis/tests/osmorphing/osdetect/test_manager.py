@@ -62,7 +62,8 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
 
     def test__check_custom_os_detect_tools(self):
         # Create a mock object that is an instance of BaseOSDetectTools
-        mock_os_detect_tool = mock.MagicMock(spec=base.BaseOSDetectTools)
+        mock_os_detect_tool = mock.create_autospec(
+            base.BaseOSDetectTools, instance=True)
 
         result = manager._check_custom_os_detect_tools([mock_os_detect_tool])
 

@@ -70,7 +70,8 @@ class BackupWritersTestCase(test_base.CoriolisBaseTestCase):
         mock_exec_ssh_cmd.assert_has_calls(expected_calls)
 
     def test__check_deserialize_key(self):
-        mock_rsa_key = mock.MagicMock(spec=backup_writers.paramiko.RSAKey)
+        mock_rsa_key = mock.create_autospec(
+            backup_writers.paramiko.RSAKey, instance=True)
 
         result = backup_writers._check_deserialize_key(mock_rsa_key)
 

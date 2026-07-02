@@ -6,6 +6,7 @@
 from unittest import mock
 
 from oslotest import base
+from oslotest import mock_fixture
 
 from coriolis.api.v1.views import utils as views_utils
 
@@ -14,6 +15,7 @@ class CoriolisBaseTestCase(base.BaseTestCase):
 
     def setUp(self):
         super(CoriolisBaseTestCase, self).setUp()
+        self.useFixture(mock_fixture.MockAutospecFixture())
 
 
 class CoriolisApiViewsTestCase(CoriolisBaseTestCase):
