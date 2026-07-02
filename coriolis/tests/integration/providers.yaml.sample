@@ -26,3 +26,6 @@ destination:
 
   # Storage backend mapping (source identifier -> destination pool / datastore).
   storage_mappings: {}
+
+  # environment options forwarded to destination minion pools.
+  minion_pool_environment: {}

@@ -72,6 +72,7 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
         cls._imp_conn_info = cls._harness.imp_conn_info
         cls._imp_env_options = cls._harness.imp_env_options
         cls._storage_mappings = cls._harness.imp_storage_mappings
+        cls._pool_env = cls._harness.imp_minion_pool_environment
 
         cls._client = cls.get_client()
 
@@ -167,7 +168,7 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
             endpoint=endpoint_id,
             platform=constants.PROVIDER_PLATFORM_DESTINATION,
             os_type=constants.OS_TYPE_LINUX,
-            environment_options={},
+            environment_options=cls._pool_env,
             minimum_minions=1,
             maximum_minions=1,
             minion_max_idle_time=3600,
