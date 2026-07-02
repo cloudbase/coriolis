@@ -28,6 +28,15 @@ from coriolis.tests.integration import utils as test_utils
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
+# Real VMs always have at least one NIC; destination providers may reject an
+# instance with no NIC. "network_map" in the destination's environment options
+# must map "test-network" to an existing network on the destination.
+_TEST_NIC = {
+    "id": "fa:16:3e:12:34:56",
+    "network_name": "test-network",
+    "mac_address": "fa:16:3e:12:34:56",
+}
+
 
 class TestExportProvider(
         BaseEndpointInstancesProvider,
@@ -125,7 +134,7 @@ class TestExportProvider(
             "nested_virtualization": False,
             "devices": {
                 "disks": [],
-                "nics": [],
+                "nics": [_TEST_NIC],
                 "cdroms": [],
                 "serial_ports": [],
                 "floppies": [],
@@ -180,7 +189,7 @@ class TestExportProvider(
                         "size_bytes": size_bytes,
                     }
                 ],
-                "nics": [],
+                "nics": [_TEST_NIC],
                 "cdroms": [],
                 "serial_ports": [],
                 "floppies": [],

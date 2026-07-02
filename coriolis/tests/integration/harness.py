@@ -116,6 +116,8 @@ def _load_providers_config():
             "connection_info": dest_config.get("connection_info"),
             "environment": dest_config.get("environment") or {},
             "storage_mappings": dest_config.get("storage_mappings") or {},
+            "minion_pool_environment": (
+                dest_config.get("minion_pool_environment") or {}),
         },
     }
 
@@ -379,6 +381,9 @@ class _IntegrationHarness:
         self.imp_env_options = providers_config["destination"]["environment"]
         self.imp_storage_mappings = (
             providers_config["destination"]["storage_mappings"]
+        )
+        self.imp_minion_pool_environment = (
+            providers_config["destination"]["minion_pool_environment"]
         )
 
         self._wsgi_server = None
