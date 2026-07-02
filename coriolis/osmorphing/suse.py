@@ -11,7 +11,11 @@ from oslo_log import log as logging
 from coriolis import exception
 from coriolis.osmorphing import base
 from coriolis.osmorphing.osdetect import suse as suse_detect
+from coriolis.osmorphing import redhat as redhat_osmorphing
 from coriolis import utils
+
+IFCFG_TEMPLATE = redhat_osmorphing.IFCFG_TEMPLATE
+NMCONNECTION_TEMPLATE = redhat_osmorphing.NMCONNECTION_TEMPLATE
 
 LOG = logging.getLogger(__name__)
 
@@ -29,6 +33,8 @@ CLOUD_TOOLS_NEW_URL_MINIMUM_VERSION = 16
 
 class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
 
+    _NETWORK_SCRIPTS_PATH = "etc/sysconfig/network-scripts"
+    _NM_CONNECTIONS_PATH = "etc/NetworkManager/system-connections"
     BIOS_GRUB_LOCATION = "/boot/grub2"
     UEFI_GRUB_LOCATION = "/boot/efi/EFI/suse"
 
@@ -61,12 +67,107 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
         return False
 
     def disable_predictable_nic_names(self):
-        # TODO(gsamfira): implement once we have networking support
-        pass
+        grub_cfg = "etc/default/grub"
+        if not self._test_path(grub_cfg):
+            LOG.warning(
+                "Could not find /%s. Skipping predictable NIC names "
+                "disabling.", grub_cfg)
+            return
+        contents = self._read_file_sudo(grub_cfg)
+        cfg = utils.Grub2ConfigEditor(contents)
+        cfg.append_to_option(
+            "GRUB_CMDLINE_LINUX_DEFAULT",
+            {"opt_type": "key_val", "opt_key": "net.ifnames", "opt_val": 0})
+        cfg.append_to_option(
+            "GRUB_CMDLINE_LINUX_DEFAULT",
+            {"opt_type": "key_val", "opt_key": "biosdevname", "opt_val": 0})
+        cfg.append_to_option(
+            "GRUB_CMDLINE_LINUX",
+            {"opt_type": "key_val", "opt_key": "net.ifnames", "opt_val": 0})
+        cfg.append_to_option(
+            "GRUB_CMDLINE_LINUX",
+            {"opt_type": "key_val", "opt_key": "biosdevname", "opt_val": 0})
+        self._write_file_sudo("etc/default/grub", cfg.dump())
+        self._execute_update_grub()
+
+    def _get_ifcfg_nm_controlled(self):
+        if self._version_supported_util(self._version, minimum=15):
+            return "yes"
+        return "no"
+
+    def _get_ethernet_keyfiles(self):
+        if not self._test_path(self._NM_CONNECTIONS_PATH):
+            return []
+        return self._get_keyfiles_by_type(
+            "ethernet", self._NM_CONNECTIONS_PATH)
+
+    def _backup_nmconnection_files(self, backup_file_suffix=".bak"):
+        """Back up all existing nmconnection profiles."""
+        if not self._test_path(self._NM_CONNECTIONS_PATH):
+            return
+        for cfg_path in self._get_nmconnection_files(
+                self._NM_CONNECTIONS_PATH):
+            self._exec_cmd_chroot(
+                'mv "%s" "%s%s"' % (cfg_path, cfg_path, backup_file_suffix))
+            LOG.debug("Backed up nmconnection profile '%s'", cfg_path)
+
+    def _backup_ifcfg_configs(self, device_names, backup_file_suffix=".bak"):
+        """Back up ifcfg profiles for the given device names."""
+        for dev_name in device_names:
+            cfg_path = "%s/ifcfg-%s" % (self._NETWORK_SCRIPTS_PATH, dev_name)
+            if self._test_path(cfg_path):
+                self._exec_cmd_chroot(
+                    'mv "%s" "%s%s"' % (
+                        cfg_path, cfg_path, backup_file_suffix))
+                LOG.debug("Backed up ifcfg profile '%s'", cfg_path)
+
+    def _write_nic_configs(self, nics_info):
+        for idx, _ in enumerate(nics_info):
+            dev_name = "eth%d" % idx
+            cfg_path = "%s/ifcfg-%s" % (self._NETWORK_SCRIPTS_PATH, dev_name)
+            if self._test_path(cfg_path):
+                self._exec_cmd_chroot(
+                    "cp %s %s.bak" % (cfg_path, cfg_path)
+                )
+            self._write_file_sudo(
+                cfg_path,
+                IFCFG_TEMPLATE % {
+                    "device_name": dev_name,
+                    "nm_controlled": self._get_ifcfg_nm_controlled(),
+                })
+
+    def _write_nmconnection_configs(self, nics_info):
+        self._backup_nmconnection_files()
+        device_names = ["eth%d" % idx for idx, _ in enumerate(nics_info)]
+        self._backup_ifcfg_configs(device_names)
+
+        for idx, _ in enumerate(nics_info):
+            dev_name = "eth%d" % idx
+            cfg_path = "%s/%s.nmconnection" % (
+                self._NM_CONNECTIONS_PATH, dev_name)
+            self._write_file_sudo(
+                cfg_path,
+                NMCONNECTION_TEMPLATE % {
+                    "device_name": dev_name,
+                    "connection_uuid": str(uuid.uuid4()),
+                })
+            self._exec_cmd_chroot("chmod 600 /%s" % cfg_path)
+
+    def _write_dhcp_net_config(self, nics_info):
+        self.disable_predictable_nic_names()
+        ethernet_keyfiles = self._get_ethernet_keyfiles()
+        if ethernet_keyfiles:
+            self._write_nmconnection_configs(nics_info)
+        else:
+            self._write_nic_configs(nics_info)
 
     def set_net_config(self, nics_info, dhcp):
-        # TODO(alexpilotti): add networking support
-        pass
+        if dhcp:
+            self._write_dhcp_net_config(nics_info)
+            return
+
+        LOG.info("Setting static IP configuration")
+        self._setup_network_preservation(nics_info)
 
     def get_installed_packages(self):
         cmd = 'rpm -qa --qf "%{NAME}\\n"'
