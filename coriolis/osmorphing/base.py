@@ -18,6 +18,39 @@ from coriolis import utils
 GRUB2_SERIAL = "serial --word=8 --stop=1 --speed=%d --parity=%s --unit=0"
 LOG = logging.getLogger(__name__)
 
+IFCFG_TEMPLATE = """
+TYPE=Ethernet
+BOOTPROTO=dhcp
+DEFROUTE=yes
+IPV4_FAILURE_FATAL=no
+IPV6INIT=yes
+IPV6_AUTOCONF=yes
+IPV6_DEFROUTE=yes
+IPV6_FAILURE_FATAL=no
+NAME=%(device_name)s
+DEVICE=%(device_name)s
+ONBOOT=yes
+NM_CONTROLLED=%(nm_controlled)s
+"""
+
+NMCONNECTION_TEMPLATE = """[connection]
+id=%(device_name)s
+uuid=%(connection_uuid)s
+type=ethernet
+interface-name=%(device_name)s
+autoconnect=true
+
+[ethernet]
+
+[ipv4]
+method=auto
+may-fail=false
+
+[ipv6]
+method=auto
+addr-gen-mode=default
+"""
+
 
 # Required OS release fields which are expected from the OSDetect tools.
 # 'schemas.CORIOLIS_DETECTED_OS_MORPHING_INFO_SCHEMA' schema:
@@ -222,6 +255,12 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
     _packages = {}
     _NETWORK_SCRIPTS_PATH = "etc/sysconfig/network-scripts"
     _NM_CONNECTIONS_PATH = "etc/NetworkManager/system-connections"
+    # ifcfg profile template written for DHCP NICs. Subclasses may override it
+    # when the target uses a different ifcfg format (e.g. wicked-based SUSE).
+    _IFCFG_TEMPLATE = IFCFG_TEMPLATE
+    # Minimum OS major version at which ifcfg profiles should be marked as
+    # NetworkManager-controlled (NM_CONTROLLED=yes).
+    _IFCFG_NM_CONTROLLED_MIN_VERSION = None
 
     def __init__(self, conn, os_root_dir, os_root_dev, hypervisor,
                  event_manager, detected_os_info, osmorphing_parameters,
@@ -466,6 +505,75 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             if keyfile.get("type") == nmconnection_type:
                 keyfiles.append((file, keyfile))
         return keyfiles
+
+    def _get_existing_ethernet_nmconnection_files(self):
+        if not self._test_path(self._NM_CONNECTIONS_PATH):
+            return []
+        return [cfg_path for cfg_path, _ in self._get_keyfiles_by_type(
+            "ethernet", self._NM_CONNECTIONS_PATH)]
+
+    def _get_ifcfg_nm_controlled(self):
+        min_version = self._IFCFG_NM_CONTROLLED_MIN_VERSION
+        if min_version is not None and self._version_supported_util(
+                self._version, minimum=min_version):
+            return "yes"
+        return "no"
+
+    def _backup_nmconnection_files(self, nmconnection_files=None,
+                                   backup_file_suffix=".bak"):
+        if nmconnection_files is None:
+            nmconnection_files = (
+                self._get_existing_ethernet_nmconnection_files())
+        for cfg_path in nmconnection_files:
+            self._exec_cmd_chroot(
+                'mv "%s" "%s%s"' % (cfg_path, cfg_path, backup_file_suffix))
+            LOG.debug("Backed up nmconnection profile '%s'", cfg_path)
+
+    def _backup_ethernet_ifcfg_configs(self, backup_file_suffix=".bak"):
+        if not self._test_path(self._NETWORK_SCRIPTS_PATH):
+            return
+        for cfg_path, _ in self._get_ifcfgs_by_type(
+                "Ethernet", self._NETWORK_SCRIPTS_PATH):
+            if os.path.basename(cfg_path) == "ifcfg-lo":
+                continue
+            self._exec_cmd_chroot(
+                'mv "%s" "%s%s"' % (cfg_path, cfg_path, backup_file_suffix))
+            LOG.debug("Backed up ifcfg profile '%s'", cfg_path)
+
+    def _write_nic_configs(self, nics_info):
+        self._backup_ethernet_ifcfg_configs()
+        for idx, _ in enumerate(nics_info or []):
+            dev_name = "eth%d" % idx
+            cfg_path = "%s/ifcfg-%s" % (self._NETWORK_SCRIPTS_PATH, dev_name)
+            self._write_file_sudo(
+                cfg_path,
+                self._IFCFG_TEMPLATE % {
+                    "device_name": dev_name,
+                    "nm_controlled": self._get_ifcfg_nm_controlled(),
+                })
+
+    def _write_nmconnection_configs(self, nics_info, nmconnection_files=None):
+        nics_info = nics_info or []
+        if not nics_info:
+            return
+
+        # Systems may have both nmconnection keyfiles and legacy ifcfg
+        # profiles; back up Ethernet profiles from both so stale source configs
+        # cannot override the freshly written DHCP profiles.
+        self._backup_nmconnection_files(nmconnection_files)
+        self._backup_ethernet_ifcfg_configs()
+
+        for idx, _ in enumerate(nics_info):
+            dev_name = "eth%d" % idx
+            cfg_path = "%s/%s.nmconnection" % (
+                self._NM_CONNECTIONS_PATH, dev_name)
+            self._write_file_sudo(
+                cfg_path,
+                NMCONNECTION_TEMPLATE % {
+                    "device_name": dev_name,
+                    "connection_uuid": str(uuid.uuid4()),
+                })
+            self._exec_cmd_chroot("chmod 600 /%s" % cfg_path)
 
     def _copy_resolv_conf(self):
         resolv_conf = "etc/resolv.conf"

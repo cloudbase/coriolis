@@ -23,43 +23,10 @@ RELEASE_CENTOS = centos_detect.CENTOS_DISTRO_IDENTIFIER
 RELEASE_FEDORA = "Fedora"
 
 
-IFCFG_TEMPLATE = """
-TYPE=Ethernet
-BOOTPROTO=dhcp
-DEFROUTE=yes
-IPV4_FAILURE_FATAL=no
-IPV6INIT=yes
-IPV6_AUTOCONF=yes
-IPV6_DEFROUTE=yes
-IPV6_FAILURE_FATAL=no
-NAME=%(device_name)s
-DEVICE=%(device_name)s
-ONBOOT=yes
-NM_CONTROLLED=%(nm_controlled)s
-"""
-
-NMCONNECTION_TEMPLATE = """[connection]
-id=%(device_name)s
-uuid=%(connection_uuid)s
-type=ethernet
-interface-name=%(device_name)s
-autoconnect=true
-
-[ethernet]
-
-[ipv4]
-method=auto
-may-fail=false
-
-[ipv6]
-method=auto
-addr-gen-mode=default
-"""
-
-
 class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
     BIOS_GRUB_LOCATION = "/boot/grub2"
     UEFI_GRUB_LOCATION = "/boot/efi/EFI/redhat"
+    _IFCFG_NM_CONTROLLED_MIN_VERSION = 8
 
     @classmethod
     def check_os_supported(cls, detected_os_info):
@@ -112,11 +79,6 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         except Exception:
             return False
 
-    def _get_ifcfg_nm_controlled(self):
-        if self._version_supported_util(self._version, minimum=8):
-            return "yes"
-        return "no"
-
     def _set_dhcp_net_config(self, ifcfgs_ethernet):
         for ifcfg_file, iface_cfg in ifcfgs_ethernet:
             if iface_cfg.get("BOOTPROTO") == "none":
@@ -140,68 +102,6 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         if "GATEWAY" in network_cfg:
             del network_cfg["GATEWAY"]
             self._write_config_file(network_cfg_file, network_cfg)
-
-    def _get_existing_ethernet_nmconnection_files(self):
-        if not self._test_path(self._NM_CONNECTIONS_PATH):
-            return []
-        return [cfg_path for cfg_path, _ in self._get_keyfiles_by_type(
-            "ethernet", self._NM_CONNECTIONS_PATH)]
-
-    def _backup_nmconnection_files(self, nmconnection_files=None,
-                                   backup_file_suffix=".bak"):
-        if nmconnection_files is None:
-            nmconnection_files = (
-                self._get_existing_ethernet_nmconnection_files())
-        for cfg_path in nmconnection_files:
-            self._exec_cmd_chroot(
-                'mv "%s" "%s%s"' % (cfg_path, cfg_path, backup_file_suffix))
-            LOG.debug("Backed up nmconnection profile '%s'", cfg_path)
-
-    def _backup_all_ifcfg_configs(self, backup_file_suffix=".bak"):
-        if not self._test_path(self._NETWORK_SCRIPTS_PATH):
-            return
-        for cfg_path, _ in self._get_ifcfgs_by_type(
-                "Ethernet", self._NETWORK_SCRIPTS_PATH):
-            if os.path.basename(cfg_path) == "ifcfg-lo":
-                continue
-            self._exec_cmd_chroot(
-                'mv "%s" "%s%s"' % (cfg_path, cfg_path, backup_file_suffix))
-            LOG.debug("Backed up ifcfg profile '%s'", cfg_path)
-
-    def _write_nic_configs(self, nics_info):
-        self._backup_all_ifcfg_configs()
-        for idx, _ in enumerate(nics_info or []):
-            dev_name = "eth%d" % idx
-            cfg_path = "%s/ifcfg-%s" % (self._NETWORK_SCRIPTS_PATH, dev_name)
-            self._write_file_sudo(
-                cfg_path,
-                IFCFG_TEMPLATE % {
-                    "device_name": dev_name,
-                    "nm_controlled": self._get_ifcfg_nm_controlled(),
-                })
-
-    def _write_nmconnection_configs(self, nics_info, nmconnection_files):
-        nics_info = nics_info or []
-        if not nics_info:
-            return
-
-        # Red Hat-based systems may have both nmconnection keyfiles and legacy
-        # ifcfg profiles; back up Ethernet profiles from both so stale source
-        # configs cannot override the freshly written DHCP profiles.
-        self._backup_nmconnection_files(nmconnection_files)
-        self._backup_all_ifcfg_configs()
-
-        for idx, _ in enumerate(nics_info):
-            dev_name = "eth%d" % idx
-            cfg_path = "%s/%s.nmconnection" % (
-                self._NM_CONNECTIONS_PATH, dev_name)
-            self._write_file_sudo(
-                cfg_path,
-                NMCONNECTION_TEMPLATE % {
-                    "device_name": dev_name,
-                    "connection_uuid": str(uuid.uuid4()),
-                })
-            self._exec_cmd_chroot("chmod 600 /%s" % cfg_path)
 
     def _comment_keys_from_ifcfg_files(
             self, keys, interfaces=None, backup_file_suffix=".bak"):
