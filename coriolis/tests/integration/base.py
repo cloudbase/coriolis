@@ -382,7 +382,8 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             skip_os_morphing=False,
             **deployment_kwargs,
         )
-        self.addCleanup(self._cleanup_deployment, deployment.id)
+        self.addCleanup(
+            self._cleanup_deployment, deployment.id, deployment.instances)
         self.assertDeploymentCompleted(deployment.id)
 
     def _cleanup_execution(self, transfer_id, execution_id):
@@ -470,7 +471,7 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             % (execution_id, execution.status),
         )
 
-    def _cleanup_deployment(self, deployment_id):
+    def _cleanup_deployment(self, deployment_id, instances=None):
         """Cancel a running deployment if needed, then delete it.
 
         Cancels the deployment if it has not yet reached a terminal state,
@@ -483,22 +484,29 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
 
         Calls ``_imp_provider.delete_deployed_instance`` for every deployment
         instance, so that finalized VMs at the destination are destroyed.
+
+        *instances* is a fallback instance name list, used when the test has
+        already deleted the deployment (e.g. to exercise the delete API)
+        before this cleanup runs; callers should pass the instance list
+        captured right after deployment creation so destination VMs still
+        get cleaned up even though the deployment record is gone.
         """
         ctxt = self._get_db_context()
         deployment = db_api.get_deployment(ctxt, deployment_id)
         if deployment is None:
             LOG.info(
-                "Deployment '%s' not found. Skip cleanup.", deployment_id)
-            return
+                "Deployment '%s' not found; using instances captured at "
+                "registration time for VM cleanup.", deployment_id)
+            instances = list(instances or [])
+        else:
+            instances = list(deployment.instances or instances or [])
 
-        instances = list(deployment.instances or [])
+            if deployment.last_execution_status in (
+                    constants.ACTIVE_EXECUTION_STATUSES):
+                self._client.deployments.cancel(deployment_id)
+                self.wait_for_deployment(deployment_id, timeout=60)
 
-        if deployment.last_execution_status in (
-                constants.ACTIVE_EXECUTION_STATUSES):
-            self._client.deployments.cancel(deployment_id)
-            self.wait_for_deployment(deployment_id, timeout=60)
-
-        self._client.deployments.delete(deployment_id)
+            self._client.deployments.delete(deployment_id)
 
         for instance_name in instances:
             try:
