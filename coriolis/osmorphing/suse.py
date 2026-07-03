@@ -26,11 +26,20 @@ CLOUD_TOOLS_REPO_URI_VERSION_ONLY_FORMAT = (
     "https://download.opensuse.org/repositories/Cloud:/Tools/%s/")
 CLOUD_TOOLS_NEW_URL_MINIMUM_VERSION = 16
 
+# SUSE (SLES/openSUSE 12 and 15) manages the network with wicked, which reads
+# ifcfg files. SLES 16 switched to NetworkManager keyfiles and is handled by
+# the inherited '_write_nmconnection_configs'.
+SUSE_IFCFG_TEMPLATE = """BOOTPROTO='dhcp'
+STARTMODE='auto'
+"""
+
 
 class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
 
     BIOS_GRUB_LOCATION = "/boot/grub2"
     UEFI_GRUB_LOCATION = "/boot/efi/EFI/suse"
+    _NETWORK_SCRIPTS_PATH = "etc/sysconfig/network"
+    _IFCFG_TEMPLATE = SUSE_IFCFG_TEMPLATE
 
     @classmethod
     def get_required_detected_os_info_fields(cls):
@@ -61,12 +70,45 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
         return False
 
     def disable_predictable_nic_names(self):
-        # TODO(gsamfira): implement once we have networking support
-        pass
+        grub_cfg = "etc/default/grub"
+        if not self._test_path(grub_cfg):
+            LOG.warning(
+                "Could not find /%s. Skipping predictable NIC names "
+                "disabling.", grub_cfg)
+            return
+        contents = self._read_file_sudo(grub_cfg)
+        cfg = utils.Grub2ConfigEditor(contents)
+        cfg.append_to_option(
+            "GRUB_CMDLINE_LINUX_DEFAULT",
+            {"opt_type": "key_val", "opt_key": "net.ifnames", "opt_val": 0})
+        cfg.append_to_option(
+            "GRUB_CMDLINE_LINUX_DEFAULT",
+            {"opt_type": "key_val", "opt_key": "biosdevname", "opt_val": 0})
+        cfg.append_to_option(
+            "GRUB_CMDLINE_LINUX",
+            {"opt_type": "key_val", "opt_key": "net.ifnames", "opt_val": 0})
+        cfg.append_to_option(
+            "GRUB_CMDLINE_LINUX",
+            {"opt_type": "key_val", "opt_key": "biosdevname", "opt_val": 0})
+        self._write_file_sudo("etc/default/grub", cfg.dump())
+        self._schedule_grub2_update()
 
     def set_net_config(self, nics_info, dhcp):
-        # TODO(alexpilotti): add networking support
-        pass
+        if dhcp:
+            nics_info = nics_info or []
+            if not nics_info:
+                return
+            self.disable_predictable_nic_names()
+            nmconnection_files = (
+                self._get_existing_ethernet_nmconnection_files())
+            if nmconnection_files:
+                self._write_nmconnection_configs(nics_info, nmconnection_files)
+            else:
+                self._write_nic_configs(nics_info)
+            return
+
+        LOG.info("Setting static IP configuration")
+        self._setup_network_preservation(nics_info)
 
     def get_installed_packages(self):
         cmd = 'rpm -qa --qf "%{NAME}\\n"'
