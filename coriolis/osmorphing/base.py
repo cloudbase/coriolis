@@ -738,9 +738,41 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             self.set_grub_value(
                 "GRUB_CMDLINE_LINUX", kernel_cmd, config_obj, replace=replace)
 
+    def _get_grub_default_conf(self):
+        grub_conf = "/etc/default/grub"
+        if self._test_path_chroot(grub_conf):
+            return grub_conf
+        return None
+
+    def _set_grub_os_prober_setting(self, grub_conf, value):
+        """Set or remove GRUB_DISABLE_OS_PROBER in /etc/default/grub."""
+        if value is None:
+            self._exec_cmd_chroot(
+                "sed -i '/^GRUB_DISABLE_OS_PROBER=/d' %s" % grub_conf)
+            return
+        config_obj = self._get_grub_config_obj(grub_conf)
+        replace = "GRUB_DISABLE_OS_PROBER" in config_obj["contents"]
+        self.set_grub_value(
+            "GRUB_DISABLE_OS_PROBER", value, config_obj, replace=replace)
+        self._apply_grub2_config(config_obj, execute_update_grub=False)
+
     def _execute_update_grub(self):
-        update_cmd = self.get_update_grub2_command()
-        self._exec_cmd_chroot(update_cmd)
+        """Regenerate guest GRUB config.
+
+        Temporarily disable os-prober to prevent discovery of host boot
+        entries.
+        """
+        grub_conf = self._get_grub_default_conf()
+        original_value = None
+        if grub_conf:
+            original_value = self._read_grub_config(grub_conf).get(
+                "GRUB_DISABLE_OS_PROBER")
+            self._set_grub_os_prober_setting(grub_conf, "true")
+        try:
+            self._exec_cmd_chroot(self.get_update_grub2_command())
+        finally:
+            if grub_conf:
+                self._set_grub_os_prober_setting(grub_conf, original_value)
 
     def _schedule_grub2_update(self):
         """Flags that the GRUB2 config needs to be regenerated.

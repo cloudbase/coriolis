@@ -1145,18 +1145,169 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
                                                   clobber=False)
         mock_set_grub_value.assert_not_called()
 
+    @mock.patch.object(
+        base.BaseLinuxOSMorphingTools, '_get_grub_default_conf',
+        return_value=None,
+    )
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     @mock.patch.object(
         base.BaseLinuxOSMorphingTools, 'get_update_grub2_command'
     )
-    def test__execute_update_grub(self, mock_get_update_grub2_command,
-                                  mock_exec_cmd_chroot):
+    def test__execute_update_grub(
+            self,
+            mock_get_update_grub2_command,
+            mock_exec_cmd_chroot,
+            _mock_get_grub_default_conf):
         self.os_morphing_tools._execute_update_grub()
 
         mock_get_update_grub2_command.assert_called_once_with()
         mock_exec_cmd_chroot.assert_called_once_with(
             mock_get_update_grub2_command.return_value
         )
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path_chroot')
+    def test__get_grub_default_conf_exists(self, mock_test_path_chroot):
+        mock_test_path_chroot.return_value = True
+
+        result = self.os_morphing_tools._get_grub_default_conf()
+
+        mock_test_path_chroot.assert_called_once_with('/etc/default/grub')
+        self.assertEqual(result, '/etc/default/grub')
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path_chroot')
+    def test__get_grub_default_conf_missing(self, mock_test_path_chroot):
+        mock_test_path_chroot.return_value = False
+
+        result = self.os_morphing_tools._get_grub_default_conf()
+
+        mock_test_path_chroot.assert_called_once_with('/etc/default/grub')
+        self.assertIsNone(result)
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
+    def test__set_grub_os_prober_setting_remove(
+            self, mock_exec_cmd_chroot):
+        grub_conf = '/etc/default/grub'
+
+        self.os_morphing_tools._set_grub_os_prober_setting(grub_conf, None)
+
+        mock_exec_cmd_chroot.assert_called_once_with(
+            "sed -i '/^GRUB_DISABLE_OS_PROBER=/d' %s" % grub_conf)
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_apply_grub2_config')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, 'set_grub_value')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_get_grub_config_obj')
+    def test__set_grub_os_prober_setting_append(
+            self, mock_get_grub_config_obj, mock_set_grub_value,
+            mock_apply_grub2_config):
+        grub_conf = '/etc/default/grub'
+        config_obj = {
+            'location': mock.sentinel.location,
+            'source': grub_conf,
+            'contents': {},
+        }
+        mock_get_grub_config_obj.return_value = config_obj
+
+        self.os_morphing_tools._set_grub_os_prober_setting(
+            grub_conf, 'true')
+
+        mock_get_grub_config_obj.assert_called_once_with(grub_conf)
+        mock_set_grub_value.assert_called_once_with(
+            'GRUB_DISABLE_OS_PROBER', 'true', config_obj, replace=False)
+        mock_apply_grub2_config.assert_called_once_with(
+            config_obj, execute_update_grub=False)
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_apply_grub2_config')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, 'set_grub_value')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_get_grub_config_obj')
+    def test__set_grub_os_prober_setting_replace(
+            self, mock_get_grub_config_obj, mock_set_grub_value,
+            mock_apply_grub2_config):
+        grub_conf = '/etc/default/grub'
+        config_obj = {
+            'location': mock.sentinel.location,
+            'source': grub_conf,
+            'contents': {'GRUB_DISABLE_OS_PROBER': 'false'},
+        }
+        mock_get_grub_config_obj.return_value = config_obj
+
+        self.os_morphing_tools._set_grub_os_prober_setting(
+            grub_conf, 'true')
+
+        mock_get_grub_config_obj.assert_called_once_with(grub_conf)
+        mock_set_grub_value.assert_called_once_with(
+            'GRUB_DISABLE_OS_PROBER', 'true', config_obj, replace=True)
+        mock_apply_grub2_config.assert_called_once_with(
+            config_obj, execute_update_grub=False)
+
+    @ddt.data(
+        ({}, None),
+        ({'GRUB_DISABLE_OS_PROBER': 'false'}, 'false'),
+        ({'GRUB_DISABLE_OS_PROBER': 'true'}, 'true'),
+    )
+    @ddt.unpack
+    @mock.patch.object(
+        base.BaseLinuxOSMorphingTools, '_set_grub_os_prober_setting')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
+    @mock.patch.object(
+        base.BaseLinuxOSMorphingTools, 'get_update_grub2_command')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_read_grub_config')
+    @mock.patch.object(
+        base.BaseLinuxOSMorphingTools, '_get_grub_default_conf',
+        return_value='/etc/default/grub',
+    )
+    def test__execute_update_grub_toggles_os_prober(
+            self,
+            grub_contents,
+            expected_restore_value,
+            _mock_get_grub_default_conf,
+            mock_read_grub_config,
+            mock_get_update_grub2_command,
+            mock_exec_cmd_chroot,
+            mock_set_grub_os_prober_setting):
+        mock_read_grub_config.return_value = grub_contents
+
+        self.os_morphing_tools._execute_update_grub()
+
+        mock_read_grub_config.assert_called_once_with('/etc/default/grub')
+        mock_set_grub_os_prober_setting.assert_has_calls([
+            mock.call('/etc/default/grub', 'true'),
+            mock.call('/etc/default/grub', expected_restore_value),
+        ])
+        mock_get_update_grub2_command.assert_called_once_with()
+        mock_exec_cmd_chroot.assert_called_once_with(
+            mock_get_update_grub2_command.return_value)
+
+    @mock.patch.object(
+        base.BaseLinuxOSMorphingTools, '_set_grub_os_prober_setting')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
+    @mock.patch.object(
+        base.BaseLinuxOSMorphingTools, 'get_update_grub2_command')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_read_grub_config')
+    @mock.patch.object(
+        base.BaseLinuxOSMorphingTools, '_get_grub_default_conf',
+        return_value='/etc/default/grub',
+    )
+    def test__execute_update_grub_restores_os_prober_on_failure(
+            self,
+            _mock_get_grub_default_conf,
+            mock_read_grub_config,
+            mock_get_update_grub2_command,
+            mock_exec_cmd_chroot,
+            mock_set_grub_os_prober_setting):
+        mock_read_grub_config.return_value = {
+            'GRUB_DISABLE_OS_PROBER': 'false',
+        }
+        mock_exec_cmd_chroot.side_effect = CoriolisTestException()
+
+        self.assertRaises(
+            CoriolisTestException,
+            self.os_morphing_tools._execute_update_grub)
+
+        mock_set_grub_os_prober_setting.assert_has_calls([
+            mock.call('/etc/default/grub', 'true'),
+            mock.call('/etc/default/grub', 'false'),
+        ])
+        mock_get_update_grub2_command.assert_called_once_with()
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_execute_update_grub')
     def test__schedule_grub2_update(self, mock_execute_update_grub):
