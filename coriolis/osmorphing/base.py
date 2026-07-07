@@ -550,9 +550,11 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             self._exec_cmd_chroot(
                 "sed -i '/cloud-init=disabled/d' %s" % system_conf_disabler)
         if self._test_path(grub_conf_disabler):
-            self._exec_cmd_chroot(
-                "sed -i '/cloud-init=disabled/d' %s" % grub_conf_disabler)
-            self._schedule_grub2_update()
+            contents = self._read_file_sudo(grub_conf_disabler)
+            if "cloud-init=disabled" in contents:
+                self._exec_cmd_chroot(
+                    "sed -i '/cloud-init=disabled/d' %s" % grub_conf_disabler)
+                self._schedule_grub2_update()
 
     def _reset_cloud_init_run(self):
         self._exec_cmd_chroot("cloud-init clean --logs")

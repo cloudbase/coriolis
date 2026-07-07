@@ -718,24 +718,31 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         mock__exec_cmd_chroot.assert_not_called()
 
     @ddt.data(
-        ((False, False, False), [], False),
-        ((True, True, False), [
+        ((False, False, False), "", [], False),
+        ((True, True, False), "", [
             "rm /etc/cloud/cloud-init.disabled",
             "sed -i '/cloud-init=disabled/d' /etc/systemd/system.conf",
         ], False),
-        ((False, False, True), [
-            "sed -i '/cloud-init=disabled/d' /etc/default/grub",
-        ], True)
+        ((False, False, True),
+         'GRUB_CMDLINE_LINUX="console=ttyS0 cloud-init=disabled"',
+         ["sed -i '/cloud-init=disabled/d' /etc/default/grub"],
+         True),
+        ((False, False, True),
+         'GRUB_CMDLINE_LINUX="console=ttyS0"',
+         [],
+         False),
     )
     @ddt.unpack
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, "_read_file_sudo")
     @mock.patch.object(base.BaseLinuxOSMorphingTools, "_schedule_grub2_update")
     @mock.patch.object(base.BaseLinuxOSMorphingTools, "_exec_cmd_chroot")
     @mock.patch.object(base.BaseLinuxOSMorphingTools, "_test_path")
     def test__ensure_cloud_init_not_disabled(
-            self, test_path_results, expected_cmds, updates_grub,
-            mock__test_path, mock__exec_cmd_chroot,
-            mock__schedule_grub2_update):
+            self, test_path_results, grub_defaults_contents, expected_cmds,
+            updates_grub, mock__test_path, mock__exec_cmd_chroot,
+            mock__schedule_grub2_update, mock__read_file_sudo):
         mock__test_path.side_effect = test_path_results
+        mock__read_file_sudo.return_value = grub_defaults_contents
 
         self.os_morphing_tools._ensure_cloud_init_not_disabled()
 

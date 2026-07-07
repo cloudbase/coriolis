@@ -4,6 +4,7 @@
 import logging
 from unittest import mock
 
+from coriolis import constants
 from coriolis import exception
 from coriolis.osmorphing.osmount import base
 from coriolis.tests import test_base
@@ -849,6 +850,70 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_find_dev_with_contents.assert_called_once_with(
             devices, all_files=['etc', 'bin', 'sbin', 'boot'])
         mock_test_ssh_path.assert_not_called()
+
+    @mock.patch.object(base.utils, 'test_ssh_path')
+    @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')
+    def test__mask_minion_efi_firmware_bios_top_level(
+            self, mock_exec_cmd, mock_test_ssh_path):
+        self.base_os_mount_tools._osmorphing_info = {
+            "firmware_type": constants.FIRMWARE_TYPE_BIOS}
+        mock_test_ssh_path.return_value = True
+
+        self.base_os_mount_tools._mask_minion_efi_firmware(self.os_root_dir)
+
+        mock_test_ssh_path.assert_called_once_with(
+            self.base_os_mount_tools._ssh, "/root/sys/firmware/efi")
+        mock_exec_cmd.assert_called_once_with(
+            "sudo mount -t tmpfs tmpfs /root/sys/firmware")
+
+    @mock.patch.object(base.utils, 'test_ssh_path')
+    @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')
+    def test__mask_minion_efi_firmware_bios_nested_params(
+            self, mock_exec_cmd, mock_test_ssh_path):
+        self.base_os_mount_tools._osmorphing_info = {
+            "osmorphing_parameters": {
+                "firmware_type": constants.FIRMWARE_TYPE_BIOS}}
+        mock_test_ssh_path.return_value = True
+
+        self.base_os_mount_tools._mask_minion_efi_firmware(self.os_root_dir)
+
+        mock_exec_cmd.assert_called_once_with(
+            "sudo mount -t tmpfs tmpfs /root/sys/firmware")
+
+    @mock.patch.object(base.utils, 'test_ssh_path')
+    @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')
+    def test__mask_minion_efi_firmware_no_efi_in_chroot(
+            self, mock_exec_cmd, mock_test_ssh_path):
+        self.base_os_mount_tools._osmorphing_info = {
+            "firmware_type": constants.FIRMWARE_TYPE_BIOS}
+        mock_test_ssh_path.return_value = False
+
+        self.base_os_mount_tools._mask_minion_efi_firmware(self.os_root_dir)
+
+        mock_exec_cmd.assert_not_called()
+
+    @mock.patch.object(base.utils, 'test_ssh_path')
+    @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')
+    def test__mask_minion_efi_firmware_uefi_guest(
+            self, mock_exec_cmd, mock_test_ssh_path):
+        self.base_os_mount_tools._osmorphing_info = {
+            "firmware_type": constants.FIRMWARE_TYPE_EFI}
+
+        self.base_os_mount_tools._mask_minion_efi_firmware(self.os_root_dir)
+
+        mock_test_ssh_path.assert_not_called()
+        mock_exec_cmd.assert_not_called()
+
+    @mock.patch.object(base.utils, 'test_ssh_path')
+    @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')
+    def test__mask_minion_efi_firmware_unknown_firmware(
+            self, mock_exec_cmd, mock_test_ssh_path):
+        self.base_os_mount_tools._osmorphing_info = {}
+
+        self.base_os_mount_tools._mask_minion_efi_firmware(self.os_root_dir)
+
+        mock_test_ssh_path.assert_not_called()
+        mock_exec_cmd.assert_not_called()
 
     @mock.patch.object(base.utils, 'check_fs')
     @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')

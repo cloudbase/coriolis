@@ -13,6 +13,7 @@ import uuid
 from oslo_log import log as logging
 from six import with_metaclass
 
+from coriolis import constants
 from coriolis import exception
 from coriolis.osmorphing.osmount import luks_mixin
 from coriolis import utils
@@ -504,6 +505,24 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
 
         return dev_name
 
+    def _mask_minion_efi_firmware(self, os_root_dir):
+        firmware_type = self._osmorphing_info.get("firmware_type")
+        if firmware_type is None:
+            firmware_type = self._osmorphing_info.get(
+                "osmorphing_parameters", {}).get("firmware_type")
+        if firmware_type != constants.FIRMWARE_TYPE_BIOS:
+            return
+        efi_dir = os.path.join(os_root_dir, "sys/firmware/efi")
+        if not utils.test_ssh_path(self._ssh, efi_dir):
+            return
+        LOG.info(
+            "OSMorphing minion machine is UEFI-booted, but the OS being "
+            "migrated is BIOS-booted. Masking '/sys/firmware' in the "
+            "OSMorphing chroot at '%s'", os_root_dir)
+        self._exec_cmd(
+            "sudo mount -t tmpfs tmpfs %s" % os.path.join(
+                os_root_dir, "sys/firmware"))
+
     def _find_and_mount_root(self, devices):
         files = ["etc", "bin", "sbin", "boot"]
         os_root_dir = None
@@ -563,6 +582,8 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
             self._exec_cmd(
                 'sudo mount -o bind /%(dir)s/ %(mount_dir)s' %
                 {'dir': directory, 'mount_dir': mount_dir})
+
+        self._mask_minion_efi_firmware(os_root_dir)
 
         if os_root_device in devices:
             devices.remove(os_root_device)
