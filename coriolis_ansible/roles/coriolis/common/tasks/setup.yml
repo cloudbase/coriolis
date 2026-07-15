@@ -48,7 +48,6 @@
     - { src: coriolis-api.wsgi.j2, dest: "{{ coriolis_config_dir }}/coriolis-api.wsgi" }
     - { src: wsgi-coriolis.conf.j2, dest: "{{ coriolis_config_dir }}/wsgi-coriolis.conf" }
     - { src: coriolis.conf.j2, dest: "{{ coriolis_config_dir }}/coriolis.conf" }
-    - { src: coriolis.release.j2, dest: "{{ coriolis_config_dir }}/coriolis.release" }
     - { src: vixdisklib.conf.j2, dest: "{{ coriolis_vmware_vix_disklib_config_path }}" }
     - { src: api-paste.ini.j2, dest: "{{ coriolis_config_dir }}/api-paste.ini" }
     - { src: policy.yml.j2,    dest: "{{ coriolis_config_dir }}/policy.yml" }
@@ -58,6 +57,21 @@
     merged_export_modules: "{{ export_provider_modules | combine(custom_coriolis_export_modules) }}"
   notify:
     - "restart coriolis core components"
+
+# Ensure the release file exists before containers mount it. On upgrades the
+# existing file is left untouched here so a failed mid-deploy does not bump
+# the recorded release; the validation role writes the new value only after
+# the deployment checks succeed.
+- name: Check whether coriolis.release already exists
+  stat:
+    path: "{{ coriolis_config_dir }}/coriolis.release"
+  register: coriolis_release_file
+
+- name: Ensure coriolis.release exists for container mounts
+  template:
+    src: coriolis.release.j2
+    dest: "{{ coriolis_config_dir }}/coriolis.release"
+  when: not coriolis_release_file.stat.exists
 
 - name: Create Keystone user
   os_user:

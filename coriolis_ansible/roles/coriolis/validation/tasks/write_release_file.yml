@@ -1,0 +1,9 @@
+---
+# Record the deployed release only after validation has succeeded, so a
+# failed upgrade/deploy does not leave coriolis.release pointing at a
+# version that never finished deploying.
+- name: Write Coriolis release file
+  copy:
+    content: "{{ default_coriolis_docker_images_tag }}\n"
+    dest: "{{ coriolis_config_dir }}/coriolis.release"
+    backup: yes

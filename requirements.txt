@@ -3,6 +3,7 @@ dnspython
 docker
 influxdb
 oslo_config
+packaging
 pymysql
 toml
 virtualenv

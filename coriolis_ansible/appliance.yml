@@ -10,48 +10,61 @@
 
     - import_role:
         name: coriolis/compressor
+      tags: ["compressor"]
 
     - import_role:
         name: coriolis/common
 
     - import_role:
         name: coriolis/logger
+      tags: ["logger"]
 
     - import_role:
         name: coriolis/api
+      tags: ["api"]
 
     - import_role:
         name: coriolis/conductor
+      tags: ["conductor"]
 
     - import_role:
         name: coriolis/transfer-cron
+      tags: ["transfer-cron"]
 
     - import_role:
         name: coriolis/scheduler
+      tags: ["scheduler"]
 
     - import_role:
         name: coriolis/minion-manager
+      tags: ["minion-manager"]
 
     - import_role:
         name: coriolis/deployer-manager
+      tags: ["deployer-manager"]
 
     - import_role:
         name: coriolis/worker
+      tags: ["worker"]
 
     - import_role:
         name: coriolis/web
+      tags: ["web"]
 
     - import_role:
         name: coriolis/web-proxy
+      tags: ["web-proxy"]
 
     - import_role:
         name: coriolis/licensing-server
+      tags: ["licensing-server"]
 
     - import_role:
         name: common/console-editor
 
     - import_role:
         name: coriolis/metal-hub
+      tags: ["metal-hub"]
 
 - name: Apply roles for the Coriolis appliance validation
   any_errors_fatal: true
@@ -61,6 +74,7 @@
   tasks:
     - import_role:
         name: coriolis/validation
+      tags: ["validation"]
 
 - name: Apply roles for the Coriolis Licensing UI
   any_errors_fatal: true
@@ -70,3 +84,4 @@
   tasks:
     - import_role:
         name: coriolis/licensing-ui
+      tags: ["licensing-ui"]

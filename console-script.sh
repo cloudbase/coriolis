@@ -2,7 +2,10 @@
 
 
 # Options and prompt definitions:
-OPTIONS=("Show Appliance Stats" "Show UI Login Details" "Edit/Inspect Coriolis Configuration" "Edit/Inspect Network Settings" "Configure/Restore Appliance Proxy Settings" "Expose Coriolis Services Endpoints" "Add Certificate to Coriolis Worker" "Restore to default Coriolis Worker certificate chain" "Change Coriolis API certificate chain" "Restore Coriolis API certificate chain" "Deploy External Worker" "Restart Coriolis Services" "Upgrade Coriolis Services" "Enable/Disable SSH Service")
+OPTIONS=("Show Appliance Stats" "Show UI Login Details" "Edit/Inspect Coriolis Configuration" "Edit/Inspect Network Settings" "Configure/Restore Appliance Proxy Settings" "Expose Coriolis Services Endpoints" "Add Certificate to Coriolis Worker" "Restore to default Coriolis Worker certificate chain" "Change Coriolis API certificate chain" "Restore Coriolis API certificate chain" "Deploy External Worker" "Restart Coriolis Services" "Upgrade options" "Enable/Disable SSH Service")
+
+# Sub-options for the "Upgrade options" menu:
+UPGRADE_OPTIONS=("Upgrade Coriolis Services" "Patch Coriolis component")
 
 
 WELCOME_PROMPT=$(cat <<EOP
@@ -47,14 +50,6 @@ After you are done editing, please exit this shell using exit or Ctrl^D.
 Note that the networking settings are only applied *after* you edit the configurations and the
 Coriolis services are restarted, so in order to validate them, please use the
 Edit/Inspect Coriolis Configuration option.\n\n
-EOP
-)
-
-EDITING_CONTAINER_CONSOLE_PROMPT_UPGRADE=$(cat <<EOP
-Please feel free to edit the Docker registry/image settings by running:
-    * vim /root/coriolis-docker/docker-images-config.yml
-
-After you are done editing, please exit this shell using exit or Ctrl^D.\n\n
 EOP
 )
 
@@ -110,6 +105,22 @@ EOP
 SSH_STATUS_PROMPT=$(cat <<EOP
 This option will switch the SSH service's status.
 The SSH access is currently only accessible by Coriolis Support team, and not allowed for public access.\n\n
+EOP
+)
+
+UPGRADE_OPTIONS_PROMPT=$(cat <<EOP
+This option lets you either perform a full Coriolis upgrade to a new release, or patch a
+single Coriolis component to a specific patch version (i.e. for small/urgent fixes).\n\n
+EOP
+)
+
+PATCH_COMPONENT_PROMPT=$(cat <<EOP
+This option allows you to patch a single Coriolis component to a specific patch version,
+without performing a full Coriolis upgrade.
+
+The patch version must be based on the currently installed Coriolis release, and can only
+increment the patch/micro component of that release (e.g. if the installed release is
+2603.2, it can be patched to 2603.2.1, but not to 2603.4.1).\n\n
 EOP
 )
 
@@ -849,6 +860,81 @@ function deploy-external-worker {
     $BASE_DIR/coriolis-ansible deploy-workers && echo "External worker successfully deployed"
 }
 
+# Verifies that the admin credentials stored in the Kolla admin openrc file
+# are still valid against Keystone.
+function check-admin-credentials {
+    if [ ! -f "$ADMIN_OPENRC_FILE" ]; then
+        echo "ERROR: Admin credentials file '$ADMIN_OPENRC_FILE' was not found."
+        return 1
+    fi
+
+    echo "Verifying Coriolis admin credentials against Keystone..."
+    if ( source "$ADMIN_OPENRC_FILE" && openstack token issue > /dev/null 2>&1 ); then
+        return 0
+    fi
+
+    echo "ERROR: Could not authenticate to Keystone using the admin credentials in '$ADMIN_OPENRC_FILE'."
+    echo "       This usually means the admin password was changed from the Coriolis UI, so it is now"
+    echo "       out of sync with this file. Please update the OS_PASSWORD value in '$ADMIN_OPENRC_FILE'"
+    echo "       to match the current admin password, then try again."
+    return 1
+}
+
+# Verifies that a component container stays healthy after patching,
+# rather than crash-looping. Returns 0 if the container is running
+# steadily for the observation window, and non-zero if it exits or
+# restarts during it.
+function verify-component-healthy {
+    local container="$1"
+    local observation_window=60
+    local interval=5
+
+    if ! docker inspect "$container" > /dev/null 2>&1; then
+        echo "WARNING: Container '$container' was not found on this host; unable to verify its health."
+        echo "         (This can be expected for components running on a separate host, e.g. Licensing UI.)"
+        return 0
+    fi
+
+    echo "Verifying that '$container' stays healthy for ${observation_window}s..."
+    local initial_restart_count
+    initial_restart_count=$(docker inspect -f '{{.RestartCount}}' "$container" 2>/dev/null)
+
+    local elapsed=0
+    local status restarting restart_count exit_code
+    while [ $elapsed -lt $observation_window ]; do
+        sleep $interval
+        elapsed=$((elapsed + interval))
+
+        status=$(docker inspect -f '{{.State.Status}}' "$container" 2>/dev/null)
+        restarting=$(docker inspect -f '{{.State.Restarting}}' "$container" 2>/dev/null)
+        restart_count=$(docker inspect -f '{{.RestartCount}}' "$container" 2>/dev/null)
+        exit_code=$(docker inspect -f '{{.State.ExitCode}}' "$container" 2>/dev/null)
+
+        # Allow expected restarts during deployment by refreshing the
+        # baseline whenever the container is running again. Failures are
+        # only reported after the full observation window has elapsed.
+        if [ "$status" = "running" ] && [ "$restarting" != "true" ] && \
+           [ -n "$restart_count" ]; then
+            initial_restart_count=$restart_count
+        fi
+    done
+
+    if [ "$status" = "exited" ] || [ "$status" = "dead" ] || \
+       [ "$status" = "restarting" ] || [ "$restarting" = "true" ]; then
+        echo "ERROR: Container '$container' is not healthy after ${observation_window}s (status: $status, exit code: $exit_code)."
+        return 1
+    fi
+
+    if [ -n "$restart_count" ] && [ -n "$initial_restart_count" ] && \
+       [ "$restart_count" -gt "$initial_restart_count" ]; then
+        echo "ERROR: Container '$container' is still restarting after ${observation_window}s (crash loop)."
+        return 1
+    fi
+
+    echo "Container '$container' has been running steadily for ${observation_window}s."
+    return 0
+}
+
 function upgrade-coriolis-services {
 
     pushd "$BASE_DIR"
@@ -861,7 +947,7 @@ function upgrade-coriolis-services {
         return
     fi
 
-    if (( $(echo "$coriolis_tag <= $current_release" | bc -l) ));then
+    if ! python3 "$UTILS_DIR/compare_versions.py" -c "$current_release" -n "$coriolis_tag"; then
         echo "ERROR: You need to upgrade to a higher Coriolis Release than the one you have."
         echo "Current Coriolis release $(cat /etc/coriolis/coriolis.release)"
         return
@@ -875,32 +961,218 @@ function upgrade-coriolis-services {
         return
     fi
 
+    if ! check-admin-credentials; then
+        popd
+        return
+    fi
+
     success=0
     DBPASS=$(grep -E '^(database_password)' /etc/kolla/passwords.yml | awk '{print $2}')
+    # docker-images-config.yml is gitignored, so git checkout on failure will
+    # not restore it; keep an explicit backup of the pre-upgrade tag config.
+    DOCKER_IMAGES_CONFIG_BACKUP="/root/coriolis_docker_images_config.yml.bak"
+    cp "$DOCKER_IMAGES_CONFIG_FILE" "$DOCKER_IMAGES_CONFIG_BACKUP" &&
     docker exec mariadb mysqldump -u root -p"$DBPASS" --all-databases > /root/coriolis_appliance_dbs_backups.sql &&
     tar -czf /root/coriolis_etc_kolla_backup.tar.gz /etc/kolla/ &&
     tar -czf /root/coriolis_etc_coriolis_backup.tar.gz /etc/coriolis/ &&
     cd /root/coriolis-docker &&
     git fetch origin &&
     git checkout origin/stable/"${coriolis_tag%.*}" &&
-    sed -i "s@^docker_pull_images.*@docker_pull_images: true@g" /root/coriolis-docker/docker-images-config.yml &&
-    sed -i "s@^default_coriolis_docker_images_tag.*@default_coriolis_docker_images_tag: $coriolis_tag@g" /root/coriolis-docker/docker-images-config.yml &&
+    sed -i "s@^docker_pull_images.*@docker_pull_images: true@g" "$DOCKER_IMAGES_CONFIG_FILE" &&
+    sed -i "s@^default_coriolis_docker_images_tag.*@default_coriolis_docker_images_tag: $coriolis_tag@g" "$DOCKER_IMAGES_CONFIG_FILE" &&
     python3 "$BASE_DIR"/upgrade_coriolis.py -u "$BASE_DIR/utils/upgrade_scripts" -c $current_release -n $coriolis_tag ||
     { success=1;}
 
     if [[ $success -eq 1 ]]; then {
+        echo "Upgrade failed; rolling back Coriolis configuration and release."
         docker exec -i mariadb mysql -u root -p"$DBPASS" < /root/coriolis_appliance_dbs_backups.sql
         tar -xf /root/coriolis_etc_kolla_backup.tar.gz -C /
         tar -xf /root/coriolis_etc_coriolis_backup.tar.gz -C /
+        # Restore the pre-upgrade image tag config (gitignored, so not covered
+        # by git checkout) and pin coriolis.release back to the previous
+        # release in case the /etc/coriolis restore alone was insufficient.
+        cp "$DOCKER_IMAGES_CONFIG_BACKUP" "$DOCKER_IMAGES_CONFIG_FILE"
+        echo "$current_release" > /etc/coriolis/coriolis.release
         git checkout $current_commit
     }
     fi
 
-    rm /root/coriolis_appliance_dbs_backups.sql
-    rm /root/coriolis_etc_kolla_backup.tar.gz
-    rm /root/coriolis_etc_coriolis_backup.tar.gz
+    rm -f /root/coriolis_appliance_dbs_backups.sql
+    rm -f /root/coriolis_etc_kolla_backup.tar.gz
+    rm -f /root/coriolis_etc_coriolis_backup.tar.gz
+    rm -f "$DOCKER_IMAGES_CONFIG_BACKUP"
     popd
     return
+}
+
+# Discovers the Coriolis components which can be individually patched, by
+# inspecting the Docker images already pulled on this appliance for the
+# 'coriolis-<component>' repositories under the configured Docker
+# registry/namespace, rather than relying on a hardcoded list. Populates
+# the PATCH_COMPONENT_* parallel arrays below.
+function discover-patch-components {
+    PATCH_COMPONENT_KEYS=()
+    PATCH_COMPONENT_NAMES=()
+    PATCH_COMPONENT_ROLE_TAGS=()
+    PATCH_COMPONENT_IMAGE_TAG_VARS=()
+    PATCH_COMPONENT_IMAGE_NAMES=()
+
+    local docker_registry docker_namespace
+    docker_registry=$(get_global_config_value docker_registry)
+    docker_namespace=$(get_global_config_value docker_namespace)
+
+    local key name role_tag tag_var image_name
+    while IFS=$'\t' read -r key name role_tag tag_var image_name; do
+        [ -z "$key" ] && continue
+        PATCH_COMPONENT_KEYS+=("$key")
+        PATCH_COMPONENT_NAMES+=("$name")
+        PATCH_COMPONENT_ROLE_TAGS+=("$role_tag")
+        PATCH_COMPONENT_IMAGE_TAG_VARS+=("$tag_var")
+        PATCH_COMPONENT_IMAGE_NAMES+=("$image_name")
+    done < <(python3 "$UTILS_DIR/list_patchable_components.py" -r "$docker_registry" -n "$docker_namespace")
+}
+
+# Patches a single Coriolis component to a specific patch version of the
+# currently installed release, without performing a full Coriolis upgrade.
+function patch-coriolis-component {
+    printf "$PATCH_COMPONENT_PROMPT"
+
+    local current_release
+    current_release=$(cat /etc/coriolis/coriolis.release)
+    echo "Currently installed Coriolis release: $current_release"
+    echo
+
+    discover-patch-components
+    if [ ${#PATCH_COMPONENT_NAMES[@]} -eq 0 ]; then
+        echo "ERROR: No patchable Coriolis component images were found on this appliance."
+        return
+    fi
+
+    echo "Please select the component to patch:"
+    local component_idx=""
+    local component_name
+    select component_name in "${PATCH_COMPONENT_NAMES[@]}"; do
+        if [ -n "$component_name" ]; then
+            component_idx=$((REPLY - 1))
+            break
+        fi
+        echo "Invalid option $REPLY"
+    done
+
+    local role_tag="${PATCH_COMPONENT_ROLE_TAGS[$component_idx]}"
+    local image_tag_var="${PATCH_COMPONENT_IMAGE_TAG_VARS[$component_idx]}"
+    local image_name="${PATCH_COMPONENT_IMAGE_NAMES[$component_idx]}"
+
+    local patch_tag
+    patch_tag=$(confirm_input "Patch version for $component_name (currently installed release: $current_release): ")
+    if [ -z "$patch_tag" ]; then
+        echo "No patch version provided, aborting."
+        return
+    fi
+
+    if ! python3 "$UTILS_DIR/validate_patch_version.py" -c "$current_release" -n "$patch_tag"; then
+        return
+    fi
+
+    local docker_registry docker_namespace
+    docker_registry=$(get_global_config_value docker_registry)
+    docker_namespace=$(get_global_config_value docker_namespace)
+
+    docker login "$docker_registry" || true
+    echo "Checking that $image_name:$patch_tag exists in the Docker registry."
+    docker image pull -q "$docker_registry/$docker_namespace/$image_name:$patch_tag" &> /dev/null
+    if [ $? -ne 0 ]; then
+        echo "ERROR: $image_name:$patch_tag does not exist in the Docker registry."
+        return
+    fi
+
+    CONFIRMED=`prompt-for-confirmation-word "Patch $component_name to version $patch_tag now? "`
+    if [ "$CONFIRMED" != "1" ]; then
+        echo "Patch cancelled."
+        return
+    fi
+
+    if ! check-admin-credentials; then
+        return
+    fi
+
+    local previous_tag
+    previous_tag=$(python3 "$UTILS_DIR/patch_component_tag.py" -c "$DOCKER_IMAGES_CONFIG_FILE" -n "$image_tag_var")
+
+    # The value to restore the tag to if the patch has to be rolled back.
+    # If the component had no explicit override before, fall back to the
+    # shared default tag variable, matching the other config entries.
+    local restore_tag="$previous_tag"
+    if [ -z "$restore_tag" ]; then
+        restore_tag="{{ default_coriolis_docker_images_tag }}"
+    fi
+
+    # Capture the image currently backing the running container so it can be
+    # cleaned up once the patch has been deployed and validated.
+    local container_name="$image_name"
+    local old_image new_image
+    old_image=$(docker inspect -f '{{.Config.Image}}' "$container_name" 2>/dev/null)
+    new_image="$docker_registry/$docker_namespace/$image_name:$patch_tag"
+
+    export-current-shell-proxy-settings
+    python3 "$UTILS_DIR/patch_component_tag.py" -c "$DOCKER_IMAGES_CONFIG_FILE" -n "$image_tag_var" -v "$patch_tag"
+
+    pushd "$BASE_DIR" > /dev/null
+
+    # The patch run also executes the Coriolis validation tasks, so a
+    # non-zero exit code means either the deployment or its validation
+    # failed. The health check additionally confirms the patched container
+    # stays up rather than crash-looping shortly after startup, which the
+    # validation endpoint checks do not catch for every component.
+    local patch_failed=0
+    if "$BASE_DIR/coriolis-ansible" patch-component "$role_tag"; then
+        if verify-component-healthy "$container_name"; then
+            echo "Successfully patched and validated $component_name at version $patch_tag."
+            if [ -n "$old_image" ] && [ "$old_image" != "$new_image" ]; then
+                echo "Removing the previous $component_name image: $old_image"
+                docker image rm "$old_image" > /dev/null 2>&1 || \
+                    echo "WARNING: Could not remove the previous image $old_image (it may still be in use)."
+            fi
+        else
+            echo "ERROR: $component_name did not stay healthy after patching to $patch_tag."
+            patch_failed=1
+        fi
+    else
+        echo "ERROR: Patching $component_name to $patch_tag failed to deploy or validate."
+        patch_failed=1
+    fi
+
+    if [ "$patch_failed" -eq 1 ]; then
+        echo "Rolling back $component_name to its previous version ($restore_tag)."
+        python3 "$UTILS_DIR/patch_component_tag.py" -c "$DOCKER_IMAGES_CONFIG_FILE" -n "$image_tag_var" -v "$restore_tag"
+        if "$BASE_DIR/coriolis-ansible" patch-component "$role_tag" && verify-component-healthy "$container_name"; then
+            echo "Rolled back $component_name to its previous version."
+        else
+            echo "ERROR: Failed to automatically roll back $component_name. Manual intervention may be required."
+        fi
+    fi
+    popd > /dev/null
+}
+
+# Presents the "Upgrade options" sub-menu, allowing the user to choose
+# between a full Coriolis upgrade and patching a single component.
+function upgrade-options-menu {
+    printf "$UPGRADE_OPTIONS_PROMPT"
+    local upgrade_opt
+    select upgrade_opt in "${UPGRADE_OPTIONS[@]}"; do
+        case $upgrade_opt in
+            "Upgrade Coriolis Services")
+                upgrade-coriolis-services
+                break
+                ;;
+            "Patch Coriolis component")
+                patch-coriolis-component
+                break
+                ;;
+            *)
+                echo "invalid option $REPLY";;
+        esac
+    done
 }
 
 function modify-systemd-service-status {
@@ -977,14 +1249,8 @@ function interact {
                         confirm-restart-coriolis-containers
             break
                         ;;
-                "Upgrade Coriolis Components")
-                        run-coriolis-console-editor-shell "$EDITING_CONTAINER_CONSOLE_PROMPT_UPGRADE"
-                        export-current-shell-proxy-settings
-                        $BASE_DIR/coriolis-ansible update
-            break
-                        ;;
-                "Upgrade Coriolis Services")
-                        upgrade-coriolis-services
+                "Upgrade options")
+                        upgrade-options-menu
             break
                         ;;
                 "Enable/Disable SSH Service")

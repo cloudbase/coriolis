@@ -3,10 +3,22 @@ set -e
 
 usage() {
     echo "USAGE: $0 <coriolis_action>"
-    echo "Valid options for <coriolis_action> are: ['bootstrap', 'build', 'deploy', 'deploy-workers', 'reconfigure', 'update', 'destroy', 'push-docker-images', 'reset-licensing-db', 'dump-memory-profiling']"
+    echo "Valid options for <coriolis_action> are: ['bootstrap', 'build', 'deploy', 'deploy-workers', 'reconfigure', 'update', 'destroy', 'push-docker-images', 'reset-licensing-db', 'dump-memory-profiling', 'patch-component']"
+    echo "'patch-component' additionally requires the name of the component to patch, e.g.:"
+    echo "    $0 patch-component conductor"
 }
 
-if [[ $# -ne 1 ]]; then
+if [[ $# -lt 1 ]]; then
+    usage
+    exit 1
+fi
+
+if [[ "$1" != "patch-component" && $# -ne 1 ]]; then
+    usage
+    exit 1
+fi
+
+if [[ "$1" == "patch-component" && $# -ne 2 ]]; then
     usage
     exit 1
 fi
@@ -58,6 +70,15 @@ case "$1" in
         docker login "$(get_global_config_value docker_registry)"
         $SET_CONFIG_VALUE_SCRIPT -c $CONFIG_FILE -n default_coriolis_docker_images_tag -v latest
         $ANSIBLE_CMD -e coriolis_action=update -e docker_pull_images=true $PLAYBOOK
+        ;;
+
+    patch-component)
+        source $ADMIN_OPENRC_FILE
+        COMPONENT_TAG="$2"
+        docker login "$(get_global_config_value docker_registry)"
+        # The 'validation' tag runs the Coriolis validation tasks after the
+        # component is updated, so the run fails if the patch is not healthy.
+        $ANSIBLE_CMD -e coriolis_action=update -e docker_pull_images=true --tags "$COMPONENT_TAG,validation" $PLAYBOOK
         ;;
 
     destroy)
