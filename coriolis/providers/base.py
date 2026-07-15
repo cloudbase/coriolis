@@ -899,10 +899,10 @@ class BaseReplicaExportProvider(BaseExportInstanceProvider):
         connection_info: dict,
         source_environment: dict,
         instance_name: str,
-        source_resources,
+        source_resources: dict,
         source_conn_info: dict,
         target_conn_info: dict,
-        volumes_info: list[bool],
+        volumes_info: list[dict],
         incremental: bool,
     ) -> list[dict]:
         """Replicate instance disks to the destination platform.
