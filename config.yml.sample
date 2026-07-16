@@ -26,7 +26,7 @@ coriolis_profiling_dir_host: /opt/coriolis/profiling
 # ["api", "conductor", "worker", "scheduler", "minion-manager", "transfer-cron", "deployer-manager"]
 enable_profiling_for: []
 
-coriolis_export_providers: ["openstack", "azure", "scvmm", "vmware", "aws", "metal", "ovirt"]
+coriolis_export_providers: ["openstack", "azure", "scvmm", "vmware", "aws", "metal", "ovirt", "nutanix"]
 coriolis_import_providers: ["openstack", "azure", "oci", "aws", "vmware", "ovirt", "kubevirt", "lxd", "proxmox", "libvirt"]
 
 custom_coriolis_export_modules: {}

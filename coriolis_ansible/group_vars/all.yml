@@ -84,6 +84,7 @@ export_provider_modules:
   aws: "coriolis_provider_aws.ExportProvider"
   metal: "coriolis_provider_metal.ExportProvider"
   ovirt: "coriolis_provider_ovirt_olvm.ExportProvider,coriolis_provider_ovirt_rhev.ExportProvider"
+  nutanix: "coriolis_provider_nutanix.ExportProvider"
 
 import_provider_modules:
   openstack: "coriolis_provider_openstack.ImportProvider,coriolis_provider_vhi.ImportProvider"
