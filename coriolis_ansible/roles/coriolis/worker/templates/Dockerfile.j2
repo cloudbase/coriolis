@@ -35,6 +35,11 @@ RUN apt-get install -y libcurl4-openssl-dev libxml2-dev
 RUN apt-get install -y libvirt-dev genisoimage
 {% endif %}
 
+{% if "nutanix" in coriolis_providers %}
+#NOTE: the Nutanix provider uses iSCSI to retrieve disk datat.
+RUN apt-get install -y open-iscsi
+{% endif %}
+
 {% for item in coriolis_providers %}
 RUN /bin/bash -c "pip3 install -e ./coriolis-provider-{{ item }}"
 {% endfor %}
