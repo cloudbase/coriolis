@@ -7,7 +7,7 @@ then
     rm -rf /dev/log
 fi
 
-ln -s "{{ coriolis_logger_socket_file }}" /dev/log
+ln -sf "{{ coriolis_logger_socket_file }}" /dev/log
 
 if [ "x${RUN_DBSYNC:-''}" != "x" ] && [ "x${RUN_DBSYNC:-''}" = "xyes" ]
 then
@@ -47,6 +47,11 @@ if [ -d "$CA_FOLDER" ] && [ ! -z "$(ls -A $CA_FOLDER)" ];then
         done
         update-ca-trust
     fi
+fi
+
+if [ "$RUN_OPENISCSI" = "yes" ]; then
+    # Start the iSCSI initiator service, used by the Nutanix provider.
+    /etc/init.d/iscsid start
 fi
 
 exec "$@"

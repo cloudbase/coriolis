@@ -44,4 +44,9 @@
     path: "{{ coriolis_libvirt_provider_db_file }}"
     state: touch
 
+# Some providers leverage the open-iscsi initiator (e.g. Nutanix).
+# We must remove it from the host in order to avoid conflicts.
+- name: Purge host open-iscsi
+  shell: "apt-get -y purge open-iscsi"
+
 - include_tasks: setup_worker_container.yml

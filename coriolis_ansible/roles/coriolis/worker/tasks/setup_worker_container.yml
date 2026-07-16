@@ -9,7 +9,14 @@
     restart: yes
     restart_policy: unless-stopped
     network_mode: host
+    # In order to use open-iscsi inside the container, we'll
+    # grant privileged rights and mount /lib/modules as well as /dev.
+    privileged: true
     volumes:
+      - /lib/modules:/lib/modules
+      - /dev:/dev
+      # The container entry point script attempts to override /dev/log.
+      - /dev/null:/dev/log
       - "{{ coriolis_config_dir }}:{{ coriolis_config_dir }}:ro"
       - "{{ coriolis_log_dir }}:{{ coriolis_log_dir }}"
       - "{{ coriolis_logger_socket_dir }}:{{ coriolis_logger_socket_dir }}"
