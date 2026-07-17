@@ -347,6 +347,43 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         ])
 
     @mock.patch.object(base.utils, 'test_ssh_path')
+    @mock.patch.object(base.utils, 'read_ssh_file')
+    @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')
+    @mock.patch.object(base.BaseLinuxOSMountTools, '_get_device_file_paths')
+    def test__check_mount_fstab_partitions_with_label(
+            self, mock_get_device_file_paths, mock_exec_cmd,
+            mock_read_ssh_file, mock_test_ssh_path):
+        mocked_full_path = self.os_root_dir + "/etc/fstab"
+        mock_test_ssh_path.return_value = True
+        mock_get_device_file_paths.return_value = ["/dev/sda1", "/dev/sda2"]
+        mock_exec_cmd.return_value = (
+            b"/dev/sda1:LABEL=boot\n/dev/sda2:LABEL=UEFI"
+        )
+        mock_read_ssh_file.return_value = (
+            b"LABEL=UEFI /boot/efi vfat defaults 0 0"
+        )
+
+        result = self.base_os_mount_tools._check_mount_fstab_partitions(
+            self.os_root_dir, mountable_lvm_devs=["/dev/sda1"])
+
+        expected_result = [self.os_root_dir + "/boot/efi"]
+
+        self.assertEqual(result, expected_result)
+
+        mock_get_device_file_paths.assert_called_once()
+        mock_exec_cmd.assert_called_once_with(
+            "sudo mount -t vfat -o defaults"
+            " /dev/disk/by-label/UEFI '/root/boot/efi'"
+        )
+        mock_read_ssh_file.assert_called_once_with(
+            self.base_os_mount_tools._ssh, mocked_full_path)
+        mock_test_ssh_path.assert_has_calls([
+            mock.call(self.base_os_mount_tools._ssh, mocked_full_path),
+            mock.call(
+                self.base_os_mount_tools._ssh, "/dev/disk/by-label/UEFI")
+        ])
+
+    @mock.patch.object(base.utils, 'test_ssh_path')
     def test__check_mount_fstab_partitions_no_fstab(self, mock_test_ssh_path):
         mock_test_ssh_path.return_value = False
 

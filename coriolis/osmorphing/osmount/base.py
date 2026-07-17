@@ -239,8 +239,9 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
             self, os_root_dir, skip_mounts=["/", "/boot"],
             skip_filesystems=["swap"], mountable_lvm_devs=None):
         """ Reads the contents of /etc/fstab from the VM's root directory and
-        tries to mount all clearly identified (by UUID or path) filesystems.
-        Returns the list of the new directories which were mounted.
+        tries to mount all clearly identified (by UUID, label, or path)
+        filesystems. Returns the list of the new directories which were
+        mounted.
         param: skip_mounts: list(str()): list of directories (inside the
         chroot) to not try to mount.
         param: skip_filesystems: list(str()): list of filesystem types to skip
@@ -304,6 +305,7 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
 
         # regex for supported fstab device references:
         fs_uuid_entry_regex = "^((UUID=|/dev/disk/by-uuid/)(.+))$"
+        fs_label_entry_regex = "^((LABEL=|/dev/disk/by-label/)(.+))$"
         if not mountable_lvm_devs:
             mountable_lvm_devs = []
         device_paths = self._get_device_file_paths(mountable_lvm_devs)
@@ -313,17 +315,22 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
             if fs_uuid_match:
                 device = "/dev/disk/by-uuid/%s" % fs_uuid_match.group(3)
             else:
-                device_file_path = self._get_symlink_target(device)
-                if device not in mountable_lvm_devs and (
-                        device_file_path not in device_paths):
-                    LOG.warn(
-                        "Found fstab entry for dir %s which references device "
-                        "%s. Only LVM volumes or devices referenced by UUID=* "
-                        "or /dev/disk/by-uuid/* notation are supported. "
-                        "Devicemapper paths for LVM volumes are also "
-                        "supported. Skipping mounting directory." %
-                        (mountpoint, device))
-                    continue
+                fs_label_match = re.match(fs_label_entry_regex, device)
+                if fs_label_match:
+                    device = "/dev/disk/by-label/%s" % fs_label_match.group(3)
+                else:
+                    device_file_path = self._get_symlink_target(device)
+                    if device not in mountable_lvm_devs and (
+                            device_file_path not in device_paths):
+                        LOG.warn(
+                            "Found fstab entry for dir %s which references "
+                            "device %s. Only LVM volumes or devices "
+                            "referenced by UUID=*, /dev/disk/by-uuid/*, "
+                            "LABEL=*, or /dev/disk/by-label/* notation are "
+                            "supported. Devicemapper paths for LVM volumes "
+                            "are also supported. Skipping mounting directory."
+                            % (mountpoint, device))
+                        continue
             if mountpoint in skip_mounts:
                 LOG.debug(
                     "Skipping undesired mount: %s: %s", mountpoint, details)
