@@ -4,12 +4,15 @@
 import logging
 from unittest import mock
 
+import ddt
+
 from coriolis import exception
 from coriolis.osmorphing import base
 from coriolis.osmorphing import rocky
 from coriolis.tests import test_base
 
 
+@ddt.ddt
 class BaseRockyLinuxMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
     """Test suite for the BaseRockyLinuxMorphingTools class."""
 
@@ -28,16 +31,28 @@ class BaseRockyLinuxMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.event_manager, self.detected_os_info,
             mock.sentinel.osmorphing_parameters)
 
-    def test_check_os_supported(self):
+    @ddt.data(
+        ('8', True),
+        ('8.4', True),
+        ('9', True),
+        ('9.4', True),
+        ('10', True),
+        ('10.0', True),
+        ('11', True),
+        ('7', False),
+        ('abc', False),
+    )
+    @ddt.unpack
+    def test_check_os_supported(self, release_version, expected):
         detected_os_info = {
             "distribution_name": rocky.ROCKY_LINUX_DISTRO_IDENTIFIER,
-            "release_version": "8"
+            "release_version": release_version
         }
         result = rocky.BaseRockyLinuxMorphingTools.check_os_supported(
             detected_os_info
         )
 
-        self.assertTrue(result)
+        self.assertEqual(expected, result)
 
     def test_check_os_not_supported(self):
         detected_os_info = {

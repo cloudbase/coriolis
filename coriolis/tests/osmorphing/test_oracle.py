@@ -31,11 +31,24 @@ class BaseOracleMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.event_manager, self.detected_os_info,
             mock.sentinel.osmorphing_parameters)
 
-    def test_check_os_supported(self):
+    @ddt.data(
+        ('7', True),
+        ('8', True),
+        ('9', True),
+        ('9.4', True),
+        ('10', True),
+        ('10.0', True),
+        ('11', True),
+        ('5', False),
+        ('abc', False),
+    )
+    @ddt.unpack
+    def test_check_os_supported(self, release_version, expected):
+        self.detected_os_info['release_version'] = release_version
         result = oracle.BaseOracleMorphingTools.check_os_supported(
             self.detected_os_info)
 
-        self.assertTrue(result)
+        self.assertEqual(expected, result)
 
     def test_check_os_not_supported(self):
         self.detected_os_info['distribution_name'] = 'unsupported'
@@ -47,10 +60,11 @@ class BaseOracleMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
 
     @ddt.data(
         # OL7 and earlier use yum-config-manager.
-        ('6', 'yum-config-manager --enable'),
         ('7', 'yum-config-manager --enable'),
         # OL8+ uses dnf config-manager.
         ('8', 'dnf config-manager --set-enabled'),
+        ('9', 'dnf config-manager --set-enabled'),
+        ('10', 'dnf config-manager --set-enabled'),
     )
     @ddt.unpack
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')

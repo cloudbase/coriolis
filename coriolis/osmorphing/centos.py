@@ -43,7 +43,7 @@ class BaseCentOSMorphingTools(redhat.BaseRedHatMorphingTools):
             return
 
         # Determine package manager based on version
-        major_version = int(str(self._version).split('.')[0])
+        major_version = self._parse_version_util(self._version).major
         if major_version >= 8:
             # CentOS 8+ uses dnf
             config_manager = 'dnf config-manager'

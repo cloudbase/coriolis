@@ -5,6 +5,7 @@ import logging
 from unittest import mock
 
 import ddt
+from packaging.version import Version
 
 from coriolis import exception
 from coriolis.osmorphing import base
@@ -179,6 +180,33 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
             result = base.BaseLinuxOSMorphingTools._version_supported_util(
                 version, minimum)
         self.assertFalse(result)
+
+    @ddt.data(
+        ("8", 8),
+        ("8.0", 8),
+        ("8.10", 8),
+        ("9", 9),
+        ("9.4", 9),
+        ("10", 10),
+        ("10.0", 10),
+        ("10.10", 10),
+    )
+    @ddt.unpack
+    def test__parse_version_util(self, version, expected_major):
+        result = self.os_morphing_tools._parse_version_util(version)
+        self.assertIsInstance(result, Version)
+        self.assertEqual(result.major, expected_major)
+
+    @ddt.data(
+        "",
+        None,
+        "abc",
+        "x10",
+    )
+    def test__parse_version_util_invalid(self, version):
+        self.assertRaises(
+            ValueError,
+            self.os_morphing_tools._parse_version_util, version)
 
     def test_get_packages(self):
         self.os_morphing_tools._packages = {

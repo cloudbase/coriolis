@@ -31,33 +31,39 @@ class BaseCentOSMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.event_manager, self.detected_os_info,
             mock.sentinel.osmorphing_parameters)
 
-    def test_check_os_supported(self):
+    @ddt.data(
+        (centos.CENTOS_DISTRO_IDENTIFIER, '7', True),
+        (centos.CENTOS_DISTRO_IDENTIFIER, '8', True),
+        (centos.CENTOS_DISTRO_IDENTIFIER, '9', True),
+        (centos.CENTOS_DISTRO_IDENTIFIER, '10', True),
+        (centos.CENTOS_DISTRO_IDENTIFIER, '10.0', True),
+        (centos.CENTOS_STREAM_DISTRO_IDENTIFIER, '8', True),
+        (centos.CENTOS_STREAM_DISTRO_IDENTIFIER, '9', True),
+        (centos.CENTOS_STREAM_DISTRO_IDENTIFIER, '10', True),
+        ('unsupported', '8', False),
+        (centos.CENTOS_DISTRO_IDENTIFIER, '5', False),
+        (centos.CENTOS_DISTRO_IDENTIFIER, 'abc', False),
+    )
+    @ddt.unpack
+    def test_check_os_supported(self, distribution_name, release_version,
+                                expected):
         detected_os_info = {
-            "distribution_name": centos.CENTOS_DISTRO_IDENTIFIER,
-            "release_version": "7"
+            "distribution_name": distribution_name,
+            "release_version": release_version
         }
 
         result = centos.BaseCentOSMorphingTools.check_os_supported(
             detected_os_info)
 
-        self.assertTrue(result)
-
-    def test_check_os_not_supported(self):
-        detected_os_info = {
-            "distribution_name": 'unsupported',
-        }
-        result = centos.BaseCentOSMorphingTools.check_os_supported(
-            detected_os_info)
-
-        self.assertFalse(result)
+        self.assertEqual(expected, result)
 
     @ddt.data(
         # CentOS 7 and earlier use yum-config-manager.
-        ('6', 'yum-config-manager --enable'),
         ('7', 'yum-config-manager --enable'),
         # CentOS 8+ uses dnf config-manager.
         ('8', 'dnf config-manager --set-enabled'),
         ('9', 'dnf config-manager --set-enabled'),
+        ('10', 'dnf config-manager --set-enabled'),
     )
     @ddt.unpack
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
