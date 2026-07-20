@@ -11,6 +11,9 @@ from oslo_log import log as logging
 from six import with_metaclass
 import yaml
 
+from packaging.version import InvalidVersion
+from packaging.version import Version
+
 from coriolis import exception
 from coriolis.osmorphing.netpreserver import factory
 from coriolis import utils
@@ -333,6 +336,19 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
                 return False
 
         return True
+
+    @classmethod
+    def _parse_version_util(cls, version: str) -> Version:
+        if not version:
+            raise ValueError(f"Empty or missing version: {version!r}")
+
+        try:
+            return Version(str(version))
+        except InvalidVersion as exc:
+            raise ValueError(
+                f"Could not parse version from release string: "
+                f"{version!r}"
+            ) from exc
 
     def get_packages(self):
         k_add = [h for h in self._packages.keys() if

@@ -37,8 +37,8 @@ class BaseAmazonLinuxOSMorphingTools(redhat.BaseRedHatMorphingTools):
         # Determine package manager based on version
         # Amazon Linux 2 has version "2", AL2023 has version "2023"
         try:
-            major_version = int(str(self._version).split('.')[0])
-        except (ValueError, AttributeError):
+            major_version = self._parse_version_util(self._version).major
+        except ValueError:
             # Fallback to yum if version parsing fails
             major_version = 2
 

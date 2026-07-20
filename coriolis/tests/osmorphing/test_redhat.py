@@ -35,11 +35,25 @@ class BaseRedHatMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.operation_timeout)
         self.morphing_tools._os_root_dir = '/root'
 
-    def test_check_os_supported(self):
+    @ddt.data(
+        ('7', True),
+        ('8', True),
+        ('9', True),
+        ('9.4', True),
+        ('10', True),
+        ('10.0', True),
+        ('11', True),
+        ('5', False),
+        ('abc', False),
+        ('', False),
+    )
+    @ddt.unpack
+    def test_check_os_supported_release_version(
+            self, release_version, expected):
+        self.detected_os_info['release_version'] = release_version
         result = redhat.BaseRedHatMorphingTools.check_os_supported(
             self.detected_os_info)
-
-        self.assertTrue(result)
+        self.assertEqual(expected, result)
 
     def test_check_os_not_supported(self):
         self.detected_os_info['distribution_name'] = 'unsupported'
