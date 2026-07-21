@@ -189,6 +189,7 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
     def post_packages_install(self, package_names):
         self._configure_cloud_init()
         self._run_dracut()
+        self._set_selinux_autorelabel()
         super(BaseSUSEMorphingTools, self).post_packages_install(package_names)
 
     def _enable_sles_module(self, module):
