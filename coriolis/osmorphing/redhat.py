@@ -235,6 +235,7 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
     def post_packages_install(self, package_names):
         self._configure_cloud_init()
         self._run_dracut()
+        self._set_selinux_autorelabel()
         super(BaseRedHatMorphingTools, self).post_packages_install(
             package_names)
 

@@ -687,17 +687,20 @@ class BaseRedHatMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_yum_clean_all.assert_called_once()
         mock_yum_install.assert_not_called()
 
+    @mock.patch.object(
+        redhat.BaseRedHatMorphingTools, '_set_selinux_autorelabel')
     @mock.patch.object(redhat.BaseRedHatMorphingTools, '_configure_cloud_init')
     @mock.patch.object(redhat.BaseRedHatMorphingTools, '_run_dracut')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, 'post_packages_install')
     def test_post_packages_install(
             self, mock_post_packages_install, mock__run_dracut,
-            mock__configure_cloud_init):
+            mock__configure_cloud_init, mock__set_selinux_autorelabel):
 
         self.morphing_tools.post_packages_install(self.package_names)
 
         mock__configure_cloud_init.assert_called_once()
         mock__run_dracut.assert_called_once()
+        mock__set_selinux_autorelabel.assert_called_once()
         mock_post_packages_install.assert_called_once_with(self.package_names)
 
     @mock.patch.object(redhat.BaseRedHatMorphingTools, '_yum_install')
