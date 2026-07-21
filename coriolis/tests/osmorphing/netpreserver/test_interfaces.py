@@ -69,7 +69,7 @@ class InterfacesNetPreserverTestCase(test_base.CoriolisBaseTestCase):
             "iface eth1 inet dhcp\n"
             "address 192.168.1.20/24\n"
         )
-        mock_read_file_sudo.return_value = interfaces_content.encode()
+        mock_read_file_sudo.return_value = interfaces_content
         mock_test_path.return_value = True
         mock_exec_cmd_chroot.return_value = ""
 
@@ -109,7 +109,7 @@ class InterfacesNetPreserverTestCase(test_base.CoriolisBaseTestCase):
         mock_test_path.return_value = True
         mock_exec_cmd_chroot.return_value = extra_file
         mock_read_file_sudo.side_effect = (
-            main_content.encode(), extra_content.encode()
+            main_content, extra_content
         )
 
         self.netpreserver.parse_network()
@@ -136,7 +136,7 @@ class InterfacesNetPreserverTestCase(test_base.CoriolisBaseTestCase):
         interfaces_content = (
             "hwaddress ether 00:11:22:33:44:55\n"
         )
-        mock_read_file_sudo.return_value = interfaces_content.encode()
+        mock_read_file_sudo.return_value = interfaces_content
         mock_test_path.return_value = True
         mock_exec_cmd_chroot.return_value = ""
 
