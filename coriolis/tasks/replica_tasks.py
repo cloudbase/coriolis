@@ -1072,6 +1072,16 @@ class ValidateReplicaExecutionDestinationInputsTask(base.TaskRunner):
                 "Replica Import validation for destination platform "
                 "'%s'" % destination_type)
 
+        disks = export_info.get("devices", {}).get("disks") or []
+        if any(d.get("owner") and d.get("owner") != instance
+               for d in disks if d):
+            if not destination_provider.supports_shared_disks():
+                raise exception.NotSupportedOperation(
+                    operation=(
+                        "Destination platform '%s' does not support "
+                        "synchronized transfer of instances that have "
+                        "shared disks" % destination_type))
+
         target_environment = task_info["target_environment"]
         self._validate_provider_replica_import_input(
             destination_provider, ctxt, destination_connection_info,

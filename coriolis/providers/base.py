@@ -22,6 +22,23 @@ class BaseProvider(object, with_metaclass(abc.ABCMeta)):
         """Platform type."""
         raise NotImplementedError("Missing provider platform attribute.")
 
+    @classmethod
+    def supports_shared_disks(cls) -> bool:
+        """Whether this provider supports shared (multi-writer) disks.
+
+        Destination import providers that can attach the same volume to
+        multiple instances (e.g. Libvirt ``<shareable/>``) should override
+        this to return ``True``. Defaults to ``False``.
+
+        In order to coordinate shared disk operations, the conductor will mark
+        one of the instances as owner of the shared disk.
+
+        As such, operations such as disk creation, deletion, resize or
+        data migration should be handled by tasks that are targeting the
+        owner instance.
+        """
+        return False
+
 
 class BaseEndpointProvider(BaseProvider):
 
