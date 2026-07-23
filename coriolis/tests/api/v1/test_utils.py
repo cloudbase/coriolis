@@ -16,11 +16,12 @@ from coriolis.tests import test_base
 class UtilsTestCase(test_base.CoriolisBaseTestCase):
     """Test suite for the Coriolis Utils v1 API"""
 
-    def test_get_bool_url_arg_(
-        self
+    @ddt.data(True, "True", "true", "t", "1", "yes", "y", "on", "1")
+    def test_get_bool_url_arg_true(
+        self, value
     ):
         mock_req = mock.Mock()
-        mock_req.GET.get.return_value = "true"
+        mock_req.GET.get.return_value = value
         arg_name = "show_deleted"
 
         result = utils.get_bool_url_arg(mock_req, arg_name, default=False)
@@ -31,11 +32,12 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         )
         mock_req.GET.get.assert_called_once_with(arg_name, False)
 
+    @ddt.data(False, "False", "false", "f", "0", "no", "n", "off", "0")
     def test_get_bool_url_arg_false(
-        self
+        self, value
     ):
         mock_req = mock.Mock()
-        mock_req.GET.get.return_value = False
+        mock_req.GET.get.return_value = value
         arg_name = "show_deleted"
 
         result = utils.get_bool_url_arg(mock_req, arg_name, False)
@@ -46,7 +48,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         )
         mock_req.GET.get.assert_called_once_with(arg_name, False)
 
-    def test_get_bool_url_arg_invalid_json(
+    def test_get_bool_url_arg_invalid(
         self
     ):
         mock_req = mock.MagicMock()

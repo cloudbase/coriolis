@@ -2,9 +2,9 @@
 # All Rights Reserved.
 
 import functools
-import json
 
 from oslo_log import log as logging
+from oslo_utils import strutils
 from webob import exc
 
 from coriolis import constants
@@ -18,12 +18,12 @@ LOG = logging.getLogger(__name__)
 def get_bool_url_arg(req, arg_name, default=False):
     val = req.GET.get(arg_name, default)
     try:
-        parsed_val = json.loads(val)
-        if type(parsed_val) is bool:
-            return parsed_val
-    except Exception as err:
+        return strutils.bool_from_string(
+            str(val), strict=True)
+    except ValueError as err:
         LOG.warn(
-            "failed to parse %s: %s" % (arg_name, err))
+            "failed to parse %s: %s, defaulting to %s" % (
+                arg_name, err, default))
     return default
 
 
