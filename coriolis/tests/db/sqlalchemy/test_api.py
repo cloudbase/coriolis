@@ -94,9 +94,9 @@ class DatabaseSqlalchemyApiTestCase(test_base.CoriolisBaseTestCase):
         mock_db_version,
         mock_db_sync
     ):
-        mock_db_version.return_value = 1
+        mock_db_version.return_value = "001"
 
-        result = api.db_sync(mock.sentinel.engine, version=1)
+        result = api.db_sync(mock.sentinel.engine, version="002")
 
         self.assertEqual(
             mock_db_sync.return_value,
@@ -104,20 +104,39 @@ class DatabaseSqlalchemyApiTestCase(test_base.CoriolisBaseTestCase):
         )
         mock_db_version.assert_called_once_with(mock.sentinel.engine)
         mock_db_sync.assert_called_once_with(
-            mock.sentinel.engine, version=1)
+            mock.sentinel.engine, version="002")
+
+    @mock.patch.object(migration, 'db_sync')
+    @mock.patch.object(api, 'db_version')
+    def test_db_sync_version_no_current_version(
+        self,
+        mock_db_version,
+        mock_db_sync
+    ):
+        mock_db_version.return_value = None
+
+        result = api.db_sync(mock.sentinel.engine, version="001")
+
+        self.assertEqual(
+            mock_db_sync.return_value,
+            result
+        )
+        mock_db_version.assert_called_once_with(mock.sentinel.engine)
+        mock_db_sync.assert_called_once_with(
+            mock.sentinel.engine, version="001")
 
     @mock.patch.object(api, 'db_version')
     def test_db_sync_version_raise(
         self,
-        mock_db_version
+        mock_db_version,
     ):
-        mock_db_version.return_value = 2
+        mock_db_version.return_value = "003"
 
         self.assertRaises(
             exception.CoriolisException,
             api.db_sync,
             mock.sentinel.engine,
-            version=1
+            version="001"
         )
         mock_db_version.assert_called_once_with(mock.sentinel.engine)
 
