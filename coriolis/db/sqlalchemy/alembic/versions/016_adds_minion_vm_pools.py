@@ -1,24 +1,39 @@
 # Copyright 2020 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+"""adds minion vm pools
+
+Revision ID: 016
+Revises: 015
+Create Date: 2020-08-26 07:10:03.000000
+"""
+
 import uuid
 
+from alembic import op
 import sqlalchemy
 
+# revision identifiers, used by Alembic.
+revision = "016"
+down_revision = "015"
+branch_labels = None
+depends_on = None
 
-def upgrade(migrate_engine):
+
+def upgrade():
     meta = sqlalchemy.MetaData()
-    meta.bind = migrate_engine
-
-    base_transfer_action = sqlalchemy.Table(
-        'base_transfer_action', meta, autoload=True,
-        mysql_engine="InnoDB",
-        mysql_charset="utf8")
 
     # extend tasks execution 'type' column:
-    tasks_execution = sqlalchemy.Table(
-        'tasks_execution', meta, autoload=True)
-    tasks_execution.c.type.alter(type=sqlalchemy.String(255))
+    op.alter_column(
+        'tasks_execution', 'type',
+        existing_type=sqlalchemy.String(20),
+        existing_nullable=True,
+        type_=sqlalchemy.String(255),
+        nullable=True)
+
+    # load 'endpoint' into meta so the 'endpoint_id' foreign key below can
+    # be resolved against it.
+    sqlalchemy.Table('endpoint', meta, autoload_with=op.get_bind())
 
     tables = []
 
@@ -153,30 +168,26 @@ def upgrade(migrate_engine):
                 "message", sqlalchemy.Text, nullable=True),
             mysql_engine='InnoDB', mysql_charset='utf8'))
 
+    for table in tables:
+        table.create(bind=op.get_bind())
+
     # add the pool option properties for the transfer:
     origin_minion_pool_id = sqlalchemy.Column(
         "origin_minion_pool_id", sqlalchemy.String(36),
         sqlalchemy.ForeignKey('minion_pool.id'), nullable=True)
+    op.add_column("base_transfer_action", origin_minion_pool_id)
+
     destination_minion_pool_id = sqlalchemy.Column(
         "destination_minion_pool_id", sqlalchemy.String(36),
         sqlalchemy.ForeignKey('minion_pool.id'), nullable=True)
+    op.add_column("base_transfer_action", destination_minion_pool_id)
+
     instance_osmorphing_minion_pool_mappings = sqlalchemy.Column(
         "instance_osmorphing_minion_pool_mappings", sqlalchemy.Text,
-        nullable=False, default='{}')
+        nullable=False, server_default='{}')
+    op.add_column(
+        "base_transfer_action", instance_osmorphing_minion_pool_mappings)
 
-    created_columns = []
-    try:
-        for index, table in enumerate(tables):
-            table.create()
-        for col in [
-                origin_minion_pool_id, destination_minion_pool_id,
-                instance_osmorphing_minion_pool_mappings]:
-            base_transfer_action.create_column(col)
-            created_columns.append(col)
-    except Exception:
-        # If an error occurs, drop all tables created so far to return
-        # to the previously existing state.
-        for col in created_columns:
-            base_transfer_action.drop_column(col)
-        meta.drop_all(tables=tables[:index])
-        raise
+
+def downgrade():
+    raise NotImplementedError()

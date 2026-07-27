@@ -1,17 +1,29 @@
 # Copyright 2018 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+"""adds network map
+
+Revision ID: 006
+Revises: 005
+Create Date: 2018-11-01 16:43:05.000000
+"""
+
+from alembic import op
 import sqlalchemy
 
+# revision identifiers, used by Alembic.
+revision = "006"
+down_revision = "005"
+branch_labels = None
+depends_on = None
 
-def upgrade(migrate_engine):
-    meta = sqlalchemy.MetaData()
-    meta.bind = migrate_engine
 
+def upgrade():
     # add 'network_map' column to 'base_transfer_action':
-    base_transfer_action = sqlalchemy.Table(
-        'base_transfer_action', meta, autoload=True)
-
     network_map = sqlalchemy.Column(
         "network_map", sqlalchemy.Text, nullable=True)
-    base_transfer_action.create_column(network_map)
+    op.add_column("base_transfer_action", network_map)
+
+
+def downgrade():
+    raise NotImplementedError()

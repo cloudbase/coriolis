@@ -1,17 +1,29 @@
 # Copyright 2018 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+"""adds transfer result
+
+Revision ID: 005
+Revises: 004
+Create Date: 2018-09-18 18:33:14.000000
+"""
+
+from alembic import op
 import sqlalchemy
 
+# revision identifiers, used by Alembic.
+revision = "005"
+down_revision = "004"
+branch_labels = None
+depends_on = None
 
-def upgrade(migrate_engine):
-    meta = sqlalchemy.MetaData()
-    meta.bind = migrate_engine
 
+def upgrade():
     # add 'transfer_result' column to 'base_transfer_action':
-    base_transfer_action = sqlalchemy.Table(
-        'base_transfer_action', meta, autoload=True)
-
     transfer_result = sqlalchemy.Column(
         "transfer_result", sqlalchemy.Text, nullable=True)
-    base_transfer_action.create_column(transfer_result)
+    op.add_column("base_transfer_action", transfer_result)
+
+
+def downgrade():
+    raise NotImplementedError()

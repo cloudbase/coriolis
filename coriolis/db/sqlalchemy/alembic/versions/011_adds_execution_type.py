@@ -1,17 +1,29 @@
 # Copyright 2019 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+"""adds execution type
+
+Revision ID: 011
+Revises: 010
+Create Date: 2019-08-15 07:30:35.000000
+"""
+
+from alembic import op
 import sqlalchemy
 
+# revision identifiers, used by Alembic.
+revision = "011"
+down_revision = "010"
+branch_labels = None
+depends_on = None
 
-def upgrade(migrate_engine):
-    meta = sqlalchemy.MetaData()
-    meta.bind = migrate_engine
 
+def upgrade():
     # add 'type' column to 'tasks_execution':
-    tasks_execution = sqlalchemy.Table(
-        'tasks_execution', meta, autoload=True)
-
     execution_type = sqlalchemy.Column(
         "type", sqlalchemy.String(20))
-    tasks_execution.create_column(execution_type)
+    op.add_column("tasks_execution", execution_type)
+
+
+def downgrade():
+    raise NotImplementedError()

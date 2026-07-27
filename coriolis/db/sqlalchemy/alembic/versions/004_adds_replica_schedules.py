@@ -1,17 +1,25 @@
+"""adds replica schedules
+
+Revision ID: 004
+Revises: 003
+Create Date: 2017-11-04 18:17:31.000000
+"""
+
 import uuid
 
+from alembic import op
 import sqlalchemy
 
+# revision identifiers, used by Alembic.
+revision = "004"
+down_revision = "003"
+branch_labels = None
+depends_on = None
 
-def upgrade(migrate_engine):
-    meta = sqlalchemy.MetaData()
-    meta.bind = migrate_engine
 
-    sqlalchemy.Table(
-        'replica', meta, autoload=True)
-
-    replica_schedules = sqlalchemy.Table(
-        'replica_schedules', meta,
+def upgrade():
+    op.create_table(
+        'replica_schedules',
         sqlalchemy.Column('id', sqlalchemy.String(36), primary_key=True,
                           default=lambda: str(uuid.uuid4())),
         sqlalchemy.Column('created_at', sqlalchemy.DateTime),
@@ -32,15 +40,6 @@ def upgrade(migrate_engine):
         mysql_charset='utf8'
     )
 
-    tables = (
-        replica_schedules,
-    )
 
-    for index, table in enumerate(tables):
-        try:
-            table.create()
-        except Exception:
-            # If an error occurs, drop all tables created so far to return
-            # to the previously existing state.
-            meta.drop_all(tables=tables[:index])
-            raise
+def downgrade():
+    raise NotImplementedError()

@@ -1,12 +1,40 @@
+"""rename tables
+
+Revision ID: 020
+Revises: 019
+Create Date: 2024-10-29 15:26:01.000000
+"""
+
+from alembic import op
 import sqlalchemy
 
+# revision identifiers, used by Alembic.
+revision = "020"
+down_revision = "019"
+branch_labels = None
+depends_on = None
 
-def upgrade(migrate_engine):
+# NOTE(dvincze): Update models polymorphic identity. Due to the model code
+# changes, this cannot be done using the ORM; raw SQL is required.
+_TYPE_RENAMES = (
+    ("base_transfer_action", "replica", "transfer"),
+    ("tasks_execution", "replica_execution", "transfer_execution"),
+    ("tasks_execution", "replica_disks_delete", "transfer_disks_delete"),
+    ("tasks_execution", "replica_deploy", "deployment"),
+    ("tasks_execution", "replica_update", "transfer_update"),
+)
+
+
+def upgrade():
     meta = sqlalchemy.MetaData()
-    meta.bind = migrate_engine
 
-    replica = sqlalchemy.Table('replica', meta, autoload=True)
-    replica.rename('transfer')
+    op.rename_table('replica', 'transfer')
+
+    # load 'base_transfer_action' and 'transfer' into meta so the foreign
+    # keys below can be resolved against them.
+    sqlalchemy.Table(
+        'base_transfer_action', meta, autoload_with=op.get_bind())
+    sqlalchemy.Table('transfer', meta, autoload_with=op.get_bind())
 
     deployment = sqlalchemy.Table(
         'deployment', meta,
@@ -19,32 +47,22 @@ def upgrade(migrate_engine):
                           nullable=False),
         mysql_engine="InnoDB",
         mysql_charset="utf8")
-    try:
-        deployment.create()
-    except Exception:
-        deployment.drop()
-        raise
+    deployment.create(bind=op.get_bind())
 
-    replica_schedule = sqlalchemy.Table(
-        'replica_schedules', meta, autoload=True)
-    replica_schedule.rename('transfer_schedules')
-    replica_schedule.c.replica_id.alter(name='transfer_id')
+    op.rename_table('replica_schedules', 'transfer_schedules')
+    op.alter_column(
+        'transfer_schedules', 'replica_id',
+        new_column_name='transfer_id',
+        existing_type=sqlalchemy.String(36),
+        existing_nullable=False)
 
-    # NOTE(dvincze): Update models polymorphic identity
-    # Due to the model code changes, this cannot be done using the ORM.
-    # Had to resort to using raw SQL statements.
-    with migrate_engine.connect() as conn:
-        conn.execute(
-            'UPDATE base_transfer_action SET type = "transfer" '
-            'WHERE type = "replica";')
-        conn.execute('UPDATE tasks_execution SET type = "transfer_execution"'
-                     'WHERE type = "replica_execution"')
-        conn.execute(
-            'UPDATE tasks_execution SET type = "transfer_disks_delete"'
-            'WHERE type = "replica_disks_delete"')
-        conn.execute(
-            'UPDATE tasks_execution SET type = "deployment"'
-            'WHERE type = "replica_deploy"')
-        conn.execute(
-            'UPDATE tasks_execution SET type = "transfer_update"'
-            'WHERE type = "replica_update"')
+    for table, old_type, new_type in _TYPE_RENAMES:
+        op.execute(
+            sqlalchemy.text(
+                f"UPDATE {table} SET type = :new_type "
+                f"WHERE type = :old_type"
+            ).bindparams(new_type=new_type, old_type=old_type))
+
+
+def downgrade():
+    raise NotImplementedError()

@@ -1,19 +1,31 @@
+"""adds migration sync fields
+
+Revision ID: 012
+Revises: 011
+Create Date: 2019-10-16 15:40:42.000000
+"""
+
+from alembic import op
 import sqlalchemy
 
+# revision identifiers, used by Alembic.
+revision = "012"
+down_revision = "011"
+branch_labels = None
+depends_on = None
 
-def upgrade(migrate_engine):
-    meta = sqlalchemy.MetaData()
-    meta.bind = migrate_engine
 
-    migration = sqlalchemy.Table(
-        'migration', meta, autoload=True)
-
+def upgrade():
     shutdown_instances = sqlalchemy.Column(
         "shutdown_instances", sqlalchemy.Boolean,
-        nullable=False, default=False)
-    migration.create_column(shutdown_instances)
+        nullable=False, server_default=sqlalchemy.false())
+    op.add_column("migration", shutdown_instances)
 
     replication_count = sqlalchemy.Column(
-        "replication_count", sqlalchemy.Integer, default=0,
-        nullable=False)
-    migration.create_column(replication_count)
+        "replication_count", sqlalchemy.Integer,
+        nullable=False, server_default="0")
+    op.add_column("migration", replication_count)
+
+
+def downgrade():
+    raise NotImplementedError()

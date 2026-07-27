@@ -1,17 +1,28 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+"""initial
+
+Revision ID: 001
+Revises:
+Create Date: 2016-01-15 22:28:25.000000
+"""
+
 import uuid
 
+from alembic import op
 import sqlalchemy
 
+# revision identifiers, used by Alembic.
+revision = "001"
+down_revision = None
+branch_labels = None
+depends_on = None
 
-def upgrade(migrate_engine):
-    meta = sqlalchemy.MetaData()
-    meta.bind = migrate_engine
 
-    base_transfer_action = sqlalchemy.Table(
-        'base_transfer_action', meta,
+def upgrade():
+    op.create_table(
+        'base_transfer_action',
         sqlalchemy.Column("base_id", sqlalchemy.String(36), primary_key=True,
                           default=lambda: str(uuid.uuid4())),
         sqlalchemy.Column('created_at', sqlalchemy.DateTime),
@@ -31,8 +42,18 @@ def upgrade(migrate_engine):
         mysql_charset='utf8'
     )
 
-    migration = sqlalchemy.Table(
-        'migration', meta,
+    op.create_table(
+        'replica',
+        sqlalchemy.Column("id", sqlalchemy.String(36),
+                          sqlalchemy.ForeignKey(
+                              'base_transfer_action.base_id'),
+                          primary_key=True),
+        mysql_engine='InnoDB',
+        mysql_charset='utf8'
+    )
+
+    op.create_table(
+        'migration',
         sqlalchemy.Column("id", sqlalchemy.String(36),
                           sqlalchemy.ForeignKey(
                               'base_transfer_action.base_id'),
@@ -44,8 +65,26 @@ def upgrade(migrate_engine):
         mysql_charset='utf8'
     )
 
-    task = sqlalchemy.Table(
-        'task', meta, sqlalchemy.Column(
+    op.create_table(
+        'tasks_execution',
+        sqlalchemy.Column('id', sqlalchemy.String(36), primary_key=True,
+                          default=lambda: str(uuid.uuid4())),
+        sqlalchemy.Column('created_at', sqlalchemy.DateTime),
+        sqlalchemy.Column('updated_at', sqlalchemy.DateTime),
+        sqlalchemy.Column('deleted_at', sqlalchemy.DateTime),
+        sqlalchemy.Column('deleted', sqlalchemy.String(36)),
+        sqlalchemy.Column("action_id", sqlalchemy.String(36),
+                          sqlalchemy.ForeignKey(
+                              'base_transfer_action.base_id'),
+                          nullable=False),
+        sqlalchemy.Column("status", sqlalchemy.String(100), nullable=False),
+        sqlalchemy.Column("number", sqlalchemy.Integer, nullable=False),
+        mysql_engine='InnoDB',
+        mysql_charset='utf8'
+    )
+
+    op.create_table(
+        'task', sqlalchemy.Column(
             'id', sqlalchemy.String(36),
             primary_key=True, default=lambda: str(uuid.uuid4())),
         sqlalchemy.Column('created_at', sqlalchemy.DateTime),
@@ -76,26 +115,8 @@ def upgrade(migrate_engine):
         sqlalchemy.Column("on_error", sqlalchemy.Boolean, nullable=True),
         mysql_engine='InnoDB', mysql_charset='utf8')
 
-    tasks_execution = sqlalchemy.Table(
-        'tasks_execution', meta,
-        sqlalchemy.Column('id', sqlalchemy.String(36), primary_key=True,
-                          default=lambda: str(uuid.uuid4())),
-        sqlalchemy.Column('created_at', sqlalchemy.DateTime),
-        sqlalchemy.Column('updated_at', sqlalchemy.DateTime),
-        sqlalchemy.Column('deleted_at', sqlalchemy.DateTime),
-        sqlalchemy.Column('deleted', sqlalchemy.String(36)),
-        sqlalchemy.Column("action_id", sqlalchemy.String(36),
-                          sqlalchemy.ForeignKey(
-                              'base_transfer_action.base_id'),
-                          nullable=False),
-        sqlalchemy.Column("status", sqlalchemy.String(100), nullable=False),
-        sqlalchemy.Column("number", sqlalchemy.Integer, nullable=False),
-        mysql_engine='InnoDB',
-        mysql_charset='utf8'
-    )
-
-    task_progress_update = sqlalchemy.Table(
-        'task_progress_update', meta,
+    op.create_table(
+        'task_progress_update',
         sqlalchemy.Column('id', sqlalchemy.String(36), primary_key=True,
                           default=lambda: str(uuid.uuid4())),
         sqlalchemy.Column('created_at', sqlalchemy.DateTime),
@@ -112,8 +133,8 @@ def upgrade(migrate_engine):
         mysql_charset='utf8'
     )
 
-    task_events = sqlalchemy.Table(
-        'task_event', meta,
+    op.create_table(
+        'task_event',
         sqlalchemy.Column('id', sqlalchemy.String(36), primary_key=True,
                           default=lambda: str(uuid.uuid4())),
         sqlalchemy.Column('created_at', sqlalchemy.DateTime),
@@ -129,31 +150,8 @@ def upgrade(migrate_engine):
         mysql_charset='utf8'
     )
 
-    replica = sqlalchemy.Table(
-        'replica', meta,
-        sqlalchemy.Column("id", sqlalchemy.String(36),
-                          sqlalchemy.ForeignKey(
-                              'base_transfer_action.base_id'),
-                          primary_key=True),
-        mysql_engine='InnoDB',
-        mysql_charset='utf8'
-    )
 
-    tables = (
-        base_transfer_action,
-        replica,
-        migration,
-        tasks_execution,
-        task,
-        task_progress_update,
-        task_events,
-    )
-
-    for index, table in enumerate(tables):
-        try:
-            table.create()
-        except Exception:
-            # If an error occurs, drop all tables created so far to return
-            # to the previously existing state.
-            meta.drop_all(tables=tables[:index])
-            raise
+def downgrade():
+    # Downgrades were never supported by the original sqlalchemy-migrate
+    # migrations this revision chain was ported from.
+    raise NotImplementedError()
