@@ -1,17 +1,29 @@
 # Copyright 2018 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+"""adds storage mappings
+
+Revision ID: 007
+Revises: 006
+Create Date: 2018-11-13 13:37:09.000000
+"""
+
+from alembic import op
 import sqlalchemy
 
+# revision identifiers, used by Alembic.
+revision = "007"
+down_revision = "006"
+branch_labels = None
+depends_on = None
 
-def upgrade(migrate_engine):
-    meta = sqlalchemy.MetaData()
-    meta.bind = migrate_engine
 
+def upgrade():
     # add 'storage_mappings' column to 'base_transfer_action':
-    base_transfer_action = sqlalchemy.Table(
-        'base_transfer_action', meta, autoload=True)
-
     storage_mappings = sqlalchemy.Column(
         "storage_mappings", sqlalchemy.Text, nullable=True)
-    base_transfer_action.create_column(storage_mappings)
+    op.add_column("base_transfer_action", storage_mappings)
+
+
+def downgrade():
+    raise NotImplementedError()

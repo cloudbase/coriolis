@@ -1,19 +1,29 @@
 # Copyright 2020 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+"""adds user scripts column
+
+Revision ID: 017
+Revises: 016
+Create Date: 2021-01-26 19:16:44.000000
+"""
+
+from alembic import op
 import sqlalchemy
 
+# revision identifiers, used by Alembic.
+revision = "017"
+down_revision = "016"
+branch_labels = None
+depends_on = None
 
-def upgrade(migrate_engine):
-    meta = sqlalchemy.MetaData()
-    meta.bind = migrate_engine
 
+def upgrade():
     # add 'user_scripts' column to 'base_transfer_action':
-    base_transfer = sqlalchemy.Table(
-        'base_transfer_action', meta, autoload=True,
-        mysql_engine="InnoDB",
-        mysql_charset="utf8")
-
     user_scripts = sqlalchemy.Column(
         "user_scripts", sqlalchemy.Text, nullable=True)
-    base_transfer.create_column(user_scripts)
+    op.add_column("base_transfer_action", user_scripts)
+
+
+def downgrade():
+    raise NotImplementedError()

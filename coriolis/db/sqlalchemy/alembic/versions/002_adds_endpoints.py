@@ -1,17 +1,28 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+"""adds endpoints
+
+Revision ID: 002
+Revises: 001
+Create Date: 2017-03-22 22:17:09.000000
+"""
+
 import uuid
 
+from alembic import op
 import sqlalchemy
 
+# revision identifiers, used by Alembic.
+revision = "002"
+down_revision = "001"
+branch_labels = None
+depends_on = None
 
-def upgrade(migrate_engine):
-    meta = sqlalchemy.MetaData()
-    meta.bind = migrate_engine
 
-    endpoint = sqlalchemy.Table(
-        'endpoint', meta,
+def upgrade():
+    op.create_table(
+        'endpoint',
         sqlalchemy.Column('id', sqlalchemy.String(36), primary_key=True,
                           default=lambda: str(uuid.uuid4())),
         sqlalchemy.Column('created_at', sqlalchemy.DateTime),
@@ -29,37 +40,27 @@ def upgrade(migrate_engine):
         mysql_charset='utf8'
     )
 
-    tables = (
-        endpoint,
-    )
-
-    for index, table in enumerate(tables):
-        try:
-            table.create()
-        except Exception:
-            # If an error occurs, drop all tables created so far to return
-            # to the previously existing state.
-            meta.drop_all(tables=tables[:index])
-            raise
-
-    base_transfer_action = sqlalchemy.Table(
-        'base_transfer_action', meta, autoload=True)
-
     # NOTE(alexpilotti) delete all records in base_transfer_action
     # before performing this migration
     origin_endpoint_id = sqlalchemy.Column(
         "origin_endpoint_id", sqlalchemy.String(36),
         sqlalchemy.ForeignKey('endpoint.id'), nullable=False)
-    base_transfer_action.create_column(origin_endpoint_id)
+    op.add_column("base_transfer_action", origin_endpoint_id)
 
     destination_endpoint_id = sqlalchemy.Column(
         "destination_endpoint_id", sqlalchemy.String(36),
         sqlalchemy.ForeignKey('endpoint.id'), nullable=False)
-    base_transfer_action.create_column(destination_endpoint_id)
+    op.add_column("base_transfer_action", destination_endpoint_id)
 
     destination_environment = sqlalchemy.Column(
         "destination_environment", sqlalchemy.Text, nullable=True)
-    base_transfer_action.create_column(destination_environment)
+    op.add_column("base_transfer_action", destination_environment)
 
-    base_transfer_action.drop_column("origin")
-    base_transfer_action.drop_column("destination")
+    op.drop_column("base_transfer_action", "origin")
+    op.drop_column("base_transfer_action", "destination")
+
+
+def downgrade():
+    # Downgrades were never supported by the original sqlalchemy-migrate
+    # migrations this revision chain was ported from.
+    raise NotImplementedError()

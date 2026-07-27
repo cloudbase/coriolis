@@ -1,14 +1,26 @@
+"""adds auto deploy column
+
+Revision ID: 022
+Revises: 021
+Create Date: 2025-01-30 13:54:39.000000
+"""
+
+from alembic import op
 import sqlalchemy
 
+# revision identifiers, used by Alembic.
+revision = "022"
+down_revision = "021"
+branch_labels = None
+depends_on = None
 
-def upgrade(migrate_engine):
-    meta = sqlalchemy.MetaData()
-    meta.bind = migrate_engine
 
-    transfer_schedule = sqlalchemy.Table(
-        'transfer_schedules', meta, autoload=True,
-        mysql_engine="InnoDB",
-        mysql_charset="utf8")
+def upgrade():
     auto_deploy = sqlalchemy.Column(
-        'auto_deploy', sqlalchemy.Boolean, nullable=False, default=False)
-    transfer_schedule.create_column(auto_deploy)
+        'auto_deploy', sqlalchemy.Boolean, nullable=False,
+        server_default=sqlalchemy.false())
+    op.add_column("transfer_schedules", auto_deploy)
+
+
+def downgrade():
+    raise NotImplementedError()

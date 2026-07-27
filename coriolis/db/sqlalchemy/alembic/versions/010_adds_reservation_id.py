@@ -1,17 +1,29 @@
 # Copyright 2018 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+"""adds reservation id
+
+Revision ID: 010
+Revises: 009
+Create Date: 2019-04-26 22:47:10.000000
+"""
+
+from alembic import op
 import sqlalchemy
 
+# revision identifiers, used by Alembic.
+revision = "010"
+down_revision = "009"
+branch_labels = None
+depends_on = None
 
-def upgrade(migrate_engine):
-    meta = sqlalchemy.MetaData()
-    meta.bind = migrate_engine
 
+def upgrade():
     # add 'reservation_id' column to 'base_transfer_action':
-    base_transfer_action = sqlalchemy.Table(
-        'base_transfer_action', meta, autoload=True)
-
     reservation_id = sqlalchemy.Column(
         "reservation_id", sqlalchemy.String(36), nullable=True)
-    base_transfer_action.create_column(reservation_id)
+    op.add_column("base_transfer_action", reservation_id)
+
+
+def downgrade():
+    raise NotImplementedError()

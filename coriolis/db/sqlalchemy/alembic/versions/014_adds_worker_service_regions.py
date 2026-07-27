@@ -1,17 +1,31 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+"""adds worker service regions
+
+Revision ID: 014
+Revises: 013
+Create Date: 2020-07-28 18:21:57.000000
+"""
+
 import uuid
 
+from alembic import op
 import sqlalchemy
 
+# revision identifiers, used by Alembic.
+revision = "014"
+down_revision = "013"
+branch_labels = None
+depends_on = None
 
-def upgrade(migrate_engine):
+
+def upgrade():
     meta = sqlalchemy.MetaData()
-    meta.bind = migrate_engine
 
-    sqlalchemy.Table(
-        'endpoint', meta, autoload=True)
+    # load 'endpoint' into meta so the 'endpoint_id' foreign key below can
+    # be resolved against it.
+    sqlalchemy.Table('endpoint', meta, autoload_with=op.get_bind())
 
     tables = []
 
@@ -122,11 +136,9 @@ def upgrade(migrate_engine):
             mysql_engine='InnoDB',
             mysql_charset='utf8'))
 
-    for index, table in enumerate(tables):
-        try:
-            table.create()
-        except Exception:
-            # If an error occurs, drop all tables created so far to return
-            # to the previously existing state.
-            meta.drop_all(tables=tables[:index])
-            raise
+    for table in tables:
+        table.create(bind=op.get_bind())
+
+
+def downgrade():
+    raise NotImplementedError()

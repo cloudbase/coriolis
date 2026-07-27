@@ -1,20 +1,29 @@
 # Copyright 2024 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+"""add replica scenario field
+
+Revision ID: 019
+Revises: 018
+Create Date: 2024-04-09 14:42:14.000000
+"""
+
+from alembic import op
 import sqlalchemy
 
+# revision identifiers, used by Alembic.
+revision = "019"
+down_revision = "018"
+branch_labels = None
+depends_on = None
 
-def upgrade(migrate_engine):
-    meta = sqlalchemy.MetaData()
-    meta.bind = migrate_engine
 
-    replica = sqlalchemy.Table(
-        'replica', meta, autoload=True,
-        mysql_engine="InnoDB",
-        mysql_charset="utf8")
-
+def upgrade():
     replica_scenario = sqlalchemy.Column(
         "scenario", sqlalchemy.String(255), nullable=False,
-        default="replica")
+        server_default="replica")
+    op.add_column("replica", replica_scenario)
 
-    replica.create_column(replica_scenario)
+
+def downgrade():
+    raise NotImplementedError()
