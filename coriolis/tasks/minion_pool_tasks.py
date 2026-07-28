@@ -565,14 +565,15 @@ class AttachVolumesToOSMorphingMinionTask(
 
     @classmethod
     def _get_volumes_info_from_task_info(cls, task_info):
-        return task_info[
-            "instance_deployment_info"]["volumes_info"]
+        # Similar to _BaseAttachVolumesToTransferMinionTask.
+        return task_info["volumes_info"]
 
     @classmethod
     def get_required_task_info_properties(cls):
         fields = super(
             AttachVolumesToOSMorphingMinionTask,
             cls).get_required_task_info_properties()
+        fields.append("volumes_info")
         fields.append("instance_deployment_info")
         return fields
 

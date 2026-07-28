@@ -414,8 +414,12 @@ class TestImportProvider(
         # We must pre-authorize all block devices through the
         # --device-cgroup-rule option, otherwise any device added will be
         # inaccessible ("operation not permitted" error on open).
+        #
+        # Mount the host's /lib/modules tree so that modprobe can
+        # resolve built-in modules.
+        volumes = ["/lib/modules:/lib/modules:ro"]
         result = self._create_minion(
-            "coriolis-pool-minion", connection_info, [],
+            "coriolis-pool-minion", connection_info, [], volumes,
             device_cgroup_rules=["b *:* rwm"])
 
         backup_writer_conn_info = result["backup_writer_connection_info"]
@@ -493,4 +497,19 @@ class TestImportProvider(
     def get_additional_os_morphing_info(
             self, ctxt, connection_info, target_environment,
             instance_deployment_info):
-        return {}
+        devices = list(instance_deployment_info.get("devices", []))
+
+        # lsblk inside the container sees all the host block devices because
+        # Docker containers share the host kernel's sysfs (/sys/block/).
+        # Populate ignore_devices with every host disk except the target
+        # so osmorphing only considers the devices we actually attached.
+        ignore_devices = list(
+            test_utils.get_host_disk_devices() - set(devices)
+        )
+
+        return {
+            "osmorphing_info": {
+                "os_type": instance_deployment_info.get("os_type", "linux"),
+                "ignore_devices": ignore_devices,
+            }
+        }

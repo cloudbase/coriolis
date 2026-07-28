@@ -466,6 +466,13 @@ class AttachVolumesToOSMorphingMinionTaskTestCase(
         super(AttachVolumesToOSMorphingMinionTaskTestCase, self).setUp()
         self.task_runner = mp_tasks.AttachVolumesToOSMorphingMinionTask()
 
+    def test__get_volumes_info_from_task_info(self):
+        task_info = {"volumes_info": [{"id": "vol1"}]}
+        result = (
+            mp_tasks.AttachVolumesToOSMorphingMinionTask.
+            _get_volumes_info_from_task_info(task_info))
+        self.assertEqual([{"id": "vol1"}], result)
+
     def test_get_required_task_info_properties(self):
         mock_super_call = mock.MagicMock(return_value=["field1", "field2"])
         with mock.patch.object(
@@ -476,7 +483,9 @@ class AttachVolumesToOSMorphingMinionTaskTestCase(
                 get_required_task_info_properties()
             self.assertEqual(
                 sorted(result),
-                sorted(['field1', 'field2', 'instance_deployment_info']))
+                sorted([
+                    'field1', 'field2', 'volumes_info',
+                    'instance_deployment_info']))
 
     def test_get_returned_task_info_properties(self):
         mock_super_call = mock.MagicMock(return_value=["field1", "field2"])
