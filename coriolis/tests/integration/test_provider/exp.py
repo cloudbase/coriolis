@@ -8,6 +8,8 @@ Uses Replicator (via SSH to a Docker data-minion container) to deploy and
 manage the coriolis-replicator service and perform disk replication.
 """
 
+import csv
+import io
 import os
 import uuid
 
@@ -18,6 +20,7 @@ import paramiko
 from coriolis import events
 from coriolis.providers import backup_writers
 from coriolis.providers.base import BaseEndpointInstancesProvider
+from coriolis.providers.base import BaseEndpointInventoryExportProvider
 from coriolis.providers.base import BaseEndpointSourceOptionsProvider
 from coriolis.providers.base import BaseReplicaExportProvider
 from coriolis.providers.base import BaseReplicaExportValidationProvider
@@ -40,6 +43,7 @@ _TEST_NIC = {
 
 class TestExportProvider(
         BaseEndpointInstancesProvider,
+        BaseEndpointInventoryExportProvider,
         BaseEndpointSourceOptionsProvider,
         BaseUpdateSourceReplicaProvider,
         BaseReplicaExportProvider,
@@ -120,6 +124,29 @@ class TestExportProvider(
     def get_instance(self, ctxt, connection_info, source_environment,
                      instance_name):
         return self._instance_info(source_environment)
+
+    # BaseEndpointInventoryExportProvider
+
+    def export_instance_inventory(
+            self, ctxt, connection_info, source_environment):
+        instance = self._instance_info(source_environment)
+        output = io.StringIO()
+
+        writer = csv.writer(output)
+        writer.writerow([
+            "VM ID", "VM Name", "Guest OS", "Num CPUs", "Memory (MB)",
+            "NIC Count",
+        ])
+        writer.writerow([
+            instance["id"],
+            instance["name"],
+            instance["os_type"],
+            instance["num_cpu"],
+            instance["memory_mb"],
+            len(instance["devices"]["nics"]),
+        ])
+
+        return output.getvalue()
 
     def _instance_info(self, source_environment):
         device = source_environment.get("block_device_path", "")

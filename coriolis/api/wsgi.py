@@ -1241,10 +1241,10 @@ class Fault(webob.exc.HTTPException):
             if retry:
                 fault_data[fault_name]['retryAfter'] = retry
 
-        content_type = req.best_match_content_type()
-        serializer = {
-            'application/json': JSONDictSerializer(),
-        }[content_type]
+        # Error responses are always JSON, regardless of what content type the
+        # client requested (e.g.: 'text/csv' for CSV-producing endpoints).
+        content_type = 'application/json'
+        serializer = JSONDictSerializer()
 
         body = serializer.serialize(fault_data)
         if isinstance(body, six.text_type):
@@ -1313,7 +1313,6 @@ class OverLimitFault(webob.exc.HTTPException):
     @webob.dec.wsgify(RequestClass=Request)
     def __call__(self, request):
         """Serializes the wrapped exception conforming to our error format."""
-        content_type = request.best_match_content_type()
 
         def translate(msg):
             locale = request.best_match_language()
@@ -1324,9 +1323,9 @@ class OverLimitFault(webob.exc.HTTPException):
         self.content['overLimitFault']['details'] = \
             translate(self.content['overLimitFault']['details'])
 
-        serializer = {
-            'application/json': JSONDictSerializer(),
-        }[content_type]
+        # Error responses are always JSON, regardless of what content
+        # type the client requested.
+        serializer = JSONDictSerializer()
 
         content = serializer.serialize(self.content)
         self.wrapped_exc.body = content

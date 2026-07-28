@@ -10,6 +10,8 @@ Exercises endpoint-related operations via the Coriolis REST API:
 - get_storage (list and default)
 - get_source_environment_options
 - get_target_environment_options
+- get_destination_minion_pool_options
+- get_inventory_csv
 - endpoint_instances.list and endpoint_instances.get
 """
 
@@ -93,6 +95,19 @@ class EndpointCapabilitiesTest(base.CoriolisIntegrationTestBase):
         self.assertIsInstance(options, list)
         self.assertTrue(
             len(options) > 0, "Expected at least one destination option")
+
+    def test_list_destination_minion_pool_options(self):
+        options = self._client.endpoint_destination_minion_pool_options.list(
+            self._dst_endpoint.id)
+        self.assertIsInstance(options, list)
+        self.assertTrue(
+            len(options) > 0,
+            "Expected at least one destination minion pool option")
+
+    def test_get_inventory_csv(self):
+        csv_content = self._client.endpoints.get_inventory_csv(
+            self._src_endpoint.id, source_environment={})
+        self.assertTrue(csv_content, "Expected non-empty inventory CSV")
 
     def test_list_instances(self):
         instances = self._client.endpoint_instances.list(
