@@ -36,6 +36,12 @@ jobs:
       run: |
         sudo apt-get install -y linux-modules-extra-$(uname -r)
 
+    - name: Build write_data resource binary
+      shell: bash
+      run: |
+        sudo apt-get install -y build-essential zlib1g-dev
+        make -C coriolis/resources
+
     - name: Build Docker image for integration test minions
       shell: bash
       run: |

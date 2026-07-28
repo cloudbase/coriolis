@@ -294,7 +294,10 @@ class TestExportProvider(
         backup_writer = backup_writers.BackupWritersFactory(
             target_conn_info, volumes_info).get_writer()
 
-        replicator.replicate_disks(source_volumes_info, backup_writer)
+        replicator.replicate_disks(
+            source_volumes_info, backup_writer,
+            verify_checksum=source_environment.get(
+                "verify_disk_integrity", False))
         return volumes_info
 
     def delete_replica_source_snapshots(
