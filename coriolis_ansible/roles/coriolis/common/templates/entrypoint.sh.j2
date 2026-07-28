@@ -49,7 +49,7 @@ if [ -d "$CA_FOLDER" ] && [ ! -z "$(ls -A $CA_FOLDER)" ];then
     fi
 fi
 
-if [ "$RUN_OPENISCSI" = "yes" ]; then
+if [ "${RUN_OPENISCSI:-no}" = "yes" ]; then
     # Start the iSCSI initiator service, used by the Nutanix provider.
     /etc/init.d/iscsid start
 fi
