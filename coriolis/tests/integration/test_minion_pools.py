@@ -10,7 +10,10 @@ Exercises minion-pool operations via the Coriolis REST API:
   deallocate -> wait for DEALLOCATED -> delete)
 """
 
+import time
+
 from coriolis import constants
+from coriolis.db import api as db_api
 from coriolis.tests.integration import base
 
 
@@ -24,6 +27,24 @@ class MinionPoolLifecycleTest(base.MinionPoolTestBase):
             endpoint_type=self._imp_platform,
             connection_info=self._imp_conn_info,
         )
+
+    def _wait_for_machine_status(self, pool_id, status, timeout=120):
+        """Poll the DB until the pool's single machine reaches *status*."""
+        ctxt = self._get_db_context()
+        deadline = time.monotonic() + timeout
+        machine = None
+
+        while time.monotonic() < deadline:
+            pool = db_api.get_minion_pool(ctxt, pool_id, include_machines=True)
+            machine = pool.minion_machines[0]
+            if machine.allocation_status == status:
+                return machine
+            time.sleep(1)
+
+        self.fail(
+            "Minion pool machine '%s' did not reach status '%s' within %ds "
+            "(last status: %s)"
+            % (pool_id, status, timeout, machine.allocation_status))
 
     def test_minion_pool_crud(self):
         # Create
@@ -46,10 +67,14 @@ class MinionPoolLifecycleTest(base.MinionPoolTestBase):
         self.assertEqual("test-pool", fetched.name)
 
         # Update
-        updated = self._client.minion_pools.update(
-            pool.id, {"notes": "updated notes"})
+        updates = {
+            "notes": "updated notes",
+            "environment_options": self._pool_env,
+        }
+        updated = self._client.minion_pools.update(pool.id, updates)
 
         self.assertEqual("updated notes", updated.notes)
+        self.assertEqual(self._pool_env, updated.environment_options)
 
         # Delete
         self._safe_delete_pool(pool.id)
@@ -71,6 +96,12 @@ class MinionPoolLifecycleTest(base.MinionPoolTestBase):
             final.status,
             "Pool allocation ended in unexpected status '%s'" % final.status,
         )
+
+        # Refresh: healthchecks the allocated machine and returns it to
+        # AVAILABLE.
+        self._client.minion_pools.refresh_minion_pool(pool.id)
+        self._wait_for_machine_status(
+            pool.id, constants.MINION_MACHINE_STATUS_AVAILABLE)
 
         # Deallocate
         self._client.minion_pools.deallocate_minion_pool(pool.id)
