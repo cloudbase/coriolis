@@ -66,6 +66,8 @@ class TestImportProvider(
     ``target_environment`` (per-transfer destination settings) has the form::
 
         {
+            # optional; "HTTPS" (default) or "SSH"
+            "data_transfer_mechanism": "HTTPS",
         }
     """
 
@@ -126,7 +128,9 @@ class TestImportProvider(
     def get_target_environment_schema(self):
         return {
             "type": "object",
-            "properties": {},
+            "properties": {
+                "data_transfer_mechanism": {"type": "string"},
+            },
             "required": [],
         }
 
@@ -181,8 +185,14 @@ class TestImportProvider(
     def deploy_replica_target_resources(
             self, ctxt, connection_info, target_environment, volumes_info):
         devices = [vol["volume_dev"] for vol in volumes_info]
+        data_transfer_mechanism = target_environment.get(
+            "data_transfer_mechanism",
+            backup_writers.DATA_TRANSFER_MECHANISM_HTTPS)
+        writer_backend = backup_writers.DATA_TRANSFER_MECHANISM_MAP[
+            data_transfer_mechanism]
         result = self._create_minion(
-            "coriolis-writer", connection_info, devices)
+            "coriolis-writer", connection_info, devices,
+            writer_backend=writer_backend)
 
         return {
             "volumes_info": volumes_info,
@@ -192,7 +202,8 @@ class TestImportProvider(
 
     def _create_minion(
             self, name_prefix, connection_info, devices=None, volumes=None,
-            device_cgroup_rules=None, setup_writer=True):
+            device_cgroup_rules=None, setup_writer=True,
+            writer_backend=backup_writers.BACKUP_WRITER_HTTP):
         pkey_path = connection_info["pkey_path"]
         container_name = "%s-%s" % (name_prefix, uuid.uuid4().hex[:8])
 
@@ -223,13 +234,20 @@ class TestImportProvider(
                 "ssh_connection_info": ssh_conn_info,
             }
             if setup_writer:
-                bootstrapper = backup_writers.HTTPBackupWriterBootstrapper(
-                    ssh_conn_info, WRITER_TEST_PORT)
-                writer_conn_details = bootstrapper.setup_writer()
-                info["backup_writer_connection_info"] = {
-                    "backend": "http_backup_writer",
-                    "connection_details": writer_conn_details,
-                }
+                if writer_backend == backup_writers.BACKUP_WRITER_SSH:
+                    info["backup_writer_connection_info"] = {
+                        "backend": backup_writers.BACKUP_WRITER_SSH,
+                        "connection_details": ssh_conn_info,
+                    }
+                else:
+                    bootstrapper = (
+                        backup_writers.HTTPBackupWriterBootstrapper(
+                            ssh_conn_info, WRITER_TEST_PORT))
+                    writer_conn_details = bootstrapper.setup_writer()
+                    info["backup_writer_connection_info"] = {
+                        "backend": backup_writers.BACKUP_WRITER_HTTP,
+                        "connection_details": writer_conn_details,
+                    }
 
             return info
         except Exception:
