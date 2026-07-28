@@ -12,12 +12,14 @@ import re
 import unittest
 import uuid
 
+from coriolis.db import api as db_api
 from coriolis.tests.integration import base as integration_base
 from coriolis.tests.integration import harness as integration_harness
 from coriolis.tests.integration import osmorphing_utils
 
 
-class OsMorphingDeploymentTest(integration_base.ReplicaIntegrationTestBase):
+class OsMorphingDeploymentTestBase(
+        integration_base.ReplicaIntegrationTestBase):
 
     # NOTE(claudiub): Size must be high enough to contain the tested OS and
     # any new packages to be added during OS morphing.
@@ -36,6 +38,8 @@ class OsMorphingDeploymentTest(integration_base.ReplicaIntegrationTestBase):
         osmorphing_utils.write_os_image_to_disk(
             self._src_device, "ubuntu:24.04")
 
+
+class OsMorphingDeploymentTest(OsMorphingDeploymentTestBase):
     def test_deployment_with_os_morphing(self):
         self.assertFalse(
             osmorphing_utils.path_exists_on_device(
@@ -192,3 +196,43 @@ class OsMorphingDeploymentTest(integration_base.ReplicaIntegrationTestBase):
         if not found:
             raise AssertionError(
                 "Couldn't find the expected first boot script.")
+
+
+class OsMorphingMinionPoolDeploymentTest(
+        integration_base.MinionPoolTestBase, OsMorphingDeploymentTestBase):
+    """OS morphing deployment using a minion pool for the OS morphing phase."""
+
+    _CREATE_MINION_POOLS = True
+
+    def test_deployment_with_os_morphing(self):
+        self.assertFalse(
+            osmorphing_utils.path_exists_on_device(
+                self._src_device, "usr/bin/jq"),
+            "jq was found on the source device before OS morphing",
+        )
+
+        deployment_kwargs = {
+            "instance_osmorphing_minion_pool_mappings": {
+                self._instance_name: self._pool_id,
+            },
+        }
+        self._execute_transfer_and_deployment(deployment_kwargs)
+
+        self.assertTrue(
+            osmorphing_utils.path_exists_on_device(
+                self._dst_device, "usr/bin/jq"),
+            "jq was not found on the destination device after OS morphing",
+        )
+
+        ctxt = self._get_db_context()
+        pool = db_api.get_minion_pool(
+            ctxt, self._pool_id, include_machines=True)
+        self.assertTrue(
+            pool.minion_machines,
+            "OS morphing pool has no minion machines")
+
+        for machine in pool.minion_machines:
+            self.assertIsNotNone(
+                machine.last_used_at,
+                "OS morphing minion machine %s was never used" % machine.id,
+            )
