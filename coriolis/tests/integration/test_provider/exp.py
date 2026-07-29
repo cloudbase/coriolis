@@ -17,6 +17,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 import paramiko
 
+from coriolis import constants
 from coriolis import events
 from coriolis.providers import backup_writers
 from coriolis.providers.base import BaseEndpointInstancesProvider
@@ -59,7 +60,9 @@ class TestExportProvider(
     ``source_environment`` (per-transfer source settings) has the form::
 
         {
-            "block_device_path": "/dev/sdX",  # source block device
+            "instance_block_devices": {
+                "instance-1": ["/dev/sdX"],  # source block device(s)
+            },
         }
     """
 
@@ -110,7 +113,7 @@ class TestExportProvider(
         return {
             "type": "object",
             "properties": {
-                "block_device_path": {"type": "string"},
+                "instance_block_devices": {"type": "object"},
             },
         }
 
@@ -119,17 +122,21 @@ class TestExportProvider(
     def get_instances(self, ctxt, connection_info, source_environment,
                       limit=None, last_seen_id=None,
                       instance_name_pattern=None, refresh=False):
-        return [self._instance_info(source_environment)]
+        # "instance_block_devices" is keyed by instance name.
+        instance_block_devices = source_environment.get(
+            "instance_block_devices", {})
+        names = list(instance_block_devices.keys()) or ["test-instance"]
+        return [self._instance_info(name) for name in names]
 
     def get_instance(self, ctxt, connection_info, source_environment,
                      instance_name):
-        return self._instance_info(source_environment)
+        return self._instance_info(instance_name)
 
     # BaseEndpointInventoryExportProvider
 
     def export_instance_inventory(
             self, ctxt, connection_info, source_environment):
-        instance = self._instance_info(source_environment)
+        instance = self._instance_info("test-instance")
         output = io.StringIO()
 
         writer = csv.writer(output)
@@ -148,9 +155,7 @@ class TestExportProvider(
 
         return output.getvalue()
 
-    def _instance_info(self, source_environment):
-        device = source_environment.get("block_device_path", "")
-        name = os.path.basename(device) if device else "test-instance"
+    def _instance_info(self, name):
         return {
             "id": name,
             "name": name,
@@ -195,10 +200,9 @@ class TestExportProvider(
 
     def get_replica_instance_info(
             self, ctxt, connection_info, source_environment, instance_name):
-        """Return minimal export info describing the source block device."""
-        block_device_path = source_environment["block_device_path"]
-        size_bytes = _get_block_device_size(block_device_path)
-        disk_id = os.path.basename(block_device_path)
+        """Return minimal export info describing the source block device(s)."""
+        block_devices = source_environment.get("instance_block_devices", {})
+        block_device_paths = block_devices.get(instance_name, [])
 
         return {
             "id": instance_name,
@@ -211,10 +215,11 @@ class TestExportProvider(
             "devices": {
                 "disks": [
                     {
-                        "id": disk_id,
+                        "id": os.path.basename(path),
                         "format": "raw",
-                        "size_bytes": size_bytes,
+                        "size_bytes": _get_block_device_size(path),
                     }
+                    for path in block_device_paths
                 ],
                 "nics": [_TEST_NIC],
                 "cdroms": [],
@@ -226,7 +231,9 @@ class TestExportProvider(
 
     def deploy_replica_source_resources(
             self, ctxt, connection_info, export_info, source_environment):
-        block_device_path = source_environment["block_device_path"]
+        block_devices = source_environment.get("instance_block_devices", {})
+        block_device_paths = block_devices.get(
+            export_info["instance_name"], [])
         pkey_path = connection_info["pkey_path"]
 
         container_name = "coriolis-replicator-%s" % uuid.uuid4().hex[:8]
@@ -235,7 +242,7 @@ class TestExportProvider(
             container_name,
             is_systemd=True,
             ssh_key=f"{pkey_path}.pub",
-            devices=[block_device_path],
+            devices=block_device_paths,
         )
 
         try:
@@ -252,12 +259,14 @@ class TestExportProvider(
                 src_conn_info, self._event_manager(), [], None)
             replicator.init_replicator()
 
-            disk_id = os.path.basename(block_device_path)
+            disk_mappings = {
+                os.path.basename(path): path for path in block_device_paths
+            }
             return {
                 "connection_info": src_conn_info,
                 "migr_resources": {
                     "container_id": container_id,
-                    "disk_mappings": {disk_id: block_device_path},
+                    "disk_mappings": disk_mappings,
                 },
             }
         except Exception:
@@ -289,7 +298,14 @@ class TestExportProvider(
                 "disk_path": disk_mappings.get(vol["disk_id"], vol["disk_id"]),
             }
             for vol in volumes_info
+            if vol.get(constants.VOLUME_INFO_REPLICATE_DISK_DATA, True)
         ]
+        for vol in volumes_info:
+            if not vol.get(constants.VOLUME_INFO_REPLICATE_DISK_DATA, True):
+                LOG.debug(
+                    "Skipping replication for disk '%s' "
+                    "(replicate_disk_data is False; the disk is replicated "
+                    "by its owner instance's task).", vol.get("disk_id"))
 
         backup_writer = backup_writers.BackupWritersFactory(
             target_conn_info, volumes_info).get_writer()
