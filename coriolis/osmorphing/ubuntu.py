@@ -8,12 +8,10 @@ import yaml
 from oslo_log import log as logging
 
 from coriolis.osmorphing import debian
-from coriolis.osmorphing.osdetect import ubuntu as ubuntu_osdetect
-
 
 LOG = logging.getLogger(__name__)
 
-UBUNTU_DISTRO_IDENTIFIER = ubuntu_osdetect.UBUNTU_DISTRO_IDENTIFIER
+UBUNTU_DISTRO_IDENTIFIER = "Ubuntu"
 
 
 class BaseUbuntuMorphingTools(debian.BaseDebianMorphingTools):
@@ -33,7 +31,7 @@ class BaseUbuntuMorphingTools(debian.BaseDebianMorphingTools):
             return False
 
         return cls._version_supported_util(
-            detected_os_info['release_version'], minimum=12.04)
+            detected_os_info['release_version'], minimum=16.04)
 
     def _set_netplan_ethernet_configs(
             self, nics_info, dhcp=False, iface_name_prefix=None):
