@@ -13,6 +13,7 @@ from coriolis.osmorphing import oracle
 from coriolis.osmorphing.osdetect import base
 from coriolis.osmorphing import redhat as redhat_morphing
 from coriolis.osmorphing import rocky
+from coriolis.osmorphing import ubuntu as ubuntu_morphing
 from coriolis.tests import test_base
 
 
@@ -245,6 +246,23 @@ class LinuxOSDetectUsingOSReleaseTestCase(test_base.CoriolisBaseTestCase):
             "release_version": mock.sentinel.version,
             "friendly_release_name": "Amazon Linux Version %s" % (
                 mock.sentinel.version)
+        }
+
+        self.assertEqual(self.os_detect.detect_os(), expected)
+
+    @mock.patch.object(base.BaseLinuxOSDetectTools, '_get_os_release')
+    def test_detect_os_ubuntu(self, mock_get_os_release):
+        mock_get_os_release.return_value = {
+            "ID": "ubuntu",
+            "VERSION_ID": "22.04",
+            "NAME": ubuntu_morphing.UBUNTU_DISTRO_IDENTIFIER,
+        }
+
+        expected = {
+            "os_type": constants.OS_TYPE_LINUX,
+            "distribution_name": ubuntu_morphing.UBUNTU_DISTRO_IDENTIFIER,
+            "release_version": "22.04",
+            "friendly_release_name": "Ubuntu Version 22.04",
         }
 
         self.assertEqual(self.os_detect.detect_os(), expected)

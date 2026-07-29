@@ -10,7 +10,6 @@ from coriolis.osmorphing.osdetect import coreos
 from coriolis.osmorphing.osdetect import debian
 from coriolis.osmorphing.osdetect import openwrt
 from coriolis.osmorphing.osdetect import suse
-from coriolis.osmorphing.osdetect import ubuntu
 from coriolis.osmorphing.osdetect import windows
 
 LOG = logging.getLogger(__name__)
@@ -21,7 +20,6 @@ LINUX_OS_DETECTION_TOOLS = [
     debian.DebianOSDetectTools,
     openwrt.OpenWRTOSDetectTools,
     suse.SUSEOSDetectTools,
-    ubuntu.UbuntuOSDetectTools,
     base.LinuxOSDetectUsingOSRelease,
 ]
 
