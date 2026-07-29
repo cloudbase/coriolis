@@ -304,7 +304,10 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             self._dst_endpoint.id,
             instances=[self._instance_name],
             destination_minion_pool_id=self._pool_id,
-            source_environment={"block_device_path": self._src_device},
+            source_environment={
+                "instance_block_devices": {
+                    self._instance_name: [self._src_device]},
+            },
         )
         # Safety-net cleanup for destination devices allocated by the provider.
         # Must be registered after the transfer, so it runs (LIFO) before the

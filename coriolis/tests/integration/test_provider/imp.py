@@ -76,6 +76,10 @@ class TestImportProvider(
     def __init__(self, event_handler):
         self._event_handler = event_handler
 
+    @classmethod
+    def supports_shared_disks(cls) -> bool:
+        return True
+
     # BaseTestImportProvider - test only
 
     def initialize(self, connection_info: dict):
@@ -174,7 +178,21 @@ class TestImportProvider(
         src_disks = export_info.get("devices", {}).get("disks", [])
 
         result = []
-        for i, disk in enumerate(src_disks):
+        for disk in src_disks:
+            owner = disk.get("owner")
+            if owner and owner != instance_name:
+                # Shared disk owned by another instance of a clustered
+                # transfer: the owner's DEPLOY_TRANSFER_DISKS task creates
+                # the destination volume and REPLICATE_DISKS copies the
+                # data into it. This instance only records a placeholder
+                # so the disk is still accounted for in its own volume_info.
+                result.append({
+                    "disk_id": disk["id"],
+                    "volume_dev": "",
+                    constants.VOLUME_INFO_REPLICATE_DISK_DATA: False,
+                })
+                continue
+
             result.append({
                 "disk_id": disk["id"],
                 "volume_dev": test_utils.add_scsi_debug_device(),
@@ -184,7 +202,11 @@ class TestImportProvider(
 
     def deploy_replica_target_resources(
             self, ctxt, connection_info, target_environment, volumes_info):
-        devices = [vol["volume_dev"] for vol in volumes_info]
+        # Non-owners of shared disks do not write any data. Those disks do not
+        # have any "volume_dev" info, so there is nothing to attach.
+        devices = [
+            vol["volume_dev"] for vol in volumes_info if vol.get("volume_dev")
+        ]
         data_transfer_mechanism = target_environment.get(
             "data_transfer_mechanism",
             backup_writers.DATA_TRANSFER_MECHANISM_HTTPS)
