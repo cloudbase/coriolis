@@ -117,6 +117,15 @@ base_id:
   in: body
   type: string
   required: true
+clustered:
+  description: |
+    Present on transfer responses. ``true`` when more than one instance is
+    listed (multi-instance scheduling: sync barriers and shared-disk
+    coordination). Set by the server at creation from ``instances``; not
+    accepted on create.
+  in: body
+  type: boolean
+  required: false
 connection_info:
   description: >
     A JSON encoded or a barbican secret ref containing password, username and
@@ -129,15 +138,6 @@ connection_info_schema:
     Object containing the connection info schema of the platform.
   in: body
   type: object
-  required: false
-clustered:
-  description: |
-    Present on transfer responses. ``true`` when more than one instance is
-    listed (multi-instance scheduling: sync barriers and shared-disk
-    coordination). Set by the server at creation from ``instances``; not
-    accepted on create.
-  in: body
-  type: boolean
   required: false
 deployment_cancel:
   description: |
