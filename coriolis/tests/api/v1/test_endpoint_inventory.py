@@ -3,11 +3,11 @@
 
 from unittest import mock
 
-from coriolis.api.v1 import endpoint_inventory as endpoint
+from coriolis import utils
 from coriolis.api import wsgi as api_wsgi
+from coriolis.api.v1 import endpoint_inventory as endpoint
 from coriolis.endpoint_resources import api
 from coriolis.tests import test_base
-from coriolis import utils
 
 
 class EndpointInventoryControllerTestCase(test_base.CoriolisBaseTestCase):
@@ -34,12 +34,11 @@ class EndpointInventoryControllerTestCase(test_base.CoriolisBaseTestCase):
 
         response = self.endpoint_api.index(mock_req, endpoint_id)
 
-        mock_context.can.assert_called_once_with(
-            'migration:endpoints:export_inventory')
+        mock_context.can.assert_called_once_with('migration:endpoints:export_inventory')
         mock_decode_base64_param.assert_called_once_with(env, is_json=True)
         mock_get_endpoint_inventory_csv.assert_called_once_with(
-            mock_context, endpoint_id,
-            mock_decode_base64_param.return_value)
+            mock_context, endpoint_id, mock_decode_base64_param.return_value
+        )
         self.assertIsInstance(response, api_wsgi.ResponseObject)
         self.assertEqual(response.code, 200)
         self.assertEqual(response.obj, 'vm_id,vm_name\n')
@@ -62,6 +61,7 @@ class EndpointInventoryControllerTestCase(test_base.CoriolisBaseTestCase):
 
         mock_decode_base64_param.assert_not_called()
         mock_get_endpoint_inventory_csv.assert_called_once_with(
-            mock_context, endpoint_id, {})
+            mock_context, endpoint_id, {}
+        )
         self.assertIsInstance(response, api_wsgi.ResponseObject)
         self.assertEqual(response.code, 200)

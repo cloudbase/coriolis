@@ -6,7 +6,6 @@ import copy
 from coriolis import constants
 from coriolis.osmorphing.osdetect import base
 
-
 DETECTED_SUSE_RELEASE_FIELD_NAME = "suse_release_name"
 SLES_DISTRO_IDENTIFIER = "SLES"
 OPENSUSE_DISTRO_IDENTIFIER = "openSUSE"
@@ -14,11 +13,9 @@ OPENSUSE_TUMBLEWEED_VERSION_IDENTIFIER = "Tumbleweed"
 
 
 class SUSEOSDetectTools(base.BaseLinuxOSDetectTools):
-
     @classmethod
     def returned_detected_os_info_fields(cls):
-        common_fields = super(
-            SUSEOSDetectTools, cls).returned_detected_os_info_fields()
+        common_fields = super(SUSEOSDetectTools, cls).returned_detected_os_info_fields()
         fields = copy.deepcopy(common_fields)
         fields.append(DETECTED_SUSE_RELEASE_FIELD_NAME)
         return fields
@@ -36,13 +33,11 @@ class SUSEOSDetectTools(base.BaseLinuxOSDetectTools):
                 distro_name = SLES_DISTRO_IDENTIFIER
             elif name.lower().startswith("opensuse"):
                 distro_name = OPENSUSE_DISTRO_IDENTIFIER
-            version = os_release.get(
-                "VERSION_ID", constants.OS_TYPE_UNKNOWN)
+            version = os_release.get("VERSION_ID", constants.OS_TYPE_UNKNOWN)
             if 'tumbleweed' in name.lower():
                 version = OPENSUSE_TUMBLEWEED_VERSION_IDENTIFIER
             else:
-                friendly_release_name = "%s %s" % (
-                    distro_name, version)
+                friendly_release_name = "%s %s" % (distro_name, version)
 
             if distro_name:
                 info = {
@@ -50,7 +45,8 @@ class SUSEOSDetectTools(base.BaseLinuxOSDetectTools):
                     "distribution_name": distro_name,
                     DETECTED_SUSE_RELEASE_FIELD_NAME: name,
                     "release_version": version,
-                    "friendly_release_name": friendly_release_name}
+                    "friendly_release_name": friendly_release_name,
+                }
 
         # NOTE: should be redundant as all SUSEs which have a
         # SuSE-release but no os-release have been deprecated

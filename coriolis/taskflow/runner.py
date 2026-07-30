@@ -3,8 +3,8 @@
 
 import multiprocessing
 import sys
-
 from logging import handlers
+
 from oslo_config import cfg
 from oslo_log import log as logging
 from six.moves import queue
@@ -12,7 +12,6 @@ from taskflow import engines
 from taskflow.types import notifier
 
 from coriolis import utils
-
 
 LOG = logging.getLogger(__name__)
 
@@ -25,12 +24,13 @@ TASKFLOW_EXECUTOR_GREENTHREADED = "greenthreaded"
 
 
 class TaskFlowRunner(object):
-
     def __init__(
-            self, service_name,
-            execution_order=TASKFLOW_EXECUTION_ORDER_PARALLEL,
-            executor=TASKFLOW_EXECUTOR_THREADED,
-            max_workers=1):
+        self,
+        service_name,
+        execution_order=TASKFLOW_EXECUTION_ORDER_PARALLEL,
+        executor=TASKFLOW_EXECUTOR_THREADED,
+        max_workers=1,
+    ):
 
         self._service_name = service_name
         self._execution_order = execution_order
@@ -41,24 +41,34 @@ class TaskFlowRunner(object):
         LOG.debug(
             "[TaskFlowRunner(%s)] Flow '%s' (internal UUID '%s') transitioned"
             " from '%s' state to '%s'",
-            self._service_name, details['flow_name'], details['flow_uuid'],
-            details['old_state'], state)
+            self._service_name,
+            details['flow_name'],
+            details['flow_uuid'],
+            details['old_state'],
+            state,
+        )
 
     def _log_task_transition(self, state, details):
         LOG.debug(
             "[TaskFlowRunner(%s)] Task '%s' (internal UUID '%s') transitioned"
             " from '%s' state to '%s'",
-            self._service_name, details['task_name'], details['task_uuid'],
-            details['old_state'], state)
+            self._service_name,
+            details['task_name'],
+            details['task_uuid'],
+            details['old_state'],
+            state,
+        )
 
     def _setup_engine_for_flow(self, flow, store=None):
         engine = engines.load(
-            flow, store, executor=self._executor,
-            engine=self._execution_order, max_workers=self._max_workers)
-        engine.notifier.register(
-            notifier.Notifier.ANY, self._log_flow_transition)
-        engine.atom_notifier.register(
-            notifier.Notifier.ANY, self._log_task_transition)
+            flow,
+            store,
+            executor=self._executor,
+            engine=self._execution_order,
+            max_workers=self._max_workers,
+        )
+        engine.notifier.register(notifier.Notifier.ANY, self._log_flow_transition)
+        engine.atom_notifier.register(notifier.Notifier.ANY, self._log_task_transition)
         return engine
 
     def _run_flow(self, flow, store=None):
@@ -77,12 +87,16 @@ class TaskFlowRunner(object):
         except Exception:
             LOG.warn(
                 "Fatal error occurred while attempting to run flow '%s'. "
-                "Full trace was: %s", flow.name,
-                utils.get_exception_details())
+                "Full trace was: %s",
+                flow.name,
+                utils.get_exception_details(),
+            )
             raise
         LOG.info(
             "Successfully ran flow with name '%s'. Statistics were: %s",
-            flow.name, engine.statistics)
+            flow.name,
+            engine.statistics,
+        )
 
     def run_flow(self, flow, store=None):
         self._run_flow(flow, store=store)
@@ -118,13 +132,15 @@ class TaskFlowRunner(object):
         mp_ctx = multiprocessing.get_context('spawn')
         mp_log_q = mp_ctx.Queue()
         process = mp_ctx.Process(
-            target=self._run_flow_in_process,
-            args=(flow, mp_log_q, store))
+            target=self._run_flow_in_process, args=(flow, mp_log_q, store)
+        )
         LOG.debug("Starting new background process for flow '%s'", flow.name)
         process.start()
         LOG.debug(
-            "Sucessfully started background process for flow '%s' with "
-            "PID: '%d'", flow.name, process.pid)
+            "Sucessfully started background process for flow '%s' with PID: '%d'",
+            flow.name,
+            process.pid,
+        )
 
         # TODO(lpetrut): one logger thread per subprocess may be excessive when
         # having a large number of concurrent jobs. It may be worth having a
@@ -135,12 +151,11 @@ class TaskFlowRunner(object):
         # queues, we'd probably need pipes instead. There's also the option of
         # using select/poll/epoll directly.
         utils.start_thread(
-            target=self._handle_mp_log_events,
-            args=(process, mp_log_q),
-            daemon=True)
+            target=self._handle_mp_log_events, args=(process, mp_log_q), daemon=True
+        )
 
     def run_flow_in_background(self, flow, store=None):
-        """ Starts the given flow in the background in a separate process.
+        """Starts the given flow in the background in a separate process.
         Does NOT return/store any result.
 
         All tasks must be "self-sufficient" and record their own results in

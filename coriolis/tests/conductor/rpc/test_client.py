@@ -3,8 +3,8 @@
 
 from unittest import mock
 
-from coriolis.conductor.rpc import client
 from coriolis import constants
+from coriolis.conductor.rpc import client
 from coriolis.tests import test_base
 
 INSTANCE_ARGS = {
@@ -23,23 +23,20 @@ INSTANCE_ARGS = {
     "instances": ['mock_instance_1', 'mock_instance_2'],
     "notes": "mock_notes",
     "network_map": {'mock_network_key': 'mock_network_value'},
-    "storage_mappings": {
-        'mock_destination_key': 'mock_destination_value'
-    },
+    "storage_mappings": {'mock_destination_key': 'mock_destination_value'},
     "source_environment": {'mock_source_key': 'mock_source_value'},
     "user_scripts": {'mock_scripts_key': 'mock_scripts_value'},
 }
 
 
 class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
-
     def setUp(self):
         super(ConductorClientTestCase, self).setUp()
         self.client = client.ConductorClient()
 
         self._mock_pagination_args = dict(
-            marker="mock_marker", limit=5,
-            sort_keys=["mock_column"], sort_dirs=["desc"])
+            marker="mock_marker", limit=5, sort_keys=["mock_column"], sort_dirs=["desc"]
+        )
 
     def test_create_endpoint(self):
         args = {
@@ -47,7 +44,7 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
             "endpoint_type": "mock_endpoint_type",
             "description": "mock_description",
             "connection_info": "mock_connection_info",
-            "mapped_regions": "mock_mapped_regions"
+            "mapped_regions": "mock_mapped_regions",
         }
         self._test(self.client.create_endpoint, args)
 
@@ -81,7 +78,7 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
             "marker": None,
             "limit": None,
             "instance_name_pattern": None,
-            "refresh": False
+            "refresh": False,
         }
         self._test(self.client.get_endpoint_instances, args)
 
@@ -89,7 +86,7 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
         args = {
             "endpoint_id": "mock_endpoint_id",
             "source_environment": "mock_source_environment",
-            "instance_name": "mock_instance_name"
+            "instance_name": "mock_instance_name",
         }
         self._test(self.client.get_endpoint_instance, args)
 
@@ -97,7 +94,7 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
         args = {
             "endpoint_id": "mock_endpoint_id",
             "env": "mock_env",
-            "option_names": "mock_option_names"
+            "option_names": "mock_option_names",
         }
         self._test(self.client.get_endpoint_source_options, args)
 
@@ -105,42 +102,28 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
         args = {
             "endpoint_id": "mock_endpoint_id",
             "env": "mock_env",
-            "option_names": "mock_option_names"
+            "option_names": "mock_option_names",
         }
         self._test(self.client.get_endpoint_destination_options, args)
 
     def test_get_endpoint_networks(self):
-        args = {
-            "endpoint_id": "mock_endpoint_id",
-            "env": "mock_env"
-        }
+        args = {"endpoint_id": "mock_endpoint_id", "env": "mock_env"}
         self._test(self.client.get_endpoint_networks, args)
 
     def test_get_endpoint_storage(self):
-        args = {
-            "endpoint_id": "mock_endpoint_id",
-            "env": "mock_env"
-        }
+        args = {"endpoint_id": "mock_endpoint_id", "env": "mock_env"}
         self._test(self.client.get_endpoint_storage, args)
 
     def test_validate_endpoint_connection(self):
-        args = {
-            "endpoint_id": "mock_endpoint_id"
-        }
+        args = {"endpoint_id": "mock_endpoint_id"}
         self._test(self.client.validate_endpoint_connection, args)
 
     def test_validate_endpoint_target_environment(self):
-        args = {
-            "endpoint_id": "mock_endpoint_id",
-            "target_env": "mock_target_env"
-        }
+        args = {"endpoint_id": "mock_endpoint_id", "target_env": "mock_target_env"}
         self._test(self.client.validate_endpoint_target_environment, args)
 
     def test_validate_endpoint_source_environment(self):
-        args = {
-            "endpoint_id": "mock_endpoint_id",
-            "source_env": "mock_source_env"
-        }
+        args = {"endpoint_id": "mock_endpoint_id", "source_env": "mock_source_env"}
         self._test(self.client.validate_endpoint_source_environment, args)
 
     def test_get_available_providers(self):
@@ -150,7 +133,7 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
     def test_get_provider_schemas(self):
         args = {
             "platform_name": "mock_platform_name",
-            "provider_type": "mock_provider_type"
+            "provider_type": "mock_provider_type",
         }
         self._test(self.client.get_provider_schemas, args)
 
@@ -175,22 +158,19 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
         args = {
             "transfer_id": "mock_transfer_id",
             "execution_id": "mock_execution_id",
-            "include_task_info": False
+            "include_task_info": False,
         }
         self._test(self.client.get_transfer_tasks_execution, args)
 
     def test_delete_transfer_tasks_execution(self):
-        args = {
-            "transfer_id": "mock_transfer_id",
-            "execution_id": "mock_execution_id"
-        }
+        args = {"transfer_id": "mock_transfer_id", "execution_id": "mock_execution_id"}
         self._test(self.client.delete_transfer_tasks_execution, args)
 
     def test_cancel_transfer_tasks_execution(self):
         args = {
             "transfer_id": "mock_transfer_id",
             "execution_id": "mock_execution_id",
-            "force": "mock_force"
+            "force": "mock_force",
         }
         self._test(self.client.cancel_transfer_tasks_execution, args)
 
@@ -230,9 +210,7 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
         self._test(self.client.delete_transfer, args)
 
     def test_delete_transfer_disks(self):
-        args = {
-            "transfer_id": "mock_transfer_id"
-        }
+        args = {"transfer_id": "mock_transfer_id"}
         self._test(self.client.delete_transfer_disks, args)
 
     def test_deploy_transfer_instances(self):
@@ -249,37 +227,28 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
         self._test(self.client.deploy_transfer_instances, args)
 
     def test_set_task_host(self):
-        args = {
-            "task_id": "mock_task_id",
-            "host": "mock_host"
-        }
+        args = {"task_id": "mock_task_id", "host": "mock_host"}
         self._test(self.client.set_task_host, args)
 
     def test_set_task_process(self):
-        args = {
-            "task_id": "mock_task_id",
-            "process_id": "mock_process_id"
-        }
+        args = {"task_id": "mock_task_id", "process_id": "mock_process_id"}
         self._test(self.client.set_task_process, args)
 
     def test_task_completed(self):
-        args = {
-            "task_id": "mock_task_id",
-            "task_result": "mock_task_result"
-        }
+        args = {"task_id": "mock_task_id", "task_result": "mock_task_result"}
         self._test(self.client.task_completed, args)
 
     def test_confirm_task_cancellation(self):
         args = {
             "task_id": "mock_task_id",
-            "cancellation_details": "mock_cancellation_details"
+            "cancellation_details": "mock_cancellation_details",
         }
         self._test(self.client.confirm_task_cancellation, args)
 
     def test_set_task_error(self):
         args = {
             "task_id": "mock_task_id",
-            "exception_details": "mock_exception_details"
+            "exception_details": "mock_exception_details",
         }
         self._test(self.client.set_task_error, args)
 
@@ -287,7 +256,7 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
         args = {
             "task_id": "mock_task_id",
             "level": "mock_level",
-            "message": "mock_message"
+            "message": "mock_message",
         }
         self._test(self.client.add_task_event, args, rpc_op='_cast')
 
@@ -297,10 +266,9 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
             "progress_update_index": "mock_progress_update_index",
             "new_current_step": "mock_new_current_step",
             "new_total_steps": None,
-            "new_message": None
+            "new_message": None,
         }
-        self._test(
-            self.client.update_task_progress_update, args, rpc_op='_cast')
+        self._test(self.client.update_task_progress_update, args, rpc_op='_cast')
 
     def test_update_task_progress_update_sync_final(self):
         args = {
@@ -312,10 +280,8 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
         }
         with mock.patch.object(self.client, '_call') as op_mock:
             ctxt = mock.sentinel.ctxt
-            self.client.update_task_progress_update(
-                ctxt, sync=True, **args)
-            op_mock.assert_called_once_with(
-                ctxt, 'update_task_progress_update', **args)
+            self.client.update_task_progress_update(ctxt, sync=True, **args)
+            op_mock.assert_called_once_with(ctxt, 'update_task_progress_update', **args)
 
     def test_create_transfer_schedule(self):
         args = {
@@ -332,36 +298,30 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
         args = {
             "transfer_id": "mock_transfer_id",
             "schedule_id": "mock_schedule_id",
-            "updated_values": "mock_updated_values"
+            "updated_values": "mock_updated_values",
         }
         self._test(self.client.update_transfer_schedule, args)
 
     def test_delete_transfer_schedule(self):
-        args = {
-            "transfer_id": "mock_transfer_id",
-            "schedule_id": "mock_schedule_id"
-        }
+        args = {"transfer_id": "mock_transfer_id", "schedule_id": "mock_schedule_id"}
         self._test(self.client.delete_transfer_schedule, args)
 
     def test_get_transfer_schedules(self):
-        args = {
-            "transfer_id": None,
-            "expired": True
-        }
+        args = {"transfer_id": None, "expired": True}
         self._test(self.client.get_transfer_schedules, args)
 
     def test_get_transfer_schedule(self):
         args = {
             "transfer_id": "mock_transfer_id",
             "schedule_id": "mock_schedule_id",
-            "expired": True
+            "expired": True,
         }
         self._test(self.client.get_transfer_schedule, args)
 
     def test_update_transfer(self):
         args = {
             "transfer_id": "mock_transfer_id",
-            "updated_properties": "mock_updated_properties"
+            "updated_properties": "mock_updated_properties",
         }
         self._test(self.client.update_transfer, args)
 
@@ -375,7 +335,7 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
         args = {
             "region_name": "mock_region_name",
             "description": "mock_description",
-            "enabled": True
+            "enabled": True,
         }
         self._test(self.client.create_region, args)
 
@@ -383,22 +343,15 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
         self._test(self.client.get_regions, args={})
 
     def test_get_region(self):
-        args = {
-            "region_id": "mock_region_id"
-        }
+        args = {"region_id": "mock_region_id"}
         self._test(self.client.get_region, args)
 
     def test_update_region(self):
-        args = {
-            "region_id": "mock_region_id",
-            "updated_values": "mock_updated_values"
-        }
+        args = {"region_id": "mock_region_id", "updated_values": "mock_updated_values"}
         self._test(self.client.update_region, args)
 
     def test_delete_region(self):
-        args = {
-            "region_id": "mock_region_id"
-        }
+        args = {"region_id": "mock_region_id"}
         self._test(self.client.delete_region, args)
 
     def test_register_service(self):
@@ -409,113 +362,95 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
             "enabled": "mock_enabled",
             "mapped_regions": "mock_mapped_regions",
             "providers": None,
-            "specs": None
+            "specs": None,
         }
         self._test(self.client.register_service, args)
 
     def test_check_service_registered(self):
-        args = {
-            "host": "mock_host",
-            "binary": "mock_binary",
-            "topic": "mock_topic"
-        }
+        args = {"host": "mock_host", "binary": "mock_binary", "topic": "mock_topic"}
         self._test(self.client.check_service_registered, args)
 
     def test_refresh_service_status(self):
-        args = {
-            "service_id": "mock_service_id"
-        }
+        args = {"service_id": "mock_service_id"}
         self._test(self.client.refresh_service_status, args)
 
     def test_get_services(self):
         self._test(self.client.get_services, args={})
 
     def test_get_service(self):
-        args = {
-            "service_id": "mock_service_id"
-        }
+        args = {"service_id": "mock_service_id"}
         self._test(self.client.get_service, args)
 
     def test_update_service(self):
         args = {
             "service_id": "mock_service_id",
-            "updated_values": "mock_updated_values"
+            "updated_values": "mock_updated_values",
         }
         self._test(self.client.update_service, args)
 
     def test_delete_service(self):
-        args = {
-            "service_id": "mock_service_id"
-        }
+        args = {"service_id": "mock_service_id"}
         self._test(self.client.delete_service, args)
 
     def test_confirm_transfer_minions_allocation(self):
         args = {
             "transfer_id": "mock_transfer_id",
-            "minion_machine_allocations": "mock_minion_machine_allocations"
+            "minion_machine_allocations": "mock_minion_machine_allocations",
         }
         self._test(self.client.confirm_transfer_minions_allocation, args)
 
     def test_report_transfer_minions_allocation_error(self):
         args = {
             "transfer_id": "mock_transfer_id",
-            "minion_allocation_error_details":
-                "mock_minion_allocation_error_details"
+            "minion_allocation_error_details": "mock_minion_allocation_error_details",
         }
         self._test(self.client.report_transfer_minions_allocation_error, args)
 
     def test_confirm_deployment_minions_allocation(self):
         args = {
             "deployment_id": "mock_deployment_id",
-            "minion_machine_allocations": "mock_minion_machine_allocations"
+            "minion_machine_allocations": "mock_minion_machine_allocations",
         }
         self._test(self.client.confirm_deployment_minions_allocation, args)
 
     def test_report_deployment_minions_allocation_error(self):
         args = {
             "deployment_id": "mock_deployment_id",
-            "minion_allocation_error_details":
-                "mock_minion_allocation_error_details"
+            "minion_allocation_error_details": "mock_minion_allocation_error_details",
         }
-        self._test(
-            self.client.report_deployment_minions_allocation_error, args)
+        self._test(self.client.report_deployment_minions_allocation_error, args)
 
     def test_add_task_progress_update(self):
         args = {
             "task_id": "mock_task_id",
             "message": "mock_message",
             "initial_step": "mock_message",
-            "total_steps": "mock_message"
+            "total_steps": "mock_message",
         }
         ctxt = mock.sentinel.ctxt
 
         with mock.patch.object(self.client, '_cast') as op_mock:
-            self.client.add_task_progress_update(
-                ctxt, return_event=False, **args)
-            op_mock.assert_called_once_with(
-                ctxt, 'add_task_progress_update', **args)
+            self.client.add_task_progress_update(ctxt, return_event=False, **args)
+            op_mock.assert_called_once_with(ctxt, 'add_task_progress_update', **args)
 
         with mock.patch.object(self.client, '_call') as op_mock:
-            self.client.add_task_progress_update(
-                ctxt, return_event=True, **args)
-            op_mock.assert_called_once_with(
-                ctxt, 'add_task_progress_update', **args)
+            self.client.add_task_progress_update(ctxt, return_event=True, **args)
+            op_mock.assert_called_once_with(ctxt, 'add_task_progress_update', **args)
 
 
 class ConductorTaskRpcEventHandlerTestCase(test_base.CoriolisBaseTestCase):
-
     def setUp(self):
         super(ConductorTaskRpcEventHandlerTestCase, self).setUp()
         self.ctxt = mock.Mock()
         self.task_id = mock.sentinel.task_id
-        self.client = client.ConductorTaskRpcEventHandler(
-            self.ctxt, self.task_id)
+        self.client = client.ConductorTaskRpcEventHandler(self.ctxt, self.task_id)
 
     def test_get_progress_update_identifier(self):
         self.assertEqual(
             mock.sentinel.index,
             client.ConductorTaskRpcEventHandler.get_progress_update_identifier(
-                {'index': mock.sentinel.index})
+                {'index': mock.sentinel.index}
+            ),
         )
 
     @mock.patch.object(client.ConductorClient, 'add_task_progress_update')
@@ -525,19 +460,17 @@ class ConductorTaskRpcEventHandlerTestCase(test_base.CoriolisBaseTestCase):
         total_steps = mock.sentinel.total_steps
         return_event = False
         result = self.client.add_progress_update(
-            message, initial_step, total_steps, return_event)
-
-        self.assertEqual(
-            mock_add_task_progress_update.return_value,
-            result
+            message, initial_step, total_steps, return_event
         )
+
+        self.assertEqual(mock_add_task_progress_update.return_value, result)
         mock_add_task_progress_update.assert_called_once_with(
             self.ctxt,
             self.task_id,
             message,
             initial_step=initial_step,
             total_steps=total_steps,
-            return_event=return_event
+            return_event=return_event,
         )
 
     @mock.patch.object(client.ConductorClient, 'update_task_progress_update')
@@ -548,7 +481,8 @@ class ConductorTaskRpcEventHandlerTestCase(test_base.CoriolisBaseTestCase):
         new_message = None
 
         self.client.update_progress_update(
-            update_identifier, new_current_step, new_total_steps, new_message)
+            update_identifier, new_current_step, new_total_steps, new_message
+        )
 
         mock_update_task_progress_update.assert_called_once_with(
             self.ctxt,
@@ -568,8 +502,5 @@ class ConductorTaskRpcEventHandlerTestCase(test_base.CoriolisBaseTestCase):
         self.client.add_event(message, level)
 
         mock_add_task_event.assert_called_once_with(
-            self.ctxt,
-            self.task_id,
-            level,
-            message
+            self.ctxt, self.task_id, level, message
         )

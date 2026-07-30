@@ -6,7 +6,6 @@ from unittest import mock
 from coriolis.minion_manager.rpc import client
 from coriolis.tests import test_base
 
-
 CREATE_MINION_POOL_ARGS = {
     "name": "pool_name",
     "endpoint_id": "endpoint_id",
@@ -16,32 +15,29 @@ CREATE_MINION_POOL_ARGS = {
     "minimum_minions": 1,
     "maximum_minions": 2,
     "minion_max_idle_time": 3,
-    "minion_retention_strategy": "strategy"
+    "minion_retention_strategy": "strategy",
 }
 
 
 UPDATE_MINION_POOL_PROGRESS_UPDATE_ARGS = {
     "minion_pool_id": "pool_id",
     "progress_update_index": 1,
-    "new_current_step": 2
+    "new_current_step": 2,
 }
 
 ADD_MINION_POOL_EVENT_ARGS = {
     "minion_pool_id": "pool_id",
     "level": "INFO",
-    "message": "test_message"
+    "message": "test_message",
 }
 
 ENDPOINT_OPT_ARGS = {
     "endpoint_id": "endpoint_id",
     "env": "env",
-    "option_names": ["opt1", "opt2"]
+    "option_names": ["opt1", "opt2"],
 }
 
-POOL_VALIDATION_ARGS = {
-    "endpoint_id": "endpoint_id",
-    "pool_environment": "pool_env"
-}
+POOL_VALIDATION_ARGS = {"endpoint_id": "endpoint_id", "pool_environment": "pool_env"}
 
 
 class MinionManagerClientTestCase(test_base.CoriolisRPCClientTestCase):
@@ -64,7 +60,8 @@ class MinionManagerClientTestCase(test_base.CoriolisRPCClientTestCase):
 
         result = client.MinionManagerClient()
         mock_target.assert_called_once_with(
-            topic='coriolis_minion_manager', version=client.VERSION)
+            topic='coriolis_minion_manager', version=client.VERSION
+        )
 
         self.assertEqual(result._target, mock_target.return_value)
         self.assertEqual(result._timeout, expected_timeout)
@@ -81,9 +78,7 @@ class MinionManagerClientTestCase(test_base.CoriolisRPCClientTestCase):
             "total_steps": 2,
         }
         with mock.patch.object(self.client, '_cast') as mock_cast:
-            self.client.add_minion_pool_progress_update(
-                self.ctxt, **args
-            )
+            self.client.add_minion_pool_progress_update(self.ctxt, **args)
             mock_cast.assert_called_once_with(
                 self.ctxt, 'add_minion_pool_progress_update', **args
             )
@@ -100,16 +95,18 @@ class MinionManagerClientTestCase(test_base.CoriolisRPCClientTestCase):
         args = {
             **UPDATE_MINION_POOL_PROGRESS_UPDATE_ARGS,
             "new_total_steps": None,
-            "new_message": None
+            "new_message": None,
         }
         self._test(
-            self.client.update_minion_pool_progress_update, args,
+            self.client.update_minion_pool_progress_update,
+            args,
             rpc_op='_cast',
         )
 
     def test_add_minion_pool_event(self):
         self._test(
-            self.client.add_minion_pool_event, ADD_MINION_POOL_EVENT_ARGS,
+            self.client.add_minion_pool_event,
+            ADD_MINION_POOL_EVENT_ARGS,
             rpc_op='_cast',
         )
 
@@ -118,132 +115,114 @@ class MinionManagerClientTestCase(test_base.CoriolisRPCClientTestCase):
 
     def test_validate_minion_pool_selections_for_action(self):
         args = {"action": "test_action"}
-        self._test(
-            self.client.validate_minion_pool_selections_for_action, args
-        )
+        self._test(self.client.validate_minion_pool_selections_for_action, args)
 
     def test_allocate_minion_machines_for_transfer(self):
         args = {"transfer": "test_transfer"}
         self._test(
-            self.client.allocate_minion_machines_for_transfer, args,
+            self.client.allocate_minion_machines_for_transfer,
+            args,
             rpc_op='_cast',
-            server_fun_name='allocate_minion_machines_for_transfer'
+            server_fun_name='allocate_minion_machines_for_transfer',
         )
 
     def test_allocate_minion_machines_for_deployment(self):
         args = {
             "deployment": "test_deployment",
             "include_transfer_minions": True,
-            "include_osmorphing_minions": True
+            "include_osmorphing_minions": True,
         }
         self._test(
-            self.client.allocate_minion_machines_for_deployment, args,
+            self.client.allocate_minion_machines_for_deployment,
+            args,
             rpc_op='_cast',
-            server_fun_name='allocate_minion_machines_for_deployment'
+            server_fun_name='allocate_minion_machines_for_deployment',
         )
 
     def test_deallocate_minion_machine(self):
         args = {"minion_machine_id": "test_id"}
         self._test(
-            self.client.deallocate_minion_machine, args,
+            self.client.deallocate_minion_machine,
+            args,
             rpc_op='_cast',
         )
 
     def test_deallocate_minion_machines_for_action(self):
         args = {"action_id": "test_id"}
         self._test(
-            self.client.deallocate_minion_machines_for_action, args,
+            self.client.deallocate_minion_machines_for_action,
+            args,
             rpc_op='_cast',
         )
 
     def test_create_minion_pool(self):
-        args = {
-            **CREATE_MINION_POOL_ARGS,
-            "notes": None,
-            "skip_allocation": False
-        }
+        args = {**CREATE_MINION_POOL_ARGS, "notes": None, "skip_allocation": False}
         self._test(self.client.create_minion_pool, args)
 
     def test_set_up_shared_minion_pool_resources(self):
-        args = {
-            "minion_pool_id": self.minion_pool_id
-        }
+        args = {"minion_pool_id": self.minion_pool_id}
         self._test(
-            self.client.set_up_shared_minion_pool_resources, args,
+            self.client.set_up_shared_minion_pool_resources,
+            args,
         )
 
     def test_tear_down_shared_minion_pool_resources(self):
-        args = {
-            "minion_pool_id": self.minion_pool_id,
-            "force": False
-        }
+        args = {"minion_pool_id": self.minion_pool_id, "force": False}
         self._test(
-            self.client.tear_down_shared_minion_pool_resources, args,
+            self.client.tear_down_shared_minion_pool_resources,
+            args,
         )
 
     def test_allocate_minion_pool(self):
-        args = {
-            "minion_pool_id": self.minion_pool_id
-        }
+        args = {"minion_pool_id": self.minion_pool_id}
         self._test(self.client.allocate_minion_pool, args)
 
     def test_refresh_minion_pool(self):
-        args = {
-            "minion_pool_id": self.minion_pool_id
-        }
+        args = {"minion_pool_id": self.minion_pool_id}
         self._test(self.client.refresh_minion_pool, args)
 
     def test_deallocate_minion_pool(self):
-        args = {
-            "minion_pool_id": self.minion_pool_id,
-            "force": False
-        }
+        args = {"minion_pool_id": self.minion_pool_id, "force": False}
         self._test(self.client.deallocate_minion_pool, args)
 
     def test_get_minion_pools(self):
         self._test(self.client.get_minion_pools, {})
 
     def test_get_minion_pool(self):
-        args = {
-            "minion_pool_id": self.minion_pool_id
-        }
+        args = {"minion_pool_id": self.minion_pool_id}
         self._test(self.client.get_minion_pool, args)
 
     def test_update_minion_pool(self):
         args = {
             "minion_pool_id": self.minion_pool_id,
-            "updated_values": {"opt1": "value1"}
+            "updated_values": {"opt1": "value1"},
         }
         self._test(self.client.update_minion_pool, args)
 
     def test_delete_minion_pool(self):
-        args = {
-            "minion_pool_id": self.minion_pool_id
-        }
+        args = {"minion_pool_id": self.minion_pool_id}
         self._test(self.client.delete_minion_pool, args)
 
     def test_get_endpoint_source_minion_pool_options(self):
         self._test(
-            self.client.get_endpoint_source_minion_pool_options,
-            ENDPOINT_OPT_ARGS
+            self.client.get_endpoint_source_minion_pool_options, ENDPOINT_OPT_ARGS
         )
 
     def test_get_endpoint_destination_minion_pool_options(self):
         self._test(
-            self.client.get_endpoint_destination_minion_pool_options,
-            ENDPOINT_OPT_ARGS
+            self.client.get_endpoint_destination_minion_pool_options, ENDPOINT_OPT_ARGS
         )
 
     def test_validate_endpoint_source_minion_pool_options(self):
         self._test(
             self.client.validate_endpoint_source_minion_pool_options,
-            POOL_VALIDATION_ARGS
+            POOL_VALIDATION_ARGS,
         )
 
     def test_validate_endpoint_destination_minion_pool_options(self):
         self._test(
             self.client.validate_endpoint_destination_minion_pool_options,
-            POOL_VALIDATION_ARGS
+            POOL_VALIDATION_ARGS,
         )
 
 
@@ -256,8 +235,7 @@ class MinionManagerPoolRpcEventHandlerTestCase(test_base.CoriolisBaseTestCase):
         self.pool_id = mock.sentinel.pool_id
         self.message = mock.sentinel.message
 
-        self.client = client.MinionManagerPoolRpcEventHandler(
-            self.ctxt, self.pool_id)
+        self.client = client.MinionManagerPoolRpcEventHandler(self.ctxt, self.pool_id)
 
     @mock.patch.object(client, 'MinionManagerClient')
     def test__rpc_minion_manager_client(self, mock_client):
@@ -278,49 +256,50 @@ class MinionManagerPoolRpcEventHandlerTestCase(test_base.CoriolisBaseTestCase):
     def test_get_progress_update_identifier(self):
         progress_update = {"index": 2}
 
-        result = client.MinionManagerPoolRpcEventHandler.\
-            get_progress_update_identifier(progress_update)
+        result = client.MinionManagerPoolRpcEventHandler.get_progress_update_identifier(
+            progress_update
+        )
 
         self.assertEqual(result, progress_update['index'])
 
-    @mock.patch.object(
-        client.MinionManagerClient, 'add_minion_pool_progress_update'
-    )
+    @mock.patch.object(client.MinionManagerClient, 'add_minion_pool_progress_update')
     def test_add_progress_update(self, mock_add_minion_pool_progress_update):
         result = self.client.add_progress_update(
             self.message, initial_step=1, total_steps=3, return_event=False
         )
 
         mock_add_minion_pool_progress_update.assert_called_once_with(
-            self.ctxt, self.pool_id, self.message, initial_step=1,
-            total_steps=3, return_event=False
+            self.ctxt,
+            self.pool_id,
+            self.message,
+            initial_step=1,
+            total_steps=3,
+            return_event=False,
         )
-        self.assertEqual(
-            result, mock_add_minion_pool_progress_update.return_value
-        )
+        self.assertEqual(result, mock_add_minion_pool_progress_update.return_value)
 
-    @mock.patch.object(
-        client.MinionManagerClient, 'update_minion_pool_progress_update'
-    )
-    def test_update_progress_update(self,
-                                    mock_update_minion_pool_progress_update):
+    @mock.patch.object(client.MinionManagerClient, 'update_minion_pool_progress_update')
+    def test_update_progress_update(self, mock_update_minion_pool_progress_update):
         self.client.update_progress_update(
             mock.sentinel.update_identifier, mock.sentinel.new_current_step
         )
 
         mock_update_minion_pool_progress_update.assert_called_once_with(
-            self.ctxt, self.pool_id, mock.sentinel.update_identifier,
-            mock.sentinel.new_current_step, new_total_steps=None,
-            new_message=None
+            self.ctxt,
+            self.pool_id,
+            mock.sentinel.update_identifier,
+            mock.sentinel.new_current_step,
+            new_total_steps=None,
+            new_message=None,
         )
 
     @mock.patch.object(client.MinionManagerClient, 'add_minion_pool_event')
     def test_add_event(self, mock_add_minion_pool_event):
         result = self.client.add_event(
-            self.message, level=client.constants.TASK_EVENT_INFO)
+            self.message, level=client.constants.TASK_EVENT_INFO
+        )
 
         mock_add_minion_pool_event.assert_called_once_with(
-            self.ctxt, self.pool_id, client.constants.TASK_EVENT_INFO,
-            self.message
+            self.ctxt, self.pool_id, client.constants.TASK_EVENT_INFO, self.message
         )
         self.assertIsNone(result)

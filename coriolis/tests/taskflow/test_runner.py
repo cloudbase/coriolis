@@ -22,8 +22,11 @@ class TaskFlowRunnerTestCase(test_base.CoriolisBaseTestCase):
     def setUp(self):
         super(TaskFlowRunnerTestCase, self).setUp()
         self.runner = runner.TaskFlowRunner(
-            'svc_name', runner.TASKFLOW_EXECUTION_ORDER_PARALLEL,
-            runner.TASKFLOW_EXECUTOR_THREADED, 1)
+            'svc_name',
+            runner.TASKFLOW_EXECUTION_ORDER_PARALLEL,
+            runner.TASKFLOW_EXECUTOR_THREADED,
+            1,
+        )
         self.mock_flow = mock.Mock()
         self.mock_engine = mock.Mock()
         self.mock_mp_log_q = mock.Mock()
@@ -34,7 +37,7 @@ class TaskFlowRunnerTestCase(test_base.CoriolisBaseTestCase):
         details = {
             'flow_name': 'flow_name',
             'flow_uuid': 'flow_uuid',
-            'old_state': 'old_state'
+            'old_state': 'old_state',
         }
 
         with self.assertLogs('coriolis.taskflow.runner', level=logging.DEBUG):
@@ -45,7 +48,7 @@ class TaskFlowRunnerTestCase(test_base.CoriolisBaseTestCase):
         details = {
             'task_name': 'task_name',
             'task_uuid': 'task_uuid',
-            'old_state': 'old_state'
+            'old_state': 'old_state',
         }
 
         with self.assertLogs('coriolis.taskflow.runner', level=logging.DEBUG):
@@ -56,16 +59,21 @@ class TaskFlowRunnerTestCase(test_base.CoriolisBaseTestCase):
         result = self.runner._setup_engine_for_flow(self.mock_flow)
 
         mock_load.assert_called_once_with(
-            self.mock_flow, None, executor=self.runner._executor,
+            self.mock_flow,
+            None,
+            executor=self.runner._executor,
             engine=self.runner._execution_order,
-            max_workers=self.runner._max_workers)
+            max_workers=self.runner._max_workers,
+        )
 
         engine = mock_load.return_value
 
         engine.notifier.register.assert_called_once_with(
-            mock.ANY, self.runner._log_flow_transition)
+            mock.ANY, self.runner._log_flow_transition
+        )
         engine.atom_notifier.register.assert_called_once_with(
-            mock.ANY, self.runner._log_task_transition)
+            mock.ANY, self.runner._log_task_transition
+        )
 
         self.assertEqual(engine, result)
 
@@ -91,8 +99,9 @@ class TaskFlowRunnerTestCase(test_base.CoriolisBaseTestCase):
         self.mock_engine.run.side_effect = CoriolisTestException()
 
         with self.assertLogs('coriolis.taskflow.runner', level=logging.WARN):
-            self.assertRaises(CoriolisTestException, self.runner._run_flow,
-                              self.mock_flow)
+            self.assertRaises(
+                CoriolisTestException, self.runner._run_flow, self.mock_flow
+            )
         self.mock_engine.compile.assert_called_once()
         self.mock_engine.prepare.assert_called_once()
         self.mock_engine.run.assert_called_once()
@@ -107,28 +116,32 @@ class TaskFlowRunnerTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch('coriolis.utils.setup_logging')
     @mock.patch('oslo_log.log.getLogger')
     @mock.patch('logging.handlers.QueueHandler')
-    def test_setup_task_process_logging(self, mock_queue_handler,
-                                        mock_get_logger, mock_setup_logging,
-                                        mock_conf):
+    def test_setup_task_process_logging(
+        self, mock_queue_handler, mock_get_logger, mock_setup_logging, mock_conf
+    ):
         mock_handler = mock.Mock()
         mock_get_logger.return_value.logger.handlers = [mock_handler]
 
         self.runner._setup_task_process_logging(self.mock_mp_log_q)
-        mock_conf.assert_called_once_with(sys.argv[1:], project='coriolis',
-                                          version='1.0.0')
+        mock_conf.assert_called_once_with(
+            sys.argv[1:], project='coriolis', version='1.0.0'
+        )
         mock_setup_logging.assert_called_once()
         mock_get_logger.assert_called_once_with(None)
         mock_queue_handler.assert_called_once_with(self.mock_mp_log_q)
-        mock_get_logger.return_value.logger.removeHandler.\
-            assert_called_once_with(mock_handler)
+        mock_get_logger.return_value.logger.removeHandler.assert_called_once_with(
+            mock_handler
+        )
         mock_get_logger.return_value.logger.addHandler.assert_called_once_with(
-            mock_queue_handler.return_value)
+            mock_queue_handler.return_value
+        )
 
     @mock.patch.object(runner.TaskFlowRunner, '_setup_task_process_logging')
     @mock.patch.object(runner.TaskFlowRunner, '_run_flow')
     def test_run_flow_in_process(self, mock_run_flow, mock_setup_logging):
-        self.runner._run_flow_in_process(self.mock_flow, self.mock_mp_log_q,
-                                         store=self.store)
+        self.runner._run_flow_in_process(
+            self.mock_flow, self.mock_mp_log_q, store=self.store
+        )
 
         mock_setup_logging.assert_called_once_with(self.mock_mp_log_q)
         mock_run_flow.assert_called_once_with(self.mock_flow, store=self.store)
@@ -136,16 +149,13 @@ class TaskFlowRunnerTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(logging, 'getLogger')
     def test__handle_mp_log_events(self, mock_get_logger):
         mock_p = mock.Mock()
-        self.mock_mp_log_q.get.side_effect = [mock.sentinel.record,
-                                              queue.Empty, None]
+        self.mock_mp_log_q.get.side_effect = [mock.sentinel.record, queue.Empty, None]
         mock_p.is_alive.return_value = True
 
         result = self.runner._handle_mp_log_events(mock_p, self.mock_mp_log_q)
-        mock_get_logger.assert_called_once_with(
-            mock.sentinel.record.name)
+        mock_get_logger.assert_called_once_with(mock.sentinel.record.name)
         self.assertIsNone(result)
-        mock_get_logger.return_value.handle.assert_called_with(
-            mock.sentinel.record)
+        mock_get_logger.return_value.handle.assert_called_with(mock.sentinel.record)
 
     def test__handle_mp_log_events_process_dead(self):
         mock_p = mock.Mock()
@@ -164,22 +174,24 @@ class TaskFlowRunnerTestCase(test_base.CoriolisBaseTestCase):
         mock_get_context.return_value = mock_mp_ctx
 
         self.runner._run_flow_in_process = mock.Mock()
-        result = self.runner._spawn_process_flow(self.mock_flow,
-                                                 store=self.store)
+        result = self.runner._spawn_process_flow(self.mock_flow, store=self.store)
         self.assertIsNone(result)
 
         mock_get_context.assert_called_once_with('spawn')
         mock_mp_ctx.Process.assert_called_once_with(
             target=self.runner._run_flow_in_process,
-            args=(self.mock_flow, mock_mp_ctx.Queue.return_value, self.store))
+            args=(self.mock_flow, mock_mp_ctx.Queue.return_value, self.store),
+        )
         mock_process.start.assert_called_once_with()
         mock_spawn.assert_called_once_with(
             target=self.runner._handle_mp_log_events,
             args=(mock_process, mock_mp_ctx.Queue.return_value),
-            daemon=True)
+            daemon=True,
+        )
 
     @mock.patch.object(runner.TaskFlowRunner, '_spawn_process_flow')
     def test_run_flow_in_background(self, mock_spawn_process_flow):
         self.runner.run_flow_in_background(self.mock_flow, store=self.store)
-        mock_spawn_process_flow.assert_called_once_with(self.mock_flow,
-                                                        store=self.store)
+        mock_spawn_process_flow.assert_called_once_with(
+            self.mock_flow, store=self.store
+        )

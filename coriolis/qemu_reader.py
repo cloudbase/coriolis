@@ -4,8 +4,7 @@
 import contextlib
 import ctypes
 
-from coriolis import exception
-from coriolis import qemu
+from coriolis import exception, qemu
 
 
 class QEMUDiskImageReaderImpl(object):
@@ -37,7 +36,8 @@ class QEMUDiskImageReaderImpl(object):
 
         options = qemu.qdict_new()
         blk = qemu.blk_new_open(
-            self._path.encode(), None, options, 0, ctypes.byref(error))
+            self._path.encode(), None, options, 0, ctypes.byref(error)
+        )
         if not blk:
             raise exception.QEMUException(error.contents.msg.decode())
 
@@ -52,9 +52,10 @@ class QEMUDiskImageReaderImpl(object):
 
     def _get_sectors(self, offset, size):
         start_sector = offset >> qemu.BDRV_SECTOR_BITS
-        return (start_sector,
-                min(self._total_sectors - start_sector,
-                    size >> qemu.BDRV_SECTOR_BITS))
+        return (
+            start_sector,
+            min(self._total_sectors - start_sector, size >> qemu.BDRV_SECTOR_BITS),
+        )
 
     def get_block_status(self, offset, size):
         start_sector, num_sectors = self._get_sectors(offset, size)
@@ -64,11 +65,15 @@ class QEMUDiskImageReaderImpl(object):
         while True:
             pnum = ctypes.c_int(0)
             status = qemu.bdrv_get_block_status_above(
-                self._bs, None, start_sector + sectors, num_sectors - sectors,
-                ctypes.byref(pnum), ctypes.byref(self._block_driver_state))
+                self._bs,
+                None,
+                start_sector + sectors,
+                num_sectors - sectors,
+                ctypes.byref(pnum),
+                ctypes.byref(self._block_driver_state),
+            )
             if status < 0 or pnum.value == 0:
-                raise exception.QEMUException(
-                    'bdrv_get_block_status_above failed')
+                raise exception.QEMUException('bdrv_get_block_status_above failed')
 
             allocated = (status & qemu.BDRV_BLOCK_ALLOCATED) > 0
             zero_block = (status & qemu.BDRV_BLOCK_ZERO) > 0
@@ -94,8 +99,7 @@ class QEMUDiskImageReaderImpl(object):
             self._buf_size = size
 
         read_size = num_sectors << qemu.BDRV_SECTOR_BITS
-        ret = qemu.blk_pread(
-            self._blk, offset, self._buf, read_size)
+        ret = qemu.blk_pread(self._blk, offset, self._buf, read_size)
         if ret < 0:
             raise exception.QEMUException("blk_pread failed")
 

@@ -20,15 +20,12 @@ class DatabaseSqlalchemyMigrationTestCase(test_base.CoriolisBaseTestCase):
 
         result = migration.db_sync(mock.sentinel.engine, mock.sentinel.version)
 
-        self.assertEqual(
-            mock_db_sync.return_value,
-            result
-        )
+        self.assertEqual(mock_db_sync.return_value, result)
         mock_db_sync.assert_called_once_with(
             mock.sentinel.engine,
             "/abspath/migrate_repo",
             mock.sentinel.version,
-            init_version=0
+            init_version=0,
         )
 
     @mock.patch.object(os.path, 'abspath')
@@ -40,9 +37,7 @@ class DatabaseSqlalchemyMigrationTestCase(test_base.CoriolisBaseTestCase):
 
         self.assertEqual(mock_db_version.return_value, result)
         mock_db_version.assert_called_once_with(
-            mock.sentinel.engine,
-            "/abspath/migrate_repo",
-            0
+            mock.sentinel.engine, "/abspath/migrate_repo", 0
         )
 
     @mock.patch.object(os.path, 'abspath')
@@ -51,11 +46,10 @@ class DatabaseSqlalchemyMigrationTestCase(test_base.CoriolisBaseTestCase):
         mock_abspath.return_value = "/abspath"
 
         result = migration.db_version_control(
-            mock.sentinel.engine, mock.sentinel.version)
+            mock.sentinel.engine, mock.sentinel.version
+        )
 
         self.assertEqual(mock_db_version_control.return_value, result)
         mock_db_version_control.assert_called_once_with(
-            mock.sentinel.engine,
-            "/abspath/migrate_repo",
-            mock.sentinel.version
+            mock.sentinel.engine, "/abspath/migrate_repo", mock.sentinel.version
         )

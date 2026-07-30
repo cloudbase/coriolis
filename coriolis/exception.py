@@ -16,26 +16,23 @@
 
 import sys
 
+import six
+import webob.exc
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_versionedobjects import exception as obj_exc
-import six
-import webob.exc
-from webob.util import status_generic_reasons
-from webob.util import status_reasons
+from webob.util import status_generic_reasons, status_reasons
 
-from coriolis.i18n import _, _LE  # noqa
+from coriolis.i18n import _LE, _  # noqa
 
 LOG = logging.getLogger(__name__)
 
 CONF = cfg.CONF
 
-TASK_ALREADY_CANCELLING_EXCEPTION_FMT = (
-    "Task %(task_id)s is in CANCELLING status.")
+TASK_ALREADY_CANCELLING_EXCEPTION_FMT = "Task %(task_id)s is in CANCELLING status."
 
 
 class ConvertedException(webob.exc.WSGIHTTPException):
-
     def __init__(self, code=500, title="", explanation=""):
         self.code = code
         # There is a strict rule about constructing status line for HTTP:
@@ -69,6 +66,7 @@ class CoriolisException(Exception):
     with the keyword arguments provided to the constructor.
 
     """
+
     message = _("An unknown exception occurred.")
     code = 500
     headers = {}
@@ -97,8 +95,9 @@ class CoriolisException(Exception):
                 # log the issue and the kwargs
                 LOG.exception(_LE('Exception in string format operation'))
                 for name, value in kwargs.items():
-                    LOG.error(_LE("%(name)s: %(value)s"),
-                              {'name': name, 'value': value})
+                    LOG.error(
+                        _LE("%(name)s: %(value)s"), {'name': name, 'value': value}
+                    )
                 if CONF.fatal_exception_format_errors:
                     six.reraise(*exc_info)
                 # at least get the core message out if something happened
@@ -209,18 +208,15 @@ class InvalidAuthKey(Invalid):
 
 
 class InvalidConfigurationValue(Invalid):
-    message = _('Value "%(value)s" is not valid for '
-                'configuration option "%(option)s"')
+    message = _('Value "%(value)s" is not valid for configuration option "%(option)s"')
 
 
 class InvalidTaskState(Invalid):
-    message = _(
-        'Task "%(task_id)s" in in an invalid state: %(task_state)s')
+    message = _('Task "%(task_id)s" in in an invalid state: %(task_state)s')
 
 
 class InvalidMinionPoolState(Invalid):
-    message = _(
-        'Minion pool "%(pool_id)s" in in an invalid state: %(pool_state)s')
+    message = _('Minion pool "%(pool_id)s" in in an invalid state: %(pool_state)s')
 
 
 class TaskIsCancelling(InvalidTaskState):
@@ -260,9 +256,7 @@ class TaskFieldsConflict(CoriolisException):
 
 
 class TaskDependencyException(CoriolisException):
-    message = _(
-        "Execution task has non-existent tasks referenced as dependencies."
-    )
+    message = _("Execution task has non-existent tasks referenced as dependencies.")
 
 
 class ServiceUnavailable(Invalid):
@@ -290,9 +284,7 @@ class NotFound(CoriolisException):
 
 
 class MarkerNotFound(NotFound):
-    message = _(
-        "Could not find database record "
-        "identified by marker: %(marker)s")
+    message = _("Could not find database record identified by marker: %(marker)s")
 
 
 class RegionNotFound(NotFound):
@@ -307,7 +299,8 @@ class OSMorphingToolsNotFound(NotFound):
         'Suggestions include performing any needed OSMorphing steps manually '
         'within the source VM and then re-syncing with the "Skip OS Morphing" '
         'option enabled to bypass this stage, or contacting Cloudbase support '
-        'for further assistance.')
+        'for further assistance.'
+    )
 
 
 class OSDetectToolsNotFound(NotFound):
@@ -319,7 +312,8 @@ class OSDetectToolsNotFound(NotFound):
         'Suggestions include performing any needed OSMorphing steps manually '
         'within the source VM and then re-syncing with the "Skip OS Morphing" '
         'option enabled to bypass this stage, or contacting Cloudbase support '
-        'for further assistance.')
+        'for further assistance.'
+    )
 
 
 class FileNotFound(NotFound):
@@ -339,8 +333,7 @@ class DiskStorageMappingNotFound(NotFound):
 
 
 class StorageBackendNotFound(NotFound):
-    message = _(
-        'Storage backend with name "%(storage_name)s" could not be found.')
+    message = _('Storage backend with name "%(storage_name)s" could not be found.')
 
 
 class ImageNotFound(NotFound):
@@ -432,6 +425,7 @@ class QEMUException(Exception):
 
 
 if six.PY2:
+
     class ConnectionRefusedError(OSError):
         pass
 else:
@@ -442,41 +436,44 @@ class UnrecognizedWorkerInitSystem(CoriolisException):
     message = _(
         "Could not determine init system for temporary worker VM. The image "
         "used for the worker VM must use systemd as an init system for "
-        "Coriolis to be able to use it for data Replication.")
+        "Coriolis to be able to use it for data Replication."
+    )
 
 
 class NoRegionError(CoriolisException):
     safe = True
     code = 503
     message = _(
-        "No Coriolis region is avaialable to process this request at this "
-        "time.")
+        "No Coriolis region is avaialable to process this request at this time."
+    )
 
 
 class NoSuitableRegionError(NoRegionError):
     message = _(
         "No Coriolis Region(s) fitting the criteria of the required operation "
-        "could be found.")
+        "could be found."
+    )
 
 
 class NoServiceError(CoriolisException):
     safe = True
     code = 503
-    message = _(
-        "No service is avaialable to process this request at this time.")
+    message = _("No service is avaialable to process this request at this time.")
 
 
 class NoWorkerServiceError(NoServiceError):
     message = _(
         "No Coriolis Worker Service(s) were found. Please ensure that "
         "at least one or Coriolis Worker Service(s) are registered "
-        "within the Coriolis installation.")
+        "within the Coriolis installation."
+    )
 
 
 class NoSuitableWorkerServiceError(NoServiceError):
     message = _(
         "No suitable Coriolis Worker service was found which fits the "
-        "criteria for the required operation.")
+        "criteria for the required operation."
+    )
 
 
 class OSMorphingException(CoriolisException):
@@ -496,13 +493,15 @@ class FailedPackageInstallationException(PackageManagerOperationException):
         "additional repositories within the source machine which contain the "
         "packages Coriolis requires, or attempt to manually install the "
         "packages on the source machine and then migrate the VM using Coriolis"
-        " with the OSMorphing process disabled. Error was: %(error)s")
+        " with the OSMorphing process disabled. Error was: %(error)s"
+    )
 
 
 class FailedPackageUninstallationException(PackageManagerOperationException):
     message = (
         "Failed to remove unwanted packages (%(package_names)s) through "
-        "%(package_manager)s. Error was: %(error)s")
+        "%(package_manager)s. Error was: %(error)s"
+    )
 
 
 class MinionMachineCommandTimeout(CoriolisException):
@@ -527,7 +526,8 @@ class OSMorphingSSHOperationTimeout(OSMorphingOperationTimeout):
         "Coriolis may have encountered connection issues to the minion machine"
         " or the command execution time exceeds the timeout set. Try extending"
         " the timeout by editing the 'default_osmorphing_operation_timeout' "
-        "in Coriolis' static configuration file.")
+        "in Coriolis' static configuration file."
+    )
 
 
 class OSMorphingWinRMOperationTimeout(OSMorphingOperationTimeout):
@@ -536,19 +536,22 @@ class OSMorphingWinRMOperationTimeout(OSMorphingOperationTimeout):
         "Coriolis may have encountered connection issues to the minion machine"
         " or the command execution time exceeds the timeout set. Try extending"
         " the timeout by editing the 'default_osmorphing_operation_timeout' "
-        "in Coriolis' static configuration file.")
+        "in Coriolis' static configuration file."
+    )
 
 
 class ChecksumAlgorithmMismatch(CoriolisException):
     message = (
         "Checksum algorithm mismatch for disk '%(disk)s': "
-        "source=%(source_alg)s, destination=%(dest_alg)s")
+        "source=%(source_alg)s, destination=%(dest_alg)s"
+    )
 
 
 class ChecksumMismatch(CoriolisException):
     message = (
         "Checksum mismatch for disk '%(disk)s': "
-        "source=%(source_checksum)s, destination=%(dest_checksum)s")
+        "source=%(source_checksum)s, destination=%(dest_checksum)s"
+    )
 
 
 class MigrationLicenceFulfilledException(Invalid):
@@ -556,4 +559,5 @@ class MigrationLicenceFulfilledException(Invalid):
         "The Live Migration operation with ID '%(action_id)s' (licensing "
         "reservation '%(reservation_id)s') has already been fulfilled on "
         "%(fulfilled_at)s. Please create a new Live Migration operation to "
-        "create a new licensing reservation.")
+        "create a new licensing reservation."
+    )

@@ -11,7 +11,6 @@ from coriolis import exception
 from coriolis.osmorphing.osdetect import windows
 from coriolis.tests import test_base
 
-
 WIN_VERSION_PS_OUTPUT = """
 CurrentVersion            : 6.3
 CurrentMajorVersionNumber : 10
@@ -51,7 +50,8 @@ class WindowsOSDetectToolsTestCase(test_base.CoriolisBaseTestCase):
         self.conn.EOL = '\n'
 
         self.windows_os_detect_tools = windows.WindowsOSDetectTools(
-            self.conn, self.os_root_dir, mock.sentinel.operation_timeout)
+            self.conn, self.os_root_dir, mock.sentinel.operation_timeout
+        )
 
     def test_returned_detected_os_info_fields(self):
         expected_base_fields = [
@@ -62,32 +62,33 @@ class WindowsOSDetectToolsTestCase(test_base.CoriolisBaseTestCase):
             "version_number",
             "edition_id",
             "installation_type",
-            "product_name"
+            "product_name",
         ]
 
-        result = (
-            windows.WindowsOSDetectTools.returned_detected_os_info_fields()
-        )
+        result = windows.WindowsOSDetectTools.returned_detected_os_info_fields()
 
         self.assertEqual(result, expected_base_fields)
 
     def test__load_registry_hive(self):
         self.windows_os_detect_tools._load_registry_hive(
-            mock.sentinel.subkey, mock.sentinel.path)
+            mock.sentinel.subkey, mock.sentinel.path
+        )
 
         self.conn.exec_command.assert_called_once_with(
-            "reg.exe", ["load", mock.sentinel.subkey, mock.sentinel.path])
+            "reg.exe", ["load", mock.sentinel.subkey, mock.sentinel.path]
+        )
 
     def test__unload_registry_hive(self):
-        self.windows_os_detect_tools._unload_registry_hive(
-            mock.sentinel.subkey)
+        self.windows_os_detect_tools._unload_registry_hive(mock.sentinel.subkey)
 
         self.conn.exec_command.assert_called_once_with(
-            "reg.exe", ["unload", mock.sentinel.subkey])
+            "reg.exe", ["unload", mock.sentinel.subkey]
+        )
 
     def test__get_ps_fl_value(self):
         result = self.windows_os_detect_tools._get_ps_fl_value(
-            WIN_VERSION_PS_OUTPUT, 'CurrentVersion')
+            WIN_VERSION_PS_OUTPUT, 'CurrentVersion'
+        )
 
         self.assertEqual(result, '6.3')
 
@@ -98,7 +99,7 @@ class WindowsOSDetectToolsTestCase(test_base.CoriolisBaseTestCase):
                 windows.version.LooseVersion("10.0.20348"),
                 "ServerDatacenterEval",
                 "Server",
-                "Windows Server 2022 Datacenter Evaluation"
+                "Windows Server 2022 Datacenter Evaluation",
             ),
         },
         {
@@ -107,45 +108,48 @@ class WindowsOSDetectToolsTestCase(test_base.CoriolisBaseTestCase):
                 "6.3.20348",
                 "ServerDatacenterEval",
                 "Server",
-                "Windows Server 2022 Datacenter Evaluation"
-            )
-        }
+                "Windows Server 2022 Datacenter Evaluation",
+            ),
+        },
     )
     @mock.patch.object(windows.WindowsOSDetectTools, '_load_registry_hive')
     @mock.patch.object(windows.WindowsOSDetectTools, '_unload_registry_hive')
     @mock.patch.object(windows.uuid, 'uuid4')
     def test__get_image_version_info(
-            self, data, mock_uuid4, mock_unload_registry_hive,
-            mock_load_registry_hive):
-        self.conn.exec_ps_command.return_value = (
-            data["ps_output"].replace('\n', os.linesep)
+        self, data, mock_uuid4, mock_unload_registry_hive, mock_load_registry_hive
+    ):
+        self.conn.exec_ps_command.return_value = data["ps_output"].replace(
+            '\n', os.linesep
         )
 
         result = self.windows_os_detect_tools._get_image_version_info()
 
         mock_load_registry_hive.assert_called_once_with(
             "HKLM\\%s" % mock_uuid4.return_value,
-            "%sWindows\\System32\\config\\SOFTWARE" % self.os_root_dir)
+            "%sWindows\\System32\\config\\SOFTWARE" % self.os_root_dir,
+        )
 
         mock_unload_registry_hive.assert_called_once_with(
-            "HKLM\\%s" % mock_uuid4.return_value)
+            "HKLM\\%s" % mock_uuid4.return_value
+        )
 
         self.assertEqual(result, data["expected_result"])
 
     @mock.patch.object(windows.WindowsOSDetectTools, '_load_registry_hive')
     @mock.patch.object(windows.WindowsOSDetectTools, '_unload_registry_hive')
     def test__get_image_version_info_with_exception(
-            self, mock_unload_registry_hive,
-            mock_load_registry_hive):
+        self, mock_unload_registry_hive, mock_load_registry_hive
+    ):
         self.conn.exec_ps_command.return_value = (
-            WIN_VERSION_PS_OUTPUT_MISSING_FIELDS.replace('\n', os.linesep))
+            WIN_VERSION_PS_OUTPUT_MISSING_FIELDS.replace('\n', os.linesep)
+        )
 
         mock_unload_registry_hive.assert_not_called()
         mock_load_registry_hive.assert_not_called()
 
         self.assertRaises(
             exception.CoriolisException,
-            self.windows_os_detect_tools._get_image_version_info
+            self.windows_os_detect_tools._get_image_version_info,
         )
 
     @ddt.data(
@@ -162,7 +166,7 @@ class WindowsOSDetectToolsTestCase(test_base.CoriolisBaseTestCase):
             'installation_type': mock.sentinel.installation_type,
             'product_name': mock.sentinel.product_name,
             'distribution_name': windows.WINDOWS_CLIENT_IDENTIFIER,
-        }
+        },
     )
     @mock.patch.object(windows.WindowsOSDetectTools, '_get_image_version_info')
     def test_detect_os(self, data, mock_get_image_version_info):
@@ -170,7 +174,7 @@ class WindowsOSDetectToolsTestCase(test_base.CoriolisBaseTestCase):
             data['version_number'],
             data['edition_id'],
             data['installation_type'],
-            data['product_name']
+            data['product_name'],
         )
 
         expected_result = {
@@ -181,11 +185,12 @@ class WindowsOSDetectToolsTestCase(test_base.CoriolisBaseTestCase):
             "os_type": windows.constants.OS_TYPE_WINDOWS,
             "distribution_name": data['distribution_name'],
             "release_version": data['product_name'],
-            "friendly_release_name": "Windows %s" % data['product_name']
+            "friendly_release_name": "Windows %s" % data['product_name'],
         }
 
-        with self.assertLogs('coriolis.osmorphing.osdetect.windows',
-                             level=logging.DEBUG):
+        with self.assertLogs(
+            'coriolis.osmorphing.osdetect.windows', level=logging.DEBUG
+        ):
             result = self.windows_os_detect_tools.detect_os()
 
             self.assertEqual(result, expected_result)
@@ -194,9 +199,11 @@ class WindowsOSDetectToolsTestCase(test_base.CoriolisBaseTestCase):
     def test_detect_os_with_exception(self, mock_get_image_version_info):
         mock_get_image_version_info.side_effect = exception.CoriolisException
 
-        with self.assertLogs('coriolis.osmorphing.osdetect.windows',
-                             level=logging.DEBUG):
-            self.assertRaises(exception.CoriolisException,
-                              self.windows_os_detect_tools.detect_os)
+        with self.assertLogs(
+            'coriolis.osmorphing.osdetect.windows', level=logging.DEBUG
+        ):
+            self.assertRaises(
+                exception.CoriolisException, self.windows_os_detect_tools.detect_os
+            )
 
         mock_get_image_version_info.assert_called_once_with()

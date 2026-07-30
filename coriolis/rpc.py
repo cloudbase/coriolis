@@ -1,22 +1,24 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-import coriolis.exception
 import oslo_messaging as messaging
-
 from oslo_config import cfg
 from oslo_log import log as logging
 
+import coriolis.exception
 from coriolis import context
 
-
 rpc_opts = [
-    cfg.StrOpt('messaging_transport_url',
-               default="rabbit://guest:guest@127.0.0.1:5672/",
-               help='Messaging transport url'),
-    cfg.IntOpt('default_messaging_timeout',
-               default=60,
-               help='Number of seconds for messaging timeouts.')
+    cfg.StrOpt(
+        'messaging_transport_url',
+        default="rabbit://guest:guest@127.0.0.1:5672/",
+        help='Messaging transport url',
+    ),
+    cfg.IntOpt(
+        'default_messaging_timeout',
+        default=60,
+        help='Number of seconds for messaging timeouts.',
+    ),
 ]
 
 CONF = cfg.CONF
@@ -24,13 +26,11 @@ CONF.register_opts(rpc_opts)
 
 LOG = logging.getLogger(__name__)
 
-ALLOWED_EXMODS = [
-    coriolis.exception.__name__]
+ALLOWED_EXMODS = [coriolis.exception.__name__]
 _TRANSPORT = None
 
 
 class RequestContextSerializer(messaging.Serializer):
-
     def __init__(self, base):
         self._base = base
 
@@ -53,15 +53,15 @@ class RequestContextSerializer(messaging.Serializer):
 
 def _get_transport():
     return messaging.get_transport(
-        cfg.CONF, CONF.messaging_transport_url,
-        allowed_remote_exmods=ALLOWED_EXMODS)
+        cfg.CONF, CONF.messaging_transport_url, allowed_remote_exmods=ALLOWED_EXMODS
+    )
 
 
 def get_server(target, endpoints, serializer=None):
     serializer = RequestContextSerializer(serializer)
-    return messaging.get_rpc_server(_get_transport(), target, endpoints,
-                                    executor='threading',
-                                    serializer=serializer)
+    return messaging.get_rpc_server(
+        _get_transport(), target, endpoints, executor='threading', serializer=serializer
+    )
 
 
 def init():
@@ -72,7 +72,7 @@ def init():
 
 
 class BaseRPCClient(object):
-    """ Wrapper for 'oslo_messaging.RPCClient' which automatically
+    """Wrapper for 'oslo_messaging.RPCClient' which automatically
     instantiates and cleans up transports for each call.
     """
 
@@ -85,8 +85,7 @@ class BaseRPCClient(object):
         self._transport_conn = None
 
     def __repr__(self):
-        return "<RPCClient(target=%s, timeout=%s)>" % (
-            self._target, self._timeout)
+        return "<RPCClient(target=%s, timeout=%s)>" % (self._target, self._timeout)
 
     @property
     def _transport(self):
@@ -100,9 +99,11 @@ class BaseRPCClient(object):
 
     def _rpc_client(self):
         return messaging.RPCClient(
-            self._transport, self._target,
+            self._transport,
+            self._target,
             serializer=self._serializer,
-            timeout=self._timeout)
+            timeout=self._timeout,
+        )
 
     def _call(self, ctxt, method, **kwargs):
         client = self._rpc_client()

@@ -3,10 +3,8 @@
 
 from oslo_log import log as logging
 
-from coriolis import exception
+from coriolis import exception, utils
 from coriolis.osmorphing import redhat
-from coriolis import utils
-
 
 ORACLE_DISTRO_IDENTIFIER = "Oracle Linux"
 ORACLE_LINUX_SERVER_DISTRO_IDENTIFIER = "Oracle Linux Server"
@@ -15,15 +13,16 @@ LOG = logging.getLogger(__name__)
 
 
 class BaseOracleMorphingTools(redhat.BaseRedHatMorphingTools):
-
     @classmethod
     def check_os_supported(cls, detected_os_info):
         if detected_os_info['distribution_name'] not in (
-                ORACLE_DISTRO_IDENTIFIER,
-                ORACLE_LINUX_SERVER_DISTRO_IDENTIFIER):
+            ORACLE_DISTRO_IDENTIFIER,
+            ORACLE_LINUX_SERVER_DISTRO_IDENTIFIER,
+        ):
             return False
         return cls._version_supported_util(
-            detected_os_info['release_version'], minimum=7)
+            detected_os_info['release_version'], minimum=7
+        )
 
     def enable_repos(self, repo_names):
         """Enable repositories for Oracle Linux.
@@ -49,8 +48,9 @@ class BaseOracleMorphingTools(redhat.BaseRedHatMorphingTools):
             cmd = '%s %s' % (config_manager, enable_flag % repo)
             try:
                 self._exec_cmd_chroot(cmd)
-                LOG.info("Enabled repository '%s' using %s",
-                         repo, config_manager)
+                LOG.info("Enabled repository '%s' using %s", repo, config_manager)
             except exception.CoriolisException:
-                LOG.warning(f"Failed to enable repository {repo}. "
-                            f"Error was: {utils.get_exception_details()}")
+                LOG.warning(
+                    f"Failed to enable repository {repo}. "
+                    f"Error was: {utils.get_exception_details()}"
+                )

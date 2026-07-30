@@ -16,9 +16,11 @@ class BaseSUSEOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         self.ssh = mock.MagicMock()
 
         self.tools = suse.SUSEOSMountTools(
-            self.ssh, mock.sentinel.event_manager,
+            self.ssh,
+            mock.sentinel.event_manager,
             mock.sentinel.ignore_devices,
-            mock.sentinel.operation_timeout)
+            mock.sentinel.operation_timeout,
+        )
 
         mock_connect.assert_called_once_with()
 
@@ -61,44 +63,48 @@ class BaseSUSEOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         self.assertIsNone(result)
 
         mock_setup.assert_called_once_with()
-        mock_retry_on_error.assert_called_once_with(
-            max_attempts=10, sleep_seconds=30)
-        mock_exec_cmd.assert_has_calls([
-            mock.call(
-                "sudo -E zypper --non-interactive install lvm2 psmisc"),
-            mock.call("sudo modprobe dm-mod"),
-            mock.call("sudo rm -f /etc/lvm/devices/system.devices")
-        ])
+        mock_retry_on_error.assert_called_once_with(max_attempts=10, sleep_seconds=30)
+        mock_exec_cmd.assert_has_calls(
+            [
+                mock.call("sudo -E zypper --non-interactive install lvm2 psmisc"),
+                mock.call("sudo modprobe dm-mod"),
+                mock.call("sudo rm -f /etc/lvm/devices/system.devices"),
+            ]
+        )
 
     @mock.patch.object(suse.base.BaseSSHOSMountTools, '_exec_cmd')
     @mock.patch.object(suse.utils, 'restart_service')
     @mock.patch.object(suse.utils, 'test_ssh_path', return_value=True)
     def test__allow_ssh_env_vars(
-            self, mock_test_ssh_path, mock_restart_service, mock_exec_cmd):
+        self, mock_test_ssh_path, mock_restart_service, mock_exec_cmd
+    ):
         result = self.tools._allow_ssh_env_vars()
         self.assertTrue(result)
 
-        mock_test_ssh_path.assert_called_once_with(
-            self.ssh, suse.SSHD_CONFIG_PATH)
+        mock_test_ssh_path.assert_called_once_with(self.ssh, suse.SSHD_CONFIG_PATH)
         mock_exec_cmd.assert_called_once_with(
-            'sudo sed -i -e "\\$aAcceptEnv *" %s' % suse.SSHD_CONFIG_PATH)
+            'sudo sed -i -e "\\$aAcceptEnv *" %s' % suse.SSHD_CONFIG_PATH
+        )
         mock_restart_service.assert_called_once_with(self.ssh, "sshd")
 
     @mock.patch.object(suse.base.BaseSSHOSMountTools, '_exec_cmd')
     @mock.patch.object(suse.utils, 'restart_service')
     @mock.patch.object(suse.utils, 'test_ssh_path', return_value=False)
     def test__allow_ssh_env_vars_usr_etc(
-            self, mock_test_ssh_path, mock_restart_service, mock_exec_cmd):
+        self, mock_test_ssh_path, mock_restart_service, mock_exec_cmd
+    ):
         result = self.tools._allow_ssh_env_vars()
         self.assertTrue(result)
 
-        mock_test_ssh_path.assert_called_once_with(
-            self.ssh, suse.SSHD_CONFIG_PATH)
-        mock_exec_cmd.assert_has_calls([
-            mock.call(
-                "sudo cp %s %s" % (
-                    suse.USR_SSHD_CONFIG_PATH, suse.SSHD_CONFIG_PATH)),
-            mock.call(
-                'sudo sed -i -e "\\$aAcceptEnv *" %s' %
-                suse.SSHD_CONFIG_PATH)])
+        mock_test_ssh_path.assert_called_once_with(self.ssh, suse.SSHD_CONFIG_PATH)
+        mock_exec_cmd.assert_has_calls(
+            [
+                mock.call(
+                    "sudo cp %s %s" % (suse.USR_SSHD_CONFIG_PATH, suse.SSHD_CONFIG_PATH)
+                ),
+                mock.call(
+                    'sudo sed -i -e "\\$aAcceptEnv *" %s' % suse.SSHD_CONFIG_PATH
+                ),
+            ]
+        )
         mock_restart_service.assert_called_once_with(self.ssh, "sshd")

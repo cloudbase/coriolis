@@ -1,18 +1,16 @@
 # Copyright 2023 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+import datetime
+import uuid
 from unittest import mock
 
-import datetime
 import ddt
-import uuid
 
-from coriolis import constants
+from coriolis import constants, exception
 from coriolis.db import api as db_api
-from coriolis import exception
 from coriolis.minion_manager.rpc import server
-from coriolis.tests import test_base
-from coriolis.tests import testutils
+from coriolis.tests import test_base, testutils
 
 
 @ddt.ddt
@@ -24,19 +22,17 @@ class MinionManagerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         self.server = server.MinionManagerServerEndpoint()
 
     @mock.patch.object(
-        server.MinionManagerServerEndpoint,
-        '_check_keys_for_action_dict')
-    @mock.patch.object(db_api, "get_minion_pools")
-    @ddt.file_data(
-        "data/validate_minion_pool_selections_for_action_config.yaml"
+        server.MinionManagerServerEndpoint, '_check_keys_for_action_dict'
     )
+    @mock.patch.object(db_api, "get_minion_pools")
+    @ddt.file_data("data/validate_minion_pool_selections_for_action_config.yaml")
     @ddt.unpack
     def test_validate_minion_pool_selections_for_action(
-            self,
-            mock_get_minion_pools,
-            mock_check_keys_for_action_dict,
-            config,
-            expected_exception,
+        self,
+        mock_get_minion_pools,
+        mock_check_keys_for_action_dict,
+        config,
+        expected_exception,
     ):
         action = config.get("action")
         minion_pools = config.get("minion_pools", [])
@@ -44,7 +40,8 @@ class MinionManagerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_get_minion_pools.return_value = [
             mock.MagicMock(
                 **pool,
-            ) for pool in minion_pools
+            )
+            for pool in minion_pools
         ]
 
         if expected_exception:
@@ -63,35 +60,31 @@ class MinionManagerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         )
 
         mock_check_keys_for_action_dict.assert_called_once_with(
-            action,
-            mock.ANY,
-            operation="minion pool selection validation")
+            action, mock.ANY, operation="minion pool selection validation"
+        )
 
         mock_get_minion_pools.assert_called_once_with(
             mock.sentinel.context,
             include_machines=False,
             include_events=False,
             include_progress_updates=False,
-            to_dict=False)
+            to_dict=False,
+        )
 
     @mock.patch.object(uuid, "uuid4", return_value="new_machine")
-    @mock.patch.object(
-        server.MinionManagerServerEndpoint,
-        "_add_minion_pool_event")
+    @mock.patch.object(server.MinionManagerServerEndpoint, "_add_minion_pool_event")
     @mock.patch.object(db_api, "add_minion_machine")
     @mock.patch.object(db_api, "set_minion_machines_allocation_statuses")
-    @ddt.file_data(
-        "data/make_minion_machine_allocation_subflow_for_action.yaml"
-    )
+    @ddt.file_data("data/make_minion_machine_allocation_subflow_for_action.yaml")
     @ddt.unpack
     def test_make_minion_machine_allocation_subflow_for_action(
-            self,
-            mock_set_minion_machines_allocation_statuses,
-            mock_add_minion_machine,
-            mock_add_minion_pool_event,
-            mock_uuid4,
-            config,
-            expect
+        self,
+        mock_set_minion_machines_allocation_statuses,
+        mock_add_minion_machine,
+        mock_add_minion_pool_event,
+        mock_uuid4,
+        config,
+        expect,
     ):
         expected_exception = expect.get("exception")
         expected_result = expect.get("result")
@@ -112,12 +105,11 @@ class MinionManagerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             self.assertRaises(
                 exception_type,
                 self.server._make_minion_machine_allocation_subflow_for_action,
-                *args)
+                *args,
+            )
             return
 
-        result = self.server\
-            ._make_minion_machine_allocation_subflow_for_action(
-                *args)
+        result = self.server._make_minion_machine_allocation_subflow_for_action(*args)
 
         mappings = expected_result.get("mappings")
         exptected_flow_tasks = expected_result.get("flow_allocations", [])
@@ -125,21 +117,19 @@ class MinionManagerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         num_new_machines = list(mappings.values()).count("new_machine")
 
         # db_api.add_minion_machine is called once for each new machine
-        self.assertEqual(
-            num_new_machines,
-            mock_add_minion_machine.call_count)
+        self.assertEqual(num_new_machines, mock_add_minion_machine.call_count)
 
         num_non_new_machines = len(mappings) - num_new_machines
         if num_non_new_machines:
             # db_api.set_minion_machines_allocation_statuses is called once
             # with the non-new machines
-            mock_set_minion_machines_allocation_statuses\
-                .assert_called_once_with(
-                    mock.sentinel.context,
-                    list(mappings.values())[:num_non_new_machines],
-                    mock.sentinel.action_id,
-                    constants.MINION_MACHINE_STATUS_RESERVED,
-                    refresh_allocation_time=True)
+            mock_set_minion_machines_allocation_statuses.assert_called_once_with(
+                mock.sentinel.context,
+                list(mappings.values())[:num_non_new_machines],
+                mock.sentinel.action_id,
+                constants.MINION_MACHINE_STATUS_RESERVED,
+                refresh_allocation_time=True,
+            )
 
         # _add_minion_pool_event is called once if there're new machines,
         # twice if there's both new and non-new machines
@@ -148,9 +138,7 @@ class MinionManagerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         else:
             add_event_count = 1
 
-        self.assertEqual(
-            add_event_count,
-            mock_add_minion_pool_event.call_count)
+        self.assertEqual(add_event_count, mock_add_minion_pool_event.call_count)
         add_event_args = [
             mock.sentinel.context,
             minion_pool.id,
@@ -158,51 +146,49 @@ class MinionManagerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock.ANY,
         ]
         if add_event_count == 1:
-            mock_add_minion_pool_event.assert_called_once_with(
-                *add_event_args)
+            mock_add_minion_pool_event.assert_called_once_with(*add_event_args)
         else:
-            mock_add_minion_pool_event.assert_has_calls([
-                mock.call(*add_event_args),
-                mock.call(*add_event_args),
-            ])
+            mock_add_minion_pool_event.assert_has_calls(
+                [
+                    mock.call(*add_event_args),
+                    mock.call(*add_event_args),
+                ]
+            )
 
-        flow_allocations = [
-            node.name for node, _ in result.get("flow").iter_nodes()]
+        flow_allocations = [node.name for node, _ in result.get("flow").iter_nodes()]
+
+        self.assertEqual(exptected_flow_tasks, flow_allocations)
 
         self.assertEqual(
-            exptected_flow_tasks,
-            flow_allocations)
-
-        self.assertEqual(
-            mappings,
-            result.get("action_instance_minion_allocation_mappings"))
+            mappings, result.get("action_instance_minion_allocation_mappings")
+        )
 
     @mock.patch.object(db_api, "delete_minion_machine")
     @mock.patch.object(uuid, "uuid4", return_value="new_machine")
-    @mock.patch.object(
-        server.MinionManagerServerEndpoint,
-        "_add_minion_pool_event")
+    @mock.patch.object(server.MinionManagerServerEndpoint, "_add_minion_pool_event")
     @mock.patch.object(db_api, "add_minion_machine")
     @mock.patch.object(db_api, "set_minion_machines_allocation_statuses")
     def test_make_minion_machine_allocation_subflow_for_action_delete(
-            self,
-            mock_set_minion_machines_allocation_statuses,
-            mock_add_minion_machine,
-            mock_add_minion_pool_event,
-            mock_uuid4,
-            mock_delete_minion_machine,
+        self,
+        mock_set_minion_machines_allocation_statuses,
+        mock_add_minion_machine,
+        mock_add_minion_pool_event,
+        mock_uuid4,
+        mock_delete_minion_machine,
     ):
         # This test is a special case of the test above, where the added
         # minion machines are deleted when there's an exception trying to add
         # the last one.
 
-        minion_pool = testutils.DictToObject({
-            "id": "minion_pool_1",
-            "maximum_minions": 5,
-            "minion_machines": [
-                {"id": "machine_1", "allocation_status": "AVAILABLE"},
-            ]
-        })
+        minion_pool = testutils.DictToObject(
+            {
+                "id": "minion_pool_1",
+                "maximum_minions": 5,
+                "minion_machines": [
+                    {"id": "machine_1", "allocation_status": "AVAILABLE"},
+                ],
+            }
+        )
         action_instances = {
             "instance_1": {"name": "Instance 1"},
             "instance_2": {"name": "Instance 2"},
@@ -212,7 +198,10 @@ class MinionManagerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
 
         # two machines are added, but the third one fails
         mock_add_minion_machine.side_effect = [
-            mock.Mock(), mock.Mock(), exception.CoriolisException]
+            mock.Mock(),
+            mock.Mock(),
+            exception.CoriolisException,
+        ]
 
         self.assertRaises(
             exception.CoriolisException,
@@ -221,7 +210,7 @@ class MinionManagerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             minion_pool,
             mock.sentinel.action_id,
             action_instances,
-            mock.sentinel.subflow_name
+            mock.sentinel.subflow_name,
         )
 
         # two machines are deleted
@@ -235,40 +224,36 @@ class MinionManagerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
                     ["machine_1"],
                     mock.sentinel.action_id,
                     constants.MINION_MACHINE_STATUS_RESERVED,
-                    refresh_allocation_time=True),
+                    refresh_allocation_time=True,
+                ),
                 mock.call(
                     mock.sentinel.context,
                     ["machine_1"],
                     None,
                     constants.MINION_MACHINE_STATUS_AVAILABLE,
-                    refresh_allocation_time=False),
-            ])
+                    refresh_allocation_time=False,
+                ),
+            ]
+        )
 
     @mock.patch.object(db_api, "set_minion_machine_allocation_status")
-    @mock.patch.object(
-        server.MinionManagerServerEndpoint,
-        "_add_minion_pool_event")
-    @mock.patch.object(
-        server.MinionManagerServerEndpoint,
-        "_get_minion_pool")
-    @ddt.file_data(
-        "data/get_minion_pool_refresh_flow.yaml"
-    )
+    @mock.patch.object(server.MinionManagerServerEndpoint, "_add_minion_pool_event")
+    @mock.patch.object(server.MinionManagerServerEndpoint, "_get_minion_pool")
+    @ddt.file_data("data/get_minion_pool_refresh_flow.yaml")
     @ddt.unpack
     def test_get_minion_pool_refresh_flow(
-            self,
-            mock_get_minion_pool,
-            mock_add_minion_pool_event,
-            mock_set_minion_machine_allocation_status,
-            config,
-            expect,
+        self,
+        mock_get_minion_pool,
+        mock_add_minion_pool_event,
+        mock_set_minion_machine_allocation_status,
+        config,
+        expect,
     ):
         minion_pool_dict = config.get("minion_pool", {})
         if minion_pool_dict:
             for minion in minion_pool_dict.get("minion_machines", []):
                 if minion.get("last_used_at"):
-                    minion["last_used_at"] = datetime.datetime(
-                        *minion["last_used_at"])
+                    minion["last_used_at"] = datetime.datetime(*minion["last_used_at"])
         minion_pool = testutils.DictToObject(minion_pool_dict, {})
 
         expected_result = expect.get("result", {})
@@ -308,28 +293,27 @@ class MinionManagerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
 
         # Test the flow returned by the function
         flow_tasks = [node.name for node, _ in flow.iter_nodes()]
-        self.assertEqual(
-            exptected_flow_tasks,
-            flow_tasks)
+        self.assertEqual(exptected_flow_tasks, flow_tasks)
 
         # Test DB calls that should be made
         for call in expected_db_calls_include:
             for method, args in call.items():
                 if method == "set_minion_machine_allocation_status":
-                    mock_set_minion_machine_allocation_status\
-                        .assert_any_call(
-                            mock.sentinel.context,
-                            args.get("id"),
-                            args.get("allocation_status"))
+                    mock_set_minion_machine_allocation_status.assert_any_call(
+                        mock.sentinel.context,
+                        args.get("id"),
+                        args.get("allocation_status"),
+                    )
 
         # Test DB calls that should not be made
         for call in expected_db_calls_exclude:
             for method, args in call.items():
                 if method == "set_minion_machine_allocation_status":
-                    assert mock.call(
-                        mock.sentinel.context,
-                        args.get("id"),
-                        args.get("allocation_status"))\
-                        not in mock_set_minion_machine_allocation_status\
-                        .mock_calls, f"Unexpected call to {method}, " \
-                        f"args: {args}"
+                    assert (
+                        mock.call(
+                            mock.sentinel.context,
+                            args.get("id"),
+                            args.get("allocation_status"),
+                        )
+                        not in mock_set_minion_machine_allocation_status.mock_calls
+                    ), f"Unexpected call to {method}, args: {args}"

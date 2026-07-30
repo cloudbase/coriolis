@@ -3,12 +3,12 @@
 
 from unittest import mock
 
-from oslo_middleware import request_id
 import webob
+from oslo_middleware import request_id
 
-from coriolis.api.middleware import auth
-from coriolis.api import wsgi
 from coriolis import context
+from coriolis.api import wsgi
+from coriolis.api.middleware import auth
 from coriolis.tests import test_base
 
 
@@ -22,12 +22,7 @@ class CoriolisKeystoneContextTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(context, "RequestContext")
     @mock.patch.object(auth.CoriolisKeystoneContext, "_get_project_id")
     @mock.patch.object(auth.CoriolisKeystoneContext, "_get_user")
-    def test__call__(
-        self,
-        mock_get_user,
-        mock__get_project_id,
-        mock_request_context
-    ):
+    def test__call__(self, mock_get_user, mock__get_project_id, mock_request_context):
         req_mock = mock.Mock()
 
         expected_roles = ['1', '2', '3']
@@ -40,9 +35,7 @@ class CoriolisKeystoneContextTestCase(test_base.CoriolisBaseTestCase):
         expected_req_id = 'mock_req_id'
 
         req_mock.remote_addr = expected_remote_address
-        req_mock.environ = {
-            request_id.ENV_REQUEST_ID: expected_req_id
-        }
+        req_mock.environ = {request_id.ENV_REQUEST_ID: expected_req_id}
 
         req_mock.headers = {
             'X_ROLE': '1,2,3',
@@ -50,16 +43,12 @@ class CoriolisKeystoneContextTestCase(test_base.CoriolisBaseTestCase):
             'X-Project-Domain-Name': expected_project_domain_name,
             'X-User-Domain-Name': expected_user_domain_name,
             'X_AUTH_TOKEN': expected_auth_token,
-            'X_SERVICE_CATALOG':
-                str(expected_service_catalog).replace("'", '"'),
+            'X_SERVICE_CATALOG': str(expected_service_catalog).replace("'", '"'),
         }
 
         result = self.auth(req_mock)
 
-        self.assertEqual(
-            self.auth.application,
-            result
-        )
+        self.assertEqual(self.auth.application, result)
 
         mock_get_user.assert_called_once_with(req_mock)
         mock__get_project_id.assert_called_once_with(req_mock)
@@ -73,22 +62,18 @@ class CoriolisKeystoneContextTestCase(test_base.CoriolisBaseTestCase):
             auth_token=expected_auth_token,
             remote_address=expected_remote_address,
             service_catalog=expected_service_catalog,
-            request_id=expected_req_id
+            request_id=expected_req_id,
         )
 
         self.assertEqual(
-            req_mock.environ['coriolis.context'],
-            mock_request_context.return_value
+            req_mock.environ['coriolis.context'], mock_request_context.return_value
         )
 
     @mock.patch.object(context, "RequestContext")
     @mock.patch.object(auth.CoriolisKeystoneContext, "_get_project_id")
     @mock.patch.object(auth.CoriolisKeystoneContext, "_get_user")
     def test__call__req_id_is_bytes(
-        self,
-        mock_get_user,
-        mock__get_project_id,
-        mock_request_context
+        self, mock_get_user, mock__get_project_id, mock_request_context
     ):
         req_mock = mock.Mock()
 
@@ -102,9 +87,7 @@ class CoriolisKeystoneContextTestCase(test_base.CoriolisBaseTestCase):
         expected_req_id = 'mock_req_id'
 
         req_mock.remote_addr = expected_remote_address
-        req_mock.environ = {
-            request_id.ENV_REQUEST_ID: expected_req_id.encode()
-        }
+        req_mock.environ = {request_id.ENV_REQUEST_ID: expected_req_id.encode()}
 
         req_mock.headers = {
             'X_ROLE': '1,2,3',
@@ -112,16 +95,12 @@ class CoriolisKeystoneContextTestCase(test_base.CoriolisBaseTestCase):
             'X-Project-Domain-Name': expected_project_domain_name,
             'X-User-Domain-Name': expected_user_domain_name,
             'X_AUTH_TOKEN': expected_auth_token,
-            'X_SERVICE_CATALOG':
-                str(expected_service_catalog).replace("'", '"'),
+            'X_SERVICE_CATALOG': str(expected_service_catalog).replace("'", '"'),
         }
 
         result = self.auth(req_mock)
 
-        self.assertEqual(
-            self.auth.application,
-            result
-        )
+        self.assertEqual(self.auth.application, result)
 
         mock_get_user.assert_called_once_with(req_mock)
         mock__get_project_id.assert_called_once_with(req_mock)
@@ -135,12 +114,11 @@ class CoriolisKeystoneContextTestCase(test_base.CoriolisBaseTestCase):
             auth_token=expected_auth_token,
             remote_address=expected_remote_address,
             service_catalog=expected_service_catalog,
-            request_id=expected_req_id
+            request_id=expected_req_id,
         )
 
         self.assertEqual(
-            req_mock.environ['coriolis.context'],
-            mock_request_context.return_value
+            req_mock.environ['coriolis.context'], mock_request_context.return_value
         )
 
     @mock.patch.object(auth.CoriolisKeystoneContext, "_get_project_id")
@@ -174,11 +152,7 @@ class CoriolisKeystoneContextTestCase(test_base.CoriolisBaseTestCase):
 
         req_mock.headers = {}
 
-        self.assertRaises(
-            webob.exc.HTTPUnauthorized,
-            self.auth,
-            req_mock
-        )
+        self.assertRaises(webob.exc.HTTPUnauthorized, self.auth, req_mock)
 
     def test_get_project_id_tenant_id(self):
         req_mock = mock.Mock()
@@ -191,10 +165,7 @@ class CoriolisKeystoneContextTestCase(test_base.CoriolisBaseTestCase):
 
         result = self.auth._get_project_id(req_mock)
 
-        self.assertEqual(
-            expected_result,
-            result
-        )
+        self.assertEqual(expected_result, result)
 
     def test_get_project_id_tenant(self):
         req_mock = mock.Mock()
@@ -207,21 +178,14 @@ class CoriolisKeystoneContextTestCase(test_base.CoriolisBaseTestCase):
 
         result = self.auth._get_project_id(req_mock)
 
-        self.assertEqual(
-            expected_result,
-            result
-        )
+        self.assertEqual(expected_result, result)
 
     def test_get_project_id_no_tenant(self):
         req_mock = mock.Mock()
 
         req_mock.headers = {}
 
-        self.assertRaises(
-            webob.exc.HTTPBadRequest,
-            self.auth._get_project_id,
-            req_mock
-        )
+        self.assertRaises(webob.exc.HTTPBadRequest, self.auth._get_project_id, req_mock)
 
     def test_get_user(self):
         req_mock = mock.Mock()
@@ -237,10 +201,7 @@ class CoriolisKeystoneContextTestCase(test_base.CoriolisBaseTestCase):
 
         result = self.auth._get_user(req_mock)
 
-        self.assertEqual(
-            expected_result,
-            result
-        )
+        self.assertEqual(expected_result, result)
 
     def test_get_user_has_user(self):
         req_mock = mock.Mock()
@@ -253,10 +214,7 @@ class CoriolisKeystoneContextTestCase(test_base.CoriolisBaseTestCase):
 
         result = self.auth._get_user(req_mock)
 
-        self.assertEqual(
-            expected_result,
-            result
-        )
+        self.assertEqual(expected_result, result)
 
     def test_get_user_has_user_id(self):
         req_mock = mock.Mock()
@@ -269,18 +227,11 @@ class CoriolisKeystoneContextTestCase(test_base.CoriolisBaseTestCase):
 
         result = self.auth._get_user(req_mock)
 
-        self.assertEqual(
-            expected_result,
-            result
-        )
+        self.assertEqual(expected_result, result)
 
     def test_get_user_none(self):
         req_mock = mock.Mock()
 
         req_mock.headers = {}
 
-        self.assertRaises(
-            webob.exc.HTTPUnauthorized,
-            self.auth._get_user,
-            req_mock
-        )
+        self.assertRaises(webob.exc.HTTPUnauthorized, self.auth._get_user, req_mock)

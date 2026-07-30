@@ -1,15 +1,14 @@
 # Copyright 2025 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-from coriolis.osmorphing.netpreserver import ifcfg
-from coriolis.osmorphing.netpreserver import interfaces
-from coriolis.osmorphing.netpreserver import netplan
-from coriolis.osmorphing.netpreserver import nmconnection
+from coriolis.osmorphing.netpreserver import ifcfg, interfaces, netplan, nmconnection
 
-NET_PRESERVERS = [netplan.NetplanNetPreserver,
-                  nmconnection.NmconnectionNetPreserver,
-                  ifcfg.IfcfgNetPreserver,
-                  interfaces.InterfacesNetPreserver]
+NET_PRESERVERS = [
+    netplan.NetplanNetPreserver,
+    nmconnection.NmconnectionNetPreserver,
+    ifcfg.IfcfgNetPreserver,
+    interfaces.InterfacesNetPreserver,
+]
 
 
 def get_net_preserver(osmorphing_tool):

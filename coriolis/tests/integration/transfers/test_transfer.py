@@ -24,7 +24,8 @@ class ReplicaTransferIntegrationTest(base.ReplicaIntegrationTestBase):
 
         # Update the transfer
         execution = self._client.transfers.update(
-            self._transfer.id, {"notes": "updated by integration test"})
+            self._transfer.id, {"notes": "updated by integration test"}
+        )
         self.assertExecutionCompleted(execution.id)
 
         updated = self._client.transfers.get(self._transfer.id)
@@ -78,7 +79,8 @@ class ReplicaTransferIntegrationTest(base.ReplicaIntegrationTestBase):
 
 
 class MinionPoolTransferTest(
-        base.MinionPoolReplicaTestBase, ReplicaTransferIntegrationTest):
+    base.MinionPoolReplicaTestBase, ReplicaTransferIntegrationTest
+):
     """Transfer execution that uses a pre-allocated destination minion pool."""
 
     def test_transfer(self):

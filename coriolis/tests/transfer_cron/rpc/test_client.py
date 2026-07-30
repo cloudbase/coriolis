@@ -20,19 +20,20 @@ class ReplicaCronClientTestCase(test_base.CoriolisBaseTestCase):
         self.client.register(self.ctxt, mock.sentinel.schedule)
 
         self.client._call.assert_called_once_with(
-            self.ctxt, 'register', schedule=mock.sentinel.schedule)
+            self.ctxt, 'register', schedule=mock.sentinel.schedule
+        )
 
     def test_unregister(self):
         self.client._call = mock.Mock()
         self.client.unregister(self.ctxt, mock.sentinel.schedule)
 
         self.client._call.assert_called_once_with(
-            self.ctxt, 'unregister', schedule=mock.sentinel.schedule)
+            self.ctxt, 'unregister', schedule=mock.sentinel.schedule
+        )
 
     def test_get_diagnostics(self):
         self.client._call = mock.Mock()
         result = self.client.get_diagnostics(self.ctxt)
 
-        self.client._call.assert_called_once_with(
-            self.ctxt, 'get_diagnostics')
+        self.client._call.assert_called_once_with(self.ctxt, 'get_diagnostics')
         self.assertEqual(result, self.client._call.return_value)

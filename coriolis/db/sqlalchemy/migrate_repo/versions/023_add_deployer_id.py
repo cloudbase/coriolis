@@ -6,13 +6,10 @@ def upgrade(migrate_engine):
     meta.bind = migrate_engine
 
     deployment = sqlalchemy.Table(
-        'deployment', meta, autoload=True,
-        mysql_engine="InnoDB",
-        mysql_charset="utf8")
-    deployer_id = sqlalchemy.Column(
-        'deployer_id', sqlalchemy.String(36), nullable=True)
-    trust_id = sqlalchemy.Column(
-        'trust_id', sqlalchemy.String(255), nullable=True)
+        'deployment', meta, autoload=True, mysql_engine="InnoDB", mysql_charset="utf8"
+    )
+    deployer_id = sqlalchemy.Column('deployer_id', sqlalchemy.String(36), nullable=True)
+    trust_id = sqlalchemy.Column('trust_id', sqlalchemy.String(255), nullable=True)
     created_columns = []
     try:
         deployment.create_column(deployer_id)

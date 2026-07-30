@@ -9,6 +9,5 @@ def single(schedule, keys=None):
 
 
 def collection(schedules, keys=None):
-    formatted_schedules = [view_utils.format_opt(m, keys)
-                           for m in schedules]
+    formatted_schedules = [view_utils.format_opt(m, keys) for m in schedules]
     return {'schedules': formatted_schedules}

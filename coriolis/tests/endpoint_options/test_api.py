@@ -10,7 +10,7 @@ ARGS = {
     "ctxt": "mock_ctxt",
     "endpoint_id": "mock_endpoint_id",
     "env": "mock_env",
-    "option_names": "mock_option_names"
+    "option_names": "mock_option_names",
 }
 
 
@@ -25,52 +25,52 @@ class EndpointOptionsAPITestCase(test_base.CoriolisBaseTestCase):
 
     def test_get_endpoint_source_options(self):
         result = self.endpoint_options_api.get_endpoint_source_options(**ARGS)
-        (self.endpoint_options_api._rpc_conductor_client.
-            get_endpoint_source_options.assert_called_once_with)(
-            *(ARGS.values())
-        )
+        (
+            self.endpoint_options_api._rpc_conductor_client.get_endpoint_source_options.assert_called_once_with
+        )(*(ARGS.values()))
         self.assertEqual(
-            (self.endpoint_options_api._rpc_conductor_client.
-                get_endpoint_source_options.return_value),
-            result
+            (
+                self.endpoint_options_api._rpc_conductor_client.get_endpoint_source_options.return_value
+            ),
+            result,
         )
 
     def test_get_endpoint_destination_options(self):
-        result = self.endpoint_options_api.get_endpoint_destination_options(
-            **ARGS)
-        (self.endpoint_options_api._rpc_conductor_client.
-            get_endpoint_destination_options.assert_called_once_with)(
-            *(ARGS.values())
-        )
+        result = self.endpoint_options_api.get_endpoint_destination_options(**ARGS)
+        (
+            self.endpoint_options_api._rpc_conductor_client.get_endpoint_destination_options.assert_called_once_with
+        )(*(ARGS.values()))
         self.assertEqual(
-            (self.endpoint_options_api._rpc_conductor_client.
-                get_endpoint_destination_options.return_value),
-            result
+            (
+                self.endpoint_options_api._rpc_conductor_client.get_endpoint_destination_options.return_value
+            ),
+            result,
         )
 
     def test_get_endpoint_source_minion_pool_options(self):
-        result = (self.endpoint_options_api.
-                  get_endpoint_source_minion_pool_options)(**ARGS)
-        (self.endpoint_options_api._rpc_minion_manager_client.
-            get_endpoint_source_minion_pool_options.assert_called_once_with)(
-            *(ARGS.values())
+        result = (self.endpoint_options_api.get_endpoint_source_minion_pool_options)(
+            **ARGS
         )
+        (
+            self.endpoint_options_api._rpc_minion_manager_client.get_endpoint_source_minion_pool_options.assert_called_once_with
+        )(*(ARGS.values()))
         self.assertEqual(
-            (self.endpoint_options_api._rpc_minion_manager_client.
-                get_endpoint_source_minion_pool_options.return_value),
-            result
+            (
+                self.endpoint_options_api._rpc_minion_manager_client.get_endpoint_source_minion_pool_options.return_value
+            ),
+            result,
         )
 
     def test_get_endpoint_destination_minion_pool_options(self):
-        result = (self.endpoint_options_api.
-                  get_endpoint_destination_minion_pool_options)(**ARGS)
-        (self.endpoint_options_api._rpc_minion_manager_client.
-            get_endpoint_destination_minion_pool_options.
-            assert_called_once_with)(
-            *(ARGS.values())
-        )
+        result = (
+            self.endpoint_options_api.get_endpoint_destination_minion_pool_options
+        )(**ARGS)
+        (
+            self.endpoint_options_api._rpc_minion_manager_client.get_endpoint_destination_minion_pool_options.assert_called_once_with
+        )(*(ARGS.values()))
         self.assertEqual(
-            (self.endpoint_options_api._rpc_minion_manager_client.
-                get_endpoint_destination_minion_pool_options.return_value),
-            result
+            (
+                self.endpoint_options_api._rpc_minion_manager_client.get_endpoint_destination_minion_pool_options.return_value
+            ),
+            result,
         )

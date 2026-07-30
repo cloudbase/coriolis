@@ -3,10 +3,8 @@
 
 from oslo_log import log as logging
 
-from coriolis import exception
+from coriolis import exception, utils
 from coriolis.osmorphing import centos
-from coriolis import utils
-
 
 ROCKY_LINUX_DISTRO_IDENTIFIER = "Rocky Linux"
 
@@ -14,16 +12,15 @@ LOG = logging.getLogger(__name__)
 
 
 class BaseRockyLinuxMorphingTools(centos.BaseCentOSMorphingTools):
-
     UEFI_GRUB_LOCATION = "/boot/efi/EFI/rocky"
 
     @classmethod
     def check_os_supported(cls, detected_os_info):
-        if detected_os_info['distribution_name'] != (
-                ROCKY_LINUX_DISTRO_IDENTIFIER):
+        if detected_os_info['distribution_name'] != (ROCKY_LINUX_DISTRO_IDENTIFIER):
             return False
         return cls._version_supported_util(
-            detected_os_info['release_version'], minimum=8)
+            detected_os_info['release_version'], minimum=8
+        )
 
     def enable_repos(self, repo_names):
         """Enable repositories for Rocky Linux.
@@ -39,8 +36,9 @@ class BaseRockyLinuxMorphingTools(centos.BaseCentOSMorphingTools):
             cmd = '%s --set-enabled %s' % (config_manager, repo)
             try:
                 self._exec_cmd_chroot(cmd)
-                LOG.info("Enabled repository '%s' using %s",
-                         repo, config_manager)
+                LOG.info("Enabled repository '%s' using %s", repo, config_manager)
             except exception.CoriolisException:
-                LOG.warning(f"Failed to enable repository {repo}. "
-                            f"Error was: {utils.get_exception_details()}")
+                LOG.warning(
+                    f"Failed to enable repository {repo}. "
+                    f"Error was: {utils.get_exception_details()}"
+                )
