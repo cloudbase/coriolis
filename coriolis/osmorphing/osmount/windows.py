@@ -6,11 +6,8 @@ import uuid
 
 from oslo_log import log as logging
 
-from coriolis import constants
-from coriolis import exception
+from coriolis import constants, exception, utils, wsman
 from coriolis.osmorphing.osmount import base
-from coriolis import utils
-from coriolis import wsman
 
 LOG = logging.getLogger(__name__)
 
@@ -29,11 +26,12 @@ class WindowsMountTools(base.BaseOSMountTools):
         host = connection_info["ip"]
         port = connection_info.get("port", 5986)
         self._event_manager.progress_update(
-            "Connecting to WinRM host: %(host)s:%(port)s" %
-            {"host": host, "port": port})
+            "Connecting to WinRM host: %(host)s:%(port)s" % {"host": host, "port": port}
+        )
 
         self._conn = wsman.WSManConnection.from_connection_info(
-            connection_info, self._osmount_operation_timeout)
+            connection_info, self._osmount_operation_timeout
+        )
 
     def get_connection(self):
         return self._conn
@@ -41,7 +39,8 @@ class WindowsMountTools(base.BaseOSMountTools):
     def check_os(self):
         try:
             version_info = self._conn.exec_ps_command(
-                "(get-ciminstance Win32_OperatingSystem).Caption")
+                "(get-ciminstance Win32_OperatingSystem).Caption"
+            )
             LOG.debug("Windows version: %s", version_info)
             return True
         except exception.NotAuthorized:
@@ -49,8 +48,8 @@ class WindowsMountTools(base.BaseOSMountTools):
             raise
         except exception.CoriolisException:
             LOG.debug(
-                "Failed Windows OSMount OS check: %s",
-                utils.get_exception_details())
+                "Failed Windows OSMount OS check: %s", utils.get_exception_details()
+            )
             pass
         return False
 
@@ -70,9 +69,13 @@ class WindowsMountTools(base.BaseOSMountTools):
         return self._conn.exec_ps_command("diskpart.exe /s '%s'" % filepath)
 
     def _service_disks_with_status(
-            self, status, service_script_with_id_fmt, skip_on_error=False,
-            logmsg_fmt="Operating on disk with index '%s'",
-            disk_ids_to_skip=None):
+        self,
+        status,
+        service_script_with_id_fmt,
+        skip_on_error=False,
+        logmsg_fmt="Operating on disk with index '%s'",
+        disk_ids_to_skip=None,
+    ):
         """Executes given service script on detected disks.
 
         Uses diskpart.exe to detect all disks with the given 'status', and
@@ -91,13 +94,17 @@ class WindowsMountTools(base.BaseOSMountTools):
         disk_list = self._run_diskpart_script(disk_list_script)
         servicable_disk_ids = [
             m.group(1)
-            for m
-            in
-            [re.match(search_disk_entry_re, d)
-             for d in disk_list.split("\r\n")] if m is not None]
+            for m in [
+                re.match(search_disk_entry_re, d) for d in disk_list.split("\r\n")
+            ]
+            if m is not None
+        ]
         LOG.debug(
             "Servicing disks with status '%s' (%s) from disk list: %s",
-            status, servicable_disk_ids, disk_list)
+            status,
+            servicable_disk_ids,
+            disk_list,
+        )
         for disk_id in servicable_disk_ids:
             if disk_id in disk_ids_to_skip:
                 LOG.warn('Skipping disk with ID: %s', disk_id)
@@ -116,8 +123,8 @@ class WindowsMountTools(base.BaseOSMountTools):
                             LOG.warn(
                                 "Exception ocurred while servicing disk '%s' "
                                 "with status '%s'.Skipping running script '%s'"
-                                ". Error message: %s" %
-                                (disk_id, status, script, ex))
+                                ". Error message: %s" % (disk_id, status, script, ex)
+                            )
                         else:
                             raise
                     break
@@ -128,10 +135,13 @@ class WindowsMountTools(base.BaseOSMountTools):
         # group must be R/W in order to import it (importing one will
         # trigger the importing of all of them)
         set_rw_foreign_disk_script_fmt = (
-            "SELECT DISK %s\r\nATTRIBUTES DISK CLEAR READONLY\r\nEXIT")
+            "SELECT DISK %s\r\nATTRIBUTES DISK CLEAR READONLY\r\nEXIT"
+        )
         self._service_disks_with_status(
-            "Foreign", set_rw_foreign_disk_script_fmt,
-            logmsg_fmt="Clearing R/O flag on foreign disk with ID '%s'.")
+            "Foreign",
+            set_rw_foreign_disk_script_fmt,
+            logmsg_fmt="Clearing R/O flag on foreign disk with ID '%s'.",
+        )
 
     def _import_foreign_disks(self):
         """Imports foreign disks.
@@ -142,44 +152,47 @@ class WindowsMountTools(base.BaseOSMountTools):
         # NOTE: foreign disks are not exposed via the APIs the PowerShell
         # disk cmdlets use, thus any disk which is foreign is likely
         # still RO, which is why we must change the RO attribute as well:
-        import_disk_script_fmt = (
-            "SELECT DISK %s\r\nIMPORT\r\nEXIT")
+        import_disk_script_fmt = "SELECT DISK %s\r\nIMPORT\r\nEXIT"
         self._service_disks_with_status(
-            "Foreign", import_disk_script_fmt,
-            logmsg_fmt="Importing foreign disk with ID '%s'.")
+            "Foreign",
+            import_disk_script_fmt,
+            logmsg_fmt="Importing foreign disk with ID '%s'.",
+        )
 
     def _bring_disks_online(self, disk_nums=None):
         if disk_nums is None:
             disk_nums = self._conn.exec_ps_command(
-                "(Get-Disk | Where-Object { $_.IsOffline -eq $True }"
-                ").Number").splitlines()
+                "(Get-Disk | Where-Object { $_.IsOffline -eq $True }).Number"
+            ).splitlines()
         for disk_num in disk_nums:
             try:
-                self._conn.exec_ps_command(
-                    f"Set-Disk -IsOffline $False {disk_num}")
+                self._conn.exec_ps_command(f"Set-Disk -IsOffline $False {disk_num}")
             except exception.CoriolisException:
                 LOG.warning(
                     f"Failed setting disk {disk_num} online. Error was: "
-                    f"{utils.get_exception_details()}")
+                    f"{utils.get_exception_details()}"
+                )
 
     def _set_basic_disks_rw_mode(self):
         read_only_disk_nums = self._conn.exec_ps_command(
-            "(Get-Disk | Where-Object { $_.IsReadOnly -eq $True }).Number")
+            "(Get-Disk | Where-Object { $_.IsReadOnly -eq $True }).Number"
+        )
         for disk_num in read_only_disk_nums.splitlines():
             try:
-                self._conn.exec_ps_command(
-                    f"Set-Disk -IsReadOnly $False {disk_num}")
+                self._conn.exec_ps_command(f"Set-Disk -IsReadOnly $False {disk_num}")
             except exception.CoriolisException:
                 LOG.warning(
                     f"Failed setting disk {disk_num} RW flag. Error was: "
-                    f"{utils.get_exception_details()}")
+                    f"{utils.get_exception_details()}"
+                )
 
     def _get_system_drive(self):
         return self._conn.exec_ps_command("$env:SystemDrive")
 
     def _get_fs_roots(self, fail_if_empty=False):
         drives = self._conn.exec_ps_command(
-            "(get-psdrive -PSProvider FileSystem).Root").split(self._conn.EOL)
+            "(get-psdrive -PSProvider FileSystem).Root"
+        ).split(self._conn.EOL)
         if len(drives) == 0 and fail_if_empty:
             raise exception.CoriolisException("No filesystems found")
         return drives
@@ -187,16 +200,17 @@ class WindowsMountTools(base.BaseOSMountTools):
     def _bring_nonboot_disks_offline(self, disk_nums=None):
         if disk_nums is None:
             disk_nums = self._conn.exec_ps_command(
-                "(Get-Disk | Where-Object { $_.IsBoot -eq $False }"
-                ").Number").splitlines()
+                "(Get-Disk | Where-Object { $_.IsBoot -eq $False }).Number"
+            ).splitlines()
         for disk_num in disk_nums:
             try:
-                self._conn.exec_ps_command(
-                    "Set-Disk -IsOffline $True %s" % disk_num)
+                self._conn.exec_ps_command("Set-Disk -IsOffline $True %s" % disk_num)
             except exception.CoriolisException:
                 LOG.warning(
                     "Failed setting disk %s offline. Error was: %s",
-                    disk_num, utils.get_exception_details())
+                    disk_num,
+                    utils.get_exception_details(),
+                )
 
     def _rebring_disks_online(self, disk_nums=None):
         self._bring_nonboot_disks_offline(disk_nums=disk_nums)
@@ -207,7 +221,8 @@ class WindowsMountTools(base.BaseOSMountTools):
         partitions = self._conn.exec_ps_command(
             'Get-Partition | Where-Object { $_.Type -eq "Basic" -and '
             '$_.NoDefaultDriveLetter -eq $True } | Select-Object -Property '
-            'DiskNumber,PartitionNumber')
+            'DiskNumber,PartitionNumber'
+        )
         if partitions:
             LOG.debug(f"Partitions without default drive letter: {partitions}")
             for part in partitions.splitlines():
@@ -222,61 +237,65 @@ class WindowsMountTools(base.BaseOSMountTools):
                 try:
                     self._conn.exec_ps_command(
                         f'Set-Partition -NoDefaultDriveLetter $False '
-                        f'-DiskNumber {disk_num} -PartitionNumber {part_num}')
+                        f'-DiskNumber {disk_num} -PartitionNumber {part_num}'
+                    )
                     disk_nums.append(disk_num)
                 except exception.CoriolisException:
                     LOG.warning(
                         f"Failed setting default drive letter on partition "
                         f"number '{part_num}' of disk number '{disk_num}'. "
-                        f"Error was: {utils.get_exception_details()}")
+                        f"Error was: {utils.get_exception_details()}"
+                    )
             self._rebring_disks_online(disk_nums=disk_nums)
 
     def _get_encrypted_volume_ids(self):
         out = self._conn.exec_ps_command(
             'gwmi -ns "Root\\CIMV2\\Security\\MicrosoftVolumeEncryption" '
-            '-class Win32_EncryptableVolume | % {$_.DeviceID}')
+            '-class Win32_EncryptableVolume | % {$_.DeviceID}'
+        )
         return [x for x in out.replace("\r\n", "\n").split("\n") if x]
 
     def _unlock_encrypted_volume(self, volume_id: str, recovery_password: str):
         self._conn.exec_ps_command(
-            f'manage-bde -unlock "{volume_id}" '
-            f'-RecoveryPassword "{recovery_password}"')
+            f'manage-bde -unlock "{volume_id}" -RecoveryPassword "{recovery_password}"'
+        )
 
     def _unlock_encrypted_volumes(self):
-        recovery_password = self._osmorphing_info.get(
-            constants.ENCRYPTED_DISKS_PASS)
+        recovery_password = self._osmorphing_info.get(constants.ENCRYPTED_DISKS_PASS)
         if not recovery_password:
-            LOG.info("No encrypted disk password specified, "
-                     "skipping BitLocker unlock.")
+            LOG.info("No encrypted disk password specified, skipping BitLocker unlock.")
             return
 
         encrypted_volume_ids = self._get_encrypted_volume_ids()
         if not encrypted_volume_ids:
-            LOG.warning("Received encrypted disk password but no "
-                        "BitLocker encrypted volumes found.")
+            LOG.warning(
+                "Received encrypted disk password but no "
+                "BitLocker encrypted volumes found."
+            )
             return
 
         unlocked = False
         for encrypted_volume_id in encrypted_volume_ids:
             try:
-                self._unlock_encrypted_volume(
-                    encrypted_volume_id, recovery_password)
+                self._unlock_encrypted_volume(encrypted_volume_id, recovery_password)
                 LOG.info(
                     "Successfully unlocked BitLocker encrypted volume: %s",
-                    encrypted_volume_id)
+                    encrypted_volume_id,
+                )
                 unlocked = True
             except Exception:
                 LOG.info(
-                    "Could not unlock volume %s using the specified "
-                    "recovery password.",
-                    encrypted_volume_id)
+                    "Could not unlock volume %s using the specified recovery password.",
+                    encrypted_volume_id,
+                )
                 continue
             self._unlocked_volumes.append(encrypted_volume_id)
 
         if not unlocked:
             raise exception.CoriolisException(
                 "Could not unlock any volume using the specified "
-                "BitLocker recovery password.")
+                "BitLocker recovery password."
+            )
 
     def _suspend_bitlocker(self, volume_id: str):
         """Suspend BitLocker until the next reboot for a given volume.
@@ -301,8 +320,7 @@ class WindowsMountTools(base.BaseOSMountTools):
         os_morphing_tools,
     ):
         if not self._unlocked_volumes:
-            LOG.info(
-                "No unlocked BitLocker volumes, skipping first-boot setup.")
+            LOG.info("No unlocked BitLocker volumes, skipping first-boot setup.")
             return
 
         # We'll inject a first-boot script to resume BitLocker explicitly.
@@ -316,29 +334,32 @@ class WindowsMountTools(base.BaseOSMountTools):
                 LOG.info(
                     "Suspending BitLocker for volume %s, scheduling it to be "
                     "resumed after first-boot.",
-                    encrypted_volume_id)
+                    encrypted_volume_id,
+                )
                 # Suspend BitLocker until the replica boots.
                 self._suspend_bitlocker(encrypted_volume_id)
                 # Add a resume command to the first-boot script.
-                script_content += (
-                    f'Resume-BitLocker "{encrypted_volume_id}"\r\n')
+                script_content += f'Resume-BitLocker "{encrypted_volume_id}"\r\n'
 
             # Resume BitLocker after bringing the disks online,
             # which has a script priority of 10.
             os_morphing_tools.register_firstboot_script(
                 script_content,
                 user_provided=False,
-                script_filename="11-bitlocker-firstboot.ps1")
+                script_filename="11-bitlocker-firstboot.ps1",
+            )
         except Exception:
-            LOG.exception("First-boot preparation failed, attempting to "
-                          "resume BitLocker.")
+            LOG.exception(
+                "First-boot preparation failed, attempting to resume BitLocker."
+            )
             for encrypted_volume_id in self._unlocked_volumes:
                 try:
                     self._resume_bitlocker(encrypted_volume_id)
                 except Exception:
                     LOG.exception(
-                        "Unable to resume BitLocker for volume: %s" %
-                        encrypted_volume_id)
+                        "Unable to resume BitLocker for volume: %s"
+                        % encrypted_volume_id
+                    )
             raise
 
     def mount_os(self):
@@ -347,7 +368,8 @@ class WindowsMountTools(base.BaseOSMountTools):
         self._unlock_encrypted_volumes()
         self._set_volumes_drive_letter()
         fs_roots = utils.retry_on_error(sleep_seconds=5)(self._get_fs_roots)(
-            fail_if_empty=True)
+            fail_if_empty=True
+        )
         system_drive = self._get_system_drive()
 
         for fs_root in [r for r in fs_roots if not r[:-1] == system_drive]:
@@ -365,18 +387,15 @@ class WindowsMountTools(base.BaseOSMountTools):
 
         script_path = "$env:TMP\\coriolis_user_script.ps1"
         try:
-            utils.write_winrm_file(
-                self._conn,
-                script_path,
-                user_script)
+            utils.write_winrm_file(self._conn, script_path, user_script)
         except Exception as err:
             raise exception.CoriolisException(
-                "Failed to copy user script to target system.") from err
+                "Failed to copy user script to target system."
+            ) from err
 
         cmd = f'& "{script_path}"; exit $LASTEXITCODE'
         try:
             out = self._conn.exec_ps_command(cmd)
             LOG.debug("User script output: %s" % out)
         except Exception as err:
-            raise exception.CoriolisException(
-                "Failed to run user script.") from err
+            raise exception.CoriolisException("Failed to run user script.") from err

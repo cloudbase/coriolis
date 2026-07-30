@@ -11,22 +11,25 @@ from coriolis import exception
 
 class CoriolisSchemaException(exception.CoriolisException):
     """Base class for all coriolis schema handling exceptions."""
+
     message = "Exception occured during schema validation: %(msg)s."
 
 
 class CoriolisSchemaValidationError(
-        CoriolisSchemaException, jsonschema.ValidationError):
+    CoriolisSchemaException, jsonschema.ValidationError
+):
     """Raised when a schema validation has failed."""
+
     message = "Failed to validate JSON schema: %(msg)s."
 
 
-class CoriolisSchemaParsingError(
-        CoriolisSchemaException, ValueError):
+class CoriolisSchemaParsingError(CoriolisSchemaException, ValueError):
     """Raised when decoding a JSON schema or when validating a JSON value."""
+
     message = "Failed to parse JSON for schema validation: %(msg)s."
 
 
-class CoriolisSchemaLoadingException(
-        CoriolisSchemaException, jinja2.TemplateNotFound):
+class CoriolisSchemaLoadingException(CoriolisSchemaException, jinja2.TemplateNotFound):
     """Raised when schema files are not found."""
+
     message = "Failed to load schema: %(msg)s."

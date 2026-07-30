@@ -23,33 +23,39 @@ class APITestCase(test_base.CoriolisBaseTestCase):
         shutdown_instances = mock.sentinel.shutdown_instances
         auto_deploy = mock.sentinel.auto_deploy
 
-        result = self.api.create(self.ctxt, self.transfer_id,
-                                 shutdown_instances, auto_deploy)
+        result = self.api.create(
+            self.ctxt, self.transfer_id, shutdown_instances, auto_deploy
+        )
 
         self.rpc_client.execute_transfer_tasks.assert_called_once_with(
-            self.ctxt, self.transfer_id, shutdown_instances, auto_deploy)
-        self.assertEqual(result,
-                         self.rpc_client.execute_transfer_tasks.return_value)
+            self.ctxt, self.transfer_id, shutdown_instances, auto_deploy
+        )
+        self.assertEqual(result, self.rpc_client.execute_transfer_tasks.return_value)
 
     def test_delete(self):
         self.api.delete(self.ctxt, self.transfer_id, self.execution_id)
 
-        (self.rpc_client.delete_transfer_tasks_execution
-            .assert_called_once_with(
-                self.ctxt, self.transfer_id, self.execution_id))
+        (
+            self.rpc_client.delete_transfer_tasks_execution.assert_called_once_with(
+                self.ctxt, self.transfer_id, self.execution_id
+            )
+        )
 
     def test_cancel(self):
         force = mock.sentinel.force
 
         self.api.cancel(self.ctxt, self.transfer_id, self.execution_id, force)
 
-        (self.rpc_client.cancel_transfer_tasks_execution
-            .assert_called_once_with(
-                self.ctxt, self.transfer_id, self.execution_id, force))
+        (
+            self.rpc_client.cancel_transfer_tasks_execution.assert_called_once_with(
+                self.ctxt, self.transfer_id, self.execution_id, force
+            )
+        )
 
     def test_get_executions(self):
         result = self.api.get_executions(
-            self.ctxt, self.transfer_id,
+            self.ctxt,
+            self.transfer_id,
             mock.sentinel.include_tasks,
             mock.sentinel.marker,
             mock.sentinel.limit,
@@ -59,7 +65,8 @@ class APITestCase(test_base.CoriolisBaseTestCase):
         )
 
         self.rpc_client.get_transfer_tasks_executions.assert_called_once_with(
-            self.ctxt, self.transfer_id,
+            self.ctxt,
+            self.transfer_id,
             mock.sentinel.include_tasks,
             mock.sentinel.marker,
             mock.sentinel.limit,
@@ -68,13 +75,15 @@ class APITestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.filters,
         )
         self.assertEqual(
-            result, self.rpc_client.get_transfer_tasks_executions.return_value)
+            result, self.rpc_client.get_transfer_tasks_executions.return_value
+        )
 
     def test_get_execution(self):
-        result = self.api.get_execution(self.ctxt, self.transfer_id,
-                                        self.execution_id)
+        result = self.api.get_execution(self.ctxt, self.transfer_id, self.execution_id)
 
         self.rpc_client.get_transfer_tasks_execution.assert_called_once_with(
-            self.ctxt, self.transfer_id, self.execution_id)
+            self.ctxt, self.transfer_id, self.execution_id
+        )
         self.assertEqual(
-            result, self.rpc_client.get_transfer_tasks_execution.return_value)
+            result, self.rpc_client.get_transfer_tasks_execution.return_value
+        )

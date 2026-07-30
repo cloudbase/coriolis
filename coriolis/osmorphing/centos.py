@@ -3,10 +3,8 @@
 
 from oslo_log import log as logging
 
-from coriolis import exception
+from coriolis import exception, utils
 from coriolis.osmorphing import redhat
-from coriolis import utils
-
 
 CENTOS_DISTRO_IDENTIFIER = "CentOS"
 CENTOS_STREAM_DISTRO_IDENTIFIER = "CentOS Stream"
@@ -17,7 +15,6 @@ LOG = logging.getLogger(__name__)
 
 
 class BaseCentOSMorphingTools(redhat.BaseRedHatMorphingTools):
-
     UEFI_GRUB_LOCATION = "/boot/efi/EFI/centos"
 
     @classmethod
@@ -31,7 +28,8 @@ class BaseCentOSMorphingTools(redhat.BaseRedHatMorphingTools):
         if detected_os_info['distribution_name'] not in supported_oses:
             return False
         return cls._version_supported_util(
-            detected_os_info['release_version'], minimum=7)
+            detected_os_info['release_version'], minimum=7
+        )
 
     def enable_repos(self, repo_names):
         """Enable repositories for CentOS.
@@ -57,8 +55,9 @@ class BaseCentOSMorphingTools(redhat.BaseRedHatMorphingTools):
             cmd = '%s %s' % (config_manager, enable_flag % repo)
             try:
                 self._exec_cmd_chroot(cmd)
-                LOG.info("Enabled repository '%s' using %s",
-                         repo, config_manager)
+                LOG.info("Enabled repository '%s' using %s", repo, config_manager)
             except exception.CoriolisException:
-                LOG.warning(f"Failed to enable repository {repo}. "
-                            f"Error was: {utils.get_exception_details()}")
+                LOG.warning(
+                    f"Failed to enable repository {repo}. "
+                    f"Error was: {utils.get_exception_details()}"
+                )

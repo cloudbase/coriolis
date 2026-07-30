@@ -3,15 +3,11 @@
 
 from oslo_config import cfg
 
-from coriolis import constants
-from coriolis import exception
+from coriolis import constants, exception, utils
 from coriolis.providers import base
-from coriolis import utils
 
 serialization_opts = [
-    cfg.ListOpt('providers',
-                default=[],
-                help='List of provider class paths'),
+    cfg.ListOpt('providers', default=[], help='List of provider class paths'),
 ]
 
 CONF = cfg.CONF
@@ -21,33 +17,35 @@ PROVIDER_TYPE_MAP = {
     constants.PROVIDER_TYPE_TRANSFER_EXPORT: base.BaseReplicaExportProvider,
     constants.PROVIDER_TYPE_TRANSFER_IMPORT: base.BaseReplicaImportProvider,
     constants.PROVIDER_TYPE_ENDPOINT: base.BaseEndpointProvider,
-    constants.PROVIDER_TYPE_DESTINATION_ENDPOINT_OPTIONS:
-        base.BaseEndpointDestinationOptionsProvider,
-    constants.PROVIDER_TYPE_ENDPOINT_INSTANCES:
-        base.BaseEndpointInstancesProvider,
-    constants.PROVIDER_TYPE_ENDPOINT_NETWORKS:
-        base.BaseEndpointNetworksProvider,
-    constants.PROVIDER_TYPE_ENDPOINT_STORAGE:
-        base.BaseEndpointStorageProvider,
+    constants.PROVIDER_TYPE_DESTINATION_ENDPOINT_OPTIONS: base.BaseEndpointDestinationOptionsProvider,
+    constants.PROVIDER_TYPE_ENDPOINT_INSTANCES: base.BaseEndpointInstancesProvider,
+    constants.PROVIDER_TYPE_ENDPOINT_NETWORKS: base.BaseEndpointNetworksProvider,
+    constants.PROVIDER_TYPE_ENDPOINT_STORAGE: base.BaseEndpointStorageProvider,
     constants.PROVIDER_TYPE_OS_MORPHING: base.BaseImportInstanceProvider,
     constants.PROVIDER_TYPE_INSTANCE_FLAVOR: base.BaseInstanceFlavorProvider,
     constants.PROVIDER_TYPE_SETUP_LIBS: base.BaseProviderSetupExtraLibsMixin,
     constants.PROVIDER_TYPE_VALIDATE_TRANSFER_EXPORT: (
-        base.BaseReplicaExportValidationProvider),
+        base.BaseReplicaExportValidationProvider
+    ),
     constants.PROVIDER_TYPE_VALIDATE_TRANSFER_IMPORT: (
-        base.BaseReplicaImportValidationProvider),
+        base.BaseReplicaImportValidationProvider
+    ),
     constants.PROVIDER_TYPE_SOURCE_TRANSFER_UPDATE: (
-        base.BaseUpdateSourceReplicaProvider),
+        base.BaseUpdateSourceReplicaProvider
+    ),
     constants.PROVIDER_TYPE_DESTINATION_TRANSFER_UPDATE: (
-        base.BaseUpdateDestinationReplicaProvider),
+        base.BaseUpdateDestinationReplicaProvider
+    ),
     constants.PROVIDER_TYPE_SOURCE_ENDPOINT_OPTIONS: (
-        base.BaseEndpointSourceOptionsProvider),
-    constants.PROVIDER_TYPE_SOURCE_MINION_POOL: (
-        base.BaseSourceMinionPoolProvider),
+        base.BaseEndpointSourceOptionsProvider
+    ),
+    constants.PROVIDER_TYPE_SOURCE_MINION_POOL: (base.BaseSourceMinionPoolProvider),
     constants.PROVIDER_TYPE_DESTINATION_MINION_POOL: (
-        base.BaseDestinationMinionPoolProvider),
+        base.BaseDestinationMinionPoolProvider
+    ),
     constants.PROVIDER_TYPE_ENDPOINT_INVENTORY_EXPORT: (
-        base.BaseEndpointInventoryExportProvider),
+        base.BaseEndpointInventoryExportProvider
+    ),
 }
 
 
@@ -59,8 +57,7 @@ def get_available_providers():
             provider_data = providers.get(cls.platform, {})
 
             provider_types = provider_data.get("types", [])
-            if (provider_class in cls.__mro__ and
-                    provider_type not in provider_types):
+            if provider_class in cls.__mro__ and provider_type not in provider_types:
                 provider_types.append(provider_type)
 
             provider_data["types"] = sorted(provider_types)
@@ -68,8 +65,7 @@ def get_available_providers():
     return providers
 
 
-def get_provider(
-        platform_name, provider_type, event_handler, raise_if_not_found=True):
+def get_provider(platform_name, provider_type, event_handler, raise_if_not_found=True):
     for provider in CONF.providers:
         cls = utils.load_class(provider)
         parent = PROVIDER_TYPE_MAP.get(provider_type)
@@ -80,7 +76,8 @@ def get_provider(
 
     if raise_if_not_found:
         raise exception.NotFound(
-            "Provider not found for: %(platform_name)s, %(provider_type)s" %
-            {"platform_name": platform_name, "provider_type": provider_type})
+            "Provider not found for: %(platform_name)s, %(provider_type)s"
+            % {"platform_name": platform_name, "provider_type": provider_type}
+        )
 
     return None

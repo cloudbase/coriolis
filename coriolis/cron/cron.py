@@ -4,14 +4,11 @@ import sys
 import threading
 import time
 
+import schedule
 from oslo_log import log
 from oslo_utils import timeutils
-import schedule
 
-from coriolis import exception
-from coriolis import schemas
-from coriolis import utils
-
+from coriolis import exception, schemas, utils
 
 LOG = log.getLogger(__name__)
 
@@ -19,10 +16,19 @@ SCHEDULE_FIELDS = ("minute", "hour", "dom", "month", "dow")
 
 
 class CronJob(object):
-
-    def __init__(self, name, description, schedule, enabled,
-                 expires, on_success, on_error,
-                 job_callable, *args, **kw):
+    def __init__(
+        self,
+        name,
+        description,
+        schedule,
+        enabled,
+        expires,
+        on_success,
+        on_error,
+        job_callable,
+        *args,
+        **kw,
+    ):
         # param: name: string: unique ID that describes this job
         # param: description: string: a short description of the job
         # param: schedule: dict: cron job schedule. This is of the form:
@@ -71,8 +77,7 @@ class CronJob(object):
         self._enabled = enabled
         if expires:
             if not isinstance(expires, datetime.datetime):
-                raise exception.CoriolisException(
-                    "Invalid expires")
+                raise exception.CoriolisException("Invalid expires")
         self._expires = expires
 
     def _compare(self, pairs):
@@ -105,12 +110,10 @@ class CronJob(object):
             LOG.debug('Job %s is not enabled', self.name)
             return False
 
-        fields = ('year', 'month', 'dom', 'hour',
-                  'minute', 'second', 'dow')
+        fields = ('year', 'month', 'dom', 'hour', 'minute', 'second', 'dow')
         dt_fields = dict(zip(fields, dt.timetuple()))
 
-        pairs = [(dt_fields[i], self.schedule.get(i))
-                 for i in SCHEDULE_FIELDS]
+        pairs = [(dt_fields[i], self.schedule.get(i)) for i in SCHEDULE_FIELDS]
         compared = self._compare(pairs)
         return False not in compared
 
@@ -136,14 +139,16 @@ class CronJob(object):
                     LOG.exception(callback_err)
         self._send_status(
             status_queue,
-            {"result": result,
-             "description": self._description,
-             "name": self.name,
-             "error_info": exc_info})
+            {
+                "result": result,
+                "description": self._description,
+                "name": self.name,
+                "error_info": exc_info,
+            },
+        )
 
 
 class Cron(object):
-
     def __init__(self):
         self._queue = queue.Queue(maxsize=1000)
         self._should_stop = False
@@ -167,13 +172,14 @@ class Cron(object):
                 del self._jobs[name]
 
     def unregister_jobs_with_prefix(self, prefix):
-        jobs = [
-            job for job in self._jobs
-            if job.startswith(prefix)]
+        jobs = [job for job in self._jobs if job.startswith(prefix)]
         if jobs:
             LOG.debug(
                 "Unregistering the following cron jobs based on "
-                "the requested prefix ('%s'): %s", prefix, jobs)
+                "the requested prefix ('%s'): %s",
+                prefix,
+                jobs,
+            )
             with self._semaphore:
                 for job in jobs:
                     del self._jobs[job]
@@ -186,8 +192,11 @@ class Cron(object):
         now = timeutils.utcnow()
         if job_nr:
             for job in jobs:
-                LOG.debug('Checking job %s with schedule: %s', jobs[job].name,
-                          jobs[job].schedule)
+                LOG.debug(
+                    'Checking job %s with schedule: %s',
+                    jobs[job].name,
+                    jobs[job].schedule,
+                )
                 if jobs[job].should_run(now):
                     LOG.debug("Spawning job %s" % job)
                     utils.start_thread(jobs[job].start, args=[self._queue])
@@ -195,14 +204,15 @@ class Cron(object):
 
         done = timeutils.utcnow()
         delta = done - now
-        LOG.debug("Spawned %(jobs)d jobs in %(seconds)d seconds" % {
-            "seconds": delta.seconds,
-            "jobs": spawned})
+        LOG.debug(
+            "Spawned %(jobs)d jobs in %(seconds)d seconds"
+            % {"seconds": delta.seconds, "jobs": spawned}
+        )
 
     def _loop(self):
         while not self._should_stop:
             schedule.run_pending()
-            time.sleep(.2)
+            time.sleep(0.2)
 
     def _result_loop(self):
         while not self._should_stop:
@@ -214,12 +224,13 @@ class Cron(object):
             # the logs table...or do something much more meaningful
             if error:
                 LOG.error(
-                    "Job %(job_desc)s exited with error: %(job_err)r" %
-                    {"job_desc": desc, "job_err": error})
+                    "Job %(job_desc)s exited with error: %(job_err)r"
+                    % {"job_desc": desc, "job_err": error}
+                )
             if result:
-                LOG.info("Job %(desc)s returned: %(ret)r" % {
-                    "desc": desc,
-                    "ret": result})
+                LOG.info(
+                    "Job %(desc)s returned: %(ret)r" % {"desc": desc, "ret": result}
+                )
 
     def _janitor(self):
         # remove expired jobs from memory. The check for expired

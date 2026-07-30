@@ -12,10 +12,10 @@ from coriolis.tests.integration import base
 
 
 class ServiceTests(base.CoriolisIntegrationTestBase):
-
     def _create_service(self, host, binary, topic):
         svc = self._client.services.create(
-            host=host, binary=binary, topic=topic, regions=[])
+            host=host, binary=binary, topic=topic, regions=[]
+        )
 
         self.addCleanup(self._ignoreExc(self._client.services.delete), svc.id)
 
@@ -26,13 +26,11 @@ class ServiceTests(base.CoriolisIntegrationTestBase):
         # the conductor; at least one service record should exist.
         services = self._client.services.list()
 
-        self.assertTrue(
-            len(services) > 0, "Expected at least one registered service")
+        self.assertTrue(len(services) > 0, "Expected at least one registered service")
 
         # Create.
         hostname = socket.gethostname()
-        svc = self._create_service(
-            hostname, "foo-binary", "coriolis_worker")
+        svc = self._create_service(hostname, "foo-binary", "coriolis_worker")
 
         # Get.
         fetched = self._client.services.get(svc.id)

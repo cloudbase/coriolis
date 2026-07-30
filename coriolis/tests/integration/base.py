@@ -15,25 +15,23 @@ Subclasses must be run as root.
 import os
 import time
 import unittest
-from unittest import mock
 import uuid
+from unittest import mock
 
+import oslo_messaging as messaging
 from coriolisclient import client as coriolis_client
 from keystoneauth1 import session as ks_session
 from keystoneauth1 import token_endpoint
 from oslo_config import cfg
 from oslo_db.sqlalchemy import models
 from oslo_log import log as logging
-import oslo_messaging as messaging
 
-from coriolis import constants
-from coriolis import context
+from coriolis import constants, context, exception
 from coriolis.db import api as db_api
-from coriolis import exception
 from coriolis.providers import factory as providers_factory
+from coriolis.tests import test_base
 from coriolis.tests.integration import harness
 from coriolis.tests.integration import utils as test_utils
-from coriolis.tests import test_base
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
@@ -104,8 +102,7 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
 
             return original_call(self, ctxt, method, **kwargs)
 
-        patcher = mock.patch.object(
-            messaging.RPCClient, method, _call)
+        patcher = mock.patch.object(messaging.RPCClient, method, _call)
         patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -135,13 +132,17 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
         return endpoint
 
     def _create_transfer(
-            self, src_id, dst_id, instances, source_environment=None,
-            destination_environment=None, **kwargs):
+        self,
+        src_id,
+        dst_id,
+        instances,
+        source_environment=None,
+        destination_environment=None,
+        **kwargs,
+    ):
         """Create a Replica transfer object and return its ID."""
 
-        destination_environment = (
-            destination_environment or self._imp_env_options
-        )
+        destination_environment = destination_environment or self._imp_env_options
 
         transfer = self._client.transfers.create(
             origin_endpoint_id=src_id,
@@ -161,8 +162,7 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
         return transfer
 
     @classmethod
-    def _create_pool(
-            cls, endpoint_id, name="test-pool", skip_allocation=True):
+    def _create_pool(cls, endpoint_id, name="test-pool", skip_allocation=True):
         pool = cls._client.minion_pools.create(
             name=name,
             endpoint=endpoint_id,
@@ -173,7 +173,8 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
             maximum_minions=1,
             minion_max_idle_time=3600,
             minion_retention_strategy=(
-                constants.MINION_POOL_MACHINE_RETENTION_STRATEGY_DELETE),
+                constants.MINION_POOL_MACHINE_RETENTION_STRATEGY_DELETE
+            ),
             skip_allocation=skip_allocation,
         )
         cls.addClassCleanup(cls._safe_delete_pool, pool.id)
@@ -190,8 +191,7 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
             return
 
         if pool.status not in MINION_DEALLOCATED_TERMINAL:
-            cls._client.minion_pools.deallocate_minion_pool(
-                pool_id, force=True)
+            cls._client.minion_pools.deallocate_minion_pool(pool_id, force=True)
             cls._wait_for_pool(pool_id, MINION_DEALLOCATED_TERMINAL)
 
         with mock.patch("coriolis.keystone.delete_trust"):
@@ -231,6 +231,7 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
     @staticmethod
     def _ignoreExc(func, ignored_exc=Exception):
         """Wrap the given function, ignoring exceptions."""
+
         def f(*args, **kwargs):
             try:
                 return func(*args, **kwargs)
@@ -241,7 +242,6 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
 
 
 class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
-
     _CREATE_MINION_POOLS = False
     _SCSI_DEBUG_SIZE_MB = 16
 
@@ -269,7 +269,8 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
         cls._pool_id = None
         if cls._CREATE_MINION_POOLS:
             pool = cls._create_pool(
-                cls._dst_endpoint.id, "transfer-pool", skip_allocation=False)
+                cls._dst_endpoint.id, "transfer-pool", skip_allocation=False
+            )
             cls._pool_id = pool.id
 
             pool_obj = cls._wait_for_pool(pool.id, MINION_ALLOCATED_TERMINAL)
@@ -298,7 +299,9 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
         # Use basename as instance name; real VM names do not contain slashes,
         # and some providers use the name as is in resource indentifiers.
         self._instance_name = "%s-%s" % (
-            os.path.basename(self._src_device), uuid.uuid4().hex[:8])
+            os.path.basename(self._src_device),
+            uuid.uuid4().hex[:8],
+        )
         self._transfer = self._create_transfer(
             self._src_endpoint.id,
             self._dst_endpoint.id,
@@ -330,8 +333,7 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
         """First destination dev path from the transfer's volumes_info."""
         ctxt = self._get_db_context()
 
-        transfer = db_api.get_transfer(
-            ctxt, self._transfer.id, include_task_info=True)
+        transfer = db_api.get_transfer(ctxt, self._transfer.id, include_task_info=True)
         info = transfer.get("info", {}).get(self._instance_name, {})
         for vol in info.get("volumes_info", []):
             if vol.get("volume_dev"):
@@ -345,9 +347,13 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
 
         try:
             transfer = db_api.get_transfer(
-                ctxt, self._transfer.id, include_task_info=True)
-            volumes_info = transfer.get("info", {}).get(
-                self._instance_name, {}).get('volumes_info', [])
+                ctxt, self._transfer.id, include_task_info=True
+            )
+            volumes_info = (
+                transfer.get("info", {})
+                .get(self._instance_name, {})
+                .get('volumes_info', [])
+            )
         except Exception as ex:
             LOG.warn("Could not get volumes info for cleanup. Ex: %s", ex)
             return
@@ -364,13 +370,13 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
                 volumes_info,
             )
         except Exception as ex:
-            LOG.warn(
-                "Could not clean up provider dst devices. Ex: %s", ex)
+            LOG.warn("Could not clean up provider dst devices. Ex: %s", ex)
 
     def _execute_and_wait(self, transfer_id, timeout=600):
         """Trigger one execution of *transfer_id* and wait for completion."""
         execution = self._client.transfer_executions.create(
-            transfer_id, shutdown_instances=False)
+            transfer_id, shutdown_instances=False
+        )
         self.assertExecutionCompleted(execution.id, timeout=timeout)
 
     def _execute_transfer_and_deployment(self, deployment_kwargs=None):
@@ -382,8 +388,7 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             skip_os_morphing=False,
             **deployment_kwargs,
         )
-        self.addCleanup(
-            self._cleanup_deployment, deployment.id, deployment.instances)
+        self.addCleanup(self._cleanup_deployment, deployment.id, deployment.instances)
         self.assertDeploymentCompleted(deployment.id)
 
     def _cleanup_execution(self, transfer_id, execution_id):
@@ -401,8 +406,7 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
         try:
             execution = db_api.get_tasks_execution(ctxt, execution_id)
         except exception.NotFound:
-            LOG.info(
-                "Task execution '%s' not found. Skip cleanup.", execution_id)
+            LOG.info("Task execution '%s' not found. Skip cleanup.", execution_id)
             return
 
         if execution.status not in constants.FINALIZED_EXECUTION_STATUSES:
@@ -411,8 +415,7 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
 
         self._client.transfer_executions.delete(transfer_id, execution_id)
 
-    def wait_for_execution(self, execution_id, timeout=600,
-                           desired_statuses=None):
+    def wait_for_execution(self, execution_id, timeout=600, desired_statuses=None):
         """Block until *execution_id* reaches a terminal state.
 
         Polls the DB directly and yields on each iteration so in-process
@@ -450,7 +453,8 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
                 [
                     (t.task_type, t.status, t.exception_details)
                     for t in execution.tasks
-                    if t.status not in (
+                    if t.status
+                    not in (
                         constants.TASK_STATUS_COMPLETED,
                         constants.TASK_STATUS_CANCELED,
                     )
@@ -496,13 +500,16 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
         if deployment is None:
             LOG.info(
                 "Deployment '%s' not found; using instances captured at "
-                "registration time for VM cleanup.", deployment_id)
+                "registration time for VM cleanup.",
+                deployment_id,
+            )
             instances = list(instances or [])
         else:
             instances = list(deployment.instances or instances or [])
 
             if deployment.last_execution_status in (
-                    constants.ACTIVE_EXECUTION_STATUSES):
+                constants.ACTIVE_EXECUTION_STATUSES
+            ):
                 self._client.deployments.cancel(deployment_id)
                 self.wait_for_deployment(deployment_id, timeout=60)
 
@@ -511,14 +518,14 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
         for instance_name in instances:
             try:
                 self._imp_provider.delete_deployed_instance(
-                    self._imp_conn_info, instance_name)
+                    self._imp_conn_info, instance_name
+                )
             except Exception as ex:
                 LOG.warning(
-                    "Could not clean up deployed instance '%s': %s",
-                    instance_name, ex)
+                    "Could not clean up deployed instance '%s': %s", instance_name, ex
+                )
 
-    def wait_for_deployment(self, deployment_id, timeout=600,
-                            desired_statuses=None):
+    def wait_for_deployment(self, deployment_id, timeout=600, desired_statuses=None):
         """Block until *deployment_id* reaches any terminal state.
 
         Returns the finalised deployment ORM object.
@@ -537,8 +544,12 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
         self.fail(
             "Deployment %s did not reach one of the states %r within %ds "
             "(last status: %s)"
-            % (deployment_id, desired_statuses, timeout,
-               deployment.last_execution_status)
+            % (
+                deployment_id,
+                desired_statuses,
+                timeout,
+                deployment.last_execution_status,
+            )
         )
 
     def assertDeploymentCompleted(self, deployment_id, timeout=600):
@@ -561,7 +572,10 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
         self._execute_and_wait(self._transfer.id)
 
         patcher = mock.patch.object(
-            obj, method_name, side_effect=_slow_call, autospec=True,
+            obj,
+            method_name,
+            side_effect=_slow_call,
+            autospec=True,
         )
         patcher.start()
         self.addCleanup(patcher.stop)
@@ -591,8 +605,7 @@ class MinionPoolTestBase(CoriolisIntegrationTestBase):
         super().setUpClass()
 
 
-class MinionPoolReplicaTestBase(
-        MinionPoolTestBase, ReplicaIntegrationTestBase):
+class MinionPoolReplicaTestBase(MinionPoolTestBase, ReplicaIntegrationTestBase):
     """Base class for replica integration tests using minion pools.
 
     Extends the assertions to also verify that the minions in the pool have
@@ -646,6 +659,5 @@ class MinionPoolReplicaTestBase(
             self.assertIsNotNone(
                 machine.last_used_at,
                 "Machine %s in pool %s has no last_used_at; "
-                "it may not have been used by the transfer"
-                % (machine.id, pool_id),
+                "it may not have been used by the transfer" % (machine.id, pool_id),
             )

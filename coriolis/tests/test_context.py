@@ -3,10 +3,8 @@
 
 from unittest import mock
 
-from coriolis import context
-from coriolis import exception
-from coriolis.tests import test_base
-from coriolis.tests import testutils
+from coriolis import context, exception
+from coriolis.tests import test_base, testutils
 
 
 class RequestContextTestCase(test_base.CoriolisBaseTestCase):
@@ -40,8 +38,7 @@ class RequestContextTestCase(test_base.CoriolisBaseTestCase):
         )
 
         mock_parse_isotime.assert_called_once_with("2023-11-09T13:31:08Z")
-        self.assertEqual(new_context.timestamp,
-                         mock_parse_isotime.return_value)
+        self.assertEqual(new_context.timestamp, mock_parse_isotime.return_value)
         self.assertEqual(new_context.roles, [])
 
     def test_to_dict(self):
@@ -57,35 +54,43 @@ class RequestContextTestCase(test_base.CoriolisBaseTestCase):
         result = self.req_context.can('test_action')
 
         mock_check_policy.assert_called_once_with(
-            self.req_context, 'test_action', {'project_id': 'test_project_id',
-                                              'user_id': 'user'})
+            self.req_context,
+            'test_action',
+            {'project_id': 'test_project_id', 'user_id': 'user'},
+        )
 
         self.assertEqual(result, mock_check_policy.return_value)
 
     @mock.patch.object(context.policy, 'check_policy_for_context')
     def test_can_policy_not_authorized(self, mock_check_policy):
         mock_check_policy.side_effect = exception.PolicyNotAuthorized(
-            action='test_action')
+            action='test_action'
+        )
 
-        self.assertRaises(exception.PolicyNotAuthorized,
-                          self.req_context.can, 'test_action')
+        self.assertRaises(
+            exception.PolicyNotAuthorized, self.req_context.can, 'test_action'
+        )
 
         mock_check_policy.assert_called_once_with(
-            self.req_context, 'test_action', {'project_id': 'test_project_id',
-                                              'user_id': 'user'})
+            self.req_context,
+            'test_action',
+            {'project_id': 'test_project_id', 'user_id': 'user'},
+        )
 
     @mock.patch.object(context.policy, 'check_policy_for_context')
     def test_can_policy_with_custom_target(self, mock_check_policy):
         custom_target = {'custom_key': 'custom_value'}
-        result = self.req_context.can('test_action', custom_target,
-                                      fatal=False)
+        result = self.req_context.can('test_action', custom_target, fatal=False)
 
-        expected_target = {'project_id': 'test_project_id',
-                           'user_id': 'user',
-                           'custom_key': 'custom_value'}
+        expected_target = {
+            'project_id': 'test_project_id',
+            'user_id': 'user',
+            'custom_key': 'custom_value',
+        }
 
         mock_check_policy.assert_called_once_with(
-            self.req_context, 'test_action', expected_target)
+            self.req_context, 'test_action', expected_target
+        )
         self.assertEqual(result, mock_check_policy.return_value)
 
 
@@ -97,5 +102,6 @@ class GetAdminContextTestCase(test_base.CoriolisBaseTestCase):
         result = context.get_admin_context()
 
         mock_request_context.assert_called_once_with(
-            user=None, project_id=None, is_admin=True, trust_id=None)
+            user=None, project_id=None, is_admin=True, trust_id=None
+        )
         self.assertEqual(result, mock_request_context.return_value)

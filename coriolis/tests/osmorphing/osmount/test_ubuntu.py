@@ -16,8 +16,11 @@ class UbuntuOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         self.ssh = mock.MagicMock()
 
         self.tools = ubuntu.UbuntuOSMountTools(
-            self.ssh, mock.sentinel.event_manager,
-            mock.sentinel.ignore_devices, mock.sentinel.operation_timeout)
+            self.ssh,
+            mock.sentinel.event_manager,
+            mock.sentinel.ignore_devices,
+            mock.sentinel.operation_timeout,
+        )
 
         mock_connect.assert_called_once_with()
 
@@ -37,12 +40,15 @@ class UbuntuOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         self.assertIsNone(result)
 
         mock_setup.assert_called_once_with()
-        mock_exec_cmd.assert_has_calls([
-            mock.call("sudo -E apt-get update -y"),
-            mock.call("sudo -E apt-get -o DPkg::Lock::Timeout=600 "
-                      "install lvm2 psmisc -y"),
-            mock.call("sudo modprobe dm-mod")
-        ])
+        mock_exec_cmd.assert_has_calls(
+            [
+                mock.call("sudo -E apt-get update -y"),
+                mock.call(
+                    "sudo -E apt-get -o DPkg::Lock::Timeout=600 install lvm2 psmisc -y"
+                ),
+                mock.call("sudo modprobe dm-mod"),
+            ]
+        )
 
     @mock.patch.object(ubuntu.base.BaseSSHOSMountTools, '_exec_cmd')
     @mock.patch.object(ubuntu.utils, 'restart_service')
@@ -51,5 +57,6 @@ class UbuntuOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         self.assertTrue(result)
 
         mock_exec_cmd.assert_called_once_with(
-            'sudo sed -i -e "\$aAcceptEnv *" /etc/ssh/sshd_config')
+            'sudo sed -i -e "\$aAcceptEnv *" /etc/ssh/sshd_config'
+        )
         mock_restart_service.assert_called_once_with(self.ssh, "sshd")

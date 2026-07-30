@@ -8,21 +8,17 @@ import tempfile
 from unittest import mock
 
 import ddt
-from oslo_log import log as logging
 import psutil
+from oslo_log import log as logging
 from six.moves import queue
 
+from coriolis import constants, context, exception, schemas, utils
 from coriolis.conductor.rpc import client as conductor_client
 from coriolis.conductor.rpc import utils as cond_rpc_utils
-from coriolis import constants
-from coriolis import context
-from coriolis import exception
 from coriolis.minion_manager.rpc import client as minion_client
 from coriolis.providers import factory as providers_factory
-from coriolis import schemas
 from coriolis.tasks import factory as task_runners_factory
 from coriolis.tests import test_base
-from coriolis import utils
 from coriolis.worker.rpc import server
 
 
@@ -30,32 +26,33 @@ from coriolis.worker.rpc import server
 class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     """Test suite for the Coriolis Worker RPC server."""
 
-    @mock.patch.object(server.WorkerServerEndpoint,
-                       "_register_worker_service")
+    @mock.patch.object(server.WorkerServerEndpoint, "_register_worker_service")
     def setUp(self, _):  # pylint: disable=arguments-differ
         super(WorkerServerEndpointTestCase, self).setUp()
         self.server = server.WorkerServerEndpoint()
 
     @mock.patch.object(minion_client, 'MinionManagerPoolRpcEventHandler')
-    def test__get_event_handler_for_task_type_minion(
-            self, mock_minion_event_handler):
+    def test__get_event_handler_for_task_type_minion(self, mock_minion_event_handler):
         result = server._get_event_handler_for_task_type(
             constants.TASK_TYPE_VALIDATE_SOURCE_MINION_POOL_OPTIONS,
             mock.sentinel.ctxt,
-            mock.sentinel.task_object_id)
+            mock.sentinel.task_object_id,
+        )
         mock_minion_event_handler.assert_called_once_with(
-            mock.sentinel.ctxt, mock.sentinel.task_object_id)
+            mock.sentinel.ctxt, mock.sentinel.task_object_id
+        )
         self.assertEqual(result, mock_minion_event_handler.return_value)
 
     @mock.patch.object(conductor_client, 'ConductorTaskRpcEventHandler')
-    def test__get_event_handler_for_task_type(
-            self, mock_conductor_event_handler):
+    def test__get_event_handler_for_task_type(self, mock_conductor_event_handler):
         result = server._get_event_handler_for_task_type(
             constants.TASK_TYPE_REPLICATE_DISKS,
             mock.sentinel.ctxt,
-            mock.sentinel.task_object_id)
+            mock.sentinel.task_object_id,
+        )
         mock_conductor_event_handler.assert_called_once_with(
-            mock.sentinel.ctxt, mock.sentinel.task_object_id)
+            mock.sentinel.ctxt, mock.sentinel.task_object_id
+        )
         self.assertEqual(result, mock_conductor_event_handler.return_value)
 
     @mock.patch.object(conductor_client, 'ConductorClient')
@@ -76,22 +73,30 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(utils, 'get_binary_name')
     @mock.patch.object(utils, 'get_hostname')
     def test__register_worker_service(
-            self, mock_hostname, mock_binary, mock_context,
-            mock_get_service_status, mock_check_create_service,
-            mock_cond_client):
+        self,
+        mock_hostname,
+        mock_binary,
+        mock_context,
+        mock_get_service_status,
+        mock_check_create_service,
+        mock_cond_client,
+    ):
         result = self.server._register_worker_service()
 
         mock_hostname.assert_called_once()
         mock_binary.assert_called_once()
         mock_context.assert_called_once_with('coriolis', 'admin')
-        mock_get_service_status.assert_called_once_with(
-            mock_context.return_value)
+        mock_get_service_status.assert_called_once_with(mock_context.return_value)
         mock_check_create_service.assert_called_once_with(
-            mock_cond_client.return_value, mock_context.return_value,
-            mock_hostname.return_value, mock_binary.return_value,
-            constants.WORKER_MAIN_MESSAGING_TOPIC, enabled=True,
+            mock_cond_client.return_value,
+            mock_context.return_value,
+            mock_hostname.return_value,
+            mock_binary.return_value,
+            constants.WORKER_MAIN_MESSAGING_TOPIC,
+            enabled=True,
             providers=mock_get_service_status.return_value['providers'],
-            specs=mock_get_service_status.return_value['specs'])
+            specs=mock_get_service_status.return_value['specs'],
+        )
 
         self.assertEqual(result, mock_check_create_service.return_value)
         self.assertEqual(result, self.server._service_registration)
@@ -105,15 +110,15 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     def test__check_remove_dir_fails(self, mock_rmtree):
         tmp = tempfile.mkdtemp()
         mock_rmtree.side_effect = Exception('YOLO')
-        with self.assertLogs('coriolis.worker.rpc.server',
-                             level=logging.ERROR):
+        with self.assertLogs('coriolis.worker.rpc.server', level=logging.ERROR):
             self.server._check_remove_dir(tmp)
         os.rmdir(tmp)
 
     @mock.patch.object(server.WorkerServerEndpoint, 'get_available_providers')
     @mock.patch.object(server.WorkerServerEndpoint, 'get_diagnostics')
-    def test_get_service_status(self, mock_get_diagnostics,
-                                mock_get_available_providers):
+    def test_get_service_status(
+        self, mock_get_diagnostics, mock_get_available_providers
+    ):
         expected_result = {
             "host": mock_get_diagnostics.return_value['hostname'],
             "binary": mock_get_diagnostics.return_value['application'],
@@ -122,15 +127,14 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             "specs": mock_get_diagnostics.return_value,
         }
         result = self.server.get_service_status(mock.sentinel.ctxt)
-        mock_get_available_providers.assert_called_once_with(
-            mock.sentinel.ctxt)
+        mock_get_available_providers.assert_called_once_with(mock.sentinel.ctxt)
         mock_get_diagnostics.assert_called_once()
         self.assertEqual(result, expected_result)
 
-    @mock.patch.object(server.WorkerServerEndpoint,
-                       "_wait_for_process")
-    @mock.patch.object(server.WorkerServerEndpoint,
-                       "_start_process_with_custom_library_paths")
+    @mock.patch.object(server.WorkerServerEndpoint, "_wait_for_process")
+    @mock.patch.object(
+        server.WorkerServerEndpoint, "_start_process_with_custom_library_paths"
+    )
     @mock.patch.object(server, "_task_process")
     @mock.patch('coriolis.utils.start_thread')
     @mock.patch.object(server.WorkerServerEndpoint, "_rpc_conductor_client")
@@ -235,9 +239,7 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
 
         # if return value is string, raise TaskProcessException
         mock_wait_process.return_value = "Test string"
-        self.assertRaises(
-            exception.TaskProcessException, call_exec_task_process
-        )
+        self.assertRaises(exception.TaskProcessException, call_exec_task_process)
 
     @mock.patch.object(psutil, "Process")
     def test_cancel_task(self, mock_process):
@@ -249,9 +251,7 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         )
 
         # Cancel task should be called with send_signal when not forced
-        mock_process.return_value.send_signal.assert_called_once_with(
-            signal.SIGINT
-        )
+        mock_process.return_value.send_signal.assert_called_once_with(signal.SIGINT)
         mock_process.return_value.kill.assert_not_called()
 
         # Cancel task should be called with kill when forced
@@ -281,9 +281,7 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
 
         # If process is not found it should just confirm task is cancelled
         mock_process.reset_mock()
-        mock_process.side_effect = psutil.NoSuchProcess(
-            mock.sentinel.proccess_id
-        )
+        mock_process.side_effect = psutil.NoSuchProcess(mock.sentinel.proccess_id)
         with mock.patch.object(
             server.WorkerServerEndpoint, "_rpc_conductor_client"
         ) as mock_client:
@@ -299,14 +297,14 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     def test__handle_mp_log_events(self, mock_get_logger):
         mock_mp_log_q = mock.MagicMock()
         mock_p = mock.MagicMock()
-        mock_mp_log_q.get.side_effect = [
-            mock.sentinel.record, queue.Empty, None]
+        mock_mp_log_q.get.side_effect = [mock.sentinel.record, queue.Empty, None]
         mock_p.is_alive.return_value = True
 
         result = self.server._handle_mp_log_events(mock_p, mock_mp_log_q)
         mock_get_logger.assert_called_once_with(mock.sentinel.record.name)
         mock_get_logger.return_value.logger.handle.assert_called_once_with(
-            mock.sentinel.record)
+            mock.sentinel.record
+        )
         self.assertIsNone(result)
 
     def test__handle_mp_log_events_dead_process(self):
@@ -328,17 +326,18 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
 
         if exception_expected:
             self.assertRaises(
-                TypeError, self.server._get_custom_ld_path,
-                original_ld_path, extra_library_paths)
+                TypeError,
+                self.server._get_custom_ld_path,
+                original_ld_path,
+                extra_library_paths,
+            )
             return
 
-        result = self.server._get_custom_ld_path(
-            original_ld_path, extra_library_paths)
+        result = self.server._get_custom_ld_path(original_ld_path, extra_library_paths)
         self.assertEqual(result, expected_result)
 
     @mock.patch.object(server.WorkerServerEndpoint, '_get_custom_ld_path')
-    def test__start_process_with_custom_library_paths(
-            self, mock_get_custom_ld_path):
+    def test__start_process_with_custom_library_paths(self, mock_get_custom_ld_path):
         original_ld_path = os.environ.get('LD_LIBRARY_PATH', '')
         # NOTE(dvincze): Return value is required to be string here, as this
         # value will be assigned to environment variable LD_LIBRARY_PATH
@@ -346,44 +345,53 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         process = mock.MagicMock()
 
         self.server._start_process_with_custom_library_paths(
-            process, mock.sentinel.extra_library_paths)
+            process, mock.sentinel.extra_library_paths
+        )
         process.start.assert_called_once()
         mock_get_custom_ld_path.assert_called_once_with(
-            original_ld_path, mock.sentinel.extra_library_paths)
+            original_ld_path, mock.sentinel.extra_library_paths
+        )
         self.assertEqual(original_ld_path, os.environ['LD_LIBRARY_PATH'])
 
     @mock.patch.object(server.WorkerServerEndpoint, '_get_custom_ld_path')
-    def test__start_process_with_custom_library_paths_raises(
-            self, mock_custom_ld_path):
+    def test__start_process_with_custom_library_paths_raises(self, mock_custom_ld_path):
         original_ld_path = os.environ.get('LD_LIBRARY_PATH', '')
         mock_custom_ld_path.side_effect = TypeError()
         process = mock.MagicMock()
 
         with self.assertLogs('coriolis.worker.rpc.server', logging.WARNING):
             self.server._start_process_with_custom_library_paths(
-                process, mock.sentinel.extra_library_paths)
+                process, mock.sentinel.extra_library_paths
+            )
         process.assert_not_called()
         self.assertEqual(original_ld_path, os.environ['LD_LIBRARY_PATH'])
 
     @mock.patch.object(task_runners_factory, 'get_task_runner_class')
     @mock.patch.object(server, '_get_event_handler_for_task_type')
     def test__get_extra_library_paths_for_providers(
-            self, mock_get_event_handler, mock_get_task_runner):
+        self, mock_get_event_handler, mock_get_task_runner
+    ):
         result = self.server._get_extra_library_paths_for_providers(
-            mock.sentinel.ctxt, mock.sentinel.task_id, mock.sentinel.task_type,
-            mock.sentinel.origin, mock.sentinel.destination)
-        mock_get_event_handler.assert_called_once_with(mock.sentinel.task_type,
-                                                       mock.sentinel.ctxt,
-                                                       mock.sentinel.task_id)
+            mock.sentinel.ctxt,
+            mock.sentinel.task_id,
+            mock.sentinel.task_type,
+            mock.sentinel.origin,
+            mock.sentinel.destination,
+        )
+        mock_get_event_handler.assert_called_once_with(
+            mock.sentinel.task_type, mock.sentinel.ctxt, mock.sentinel.task_id
+        )
         mock_get_task_runner.assert_called_once_with(mock.sentinel.task_type)
-        mock_task_runner = (
-            mock_get_task_runner.return_value.return_value)
+        mock_task_runner = mock_get_task_runner.return_value.return_value
         mock_task_runner.get_shared_libs_for_providers.assert_called_once_with(
-            mock.sentinel.ctxt, mock.sentinel.origin,
-            mock.sentinel.destination, mock_get_event_handler.return_value)
+            mock.sentinel.ctxt,
+            mock.sentinel.origin,
+            mock.sentinel.destination,
+            mock_get_event_handler.return_value,
+        )
         self.assertEqual(
-            result,
-            mock_task_runner.get_shared_libs_for_providers.return_value)
+            result, mock_task_runner.get_shared_libs_for_providers.return_value
+        )
 
     def test__wait_for_process(self):
         p = mock.MagicMock()
@@ -487,9 +495,7 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         # TaskProcessCanceledException handling when reporting to conductor
         mock_exec.reset_mock()
         mock_client.reset_mock()
-        mock_exec.side_effect = exception.TaskProcessCanceledException(
-            "mock_message"
-        )
+        mock_exec.side_effect = exception.TaskProcessCanceledException("mock_message")
         call_exec_task()
         mock_client.confirm_task_cancellation.assert_called_once_with(
             mock.sentinel.context, mock.sentinel.task_id, "mock_message"
@@ -533,8 +539,10 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_client.reset_mock()
         mock_exec.reset_mock()
         mock_exec.side_effect = Exception("mock_message")
-        self.assertRaises(Exception,  # noqa: H202
-                          lambda: call_exec_task(False))
+        self.assertRaises(
+            Exception,  # noqa: H202
+            lambda: call_exec_task(False),
+        )
 
     @mock.patch.object(schemas, "validate_value")
     @mock.patch.object(utils, "get_secret_connection_info")
@@ -665,30 +673,25 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_get_secret.assert_called_once_with(
             mock.sentinel.context, mock.sentinel.connection_info
         )
-        mock_get_provider.return_value\
-            .get_target_environment_options.assert_called_once_with(
-                mock.sentinel.context,
-                mock_get_secret.return_value,
-                env=mock.sentinel.environment,
-                option_names=mock.sentinel.option_names,
-            )
+        mock_get_provider.return_value.get_target_environment_options.assert_called_once_with(
+            mock.sentinel.context,
+            mock_get_secret.return_value,
+            env=mock.sentinel.environment,
+            option_names=mock.sentinel.option_names,
+        )
         mock_validate.assert_called_once_with(
-            mock_get_provider.return_value
-            .get_target_environment_options.return_value,
+            mock_get_provider.return_value.get_target_environment_options.return_value,
             schemas.CORIOLIS_DESTINATION_ENVIRONMENT_OPTIONS_SCHEMA,
         )
 
         self.assertEqual(
             options,
-            mock_get_provider.return_value
-            .get_target_environment_options.return_value,
+            mock_get_provider.return_value.get_target_environment_options.return_value,
         )
 
         # if the provider is not found, raise InvalidInput
         mock_get_provider.return_value = None
-        self.assertRaises(
-            exception.InvalidInput, call_get_endpoint_destination_options
-        )
+        self.assertRaises(exception.InvalidInput, call_get_endpoint_destination_options)
 
     @mock.patch.object(schemas, "validate_value")
     @mock.patch.object(utils, "get_secret_connection_info")
@@ -716,23 +719,20 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_get_secret.assert_called_once_with(
             mock.sentinel.context, mock.sentinel.connection_info
         )
-        mock_get_provider.return_value\
-            .get_minion_pool_options.assert_called_once_with(
-                mock.sentinel.context,
-                mock_get_secret.return_value,
-                env=mock.sentinel.environment,
-                option_names=mock.sentinel.option_names,
-            )
+        mock_get_provider.return_value.get_minion_pool_options.assert_called_once_with(
+            mock.sentinel.context,
+            mock_get_secret.return_value,
+            env=mock.sentinel.environment,
+            option_names=mock.sentinel.option_names,
+        )
         mock_validate.assert_called_once_with(
-            mock_get_provider.return_value
-            .get_minion_pool_options.return_value,
+            mock_get_provider.return_value.get_minion_pool_options.return_value,
             schemas.CORIOLIS_DESTINATION_ENVIRONMENT_OPTIONS_SCHEMA,
         )
 
         self.assertEqual(
             options,
-            mock_get_provider.return_value
-            .get_minion_pool_options.return_value,
+            mock_get_provider.return_value.get_minion_pool_options.return_value,
         )
 
         # if the provider is not found, raise InvalidInput
@@ -768,23 +768,20 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_get_secret.assert_called_once_with(
             mock.sentinel.context, mock.sentinel.connection_info
         )
-        mock_get_provider.return_value\
-            .get_minion_pool_options.assert_called_once_with(
-                mock.sentinel.context,
-                mock_get_secret.return_value,
-                env=mock.sentinel.environment,
-                option_names=mock.sentinel.option_names,
-            )
+        mock_get_provider.return_value.get_minion_pool_options.assert_called_once_with(
+            mock.sentinel.context,
+            mock_get_secret.return_value,
+            env=mock.sentinel.environment,
+            option_names=mock.sentinel.option_names,
+        )
         mock_validate.assert_called_once_with(
-            mock_get_provider.return_value
-            .get_minion_pool_options.return_value,
+            mock_get_provider.return_value.get_minion_pool_options.return_value,
             schemas.CORIOLIS_DESTINATION_ENVIRONMENT_OPTIONS_SCHEMA,
         )
 
         self.assertEqual(
             options,
-            mock_get_provider.return_value
-            .get_minion_pool_options.return_value,
+            mock_get_provider.return_value.get_minion_pool_options.return_value,
         )
 
         # if the provider is not found, raise InvalidInput
@@ -820,30 +817,25 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_get_secret.assert_called_once_with(
             mock.sentinel.context, mock.sentinel.connection_info
         )
-        mock_get_provider.return_value\
-            .get_source_environment_options.assert_called_once_with(
-                mock.sentinel.context,
-                mock_get_secret.return_value,
-                env=mock.sentinel.environment,
-                option_names=mock.sentinel.option_names,
-            )
+        mock_get_provider.return_value.get_source_environment_options.assert_called_once_with(
+            mock.sentinel.context,
+            mock_get_secret.return_value,
+            env=mock.sentinel.environment,
+            option_names=mock.sentinel.option_names,
+        )
         mock_validate.assert_called_once_with(
-            mock_get_provider.return_value
-            .get_source_environment_options.return_value,
+            mock_get_provider.return_value.get_source_environment_options.return_value,
             schemas.CORIOLIS_SOURCE_ENVIRONMENT_OPTIONS_SCHEMA,
         )
 
         self.assertEqual(
             options,
-            mock_get_provider.return_value
-            .get_source_environment_options.return_value,
+            mock_get_provider.return_value.get_source_environment_options.return_value,
         )
 
         # if the provider is not found, raise InvalidInput
         mock_get_provider.return_value = None
-        self.assertRaises(
-            exception.InvalidInput, call_get_endpoint_source_options
-        )
+        self.assertRaises(exception.InvalidInput, call_get_endpoint_source_options)
 
     @mock.patch.object(schemas, "validate_value")
     @mock.patch.object(utils, "get_secret_connection_info")
@@ -944,9 +936,7 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(utils, "get_secret_connection_info")
     @mock.patch.object(providers_factory, "get_provider")
-    def test_get_endpoint_inventory_csv(
-        self, mock_get_provider, mock_get_secret
-    ):
+    def test_get_endpoint_inventory_csv(self, mock_get_provider, mock_get_secret):
         result = self.server.get_endpoint_inventory_csv(
             mock.sentinel.context,
             mock.sentinel.platform_name,
@@ -962,16 +952,14 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_get_secret.assert_called_once_with(
             mock.sentinel.context, mock.sentinel.connection_info
         )
-        mock_get_provider.return_value.export_instance_inventory\
-            .assert_called_once_with(
-                mock.sentinel.context,
-                mock_get_secret.return_value,
-                mock.sentinel.source_environment,
-            )
+        mock_get_provider.return_value.export_instance_inventory.assert_called_once_with(
+            mock.sentinel.context,
+            mock_get_secret.return_value,
+            mock.sentinel.source_environment,
+        )
         self.assertEqual(
             result,
-            mock_get_provider.return_value.export_instance_inventory
-            .return_value
+            mock_get_provider.return_value.export_instance_inventory.return_value,
         )
 
     @mock.patch.object(utils, "get_secret_connection_info")
@@ -1015,15 +1003,13 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         )
         mock_validate.assert_called_once_with(
             mock.sentinel.source_environment,
-            mock_get_provider.return_value
-            .get_source_environment_schema.return_value,
+            mock_get_provider.return_value.get_source_environment_schema.return_value,
         )
 
         self.assertEqual(result, (True, None))
 
         # handle SchemaValidationException
-        mock_validate.side_effect = exception.SchemaValidationException(
-            "test")
+        mock_validate.side_effect = exception.SchemaValidationException("test")
         result = self.server.validate_endpoint_source_environment(
             mock.sentinel.context,
             mock.sentinel.source_platform_name,
@@ -1050,15 +1036,13 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         )
         mock_validate.assert_called_once_with(
             mock.sentinel.target_environment,
-            mock_get_provider.return_value
-            .get_target_environment_schema.return_value,
+            mock_get_provider.return_value.get_target_environment_schema.return_value,
         )
 
         self.assertEqual(result, (True, None))
 
         # handle SchemaValidationException
-        mock_validate.side_effect = exception.SchemaValidationException(
-            "test")
+        mock_validate.side_effect = exception.SchemaValidationException("test")
         result = self.server.validate_endpoint_target_environment(
             mock.sentinel.context,
             mock.sentinel.target_platform_name,
@@ -1085,15 +1069,13 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         )
         mock_validate.assert_called_once_with(
             mock.sentinel.pool_environment,
-            mock_get_provider.return_value
-            .get_minion_pool_environment_schema.return_value,
+            mock_get_provider.return_value.get_minion_pool_environment_schema.return_value,
         )
 
         self.assertEqual(result, (True, None))
 
         # handle SchemaValidationException
-        mock_validate.side_effect = exception.SchemaValidationException(
-            "test")
+        mock_validate.side_effect = exception.SchemaValidationException("test")
         result = self.server.validate_endpoint_source_minion_pool_options(
             mock.sentinel.context,
             mock.sentinel.source_platform_name,
@@ -1120,15 +1102,13 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         )
         mock_validate.assert_called_once_with(
             mock.sentinel.pool_environment,
-            mock_get_provider.return_value
-            .get_minion_pool_environment_schema.return_value,
+            mock_get_provider.return_value.get_minion_pool_environment_schema.return_value,
         )
 
         self.assertEqual(result, (True, None))
 
         # handle SchemaValidationException
-        mock_validate.side_effect = exception.SchemaValidationException(
-            "test")
+        mock_validate.side_effect = exception.SchemaValidationException("test")
         result = self.server.validate_endpoint_destination_minion_pool_options(
             mock.sentinel.context,
             mock.sentinel.destination_platform_name,
@@ -1160,13 +1140,11 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         )
         mock_validate.assert_called_once_with(
             mock_get_secret.return_value,
-            mock_get_provider.return_value
-            .get_connection_info_schema.return_value,
+            mock_get_provider.return_value.get_connection_info_schema.return_value,
         )
-        mock_get_provider.return_value\
-            .validate_connection.assert_called_once_with(
-                mock.sentinel.context, mock_get_secret.return_value
-            )
+        mock_get_provider.return_value.validate_connection.assert_called_once_with(
+            mock.sentinel.context, mock_get_secret.return_value
+        )
 
         self.assertEqual(result, (True, None))
 
@@ -1188,18 +1166,12 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(providers_factory, "get_provider")
     @ddt.data(
-        (
-            constants.PROVIDER_TYPE_ENDPOINT,
-            "connection_info_schema"
-        ),
+        (constants.PROVIDER_TYPE_ENDPOINT, "connection_info_schema"),
         (
             constants.PROVIDER_TYPE_TRANSFER_IMPORT,
             "destination_environment_schema",
         ),
-        (
-            constants.PROVIDER_TYPE_TRANSFER_EXPORT,
-            "source_environment_schema"
-        ),
+        (constants.PROVIDER_TYPE_TRANSFER_EXPORT, "source_environment_schema"),
         (
             constants.PROVIDER_TYPE_SOURCE_MINION_POOL,
             "source_minion_pool_environment_schema",
@@ -1231,9 +1203,15 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch('coriolis.utils.setup_logging')
     @mock.patch('oslo_log.log.getLogger')
     @mock.patch('logging.handlers.QueueHandler')
-    def test__setup_task_process(self, mock_queue_handler, mock_get_logger,
-                                 mock_setup_logging, mock_conf, mock_argv,
-                                 mock_get_worker_count_from_args):
+    def test__setup_task_process(
+        self,
+        mock_queue_handler,
+        mock_get_logger,
+        mock_setup_logging,
+        mock_conf,
+        mock_argv,
+        mock_get_worker_count_from_args,
+    ):
         mock_get_worker_count_from_args.return_value = (None, "args")
         mock_logger = mock_get_logger.return_value.logger
         mock_logger.handlers = [mock.sentinel.handler]
@@ -1242,23 +1220,26 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_get_worker_count_from_args.assert_called_once_with(mock_argv)
         mock_conf.assert_called_once_with(
             mock_get_worker_count_from_args.return_value[1][1:],
-            project='coriolis', version='1.0.0')
+            project='coriolis',
+            version='1.0.0',
+        )
         mock_setup_logging.assert_called_once_with()
         mock_get_logger.assert_called_once_with(None)
-        mock_logger.removeHandler.assert_called_once_with(
-            mock.sentinel.handler)
-        mock_queue_handler.assert_called_once_with(
-            mock.sentinel.mp_log_q)
-        mock_logger.addHandler.assert_called_once_with(
-            mock_queue_handler.return_value)
+        mock_logger.removeHandler.assert_called_once_with(mock.sentinel.handler)
+        mock_queue_handler.assert_called_once_with(mock.sentinel.mp_log_q)
+        mock_logger.addHandler.assert_called_once_with(mock_queue_handler.return_value)
 
     @mock.patch.object(server, '_setup_task_process')
     @mock.patch.object(task_runners_factory, 'get_task_runner_class')
     @mock.patch.object(server, '_get_event_handler_for_task_type')
     @mock.patch('coriolis.utils.is_serializable')
-    def test__task_process(self, mock_is_serializable,
-                           mock_get_event_handler, mock_get_task_runner_class,
-                           mock_setup_task_process):
+    def test__task_process(
+        self,
+        mock_is_serializable,
+        mock_get_event_handler,
+        mock_get_task_runner_class,
+        mock_setup_task_process,
+    ):
         mp_q = mock.MagicMock()
         mp_log_q = mock.MagicMock()
         task_info = {}
@@ -1267,20 +1248,30 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
 
         mock_destination = {'connection_info': "fake-conn-info"}
 
-        server._task_process(mock.sentinel.ctxt, mock.sentinel.task_id,
-                             mock.sentinel.task_type, mock.sentinel.origin,
-                             mock_destination, mock.sentinel.instance,
-                             task_info, mp_q, mp_log_q)
+        server._task_process(
+            mock.sentinel.ctxt,
+            mock.sentinel.task_id,
+            mock.sentinel.task_type,
+            mock.sentinel.origin,
+            mock_destination,
+            mock.sentinel.instance,
+            task_info,
+            mp_q,
+            mp_log_q,
+        )
         mock_setup_task_process.assert_called_once_with(mp_log_q)
-        mock_get_task_runner_class.assert_called_once_with(
-            mock.sentinel.task_type)
-        mock_get_event_handler.assert_called_once_with(mock.sentinel.task_type,
-                                                       mock.sentinel.ctxt,
-                                                       mock.sentinel.task_id)
+        mock_get_task_runner_class.assert_called_once_with(mock.sentinel.task_type)
+        mock_get_event_handler.assert_called_once_with(
+            mock.sentinel.task_type, mock.sentinel.ctxt, mock.sentinel.task_id
+        )
         mock_task_runner.run.assert_called_once_with(
-            mock.sentinel.ctxt, mock.sentinel.instance, mock.sentinel.origin,
-            mock_destination, task_info,
-            mock_get_event_handler.return_value)
+            mock.sentinel.ctxt,
+            mock.sentinel.instance,
+            mock.sentinel.origin,
+            mock_destination,
+            task_info,
+            mock_get_event_handler.return_value,
+        )
         mock_is_serializable.assert_called_once_with(mock_task_result)
         mp_q.put.assert_called_once_with(mock_task_result)
         mp_log_q.put.assert_called_once_with(None)
@@ -1291,9 +1282,16 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mp_q = mock.MagicMock()
         mp_log_q = mock.MagicMock()
 
-        server._task_process(mock.sentinel.ctxt, mock.sentinel.task_id,
-                             mock.sentinel.task_type, mock.sentinel.origin,
-                             mock.sentinel.destination, mock.sentinel.instance,
-                             mock.sentinel.task_info, mp_q, mp_log_q)
+        server._task_process(
+            mock.sentinel.ctxt,
+            mock.sentinel.task_id,
+            mock.sentinel.task_type,
+            mock.sentinel.origin,
+            mock.sentinel.destination,
+            mock.sentinel.instance,
+            mock.sentinel.task_info,
+            mp_q,
+            mp_log_q,
+        )
         mp_q.put.assert_called_once_with("YOLO")
         mp_log_q.put.assert_called_once_with(None)

@@ -5,8 +5,7 @@ import logging
 from unittest import mock
 
 from coriolis import exception
-from coriolis.osmorphing import base
-from coriolis.osmorphing import rocky
+from coriolis.osmorphing import base, rocky
 from coriolis.tests import test_base
 
 
@@ -23,19 +22,21 @@ class BaseRockyLinuxMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         }
         self.enable_repos = ['repo1', 'repo2']
         self.morphing_tools = rocky.BaseRockyLinuxMorphingTools(
-            mock.sentinel.conn, mock.sentinel.os_root_dir,
-            mock.sentinel.os_root_dir, mock.sentinel.hypervisor,
-            mock.sentinel.event_manager, self.detected_os_info,
-            mock.sentinel.osmorphing_parameters)
+            mock.sentinel.conn,
+            mock.sentinel.os_root_dir,
+            mock.sentinel.os_root_dir,
+            mock.sentinel.hypervisor,
+            mock.sentinel.event_manager,
+            self.detected_os_info,
+            mock.sentinel.osmorphing_parameters,
+        )
 
     def test_check_os_supported(self):
         detected_os_info = {
             "distribution_name": rocky.ROCKY_LINUX_DISTRO_IDENTIFIER,
-            "release_version": "8"
+            "release_version": "8",
         }
-        result = rocky.BaseRockyLinuxMorphingTools.check_os_supported(
-            detected_os_info
-        )
+        result = rocky.BaseRockyLinuxMorphingTools.check_os_supported(detected_os_info)
 
         self.assertTrue(result)
 
@@ -43,9 +44,7 @@ class BaseRockyLinuxMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         detected_os_info = {
             "distribution_name": "unsupported",
         }
-        result = rocky.BaseRockyLinuxMorphingTools.check_os_supported(
-            detected_os_info
-        )
+        result = rocky.BaseRockyLinuxMorphingTools.check_os_supported(detected_os_info)
 
         self.assertFalse(result)
 
@@ -53,10 +52,12 @@ class BaseRockyLinuxMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
     def test_enable_repos(self, mock_exec_cmd_chroot):
         self.morphing_tools.enable_repos(self.enable_repos)
 
-        mock_exec_cmd_chroot.assert_has_calls([
-            mock.call("dnf config-manager --set-enabled repo1"),
-            mock.call("dnf config-manager --set-enabled repo2"),
-        ])
+        mock_exec_cmd_chroot.assert_has_calls(
+            [
+                mock.call("dnf config-manager --set-enabled repo1"),
+                mock.call("dnf config-manager --set-enabled repo2"),
+            ]
+        )
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     def test_enable_repos_empty(self, mock_exec_cmd_chroot):
@@ -68,9 +69,9 @@ class BaseRockyLinuxMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
     def test_enable_repos_with_exception(self, mock_exec_cmd_chroot):
         mock_exec_cmd_chroot.side_effect = exception.CoriolisException()
 
-        with self.assertLogs(
-                'coriolis.osmorphing.rocky', level=logging.WARN):
+        with self.assertLogs('coriolis.osmorphing.rocky', level=logging.WARN):
             self.morphing_tools.enable_repos(['repo1'])
 
         mock_exec_cmd_chroot.assert_called_once_with(
-            "dnf config-manager --set-enabled repo1")
+            "dnf config-manager --set-enabled repo1"
+        )

@@ -18,16 +18,14 @@
 WSGI middleware for OpenStack API controllers.
 """
 
-from paste import urlmap
 import routes
-
 from oslo_log import log as logging
 from oslo_service import wsgi as base_wsgi
+from paste import urlmap
 
-from coriolis.api import wsgi
 from coriolis import exception
-from coriolis.i18n import _, _LW  # noqa
-
+from coriolis.api import wsgi
+from coriolis.i18n import _LW, _  # noqa
 
 LOG = logging.getLogger(__name__)
 
@@ -61,16 +59,13 @@ class ProjectMapper(APIMapper):
             parent_resource = kwargs['parent_resource']
             p_collection = parent_resource['collection_name']
             p_member = parent_resource['member_name']
-            kwargs['path_prefix'] = '{project_id}/%s/:%s_id' % (p_collection,
-                                                                p_member)
-        routes.Mapper.resource(self,
-                               member_name,
-                               collection_name,
-                               **kwargs)
+            kwargs['path_prefix'] = '{project_id}/%s/:%s_id' % (p_collection, p_member)
+        routes.Mapper.resource(self, member_name, collection_name, **kwargs)
 
 
 class APIRouter(base_wsgi.Router):
     """Routes requests on the API to the appropriate controller and method."""
+
     ExtensionManager = None  # override in subclasses
 
     @classmethod
@@ -83,7 +78,8 @@ class APIRouter(base_wsgi.Router):
                 ext_mgr = self.ExtensionManager()
             else:
                 raise exception.CoriolisException(
-                    _("Must specify an ExtensionManager class"))
+                    _("Must specify an ExtensionManager class")
+                )
 
         mapper = ProjectMapper()
         self.resources = {}
@@ -94,15 +90,15 @@ class APIRouter(base_wsgi.Router):
 
     def _setup_ext_routes(self, mapper, ext_mgr):
         for resource in ext_mgr.get_resources():
-            LOG.debug('Extended resource: %s',
-                      resource.collection)
+            LOG.debug('Extended resource: %s', resource.collection)
 
             wsgi_resource = wsgi.Resource(resource.controller)
             self.resources[resource.collection] = wsgi_resource
             kargs = dict(
                 controller=wsgi_resource,
                 collection=resource.collection_actions,
-                member=resource.member_actions)
+                member=resource.member_actions,
+            )
 
             if resource.parent:
                 kargs['parent_resource'] = resource.parent
@@ -118,16 +114,19 @@ class APIRouter(base_wsgi.Router):
             controller = extension.controller
 
             if collection not in self.resources:
-                LOG.warning(_LW('Extension %(ext_name)s: Cannot extend '
-                                'resource %(collection)s: No such resource'),
-                            {'ext_name': extension.extension.name,
-                             'collection': collection})
+                LOG.warning(
+                    _LW(
+                        'Extension %(ext_name)s: Cannot extend '
+                        'resource %(collection)s: No such resource'
+                    ),
+                    {'ext_name': extension.extension.name, 'collection': collection},
+                )
                 continue
 
-            LOG.debug('Extension %(ext_name)s extending resource: '
-                      '%(collection)s',
-                      {'ext_name': extension.extension.name,
-                       'collection': collection})
+            LOG.debug(
+                'Extension %(ext_name)s extending resource: %(collection)s',
+                {'ext_name': extension.extension.name, 'collection': collection},
+            )
 
             resource = self.resources[collection]
             resource.register_actions(controller)

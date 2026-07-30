@@ -22,24 +22,27 @@ BDRV_SECTOR_BITS = 9
 
 
 class QObject(ctypes.Structure):
-    _fields_ = [("type", ctypes.c_void_p),
-                ("refcnt", ctypes.c_size_t)]
+    _fields_ = [("type", ctypes.c_void_p), ("refcnt", ctypes.c_size_t)]
 
 
 class QString(ctypes.Structure):
-    _fields_ = [("base", QObject),
-                ("string", ctypes.c_char_p),
-                ("length", ctypes.c_size_t),
-                ("capacity", ctypes.c_size_t)]
+    _fields_ = [
+        ("base", QObject),
+        ("string", ctypes.c_char_p),
+        ("length", ctypes.c_size_t),
+        ("capacity", ctypes.c_size_t),
+    ]
 
 
 class Error(ctypes.Structure):
-    _fields_ = [("msg", ctypes.c_char_p),
-                ("err_class", ctypes.c_int),
-                ("src", ctypes.c_char_p),
-                ("func", ctypes.c_char_p),
-                ("line", ctypes.c_int),
-                ("hint", ctypes.c_void_p)]
+    _fields_ = [
+        ("msg", ctypes.c_char_p),
+        ("err_class", ctypes.c_int),
+        ("src", ctypes.c_char_p),
+        ("func", ctypes.c_char_p),
+        ("line", ctypes.c_int),
+        ("hint", ctypes.c_void_p),
+    ]
 
 
 _libqemu.qemu_vfree.argtypes = [ctypes.c_void_p]
@@ -54,8 +57,7 @@ _libqemu.qemu_init_exec_dir.argtypes = [ctypes.c_char_p]
 _libqemu.qemu_init_exec_dir.restype = None
 qemu_init_exec_dir = _libqemu.qemu_init_exec_dir
 
-_libqemu.qemu_init_main_loop.argtypes = [
-    ctypes.POINTER(ctypes.POINTER(Error))]
+_libqemu.qemu_init_main_loop.argtypes = [ctypes.POINTER(ctypes.POINTER(Error))]
 _libqemu.qemu_init_main_loop.res_type = ctypes.c_int
 qemu_init_main_loop = _libqemu.qemu_init_main_loop
 
@@ -80,7 +82,10 @@ _libqemu.qdict_new.res_type = ctypes.c_void_p
 qdict_new = _libqemu.qdict_new
 
 _libqemu.qdict_put_obj.argtypes = [
-    ctypes.c_void_p, ctypes.c_char_p, ctypes.POINTER(QObject)]
+    ctypes.c_void_p,
+    ctypes.c_char_p,
+    ctypes.POINTER(QObject),
+]
 _libqemu.qdict_put_obj.restype = None
 qdict_put_obj = _libqemu.qdict_put_obj
 
@@ -89,8 +94,12 @@ _libqemu.bdrv_init.restype = None
 bdrv_init = _libqemu.bdrv_init
 
 _libqemu.blk_new_open.argtypes = [
-    ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p, ctypes.c_int,
-    ctypes.POINTER(ctypes.POINTER(Error))]
+    ctypes.c_char_p,
+    ctypes.c_char_p,
+    ctypes.c_void_p,
+    ctypes.c_int,
+    ctypes.POINTER(ctypes.POINTER(Error)),
+]
 _libqemu.blk_new_open.restype = ctypes.c_void_p
 blk_new_open = _libqemu.blk_new_open
 
@@ -107,7 +116,11 @@ _libqemu.blk_nb_sectors.restype = ctypes.c_int64
 blk_nb_sectors = _libqemu.blk_nb_sectors
 
 _libqemu.blk_pread.argtypes = [
-    ctypes.c_void_p, ctypes.c_int64, ctypes.c_void_p, ctypes.c_int]
+    ctypes.c_void_p,
+    ctypes.c_int64,
+    ctypes.c_void_p,
+    ctypes.c_int,
+]
 _libqemu.blk_pread.res_type = ctypes.c_int
 blk_pread = _libqemu.blk_pread
 
@@ -116,7 +129,12 @@ _libqemu.blk_unref.restype = None
 blk_unref = _libqemu.blk_unref
 
 _libqemu.bdrv_get_block_status_above.argtypes = [
-    ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int64, ctypes.c_int,
-    ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_void_p)]
+    ctypes.c_void_p,
+    ctypes.c_void_p,
+    ctypes.c_int64,
+    ctypes.c_int,
+    ctypes.POINTER(ctypes.c_int),
+    ctypes.POINTER(ctypes.c_void_p),
+]
 _libqemu.bdrv_get_block_status_above.restype = ctypes.c_int64
 bdrv_get_block_status_above = _libqemu.bdrv_get_block_status_above

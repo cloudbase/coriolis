@@ -7,8 +7,7 @@ from unittest import mock
 import ddt
 
 from coriolis import exception
-from coriolis.osmorphing import amazon
-from coriolis.osmorphing import base
+from coriolis.osmorphing import amazon, base
 from coriolis.tests import test_base
 
 
@@ -26,19 +25,24 @@ class BaseAmazonLinuxOSMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         }
         self.enable_repos = ['repo1', 'repo2']
         self.morphing_tools = amazon.BaseAmazonLinuxOSMorphingTools(
-            mock.sentinel.conn, mock.sentinel.os_root_dir,
-            mock.sentinel.os_root_dir, mock.sentinel.hypervisor,
-            mock.sentinel.event_manager, self.detected_os_info,
-            mock.sentinel.osmorphing_parameters)
+            mock.sentinel.conn,
+            mock.sentinel.os_root_dir,
+            mock.sentinel.os_root_dir,
+            mock.sentinel.hypervisor,
+            mock.sentinel.event_manager,
+            self.detected_os_info,
+            mock.sentinel.osmorphing_parameters,
+        )
 
     def test_check_os_supported(self):
         detected_os_info = {
             "distribution_name": amazon.AMAZON_DISTRO_NAME_IDENTIFIER,
-            "release_version": "2"
+            "release_version": "2",
         }
 
         result = amazon.BaseAmazonLinuxOSMorphingTools.check_os_supported(
-            detected_os_info)
+            detected_os_info
+        )
 
         self.assertTrue(result)
 
@@ -47,7 +51,8 @@ class BaseAmazonLinuxOSMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             "distribution_name": 'unsupported',
         }
         result = amazon.BaseAmazonLinuxOSMorphingTools.check_os_supported(
-            detected_os_info)
+            detected_os_info
+        )
 
         self.assertFalse(result)
 
@@ -64,10 +69,12 @@ class BaseAmazonLinuxOSMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
 
         self.morphing_tools.enable_repos(self.enable_repos)
 
-        mock_exec_cmd_chroot.assert_has_calls([
-            mock.call("%s repo1" % expected_cmd),
-            mock.call("%s repo2" % expected_cmd),
-        ])
+        mock_exec_cmd_chroot.assert_has_calls(
+            [
+                mock.call("%s repo1" % expected_cmd),
+                mock.call("%s repo2" % expected_cmd),
+            ]
+        )
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     def test_enable_repos_empty(self, mock_exec_cmd_chroot):
@@ -80,9 +87,9 @@ class BaseAmazonLinuxOSMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         self.morphing_tools._version = '2'
         mock_exec_cmd_chroot.side_effect = exception.CoriolisException()
 
-        with self.assertLogs(
-                'coriolis.osmorphing.amazon', level=logging.WARN):
+        with self.assertLogs('coriolis.osmorphing.amazon', level=logging.WARN):
             self.morphing_tools.enable_repos(['repo1'])
 
         mock_exec_cmd_chroot.assert_called_once_with(
-            "yum-config-manager --enable repo1")
+            "yum-config-manager --enable repo1"
+        )

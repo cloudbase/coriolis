@@ -12,11 +12,9 @@ import uuid
 from oslo_log import log as logging
 from packaging import version
 
-from coriolis import constants
-from coriolis import exception
+from coriolis import constants, exception, utils
 from coriolis.osmorphing import base
 from coriolis.osmorphing.osdetect import windows as windows_osdetect
-from coriolis import utils
 
 LOG = logging.getLogger(__name__)
 
@@ -30,50 +28,43 @@ SERVICE_START_DISABLED = 4
 SERVICES_PATH_FORMAT = "HKLM:\\%s\\ControlSet001\\Services"
 SERVICE_PATH_FORMAT = "HKLM:\\%s\\ControlSet001\\Services\\%s"
 RUN_PATH_FORMAT = "HKLM:\\%s\\\Microsoft\\Windows\\CurrentVersion\\Run"
-UNINSTALL_PATH_FORMAT = \
-    "HKLM:\\%s\\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*"
+UNINSTALL_PATH_FORMAT = "HKLM:\\%s\\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*"
 CLOUDBASEINIT_SERVICE_NAME = "cloudbase-init"
 CLOUDBASE_INIT_DEFAULT_PLUGINS = [
     'cloudbaseinit.plugins.common.mtu.MTUPlugin',
-    'cloudbaseinit.plugins.windows.ntpclient'
-    '.NTPClientPlugin',
-    'cloudbaseinit.plugins.common.sethostname'
-    '.SetHostNamePlugin',
-    'cloudbaseinit.plugins.common.networkconfig'
-    '.NetworkConfigPlugin',
-    'cloudbaseinit.plugins.windows.licensing'
-    '.WindowsLicensingPlugin',
-    'cloudbaseinit.plugins.windows.extendvolumes'
-    '.ExtendVolumesPlugin',
+    'cloudbaseinit.plugins.windows.ntpclient.NTPClientPlugin',
+    'cloudbaseinit.plugins.common.sethostname.SetHostNamePlugin',
+    'cloudbaseinit.plugins.common.networkconfig.NetworkConfigPlugin',
+    'cloudbaseinit.plugins.windows.licensing.WindowsLicensingPlugin',
+    'cloudbaseinit.plugins.windows.extendvolumes.ExtendVolumesPlugin',
     'cloudbaseinit.plugins.common.userdata.UserDataPlugin',
-    'cloudbaseinit.plugins.common.setuserpassword.'
-    'SetUserPasswordPlugin',
-    'cloudbaseinit.plugins.windows.winrmlistener.'
-    'ConfigWinRMListenerPlugin',
+    'cloudbaseinit.plugins.common.setuserpassword.SetUserPasswordPlugin',
+    'cloudbaseinit.plugins.windows.winrmlistener.ConfigWinRMListenerPlugin',
     'cloudbaseinit.plugins.windows.winrmcertificateauth.'
     'ConfigWinRMCertificateAuthPlugin',
-    'cloudbaseinit.plugins.common.localscripts'
-    '.LocalScriptsPlugin',
+    'cloudbaseinit.plugins.common.localscripts.LocalScriptsPlugin',
 ]
 
 CLOUDBASE_INIT_DEFAULT_METADATA_SVCS = [
     'cloudbaseinit.metadata.services.httpservice.HttpService',
-    'cloudbaseinit.metadata.services'
-    '.configdrive.ConfigDriveService',
+    'cloudbaseinit.metadata.services.configdrive.ConfigDriveService',
     'cloudbaseinit.metadata.services.ec2service.EC2Service',
-    'cloudbaseinit.metadata.services'
-    '.maasservice.MaaSHttpService',
+    'cloudbaseinit.metadata.services.maasservice.MaaSHttpService',
     'cloudbaseinit.metadata.services.cloudstack.CloudStack',
-    'cloudbaseinit.metadata.services'
-    '.opennebulaservice.OpenNebulaService',
+    'cloudbaseinit.metadata.services.opennebulaservice.OpenNebulaService',
 ]
 
 REQUIRED_DETECTED_WINDOWS_OS_FIELDS = [
-    "version_number", "edition_id", "installation_type", "product_name"]
+    "version_number",
+    "edition_id",
+    "installation_type",
+    "product_name",
+]
 
 QEMU_GUEST_AGENT_INSTALL_SCRIPT_FORMAT = (
     "msiexec.exe /i '%(agent_msi_path)s' /qn /passive "
-    "/L*V '%(agent_msi_log_dir)s/qemu-guest-agent-msiexec.log'")
+    "/L*V '%(agent_msi_log_dir)s/qemu-guest-agent-msiexec.log'"
+)
 
 QEMU_GUEST_AGENT_INSTALL_FROM_DIR_SCRIPT_FORMAT = (
     "$dst = 'C:\\Program Files\\Qemu-ga'\n"
@@ -81,13 +72,15 @@ QEMU_GUEST_AGENT_INSTALL_FROM_DIR_SCRIPT_FORMAT = (
     "Copy-Item '%(qemu_ga_dir)s\\x64\\*' -Destination $dst -Force\n"
     "Copy-Item '%(qemu_ga_dir)s\\mingw64\\*' -Destination $dst -Force\n"
     '& "$dst\\qemu-ga.exe" --service install\n'
-    "Start-Service QEMU-GA")
+    "Start-Service QEMU-GA"
+)
 
 VIRTIO_WIN_ISO_PATH = "c:\\virtio-win.iso"
 QEMU_GA_MSI_NAME = "qemu-ga.msi"
 
 INTERFACES_PATH_FORMAT = (
-    "HKLM:\\%s\\ControlSet001\\Services\\Tcpip\\Parameters\\Interfaces")
+    "HKLM:\\%s\\ControlSet001\\Services\\Tcpip\\Parameters\\Interfaces"
+)
 
 STATIC_IP_SCRIPT_TEMPLATE = """
 $ErrorActionPreference = "Stop"
@@ -200,7 +193,6 @@ Invoke-Main $NICS_INFO $IPS_INFO
 
 
 class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
-
     @classmethod
     def get_required_detected_os_info_fields(cls):
         base_fields = copy.deepcopy(base.REQUIRED_DETECTED_OS_FIELDS)
@@ -215,13 +207,26 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
         return False
 
     def __init__(
-            self, conn, os_root_dir, os_root_device, hypervisor,
-            event_manager, detected_os_info, osmorphing_parameters,
-            operation_timeout=None):
+        self,
+        conn,
+        os_root_dir,
+        os_root_device,
+        hypervisor,
+        event_manager,
+        detected_os_info,
+        osmorphing_parameters,
+        operation_timeout=None,
+    ):
         super(BaseWindowsMorphingTools, self).__init__(
-            conn, os_root_dir, os_root_device, hypervisor,
-            event_manager, detected_os_info, osmorphing_parameters,
-            operation_timeout)
+            conn,
+            os_root_dir,
+            os_root_device,
+            hypervisor,
+            event_manager,
+            detected_os_info,
+            osmorphing_parameters,
+            operation_timeout,
+        )
 
         self._version_number = detected_os_info['version_number']
         self._edition_id = detected_os_info['edition_id']
@@ -230,26 +235,25 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
 
     def _get_worker_os_drive_path(self):
         return self._conn.exec_ps_command(
-            "(Get-WmiObject Win32_OperatingSystem).SystemDrive")
+            "(Get-WmiObject Win32_OperatingSystem).SystemDrive"
+        )
 
     def _get_dism_path(self):
-        return "%s\\Windows\\System32\\dism.exe" % (
-            self._get_worker_os_drive_path())
+        return "%s\\Windows\\System32\\dism.exe" % (self._get_worker_os_drive_path())
 
     def _get_sid(self):
         sid = self._conn.exec_ps_command(
             "(New-Object System.Security.Principal.NTAccount($ENV:USERNAME))."
-            "Translate([System.Security.Principal.SecurityIdentifier]).Value")
+            "Translate([System.Security.Principal.SecurityIdentifier]).Value"
+        )
         LOG.debug("Current user's SID: %s", sid)
         return sid
 
     def _grant_permissions(self, path, user, perm="(OI)(CI)F"):
-        self._conn.exec_command(
-            "icacls.exe", [path, "/grant", "%s:%s" % (user, perm)])
+        self._conn.exec_command("icacls.exe", [path, "/grant", "%s:%s" % (user, perm)])
 
     def _revoke_permissions(self, path, user):
-        self._conn.exec_command(
-            "icacls.exe", [path, "/remove", user])
+        self._conn.exec_command("icacls.exe", [path, "/remove", user])
 
     def _load_registry_hive(self, subkey, path):
         self._conn.exec_command("reg.exe", ["load", subkey, path])
@@ -268,31 +272,39 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
         try:
             return self._conn.exec_command(
                 dism_path,
-                ["/add-driver", "/image:%s" % self._os_root_dir,
-                 "/driver:\"%s\"" % driver_path, "/recurse",
-                 "/forceunsigned"])
+                [
+                    "/add-driver",
+                    "/image:%s" % self._os_root_dir,
+                    "/driver:\"%s\"" % driver_path,
+                    "/recurse",
+                    "/forceunsigned",
+                ],
+            )
         except Exception as ex:
             dism_log_path = "%s\\Windows\\Logs\\DISM\\dism.log" % (
-                self._get_worker_os_drive_path())
+                self._get_worker_os_drive_path()
+            )
             if self._conn.test_path(dism_log_path):
                 dism_log_contents = self._conn.exec_ps_command(
-                    "Get-Content %s" % dism_log_path)
+                    "Get-Content %s" % dism_log_path
+                )
                 LOG.error(
                     "Error occured whilst adding driver '%s' through DISM. "
                     "Contents of '%s': %s",
-                    driver_path, dism_log_path, dism_log_contents)
+                    driver_path,
+                    dism_log_path,
+                    dism_log_contents,
+                )
             else:
-                LOG.warn(
-                    "Could not find DISM error logs for failure:'%s'",
-                    str(ex))
+                LOG.warn("Could not find DISM error logs for failure:'%s'", str(ex))
             raise
 
     def _mount_disk_image(self, path):
         LOG.info("Mounting disk image: %s" % path)
         drive_letter, stderr = self._conn.exec_ps_command(
-            "(Mount-DiskImage '%s' -PassThru | Get-Volume).DriveLetter" %
-            path,
-            include_stderr=True)
+            "(Mount-DiskImage '%s' -PassThru | Get-Volume).DriveLetter" % path,
+            include_stderr=True,
+        )
         if not drive_letter:
             # Couldn't mount the image, let's fetch the file size. It may
             # help us spot invalid images.
@@ -300,18 +312,20 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
             raise exception.CoriolisException(
                 f"Could not mount image: '{path}', "
                 f"file size: {file_size}, "
-                f"mount stderr: {stderr}")
+                f"mount stderr: {stderr}"
+            )
         return drive_letter
 
     def _dismount_disk_image(self, path):
         LOG.info("Unmounting disk image: %s" % path)
-        self._conn.exec_ps_command("Dismount-DiskImage '%s'" % path,
-                                   ignore_stdout=True)
+        self._conn.exec_ps_command("Dismount-DiskImage '%s'" % path, ignore_stdout=True)
 
     @utils.retry_on_error()
     def _expand_archive(self, path, destination, overwrite=True):
-        LOG.info("Expanding archive \"%(path)s\" in \"%(destination)s\"",
-                 {"path": path, "destination": destination})
+        LOG.info(
+            "Expanding archive \"%(path)s\" in \"%(destination)s\"",
+            {"path": path, "destination": destination},
+        )
 
         if self._conn.test_path(destination):
             LOG.info("Destination folder %s already exists" % destination)
@@ -319,33 +333,37 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
                 if destination.endswith(":\\") or ":\\Windows" in destination:
                     LOG.warn(
                         "Not removing target directory, as it is either the "
-                        "root directory or is within the Windows directory")
+                        "root directory or is within the Windows directory"
+                    )
                 else:
-                    self._conn.exec_ps_command(
-                        "rm -recurse -force %s" % destination)
+                    self._conn.exec_ps_command("rm -recurse -force %s" % destination)
 
         self._conn.exec_ps_command(
             "Expand-Archive -LiteralPath '%(path)s' "
-            "-DestinationPath '%(destination)s' -Force" %
-            {"path": path, "destination": destination},
-            ignore_stdout=True)
+            "-DestinationPath '%(destination)s' -Force"
+            % {"path": path, "destination": destination},
+            ignore_stdout=True,
+        )
 
     def _set_service_start_mode(self, key_name, service_name, start_mode):
-        LOG.info("Setting service start mode: %(service_name)s, "
-                 "%(start_mode)s", {"service_name": service_name,
-                                    "start_mode": start_mode})
+        LOG.info(
+            "Setting service start mode: %(service_name)s, %(start_mode)s",
+            {"service_name": service_name, "start_mode": start_mode},
+        )
         registry_path = SERVICE_PATH_FORMAT % (key_name, service_name)
         self._conn.exec_ps_command(
             "Set-ItemProperty -Path '%(path)s' -Name 'Start' -Value "
-            "%(start_mode)s" %
-            {"path": registry_path, "start_mode": start_mode})
+            "%(start_mode)s" % {"path": registry_path, "start_mode": start_mode}
+        )
 
     def _set_services_start_mode(self, key_name, service_names, start_mode):
-        LOG.info("Setting service start mode: %(service_names)s, "
-                 "%(start_mode)s", {"service_names": service_names,
-                                    "start_mode": start_mode})
-        registry_paths = [SERVICE_PATH_FORMAT % (key_name, service)
-                          for service in service_names]
+        LOG.info(
+            "Setting service start mode: %(service_names)s, %(start_mode)s",
+            {"service_names": service_names, "start_mode": start_mode},
+        )
+        registry_paths = [
+            SERVICE_PATH_FORMAT % (key_name, service) for service in service_names
+        ]
         paths_string = ", ".join(f"'{path}'" for path in registry_paths)
         self._conn.exec_ps_command(
             f"""
@@ -354,13 +372,20 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
                 Set-ItemProperty -Path $_ -Name 'Start' -Value {start_mode}
             }}
             """,  # noqa
-            ignore_stdout=True)
+            ignore_stdout=True,
+        )
 
-    def _create_service(self, key_name, service_name, image_path,
-                        display_name, description,
-                        start_mode=SERVICE_START_AUTO,
-                        service_account="LocalSystem",
-                        depends_on=[]):
+    def _create_service(
+        self,
+        key_name,
+        service_name,
+        image_path,
+        display_name,
+        description,
+        start_mode=SERVICE_START_AUTO,
+        service_account="LocalSystem",
+        depends_on=[],
+    ):
         LOG.info("Creating service: %s", service_name)
         registry_path = SERVICE_PATH_FORMAT % (key_name, service_name)
         depends_on_ps = "@(%s)" % (",".join(["'%s'" % v for v in depends_on]))
@@ -383,12 +408,18 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
             "New-ItemProperty -Path '%(path)s' -Name 'Type' -Value "
             "16 -Type DWord -Force;"
             "New-ItemProperty -Path '%(path)s' -Name 'ErrorControl' -Value "
-            "0 -Type DWord -Force" %
-            {"path": registry_path, "image_path": image_path,
-             "display_name": display_name, "description": description,
-             "depends_on": depends_on_ps, "service_account": service_account,
-             "start_mode": start_mode},
-            ignore_stdout=True)
+            "0 -Type DWord -Force"
+            % {
+                "path": registry_path,
+                "image_path": image_path,
+                "display_name": display_name,
+                "description": description,
+                "depends_on": depends_on_ps,
+                "service_account": service_account,
+                "start_mode": start_mode,
+            },
+            ignore_stdout=True,
+        )
 
     def _delete_startup_entry(self, key_name, service_name):
         registry_path = RUN_PATH_FORMAT % key_name
@@ -420,13 +451,11 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
 
         script_path = "$env:TMP\\coriolis_user_script.ps1"
         try:
-            utils.write_winrm_file(
-                self._conn,
-                script_path,
-                user_script)
+            utils.write_winrm_file(self._conn, script_path, user_script)
         except Exception as err:
             raise exception.CoriolisException(
-                "Failed to copy user script to target system.") from err
+                "Failed to copy user script to target system."
+            ) from err
 
         cmd = ('& "%(script)s" "%(os_root_dir)s"; exit $LASTEXITCODE') % {
             "script": script_path,
@@ -436,70 +465,77 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
             out = self._conn.exec_ps_command(cmd)
             LOG.debug("User script output: %s" % out)
         except Exception as err:
-            raise exception.CoriolisException(
-                "Failed to run user script.") from err
+            raise exception.CoriolisException("Failed to run user script.") from err
 
     def _disable_cloudbase_init(self):
         key_name = str(uuid.uuid4())
         self._load_registry_hive(
             "HKLM\\%s" % key_name,
-            "%sWindows\\System32\\config\\SYSTEM" % self._os_root_dir)
+            "%sWindows\\System32\\config\\SYSTEM" % self._os_root_dir,
+        )
         try:
             if self._check_cloudbase_init_exists(key_name):
-                self._event_manager.progress_update(
-                    "Disabling cloudbase-init")
+                self._event_manager.progress_update("Disabling cloudbase-init")
                 self._set_service_start_mode(
-                    key_name, CLOUDBASEINIT_SERVICE_NAME,
-                    SERVICE_START_DISABLED)
+                    key_name, CLOUDBASEINIT_SERVICE_NAME, SERVICE_START_DISABLED
+                )
         finally:
             self._unload_registry_hive("HKLM\\%s" % key_name)
 
     def _check_cloudbase_init_exists(self, key_name):
-        reg_service_path = (SERVICE_PATH_FORMAT %
-                            (key_name, CLOUDBASEINIT_SERVICE_NAME))
-        return self._conn.exec_ps_command(
-            "Test-Path %s" % reg_service_path) == "True"
+        reg_service_path = SERVICE_PATH_FORMAT % (key_name, CLOUDBASEINIT_SERVICE_NAME)
+        return self._conn.exec_ps_command("Test-Path %s" % reg_service_path) == "True"
 
-    def _setup_existing_cbslinit_service(self, key_name, image_path,
-                                         service_account="LocalSystem"):
-        reg_service_path = (SERVICE_PATH_FORMAT %
-                            (key_name, CLOUDBASEINIT_SERVICE_NAME))
+    def _setup_existing_cbslinit_service(
+        self, key_name, image_path, service_account="LocalSystem"
+    ):
+        reg_service_path = SERVICE_PATH_FORMAT % (key_name, CLOUDBASEINIT_SERVICE_NAME)
         self._conn.exec_ps_command(
             "Set-ItemProperty -Path '%s' -Name 'ImagePath' -Value '%s' "
-            "-Force" % (reg_service_path, image_path))
+            "-Force" % (reg_service_path, image_path)
+        )
         self._conn.exec_ps_command(
             "Set-ItemProperty -Path '%s' -Name 'ObjectName' "
-            "-Value '%s' -Force" % (reg_service_path, service_account))
+            "-Value '%s' -Force" % (reg_service_path, service_account)
+        )
 
-        self._set_service_start_mode(key_name, CLOUDBASEINIT_SERVICE_NAME,
-                                     SERVICE_START_AUTO)
+        self._set_service_start_mode(
+            key_name, CLOUDBASEINIT_SERVICE_NAME, SERVICE_START_AUTO
+        )
 
     def _get_cbslinit_base_dir(self):
         return "%sCloudbase-Init" % self._os_root_dir
 
     def _get_cbslinit_scripts_dir(self, base_dir):
-        return ("%s\\LocalScripts" % base_dir)
+        return "%s\\LocalScripts" % base_dir
 
     def _write_local_script(self, base_dir, script_path, priority=50):
         scripts_dir = self._get_cbslinit_scripts_dir(base_dir)
         remote_script_path = "%s\\%02d-%s" % (
-            scripts_dir, priority,
-            os.path.basename(script_path))
+            scripts_dir,
+            priority,
+            os.path.basename(script_path),
+        )
 
         with open(script_path, 'r') as fd:
             contents = fd.read()
-            utils.write_winrm_file(
-                self._conn, remote_script_path, contents)
+            utils.write_winrm_file(self._conn, remote_script_path, contents)
 
         LOG.info(
             "Registered first-boot Coriolis script: %s -> %s",
             script_path,
-            remote_script_path)
+            remote_script_path,
+        )
 
-    def _write_cloudbase_init_conf(self, cloudbaseinit_base_dir,
-                                   local_base_dir, com_port="COM1",
-                                   metadata_services=None, plugins=None,
-                                   real_time_clock_utc: bool = False):
+    def _write_cloudbase_init_conf(
+        self,
+        cloudbaseinit_base_dir,
+        local_base_dir,
+        com_port="COM1",
+        metadata_services=None,
+        plugins=None,
+        real_time_clock_utc: bool = False,
+    ):
         if metadata_services is None:
             metadata_services = CLOUDBASE_INIT_DEFAULT_METADATA_SVCS
 
@@ -507,16 +543,16 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
             plugins = CLOUDBASE_INIT_DEFAULT_PLUGINS
         elif type(plugins) is not list:
             raise exception.CoriolisException(
-                "Invalid plugins parameter. Must be list.")
+                "Invalid plugins parameter. Must be list."
+            )
 
         LOG.info("Writing Cloudbase-Init configuration files")
         conf_dir = "%s\\conf" % cloudbaseinit_base_dir
-        scripts_dir = self._get_cbslinit_scripts_dir(
-            cloudbaseinit_base_dir)
-        self._conn.exec_ps_command("mkdir '%s' -Force" % conf_dir,
-                                   ignore_stdout=True)
-        self._conn.exec_ps_command("mkdir '%s' -Force" % scripts_dir,
-                                   ignore_stdout=True)
+        scripts_dir = self._get_cbslinit_scripts_dir(cloudbaseinit_base_dir)
+        self._conn.exec_ps_command("mkdir '%s' -Force" % conf_dir, ignore_stdout=True)
+        self._conn.exec_ps_command(
+            "mkdir '%s' -Force" % scripts_dir, ignore_stdout=True
+        )
 
         conf_file_path = "%s\\cloudbase-init.conf" % conf_dir
 
@@ -539,69 +575,77 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
             "san_policy = OnlineAll\r\n"
             "metadata_services = %(metadata_services)s\r\n"
             "logging_serial_port_settings = %(com_port)s,9600,N,8\r\n"
-            "real_time_clock_utc = %(real_time_clock_utc)s\r\n" %
-            {"bin_path": "%s\\Bin" % local_base_dir,
-             "log_path": "%s\\Log" % local_base_dir,
-             "scripts_path": "%s\\LocalScripts" % local_base_dir,
-             "com_port": com_port,
-             "metadata_services": ",".join(metadata_services),
-             "plugins": ",".join(plugins),
-             "real_time_clock_utc": real_time_clock_utc})
+            "real_time_clock_utc = %(real_time_clock_utc)s\r\n"
+            % {
+                "bin_path": "%s\\Bin" % local_base_dir,
+                "log_path": "%s\\Log" % local_base_dir,
+                "scripts_path": "%s\\LocalScripts" % local_base_dir,
+                "com_port": com_port,
+                "metadata_services": ",".join(metadata_services),
+                "plugins": ",".join(plugins),
+                "real_time_clock_utc": real_time_clock_utc,
+            }
+        )
 
-        utils.write_winrm_file(
-            self._conn,
-            conf_file_path,
-            conf_content)
+        utils.write_winrm_file(self._conn, conf_file_path, conf_content)
 
         disks_script = os.path.join(
-            utils.get_resources_bin_dir(),
-            "bring-disks-online.ps1")
+            utils.get_resources_bin_dir(), "bring-disks-online.ps1"
+        )
 
-        self._write_local_script(
-            cloudbaseinit_base_dir, disks_script,
-            priority=10)
+        self._write_local_script(cloudbaseinit_base_dir, disks_script, priority=10)
 
-    def _install_cloudbase_init(self, download_url,
-                                metadata_services=None, enabled_plugins=None,
-                                com_port="COM1",
-                                real_time_clock_utc: bool = False):
+    def _install_cloudbase_init(
+        self,
+        download_url,
+        metadata_services=None,
+        enabled_plugins=None,
+        com_port="COM1",
+        real_time_clock_utc: bool = False,
+    ):
         self._event_manager.progress_update("Adding cloudbase-init")
         cloudbaseinit_base_dir = self._get_cbslinit_base_dir()
 
         key_name = str(uuid.uuid4())
         self._load_registry_hive(
             "HKLM\\%s" % key_name,
-            "%sWindows\\System32\\config\\SYSTEM" % self._os_root_dir)
+            "%sWindows\\System32\\config\\SYSTEM" % self._os_root_dir,
+        )
         try:
             cloudbaseinit_zip_path = "c:\\cloudbaseinit.zip"
 
             self._event_manager.progress_update("Downloading cloudbase-init")
-            utils.retry_on_error(sleep_seconds=5)(
-                self._conn.download_file)(
-                    download_url,
-                    cloudbaseinit_zip_path)
+            utils.retry_on_error(sleep_seconds=5)(self._conn.download_file)(
+                download_url, cloudbaseinit_zip_path
+            )
 
             self._event_manager.progress_update("Installing cloudbase-init")
-            self._expand_archive(cloudbaseinit_zip_path,
-                                 cloudbaseinit_base_dir, overwrite=False)
+            self._expand_archive(
+                cloudbaseinit_zip_path, cloudbaseinit_base_dir, overwrite=False
+            )
 
             log_dir = "%s\\Log" % cloudbaseinit_base_dir
-            self._conn.exec_ps_command("mkdir '%s' -Force" % log_dir,
-                                       ignore_stdout=True)
+            self._conn.exec_ps_command(
+                "mkdir '%s' -Force" % log_dir, ignore_stdout=True
+            )
             local_base_dir = "C%s" % cloudbaseinit_base_dir[1:]
 
             self._write_cloudbase_init_conf(
-                cloudbaseinit_base_dir, local_base_dir,
+                cloudbaseinit_base_dir,
+                local_base_dir,
                 metadata_services=metadata_services,
-                plugins=enabled_plugins, com_port=com_port,
-                real_time_clock_utc=real_time_clock_utc)
+                plugins=enabled_plugins,
+                com_port=com_port,
+                real_time_clock_utc=real_time_clock_utc,
+            )
 
             image_path = (
                 '"%(path)s\\Bin\\OpenStackService.exe" cloudbase-init '
                 '"%(path)s\\Python\\Python.exe" '
                 '"%(path)s\\Python\\Scripts\\cloudbase-init.exe" '
-                '--config-file "%(path)s\\conf\\cloudbase-init.conf"' % {
-                    'path': local_base_dir})
+                '--config-file "%(path)s\\conf\\cloudbase-init.conf"'
+                % {'path': local_base_dir}
+            )
 
             self._event_manager.progress_update("Enabling cloudbase-init")
 
@@ -613,7 +657,8 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
                     service_name=CLOUDBASEINIT_SERVICE_NAME,
                     image_path=image_path,
                     display_name="Cloud Initialization Service",
-                    description="Service wrapper for cloudbase-init")
+                    description="Service wrapper for cloudbase-init",
+                )
         finally:
             self._unload_registry_hive("HKLM\\%s" % key_name)
 
@@ -624,45 +669,54 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
         interfaces_reg_path = INTERFACES_PATH_FORMAT % key_name
         interfaces = self._conn.exec_ps_command(
             "(((Get-ChildItem -Path '%s').Name | Select-String -Pattern "
-            "'[^\\\\]+$').Matches).Value" % interfaces_reg_path)
+            "'[^\\\\]+$').Matches).Value" % interfaces_reg_path
+        )
         for interface in interfaces.splitlines():
             reg_path = '%s\\%s' % (interfaces_reg_path, interface)
             enable_dhcp = self._conn.exec_ps_command(
-                "(Get-ItemProperty -Path '%s').EnableDHCP" % reg_path)
+                "(Get-ItemProperty -Path '%s').EnableDHCP" % reg_path
+            )
             if enable_dhcp == '0':
                 default_gateway = self._conn.exec_ps_command(
-                    "(Get-ItemProperty -Path '%s').DefaultGateway" % reg_path)
+                    "(Get-ItemProperty -Path '%s').DefaultGateway" % reg_path
+                )
                 name_server = self._conn.exec_ps_command(
-                    "(Get-ItemProperty -Path '%s').NameServer" % reg_path)
+                    "(Get-ItemProperty -Path '%s').NameServer" % reg_path
+                )
                 ip_addresses = self._conn.exec_ps_command(
-                    "(Get-ItemProperty -Path '%s').IPAddress" % reg_path)
+                    "(Get-ItemProperty -Path '%s').IPAddress" % reg_path
+                )
                 subnet_masks = self._conn.exec_ps_command(
-                    "(Get-ItemProperty -Path '%s').SubnetMask" % reg_path)
+                    "(Get-ItemProperty -Path '%s').SubnetMask" % reg_path
+                )
 
                 if not (ip_addresses and subnet_masks):
                     LOG.warning(
                         "No IP Address or Subnet Mask found for interface: "
-                        "'%s'" % interface)
+                        "'%s'" % interface
+                    )
                     continue
 
                 prefix_lengths = []
                 for submask in subnet_masks.splitlines():
-                    prefix_lengths.append(
-                        ipaddress.IPv4Network((0, submask)).prefixlen)
+                    prefix_lengths.append(ipaddress.IPv4Network((0, submask)).prefixlen)
 
                 ip_info = {
                     "ip_addresses": ip_addresses.splitlines(),
                     "prefix_lengths": prefix_lengths,
                     "default_gateway": default_gateway,
-                    "dns_addresses": name_server}
+                    "dns_addresses": name_server,
+                }
                 LOG.debug(
                     "Found static IP configuration for interface '%s': "
-                    "%s" % (interface, ip_info))
+                    "%s" % (interface, ip_info)
+                )
                 ips_info.append(ip_info)
             else:
                 LOG.debug(
                     "Could not find a static IP configuration for interface: "
-                    "'%s'" % interface)
+                    "'%s'" % interface
+                )
                 continue
 
         return ips_info
@@ -681,21 +735,23 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
             if not nic_ips:
                 LOG.warning(
                     f"Skipping NIC ('{nic.get('mac_address')}'). It has no "
-                    f"detected IP addresses")
+                    f"detected IP addresses"
+                )
                 continue
             diff = set(nic_ips) - set(reg_ip_addresses)
             if diff:
                 LOG.warning(
                     f"The IP addresses {list(diff)} found on the source "
                     "VM's NIC were not found in the registry. These IPs will "
-                    "be skipped in the static IP configuration process")
-                ip_matches = list(
-                    set(reg_ip_addresses).intersection(set(nic_ips)))
+                    "be skipped in the static IP configuration process"
+                )
+                ip_matches = list(set(reg_ip_addresses).intersection(set(nic_ips)))
                 if not ip_matches:
                     LOG.warning(
                         f"Couldn't find any static IP configuration that "
                         f"matches the addresses {list(nic_ips)} of the source "
-                        f"NIC ({nic.get('mac_address')}). Skipping")
+                        f"NIC ({nic.get('mac_address')}). Skipping"
+                    )
                     continue
                 static_nic['ip_addresses'] = ip_matches
             static_nics_info.append(static_nic)
@@ -709,7 +765,8 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
         ips_info_dump = json.dumps(ips_info)
         contents = STATIC_IP_SCRIPT_TEMPLATE % {
             'nics_info': base64.b64encode(nics_info_dump.encode()).decode(),
-            'ips_info': base64.b64encode(ips_info_dump.encode()).decode()}
+            'ips_info': base64.b64encode(ips_info_dump.encode()).decode(),
+        }
         utils.write_winrm_file(self._conn, script_path, contents.encode())
 
     def set_net_config(self, nics_info, dhcp):
@@ -719,7 +776,8 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
         key_name = str(uuid.uuid4())
         self._load_registry_hive(
             "HKLM\\%s" % key_name,
-            "%sWindows\\System32\\config\\SYSTEM" % self._os_root_dir)
+            "%sWindows\\System32\\config\\SYSTEM" % self._os_root_dir,
+        )
         try:
             cbslinit_base_dir = self._get_cbslinit_base_dir()
             ips_info = self._compile_static_ip_conf_from_registry(key_name)
@@ -728,11 +786,13 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
             LOG.debug(f"Detected static NICS info: {static_nics_info}")
             if static_nics_info:
                 self._write_static_ip_script(
-                    cbslinit_base_dir, static_nics_info, ips_info)
+                    cbslinit_base_dir, static_nics_info, ips_info
+                )
             else:
                 LOG.warning(
                     "No static IP configuration found on the source VM. "
-                    "Static IP configuration will be skipped.")
+                    "Static IP configuration will be skipped."
+                )
         finally:
             self._unload_registry_hive("HKLM\\%s" % key_name)
 
@@ -784,12 +844,12 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
             "viogpudo",
         ]
 
-        virtio_iso_url = self._osmorphing_parameters.get(
-            "windows_virtio_iso_url")
+        virtio_iso_url = self._osmorphing_parameters.get("windows_virtio_iso_url")
         if not virtio_iso_url:
             raise exception.CoriolisException(
                 "VirtIO drivers ISO URL ('windows_virtio_iso_url') not set "
-                "in the OSMorphing parameters")
+                "in the OSMorphing parameters"
+            )
 
         self._event_manager.progress_update("Downloading virtio-win drivers")
 
@@ -803,14 +863,11 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
         try:
             virtio_dir = None
 
-            for main_dir, dir_version, dir_edition_type in reversed(
-                    virtio_dirs):
-                if version.Version(
-                    str(self._version_number)) >= dir_version and (
-                        edition_type & dir_edition_type
+            for main_dir, dir_version, dir_edition_type in reversed(virtio_dirs):
+                if version.Version(str(self._version_number)) >= dir_version and (
+                    edition_type & dir_edition_type
                 ):
-                    path = "%s:\\Balloon\\%s\\%s" % (
-                        virtio_drive, main_dir, arch)
+                    path = "%s:\\Balloon\\%s\\%s" % (virtio_drive, main_dir, arch)
                     if self._conn.test_path(path):
                         virtio_dir = main_dir
                         break
@@ -824,8 +881,7 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
                 )
 
             driver_paths = [
-                "%s:\\%s\\%s\\%s" % (
-                    virtio_drive, d, virtio_dir, arch) for d in drivers
+                "%s:\\%s\\%s\\%s" % (virtio_drive, d, virtio_dir, arch) for d in drivers
             ]
 
             self._install_dism_drivers(driver_paths)
@@ -843,8 +899,7 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
         sid = self._get_sid()
         # Fails on Nano Server without explicitly granting permissions
         file_repo_path = (
-            "%sWindows\\System32\\DriverStore\\FileRepository" %
-            self._os_root_dir
+            "%sWindows\\System32\\DriverStore\\FileRepository" % self._os_root_dir
         )
         self._grant_permissions(file_repo_path, "*%s" % sid)
         try:
@@ -853,15 +908,14 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
                     self._add_dism_driver(driver_path)
                 else:
                     LOG.warning(
-                        "Could not locate driver dir '%s', skipping.",
-                        driver_path
+                        "Could not locate driver dir '%s', skipping.", driver_path
                     )
         finally:
             self._revoke_permissions(file_repo_path, "*%s" % sid)
 
     def _setup_qemu_agent_installation_local_script(
-            self, msi_source_path=None, msi_url=None,
-            qemu_ga_source_dir=None):
+        self, msi_source_path=None, msi_url=None, qemu_ga_source_dir=None
+    ):
         """Stages the QEMU guest agent in the Cloudbase-Init directory and
         registers a first-boot script which installs it.
 
@@ -877,48 +931,57 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
             raise exception.CoriolisException(
                 "No QEMU guest agent source provided: one of "
                 "'msi_source_path', 'msi_url' or 'qemu_ga_source_dir' "
-                "must be set.")
+                "must be set."
+            )
 
         cloudbaseinit_base_dir = self._get_cbslinit_base_dir()
         guest_cloudbase_init_base_dir = "C%s" % cloudbaseinit_base_dir[1:]
 
         self._event_manager.progress_update(
             "Setting up guest local script for installing the "
-            "QEMU guest agent on first boot")
+            "QEMU guest agent on first boot"
+        )
 
         if qemu_ga_source_dir:
             qemu_ga_exe_path = "%s\\x64\\qemu-ga.exe" % qemu_ga_source_dir
             if not self._conn.test_path(qemu_ga_exe_path):
                 LOG.warning(
                     "qemu-ga is not packaged in the configured source. "
-                    "Skipping qemu-ga installation.")
+                    "Skipping qemu-ga installation."
+                )
                 return
             # Copy qemu-ga/ to the Cloudbase-Init directory on the migrated
             # disk:
             self._conn.exec_ps_command(
-                "Copy-Item -Recurse -Force '%s' '%s'" % (
-                    qemu_ga_source_dir, cloudbaseinit_base_dir),
-                ignore_stdout=True)
+                "Copy-Item -Recurse -Force '%s' '%s'"
+                % (qemu_ga_source_dir, cloudbaseinit_base_dir),
+                ignore_stdout=True,
+            )
             local_script = QEMU_GUEST_AGENT_INSTALL_FROM_DIR_SCRIPT_FORMAT % {
-                "qemu_ga_dir": "%s\\qemu-ga" % guest_cloudbase_init_base_dir}
+                "qemu_ga_dir": "%s\\qemu-ga" % guest_cloudbase_init_base_dir
+            }
         else:
-            msi_dest_path = "%s\\%s" % (
-                cloudbaseinit_base_dir, QEMU_GA_MSI_NAME)
+            msi_dest_path = "%s\\%s" % (cloudbaseinit_base_dir, QEMU_GA_MSI_NAME)
             if msi_url:
-                utils.retry_on_error(sleep_seconds=5)(
-                    self._conn.download_file)(msi_url, msi_dest_path)
+                utils.retry_on_error(sleep_seconds=5)(self._conn.download_file)(
+                    msi_url, msi_dest_path
+                )
             else:
                 self._conn.exec_ps_command(
-                    "Copy-Item '%s' -Destination '%s'" % (
-                        msi_source_path, msi_dest_path))
+                    "Copy-Item '%s' -Destination '%s'"
+                    % (msi_source_path, msi_dest_path)
+                )
             local_script = QEMU_GUEST_AGENT_INSTALL_SCRIPT_FORMAT % {
-                "agent_msi_path": "%s\\%s" % (
-                    guest_cloudbase_init_base_dir, QEMU_GA_MSI_NAME),
-                "agent_msi_log_dir": guest_cloudbase_init_base_dir}
+                "agent_msi_path": "%s\\%s"
+                % (guest_cloudbase_init_base_dir, QEMU_GA_MSI_NAME),
+                "agent_msi_log_dir": guest_cloudbase_init_base_dir,
+            }
 
         self.register_firstboot_script(
-            local_script, user_provided=False,
-            script_filename="coriolis_qemu_agent_install.ps1")
+            local_script,
+            user_provided=False,
+            script_filename="coriolis_qemu_agent_install.ps1",
+        )
 
     def get_packages(self):
         return [], []
@@ -974,9 +1037,6 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
         script_path = os.path.join(script_dir, script_filename)
 
         self._conn.exec_ps_command(f"mkdir -Force {script_dir}")
-        utils.write_winrm_file(
-            self._conn,
-            script_path,
-            script)
+        utils.write_winrm_file(self._conn, script_path, script)
 
         LOG.info(f"Registered first-boot script: {script_path}")

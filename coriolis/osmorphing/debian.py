@@ -1,18 +1,16 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-from io import StringIO
 import os
 import re
+from io import StringIO
 
-from oslo_log import log as logging
 import yaml
+from oslo_log import log as logging
 
-from coriolis import constants
-from coriolis import exception
+from coriolis import constants, exception, utils
 from coriolis.osmorphing import base
 from coriolis.osmorphing.osdetect import debian as debian_osdetect
-from coriolis import utils
 
 DEBIAN_DISTRO_IDENTIFIER = debian_osdetect.DEBIAN_DISTRO_IDENTIFIER
 
@@ -30,16 +28,15 @@ LOG = logging.getLogger(__name__)
 
 
 class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
-
     netplan_base = "etc/netplan"
 
     @classmethod
     def check_os_supported(cls, detected_os_info):
-        if detected_os_info['distribution_name'] != (
-                DEBIAN_DISTRO_IDENTIFIER):
+        if detected_os_info['distribution_name'] != (DEBIAN_DISTRO_IDENTIFIER):
             return False
         return cls._version_supported_util(
-            detected_os_info['release_version'], minimum=8)
+            detected_os_info['release_version'], minimum=8
+        )
 
     def disable_predictable_nic_names(self):
         grub_cfg = "etc/default/grub"
@@ -49,16 +46,20 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
         cfg = utils.Grub2ConfigEditor(contents)
         cfg.append_to_option(
             "GRUB_CMDLINE_LINUX_DEFAULT",
-            {"opt_type": "key_val", "opt_key": "net.ifnames", "opt_val": 0})
+            {"opt_type": "key_val", "opt_key": "net.ifnames", "opt_val": 0},
+        )
         cfg.append_to_option(
             "GRUB_CMDLINE_LINUX_DEFAULT",
-            {"opt_type": "key_val", "opt_key": "biosdevname", "opt_val": 0})
+            {"opt_type": "key_val", "opt_key": "biosdevname", "opt_val": 0},
+        )
         cfg.append_to_option(
             "GRUB_CMDLINE_LINUX",
-            {"opt_type": "key_val", "opt_key": "net.ifnames", "opt_val": 0})
+            {"opt_type": "key_val", "opt_key": "net.ifnames", "opt_val": 0},
+        )
         cfg.append_to_option(
             "GRUB_CMDLINE_LINUX",
-            {"opt_type": "key_val", "opt_key": "biosdevname", "opt_val": 0})
+            {"opt_type": "key_val", "opt_key": "biosdevname", "opt_val": 0},
+        )
         self._write_file_sudo("etc/default/grub", cfg.dump())
         self._schedule_grub2_update()
 
@@ -84,13 +85,8 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
             "network": {
                 "version": 2,
                 "ethernets": {
-                    "lo": {
-                        "match": {
-                            "name": "lo"
-                        },
-                        "addresses": ["127.0.0.1/8"]
-                    }
-                }
+                    "lo": {"match": {"name": "lo"}, "addresses": ["127.0.0.1/8"]}
+                },
             }
         }
         for idx, _ in enumerate(nics_info):
@@ -104,8 +100,7 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
     # cloud-init on debian 7
     def _add_wheezy_backports(self):
         sources = self._read_file("etc/apt/sources.list")
-        backports = (
-            b"deb http://archive.debian.org/debian wheezy-backports main")
+        backports = b"deb http://archive.debian.org/debian wheezy-backports main"
         regex = b"^" + backports
 
         repo_found = re.search(regex, sources, flags=re.MULTILINE)
@@ -120,13 +115,10 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
         arch_map = {"x86_64": "BOOTX64.efi"}
         arch = self._exec_cmd_chroot("uname -m").splitlines()[0]
         if not arch_map.get(arch):
-            LOG.warning(
-                "Can't create bootloader for "
-                f"unsupported architecture: {arch}")
+            LOG.warning(f"Can't create bootloader for unsupported architecture: {arch}")
             return
 
-        if self._test_path_chroot(os.path.join(bootloader_dir,
-                                  arch_map[arch])):
+        if self._test_path_chroot(os.path.join(bootloader_dir, arch_map[arch])):
             LOG.info("Fallback bootloader exists. Skipping")
             return
 
@@ -147,8 +139,7 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
             ifaces_file = "etc/network/interfaces"
             contents = self._compose_interfaces_config(nics_info)
             if self._test_path(ifaces_file):
-                self._exec_cmd_chroot(
-                    "cp %s %s.bak" % (ifaces_file, ifaces_file))
+                self._exec_cmd_chroot("cp %s %s.bak" % (ifaces_file, ifaces_file))
             self._write_file_sudo(ifaces_file, contents)
 
         if self._test_path(self.netplan_base):
@@ -156,9 +147,7 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
             for cnf in curr_files:
                 if cnf.endswith(".yaml") or cnf.endswith(".yml"):
                     pth = "%s/%s" % (self.netplan_base, cnf)
-                    self._exec_cmd_chroot(
-                        "mv %s %s.bak" % (pth, pth)
-                    )
+                    self._exec_cmd_chroot("mv %s %s.bak" % (pth, pth))
             new_cfg = self._compose_netplan_cfg(nics_info)
             cfg_name = "%s/coriolis_netplan.yaml" % self.netplan_base
             self._write_file_sudo(cfg_name, new_cfg)
@@ -176,7 +165,9 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
             # do not include the "linux-version" binary.
             LOG.warning(
                 "Unable to enumerate kernel versions, skipping "
-                "update-initramfs. Exception: %s", ex)
+                "update-initramfs. Exception: %s",
+                ex,
+            )
             return
 
         kernel_versions = [v for v in raw.splitlines() if v and v[0].isdigit()]
@@ -198,8 +189,7 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
             self.installed_packages = []
 
     def pre_packages_install(self, package_names):
-        super(BaseDebianMorphingTools, self).pre_packages_install(
-            package_names)
+        super(BaseDebianMorphingTools, self).pre_packages_install(package_names)
         try:
             if package_names:
                 self._event_manager.progress_update("Updating packages list")
@@ -220,16 +210,18 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
                 "source machine, or try to set up a mirror of said "
                 "repositories which will be reachable from the temporary "
                 "OSMorphing minion machine on the target platform. Original "
-                "error was: %s" % str(err)) from err
+                "error was: %s" % str(err)
+            ) from err
 
     def post_packages_install(self, package_names):
         self._configure_cloud_init()
         self._run_update_initramfs()
-        if (self._osmorphing_parameters.get("firmware_type") ==
-                constants.FIRMWARE_TYPE_EFI):
+        if (
+            self._osmorphing_parameters.get("firmware_type")
+            == constants.FIRMWARE_TYPE_EFI
+        ):
             self._install_uefi_fallback_bootloader()
-        super(BaseDebianMorphingTools, self).post_packages_install(
-            package_names)
+        super(BaseDebianMorphingTools, self).post_packages_install(package_names)
 
     def install_packages(self, package_names):
         try:
@@ -237,20 +229,19 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
             # while the source machine was midway through installing or
             # configuring a package, forcing it to retain old conf files
             # which were previously modified on the source machine.
-            deb_reconfigure_cmd = (
-                "dpkg --configure --force-confold -a")
+            deb_reconfigure_cmd = "dpkg --configure --force-confold -a"
             self._exec_cmd_chroot(deb_reconfigure_cmd)
 
             apt_get_cmd = (
                 '/bin/bash -c "DEBIAN_FRONTEND=noninteractive '
                 'apt-get install %s -y '
-                '-o Dpkg::Options::=\'--force-confdef\'"' % (
-                    " ".join(package_names)))
+                '-o Dpkg::Options::=\'--force-confdef\'"' % (" ".join(package_names))
+            )
             self._exec_cmd_chroot(apt_get_cmd)
         except Exception as err:
             raise exception.FailedPackageInstallationException(
-                package_names=package_names, package_manager='apt',
-                error=str(err)) from err
+                package_names=package_names, package_manager='apt', error=str(err)
+            ) from err
 
     def uninstall_packages(self, package_names):
         try:
@@ -259,5 +250,5 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
                 self._exec_cmd_chroot(apt_get_cmd)
         except exception.CoriolisException as err:
             raise exception.FailedPackageUninstallationException(
-                package_names=package_names, package_manager='apt',
-                error=str(err)) from err
+                package_names=package_names, package_manager='apt', error=str(err)
+            ) from err

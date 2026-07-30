@@ -10,18 +10,17 @@ from coriolis.tests.integration import base
 
 
 class RegionTests(base.CoriolisIntegrationTestBase):
-
     def _create_region(self, name, **kwargs):
         region = self._client.regions.create(name, **kwargs)
-        self.addCleanup(
-            self._ignoreExc(self._client.regions.delete), region.id)
+        self.addCleanup(self._ignoreExc(self._client.regions.delete), region.id)
 
         return region
 
     def test_region_crud(self):
         # Create.
         region = self._create_region(
-            "test-region", description="integration test region")
+            "test-region", description="integration test region"
+        )
 
         # Get.
         fetched = self._client.regions.get(region.id)
@@ -34,8 +33,7 @@ class RegionTests(base.CoriolisIntegrationTestBase):
         self.assertIn(region.id, ids)
 
         # Update.
-        updated = self._client.regions.update(
-            region.id, {"description": "updated"})
+        updated = self._client.regions.update(region.id, {"description": "updated"})
         self.assertEqual("updated", updated.description)
 
         # Delete.
