@@ -403,8 +403,9 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         self.mock_ssh.exec_command.return_value = (None, self.mock_stdout,
                                                    self.mock_stdout)
 
-        self.assertRaises(exception.SSHCommandFailed, utils.exec_ssh_cmd,
-                          self.mock_ssh, "command")
+        with self.assertRaises(exception.SSHCommandFailed) as ex:
+            utils.exec_ssh_cmd(self.mock_ssh, "command")
+            self.assertEqual(1, ex.exception.exit_code)
 
         self.mock_ssh.exec_command.assert_called_once_with(
             "command", environment=None, get_pty=False, timeout=None)

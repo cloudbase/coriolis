@@ -20,6 +20,7 @@ class RedHatOSMountTools(base.BaseLinuxOSMountTools):
 
     def setup(self):
         super(RedHatOSMountTools, self).setup()
-        self._exec_cmd("sudo -E yum install -y lvm2 psmisc")
+        self._exec_cmd("sudo -E yum install -y lvm2 psmisc cryptsetup")
         self._exec_cmd("sudo modprobe dm-mod")
+        self._exec_cmd("sudo modprobe dm-crypt")
         self._exec_cmd("sudo rm -f /etc/lvm/devices/system.devices")

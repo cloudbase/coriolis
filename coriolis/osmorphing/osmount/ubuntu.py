@@ -31,8 +31,13 @@ class UbuntuOSMountTools(base.BaseLinuxOSMountTools):
         # NOTE(aznashwan): in case an unattended upgrade is already happening
         # and is at the package installation stage (in which case the
         # /var/lib/dpkg/* locks will be held), we pass a 10-minute timeout:
+        # NOTE: cryptsetup pulls in keyboard-configuration, whose postinst
+        # prompts interactively for a keyboard layout unless
+        # DEBIAN_FRONTEND=noninteractive is set, which would otherwise hang
+        # the install indefinitely.
         self._exec_cmd(
-            "sudo -E apt-get -o DPkg::Lock::Timeout=600 "
-            "install lvm2 psmisc -y")
+            "sudo -E DEBIAN_FRONTEND=noninteractive apt-get "
+            "-o DPkg::Lock::Timeout=600 install lvm2 psmisc cryptsetup -y")
 
         self._exec_cmd("sudo modprobe dm-mod")
+        self._exec_cmd("sudo modprobe dm-crypt")

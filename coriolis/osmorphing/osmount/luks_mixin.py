@@ -115,15 +115,14 @@ class LinuxLUKSMixin:
         try:
             self._exec_cmd("sudo cryptsetup isLuks %s" % dev_path)
             return True
-        except exception.SSHCommandNotFoundException:
-            LOG.warn("cryptsetup missing from OS morpher; cannot check if "
-                     "device is LUKS-encrypted.")
-        except Exception:
-            # if it's not LUKS, we'll get exit code 1.
-            # The exception is already logged in self._exec_cmd.
-            pass
-
-        return False
+        except exception.SSHCommandFailed as ex:
+            # cryptsetup exits with 1 specifically when the device is not a
+            # LUKS container. Any other exit code (e.g. 4: device does not
+            # exist or access denied) indicates a real error, not "not LUKS",
+            # and should not be silently swallowed.
+            if ex.exit_code == 1:
+                return False
+            raise
 
     def _close_luks_devices(self):
         """Close any LUKS mapper devices opened by _unlock_luks_devices."""

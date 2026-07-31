@@ -350,7 +350,7 @@ def _exec_ssh_cmd(ssh, cmd, environment=None, get_pty=False, timeout=None):
                 "command not found" in stdout_str or
                 "command not found" in stderr_str):
             raise exception.SSHCommandNotFoundException(msg)
-        raise exception.SSHCommandFailed(msg)
+        raise exception.SSHCommandFailed(msg, exit_code=exit_code)
     # Most of the commands will use pseudo-terminal which unfortunately will
     # include a '\r' to every newline. This will affect all plugins too, so
     # best we can do now is replace them.

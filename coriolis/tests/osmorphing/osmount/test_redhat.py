@@ -39,8 +39,9 @@ class BaseRedHatOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
 
         mock_setup.assert_called_once_with()
         mock_exec_cmd.assert_has_calls([
-            mock.call("sudo -E yum install -y lvm2 psmisc"),
-            mock.call("sudo modprobe dm-mod")
+            mock.call("sudo -E yum install -y lvm2 psmisc cryptsetup"),
+            mock.call("sudo modprobe dm-mod"),
+            mock.call("sudo modprobe dm-crypt")
         ])
 
     @mock.patch.object(redhat.base.BaseSSHOSMountTools, '_exec_cmd')

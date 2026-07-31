@@ -135,17 +135,17 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
             "sudo cryptsetup isLuks %s" % _DEV
         )
 
-        # False.
-        mock_exec_cmd.side_effect = Exception("exit code 1")
+        # False (exit code 1: not a LUKS device).
+        mock_exec_cmd.side_effect = exception.SSHCommandFailed(
+            "boom goes the dynamite", exit_code=1)
         self.assertFalse(self.mixin._is_luks(_DEV))
 
-        # SSHCommandNotFoundException, warning.
-        mock_exec_cmd.side_effect = exception.SSHCommandNotFoundException()
-        with self.assertLogs(
-            "coriolis.osmorphing.osmount.luks_mixin", level='WARNING'
-        ):
-            result = self.mixin._is_luks(_DEV)
-        self.assertFalse(result)
+        # Unexpected exit code (e.g. 4: device does not exist or access
+        # denied), hard failure.
+        mock_exec_cmd.side_effect = exception.SSHCommandFailed(
+            "boom goes a different dynamite", exit_code=4)
+        self.assertRaises(
+            exception.SSHCommandFailed, self.mixin._is_luks, _DEV)
 
     @mock.patch.object(base.BaseSSHOSMountTools, "_exec_cmd")
     def test__close_luks_devices(self, mock_exec_cmd):
