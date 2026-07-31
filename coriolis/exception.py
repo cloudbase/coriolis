@@ -510,7 +510,9 @@ class MinionMachineCommandTimeout(CoriolisException):
 
 
 class SSHCommandFailed(CoriolisException):
-    pass
+    def __init__(self, message=None, exit_code=None, **kwargs):
+        super(SSHCommandFailed, self).__init__(message, **kwargs)
+        self.exit_code = exit_code
 
 
 class SSHCommandNotFoundException(CoriolisException):

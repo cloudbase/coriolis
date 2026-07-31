@@ -65,8 +65,10 @@ class BaseSUSEOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
             max_attempts=10, sleep_seconds=30)
         mock_exec_cmd.assert_has_calls([
             mock.call(
-                "sudo -E zypper --non-interactive install lvm2 psmisc"),
+                "sudo -E zypper --non-interactive install "
+                "lvm2 psmisc cryptsetup"),
             mock.call("sudo modprobe dm-mod"),
+            mock.call("sudo modprobe dm-crypt"),
             mock.call("sudo rm -f /etc/lvm/devices/system.devices")
         ])
 

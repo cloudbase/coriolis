@@ -40,6 +40,8 @@ class SUSEOSMountTools(base.BaseLinuxOSMountTools):
         super(SUSEOSMountTools, self).setup()
         retry_ssh_cmd = utils.retry_on_error(
             max_attempts=10, sleep_seconds=30)(self._exec_cmd)
-        retry_ssh_cmd("sudo -E zypper --non-interactive install lvm2 psmisc")
+        retry_ssh_cmd(
+            "sudo -E zypper --non-interactive install lvm2 psmisc cryptsetup")
         self._exec_cmd("sudo modprobe dm-mod")
+        self._exec_cmd("sudo modprobe dm-crypt")
         self._exec_cmd("sudo rm -f /etc/lvm/devices/system.devices")

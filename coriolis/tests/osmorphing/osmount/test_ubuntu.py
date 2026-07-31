@@ -39,9 +39,11 @@ class UbuntuOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_setup.assert_called_once_with()
         mock_exec_cmd.assert_has_calls([
             mock.call("sudo -E apt-get update -y"),
-            mock.call("sudo -E apt-get -o DPkg::Lock::Timeout=600 "
-                      "install lvm2 psmisc -y"),
-            mock.call("sudo modprobe dm-mod")
+            mock.call("sudo -E DEBIAN_FRONTEND=noninteractive apt-get "
+                      "-o DPkg::Lock::Timeout=600 install lvm2 psmisc "
+                      "cryptsetup -y"),
+            mock.call("sudo modprobe dm-mod"),
+            mock.call("sudo modprobe dm-crypt")
         ])
 
     @mock.patch.object(ubuntu.base.BaseSSHOSMountTools, '_exec_cmd')
