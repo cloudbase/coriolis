@@ -71,7 +71,7 @@ coriolis_libvirt_provider_db_file: "{{ appliance_coriolis_opt_dir }}/libvirt_pro
 coriolis_docker_image_dir: /tmp/coriolis_docker_images
 coriolis_docker_image_timeout: 300
 
-coriolis_export_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "vmware", "aws", "metal", "ovirt"]
+coriolis_export_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "vmware", "aws", "metal", "ovirt", "nutanix"]
 coriolis_import_providers: ["openstack", "oracle-vm", "opc", "azure", "scvmm", "oci", "aws", "vmware", "ovirt", "kubevirt", "lxd", "proxmox", "libvirt", "cloudstack"]
 
 export_provider_modules:
