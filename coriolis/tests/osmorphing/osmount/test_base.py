@@ -699,6 +699,8 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
             "sdb  disk\n"
             "sdb1 part\n"
             "sdb2 part\n"
+            "sr0  rom\n"
+            "loop0 loop\n"
         )
         mock_exec_cmd.return_value = lsblk_output
         self.base_os_mount_tools._ignore_devices = ["/dev/sda1"]
