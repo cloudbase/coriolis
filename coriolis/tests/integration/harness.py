@@ -546,6 +546,24 @@ class _IntegrationHarness:
     def _teardown(self):
         LOG.info("Teardown initiated.")
 
+        if self._wsgi_server:
+            try:
+                self._wsgi_server.stop()
+                self._wsgi_server_thread.join()
+            except Exception:
+                LOG.exception("Failed to stop the WSGI server.")
+
+        for svc in [self._worker_host_svc, self._worker_svc,
+                    self._minion_manager_svc, self._deployer_manager_svc,
+                    self._transfer_cron_svc, self._scheduler_svc,
+                    self._conductor_svc]:
+            if not svc:
+                continue
+            try:
+                svc.stop()
+            except Exception:
+                LOG.exception("Failed to stop service: %s", svc)
+
         try:
             coriolis_utils.exec_process(
                 [
@@ -560,31 +578,15 @@ class _IntegrationHarness:
                     self._mysql_container_name
                 ])
         except Exception:
-            pass
-
-        for svc in [self._worker_host_svc, self._worker_svc,
-                    self._minion_manager_svc, self._deployer_manager_svc,
-                    self._transfer_cron_svc, self._scheduler_svc,
-                    self._conductor_svc]:
-            if not svc:
-                continue
-            try:
-                svc.stop()
-            except Exception:
-                pass
-
-        if self._wsgi_server:
-            try:
-                self._wsgi_server.stop()
-                self._wsgi_server_thread.join()
-            except Exception:
-                pass
+            LOG.exception(
+                "Failed to stop / remove the MySQL container: %s",
+                self._mysql_container_name)
 
         shutil.rmtree(self.workdir, True)
         try:
             test_utils.destroy_scsi_debug()
         except Exception:
-            pass
+            LOG.exception("Failed to destroy the scsi_debug device.")
 
     def uses_core_test_import_provider(self):
         """Returns True when the test import provider is being used."""
