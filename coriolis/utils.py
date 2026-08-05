@@ -13,6 +13,7 @@ import OpenSSL
 import os
 import pickle
 import re
+import shlex
 import socket
 import string
 import subprocess
@@ -316,6 +317,20 @@ def list_ssh_dir(ssh, remote_path):
         return [f for f in output.splitlines() if f.strip()]
 
 
+def get_env_command_prefix(environment):
+    """
+    Each variable is shell-quoted individually, so values containing
+    spaces or other shell-sensitive characters are passed through
+    verbatim.
+    """
+
+    if not environment:
+        return ""
+    return "env %s " % " ".join(
+        shlex.quote("%s=%s" % (key, value))
+        for key, value in environment.items())
+
+
 def _exec_ssh_cmd(ssh, cmd, environment=None, get_pty=False, timeout=None):
     sanitized_cmd = strutils.mask_password(cmd)
     remote_str = "<undeterminable>"
@@ -390,9 +405,16 @@ def exec_ssh_cmd(
 
 def exec_ssh_cmd_chroot(ssh, chroot_dir, cmd, environment=None, get_pty=False,
                         timeout=None):
-    return exec_ssh_cmd(ssh, "sudo -E chroot %s %s" % (chroot_dir, cmd),
-                        environment=environment, get_pty=get_pty,
-                        timeout=timeout)
+    return exec_ssh_cmd(
+        ssh,
+        "sudo %schroot %s %s" % (
+            get_env_command_prefix(environment),
+            shlex.quote(chroot_dir),
+            cmd),
+        environment=environment,
+        get_pty=get_pty,
+        timeout=timeout,
+    )
 
 
 def check_fs(ssh, fs_type, dev_path):
