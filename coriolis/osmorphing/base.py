@@ -5,6 +5,7 @@ import abc
 import itertools
 import os
 import re
+import shlex
 import uuid
 
 from oslo_log import log as logging
@@ -838,20 +839,19 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
     def set_grub_value(self, option, value, config_obj, replace=True):
         self._validate_grub_config_obj(config_obj)
 
+        # the sed script and the config path are shell-quoted so that
+        # values holding spaces, quotes or leading dashes reach sed
+        # as a single argument instead of being split into separate options.
         def append_to_cfg(opt, val):
-            cmd = "sed -ie '$a%(o)s=\"%(v)s\"' %(cfg)s" % {
-                "o": opt,
-                "v": val,
-                "cfg": config_obj["location"]
-            }
+            cmd = "sed -ie %s %s" % (
+                shlex.quote('$a%s="%s"' % (opt, val)),
+                shlex.quote(config_obj["location"]))
             self._exec_cmd_chroot(cmd)
 
         def replace_in_cfg(opt, val):
-            cmd = "sed -i 's|^%(o)s=.*|%(o)s=\"%(v)s\"|g' %(cfg)s" % {
-                "o": opt,
-                "v": val,
-                "cfg": config_obj["location"]
-            }
+            cmd = "sed -i %s %s" % (
+                shlex.quote('s|^%s=.*|%s="%s"|g' % (opt, opt, val)),
+                shlex.quote(config_obj["location"]))
             self._exec_cmd_chroot(cmd)
 
         if config_obj["contents"].get(option, False):
