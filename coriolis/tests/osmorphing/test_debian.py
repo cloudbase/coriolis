@@ -346,9 +346,8 @@ class BaseDebianMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         self.morpher.install_packages(self.package_names)
 
         apt_get_cmd = (
-            '/bin/bash -c "DEBIAN_FRONTEND=noninteractive '
             'apt-get install %s -y '
-            '-o Dpkg::Options::=\'--force-confdef\'"' % (
+            '-o Dpkg::Options::=--force-confdef' % (
                 " ".join(self.package_names)))
         deb_reconfigure_cmd = "dpkg --configure --force-confold -a"
 
@@ -356,6 +355,10 @@ class BaseDebianMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             mock.call(deb_reconfigure_cmd),
             mock.call(apt_get_cmd)
         ])
+        # apt would otherwise prompt for the configuration of the
+        # packages being installed, hanging the install indefinitely.
+        self.assertEqual(
+            'noninteractive', self.morpher._environment['DEBIAN_FRONTEND'])
 
     @mock.patch.object(debian.BaseDebianMorphingTools, '_exec_cmd_chroot')
     def test_install_packages_with_exception(self, mock_exec_cmd_chroot):
