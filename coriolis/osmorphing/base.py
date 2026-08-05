@@ -250,7 +250,18 @@ class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
         pass
 
     def set_environment(self, environment):
-        self._environment = environment
+        """Merges the given environment into the tools' own environment.
+
+        The variables declared by the tools' constructor (such as
+        DEBIAN_FRONTEND for the Debian-based tools) are preserved, unless
+        the given environment explicitly overrides them.
+
+        The variables are copied over instead of the mapping being stored
+        as-is, as the environment provided by the OSMount tools is shared
+        between the OSDetect and the OSMorphing tools of both the export
+        and the import providers.
+        """
+        self._environment.update(environment or {})
 
 
 class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
