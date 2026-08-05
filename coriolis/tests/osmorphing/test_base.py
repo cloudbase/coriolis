@@ -99,9 +99,26 @@ class BaseOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         )
 
     def test_set_environment(self):
-        self.os_morphing_tools.set_environment(mock.sentinel.environment)
+        environment = {'http_proxy': 'http://10.0.0.1:3128'}
+
+        self.os_morphing_tools.set_environment(environment)
+
         self.assertEqual(
-            self.os_morphing_tools._environment, mock.sentinel.environment)
+            {'http_proxy': 'http://10.0.0.1:3128'},
+            self.os_morphing_tools._environment)
+
+    def test_set_environment_preserves_constructor_variables(self):
+        """Variables declared by the constructor survive set_environment."""
+        self.os_morphing_tools._environment['DEBIAN_FRONTEND'] = (
+            'noninteractive')
+
+        self.os_morphing_tools.set_environment(
+            {'http_proxy': 'http://10.0.0.1:3128'})
+
+        self.assertEqual(
+            {'DEBIAN_FRONTEND': 'noninteractive',
+             'http_proxy': 'http://10.0.0.1:3128'},
+            self.os_morphing_tools._environment)
 
 
 # This class is used to test the BaseLinuxOSMorphingTools class since it is
