@@ -31,15 +31,17 @@ class BaseRedHatOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         result = self.tools.check_os()
         self.assertTrue(result)
 
+    @mock.patch.object(redhat.base.BaseSSHOSMountTools, '_exec_sudo_env_cmd')
     @mock.patch.object(redhat.base.BaseSSHOSMountTools, '_exec_cmd')
     @mock.patch.object(redhat.base.BaseSSHOSMountTools, 'setup')
-    def test_setup(self, mock_setup, mock_exec_cmd):
+    def test_setup(self, mock_setup, mock_exec_cmd, mock_exec_sudo_env_cmd):
         result = self.tools.setup()
         self.assertIsNone(result)
 
         mock_setup.assert_called_once_with()
+        mock_exec_sudo_env_cmd.assert_called_once_with(
+            "yum install -y lvm2 psmisc cryptsetup")
         mock_exec_cmd.assert_has_calls([
-            mock.call("sudo -E yum install -y lvm2 psmisc cryptsetup"),
             mock.call("sudo modprobe dm-mod"),
             mock.call("sudo modprobe dm-crypt")
         ])
