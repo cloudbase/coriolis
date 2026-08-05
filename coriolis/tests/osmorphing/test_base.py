@@ -2,6 +2,7 @@
 # All Rights Reserved.
 
 import logging
+import shlex
 from unittest import mock
 
 import ddt
@@ -409,6 +410,21 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         self.assertRaises(
             exception.OSMorphingSSHOperationTimeout,
             self.os_morphing_tools._exec_cmd_chroot, mock.sentinel.cmd)
+
+    @mock.patch.object(base.utils, 'exec_ssh_cmd_chroot')
+    def test__exec_cmd_chroot_environment(self, mock_exec_ssh_cmd_chroot):
+        """The tools' environment is handed over to the chrooted command."""
+        environment = {
+            'http_proxy': 'http://10.0.0.1:3128',
+            'DEBIAN_FRONTEND': 'noninteractive'}
+        self.os_morphing_tools._environment = environment
+
+        self.os_morphing_tools._exec_cmd_chroot(mock.sentinel.cmd)
+
+        mock_exec_ssh_cmd_chroot.assert_called_once_with(
+            self.os_morphing_tools._ssh, self.os_morphing_tools._os_root_dir,
+            mock.sentinel.cmd, environment=environment, get_pty=True,
+            timeout=self.os_morphing_tools._osmorphing_operation_timeout)
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     def test__check_user_exists(self, mock_exec_cmd_chroot):
@@ -1315,6 +1331,60 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
                                                   config_obj['location'])
         )
         mock_read_file_sudo.assert_called_once_with(config_obj['location'])
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_read_file_sudo')
+    @mock.patch.object(base.utils, 'exec_ssh_cmd')
+    def test_set_grub_value_serial_command_is_a_single_sed_argument(
+            self, mock_exec_ssh_cmd, mock_read_file_sudo):
+        """Regression test for the GRUB_SERIAL_COMMAND quoting bug.
+
+        The appended value holds spaces, double quotes and '--word=8'-style
+        text. It must reach sed as one single argument; previously it was
+        word-split into separate sed options and failed with
+        "sed: unrecognized option '--word=8'".
+        """
+        self.os_morphing_tools._environment = {
+            'http_proxy': 'http://10.0.0.1:3128'}
+        self.os_morphing_tools._os_root_dir = '/tmp/tmp.q15QdW45qE'
+        serial_cmd = base.GRUB2_SERIAL % (115200, "no")
+        config_obj = {
+            'location': '/tmp/tmp.OIK95wgYUb',
+            'source': '/etc/default/grub',
+            'contents': {'GRUB_DEFAULT': '0'},
+        }
+
+        self.os_morphing_tools.set_grub_value(
+            'GRUB_SERIAL_COMMAND', serial_cmd, config_obj)
+
+        argv = shlex.split(mock_exec_ssh_cmd.call_args[0][1])
+        self.assertEqual(
+            ['sudo', 'env', 'http_proxy=http://10.0.0.1:3128', 'chroot',
+             '/tmp/tmp.q15QdW45qE', 'sed', '-ie',
+             '$aGRUB_SERIAL_COMMAND="%s"' % serial_cmd,
+             '/tmp/tmp.OIK95wgYUb'],
+            argv)
+        # None of the GRUB value may end up as a standalone sed option.
+        self.assertNotIn('--word=8', argv)
+        self.assertEqual([], [a for a in argv if a.startswith('--')])
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_read_file_sudo')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
+    def test_set_grub_value_with_embedded_quotes(self, mock_exec_cmd_chroot,
+                                                 mock_read_file_sudo):
+        """Values holding quotes must not break out of the sed script."""
+        config_obj = {
+            'location': '/tmp/tmp_file',
+            'source': '/etc/default/grub',
+            'contents': {'GRUB_DEFAULT': '0'},
+        }
+
+        self.os_morphing_tools.set_grub_value(
+            'GRUB_CMDLINE_LINUX', "quiet 'splash'", config_obj)
+
+        self.assertEqual(
+            ['sed', '-ie', '$aGRUB_CMDLINE_LINUX="quiet \'splash\'"',
+             '/tmp/tmp_file'],
+            shlex.split(mock_exec_cmd_chroot.call_args[0][0]))
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, 'set_grub_value')
     def test__set_grub2_cmdline_clobber(self, mock_set_grub_value):
