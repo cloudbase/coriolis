@@ -33,6 +33,21 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
 
     netplan_base = "etc/netplan"
 
+    def __init__(self, conn, os_root_dir, os_root_dev, hypervisor,
+                 event_manager, detected_os_info, osmorphing_parameters,
+                 operation_timeout=None):
+        super(BaseDebianMorphingTools, self).__init__(
+            conn, os_root_dir, os_root_dev, hypervisor, event_manager,
+            detected_os_info, osmorphing_parameters, operation_timeout)
+
+        # NOTE: every dpkg invocation may run maintainer scripts which prompt
+        # through debconf (e.g. asking for a keyboard layout, or acknowledging
+        # a pending kernel upgrade), which would hang the OSMorphing operation
+        # indefinitely. Both the install and the uninstall paths are affected,
+        # so the frontend is declared non-interactive for all the commands run
+        # by these tools instead of being set on individual operations.
+        self.set_environment({'DEBIAN_FRONTEND': 'noninteractive'})
+
     @classmethod
     def check_os_supported(cls, detected_os_info):
         if detected_os_info['distribution_name'] != (
@@ -242,9 +257,8 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
             self._exec_cmd_chroot(deb_reconfigure_cmd)
 
             apt_get_cmd = (
-                '/bin/bash -c "DEBIAN_FRONTEND=noninteractive '
                 'apt-get install %s -y '
-                '-o Dpkg::Options::=\'--force-confdef\'"' % (
+                '-o Dpkg::Options::=--force-confdef' % (
                     " ".join(package_names)))
             self._exec_cmd_chroot(apt_get_cmd)
         except Exception as err:
