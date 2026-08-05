@@ -48,6 +48,24 @@ class BaseDebianMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
 
         self.assertFalse(result)
 
+    def test_init_declares_noninteractive_frontend(self):
+        """dpkg maintainer scripts must never prompt through debconf."""
+        self.assertEqual(
+            'noninteractive', self.morpher._environment['DEBIAN_FRONTEND'])
+
+    def test_noninteractive_frontend_survives_set_environment(self):
+        """The OSMount environment must not drop the constructor's variables.
+
+        'set_environment' is called by the OSMorphing manager right after the
+        tools are instantiated, with the environment of the OSMount tools.
+        """
+        self.morpher.set_environment({'http_proxy': 'http://10.0.0.1:3128'})
+
+        self.assertEqual(
+            {'DEBIAN_FRONTEND': 'noninteractive',
+             'http_proxy': 'http://10.0.0.1:3128'},
+            self.morpher._environment)
+
     @mock.patch.object(
         debian.BaseDebianMorphingTools, '_schedule_grub2_update')
     @mock.patch('coriolis.utils.Grub2ConfigEditor')
@@ -346,9 +364,8 @@ class BaseDebianMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         self.morpher.install_packages(self.package_names)
 
         apt_get_cmd = (
-            '/bin/bash -c "DEBIAN_FRONTEND=noninteractive '
             'apt-get install %s -y '
-            '-o Dpkg::Options::=\'--force-confdef\'"' % (
+            '-o Dpkg::Options::=--force-confdef' % (
                 " ".join(self.package_names)))
         deb_reconfigure_cmd = "dpkg --configure --force-confold -a"
 
@@ -372,6 +389,28 @@ class BaseDebianMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             mock.call('apt-get remove %s -y || true' % self.package_names[0]),
             mock.call('apt-get remove %s -y || true' % self.package_names[1])
         ])
+
+    @ddt.data('install_packages', 'uninstall_packages')
+    @mock.patch.object(base.utils, 'exec_ssh_cmd_chroot')
+    def test_packages_operations_environment(
+            self, operation, mock_exec_ssh_cmd_chroot):
+        """Both package operations run with the environment of the tools.
+
+        Removing a package runs maintainer scripts just like installing one
+        does, so both must be shielded from debconf prompts, and both must
+        reach the package manager with the proxy configuration.
+        """
+        self.morpher.set_environment({'http_proxy': 'http://10.0.0.1:3128'})
+
+        getattr(self.morpher, operation)(self.package_names)
+
+        expected_environment = {
+            'DEBIAN_FRONTEND': 'noninteractive',
+            'http_proxy': 'http://10.0.0.1:3128'}
+        mock_exec_ssh_cmd_chroot.assert_called()
+        for call in mock_exec_ssh_cmd_chroot.call_args_list:
+            self.assertEqual(
+                expected_environment, call.kwargs['environment'])
 
     @mock.patch.object(debian.BaseDebianMorphingTools, '_exec_cmd_chroot')
     def test_uninstall_packages_with_exception(self, mock_exec_cmd_chroot):
