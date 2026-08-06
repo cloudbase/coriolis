@@ -6,16 +6,33 @@ import json
 import os
 import re
 
+from oslo_config import cfg
+from oslo_config import types
 from oslo_log import log as logging
 
 from coriolis import constants
 from coriolis import exception
 from coriolis import utils
 
+luks_opts = [
+    cfg.ListOpt(
+        'tpm2_pcrs',
+        item_type=types.Integer(min=0, max=15),
+        default=['7'],
+        help='List of TPM2 PCR indexes the LUKS firstboot script binds its '
+             'TPM2 enrollment to. Defaults to PCR 7, matching the default '
+             'used by systemd-cryptenroll. Cannot be empty. Valid PCR '
+             'indexes are 0-15.'),
+]
+
+CONF = cfg.CONF
+CONF.register_opts(luks_opts, 'luks')
+
 LOG = logging.getLogger(__name__)
 
 _LUKS_KEYFILE_DIR = "/etc/luks"
 _DRACUT_LUKS_CONF_PATH = "/etc/dracut.conf.d/99-coriolis-luks.conf"
+_TPM2_PCRS_PLACEHOLDER = "__CORIOLIS_TPM2_PCRS__"
 
 # cryptsetup loads TPM2 token plugins via dlopen, so dracut's ldd analysis
 # misses them. List candidate paths in order of preference; the first one
@@ -39,6 +56,36 @@ _LUKS_FIRSTBOOT_SCRIPTS = {
     "update-initramfs": _load_script("luks_firstboot_initramfs_tools.sh"),
     "dracut": _load_script("luks_firstboot_dracut.sh"),
 }
+
+
+def validate_config():
+    """Validate LUKS-related config options.
+
+    Called at worker service startup, so a misconfigured [luks] config section
+    fails fast, rather than surfacing into an actual LUKS migration.
+    """
+    if not CONF.luks.tpm2_pcrs:
+        raise exception.CoriolisException(
+            "The luks.tpm2_pcrs config option must not be empty; at least one "
+            "PCR index is required to enroll a TPM2 device.")
+
+
+def _render_tpm2_pcrs(script_content, initramfs_tool):
+    """Substitute the configured TPM2 PCR list into the given script_content.
+
+    The list is formatted based on the given initramfs_tool's enrollment
+    command syntax.
+    """
+    pcrs = CONF.luks.tpm2_pcrs
+    if initramfs_tool == "dracut":
+        # systemd-cryptenroll --tpm2-pcrs= syntax: "+"-separated entries,
+        # each optionally suffixed with a hash bank.
+        pcrs_value = "+".join("%s:sha256" % pcr for pcr in pcrs)
+    else:
+        # clevis tpm2 pin pcr_ids syntax: a plain comma-separated list.
+        pcrs_value = ",".join(str(pcr) for pcr in pcrs)
+
+    return script_content.replace(_TPM2_PCRS_PLACEHOLDER, pcrs_value)
 
 
 class LinuxLUKSMixin:
@@ -532,6 +579,7 @@ class LinuxLUKSMixin:
             raise exception.CoriolisException(
                 "No initramfs tool found in OS at '%s'; cannot install "
                 "LUKS firstboot cleanup script." % os_root_dir)
+        script_content = _render_tpm2_pcrs(script_content, initramfs_tool)
 
         os_morphing_tools.register_firstboot_script(
             script_content, user_provided=False,
