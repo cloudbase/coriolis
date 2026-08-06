@@ -53,6 +53,27 @@ SCENARIO_TYPE_TO_LICENSING_RESERVATION_MAP = {
         licensing_client.RESERVATION_TYPE_MIGRATION
 }
 
+ENDPOINT_TYPE_TO_LICENSING_RESERVATION_OVERRIDES = {
+    constants.ENDPOINT_TYPE_SAP_LIBVIRT: {
+        constants.TRANSFER_SCENARIO_REPLICA:
+            licensing_client.RESERVATION_TYPE_SAP_REPLICA,
+        constants.TRANSFER_SCENARIO_LIVE_MIGRATION:
+            licensing_client.RESERVATION_TYPE_SAP_MIGRATION,
+    },
+}
+
+
+def _get_reservation_type(destination_endpoint, scenario):
+    """Returns the licensing reservation type for the given transfer
+    scenario, taking into account any provider-specific overrides for
+    the given destination endpoint's type (e.g. SAP transfers require
+    dedicated SAP reservation types)."""
+    overrides = ENDPOINT_TYPE_TO_LICENSING_RESERVATION_OVERRIDES.get(
+        destination_endpoint.type, {})
+    return overrides.get(
+        scenario,
+        SCENARIO_TYPE_TO_LICENSING_RESERVATION_MAP.get(scenario))
+
 
 def endpoint_synchronized(func):
     @functools.wraps(func)
@@ -294,11 +315,11 @@ class ConductorServerEndpoint(object):
                     "action with ID '%s'. Skipping. Exception\n%s",
                     reservation_id, action_id, utils.get_exception_details())
 
-    def _create_reservation_for_transfer(self, transfer):
+    def _create_reservation_for_transfer(self, transfer, destination_endpoint):
         action_id = transfer.base_id
         scenario = transfer.scenario
-        reservation_type = SCENARIO_TYPE_TO_LICENSING_RESERVATION_MAP.get(
-            scenario, None)
+        reservation_type = _get_reservation_type(
+            destination_endpoint, scenario)
         if not reservation_type:
             raise exception.LicensingException(
                 message="Could not determine reservation type for transfer "
@@ -371,10 +392,12 @@ class ConductorServerEndpoint(object):
                 f"Successfully marked reservation with ID '{reservation_id}' "
                 f"for transfer action '{action_id}' as fulfilled")
 
-    def _check_reservation_for_transfer(self, transfer):
+    def _check_reservation_for_transfer(self, ctxt, transfer):
         scenario = transfer.scenario
-        reservation_type = SCENARIO_TYPE_TO_LICENSING_RESERVATION_MAP.get(
-            scenario, None)
+        destination_endpoint = self.get_endpoint(
+            ctxt, transfer.destination_endpoint_id)
+        reservation_type = _get_reservation_type(
+            destination_endpoint, scenario)
         if not reservation_type:
             raise exception.LicensingException(
                 message="Could not determine reservation type for transfer "
@@ -394,21 +417,24 @@ class ConductorServerEndpoint(object):
                 "Attempting to check reservation with ID '%s' for transfer "
                 "action '%s'", reservation_id, action_id)
             try:
-                reservation = self._licensing_client.get_reservation(
-                    reservation_id)
-
-                fulfilled_at = reservation.get("fulfilled_at", None)
-                if scenario == constants.TRANSFER_SCENARIO_LIVE_MIGRATION and (
-                        fulfilled_at):
-                    raise exception.MigrationLicenceFulfilledException(
-                        action_id=transfer.id, reservation_id=reservation_id,
-                        fulfilled_at=fulfilled_at)
-
+                # NOTE: the licensing server handles fulfilled reservations
+                # on refresh itself, depending on the type of reservation
                 transfer.reservation_id = (
                     self._licensing_client.check_refresh_reservation(
                         reservation_id)['id'])
             except Exception as ex:
                 exc_code = getattr(ex, 'code', None)
+                if exc_code == 403:
+                    LOG.debug(
+                        "Licensing server refused refresh of fulfilled '%s' "
+                        "reservation '%s' for action '%s'. Trace was: %s",
+                        reservation_type, reservation_id, action_id,
+                        utils.get_exception_details())
+                    raise exception.LicenceReservationFulfilledException(
+                        scenario=scenario.replace('_', ' ').title(),
+                        action_id=transfer.id,
+                        reservation_id=reservation_id,
+                        reservation_type=reservation_type)
                 if exc_code in [404, 409]:
                     if exc_code == 409:
                         LOG.debug(
@@ -425,14 +451,16 @@ class ConductorServerEndpoint(object):
                             "reservation. Trace was: %s",
                             reservation_id, action_id,
                             utils.get_exception_details())
-                    self._create_reservation_for_transfer(transfer)
+                    self._create_reservation_for_transfer(
+                        transfer, destination_endpoint)
                 else:
                     raise ex
         else:
             LOG.info(
                 f"Transfer action '{action_id}' has no reservation ID set, "
                 f"attempting to create a new one for it")
-            self._create_reservation_for_transfer(transfer)
+            self._create_reservation_for_transfer(
+                transfer, destination_endpoint)
 
     def create_endpoint(self, ctxt, name, endpoint_type, description,
                         connection_info, mapped_regions=None):
@@ -904,7 +932,7 @@ class ConductorServerEndpoint(object):
             ctxt, transfer_id, include_task_info=True)
         self._check_transfer_running_executions(ctxt, transfer)
         self._check_minion_pools_for_action(ctxt, transfer)
-        self._check_reservation_for_transfer(transfer)
+        self._check_reservation_for_transfer(ctxt, transfer)
 
         execution = models.TasksExecution()
         execution.id = str(uuid.uuid4())
@@ -1347,7 +1375,7 @@ class ConductorServerEndpoint(object):
 
         self._check_minion_pools_for_action(ctxt, transfer)
 
-        self._create_reservation_for_transfer(transfer)
+        self._create_reservation_for_transfer(transfer, destination_endpoint)
 
         db_api.add_transfer(ctxt, transfer)
         LOG.info("Transfer created: %s", transfer.id)
@@ -1451,7 +1479,7 @@ class ConductorServerEndpoint(object):
                     "deleted, the transfer needs to be executed anew "
                     "before a deployment can occur")
         self._check_minion_pools_for_action(ctxt, deployment)
-        self._check_reservation_for_transfer(transfer)
+        self._check_reservation_for_transfer(ctxt, transfer)
 
     def _execute_deployment(self, ctxt, deployment, force):
         transfer = self._get_transfer(
