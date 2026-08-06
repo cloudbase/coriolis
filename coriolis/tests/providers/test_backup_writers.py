@@ -39,10 +39,10 @@ class BackupWritersTestCase(test_base.CoriolisBaseTestCase):
             mock.call(
                 self.mock_ssh,
                 'sudo sed -i "s/use_lvmetad.*=.*1/use_lvmetad = 0/g" %s' %
-                cfg, get_pty=True),
+                cfg, get_pty=False),
             mock.call(self.mock_ssh,
-                      'sudo service lvm2-lvmetad stop', get_pty=True),
-            mock.call(self.mock_ssh, 'sudo vgchange -an', get_pty=True)]
+                      'sudo service lvm2-lvmetad stop', get_pty=False),
+            mock.call(self.mock_ssh, 'sudo vgchange -an', get_pty=False)]
         mock_exec_ssh_cmd.assert_has_calls(expected_calls)
 
     @mock.patch('coriolis.utils.test_ssh_path')
@@ -65,7 +65,7 @@ class BackupWritersTestCase(test_base.CoriolisBaseTestCase):
 
         expected_calls = [
             mock.call(self.mock_ssh, 'sudo rm %s' % rule_path,
-                      get_pty=True)
+                      get_pty=False)
             for rule_path in rule_paths]
         mock_exec_ssh_cmd.assert_has_calls(expected_calls)
 
@@ -1357,7 +1357,7 @@ class HTTPBackupWriterBootstrapperTestcase(test_base.CoriolisBaseTestCase):
             "accept || "
             "sudo iptables -I INPUT -p tcp --dport %(port)s -j ACCEPT" % {
                 "port": self.writer_port},
-            get_pty=True)
+            get_pty=False)
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     def test__inject_dport_allow_rule_with_exception(self, mock_exec_ssh_cmd):
@@ -1374,7 +1374,7 @@ class HTTPBackupWriterBootstrapperTestcase(test_base.CoriolisBaseTestCase):
         mock_exec_ssh_cmd.assert_called_once_with(
             self._ssh,
             "sudo firewall-cmd --add-port=%s/tcp" %
-            self.writer_port, get_pty=True)
+            self.writer_port, get_pty=False)
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     def test__add_firewalld_port_with_exception(self, mock_exec_ssh_cmd):
@@ -1390,7 +1390,7 @@ class HTTPBackupWriterBootstrapperTestcase(test_base.CoriolisBaseTestCase):
 
         mock_exec_ssh_cmd.assert_called_once_with(
             self._ssh,
-            'sudo chcon -t bin_t /usr/bin/coriolis-writer', get_pty=True)
+            'sudo chcon -t bin_t /usr/bin/coriolis-writer', get_pty=False)
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     def test__change_binary_se_context_with_exception(self, mock_exec_ssh_cmd):
@@ -1440,11 +1440,11 @@ class HTTPBackupWriterBootstrapperTestcase(test_base.CoriolisBaseTestCase):
             mock.call(
                 self._ssh, "sudo mv %s %s" % (
                     remote_tmp_path, self.bootstrapper._writer_cmd),
-                get_pty=True
+                get_pty=False
             ),
             mock.call(
                 self._ssh, "sudo chmod +x %s" % self.bootstrapper._writer_cmd,
-                get_pty=True)])
+                get_pty=False)])
         mock_sftp.close.assert_called_once()
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
@@ -1472,7 +1472,7 @@ class HTTPBackupWriterBootstrapperTestcase(test_base.CoriolisBaseTestCase):
             data.assert_called_once_with(mock.sentinel.local_file, 'wb')
             mock_exec_ssh_cmd.assert_called_once_with(
                 self._ssh, "sudo chmod +r %s" % mock.sentinel.remote_file,
-                get_pty=True)
+                get_pty=False)
 
             data.return_value.write.assert_called_once_with(
                 mock_read_ssh_file.return_value)
@@ -1504,7 +1504,7 @@ class HTTPBackupWriterBootstrapperTestcase(test_base.CoriolisBaseTestCase):
         self.bootstrapper._setup_certificates(self._ssh)
 
         mock_exec_ssh_cmd.assert_any_call(
-            self._ssh, "sudo mkdir -p /etc/coriolis-writer", get_pty=True)
+            self._ssh, "sudo mkdir -p /etc/coriolis-writer", get_pty=False)
         mock_exec_ssh_cmd.assert_any_call(
             self._ssh,
             "sudo %(writer_cmd)s generate-certificates -output-dir "
@@ -1513,7 +1513,7 @@ class HTTPBackupWriterBootstrapperTestcase(test_base.CoriolisBaseTestCase):
                 "cert_dir": "/etc/coriolis-writer",
                 "extra_hosts": self.bootstrapper._ip,
             },
-            get_pty=True)
+            get_pty=False)
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     def test__read_remote_file_sudo(self, mock_exec_ssh_cmd):
@@ -1522,7 +1522,7 @@ class HTTPBackupWriterBootstrapperTestcase(test_base.CoriolisBaseTestCase):
 
         mock_exec_ssh_cmd.assert_called_once_with(
             self._ssh, 'sudo cat "%s"' % mock.sentinel.remote_path,
-            get_pty=True)
+            get_pty=False)
         self.assertEqual(
             result, mock_exec_ssh_cmd.return_value)
 

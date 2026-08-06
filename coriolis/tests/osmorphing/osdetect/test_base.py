@@ -118,7 +118,7 @@ class BaseLinuxOSDetectToolsTestCase(test_base.CoriolisBaseTestCase):
 
         mock_exec_ssh_cmd.assert_called_once_with(
             self.base_os_detect._conn, mock.sentinel.cmd,
-            environment=self.base_os_detect._environment, get_pty=True,
+            environment=self.base_os_detect._environment, get_pty=False,
             timeout=120)
 
         self.assertEqual(result, mock_exec_ssh_cmd.return_value)
@@ -129,7 +129,7 @@ class BaseLinuxOSDetectToolsTestCase(test_base.CoriolisBaseTestCase):
 
         mock_exec_ssh_cmd.assert_called_once_with(
             self.base_os_detect._conn, mock.sentinel.cmd,
-            environment=self.base_os_detect._environment, get_pty=True,
+            environment=self.base_os_detect._environment, get_pty=False,
             timeout=self.base_os_detect._osdetect_operation_timeout)
 
         self.assertEqual(result, mock_exec_ssh_cmd.return_value)
@@ -152,7 +152,7 @@ class BaseLinuxOSDetectToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_exec_ssh_cmd_chroot.assert_called_once_with(
             self.base_os_detect._conn, self.base_os_detect._os_root_dir,
             mock.sentinel.cmd, environment=self.base_os_detect._environment,
-            get_pty=True, timeout=120)
+            get_pty=False, timeout=120)
 
         self.assertEqual(result, mock_exec_ssh_cmd_chroot.return_value)
 
@@ -163,7 +163,7 @@ class BaseLinuxOSDetectToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_exec_ssh_cmd_chroot.assert_called_once_with(
             self.base_os_detect._conn, self.base_os_detect._os_root_dir,
             mock.sentinel.cmd, environment=self.base_os_detect._environment,
-            get_pty=True,
+            get_pty=False,
             timeout=self.base_os_detect._osdetect_operation_timeout)
 
         self.assertEqual(result, mock_exec_ssh_cmd_chroot.return_value)

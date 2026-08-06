@@ -100,7 +100,7 @@ def _disable_lvm2_lvmetad(ssh):
         utils.exec_ssh_cmd(
             ssh,
             'sudo sed -i "s/use_lvmetad.*=.*1/use_lvmetad = 0/g" '
-            '%s' % cfg, get_pty=True)
+            '%s' % cfg, get_pty=False)
         # NOTE: lvm2-lvmetad is the name of the lvmetad service
         # on both debian and RHEL based systems. It needs to be stopped
         # before we begin disk replication. We disable it in the config
@@ -108,12 +108,12 @@ def _disable_lvm2_lvmetad(ssh):
         # a dependency. As the service may not actually exist, even though
         # the config is present, we ignore errors when stopping it.
         utils.ignore_exceptions(utils.exec_ssh_cmd)(
-            ssh, "sudo service lvm2-lvmetad stop", get_pty=True)
+            ssh, "sudo service lvm2-lvmetad stop", get_pty=False)
         # disable volume groups. Any volume groups that have volumes in use
         # will remain online. However, volume groups belonging to disks
         # that have been synced at least once, will be deactivated.
         utils.ignore_exceptions(utils.exec_ssh_cmd)(
-            ssh, "sudo vgchange -an", get_pty=True)
+            ssh, "sudo vgchange -an", get_pty=False)
 
 
 def _disable_lvm_metad_udev_rule(ssh):
@@ -131,7 +131,7 @@ def _disable_lvm_metad_udev_rule(ssh):
     ]
     for path in rule_paths:
         if utils.test_ssh_path(ssh, path):
-            utils.exec_ssh_cmd(ssh, "sudo rm %s" % path, get_pty=True)
+            utils.exec_ssh_cmd(ssh, "sudo rm %s" % path, get_pty=False)
 
 
 def _check_deserialize_key(key):
@@ -1021,7 +1021,7 @@ class HTTPBackupWriterBootstrapper(object):
             "sudo iptables -I INPUT -p tcp --dport %(port)s -j ACCEPT" % {
                 "port": self._writer_port})
         try:
-            utils.exec_ssh_cmd(ssh, cmd, get_pty=True)
+            utils.exec_ssh_cmd(ssh, cmd, get_pty=False)
         except exception.CoriolisException:
             LOG.warn(
                 "Could not inject TCP FW rule. Error was: %s",
@@ -1030,7 +1030,7 @@ class HTTPBackupWriterBootstrapper(object):
     def _add_firewalld_port(self, ssh):
         cmd = "sudo firewall-cmd --add-port=%s/tcp" % self._writer_port
         try:
-            utils.exec_ssh_cmd(ssh, cmd, get_pty=True)
+            utils.exec_ssh_cmd(ssh, cmd, get_pty=False)
         except exception.CoriolisException:
             LOG.warn("Could not add TCP port to firewalld. Error was: %s",
                      utils.get_exception_details())
@@ -1038,7 +1038,7 @@ class HTTPBackupWriterBootstrapper(object):
     def _change_binary_se_context(self, ssh):
         cmd = "sudo chcon -t bin_t %s" % self._writer_cmd
         try:
-            utils.exec_ssh_cmd(ssh, cmd, get_pty=True)
+            utils.exec_ssh_cmd(ssh, cmd, get_pty=False)
         except exception.CoriolisException:
             LOG.warn("Could not change SELinux context of writer binary. "
                      "Error was:%s", utils.get_exception_details())
@@ -1061,12 +1061,12 @@ class HTTPBackupWriterBootstrapper(object):
                     ssh,
                     "sudo mv %s %s" % (
                         remote_tmp_path, self._writer_cmd),
-                    get_pty=True
+                    get_pty=False
                 )
                 utils.exec_ssh_cmd(
                     ssh,
                     "sudo chmod +x %s" % self._writer_cmd,
-                    get_pty=True
+                    get_pty=False
                 )
             finally:
                 sftp.close()
@@ -1075,7 +1075,7 @@ class HTTPBackupWriterBootstrapper(object):
         with open(local_file, 'wb') as fd:
             utils.exec_ssh_cmd(
                 ssh,
-                "sudo chmod +r %s" % remote_file, get_pty=True)
+                "sudo chmod +r %s" % remote_file, get_pty=False)
             data = utils.retry_on_error()(
                 utils.read_ssh_file)(ssh, remote_file)
             fd.write(data)
@@ -1103,7 +1103,7 @@ class HTTPBackupWriterBootstrapper(object):
 
         if not all(exist):
             utils.exec_ssh_cmd(
-                ssh, "sudo mkdir -p %s" % remote_base_dir, get_pty=True)
+                ssh, "sudo mkdir -p %s" % remote_base_dir, get_pty=False)
             utils.exec_ssh_cmd(
                 ssh,
                 "sudo %(writer_cmd)s generate-certificates -output-dir "
@@ -1112,7 +1112,7 @@ class HTTPBackupWriterBootstrapper(object):
                     "cert_dir": remote_base_dir,
                     "extra_hosts": self._ip,
                 },
-                get_pty=True)
+                get_pty=False)
 
         return {
             "srv_crt": remote_srv_crt,
@@ -1124,7 +1124,7 @@ class HTTPBackupWriterBootstrapper(object):
 
     def _read_remote_file_sudo(self, remote_path):
         contents = utils.exec_ssh_cmd(
-            self._ssh, 'sudo cat "%s"' % remote_path, get_pty=True)
+            self._ssh, 'sudo cat "%s"' % remote_path, get_pty=False)
         return contents
 
     def _init_writer(self, ssh, cert_paths):

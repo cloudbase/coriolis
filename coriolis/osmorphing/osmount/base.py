@@ -127,7 +127,7 @@ class BaseSSHOSMountTools(BaseOSMountTools):
             timeout = self._osmount_operation_timeout
         try:
             return utils.exec_ssh_cmd(self._ssh, cmd, self._environment,
-                                      get_pty=True, timeout=timeout)
+                                      get_pty=False, timeout=timeout)
         except exception.MinionMachineCommandTimeout as ex:
             raise exception.OSMorphingSSHOperationTimeout(
                 cmd=cmd, timeout=timeout) from ex
@@ -148,7 +148,7 @@ class BaseSSHOSMountTools(BaseOSMountTools):
                 self._ssh,
                 env_cmd,
                 environment=self._environment,
-                get_pty=True,
+                get_pty=False,
                 timeout=timeout,
             )
         except exception.MinionMachineCommandTimeout as ex:
@@ -764,12 +764,12 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
             utils.exec_ssh_cmd(
                 self._ssh,
                 "sudo chmod +x %s" % script_path,
-                get_pty=True)
+                get_pty=False)
 
             utils.exec_ssh_cmd(
                 self._ssh,
                 f'sudo "{script_path}"',
-                get_pty=True)
+                get_pty=False)
         except Exception as err:
             raise exception.CoriolisException(
                 "Failed to run user script.") from err

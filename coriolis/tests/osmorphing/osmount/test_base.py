@@ -142,7 +142,7 @@ class BaseSSHOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         result = self.base_os_mount_tools._exec_cmd(self.cmd, timeout=120)
 
         mock_exec_ssh_cmd.assert_called_once_with(
-            self.base_os_mount_tools._ssh, self.cmd, {}, get_pty=True,
+            self.base_os_mount_tools._ssh, self.cmd, {}, get_pty=False,
             timeout=120)
 
         self.assertEqual(result, mock_exec_ssh_cmd.return_value)
@@ -152,7 +152,7 @@ class BaseSSHOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         result = self.base_os_mount_tools._exec_cmd(self.cmd)
 
         mock_exec_ssh_cmd.assert_called_once_with(
-            self.base_os_mount_tools._ssh, self.cmd, {}, get_pty=True,
+            self.base_os_mount_tools._ssh, self.cmd, {}, get_pty=False,
             timeout=self.base_os_mount_tools._osmount_operation_timeout)
 
         self.assertEqual(result, mock_exec_ssh_cmd.return_value)
@@ -174,7 +174,7 @@ class BaseSSHOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
 
         mock_exec_ssh_cmd.assert_called_once_with(
             self.base_os_mount_tools._ssh, "sudo apt-get update -y",
-            environment={}, get_pty=True, timeout=120)
+            environment={}, get_pty=False, timeout=120)
         self.assertEqual(result, mock_exec_ssh_cmd.return_value)
 
     @mock.patch.object(base.utils, 'exec_ssh_cmd')
@@ -198,7 +198,7 @@ class BaseSSHOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         self.assertNotIn("sudo -E", cmd)
         mock_exec_ssh_cmd.assert_called_once_with(
             self.base_os_mount_tools._ssh, cmd, environment=environment,
-            get_pty=True,
+            get_pty=False,
             timeout=self.base_os_mount_tools._osmount_operation_timeout)
 
     @mock.patch.object(base.utils, 'exec_ssh_cmd')

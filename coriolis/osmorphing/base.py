@@ -395,12 +395,12 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             utils.exec_ssh_cmd(
                 self._conn,
                 "sudo chmod +x %s" % script_path,
-                get_pty=True)
+                get_pty=False)
 
             utils.exec_ssh_cmd(
                 self._conn,
                 'sudo "%s" "%s"' % (script_path, self._os_root_dir),
-                get_pty=True)
+                get_pty=False)
         except Exception as err:
             raise exception.CoriolisException(
                 "Failed to run user script.") from err
@@ -446,7 +446,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             timeout = self._osmorphing_operation_timeout
         try:
             return utils.exec_ssh_cmd(
-                self._ssh, cmd, environment=self._environment, get_pty=True,
+                self._ssh, cmd, environment=self._environment, get_pty=False,
                 timeout=timeout)
         except exception.MinionMachineCommandTimeout as ex:
             raise exception.OSMorphingSSHOperationTimeout(
@@ -458,7 +458,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         try:
             return utils.exec_ssh_cmd_chroot(
                 self._ssh, self._os_root_dir, cmd,
-                environment=self._environment, get_pty=True, timeout=timeout)
+                environment=self._environment, get_pty=False, timeout=timeout)
         except exception.MinionMachineCommandTimeout as ex:
             raise exception.OSMorphingSSHOperationTimeout(
                 cmd=cmd, timeout=timeout) from ex
@@ -477,7 +477,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         self._exec_cmd_chroot("cp /%s /%s" % (tmp_file, chroot_path))
         self._exec_cmd_chroot("rm /%s" % tmp_file)
         utils.exec_ssh_cmd(
-            self._ssh, "sudo sync", self._environment, get_pty=True)
+            self._ssh, "sudo sync", self._environment, get_pty=False)
 
     def _enable_systemd_service(self, service_name):
         self._exec_cmd_chroot("systemctl enable %s.service" % service_name)
