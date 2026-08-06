@@ -253,10 +253,10 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
             self.conn, script_path, user_script)
         mock_exec_ssh_cmd.assert_has_calls([
             mock.call(self.conn, "sudo chmod +x %s" % script_path,
-                      get_pty=True),
+                      get_pty=False),
             mock.call(self.conn, 'sudo "%s" "%s"' % (
                 script_path, self.os_morphing_tools._os_root_dir),
-                get_pty=True)])
+                get_pty=False)])
 
     @mock.patch.object(base.utils, 'write_ssh_file')
     @mock.patch.object(base.utils, 'exec_ssh_cmd')
@@ -357,7 +357,7 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
 
         mock_exec_ssh_cmd.assert_called_once_with(
             self.os_morphing_tools._ssh, mock.sentinel.cmd,
-            environment=self.os_morphing_tools._environment, get_pty=True,
+            environment=self.os_morphing_tools._environment, get_pty=False,
             timeout=120)
 
         self.assertEqual(result, mock_exec_ssh_cmd.return_value)
@@ -368,7 +368,7 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
 
         mock_exec_ssh_cmd.assert_called_once_with(
             self.os_morphing_tools._ssh, mock.sentinel.cmd,
-            environment=self.os_morphing_tools._environment, get_pty=True,
+            environment=self.os_morphing_tools._environment, get_pty=False,
             timeout=self.os_morphing_tools._osmorphing_operation_timeout)
         self.assertEqual(result, mock_exec_ssh_cmd.return_value)
 
@@ -388,7 +388,7 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         mock_exec_ssh_cmd_chroot.assert_called_once_with(
             self.os_morphing_tools._ssh, self.os_morphing_tools._os_root_dir,
             mock.sentinel.cmd, environment=self.os_morphing_tools._environment,
-            get_pty=True, timeout=120)
+            get_pty=False, timeout=120)
         self.assertEqual(result, mock_exec_ssh_cmd_chroot.return_value)
 
     @mock.patch.object(base.utils, 'exec_ssh_cmd_chroot')
@@ -398,7 +398,7 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         mock_exec_ssh_cmd_chroot.assert_called_once_with(
             self.os_morphing_tools._ssh, self.os_morphing_tools._os_root_dir,
             mock.sentinel.cmd, environment=self.os_morphing_tools._environment,
-            get_pty=True,
+            get_pty=False,
             timeout=self.os_morphing_tools._osmorphing_operation_timeout)
         self.assertEqual(result, mock_exec_ssh_cmd_chroot.return_value)
 
@@ -423,7 +423,7 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
 
         mock_exec_ssh_cmd_chroot.assert_called_once_with(
             self.os_morphing_tools._ssh, self.os_morphing_tools._os_root_dir,
-            mock.sentinel.cmd, environment=environment, get_pty=True,
+            mock.sentinel.cmd, environment=environment, get_pty=False,
             timeout=self.os_morphing_tools._osmorphing_operation_timeout)
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
@@ -460,7 +460,7 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
             mock.call('rm /tmp/%s' % mock_uuid.return_value)])
         mock_exec_ssh_cmd.assert_called_once_with(
             self.os_morphing_tools._ssh, 'sudo sync',
-            self.os_morphing_tools._environment, get_pty=True)
+            self.os_morphing_tools._environment, get_pty=False)
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     def test__enable_systemd_service(self, mock_exec_cmd_chroot):

@@ -567,7 +567,7 @@ class Replicator(object):
         sftp = paramiko.SFTPClient.from_transport(ssh.get_transport())
         sftp.put(localPath, tmp)
         utils.exec_ssh_cmd(
-            ssh, "sudo mv %s %s" % (tmp, remotePath), get_pty=True)
+            ssh, "sudo mv %s %s" % (tmp, remotePath), get_pty=False)
         sftp.close()
 
     def _copy_replicator_cmd(self, ssh):
@@ -575,7 +575,7 @@ class Replicator(object):
             utils.get_resources_bin_dir(), 'replicator')
         self._copy_file(ssh, local_path, REPLICATOR_PATH)
         utils.exec_ssh_cmd(
-            ssh, "sudo chmod +x %s" % REPLICATOR_PATH, get_pty=True)
+            ssh, "sudo chmod +x %s" % REPLICATOR_PATH, get_pty=False)
 
     def _setup_replicator_group(self, ssh, group_name=REPLICATOR_GROUP_NAME):
         """ Sets up a group with the given name and adds the
@@ -589,14 +589,14 @@ class Replicator(object):
                 "group": REPLICATOR_GROUP_NAME})
         if int(group_exists) == 0:
             utils.exec_ssh_cmd(
-                ssh, "sudo groupadd %s" % group_name, get_pty=True)
+                ssh, "sudo groupadd %s" % group_name, get_pty=False)
             # NOTE: this is required in order for the user we connected
             # as to be able to read the certs:
             # NOTE2: the group change will only take effect after we reconnect:
             utils.exec_ssh_cmd(
                 ssh, "sudo usermod -aG %s %s" % (
                     REPLICATOR_GROUP_NAME, self._conn_info['username']),
-                get_pty=True)
+                get_pty=False)
 
         return int(group_exists) == 1
 
@@ -610,10 +610,10 @@ class Replicator(object):
             utils.exec_ssh_cmd(
                 ssh, "sudo useradd -m -s /bin/bash -g %s %s" % (
                     REPLICATOR_GROUP_NAME, REPLICATOR_USERNAME),
-                get_pty=True)
+                get_pty=False)
             utils.exec_ssh_cmd(
                 ssh, "sudo usermod -aG disk %s" % REPLICATOR_USERNAME,
-                get_pty=True)
+                get_pty=False)
 
     def _exec_replicator(self, ssh, port, certs, state_file):
         cmdline = ("%(replicator_path)s run -hash-method=%(hash_method)s "
@@ -682,7 +682,7 @@ class Replicator(object):
         force_fetch = False
         if not all(exist):
             utils.exec_ssh_cmd(
-                ssh, "sudo mkdir -p %s" % remote_base_dir, get_pty=True)
+                ssh, "sudo mkdir -p %s" % remote_base_dir, get_pty=False)
             utils.exec_ssh_cmd(
                 ssh,
                 "sudo %(replicator_cmd)s gen-certs -output-dir "
@@ -691,17 +691,17 @@ class Replicator(object):
                     "cert_dir": remote_base_dir,
                     "extra_hosts": ip,
                 },
-                get_pty=True)
+                get_pty=False)
             utils.exec_ssh_cmd(
                 ssh, "sudo chown -R %(user)s:%(group)s %(cert_dir)s" % {
                     "cert_dir": remote_base_dir,
                     "user": REPLICATOR_USERNAME,
                     "group": REPLICATOR_GROUP_NAME
-                }, get_pty=True)
+                }, get_pty=False)
             utils.exec_ssh_cmd(
                 ssh, "sudo chmod -R g+r %(cert_dir)s" % {
                     "cert_dir": remote_base_dir,
-                }, get_pty=True)
+                }, get_pty=False)
             force_fetch = True
 
         exists = []
@@ -731,7 +731,7 @@ class Replicator(object):
     def _change_binary_se_context(self, ssh):
         cmd = "sudo chcon -t bin_t %s" % REPLICATOR_PATH
         try:
-            utils.exec_ssh_cmd(ssh, cmd, get_pty=True)
+            utils.exec_ssh_cmd(ssh, cmd, get_pty=False)
         except exception.CoriolisException:
             LOG.warn("Could not change SELinux context of replicator binary. "
                      "Error was:%s", utils.get_exception_details())
@@ -742,7 +742,7 @@ class Replicator(object):
         state_file = self._get_replicator_state_file()
         self._copy_file(ssh, state_file, REPLICATOR_STATE)
         utils.exec_ssh_cmd(
-            ssh, "sudo chmod 755 %s" % REPLICATOR_STATE, get_pty=True)
+            ssh, "sudo chmod 755 %s" % REPLICATOR_STATE, get_pty=False)
         os.remove(state_file)
 
         args = self._parse_replicator_conn_info(self._conn_info)

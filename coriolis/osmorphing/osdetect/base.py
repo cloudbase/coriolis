@@ -86,7 +86,7 @@ class BaseLinuxOSDetectTools(BaseOSDetectTools):
             timeout = self._osdetect_operation_timeout
         try:
             return utils.exec_ssh_cmd(
-                self._conn, cmd, environment=self._environment, get_pty=True,
+                self._conn, cmd, environment=self._environment, get_pty=False,
                 timeout=timeout)
         except exception.MinionMachineCommandTimeout as ex:
             raise exception.OSMorphingSSHOperationTimeout(
@@ -98,7 +98,7 @@ class BaseLinuxOSDetectTools(BaseOSDetectTools):
         try:
             return utils.exec_ssh_cmd_chroot(
                 self._conn, self._os_root_dir, cmd,
-                environment=self._environment, get_pty=True, timeout=timeout)
+                environment=self._environment, get_pty=False, timeout=timeout)
         except exception.MinionMachineCommandTimeout as ex:
             raise exception.OSMorphingSSHOperationTimeout(
                 cmd=cmd, timeout=timeout) from ex
