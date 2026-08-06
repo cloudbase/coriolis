@@ -342,6 +342,26 @@ def get_env_command_prefix(environment):
         for key, value in environment.items())
 
 
+def check_env_command(ssh):
+    """
+    Checks that env(1) exists on the given machine, as it is what carries
+    the environment variables over to privileged and chrooted commands.
+    Raises if it is missing, so the cause is reported upfront instead of
+    surfacing as an unrelated failure much later on.
+    """
+
+    try:
+        exec_ssh_cmd(ssh, "command -v env", get_pty=True)
+    except (exception.SSHCommandFailed,
+            exception.SSHCommandNotFoundException) as ex:
+        raise exception.CoriolisException(
+            "The 'env' command is unavailable on the OSMorphing minion "
+            "machine. It is required in order to forward environment "
+            "variables to commands run on the migrated machine (such as "
+            "proxy settings). Please switch the minion machine "
+            "image/template to one that has this command in place.") from ex
+
+
 def _exec_ssh_cmd(ssh, cmd, environment=None, get_pty=False, timeout=None):
     sanitized_cmd = strutils.mask_password(cmd)
     remote_str = "<undeterminable>"
