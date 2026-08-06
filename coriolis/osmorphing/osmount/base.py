@@ -102,6 +102,7 @@ class BaseSSHOSMountTools(BaseOSMountTools):
         self._ssh = ssh
 
     def setup(self):
+        utils.check_env_command(self._ssh)
         if self._allow_ssh_env_vars():
             self._ssh.close()
             self._connect()
