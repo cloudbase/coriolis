@@ -76,14 +76,21 @@ enroll_systemd_cryptenroll() {
     for dev in "${!dev_to_keyfile[@]}"; do
         local keyfile="${dev_to_keyfile[$dev]}"
 
-        if ! systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs= \
+        # The PCRs list is substituted in by Coriolis.
+        if ! systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=__CORIOLIS_TPM2_PCRS__ \
                 --unlock-key-file="$keyfile" "$dev" 2>/dev/null; then
             echo "ERROR: systemd-cryptenroll failed for $dev; aborting to avoid lockout." >&2
             return 1
         fi
 
-        if ! cryptsetup luksDump "$dev" 2>/dev/null | grep -q 'systemd-tpm2'; then
+        local dump
+        dump=$(cryptsetup luksDump "$dev" 2>/dev/null)
+        if ! echo "$dump" | grep -q 'systemd-tpm2'; then
             echo "ERROR: systemd-tpm2 token not found in LUKS header for $dev; aborting to avoid lockout." >&2
+            return 1
+        fi
+        if ! echo "$dump" | grep 'tpm2-hash-pcrs:' | grep -q '[0-9]'; then
+            echo "ERROR: systemd-tpm2 token for $dev has no PCRs bound; aborting." >&2
             return 1
         fi
 
