@@ -110,13 +110,32 @@ class BaseSSHOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
                 self.conn_info['ip'], 22)
         )
 
+    @mock.patch.object(base.utils, 'check_env_command')
     @mock.patch.object(base.BaseSSHOSMountTools, '_allow_ssh_env_vars')
     @mock.patch.object(base.BaseSSHOSMountTools, '_connect')
-    def test_setup(self, mock_connect, mock_allow_ssh_vars):
+    def test_setup(self, mock_connect, mock_allow_ssh_vars,
+                   mock_check_env_command):
         self.base_os_mount_tools.setup()
         mock_allow_ssh_vars.return_value = True
+        mock_check_env_command.assert_called_once_with(self.ssh)
         self.ssh.close.assert_called_once_with()
         mock_connect.assert_called_once_with()
+
+    @mock.patch.object(base.utils, 'check_env_command')
+    @mock.patch.object(base.BaseSSHOSMountTools, '_allow_ssh_env_vars')
+    @mock.patch.object(base.BaseSSHOSMountTools, '_connect')
+    def test_setup_without_env_command(
+            self, mock_connect, mock_allow_ssh_vars, mock_check_env_command):
+        # NOTE: env(1) carries the environment variables over to the
+        # privileged and chrooted commands, so its absence must abort the
+        # setup instead of silently dropping the proxy settings later on.
+        mock_check_env_command.side_effect = exception.CoriolisException(
+            "env is unavailable")
+
+        self.assertRaises(
+            exception.CoriolisException, self.base_os_mount_tools.setup)
+
+        mock_allow_ssh_vars.assert_not_called()
 
     @mock.patch.object(base.utils, 'exec_ssh_cmd')
     def test__exec_cmd(self, mock_exec_ssh_cmd):

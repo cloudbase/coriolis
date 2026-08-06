@@ -438,6 +438,35 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
     def _get_executed_ssh_cmd(self):
         return self.mock_ssh.exec_command.call_args[0][0]
 
+    def test_check_env_command(self):
+        self._setup_successful_ssh_cmd()
+
+        utils.check_env_command(self.mock_ssh)
+
+        self.assertEqual("command -v env", self._get_executed_ssh_cmd())
+
+    def test_check_env_command_missing(self):
+        self.mock_stdout.read.return_value = b''
+        self.mock_stdout.channel.recv_exit_status.return_value = 1
+        self.mock_ssh.exec_command.return_value = (None, self.mock_stdout,
+                                                   self.mock_stdout)
+
+        self.assertRaises(
+            exception.CoriolisException, utils.check_env_command,
+            self.mock_ssh)
+
+    def test_check_env_command_not_found(self):
+        # 'command -v' itself being unavailable must be reported the same
+        # way as a missing env(1).
+        self.mock_stdout.read.return_value = b''
+        self.mock_stdout.channel.recv_exit_status.return_value = 127
+        self.mock_ssh.exec_command.return_value = (None, self.mock_stdout,
+                                                   self.mock_stdout)
+
+        self.assertRaises(
+            exception.CoriolisException, utils.check_env_command,
+            self.mock_ssh)
+
     def test_get_env_command_prefix(self):
         self.assertEqual("", utils.get_env_command_prefix(None))
         self.assertEqual("", utils.get_env_command_prefix({}))
