@@ -162,7 +162,8 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
 
     @classmethod
     def _create_pool(
-            cls, endpoint_id, name="test-pool", skip_allocation=True):
+            cls, endpoint_id, name="test-pool", skip_allocation=True,
+            wait_for_allocation=False):
         pool = cls._client.minion_pools.create(
             name=name,
             endpoint=endpoint_id,
@@ -177,6 +178,13 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
             skip_allocation=skip_allocation,
         )
         cls.addClassCleanup(cls._safe_delete_pool, pool.id)
+
+        if wait_for_allocation:
+            pool_obj = cls._wait_for_pool(pool.id, MINION_ALLOCATED_TERMINAL)
+            if pool_obj.status != constants.MINION_POOL_STATUS_ALLOCATED:
+                raise AssertionError(
+                    "Pool did not reach ALLOCATED (got %s)"
+                    % pool_obj.status)
 
         return pool
 
@@ -273,14 +281,9 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
         cls._pool_id = None
         if cls._CREATE_MINION_POOLS:
             pool = cls._create_pool(
-                cls._dst_endpoint.id, "transfer-pool", skip_allocation=False)
+                cls._dst_endpoint.id, "transfer-pool", skip_allocation=False,
+                wait_for_allocation=True)
             cls._pool_id = pool.id
-
-            pool_obj = cls._wait_for_pool(pool.id, MINION_ALLOCATED_TERMINAL)
-            if pool_obj.status != constants.MINION_POOL_STATUS_ALLOCATED:
-                raise AssertionError(
-                    "Pool did not reach ALLOCATED (got %s)" % pool_obj.status,
-                )
 
         # (re)init the scsi_debug module.
         test_utils.destroy_scsi_debug()
@@ -462,6 +465,7 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             [
                 constants.EXECUTION_STATUS_ERROR,
                 constants.EXECUTION_STATUS_DEADLOCKED,
+                constants.EXECUTION_STATUS_ERROR_ALLOCATING_MINIONS,
             ],
             "Expected an error status for execution %s, got %s"
             % (execution_id, execution.status),
@@ -544,6 +548,20 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             constants.EXECUTION_STATUS_COMPLETED,
             deployment.last_execution_status,
             "Deployment %s ended with status %s"
+            % (deployment_id, deployment.last_execution_status),
+        )
+
+    def assertDeploymentErrored(self, deployment_id, timeout=600):
+        """Assert that *deployment_id* ends in an error state."""
+        deployment = self.wait_for_deployment(deployment_id, timeout=timeout)
+        self.assertIn(
+            deployment.last_execution_status,
+            [
+                constants.EXECUTION_STATUS_ERROR,
+                constants.EXECUTION_STATUS_DEADLOCKED,
+                constants.EXECUTION_STATUS_ERROR_ALLOCATING_MINIONS,
+            ],
+            "Expected an error status for deployment %s, got %s"
             % (deployment_id, deployment.last_execution_status),
         )
 

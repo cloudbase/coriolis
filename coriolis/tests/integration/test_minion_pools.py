@@ -12,9 +12,13 @@ Exercises minion-pool operations via the Coriolis REST API:
 
 import time
 
+from oslo_config import cfg
+
 from coriolis import constants
 from coriolis.db import api as db_api
 from coriolis.tests.integration import base
+
+CONF = cfg.CONF
 
 
 class MinionPoolLifecycleTest(base.MinionPoolTestBase):
@@ -111,4 +115,49 @@ class MinionPoolLifecycleTest(base.MinionPoolTestBase):
             constants.MINION_POOL_STATUS_DEALLOCATED,
             final.status,
             "Pool deallocation ended in unexpected status '%s'" % final.status,
+        )
+
+    def test_cron_triggered_refresh(self):
+        """Cron-scheduled refresh.
+
+        Minion pools refresh periodically based on on the config option
+        minion_manager.minion_pool_default_refresh_period_minutes. This test
+        verifies that the refresh actually fires.
+        """
+        CONF.set_override(
+            "minion_pool_default_refresh_period_minutes", 1,
+            group="minion_manager")
+        self.addCleanup(
+            CONF.clear_override,
+            "minion_pool_default_refresh_period_minutes",
+            group="minion_manager")
+
+        # Refresh jobs are registered at pool-creation time based on the
+        # CONF value above, so the pool must be created after the override.
+        pool = self._create_pool(self._endpoint.id)
+
+        self._client.minion_pools.allocate_minion_pool(pool.id)
+        self._wait_for_pool(pool.id, base.MINION_ALLOCATED_TERMINAL)
+
+        machine = self._wait_for_machine_status(
+            pool.id, constants.MINION_MACHINE_STATUS_AVAILABLE)
+        baseline_updated_at = machine.updated_at
+
+        ctxt = self._get_db_context()
+        deadline = time.monotonic() + 120
+        refreshed = False
+        while time.monotonic() < deadline:
+            pool = db_api.get_minion_pool(ctxt, pool.id, include_machines=True)
+            m = pool.minion_machines[0]
+            status = m.allocation_status
+            if (status == constants.MINION_MACHINE_STATUS_AVAILABLE and
+                    m.updated_at != baseline_updated_at):
+                refreshed = True
+                break
+            time.sleep(2)
+
+        self.assertTrue(
+            refreshed,
+            "Minion pool machine '%s' was not refreshed by the automatic "
+            "cron job in time" % pool.id,
         )
