@@ -10,6 +10,7 @@ installation in the target OS.
 import os
 import re
 import unittest
+from unittest import mock
 import uuid
 
 from coriolis.db import api as db_api
@@ -202,7 +203,14 @@ class OsMorphingMinionPoolDeploymentTest(
         integration_base.MinionPoolTestBase, OsMorphingDeploymentTestBase):
     """OS morphing deployment using a minion pool for the OS morphing phase."""
 
-    _CREATE_MINION_POOLS = True
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+
+        pool = cls._create_pool(
+            cls._dst_endpoint.id, "osmorph-pool", skip_allocation=False,
+            wait_for_allocation=True)
+        cls._osmorph_pool_id = pool.id
 
     def test_deployment_with_os_morphing(self):
         self.assertFalse(
@@ -213,7 +221,7 @@ class OsMorphingMinionPoolDeploymentTest(
 
         deployment_kwargs = {
             "instance_osmorphing_minion_pool_mappings": {
-                self._instance_name: self._pool_id,
+                self._instance_name: self._osmorph_pool_id,
             },
         }
         self._execute_transfer_and_deployment(deployment_kwargs)
@@ -226,7 +234,7 @@ class OsMorphingMinionPoolDeploymentTest(
 
         ctxt = self._get_db_context()
         pool = db_api.get_minion_pool(
-            ctxt, self._pool_id, include_machines=True)
+            ctxt, self._osmorph_pool_id, include_machines=True)
         self.assertTrue(
             pool.minion_machines,
             "OS morphing pool has no minion machines")
@@ -236,3 +244,53 @@ class OsMorphingMinionPoolDeploymentTest(
                 machine.last_used_at,
                 "OS morphing minion machine %s was never used" % machine.id,
             )
+
+    def test_osmorphing_minion_allocation_failure_cleans_up(self):
+        """OS morphing minion pool allocation fail test.
+
+        Steps:
+        1. Run the transfer execution to completion.
+        2. Deploy with the instance mapped to the osmorphing pool;
+           healthcheck_minion on the pool's pre-existing machine fails.
+        3. The healthcheck decider falls back to deallocate + recreate;
+           create_minion fails too, so the recreation attempt is exhausted.
+        4. Minion allocation for the deployment fails and the deployment
+           errors out via report_deployment_minions_allocation_error.
+        5. The machine that failed both attempts is cleaned up, rather than
+           left dangling in a broken intermediate status.
+        """
+        self._execute_and_wait(self._transfer.id)
+
+        injected_error = Exception("injected minion failure")
+        deployment_kwargs = {
+            "instance_osmorphing_minion_pool_mappings": {
+                self._instance_name: self._osmorph_pool_id,
+            },
+        }
+
+        with mock.patch.object(
+                self._harness.imp_provider_class, "healthcheck_minion",
+                side_effect=injected_error) as mock_healthcheck, \
+                mock.patch.object(
+                self._harness.imp_provider_class, "create_minion",
+                side_effect=injected_error) as mock_create:
+            deployment = self._client.deployments.create_from_transfer(
+                self._transfer.id, skip_os_morphing=False,
+                **deployment_kwargs)
+            self.addCleanup(
+                self._cleanup_deployment, deployment.id, deployment.instances)
+
+            self.assertDeploymentErrored(deployment.id)
+
+        mock_healthcheck.assert_called()
+        mock_create.assert_called()
+
+        ctxt = self._get_db_context()
+        pool = db_api.get_minion_pool(
+            ctxt, self._osmorph_pool_id, include_machines=True)
+        self.assertEqual(
+            [], pool.minion_machines,
+            "Minion machine(s) left in an inconsistent state after "
+            "allocation failure: %s"
+            % [(m.id, m.allocation_status) for m in pool.minion_machines],
+        )

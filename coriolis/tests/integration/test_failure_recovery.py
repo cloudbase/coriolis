@@ -124,3 +124,51 @@ class TransferFailureIntegrationTest(base.ReplicaIntegrationTestBase):
             self.assertExecutionErrored(execution.id)
 
         self.assertTargetResourcesCleaned(execution.id)
+
+
+class MinionPoolAllocationFailureTest(base.MinionPoolReplicaTestBase):
+    """Transfer minion pool allocation failure tests."""
+
+    def test_transfer_minion_allocation_failure_cleans_up(self):
+        """Transfer minion pool allocation fail test.
+
+        Steps:
+        1. healthcheck_minion on the pool's pre-existing machine fails.
+        2. The healthcheck decider falls back to deallocate + recreate;
+           create_minion fails too, so the recreation attempt is exhausted.
+        3. Allocation for the transfer execution fails and the execution
+           errors out.
+        4. The machine that failed both attempts is cleaned up, rather than
+           left dangling in a broken intermediate status. The pool itself
+           stays ALLOCATED and usable.
+        """
+        injected_error = Exception("injected minion failure")
+
+        with mock.patch.object(
+                self._harness.imp_provider_class, "healthcheck_minion",
+                side_effect=injected_error) as mock_healthcheck, \
+                mock.patch.object(
+                self._harness.imp_provider_class, "create_minion",
+                side_effect=injected_error) as mock_create:
+            execution = self._client.transfer_executions.create(
+                self._transfer.id, shutdown_instances=False)
+            self.assertExecutionErrored(execution.id)
+
+        mock_healthcheck.assert_called()
+        mock_create.assert_called()
+
+        # The pool itself stays usable.
+        self.assertPoolAllocated(self._pool_id)
+
+        # Its only machine failed both the healthcheck and the recreation
+        # attempt. ending up as UNINITIALIZED. It then gets deleted, rather
+        # than left dangling in a broken intermediate status.
+        ctxt = self._get_db_context()
+        pool = db_api.get_minion_pool(
+            ctxt, self._pool_id, include_machines=True)
+        self.assertEqual(
+            [], pool.minion_machines,
+            "Minion machine(s) left in an inconsistent state after "
+            "allocation failure: %s"
+            % [(m.id, m.allocation_status) for m in pool.minion_machines],
+        )
