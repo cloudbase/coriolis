@@ -51,6 +51,44 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
         )
         self.mixin._ssh = mock.MagicMock()
 
+    def test_validate_config_pcrs(self):
+        luks_mixin.CONF.set_override('tpm2_pcrs', [], group='luks')
+        self.addCleanup(
+            luks_mixin.CONF.clear_override, 'tpm2_pcrs', group='luks')
+
+        self.assertRaises(
+            exception.CoriolisException,
+            luks_mixin.validate_config)
+
+        luks_mixin.CONF.set_override('tpm2_pcrs', [4, 7], group='luks')
+
+        # Should not raise an exception anymore.
+        luks_mixin.validate_config()
+
+        # PCR indexes outside of the valid 0-15 range are rejected by the
+        # option's item_type as soon as they're set.
+        self.assertRaises(
+            ValueError,
+            luks_mixin.CONF.set_override, 'tpm2_pcrs', ['16'], group='luks')
+
+        self.assertRaises(
+            ValueError,
+            luks_mixin.CONF.set_override, 'tpm2_pcrs', ['foo'], group='luks')
+
+    def test_render_tpm2_pcrs(self):
+        luks_mixin.CONF.set_override('tpm2_pcrs', ['7', '11'], group='luks')
+        self.addCleanup(
+            luks_mixin.CONF.clear_override, 'tpm2_pcrs', group='luks')
+
+        dracut_out = luks_mixin._render_tpm2_pcrs(
+            luks_mixin._LUKS_FIRSTBOOT_SCRIPTS["dracut"], "dracut")
+        self.assertIn("--tpm2-pcrs=7:sha256+11:sha256", dracut_out)
+
+        clevis_out = luks_mixin._render_tpm2_pcrs(
+            luks_mixin._LUKS_FIRSTBOOT_SCRIPTS["update-initramfs"],
+            "update-initramfs")
+        self.assertIn('"pcr_ids":"7,11"', clevis_out)
+
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, "_unlock_luks_device")
     def test__unlock_luks_devices(self, mock_unlock):
         mock_unlock.return_value = "/dev/mapper/coriolis_sda"
@@ -668,12 +706,14 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
             "--include /etc/crypttab /etc/crypttab" % _OS_ROOT_DIR
         )
 
+    @mock.patch.object(luks_mixin, '_render_tpm2_pcrs')
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, '_detect_initramfs_tool')
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, '_rebuild_initramfs')
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, '_fix_grub_luks_root')
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, '_write_migration_keyfiles')
     def test_install_encryption_firstboot_setup(
-        self, mock_write_keyfiles, mock_grub, mock_rebuild, mock_detect_tool
+        self, mock_write_keyfiles, mock_grub, mock_rebuild, mock_detect_tool,
+        mock_render_tpm2_pcrs,
     ):
         mock_morphing_tools = mock.MagicMock()
 
@@ -694,8 +734,11 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
         mock_write_keyfiles.assert_called_once_with(_OS_ROOT_DIR)
         mock_grub.assert_called_once_with(_OS_ROOT_DIR)
         mock_rebuild.assert_called_once_with(_OS_ROOT_DIR)
+
+        mock_render_tpm2_pcrs.assert_called_once_with(
+            luks_mixin._LUKS_FIRSTBOOT_SCRIPTS["dracut"], "dracut")
         mock_morphing_tools.register_firstboot_script.assert_called_once_with(
-            luks_mixin._LUKS_FIRSTBOOT_SCRIPTS["dracut"],
+            mock_render_tpm2_pcrs.return_value,
             user_provided=False,
             script_filename="luks-firstboot.sh",
         )
