@@ -24,8 +24,19 @@ class DiagnosticsTest(base.CoriolisIntegrationTestBase):
             len(diag_list) > 0, "Expected at least one diagnostics entry")
 
         diag = diag_list[0]
-        diag_ip_addr = diag.ip_addresses[0]
-        ifname = list(diag_ip_addr.keys())[0]
+
+        diag_ip_addr = None
+        ifname = None
+        for entry in diag.ip_addresses:
+            name = list(entry.keys())[0]
+            if entry[name]["ipv4"]:
+                diag_ip_addr = entry
+                ifname = name
+                break
+
+        self.assertIsNotNone(
+            diag_ip_addr, "Expected at least one interface with an IPv4 "
+            "address")
         ip = netifaces.ifaddresses(ifname)[netifaces.AF_INET][0]["addr"]
 
         self.assertEqual(diag_ip_addr[ifname]["ipv4"][0]["addr"], ip)
