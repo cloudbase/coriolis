@@ -17,6 +17,8 @@ CONF = cfg.CONF
 
 RESERVATION_TYPE_REPLICA = "replica"
 RESERVATION_TYPE_MIGRATION = "migration"
+RESERVATION_TYPE_SAP_REPLICA = "sap_replica"
+RESERVATION_TYPE_SAP_MIGRATION = "sap_migration"
 
 
 class LicensingClient(object):
@@ -182,7 +184,8 @@ class LicensingClient(object):
     def add_reservation(self, reservation_type, num_vms):
         """ Creates a reservation of the given type. """
         allowed_values = [
-            RESERVATION_TYPE_MIGRATION, RESERVATION_TYPE_REPLICA]
+            RESERVATION_TYPE_MIGRATION, RESERVATION_TYPE_REPLICA,
+            RESERVATION_TYPE_SAP_MIGRATION, RESERVATION_TYPE_SAP_REPLICA]
         if reservation_type not in allowed_values:
             raise ValueError(
                 "Reservation type must be one of %s" % allowed_values)

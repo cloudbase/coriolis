@@ -553,9 +553,9 @@ class ChecksumMismatch(CoriolisException):
         "source=%(source_checksum)s, destination=%(dest_checksum)s")
 
 
-class MigrationLicenceFulfilledException(Invalid):
+class LicenceReservationFulfilledException(Invalid):
     message = (
-        "The Live Migration operation with ID '%(action_id)s' (licensing "
-        "reservation '%(reservation_id)s') has already been fulfilled on "
-        "%(fulfilled_at)s. Please create a new Live Migration operation to "
-        "create a new licensing reservation.")
+        "The %(scenario)s operation with ID '%(action_id)s' (licensing "
+        "reservation '%(reservation_id)s' of type '%(reservation_type)s') "
+        "has already been fulfilled. Please create a new %(scenario)s "
+        "operation to create a new licensing reservation.")

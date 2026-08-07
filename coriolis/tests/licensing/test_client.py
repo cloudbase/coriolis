@@ -364,6 +364,23 @@ class LicensingClientTestCase(test_base.CoriolisBaseTestCase):
             response_key='reservation'
         )
 
+    @mock.patch.object(licensing_module.LicensingClient, '_post')
+    def test_add_reservation_sap_types(self, mock_post):
+        for sap_type in [licensing_module.RESERVATION_TYPE_SAP_MIGRATION,
+                         licensing_module.RESERVATION_TYPE_SAP_REPLICA]:
+            mock_post.reset_mock()
+            result = self.client.add_reservation(sap_type, 2)
+            self.assertEqual(result, mock_post.return_value)
+
+            mock_post.assert_called_once_with(
+                '/reservations',
+                {
+                    'type': sap_type,
+                    'count': 2
+                },
+                response_key='reservation'
+            )
+
     def test_add_reservation_invalid_type(self):
         self.assertRaises(
             ValueError, self.client.add_reservation,

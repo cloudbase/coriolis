@@ -17,6 +17,7 @@ from coriolis.db import api as db_api
 from coriolis.db.sqlalchemy import models
 from coriolis import exception
 from coriolis import keystone
+from coriolis.licensing import client as licensing_client
 from coriolis import schemas
 from coriolis.tests import test_base
 from coriolis.tests import testutils
@@ -112,6 +113,33 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         )
 
         self.assertEqual(result, mock_from_service_definition.return_value)
+
+    def test__get_reservation_type(self):
+        standard_endpoint = mock.Mock(type="openstack")
+        sap_endpoint = mock.Mock(type=constants.ENDPOINT_TYPE_SAP_LIBVIRT)
+
+        self.assertEqual(
+            licensing_client.RESERVATION_TYPE_REPLICA,
+            server._get_reservation_type(
+                standard_endpoint, constants.TRANSFER_SCENARIO_REPLICA))
+        self.assertEqual(
+            licensing_client.RESERVATION_TYPE_MIGRATION,
+            server._get_reservation_type(
+                standard_endpoint,
+                constants.TRANSFER_SCENARIO_LIVE_MIGRATION))
+        self.assertEqual(
+            licensing_client.RESERVATION_TYPE_SAP_REPLICA,
+            server._get_reservation_type(
+                sap_endpoint, constants.TRANSFER_SCENARIO_REPLICA))
+        self.assertEqual(
+            licensing_client.RESERVATION_TYPE_SAP_MIGRATION,
+            server._get_reservation_type(
+                sap_endpoint, constants.TRANSFER_SCENARIO_LIVE_MIGRATION))
+        self.assertIsNone(
+            server._get_reservation_type(
+                standard_endpoint, "unknown_scenario"))
+        self.assertIsNone(
+            server._get_reservation_type(sap_endpoint, "unknown_scenario"))
 
     def test_check_delete_reservation_for_transfer(self):
         transfer_action = mock.Mock()
@@ -1337,7 +1365,8 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.transfer_id,
             include_task_info=True,
         )
-        mock_check_reservation.assert_called_once_with(mock_transfer)
+        mock_check_reservation.assert_called_once_with(
+            mock.sentinel.context, mock_transfer)
         mock_check_transfer_running_executions.assert_called_once_with(
             mock.sentinel.context, mock_transfer)
         mock_check_minion_pools_for_action.assert_called_once_with(
@@ -2035,7 +2064,8 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_check_minion_pools_for_action.assert_called_once_with(
             mock.sentinel.context, mock_transfer.return_value)
         mock_create_reservation_for_transfer.assert_called_once_with(
-            mock_transfer.return_value)
+            mock_transfer.return_value,
+            mock.sentinel.destination_endpoint_id)
         mock_add_transfer.assert_called_once_with(
             mock.sentinel.context, mock_transfer.return_value)
         mock_get_transfer.assert_called_once_with(
