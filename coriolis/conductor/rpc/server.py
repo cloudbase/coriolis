@@ -2766,7 +2766,23 @@ class ConductorServerEndpoint(object):
                     previous_execution_status,
                     new_execution_status,
                 )
-                keystone.delete_trust(ctxt)
+                try:
+                    keystone.delete_trust(ctxt)
+                except Exception:
+                    # NOTE: a failed trust cleanup should not be allowed to propagate
+                    # out of here. This also runs inside task_completed, whose RPC
+                    # caller treats any exception as its own task failure, which would
+                    # cause it to erroneously report a failure for a task that already
+                    # finalized successfully.
+                    LOG.warning(
+                        "Failed to delete Keystone trust '%s' for Execution '%s' "
+                        "(action '%s'). The trust may be leaked and require manual "
+                        "cleanup. Error was: %s",
+                        ctxt.trust_id,
+                        execution.id,
+                        execution.action_id,
+                        utils.get_exception_details(),
+                    )
         else:
             LOG.debug(
                 "Not deallocating minion machines for Execution '%s' "
