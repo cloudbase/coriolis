@@ -619,6 +619,11 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
             self._exec_cmd(
                 'sudo mount -o bind /%(dir)s/ %(mount_dir)s' %
                 {'dir': directory, 'mount_dir': mount_dir})
+            # NOTE: the bind above joins the minion's peer group, so a unit
+            # restarting on the minion during OSMorphing has its per-unit
+            # '/run/credentials/<unit>' mount show up under the bind as well,
+            # which would later fail the 'umount -R'.
+            self._exec_cmd('sudo mount --make-private %s' % mount_dir)
 
         self._mask_minion_efi_firmware(os_root_dir)
 
@@ -720,6 +725,15 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
 
     def dismount_os(self, root_dir):
         self._exec_cmd('sudo fuser --kill --mount %s || true' % root_dir)
+        # NOTE: the binds are made private as they are made, but a mount can
+        # still propagate in before that happens, and chroots mounted by an
+        # older worker were never severed at all. Nothing may be left shared:
+        # unmounting below must not propagate back out to the minion's own
+        # mounts and fail with `target is busy` on one which is still in
+        # use there.
+        self._exec_cmd(
+            'mountpoint -q %s && sudo mount --make-rprivate %s || true' % (
+                root_dir, root_dir))
         self._exec_cmd(
             'mountpoint -q %s && sudo umount -R %s' % (root_dir, root_dir))
 
