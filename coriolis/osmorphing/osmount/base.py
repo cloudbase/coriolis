@@ -22,6 +22,9 @@ LOG = logging.getLogger(__name__)
 
 MAJOR_COLUMN_INDEX = 4
 
+# lsblk TYPE values that represent migration volumes.
+_VOLUME_BLOCK_DEVICE_TYPES = frozenset({"disk"})
+
 
 class BaseOSMountTools(object, with_metaclass(abc.ABCMeta)):
 
@@ -443,11 +446,12 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
         raw = self._exec_cmd("lsblk -lnao KNAME,TYPE")
         LOG.debug("All block devices: %s", raw)
 
-        # Exclude partitions; each line is "<kname> <type>".
+        # Include top-level disk devices only.
         volume_devs = []
         for line in raw.splitlines():
             parts = line.split()
-            if len(parts) >= 2 and parts[1] != "part":
+            if (len(parts) >= 2
+                    and parts[1] in _VOLUME_BLOCK_DEVICE_TYPES):
                 volume_devs.append("/dev/%s" % parts[0])
 
         LOG.debug("Ignoring block devices: %s", self._ignore_devices)
