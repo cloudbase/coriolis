@@ -6,6 +6,7 @@ import hashlib
 import json
 import logging
 import os
+import shlex
 import socket
 from unittest import mock
 import uuid
@@ -428,22 +429,184 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         self.assertRaises(exception.SSHCommandNotFoundException,
                           utils.exec_ssh_cmd, self.mock_ssh, "command")
 
-    def test_exec_ssh_cmd_chroot(self):
+    def _setup_successful_ssh_cmd(self):
         self.mock_stdout.read.return_value = b'output\n'
         self.mock_stdout.channel.recv_exit_status.return_value = 0
         self.mock_ssh.exec_command.return_value = (None, self.mock_stdout,
                                                    self.mock_stdout)
 
+    def _get_executed_ssh_cmd(self):
+        return self.mock_ssh.exec_command.call_args[0][0]
+
+    def test_check_env_command(self):
+        self._setup_successful_ssh_cmd()
+
+        utils.check_env_command(self.mock_ssh)
+
+        self.assertEqual("command -v env", self._get_executed_ssh_cmd())
+
+    def test_check_env_command_missing(self):
+        self.mock_stdout.read.return_value = b''
+        self.mock_stdout.channel.recv_exit_status.return_value = 1
+        self.mock_ssh.exec_command.return_value = (None, self.mock_stdout,
+                                                   self.mock_stdout)
+
+        self.assertRaises(
+            exception.CoriolisException, utils.check_env_command,
+            self.mock_ssh)
+
+    def test_check_env_command_not_found(self):
+        # 'command -v' itself being unavailable must be reported the same
+        # way as a missing env(1).
+        self.mock_stdout.read.return_value = b''
+        self.mock_stdout.channel.recv_exit_status.return_value = 127
+        self.mock_ssh.exec_command.return_value = (None, self.mock_stdout,
+                                                   self.mock_stdout)
+
+        self.assertRaises(
+            exception.CoriolisException, utils.check_env_command,
+            self.mock_ssh)
+
+    def test_get_env_command_prefix(self):
+        self.assertEqual("", utils.get_env_command_prefix(None))
+        self.assertEqual("", utils.get_env_command_prefix({}))
+        self.assertEqual(
+            "env DEBIAN_FRONTEND=noninteractive ",
+            utils.get_env_command_prefix(
+                {"DEBIAN_FRONTEND": "noninteractive"}))
+        # Values holding shell-sensitive characters must be quoted whole.
+        self.assertEqual(
+            "env 'http_proxy=http://a b' ",
+            utils.get_env_command_prefix({"http_proxy": "http://a b"}))
+        self.assertEqual(
+            "env 'http_proxy=http://u:p'\"'\"'w@h:3128' ",
+            utils.get_env_command_prefix(
+                {"http_proxy": "http://u:p'w@h:3128"}))
+
+    def test_exec_ssh_cmd_chroot(self):
+        self._setup_successful_ssh_cmd()
+
         result = utils.exec_ssh_cmd_chroot(
-            self.mock_ssh, "/chroot /bin/bash -c", "command")
+            self.mock_ssh, "/chroot", "command")
 
         self.mock_ssh.exec_command.assert_called_once_with(
-            "sudo -E chroot /chroot /bin/bash -c command",
+            "sudo chroot /chroot command",
             environment=None, get_pty=False, timeout=None)
 
         expected = self.mock_stdout.read.return_value.decode(
             'utf-8', errors='replace')
         self.assertEqual(result, expected)
+
+    def test_exec_ssh_cmd_chroot_no_environment(self):
+        """With no env vars set, no 'env' prefix may be added at all."""
+        self._setup_successful_ssh_cmd()
+
+        for environment in (None, {}):
+            self.mock_ssh.exec_command.reset_mock()
+            utils.exec_ssh_cmd_chroot(
+                self.mock_ssh, "/chroot", "apt-get update -y",
+                environment=environment)
+
+            self.mock_ssh.exec_command.assert_called_once_with(
+                "sudo chroot /chroot apt-get update -y",
+                environment=environment, get_pty=False, timeout=None)
+
+    def test_exec_ssh_cmd_chroot_with_proxy_environment(self):
+        """Proxy vars are passed through env(1), placed before the chroot."""
+        self._setup_successful_ssh_cmd()
+        environment = {
+            "http_proxy": "http://10.0.0.1:3128",
+            "HTTP_PROXY": "http://10.0.0.1:3128",
+            "https_proxy": "http://10.0.0.1:3128",
+            "HTTPS_PROXY": "http://10.0.0.1:3128",
+            "ftp_proxy": "http://10.0.0.1:3128",
+            "FTP_PROXY": "http://10.0.0.1:3128",
+            "no_proxy": "localhost.127.0.0.1",
+        }
+
+        utils.exec_ssh_cmd_chroot(
+            self.mock_ssh, "/chroot", "apt-get update -y",
+            environment=environment)
+
+        cmd = self._get_executed_ssh_cmd()
+        self.assertEqual(
+            "sudo env "
+            "http_proxy=http://10.0.0.1:3128 "
+            "HTTP_PROXY=http://10.0.0.1:3128 "
+            "https_proxy=http://10.0.0.1:3128 "
+            "HTTPS_PROXY=http://10.0.0.1:3128 "
+            "ftp_proxy=http://10.0.0.1:3128 "
+            "FTP_PROXY=http://10.0.0.1:3128 "
+            "no_proxy=localhost.127.0.0.1 "
+            "chroot /chroot apt-get update -y", cmd)
+        # env(1) must run before chroot(1) so that the variables are
+        # inherited by the command running *inside* the chroot.
+        self.assertLess(cmd.index("env "), cmd.index("chroot"))
+        self.assertNotIn("sudo -E", cmd)
+
+    def test_exec_ssh_cmd_chroot_proxy_with_credentials_is_quoted(self):
+        """Shell-sensitive proxy values survive as a single argument."""
+        self._setup_successful_ssh_cmd()
+        proxy = "http://user:p@ss w0rd&$(reboot)@10.0.0.1:3128?a=1"
+
+        utils.exec_ssh_cmd_chroot(
+            self.mock_ssh, "/chroot", "apt-get update -y",
+            environment={"https_proxy": proxy})
+
+        self.assertEqual(
+            ["sudo", "env", "https_proxy=%s" % proxy, "chroot", "/chroot",
+             "apt-get", "update", "-y"],
+            shlex.split(self._get_executed_ssh_cmd()))
+
+    def test_exec_ssh_cmd_chroot_does_not_re_quote_the_command(self):
+        """Commands holding quotes must not get an extra quoting layer.
+
+        Regression test for the GRUB serial command: wrapping 'cmd' in
+        "/bin/bash -c '...'" terminated the outer quoting early, which turned
+        the appended GRUB value into separate 'sed' options and failed with
+        "sed: unrecognized option '--word=8'".
+        """
+        self._setup_successful_ssh_cmd()
+        grub_value = (
+            'serial --word=8 --stop=1 --speed=115200 --parity=no --unit=0')
+        sed_script = '$aGRUB_SERIAL_COMMAND="%s"' % grub_value
+        cmd = "sed -ie %s /tmp/tmp.OIK95wgYUb" % shlex.quote(sed_script)
+
+        utils.exec_ssh_cmd_chroot(
+            self.mock_ssh, "/tmp/tmp.q15QdW45qE", cmd,
+            environment={"http_proxy": "http://10.0.0.1:3128"})
+
+        argv = shlex.split(self._get_executed_ssh_cmd())
+        self.assertEqual(
+            ["sudo", "env", "http_proxy=http://10.0.0.1:3128", "chroot",
+             "/tmp/tmp.q15QdW45qE", "sed", "-ie", sed_script,
+             "/tmp/tmp.OIK95wgYUb"],
+            argv)
+        # No part of the GRUB value may become a standalone sed option.
+        self.assertNotIn("--word=8", argv)
+        self.assertEqual([], [a for a in argv if a.startswith("--")])
+
+    def test_exec_ssh_cmd_chroot_preserves_shell_operators(self):
+        """Host-side shell operators used by callers stay intact."""
+        self._setup_successful_ssh_cmd()
+
+        utils.exec_ssh_cmd_chroot(
+            self.mock_ssh, "/chroot",
+            '[ -f "/etc/default/grub" ] && echo 1 || echo 0')
+
+        self.assertEqual(
+            'sudo chroot /chroot [ -f "/etc/default/grub" ] '
+            '&& echo 1 || echo 0',
+            self._get_executed_ssh_cmd())
+
+    def test_exec_ssh_cmd_chroot_quotes_the_chroot_dir(self):
+        self._setup_successful_ssh_cmd()
+
+        utils.exec_ssh_cmd_chroot(self.mock_ssh, "/tmp/os root dir", "true")
+
+        self.assertEqual(
+            "sudo chroot '/tmp/os root dir' true",
+            self._get_executed_ssh_cmd())
 
     def test_check_fs(self):
         self.mock_stdout.read.return_value.replace.return_value = \
@@ -455,7 +618,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         utils.check_fs(self.mock_ssh, "ext4", "/dev/sda1")
 
         self.mock_ssh.exec_command.assert_called_once_with(
-            "sudo fsck -p -t ext4 /dev/sda1", environment=None, get_pty=True,
+            "sudo fsck -p -t ext4 /dev/sda1", environment=None, get_pty=False,
             timeout=None)
 
     @mock.patch.object(utils, 'exec_ssh_cmd')
@@ -466,7 +629,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
                           self.mock_ssh, "ext4", "/dev/sda1")
 
         mock_exec_ssh_cmd.assert_called_once_with(
-            self.mock_ssh, "sudo fsck -p -t ext4 /dev/sda1", get_pty=True)
+            self.mock_ssh, "sudo fsck -p -t ext4 /dev/sda1", get_pty=False)
 
     @mock.patch.object(utils, 'exec_ssh_cmd')
     def test_run_xfs_repair(self, mock_exec_ssh_cmd):
@@ -477,11 +640,11 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         expected_calls = [
             mock.call(self.mock_ssh, "mktemp -d"),
             mock.call(self.mock_ssh, "sudo mount /dev/sda1 /tmp/tmp_dir",
-                      get_pty=True),
+                      get_pty=False),
             mock.call(self.mock_ssh, "sudo umount /tmp/tmp_dir",
-                      get_pty=True),
+                      get_pty=False),
             mock.call(self.mock_ssh, "sudo xfs_repair /dev/sda1",
-                      get_pty=True),
+                      get_pty=False),
         ]
         mock_exec_ssh_cmd.assert_has_calls(expected_calls)
 
@@ -968,13 +1131,13 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
                                                     mock.ANY)
         mock_exec_ssh_cmd.assert_has_calls([
             mock.call(self.mock_ssh, 'sudo mv /tmp/uuid.service '
-                      '/lib/systemd/system/svc_name.service', get_pty=True),
+                      '/lib/systemd/system/svc_name.service', get_pty=False),
             mock.call(self.mock_ssh, 'sudo restorecon -v '
-                      '/lib/systemd/system/svc_name.service', get_pty=True),
+                      '/lib/systemd/system/svc_name.service', get_pty=False),
             mock.call(self.mock_ssh, 'sudo systemctl daemon-reload',
-                      get_pty=True),
+                      get_pty=False),
             mock.call(self.mock_ssh, 'sudo systemctl start svc_name',
-                      get_pty=True)])
+                      get_pty=False)])
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     @mock.patch('coriolis.utils.write_ssh_file')
@@ -995,7 +1158,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         mock_exec_ssh_cmd.assert_has_calls([
             mock.call(self.mock_ssh, 'sudo mv /tmp/uuid.service '
                       '/usr/lib/systemd/system/svc_name.service',
-                      get_pty=True)])
+                      get_pty=False)])
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     @mock.patch('coriolis.utils.test_ssh_path')
@@ -1010,7 +1173,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
             mock.call(self.mock_ssh,
                       '/lib/systemd/system/svc_name.service')])
         mock_exec_ssh_cmd.assert_called_once_with(
-            self.mock_ssh, 'sudo systemctl start svc_name', get_pty=True)
+            self.mock_ssh, 'sudo systemctl start svc_name', get_pty=False)
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     @mock.patch('coriolis.utils.write_ssh_file')
@@ -1070,13 +1233,13 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
 
         mock_exec_ssh_cmd.assert_has_calls([
             mock.call(self.mock_ssh, 'sudo mv /tmp/uuid.service '
-                      '/lib/systemd/system/svc_name.service', get_pty=True),
+                      '/lib/systemd/system/svc_name.service', get_pty=False),
             mock.call(self.mock_ssh, 'sudo restorecon -v '
-                      '/lib/systemd/system/svc_name.service', get_pty=True),
+                      '/lib/systemd/system/svc_name.service', get_pty=False),
             mock.call(self.mock_ssh, 'sudo systemctl daemon-reload',
-                      get_pty=True),
+                      get_pty=False),
             mock.call(self.mock_ssh, 'sudo systemctl start svc_name',
-                      get_pty=True)])
+                      get_pty=False)])
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     @mock.patch('coriolis.utils.write_ssh_file')
@@ -1098,7 +1261,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
                                                     mock.ANY)
         mock_exec_ssh_cmd.assert_has_calls([
             mock.call(self.mock_ssh, 'sudo mv /tmp/uuid.conf '
-                      '/etc/init/svc_name.conf', get_pty=True),
+                      '/etc/init/svc_name.conf', get_pty=False),
             mock.call(self.mock_ssh, 'start svc_name')])
 
     @mock.patch('coriolis.utils.test_ssh_path')
@@ -1134,7 +1297,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
 
         mock_exec_ssh_cmd.assert_has_calls([
             mock.call(self.mock_ssh, 'sudo mv /tmp/uuid.conf '
-                      '/etc/init/svc_name.conf', get_pty=True),
+                      '/etc/init/svc_name.conf', get_pty=False),
             mock.call(self.mock_ssh, 'start svc_name')])
 
     @mock.patch('coriolis.utils._write_systemd')
@@ -1184,7 +1347,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         mock_test_ssh.assert_called_once_with(self.mock_ssh,
                                               '/lib/systemd/system')
         mock_exec_ssh_cmd.assert_called_once_with(
-            self.mock_ssh, 'sudo systemctl restart svc_name', get_pty=True)
+            self.mock_ssh, 'sudo systemctl restart svc_name', get_pty=False)
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     @mock.patch('coriolis.utils.test_ssh_path')
@@ -1218,7 +1381,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         mock_test_ssh.assert_called_once_with(self.mock_ssh,
                                               '/lib/systemd/system')
         mock_exec_ssh_cmd.assert_called_once_with(
-            self.mock_ssh, 'sudo systemctl start svc_name', get_pty=True)
+            self.mock_ssh, 'sudo systemctl start svc_name', get_pty=False)
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     @mock.patch('coriolis.utils.test_ssh_path')
@@ -1252,7 +1415,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         mock_test_ssh.assert_called_once_with(self.mock_ssh,
                                               '/lib/systemd/system')
         mock_exec_ssh_cmd.assert_called_once_with(
-            self.mock_ssh, 'sudo systemctl stop svc_name', get_pty=True)
+            self.mock_ssh, 'sudo systemctl stop svc_name', get_pty=False)
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     @mock.patch('coriolis.utils.test_ssh_path')

@@ -102,6 +102,7 @@ class BaseSSHOSMountTools(BaseOSMountTools):
         self._ssh = ssh
 
     def setup(self):
+        utils.check_env_command(self._ssh)
         if self._allow_ssh_env_vars():
             self._ssh.close()
             self._connect()
@@ -123,10 +124,35 @@ class BaseSSHOSMountTools(BaseOSMountTools):
             timeout = self._osmount_operation_timeout
         try:
             return utils.exec_ssh_cmd(self._ssh, cmd, self._environment,
-                                      get_pty=True, timeout=timeout)
+                                      get_pty=False, timeout=timeout)
         except exception.MinionMachineCommandTimeout as ex:
             raise exception.OSMorphingSSHOperationTimeout(
                 cmd=cmd, timeout=timeout) from ex
+
+    def _exec_sudo_env_cmd(self, cmd, timeout=None):
+        """
+        Runs a sudo command that also passes all the environment variables to
+        the underlying command. Replaces sudo's -E flag, which is not currently
+        supported in all shipped sudo variants (like sudo-rs).
+        """
+
+        if not timeout:
+            timeout = self._osmount_operation_timeout
+        env_cmd = "sudo %s%s" % (
+            utils.get_env_command_prefix(self._environment), cmd)
+        try:
+            return utils.exec_ssh_cmd(
+                self._ssh,
+                env_cmd,
+                environment=self._environment,
+                get_pty=False,
+                timeout=timeout,
+            )
+        except exception.MinionMachineCommandTimeout as ex:
+            raise exception.OSMorphingSSHOperationTimeout(
+                cmd=cmd,
+                timeout=timeout,
+            ) from ex
 
     def get_connection(self):
         return self._ssh
@@ -589,6 +615,11 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
             self._exec_cmd(
                 'sudo mount -o bind /%(dir)s/ %(mount_dir)s' %
                 {'dir': directory, 'mount_dir': mount_dir})
+            # NOTE: the bind above joins the minion's peer group, so a unit
+            # restarting on the minion during OSMorphing has its per-unit
+            # '/run/credentials/<unit>' mount show up under the bind as well,
+            # which would later fail the 'umount -R'.
+            self._exec_cmd('sudo mount --make-private %s' % mount_dir)
 
         self._mask_minion_efi_firmware(os_root_dir)
 
@@ -690,6 +721,15 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
 
     def dismount_os(self, root_dir):
         self._exec_cmd('sudo fuser --kill --mount %s || true' % root_dir)
+        # NOTE: the binds are made private as they are made, but a mount can
+        # still propagate in before that happens, and chroots mounted by an
+        # older worker were never severed at all. Nothing may be left shared:
+        # unmounting below must not propagate back out to the minion's own
+        # mounts and fail with `target is busy` on one which is still in
+        # use there.
+        self._exec_cmd(
+            'mountpoint -q %s && sudo mount --make-rprivate %s || true' % (
+                root_dir, root_dir))
         self._exec_cmd(
             'mountpoint -q %s && sudo umount -R %s' % (root_dir, root_dir))
 
@@ -734,12 +774,12 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
             utils.exec_ssh_cmd(
                 self._ssh,
                 "sudo chmod +x %s" % script_path,
-                get_pty=True)
+                get_pty=False)
 
             utils.exec_ssh_cmd(
                 self._ssh,
                 f'sudo "{script_path}"',
-                get_pty=True)
+                get_pty=False)
         except Exception as err:
             raise exception.CoriolisException(
                 "Failed to run user script.") from err

@@ -798,7 +798,7 @@ class ReplicatorTestCase(test_base.CoriolisBaseTestCase):
         mock_exec_ssh_cmd.assert_called_once_with(
             self._ssh, "sudo mv %s %s" % (
                 mock_mktemp.return_value, mock.sentinel.remotePath),
-            get_pty=True)
+            get_pty=False)
         mock_sftp.close.assert_called_once()
 
     @mock.patch.object(os.path, 'join')
@@ -819,7 +819,7 @@ class ReplicatorTestCase(test_base.CoriolisBaseTestCase):
         mock_exec_ssh_cmd.assert_called_once_with(
             self._ssh, "sudo chmod +x %s" %
             replicator_module.REPLICATOR_PATH,
-            get_pty=True)
+            get_pty=False)
 
     @mock.patch.object(replicator_module.utils, 'exec_ssh_cmd')
     def test_setup_replicator_group(self, mock_exec_ssh_cmd):
@@ -848,10 +848,10 @@ class ReplicatorTestCase(test_base.CoriolisBaseTestCase):
                       "echo 1 || echo 0" %
                       replicator_module.REPLICATOR_GROUP_NAME),
             mock.call(self._ssh,
-                      "sudo groupadd %s" % group_name, get_pty=True),
+                      "sudo groupadd %s" % group_name, get_pty=False),
             mock.call(self._ssh, "sudo usermod -aG %s %s" % (
                 replicator_module.REPLICATOR_GROUP_NAME,
-                self.conn_info["username"]), get_pty=True)])
+                self.conn_info["username"]), get_pty=False)])
 
         self.assertFalse(result)
 
@@ -881,10 +881,10 @@ class ReplicatorTestCase(test_base.CoriolisBaseTestCase):
                       "sudo useradd -m -s /bin/bash -g %s %s" %
                       (replicator_module.REPLICATOR_USERNAME,
                        replicator_module.REPLICATOR_GROUP_NAME),
-                      get_pty=True),
+                      get_pty=False),
             mock.call(self._ssh,
                       "sudo usermod -aG disk %s" %
-                      replicator_module.REPLICATOR_USERNAME, get_pty=True)])
+                      replicator_module.REPLICATOR_USERNAME, get_pty=False)])
 
     @mock.patch.object(replicator_module.utils, 'create_service')
     def test__exec_replicator_cmd(self, mock_create_service):
@@ -951,18 +951,18 @@ class ReplicatorTestCase(test_base.CoriolisBaseTestCase):
 
         expected_calls = [
             mock.call(self._ssh, "sudo mkdir -p %s" %
-                      replicator_module.REPLICATOR_DIR, get_pty=True),
+                      replicator_module.REPLICATOR_DIR, get_pty=False),
             mock.call(self._ssh, "sudo %s gen-certs -output-dir"
                       % replicator_module.REPLICATOR_PATH +
                       " %s -certificate-hosts 127.0.0.1,%s" %
                       (replicator_module.REPLICATOR_DIR, self.conn_info['ip']),
-                      get_pty=True),
+                      get_pty=False),
             mock.call(self._ssh, "sudo chown -R %s:%s %s" %
                       (replicator_module.REPLICATOR_USERNAME,
                        replicator_module.REPLICATOR_GROUP_NAME,
-                       replicator_module.REPLICATOR_DIR), get_pty=True),
+                       replicator_module.REPLICATOR_DIR), get_pty=False),
             mock.call(self._ssh, "sudo chmod -R g+r %s" %
-                      replicator_module.REPLICATOR_DIR, get_pty=True)]
+                      replicator_module.REPLICATOR_DIR, get_pty=False)]
 
         mock_exec_ssh_cmd.assert_has_calls(expected_calls)
         self.assertEqual(mock_fetch_remote_file.call_count, 3)
@@ -1003,12 +1003,12 @@ class ReplicatorTestCase(test_base.CoriolisBaseTestCase):
             mock.call(
                 self._ssh,
                 "sudo chmod 755 %s" % replicator_module.REPLICATOR_STATE,
-                get_pty=True
+                get_pty=False
             ),
             mock.call(
                 self._ssh,
                 "sudo chcon -t bin_t /usr/bin/replicator",
-                get_pty=True
+                get_pty=False
             ),
         ])
         mock_os_remove.assert_called_once_with(
@@ -1040,7 +1040,7 @@ class ReplicatorTestCase(test_base.CoriolisBaseTestCase):
         mock_exec_ssh_cmd.assert_called_once_with(
             self._ssh,
             "sudo chcon -t bin_t %s" % replicator_module.REPLICATOR_PATH,
-            get_pty=True)
+            get_pty=False)
 
     @mock.patch.object(replicator_module.utils, 'exec_ssh_cmd')
     def test__change_binary_se_context_with_exception(self, mock_exec_ssh_cmd):

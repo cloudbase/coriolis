@@ -5,6 +5,7 @@ import abc
 import itertools
 import os
 import re
+import shlex
 import uuid
 
 from oslo_log import log as logging
@@ -383,12 +384,12 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             utils.exec_ssh_cmd(
                 self._conn,
                 "sudo chmod +x %s" % script_path,
-                get_pty=True)
+                get_pty=False)
 
             utils.exec_ssh_cmd(
                 self._conn,
                 'sudo "%s" "%s"' % (script_path, self._os_root_dir),
-                get_pty=True)
+                get_pty=False)
         except Exception as err:
             raise exception.CoriolisException(
                 "Failed to run user script.") from err
@@ -434,7 +435,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             timeout = self._osmorphing_operation_timeout
         try:
             return utils.exec_ssh_cmd(
-                self._ssh, cmd, environment=self._environment, get_pty=True,
+                self._ssh, cmd, environment=self._environment, get_pty=False,
                 timeout=timeout)
         except exception.MinionMachineCommandTimeout as ex:
             raise exception.OSMorphingSSHOperationTimeout(
@@ -446,7 +447,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         try:
             return utils.exec_ssh_cmd_chroot(
                 self._ssh, self._os_root_dir, cmd,
-                environment=self._environment, get_pty=True, timeout=timeout)
+                environment=self._environment, get_pty=False, timeout=timeout)
         except exception.MinionMachineCommandTimeout as ex:
             raise exception.OSMorphingSSHOperationTimeout(
                 cmd=cmd, timeout=timeout) from ex
@@ -465,7 +466,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         self._exec_cmd_chroot("cp /%s /%s" % (tmp_file, chroot_path))
         self._exec_cmd_chroot("rm /%s" % tmp_file)
         utils.exec_ssh_cmd(
-            self._ssh, "sudo sync", self._environment, get_pty=True)
+            self._ssh, "sudo sync", self._environment, get_pty=False)
 
     def _enable_systemd_service(self, service_name):
         self._exec_cmd_chroot("systemctl enable %s.service" % service_name)
@@ -827,20 +828,19 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
     def set_grub_value(self, option, value, config_obj, replace=True):
         self._validate_grub_config_obj(config_obj)
 
+        # the sed script and the config path are shell-quoted so that
+        # values holding spaces, quotes or leading dashes reach sed
+        # as a single argument instead of being split into separate options.
         def append_to_cfg(opt, val):
-            cmd = "sed -ie '$a%(o)s=\"%(v)s\"' %(cfg)s" % {
-                "o": opt,
-                "v": val,
-                "cfg": config_obj["location"]
-            }
+            cmd = "sed -ie %s %s" % (
+                shlex.quote('$a%s="%s"' % (opt, val)),
+                shlex.quote(config_obj["location"]))
             self._exec_cmd_chroot(cmd)
 
         def replace_in_cfg(opt, val):
-            cmd = "sed -i 's|^%(o)s=.*|%(o)s=\"%(v)s\"|g' %(cfg)s" % {
-                "o": opt,
-                "v": val,
-                "cfg": config_obj["location"]
-            }
+            cmd = "sed -i %s %s" % (
+                shlex.quote('s|^%s=.*|%s="%s"|g' % (opt, opt, val)),
+                shlex.quote(config_obj["location"]))
             self._exec_cmd_chroot(cmd)
 
         if config_obj["contents"].get(option, False):

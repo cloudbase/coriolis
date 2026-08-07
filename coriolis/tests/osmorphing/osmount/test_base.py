@@ -2,6 +2,7 @@
 # All Rights Reserved.
 
 import logging
+import shlex
 from unittest import mock
 
 from coriolis import constants
@@ -109,20 +110,39 @@ class BaseSSHOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
                 self.conn_info['ip'], 22)
         )
 
+    @mock.patch.object(base.utils, 'check_env_command')
     @mock.patch.object(base.BaseSSHOSMountTools, '_allow_ssh_env_vars')
     @mock.patch.object(base.BaseSSHOSMountTools, '_connect')
-    def test_setup(self, mock_connect, mock_allow_ssh_vars):
+    def test_setup(self, mock_connect, mock_allow_ssh_vars,
+                   mock_check_env_command):
         self.base_os_mount_tools.setup()
         mock_allow_ssh_vars.return_value = True
+        mock_check_env_command.assert_called_once_with(self.ssh)
         self.ssh.close.assert_called_once_with()
         mock_connect.assert_called_once_with()
+
+    @mock.patch.object(base.utils, 'check_env_command')
+    @mock.patch.object(base.BaseSSHOSMountTools, '_allow_ssh_env_vars')
+    @mock.patch.object(base.BaseSSHOSMountTools, '_connect')
+    def test_setup_without_env_command(
+            self, mock_connect, mock_allow_ssh_vars, mock_check_env_command):
+        # NOTE: env(1) carries the environment variables over to the
+        # privileged and chrooted commands, so its absence must abort the
+        # setup instead of silently dropping the proxy settings later on.
+        mock_check_env_command.side_effect = exception.CoriolisException(
+            "env is unavailable")
+
+        self.assertRaises(
+            exception.CoriolisException, self.base_os_mount_tools.setup)
+
+        mock_allow_ssh_vars.assert_not_called()
 
     @mock.patch.object(base.utils, 'exec_ssh_cmd')
     def test__exec_cmd(self, mock_exec_ssh_cmd):
         result = self.base_os_mount_tools._exec_cmd(self.cmd, timeout=120)
 
         mock_exec_ssh_cmd.assert_called_once_with(
-            self.base_os_mount_tools._ssh, self.cmd, {}, get_pty=True,
+            self.base_os_mount_tools._ssh, self.cmd, {}, get_pty=False,
             timeout=120)
 
         self.assertEqual(result, mock_exec_ssh_cmd.return_value)
@@ -132,7 +152,7 @@ class BaseSSHOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         result = self.base_os_mount_tools._exec_cmd(self.cmd)
 
         mock_exec_ssh_cmd.assert_called_once_with(
-            self.base_os_mount_tools._ssh, self.cmd, {}, get_pty=True,
+            self.base_os_mount_tools._ssh, self.cmd, {}, get_pty=False,
             timeout=self.base_os_mount_tools._osmount_operation_timeout)
 
         self.assertEqual(result, mock_exec_ssh_cmd.return_value)
@@ -145,6 +165,96 @@ class BaseSSHOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
             exception.OSMorphingSSHOperationTimeout,
             self.base_os_mount_tools._exec_cmd, self.cmd,
             timeout=self.base_os_mount_tools._osmount_operation_timeout)
+
+    @mock.patch.object(base.utils, 'exec_ssh_cmd')
+    def test__exec_sudo_env_cmd_no_environment(self, mock_exec_ssh_cmd):
+        """With no proxy set, the command stays a plain 'sudo <cmd>'."""
+        result = self.base_os_mount_tools._exec_sudo_env_cmd(
+            "apt-get update -y", timeout=120)
+
+        mock_exec_ssh_cmd.assert_called_once_with(
+            self.base_os_mount_tools._ssh, "sudo apt-get update -y",
+            environment={}, get_pty=False, timeout=120)
+        self.assertEqual(result, mock_exec_ssh_cmd.return_value)
+
+    @mock.patch.object(base.utils, 'exec_ssh_cmd')
+    def test__exec_sudo_env_cmd_with_proxy(self, mock_exec_ssh_cmd):
+        """Proxy vars go through env(1), never through 'sudo -E'.
+
+        sudo-rs, the default on Ubuntu 26.04, does not implement '-E'.
+        """
+        environment = {
+            "http_proxy": "http://10.0.0.1:3128",
+            "HTTPS_PROXY": "http://10.0.0.1:3128",
+        }
+        self.base_os_mount_tools._environment = environment
+
+        self.base_os_mount_tools._exec_sudo_env_cmd("apt-get update -y")
+
+        cmd = mock_exec_ssh_cmd.call_args[0][1]
+        self.assertEqual(
+            "sudo env http_proxy=http://10.0.0.1:3128 "
+            "HTTPS_PROXY=http://10.0.0.1:3128 apt-get update -y", cmd)
+        self.assertNotIn("sudo -E", cmd)
+        mock_exec_ssh_cmd.assert_called_once_with(
+            self.base_os_mount_tools._ssh, cmd, environment=environment,
+            get_pty=False,
+            timeout=self.base_os_mount_tools._osmount_operation_timeout)
+
+    @mock.patch.object(base.utils, 'exec_ssh_cmd')
+    def test__exec_sudo_env_cmd_non_proxy_environment(self, mock_exec_ssh_cmd):
+        """Any variable on the environment goes through env(1)."""
+        self.base_os_mount_tools._environment = {
+            "http_proxy": "http://10.0.0.1:3128",
+            "DEBIAN_FRONTEND": "noninteractive"}
+
+        self.base_os_mount_tools._exec_sudo_env_cmd(
+            "apt-get install cryptsetup -y")
+
+        self.assertEqual(
+            "sudo env http_proxy=http://10.0.0.1:3128 "
+            "DEBIAN_FRONTEND=noninteractive apt-get install cryptsetup -y",
+            mock_exec_ssh_cmd.call_args[0][1])
+
+    @mock.patch.object(base.utils, 'exec_ssh_cmd')
+    def test__exec_sudo_env_cmd_without_proxy(self, mock_exec_ssh_cmd):
+        """A lone variable must still go through env(1), not bare sudo."""
+        self.base_os_mount_tools._environment = {
+            "DEBIAN_FRONTEND": "noninteractive"}
+
+        self.base_os_mount_tools._exec_sudo_env_cmd(
+            "apt-get install cryptsetup -y")
+
+        self.assertEqual(
+            "sudo env DEBIAN_FRONTEND=noninteractive "
+            "apt-get install cryptsetup -y",
+            mock_exec_ssh_cmd.call_args[0][1])
+
+    @mock.patch.object(base.utils, 'exec_ssh_cmd')
+    def test__exec_sudo_env_cmd_quotes_sensitive_proxy_values(
+            self, mock_exec_ssh_cmd):
+        proxy = "http://user:p@ss w0rd@10.0.0.1:3128?a=1&b=2"
+        self.base_os_mount_tools._environment = {"http_proxy": proxy}
+
+        self.base_os_mount_tools._exec_sudo_env_cmd("apt-get update -y")
+
+        self.assertEqual(
+            ["sudo", "env", "http_proxy=%s" % proxy, "apt-get", "update",
+             "-y"],
+            shlex.split(mock_exec_ssh_cmd.call_args[0][1]))
+
+    @mock.patch.object(base.utils, 'exec_ssh_cmd')
+    def test__exec_sudo_env_cmd_timeout_does_not_leak_credentials(
+            self, mock_exec_ssh_cmd):
+        mock_exec_ssh_cmd.side_effect = exception.MinionMachineCommandTimeout()
+        self.base_os_mount_tools._environment = {
+            "http_proxy": "http://user:secret@10.0.0.1:3128"}
+
+        exc = self.assertRaises(
+            exception.OSMorphingSSHOperationTimeout,
+            self.base_os_mount_tools._exec_sudo_env_cmd, "apt-get update -y")
+
+        self.assertNotIn("secret", str(exc))
 
 
 class TestBaseLinuxOSMountTools(base.BaseLinuxOSMountTools):
@@ -824,8 +934,11 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
             mock.call("mktemp -d"),
             mock.call("sudo mount /dev/sda /tmp/tmp_dir"),
             mock.call("sudo mount -o bind /proc/ /tmp/tmp_dir/proc"),
+            mock.call("sudo mount --make-private /tmp/tmp_dir/proc"),
             mock.call("sudo mount -o bind /dev/ /tmp/tmp_dir/dev"),
+            mock.call("sudo mount --make-private /tmp/tmp_dir/dev"),
             mock.call("sudo mount -o bind /run/ /tmp/tmp_dir/run"),
+            mock.call("sudo mount --make-private /tmp/tmp_dir/run"),
         ])
         mock_find_dev_with_contents.assert_called_once_with(
             ["/dev/sdb"], all_files=self.all_files)
@@ -1111,8 +1224,50 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_exec_cmd.assert_has_calls([
             mock.call("sudo fuser --kill --mount /mnt/root_dir || true"),
             mock.call(
+                "mountpoint -q /mnt/root_dir && sudo mount --make-rprivate "
+                "/mnt/root_dir || true"),
+            mock.call(
                 "mountpoint -q /mnt/root_dir && sudo umount -R /mnt/root_dir"),
         ])
+
+    @mock.patch.object(base.utils, 'test_ssh_path')
+    @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')
+    @mock.patch.object(base.BaseLinuxOSMountTools, '_find_dev_with_contents')
+    def test__find_and_mount_root_severs_mount_propagation(
+            self, mock_find_dev_with_contents, mock_exec_cmd,
+            mock_test_ssh_path):
+        mock_exec_cmd.return_value = "/tmp/tmp_dir"
+        mock_find_dev_with_contents.return_value = "/dev/sda"
+        mock_test_ssh_path.return_value = True
+
+        self.base_os_mount_tools._find_and_mount_root(["/dev/sda"])
+
+        issued = [call.args[0] for call in mock_exec_cmd.call_args_list]
+        for directory in ['proc', 'sys', 'dev', 'run']:
+            mount_dir = "/tmp/tmp_dir/%s" % directory
+            bind_cmd = "sudo mount -o bind /%s/ %s" % (directory, mount_dir)
+            private_cmd = "sudo mount --make-private %s" % mount_dir
+
+            self.assertIn(bind_cmd, issued)
+            self.assertIn(private_cmd, issued)
+            self.assertEqual(
+                issued.index(private_cmd), issued.index(bind_cmd) + 1)
+
+    @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')
+    def test_dismount_os_severs_mount_propagation_before_unmounting(
+            self, mock_exec_cmd):
+        self.base_os_mount_tools.dismount_os("/mnt/root_dir")
+
+        issued = [call.args[0] for call in mock_exec_cmd.call_args_list]
+        rprivate_cmd = (
+            "mountpoint -q /mnt/root_dir && sudo mount --make-rprivate "
+            "/mnt/root_dir || true")
+        umount_cmd = (
+            "mountpoint -q /mnt/root_dir && sudo umount -R /mnt/root_dir")
+
+        self.assertIn(rprivate_cmd, issued)
+        self.assertIn(umount_cmd, issued)
+        self.assertLess(issued.index(rprivate_cmd), issued.index(umount_cmd))
 
     @mock.patch.object(base.utils, 'get_url_with_credentials')
     def test_set_proxy(self, mock_get_url_with_credentials):
@@ -1144,3 +1299,15 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         self.assertIsNone(result)
 
         mock_get_url_with_credentials.assert_not_called()
+        self.assertEqual({}, self.base_os_mount_tools._environment)
+
+    def test_set_proxy_sets_lower_and_uppercase_variables(self):
+        url = "http://10.0.0.1:3128"
+
+        self.base_os_mount_tools.set_proxy({'url': url})
+
+        self.assertEqual(
+            {'http_proxy': url, 'HTTP_PROXY': url,
+             'https_proxy': url, 'HTTPS_PROXY': url,
+             'ftp_proxy': url, 'FTP_PROXY': url},
+            self.base_os_mount_tools._environment)

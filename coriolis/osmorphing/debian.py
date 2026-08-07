@@ -242,10 +242,10 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
             self._exec_cmd_chroot(deb_reconfigure_cmd)
 
             apt_get_cmd = (
-                '/bin/bash -c "DEBIAN_FRONTEND=noninteractive '
                 'apt-get install %s -y '
-                '-o Dpkg::Options::=\'--force-confdef\'"' % (
+                '-o Dpkg::Options::=--force-confdef' % (
                     " ".join(package_names)))
+            self._environment['DEBIAN_FRONTEND'] = 'noninteractive'
             self._exec_cmd_chroot(apt_get_cmd)
         except Exception as err:
             raise exception.FailedPackageInstallationException(

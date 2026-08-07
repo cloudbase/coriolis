@@ -13,6 +13,7 @@ import OpenSSL
 import os
 import pickle
 import re
+import shlex
 import socket
 import string
 import subprocess
@@ -312,8 +313,43 @@ def list_ssh_dir(ssh, remote_path):
         LOG.warning(
             "SFTP listdir failed, falling back to shell command. "
             "Error: %s", get_exception_details())
-        output = exec_ssh_cmd(ssh, "sudo ls -1 %s" % remote_path, get_pty=True)
+        output = exec_ssh_cmd(
+            ssh, "sudo ls -1 %s" % remote_path, get_pty=False)
         return [f for f in output.splitlines() if f.strip()]
+
+
+def get_env_command_prefix(environment):
+    """
+    Each variable is shell-quoted individually, so values containing
+    spaces or other shell-sensitive characters are passed through
+    verbatim.
+    """
+
+    if not environment:
+        return ""
+    return "env %s " % " ".join(
+        shlex.quote("%s=%s" % (key, value))
+        for key, value in environment.items())
+
+
+def check_env_command(ssh):
+    """
+    Checks that env(1) exists on the given machine, as it is what carries
+    the environment variables over to privileged and chrooted commands.
+    Raises if it is missing, so the cause is reported upfront instead of
+    surfacing as an unrelated failure much later on.
+    """
+
+    try:
+        exec_ssh_cmd(ssh, "command -v env", get_pty=False)
+    except (exception.SSHCommandFailed,
+            exception.SSHCommandNotFoundException) as ex:
+        raise exception.CoriolisException(
+            "The 'env' command is unavailable on the OSMorphing minion "
+            "machine. It is required in order to forward environment "
+            "variables to commands run on the migrated machine (such as "
+            "proxy settings). Please switch the minion machine "
+            "image/template to one that has this command in place.") from ex
 
 
 def _exec_ssh_cmd(ssh, cmd, environment=None, get_pty=False, timeout=None):
@@ -390,16 +426,23 @@ def exec_ssh_cmd(
 
 def exec_ssh_cmd_chroot(ssh, chroot_dir, cmd, environment=None, get_pty=False,
                         timeout=None):
-    return exec_ssh_cmd(ssh, "sudo -E chroot %s %s" % (chroot_dir, cmd),
-                        environment=environment, get_pty=get_pty,
-                        timeout=timeout)
+    return exec_ssh_cmd(
+        ssh,
+        "sudo %schroot %s %s" % (
+            get_env_command_prefix(environment),
+            shlex.quote(chroot_dir),
+            cmd),
+        environment=environment,
+        get_pty=get_pty,
+        timeout=timeout,
+    )
 
 
 def check_fs(ssh, fs_type, dev_path):
     try:
         out = exec_ssh_cmd(
             ssh, "sudo fsck -p -t %s %s" % (fs_type, dev_path),
-            get_pty=True)
+            get_pty=False)
         LOG.debug("File system checked:\n%s", out)
     except Exception:
         LOG.warn("Checking file system returned an error:\n%s" % (
@@ -414,14 +457,14 @@ def run_xfs_repair(ssh, dev_path):
         LOG.debug("mounting %s on %s" % (dev_path, tmp_dir))
         mount_out = exec_ssh_cmd(
             ssh, "sudo mount %s %s" % (dev_path, tmp_dir),
-            get_pty=True)
+            get_pty=False)
         LOG.debug("mount returned: %s" % mount_out)
         LOG.debug("Umounting %s" % tmp_dir)
         umount_out = exec_ssh_cmd(
-            ssh, "sudo umount %s" % tmp_dir, get_pty=True)
+            ssh, "sudo umount %s" % tmp_dir, get_pty=False)
         LOG.debug("umounting returned: %s" % umount_out)
         out = exec_ssh_cmd(
-            ssh, "sudo xfs_repair %s" % dev_path, get_pty=True)
+            ssh, "sudo xfs_repair %s" % dev_path, get_pty=False)
         LOG.debug("File system repaired:\n%s", out)
     except Exception as ex:
         LOG.warn("xfs_repair returned an error:\n%s", str(ex))
@@ -806,22 +849,22 @@ def _write_systemd(ssh, cmdline, svcname, run_as=None, start=True):
     if test_ssh_path(ssh, serviceFilePath):
         if start:
             exec_ssh_cmd(
-                ssh, "sudo systemctl start %s" % svcname, get_pty=True)
+                ssh, "sudo systemctl start %s" % svcname, get_pty=False)
         return
 
     def _reload_and_start(start=True):
         exec_ssh_cmd(
             ssh, "sudo systemctl daemon-reload",
-            get_pty=True)
+            get_pty=False)
         if start:
             exec_ssh_cmd(
                 ssh, "sudo systemctl start %s" % svcname,
-                get_pty=True)
+                get_pty=False)
 
     def _correct_selinux_label():
         cmd = "sudo restorecon -v %s" % serviceFilePath
         try:
-            exec_ssh_cmd(ssh, cmd, get_pty=True)
+            exec_ssh_cmd(ssh, cmd, get_pty=False)
         except exception.CoriolisException:
             LOG.warn(
                 "Could not relabel service '%s'. SELinux might not be "
@@ -843,7 +886,7 @@ def _write_systemd(ssh, cmdline, svcname, run_as=None, start=True):
     exec_ssh_cmd(
         ssh,
         "sudo mv /tmp/%s.service %s" % (name, serviceFilePath),
-        get_pty=True)
+        get_pty=False)
     _correct_selinux_label()
     _reload_and_start(start=start)
 
@@ -867,7 +910,7 @@ def _write_upstart(ssh, cmdline, svcname, run_as=None, start=True):
     exec_ssh_cmd(
         ssh,
         "sudo mv /tmp/%s.conf %s" % (name, serviceFilePath),
-        get_pty=True)
+        get_pty=False)
     if start:
         exec_ssh_cmd(ssh, "start %s" % svcname)
 
@@ -895,7 +938,7 @@ def create_service(ssh, cmdline, svcname, run_as=None, start=True):
 
 def restart_service(ssh, svcname):
     if _has_systemd(ssh):
-        exec_ssh_cmd(ssh, "sudo systemctl restart %s" % svcname, get_pty=True)
+        exec_ssh_cmd(ssh, "sudo systemctl restart %s" % svcname, get_pty=False)
     elif test_ssh_path(ssh, "/etc/init"):
         exec_ssh_cmd(ssh, "restart %s" % svcname)
     else:
@@ -904,7 +947,7 @@ def restart_service(ssh, svcname):
 
 def start_service(ssh, svcname):
     if _has_systemd(ssh):
-        exec_ssh_cmd(ssh, "sudo systemctl start %s" % svcname, get_pty=True)
+        exec_ssh_cmd(ssh, "sudo systemctl start %s" % svcname, get_pty=False)
     elif test_ssh_path(ssh, "/etc/init"):
         exec_ssh_cmd(ssh, "start %s" % svcname)
     else:
@@ -913,7 +956,7 @@ def start_service(ssh, svcname):
 
 def stop_service(ssh, svcname):
     if _has_systemd(ssh):
-        exec_ssh_cmd(ssh, "sudo systemctl stop %s" % svcname, get_pty=True)
+        exec_ssh_cmd(ssh, "sudo systemctl stop %s" % svcname, get_pty=False)
     elif test_ssh_path(ssh, "/etc/init"):
         exec_ssh_cmd(ssh, "stop %s" % svcname)
     else:
