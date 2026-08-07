@@ -934,8 +934,11 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
             mock.call("mktemp -d"),
             mock.call("sudo mount /dev/sda /tmp/tmp_dir"),
             mock.call("sudo mount -o bind /proc/ /tmp/tmp_dir/proc"),
+            mock.call("sudo mount --make-private /tmp/tmp_dir/proc"),
             mock.call("sudo mount -o bind /dev/ /tmp/tmp_dir/dev"),
+            mock.call("sudo mount --make-private /tmp/tmp_dir/dev"),
             mock.call("sudo mount -o bind /run/ /tmp/tmp_dir/run"),
+            mock.call("sudo mount --make-private /tmp/tmp_dir/run"),
         ])
         mock_find_dev_with_contents.assert_called_once_with(
             ["/dev/sdb"], all_files=self.all_files)
@@ -1221,8 +1224,50 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_exec_cmd.assert_has_calls([
             mock.call("sudo fuser --kill --mount /mnt/root_dir || true"),
             mock.call(
+                "mountpoint -q /mnt/root_dir && sudo mount --make-rprivate "
+                "/mnt/root_dir || true"),
+            mock.call(
                 "mountpoint -q /mnt/root_dir && sudo umount -R /mnt/root_dir"),
         ])
+
+    @mock.patch.object(base.utils, 'test_ssh_path')
+    @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')
+    @mock.patch.object(base.BaseLinuxOSMountTools, '_find_dev_with_contents')
+    def test__find_and_mount_root_severs_mount_propagation(
+            self, mock_find_dev_with_contents, mock_exec_cmd,
+            mock_test_ssh_path):
+        mock_exec_cmd.return_value = "/tmp/tmp_dir"
+        mock_find_dev_with_contents.return_value = "/dev/sda"
+        mock_test_ssh_path.return_value = True
+
+        self.base_os_mount_tools._find_and_mount_root(["/dev/sda"])
+
+        issued = [call.args[0] for call in mock_exec_cmd.call_args_list]
+        for directory in ['proc', 'sys', 'dev', 'run']:
+            mount_dir = "/tmp/tmp_dir/%s" % directory
+            bind_cmd = "sudo mount -o bind /%s/ %s" % (directory, mount_dir)
+            private_cmd = "sudo mount --make-private %s" % mount_dir
+
+            self.assertIn(bind_cmd, issued)
+            self.assertIn(private_cmd, issued)
+            self.assertEqual(
+                issued.index(private_cmd), issued.index(bind_cmd) + 1)
+
+    @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')
+    def test_dismount_os_severs_mount_propagation_before_unmounting(
+            self, mock_exec_cmd):
+        self.base_os_mount_tools.dismount_os("/mnt/root_dir")
+
+        issued = [call.args[0] for call in mock_exec_cmd.call_args_list]
+        rprivate_cmd = (
+            "mountpoint -q /mnt/root_dir && sudo mount --make-rprivate "
+            "/mnt/root_dir || true")
+        umount_cmd = (
+            "mountpoint -q /mnt/root_dir && sudo umount -R /mnt/root_dir")
+
+        self.assertIn(rprivate_cmd, issued)
+        self.assertIn(umount_cmd, issued)
+        self.assertLess(issued.index(rprivate_cmd), issued.index(umount_cmd))
 
     @mock.patch.object(base.utils, 'get_url_with_credentials')
     def test_set_proxy(self, mock_get_url_with_credentials):
