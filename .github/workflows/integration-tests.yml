@@ -22,6 +22,10 @@ jobs:
         python-version: "3.10"
         architecture: "x64"
 
+    - name: Update apt package lists
+      shell: bash
+      run: sudo apt-get update -y
+
     - name: Install tox
       shell: bash
       run: |
