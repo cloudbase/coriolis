@@ -1026,6 +1026,8 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         }
     )
     @ddt.unpack
+    @mock.patch.object(
+        windows.BaseWindowsMorphingTools, "_stage_balloon_service")
     @mock.patch.object(windows.BaseWindowsMorphingTools, "_mount_disk_image")
     @mock.patch.object(windows.BaseWindowsMorphingTools, "_get_sid")
     @mock.patch.object(windows.BaseWindowsMorphingTools, "_grant_permissions")
@@ -1041,6 +1043,7 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_grant_permissions,
         mock_get_sid,
         mock_mount_disk_image,
+        mock_stage_balloon_service,
         version_number=None,
         edition_id=None,
         exp_virtio_dir=None,
@@ -1085,6 +1088,43 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             for driver in drivers]
         mock_add_dism_driver.assert_has_calls(
             [mock.call(path) for path in exp_driver_paths])
+        mock_stage_balloon_service.assert_called_once_with(
+            fake_image_mountpoint, exp_virtio_dir, "amd64")
+
+    @mock.patch.object(
+        windows.BaseWindowsMorphingTools, "register_firstboot_script")
+    def test_stage_balloon_service(self, mock_register_firstboot_script):
+        self.conn.test_path.return_value = True
+
+        self.morphing_tools._stage_balloon_service("e", "w10", "amd64")
+
+        self.conn.test_path.assert_called_once_with(
+            "e:\\Balloon\\w10\\amd64\\blnsvr.exe")
+        expected_copy_calls = [
+            mock.call(
+                "New-Item -ItemType Directory -Force -Path "
+                "'C:\\Program Files\\Balloon' | Out-Null"),
+            mock.call(
+                "Copy-Item -Path 'e:\\Balloon\\w10\\amd64\\*' "
+                "-Destination 'C:\\Program Files\\Balloon' "
+                "-Recurse -Force"),
+        ]
+        self.conn.exec_ps_command.assert_has_calls(expected_copy_calls)
+        mock_register_firstboot_script.assert_called_once_with(
+            '& "C:\\Program Files\\Balloon\\blnsvr.exe" -i',
+            user_provided=False,
+            script_filename="coriolis_balloon_service_install.ps1")
+
+    @mock.patch.object(
+        windows.BaseWindowsMorphingTools, "register_firstboot_script")
+    def test_stage_balloon_service_missing_blnsvr(
+            self, mock_register_firstboot_script):
+        self.conn.test_path.return_value = False
+
+        self.morphing_tools._stage_balloon_service("e", "w10", "amd64")
+
+        self.conn.exec_ps_command.assert_not_called()
+        mock_register_firstboot_script.assert_not_called()
 
     @ddt.data(
         {
