@@ -85,6 +85,9 @@ QEMU_GUEST_AGENT_INSTALL_FROM_DIR_SCRIPT_FORMAT = (
 
 VIRTIO_WIN_ISO_PATH = "c:\\virtio-win.iso"
 QEMU_GA_MSI_NAME = "qemu-ga.msi"
+BALLOON_SERVICE_GUEST_DIR = "Program Files\\Balloon"
+BALLOON_SERVICE_INSTALL_SCRIPT_FORMAT = (
+    '& "%(balloon_dir)s\\blnsvr.exe" -i')
 
 INTERFACES_PATH_FORMAT = (
     "HKLM:\\%s\\ControlSet001\\Services\\Tcpip\\Parameters\\Interfaces")
@@ -829,8 +832,43 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
             ]
 
             self._install_dism_drivers(driver_paths)
+            self._stage_balloon_service(virtio_drive, virtio_dir, arch)
         finally:
             self._dismount_disk_image(VIRTIO_WIN_ISO_PATH)
+
+    def _stage_balloon_service(self, virtio_drive, virtio_dir, arch):
+        """Copy blnsvr.exe into the guest and register a first-boot script.
+
+        Offline DISM driver injection only installs the balloon kernel
+        driver. The separate BalloonService (blnsvr.exe) is required for
+        the driver to report guest memory statistics to KVM/Proxmox hosts.
+        """
+        balloon_source = "%s:\\Balloon\\%s\\%s" % (
+            virtio_drive, virtio_dir, arch)
+        blnsvr_source = "%s\\blnsvr.exe" % balloon_source
+        if not self._conn.test_path(blnsvr_source):
+            LOG.warning(
+                "VirtIO Balloon user-mode service (blnsvr.exe) was not "
+                "found at '%s'. Skipping BalloonService setup.",
+                blnsvr_source)
+            return
+
+        balloon_dest = "%s%s" % (self._os_root_dir, BALLOON_SERVICE_GUEST_DIR)
+        self._event_manager.progress_update(
+            "Staging VirtIO BalloonService (blnsvr.exe)")
+        self._conn.exec_ps_command(
+            "New-Item -ItemType Directory -Force -Path '%s' | Out-Null"
+            % balloon_dest)
+        self._conn.exec_ps_command(
+            "Copy-Item -Path '%s\\*' -Destination '%s' -Recurse -Force"
+            % (balloon_source, balloon_dest))
+
+        guest_balloon_dir = "C:\\%s" % BALLOON_SERVICE_GUEST_DIR
+        local_script = BALLOON_SERVICE_INSTALL_SCRIPT_FORMAT % {
+            "balloon_dir": guest_balloon_dir}
+        self.register_firstboot_script(
+            local_script, user_provided=False,
+            script_filename="coriolis_balloon_service_install.ps1")
 
     def _install_dism_drivers(self, driver_paths):
         """Installs the drivers located at the given paths into the offline
