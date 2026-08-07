@@ -58,13 +58,20 @@ enroll_clevis() {
     for dev in "${!dev_to_keyfile[@]}"; do
         local keyfile="${dev_to_keyfile[$dev]}"
 
-	if ! clevis luks bind -k "$keyfile" -d "$dev" tpm2 '{"pcr_ids":""}'; then
+        # The PCR IDs list is substituted in by Coriolis.
+        if ! clevis luks bind -k "$keyfile" -d "$dev" tpm2 \
+                '{"pcr_ids":"__CORIOLIS_TPM2_PCRS__","pcr_bank":"sha256"}'; then
             echo "ERROR: clevis luks bind failed for $dev; aborting to avoid lockout." >&2
             return 1
         fi
 
 	if ! cryptsetup luksDump "$dev" 2>/dev/null | grep -q 'clevis'; then
             echo "ERROR: clevis token not found in LUKS header for $dev; aborting to avoid lockout." >&2
+            return 1
+        fi
+
+        if ! clevis luks list -d "$dev" 2>/dev/null | grep -q '"pcr_ids":"[0-9]'; then
+            echo "ERROR: clevis TPM2 pin for $dev has no PCRs bound; aborting." >&2
             return 1
         fi
 

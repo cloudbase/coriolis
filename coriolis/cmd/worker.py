@@ -9,6 +9,7 @@ from oslo_reports import guru_meditation_report as gmr
 from oslo_reports import opts as gmr_opts
 
 from coriolis import constants
+from coriolis.osmorphing.osmount import luks_mixin
 from coriolis import service
 from coriolis import utils
 from coriolis.worker.rpc import server as rpc_server
@@ -25,6 +26,7 @@ CONF.register_opts(worker_opts, 'worker')
 def main():
     worker_count, args = service.get_worker_count_from_args(sys.argv)
     CONF(args[1:], project='coriolis', version="1.0.0")
+    luks_mixin.validate_config()
     if not worker_count:
         worker_count = CONF.worker.worker_count
     utils.setup_logging()
