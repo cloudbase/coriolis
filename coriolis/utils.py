@@ -141,7 +141,18 @@ def get_diagnostics_info():
     }
 
 
-def setup_logging():
+def setup_logging(disable_file_handlers=False):
+    """Configure oslo logging for Coriolis.
+
+    :param disable_file_handlers: When True, clear log_dir/log_file so oslo_log
+        does not create a log file. Needed for multiprocessing spawn children,
+        where the binary name resolves to ``<string>`` and would otherwise
+        create an empty ``<string>.log`` under log_dir. Callers that set this
+        typically replace handlers with a QueueHandler afterwards.
+    """
+    if disable_file_handlers:
+        CONF.set_override('log_dir', None)
+        CONF.set_override('log_file', None)
     logging.setup(CONF, 'coriolis')
 
 

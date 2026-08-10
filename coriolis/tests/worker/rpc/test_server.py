@@ -1243,7 +1243,8 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_conf.assert_called_once_with(
             mock_get_worker_count_from_args.return_value[1][1:],
             project='coriolis', version='1.0.0')
-        mock_setup_logging.assert_called_once_with()
+        mock_setup_logging.assert_called_once_with(
+            disable_file_handlers=True)
         mock_get_logger.assert_called_once_with(None)
         mock_logger.removeHandler.assert_called_once_with(
             mock.sentinel.handler)

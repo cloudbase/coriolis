@@ -43,6 +43,17 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         utils.setup_logging()
         mock_setup.assert_called_once_with(utils.CONF, 'coriolis')
 
+    @mock.patch.object(utils.CONF, 'set_override')
+    @mock.patch('oslo_log.log.setup')
+    def test_setup_logging_disable_file_handlers(
+            self, mock_setup, mock_set_override):
+        utils.setup_logging(disable_file_handlers=True)
+        mock_set_override.assert_has_calls([
+            mock.call('log_dir', None),
+            mock.call('log_file', None),
+        ])
+        mock_setup.assert_called_once_with(utils.CONF, 'coriolis')
+
     @mock.patch.object(utils, 'get_exception_details')
     def test_ignore_exceptions(self, mock_get_details):
         mock_get_details.return_value = 'Test exception details'

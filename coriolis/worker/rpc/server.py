@@ -666,7 +666,8 @@ def _setup_task_process(mp_log_q):
     # Setting up logging and cfg, needed since this is a new process
     _, args = service.get_worker_count_from_args(sys.argv)
     cfg.CONF(args[1:], project='coriolis', version="1.0.0")
-    utils.setup_logging()
+    # Spawn children are started via python -c; avoid creating <string>.log
+    utils.setup_logging(disable_file_handlers=True)
 
     # Log events need to be handled in the parent process
     log_root = logging.getLogger(None).logger

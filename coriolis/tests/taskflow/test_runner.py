@@ -116,7 +116,8 @@ class TaskFlowRunnerTestCase(test_base.CoriolisBaseTestCase):
         self.runner._setup_task_process_logging(self.mock_mp_log_q)
         mock_conf.assert_called_once_with(sys.argv[1:], project='coriolis',
                                           version='1.0.0')
-        mock_setup_logging.assert_called_once()
+        mock_setup_logging.assert_called_once_with(
+            disable_file_handlers=True)
         mock_get_logger.assert_called_once_with(None)
         mock_queue_handler.assert_called_once_with(self.mock_mp_log_q)
         mock_get_logger.return_value.logger.removeHandler.\
