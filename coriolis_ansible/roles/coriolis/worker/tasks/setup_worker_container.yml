@@ -15,8 +15,10 @@
     volumes:
       - /lib/modules:/lib/modules
       - /dev:/dev
-      # The container entry point script attempts to override /dev/log.
-      - /dev/null:/dev/log
+      # Bind the logger socket over /dev/log so the entrypoint does not need
+      # to symlink it. With /dev shared from the host, a symlink would rewrite
+      # the host journal socket and ingest host logs into coriolis-logger.
+      - "{{ coriolis_logger_socket_file }}:/dev/log"
       - "{{ coriolis_config_dir }}:{{ coriolis_config_dir }}:ro"
       - "{{ coriolis_log_dir }}:{{ coriolis_log_dir }}"
       - "{{ coriolis_logger_socket_dir }}:{{ coriolis_logger_socket_dir }}"

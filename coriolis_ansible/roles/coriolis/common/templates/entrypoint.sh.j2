@@ -2,12 +2,17 @@
 
 set -eux -o pipefail
 
-if [ -e "/dev/log" ]
-then
-    rm -rf /dev/log
+# Redirect /dev/log to coriolis-logger for this container.
+# Skip when /dev/log is already a mount (e.g. privileged worker with /dev:/dev
+# and the logger socket bind-mounted onto /dev/log). Replacing /dev/log via
+# symlink in that case rewrites the host journal socket and ingests host logs
+# (sshd, sudo, systemd ...) into coriolis-logger.
+if ! findmnt -n /dev/log >/dev/null 2>&1; then
+    if [ -e "/dev/log" ] || [ -L "/dev/log" ]; then
+        rm -rf /dev/log
+    fi
+    ln -sf "{{ coriolis_logger_socket_file }}" /dev/log
 fi
-
-ln -sf "{{ coriolis_logger_socket_file }}" /dev/log
 
 if [ "x${RUN_DBSYNC:-''}" != "x" ] && [ "x${RUN_DBSYNC:-''}" = "xyes" ]
 then
