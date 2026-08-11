@@ -52,6 +52,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         mock_set_override.assert_has_calls([
             mock.call('log_dir', None),
             mock.call('log_file', None),
+            mock.call('use_syslog', False),
         ])
         mock_setup.assert_called_once_with(utils.CONF, 'coriolis')
 

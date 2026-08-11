@@ -90,12 +90,13 @@ class TaskFlowRunner(object):
     def _setup_task_process_logging(self, mp_log_q):
         # Setting up logging and cfg, needed since this is a new process
         cfg.CONF(sys.argv[1:], project='coriolis', version="1.0.0")
-        # Spawn children are started via python -c; avoid creating <string>.log
+        # Spawn children are started via python -c;
+        # avoid <string> file/syslog logs
         utils.setup_logging(disable_file_handlers=True)
 
         # Log events need to be handled in the parent process
         log_root = logging.getLogger(None).logger
-        for handler in log_root.handlers:
+        for handler in list(log_root.handlers):
             log_root.removeHandler(handler)
         log_root.addHandler(handlers.QueueHandler(mp_log_q))
 
