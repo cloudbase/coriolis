@@ -15,6 +15,11 @@ vixdisklib_library_directory = {{ coriolis_vmware_vix_disklib_dir }}
 # This requires that the VM have no pre-existing snapshots.
 automatically_enable_cbt = False
 
+# Whether or not to skip pre-export NFC connectivity validation against
+# ESXi hosts. When false (default), Coriolis validates TCP/902 reachability
+# for hosts that may be selected by vCenter for NBD/NBDSSL snapshot transfers.
+skip_nfc_validation = False
+
 
 # Path to the vixdisklib configuration file.
 vixdisklib_config_location = {{ coriolis_vmware_vix_disklib_config_path }}
