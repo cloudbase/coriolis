@@ -322,12 +322,9 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
         # mock a few commands that are going to be ran through ssh; they won't
         # pass anyway.
         bkup = "coriolis.providers.backup_writers.HTTPBackupWriterBootstrapper"
-        repl = "coriolis.providers.replicator.Replicator"
         for prop in [
             "coriolis.providers.backup_writers._disable_lvm2_lvmetad",
             f"{bkup}._add_firewalld_port",
-            f"{bkup}._change_binary_se_context",
-            f"{repl}._change_binary_se_context",
         ]:
             mocker = mock.patch(prop)
             mocker.start()
@@ -352,28 +349,19 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
         ctxt = self._get_db_context()
 
         try:
-            transfer = db_api.get_transfer(
-                ctxt, self._transfer.id, include_task_info=True)
-            volumes_info = transfer.get("info", {}).get(
-                self._instance_name, {}).get('volumes_info', [])
+            executions = db_api.get_transfer_tasks_executions(
+                ctxt, self._transfer.id, sort_keys=["number"],
+                sort_dirs=["desc"], limit=1)
+            if executions:
+                self._cleanup_execution(self._transfer.id, executions[0].id)
         except Exception as ex:
-            LOG.warn("Could not get volumes info for cleanup. Ex: %s", ex)
-            return
-
-        if not volumes_info:
-            LOG.info("No volume info. Nothing to cleanup.")
-            return
+            LOG.warn("Could not cancel execution during cleanup. Ex: %s", ex)
 
         try:
-            self._imp_provider.delete_replica_disks(
-                ctxt,
-                self._imp_conn_info,
-                self._imp_env_options,
-                volumes_info,
-            )
+            deletion = self._client.transfers.delete_disks(self._transfer.id)
+            self.wait_for_execution(deletion.id, timeout=60)
         except Exception as ex:
-            LOG.warn(
-                "Could not clean up provider dst devices. Ex: %s", ex)
+            LOG.warn("Could not clean up provider dest devices. Ex: %s", ex)
 
     def _execute_and_wait(self, transfer_id, timeout=600):
         """Trigger one execution of *transfer_id* and wait for completion."""
