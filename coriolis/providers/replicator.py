@@ -637,7 +637,7 @@ class Replicator(object):
                    })
         utils.create_service(
             ssh, cmdline, REPLICATOR_SVC_NAME,
-            run_as=REPLICATOR_USERNAME)
+            run_as=REPLICATOR_USERNAME, start=True)
 
     def _fetch_remote_file(self, ssh, remote_file, local_file):
         # TODO(gsamfira): make this re-usable
@@ -758,7 +758,6 @@ class Replicator(object):
         certs = self._setup_certificates(ssh, args)
         self._exec_replicator(
             ssh, args["port"], certs["remote"], REPLICATOR_STATE)
-        self.start()
         return certs["local"]
 
     def _get_size_from_chunks(self, chunks):

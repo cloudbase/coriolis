@@ -900,7 +900,9 @@ class ReplicatorTestCase(test_base.CoriolisBaseTestCase):
         mock_create_service.assert_called_once_with(
             self._ssh, mock.ANY,
             replicator_module.REPLICATOR_SVC_NAME,
-            run_as=replicator_module.REPLICATOR_USERNAME)
+            run_as=replicator_module.REPLICATOR_USERNAME,
+            start=True,
+        )
 
     @mock.patch.object(replicator_module.utils, 'read_ssh_file')
     def test__fetch_remote_file(self, mock_read_ssh_file):
@@ -982,9 +984,8 @@ class ReplicatorTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(replicator_module.Replicator, '_setup_replicator_user')
     @mock.patch.object(replicator_module.Replicator, '_setup_certificates')
     @mock.patch.object(replicator_module.Replicator, '_exec_replicator')
-    @mock.patch.object(replicator_module.Replicator, 'start')
     def test__setup_replicator(
-            self, mock_start, mock_exec_replicator, mock_setup_certificates,
+            self, mock_exec_replicator, mock_setup_certificates,
             mock_setup_replicator_user, mock_reconnect_ssh,
             mock_setup_replicator_group, mock_copy_replicator_cmd,
             mock_parse_replicator_conn_info, mock_os_remove,
@@ -1029,7 +1030,6 @@ class ReplicatorTestCase(test_base.CoriolisBaseTestCase):
             mock_parse_replicator_conn_info.return_value['port'],
             mock_setup_certificates.return_value['remote'],
             replicator_module.REPLICATOR_STATE)
-        mock_start.assert_called_once()
 
         self.assertEqual(result, mock_setup_certificates.return_value['local'])
 
