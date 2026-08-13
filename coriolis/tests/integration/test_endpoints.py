@@ -15,6 +15,9 @@ Exercises endpoint-related operations via the Coriolis REST API:
 - endpoint_instances.list and endpoint_instances.get
 """
 
+import unittest
+
+from coriolis.providers import base as provider_base
 from coriolis.tests.integration import base
 
 
@@ -97,6 +100,13 @@ class EndpointCapabilitiesTest(base.CoriolisIntegrationTestBase):
             len(options) > 0, "Expected at least one destination option")
 
     def test_list_destination_minion_pool_options(self):
+        if not isinstance(
+                self._imp_provider,
+                provider_base.BaseDestinationMinionPoolProvider):
+            raise unittest.SkipTest(
+                "Destination provider '%s' does not support minion pools"
+                % self._imp_platform)
+
         options = self._client.endpoint_destination_minion_pool_options.list(
             self._dst_endpoint.id)
         self.assertIsInstance(options, list)
