@@ -333,3 +333,41 @@ class MinionManagerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
                         not in mock_set_minion_machine_allocation_status\
                         .mock_calls, f"Unexpected call to {method}, " \
                         f"args: {args}"
+
+    @ddt.data(
+        {
+            "available_types": [
+                constants.PROVIDER_TYPE_DESTINATION_MINION_POOL],
+            "expect_exception": False,
+        },
+        {
+            "available_types": [constants.PROVIDER_TYPE_OS_MORPHING],
+            "expect_exception": True,
+        },
+    )
+    @ddt.unpack
+    def test__check_minion_pool_capability(
+            self, available_types, expect_exception):
+        available_providers = {}
+        if available_types is not None:
+            available_providers = {"foo": {"types": available_types}}
+
+        mock_conductor_client = mock.MagicMock()
+        mock_conductor_client.get_available_providers.return_value = (
+            available_providers)
+        self.server._conductor_client_instance = mock_conductor_client
+
+        if expect_exception:
+            self.assertRaises(
+                exception.NotSupportedOperation,
+                self.server._check_minion_pool_capability,
+                mock.sentinel.context, "foo",
+                constants.PROVIDER_TYPE_DESTINATION_MINION_POOL)
+            return
+
+        self.server._check_minion_pool_capability(
+            mock.sentinel.context, "foo",
+            constants.PROVIDER_TYPE_DESTINATION_MINION_POOL)
+
+        mock_conductor_client.get_available_providers.assert_called_once_with(
+            mock.sentinel.context)
