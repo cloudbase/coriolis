@@ -218,9 +218,21 @@ class MinionManagerServerEndpoint(object):
     def get_diagnostics(self, ctxt):
         return utils.get_diagnostics_info()
 
+    def _check_minion_pool_capability(
+            self, ctxt, platform_name, provider_type):
+        # Raises 405 error if the platform does not support minion pools.
+        provider_types = self._rpc_conductor_client.get_available_providers(
+            ctxt).get(platform_name, {}).get('types', [])
+        if provider_type not in provider_types:
+            raise exception.NotSupportedOperation(
+                operation="minion pools not supported for platform '%s'" %
+                platform_name)
+
     def get_endpoint_source_minion_pool_options(
             self, ctxt, endpoint_id, env, option_names):
         endpoint = self._rpc_conductor_client.get_endpoint(ctxt, endpoint_id)
+        self._check_minion_pool_capability(
+            ctxt, endpoint['type'], constants.PROVIDER_TYPE_SOURCE_MINION_POOL)
 
         worker_service = (
             self._rpc_scheduler_client.get_worker_service_for_specs(
@@ -240,6 +252,9 @@ class MinionManagerServerEndpoint(object):
     def get_endpoint_destination_minion_pool_options(
             self, ctxt, endpoint_id, env, option_names):
         endpoint = self._rpc_conductor_client.get_endpoint(ctxt, endpoint_id)
+        self._check_minion_pool_capability(
+            ctxt, endpoint['type'],
+            constants.PROVIDER_TYPE_DESTINATION_MINION_POOL)
 
         worker_service = (
             self._rpc_scheduler_client.get_worker_service_for_specs(
@@ -258,6 +273,8 @@ class MinionManagerServerEndpoint(object):
     def validate_endpoint_source_minion_pool_options(
             self, ctxt, endpoint_id, pool_environment):
         endpoint = self._rpc_conductor_client.get_endpoint(ctxt, endpoint_id)
+        self._check_minion_pool_capability(
+            ctxt, endpoint['type'], constants.PROVIDER_TYPE_SOURCE_MINION_POOL)
 
         worker_service = (
             self._rpc_scheduler_client.get_worker_service_for_specs(
@@ -275,6 +292,9 @@ class MinionManagerServerEndpoint(object):
     def validate_endpoint_destination_minion_pool_options(
             self, ctxt, endpoint_id, pool_environment):
         endpoint = self._rpc_conductor_client.get_endpoint(ctxt, endpoint_id)
+        self._check_minion_pool_capability(
+            ctxt, endpoint['type'],
+            constants.PROVIDER_TYPE_DESTINATION_MINION_POOL)
 
         worker_service = (
             self._rpc_scheduler_client.get_worker_service_for_specs(
