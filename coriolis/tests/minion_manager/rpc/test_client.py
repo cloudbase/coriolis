@@ -164,23 +164,6 @@ class MinionManagerClientTestCase(test_base.CoriolisRPCClientTestCase):
         }
         self._test(self.client.create_minion_pool, args)
 
-    def test_set_up_shared_minion_pool_resources(self):
-        args = {
-            "minion_pool_id": self.minion_pool_id
-        }
-        self._test(
-            self.client.set_up_shared_minion_pool_resources, args,
-        )
-
-    def test_tear_down_shared_minion_pool_resources(self):
-        args = {
-            "minion_pool_id": self.minion_pool_id,
-            "force": False
-        }
-        self._test(
-            self.client.tear_down_shared_minion_pool_resources, args,
-        )
-
     def test_allocate_minion_pool(self):
         args = {
             "minion_pool_id": self.minion_pool_id

@@ -106,17 +106,6 @@ class MinionManagerClient(rpc.BaseRPCClient):
             minion_retention_strategy=minion_retention_strategy,
             notes=notes, skip_allocation=skip_allocation)
 
-    def set_up_shared_minion_pool_resources(self, ctxt, minion_pool_id):
-        return self._call(
-            ctxt, "set_up_shared_minion_pool_resources",
-            minion_pool_id=minion_pool_id)
-
-    def tear_down_shared_minion_pool_resources(
-            self, ctxt, minion_pool_id, force=False):
-        return self._call(
-            ctxt, "tear_down_shared_minion_pool_resources",
-            minion_pool_id=minion_pool_id, force=force)
-
     def allocate_minion_pool(self, ctxt, minion_pool_id):
         return self._call(
             ctxt, "allocate_minion_pool",

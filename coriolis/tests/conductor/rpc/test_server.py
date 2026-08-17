@@ -5433,43 +5433,6 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             topic=mock.sentinel.topic
         )
 
-    @mock.patch.object(db_api, "update_service")
-    @mock.patch.object(rpc_worker_client.WorkerClient, "get_service_status")
-    @mock.patch.object(db_api, "get_service", new_callable=mock.Mock)
-    def test_refresh_service_status(
-        self,
-        mock_get_service,
-        mock_get_service_status,
-        mock_update_service
-    ):
-        result = testutils.get_wrapped_function(
-            self.server.refresh_service_status)(
-            self.server,
-            mock.sentinel.context,
-            mock.sentinel.service_id,
-        )
-        self.assertEqual(
-            mock_get_service.return_value,
-            result
-        )
-        mock_get_service.assert_has_calls([
-            mock.call(
-                mock.sentinel.context,
-                mock.sentinel.service_id
-            )
-        ] * 2)
-        mock_get_service_status.assert_called_once_with(
-            mock.sentinel.context)
-        mock_update_service.assert_called_once_with(
-            mock.sentinel.context,
-            mock.sentinel.service_id,
-            {
-                "providers": mock_get_service_status.return_value["providers"],
-                "specs": mock_get_service_status.return_value["specs"],
-                "status": constants.SERVICE_STATUS_UP
-            }
-        )
-
     @mock.patch.object(db_api, "get_services")
     def test_get_services(self, mock_get_services):
         result = self.server.get_services(mock.sentinel.context)

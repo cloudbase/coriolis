@@ -434,10 +434,6 @@ class ConductorClient(rpc.BaseRPCClient):
             ctxt, 'check_service_registered', host=host, binary=binary,
             topic=topic)
 
-    def refresh_service_status(self, ctxt, service_id):
-        return self._call(
-            ctxt, 'refresh_service_status', service_id=service_id)
-
     def get_services(self, ctxt):
         return self._call(ctxt, 'get_services')
 

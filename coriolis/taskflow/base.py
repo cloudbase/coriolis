@@ -9,7 +9,6 @@ from taskflow.types import failure
 from coriolis import constants
 from coriolis import exception
 from coriolis.scheduler.rpc import client as rpc_scheduler_client
-from coriolis.tasks import factory as tasks_factory
 from coriolis import utils
 from coriolis.worker.rpc import client as rpc_worker_client
 
@@ -123,61 +122,6 @@ class BaseRunWorkerTask(BaseCoriolisTaskflowTask):
             self._scheduler_client_instance = (
                 rpc_scheduler_client.SchedulerClient())
         return self._scheduler_client_instance
-
-    def _set_provides_for_dependencies(self, kwargs):
-        dep = TASK_RETURN_VALUE_FORMAT % self._task_name
-        if kwargs.get('provides') is not None:
-            kwargs['provides'].append(dep)
-        else:
-            kwargs['provides'] = [dep]
-
-    def _set_requires_for_dependencies(self, kwargs, depends_on):
-        dep_requirements = [
-            TASK_RETURN_VALUE_FORMAT % dep_id
-            for dep_id in depends_on]
-        if kwargs.get('requires') is not None:
-            kwargs['requires'].extend(dep_requirements)
-        elif dep_requirements:
-            kwargs['requires'] = dep_requirements
-        return kwargs
-
-    def _set_requires_for_task_info_fields(self, kwargs):
-        new_requires = kwargs.get('requires', [])
-        main_task_runner = tasks_factory.get_task_runner_class(
-            self._main_task_runner_type)
-        main_task_deps = main_task_runner.get_required_task_info_properties()
-        new_requires.extend(main_task_deps)
-        if self._cleanup_task_runner_type:
-            cleanup_task_runner = tasks_factory.get_task_runner_class(
-                self._cleanup_task_runner_type)
-            cleanup_task_deps = list(
-                set(
-                    cleanup_task_runner.get_required_task_info_properties(
-                    )).difference(
-                    main_task_runner.get_returned_task_info_properties()))
-            new_requires.extend(cleanup_task_deps)
-
-        kwargs['requires'] = new_requires
-        return kwargs
-
-    def _set_provides_for_task_info_fields(self, kwargs):
-        new_provides = kwargs.get('provides', [])
-        main_task_runner = tasks_factory.get_task_runner_class(
-            self._main_task_runner_type)
-        main_task_res = main_task_runner.get_returned_task_info_properties()
-        new_provides.extend(main_task_res)
-        if self._cleanup_task_runner_type:
-            cleanup_task_runner = tasks_factory.get_task_runner_class(
-                self._cleanup_task_runner_type)
-            cleanup_task_res = list(
-                set(
-                    cleanup_task_runner.get_returned_task_info_properties(
-                    )).difference(
-                    main_task_runner.get_returned_task_info_properties()))
-            new_provides.extend(cleanup_task_res)
-
-        kwargs['provides'] = new_provides
-        return kwargs
 
     def _get_worker_service_rpc_for_task(
             self, ctxt, task_id, task_type, origin, destination,

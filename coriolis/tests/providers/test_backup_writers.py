@@ -1463,20 +1463,6 @@ class HTTPBackupWriterBootstrapperTestcase(test_base.CoriolisBaseTestCase):
         mock_exec_ssh_cmd.assert_not_called()
         mock_sftp.close.assert_called_once()
 
-    @mock.patch('coriolis.utils.read_ssh_file')
-    @mock.patch('coriolis.utils.exec_ssh_cmd')
-    def test__fetch_remote_file(self, mock_exec_ssh_cmd, mock_read_ssh_file):
-        with mock.patch('builtins.open', mock.mock_open()) as data:
-            self.bootstrapper._fetch_remote_file(
-                self._ssh, mock.sentinel.remote_file, mock.sentinel.local_file)
-            data.assert_called_once_with(mock.sentinel.local_file, 'wb')
-            mock_exec_ssh_cmd.assert_called_once_with(
-                self._ssh, "sudo chmod +r %s" % mock.sentinel.remote_file,
-                get_pty=False)
-
-            data.return_value.write.assert_called_once_with(
-                mock_read_ssh_file.return_value)
-
     @mock.patch('coriolis.utils.test_ssh_path')
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     def test__setup_certificates(self, mock_exec_ssh_cmd, mock_test_ssh_path):

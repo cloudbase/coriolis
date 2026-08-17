@@ -32,16 +32,3 @@ def minion_pool_synchronized_op(func):
         return minion_pool_synchronized(minion_pool_id, func)(
             self, ctxt, minion_pool_id, *args, **kwargs)
     return wrapper
-
-
-def minion_machine_synchronized(minion_pool_id, minion_machine_id, func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        @lockutils.synchronized(
-            constants.MINION_MACHINE_LOCK_NAME_FORMAT % (
-                minion_pool_id, minion_machine_id),
-            external=True)
-        def inner():
-            return func(*args, **kwargs)
-        return inner()
-    return wrapper

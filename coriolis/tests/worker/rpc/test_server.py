@@ -2,9 +2,7 @@
 # All Rights Reserved.
 import multiprocessing
 import os
-import shutil
 import signal
-import tempfile
 from unittest import mock
 
 import ddt
@@ -95,20 +93,6 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
 
         self.assertEqual(result, mock_check_create_service.return_value)
         self.assertEqual(result, self.server._service_registration)
-
-    def test__check_remove_dir(self):
-        tmp = tempfile.mkdtemp()
-        self.server._check_remove_dir(tmp)
-        self.assertFalse(os.path.exists(tmp))
-
-    @mock.patch.object(shutil, 'rmtree')
-    def test__check_remove_dir_fails(self, mock_rmtree):
-        tmp = tempfile.mkdtemp()
-        mock_rmtree.side_effect = Exception('YOLO')
-        with self.assertLogs('coriolis.worker.rpc.server',
-                             level=logging.ERROR):
-            self.server._check_remove_dir(tmp)
-        os.rmdir(tmp)
 
     @mock.patch.object(server.WorkerServerEndpoint, 'get_available_providers')
     @mock.patch.object(server.WorkerServerEndpoint, 'get_diagnostics')
