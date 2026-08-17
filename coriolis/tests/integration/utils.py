@@ -317,8 +317,20 @@ def _get_container_pid(container_id):
 
 
 def hotplug_device_to_container(container_id, device_path):
-    """Create a device node for *device_path* in *container_id*'s namespace."""
+    """Create a device node for *device_path* in *container_id*'s namespace.
+
+    Noop if the device node already exists in the container (e.g.: it was already
+    hotplugged by a previous call, such as an earlier incremental replication pass).
+    """
     pid = _get_container_pid(container_id)
+
+    exists = _run(
+        ["nsenter", "--target", str(pid), "--mount", "--", "test", "-e", device_path],
+        check=False,
+    )
+    if exists.returncode == 0:
+        return
+
     stat_result = os.stat(device_path)
     major = os.major(stat_result.st_rdev)
     minor = os.minor(stat_result.st_rdev)
