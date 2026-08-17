@@ -21,15 +21,8 @@ from coriolis.tests.integration import base
 CONF = cfg.CONF
 
 
-class MinionPoolLifecycleTest(base.MinionPoolTestBase):
-    def setUp(self):
-        super().setUp()
-
-        self._endpoint = self._create_endpoint(
-            name="pool-dst",
-            endpoint_type=self._imp_platform,
-            connection_info=self._imp_conn_info,
-        )
+class MinionPoolLifecycleTestMixin:
+    _MINION_PLATFORM = None
 
     def _wait_for_machine_status(self, pool_id, status, timeout=120):
         """Poll the DB until the pool's single machine reaches *status*."""
@@ -54,6 +47,7 @@ class MinionPoolLifecycleTest(base.MinionPoolTestBase):
         pool = self._create_pool(self._endpoint.id)
 
         self.assertEqual("test-pool", pool.name)
+        self.assertEqual(self._MINION_PLATFORM, pool.platform)
         self.assertEqual(constants.MINION_POOL_STATUS_DEALLOCATED, pool.status)
 
         # List
@@ -115,6 +109,22 @@ class MinionPoolLifecycleTest(base.MinionPoolTestBase):
             "Pool deallocation ended in unexpected status '%s'" % final.status,
         )
 
+
+class MinionPoolLifecycleTests(
+    MinionPoolLifecycleTestMixin, base.DestinationMinionPoolTestBase
+):
+    _MINION_PLATFORM = constants.PROVIDER_PLATFORM_DESTINATION
+
+    def setUp(self):
+        super().setUp()
+
+        self._endpoint = self._create_endpoint(
+            name="pool-dst",
+            endpoint_type=self._imp_platform,
+            connection_info=self._imp_conn_info,
+        )
+        self._pool_env = self._imp_pool_env
+
     def test_cron_triggered_refresh(self):
         """Cron-scheduled refresh.
 
@@ -162,4 +172,25 @@ class MinionPoolLifecycleTest(base.MinionPoolTestBase):
             refreshed,
             "Minion pool machine '%s' was not refreshed by the automatic "
             "cron job in time" % pool.id,
+        )
+
+
+class SourceMinionPoolLifecycleTests(
+    MinionPoolLifecycleTestMixin, base.SourceMinionPoolTestBase
+):
+    _MINION_PLATFORM = constants.PROVIDER_PLATFORM_SOURCE
+
+    def setUp(self):
+        super().setUp()
+
+        self._endpoint = self._create_endpoint(
+            name="pool-src",
+            endpoint_type=self._exp_platform,
+            connection_info=self._exp_conn_info,
+        )
+        self._pool_env = self._exp_pool_env
+
+    def _create_pool(self, endpoint_id, **kwargs):
+        return super()._create_pool(
+            endpoint_id, platform=constants.PROVIDER_PLATFORM_SOURCE, **kwargs
         )

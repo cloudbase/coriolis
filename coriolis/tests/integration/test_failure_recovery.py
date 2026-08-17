@@ -166,13 +166,13 @@ class MinionPoolAllocationFailureTest(base.MinionPoolReplicaTestBase):
         mock_create.assert_called()
 
         # The pool itself stays usable.
-        self.assertPoolAllocated(self._pool_id)
+        self.assertPoolAllocated(self._dst_pool_id)
 
         # Its only machine failed both the healthcheck and the recreation
         # attempt. ending up as UNINITIALIZED. It then gets deleted, rather
         # than left dangling in a broken intermediate status.
         ctxt = self._get_db_context()
-        pool = db_api.get_minion_pool(ctxt, self._pool_id, include_machines=True)
+        pool = db_api.get_minion_pool(ctxt, self._dst_pool_id, include_machines=True)
         self.assertEqual(
             [],
             pool.minion_machines,

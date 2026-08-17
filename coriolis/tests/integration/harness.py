@@ -117,6 +117,7 @@ def _load_providers_config():
             "connection_info": src_config.get("connection_info"),
             "environment": src_config.get("environment") or {},
             "instance_name": src_config.get("instance_name"),
+            "minion_pool_environment": src_config.get("minion_pool_environment") or {},
         },
         "destination": {
             "provider": dest_provider_path,
@@ -400,6 +401,9 @@ class _IntegrationHarness:
         self.exp_provider.initialize(self.exp_conn_info, providers_config["source"])
         self.exp_provider.check_prerequisites()
         self.exp_env_options = providers_config["source"]["environment"]
+        self.exp_minion_pool_environment = providers_config["source"][
+            "minion_pool_environment"
+        ]
 
         # Init importer.
         imp_provider_cls = providers_config["destination"]["provider_cls"]

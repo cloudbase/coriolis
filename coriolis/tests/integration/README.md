@@ -114,9 +114,12 @@ pointing at the built-in test provider.
    pre-existing VM to migrate; the harness does not create or delete it (this
    is unlike the destination side, where resources are created and torn down
    per test). Merges `source.environment` into each transfer's
-   `source_environment`.
+   `source_environment`, and uses `source.minion_pool_environment` as the
+   `environment_options` when creating a source minion pool.
 4. Uses `destination.environment` as `destination_environment` and
-   `destination.storage_mappings` as `storage_mappings` for each transfer.
+   `destination.storage_mappings` as `storage_mappings` for each transfer, and
+   `destination.minion_pool_environment` as the `environment_options` when
+   creating a destination minion pool.
 
 ### Running
 
