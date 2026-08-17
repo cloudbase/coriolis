@@ -191,7 +191,7 @@ class OsMorphingDeploymentTest(OsMorphingDeploymentTestBase):
 
 
 class OsMorphingMinionPoolDeploymentTest(
-    integration_base.MinionPoolTestBase, OsMorphingDeploymentTestBase
+    integration_base.DestinationMinionPoolTestBase, OsMorphingDeploymentTestBase
 ):
     """OS morphing deployment using a minion pool for the OS morphing phase."""
 

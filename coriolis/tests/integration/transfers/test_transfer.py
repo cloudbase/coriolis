@@ -419,8 +419,8 @@ class MinionPoolTransferTest(
 
     def test_transfer(self):
         super().test_transfer()
-        self.assertPoolAllocated(self._pool_id)
-        self.assertMachinesAvailable(self._pool_id)
+        self.assertPoolAllocated(self._dst_pool_id)
+        self.assertMachinesAvailable(self._dst_pool_id)
 
 
 class ReplicaTransferViaSSHTunnelTest(base.ReplicaIntegrationTestBase):
@@ -454,3 +454,14 @@ class ReplicaTransferViaSSHTunnelTest(base.ReplicaIntegrationTestBase):
                 test_utils.devices_match(self._src_device, self._dst_device),
                 "Devices do not match after transfer via SSH tunnel",
             )
+
+
+class SourceMinionPoolTransferTest(
+    base.SourceMinionPoolReplicaTestBase, _ReplicaTransferTestsMixin
+):
+    """Transfer execution that uses a pre-allocated source minion pool."""
+
+    def test_transfer(self):
+        super().test_transfer()
+        self.assertPoolAllocated(self._src_pool_id)
+        self.assertMachinesAvailable(self._src_pool_id)

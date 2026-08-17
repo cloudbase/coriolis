@@ -374,6 +374,7 @@ class _IntegrationHarness:
             "pkey_path": self.ssh_key_path,
             "role": "source",
         }
+        self.exp_minion_pool_environment = {}
 
         # Init importer.
         imp_provider_cls = providers_config["destination"]["provider_cls"]
