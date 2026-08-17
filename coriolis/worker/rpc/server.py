@@ -4,7 +4,6 @@
 from logging import handlers
 import multiprocessing
 import os
-import shutil
 import signal
 import sys
 import threading
@@ -86,14 +85,6 @@ class WorkerServerEndpoint(object):
             "parameters: %s", service_registration)
         self._service_registration = service_registration
         return service_registration
-
-    def _check_remove_dir(self, path):
-        try:
-            if os.path.exists(path):
-                shutil.rmtree(path)
-        except Exception as ex:
-            # Ignore the exception
-            LOG.exception(ex)
 
     def get_service_status(self, ctxt):
         diagnostics = self.get_diagnostics(ctxt)

@@ -1071,15 +1071,6 @@ class HTTPBackupWriterBootstrapper(object):
             finally:
                 sftp.close()
 
-    def _fetch_remote_file(self, ssh, remote_file, local_file):
-        with open(local_file, 'wb') as fd:
-            utils.exec_ssh_cmd(
-                ssh,
-                "sudo chmod +r %s" % remote_file, get_pty=False)
-            data = utils.retry_on_error()(
-                utils.read_ssh_file)(ssh, remote_file)
-            fd.write(data)
-
     def _setup_certificates(self, ssh):
         remote_base_dir = "/etc/coriolis-writer"
 

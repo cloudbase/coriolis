@@ -421,12 +421,6 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
         }
         self._test(self.client.check_service_registered, args)
 
-    def test_refresh_service_status(self):
-        args = {
-            "service_id": "mock_service_id"
-        }
-        self._test(self.client.refresh_service_status, args)
-
     def test_get_services(self):
         self._test(self.client.get_services, args={})
 

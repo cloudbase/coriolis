@@ -3889,20 +3889,6 @@ class ConductorServerEndpoint(object):
                 "properties: %s", props)
         return service
 
-    @service_synchronized
-    def refresh_service_status(self, ctxt, service_id):
-        LOG.debug("Updating registration for worker service '%s'", service_id)
-        service = db_api.get_service(ctxt, service_id)
-        worker_rpc = rpc_worker_client.WorkerClient(host=service.host)
-        status = worker_rpc.get_service_status(ctxt)
-        updated_values = {
-            "providers": status["providers"],
-            "specs": status["specs"],
-            "status": constants.SERVICE_STATUS_UP}
-        db_api.update_service(ctxt, service_id, updated_values)
-        LOG.debug("Successfully refreshed status of service '%s'", service_id)
-        return db_api.get_service(ctxt, service_id)
-
     def get_services(self, ctxt):
         return db_api.get_services(ctxt)
 
