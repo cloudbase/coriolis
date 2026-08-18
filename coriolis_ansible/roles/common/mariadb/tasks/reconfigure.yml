@@ -9,5 +9,6 @@
   with_items:
     - { option: "max_allowed_packet",   value: "{{ mariadb_max_allowed_packet }}" }
     - { option: "innodb_log_file_size", value: "{{ mariadb_innodb_log_file_size }}" }
+    - { option: "expire_logs_days", value: "{{ mariadb_expire_logs_days }}" }
   notify:
     - "restart mariadb"

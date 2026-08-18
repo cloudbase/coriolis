@@ -1,3 +1,4 @@
 ---
 mariadb_max_allowed_packet: 64M
 mariadb_innodb_log_file_size: 256M
+mariadb_expire_logs_days: 3
