@@ -887,12 +887,17 @@ def _write_systemd(ssh, cmdline, svcname, run_as=None, start=True):
     serviceFilePath = "%s/%s.service" % (systemd_unit_dir, svcname)
 
     if test_ssh_path(ssh, serviceFilePath):
+        exec_ssh_cmd(ssh, "sudo systemctl enable %s" % svcname, get_pty=False)
         if start:
             exec_ssh_cmd(ssh, "sudo systemctl start %s" % svcname, get_pty=False)
         return
 
     def _reload_and_start(start=True):
         exec_ssh_cmd(ssh, "sudo systemctl daemon-reload", get_pty=False)
+        # NOTE: the service must be enabled so that it comes back up on its own after
+        # the underlying instance is rebooted or power-cycled (e.g.: minion pool
+        # machines reused after being powered off).
+        exec_ssh_cmd(ssh, "sudo systemctl enable %s" % svcname, get_pty=False)
         if start:
             exec_ssh_cmd(ssh, "sudo systemctl start %s" % svcname, get_pty=False)
 
