@@ -16,6 +16,7 @@ from oslo_config import cfg
 
 from coriolis import constants
 from coriolis.db import api as db_api
+from coriolis.minion_manager.rpc import server as minion_manager_rpc_server
 from coriolis.tests.integration import base
 
 CONF = cfg.CONF
@@ -411,3 +412,55 @@ class SourceMinionPoolRefreshDeallocationTransferTest(
     @property
     def _pool_id(self):
         return self._src_pool_id
+
+
+class MinionPoolRefreshCronStartupTest(base.DestinationMinionPoolTestBase):
+    """Cron jobs are re-registered for pre-existing pools on startup.
+
+    `_init_pools_refresh_cron_jobs` runs once, when a minion manager service endpoint
+    is instantiated, and scans the DB for already-ALLOCATED pools to re-register their
+    periodic refresh jobs (e.g.: after a service restart while pools were still
+    allocated).
+    """
+
+    def setUp(self):
+        super().setUp()
+
+        self._endpoint = self._create_endpoint(
+            name="pool-cron-dst",
+            endpoint_type=self._imp_platform,
+            connection_info=self._imp_conn_info,
+        )
+
+    def test_startup_registers_refresh_jobs_for_existing_pools(self):
+        # The harness disables automatic refreshing by default (period 0) to avoid
+        # interference with other tests. Re-enable it so the new endpoint being
+        # constructed below actually registers jobs.
+        CONF.set_override(
+            "minion_pool_default_refresh_period_minutes", 1, group="minion_manager"
+        )
+        self.addCleanup(
+            CONF.clear_override,
+            "minion_pool_default_refresh_period_minutes",
+            group="minion_manager",
+        )
+
+        pool = self._create_pool(
+            self._endpoint.id, skip_allocation=False, wait_for_allocation=True
+        )
+
+        new_endpoint = minion_manager_rpc_server.MinionManagerServerEndpoint()
+        self.addCleanup(new_endpoint._cron.stop)
+
+        job_prefix = (
+            minion_manager_rpc_server.MINION_POOL_REFRESH_JOB_PREFIX_FORMAT % pool.id
+        )
+        registered = [
+            name for name in new_endpoint._cron._jobs if name.startswith(job_prefix)
+        ]
+        self.assertTrue(
+            registered,
+            "Expected refresh cron jobs to be registered on startup for pre-existing "
+            "allocated pool '%s', got jobs: %s"
+            % (pool.id, list(new_endpoint._cron._jobs)),
+        )
