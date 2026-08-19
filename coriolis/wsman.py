@@ -75,8 +75,6 @@ class WSManConnection(object):
         cert_key_pem = connection_info.get("cert_key_pem")
         url = "https://%s:%s/wsman" % (host, port)
 
-        LOG.info("Connection info: %s", str(connection_info))
-
         LOG.info("Waiting for connectivity on host: %(host)s:%(port)s",
                  {"host": host, "port": port})
         utils.wait_for_port_connectivity(host, port)
