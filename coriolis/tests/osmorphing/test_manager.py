@@ -363,3 +363,87 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.destination_provider,
             mock.sentinel.connection_info, self.osmorphing_info,
             self._mock_user_scripts, self.event_handler)
+
+    def test_apply_cloudbase_init_plugins_override_from_target_env(self):
+        osmorphing_info = {
+            "os_type": "windows",
+            "osmorphing_parameters": {"set_dhcp": True},
+        }
+        target_environment = {
+            "cloudbase_init_plugins": [
+                "cloudbaseinit.plugins.common.mtu.MTUPlugin"]}
+        result = manager.apply_cloudbase_init_plugins_override(
+            osmorphing_info, target_environment)
+        self.assertEqual(
+            result["osmorphing_parameters"]["cloudbase_init_plugins"],
+            target_environment["cloudbase_init_plugins"])
+        self.assertTrue(result["osmorphing_parameters"]["set_dhcp"])
+        self.assertNotIn(
+            "cloudbase_init_plugins",
+            osmorphing_info["osmorphing_parameters"])
+
+    def test_apply_cloudbase_init_plugins_override_noop(self):
+        osmorphing_info = {"os_type": "windows"}
+        result = manager.apply_cloudbase_init_plugins_override(
+            osmorphing_info, {"zone": "zone1"})
+        self.assertIs(result, osmorphing_info)
+
+    def test_inject_cloudbase_init_plugins_schema_simple(self):
+        schema = {
+            "type": "object",
+            "properties": {"zone": {"type": "string"}},
+            "additionalProperties": False,
+        }
+        result = manager.inject_cloudbase_init_plugins_schema(schema)
+        self.assertIn(
+            manager.CLOUDBASE_INIT_PLUGINS_OPT, result["properties"])
+        self.assertNotIn(
+            manager.CLOUDBASE_INIT_PLUGINS_OPT, schema["properties"])
+
+    def test_inject_cloudbase_init_plugins_schema_oneof(self):
+        schema = {
+            "oneOf": [
+                {"properties": {"migr_network": {"type": "string"}}},
+                {"properties": {"network_map": {"type": "object"}}},
+            ]
+        }
+        result = manager.inject_cloudbase_init_plugins_schema(schema)
+        for alt in result["oneOf"]:
+            self.assertIn(
+                manager.CLOUDBASE_INIT_PLUGINS_OPT, alt["properties"])
+
+    def test_inject_cloudbase_init_plugins_option_appends(self):
+        options = [{"name": "zone", "values": []}]
+        result = manager.inject_cloudbase_init_plugins_option(options)
+        names = [opt["name"] for opt in result]
+        self.assertIn(manager.CLOUDBASE_INIT_PLUGINS_OPT, names)
+        self.assertEqual(options, [{"name": "zone", "values": []}])
+
+    def test_inject_cloudbase_init_plugins_option_skips_duplicate(self):
+        options = [{
+            "name": manager.CLOUDBASE_INIT_PLUGINS_OPT,
+            "values": ["already-set"],
+        }]
+        result = manager.inject_cloudbase_init_plugins_option(options)
+        self.assertEqual(1, len(result))
+        self.assertEqual(["already-set"], result[0]["values"])
+
+    def test_inject_cloudbase_init_plugins_option_respects_names(self):
+        options = [{"name": "zone", "values": []}]
+        result = manager.inject_cloudbase_init_plugins_option(
+            options, option_names=["zone"])
+        self.assertEqual(options, result)
+
+    def test_inject_cloudbase_init_plugins_option_empty_dict(self):
+        options = [{"name": "zone", "values": []}]
+        result = manager.inject_cloudbase_init_plugins_option(
+            options, option_names={})
+        names = [opt["name"] for opt in result]
+        self.assertIn(manager.CLOUDBASE_INIT_PLUGINS_OPT, names)
+
+    def test_filter_cloudbase_init_plugins_option_names(self):
+        result = manager.filter_cloudbase_init_plugins_option_names(
+            ["zone", manager.CLOUDBASE_INIT_PLUGINS_OPT, "import_node"])
+        self.assertEqual(["zone", "import_node"], result)
+        self.assertEqual(
+            {}, manager.filter_cloudbase_init_plugins_option_names({}))

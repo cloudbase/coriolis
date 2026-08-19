@@ -1,6 +1,7 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+import copy
 import itertools
 
 from oslo_config import cfg
@@ -16,10 +17,20 @@ from coriolis.osmorphing.osmount import factory as osmount_factory
 from coriolis import schemas
 
 
+CLOUDBASE_INIT_PLUGINS_OPT = 'cloudbase_init_plugins'
+
 opts = [
     cfg.IntOpt('default_osmorphing_operation_timeout',
                help='Number of seconds to wait for a pending SSH or WinRM '
-                    'command before the socket times out.')
+                    'command before the socket times out.'),
+    cfg.ListOpt(
+        CLOUDBASE_INIT_PLUGINS_OPT,
+        default=None,
+        help='Cloudbase-Init plugin class names written into Windows guests '
+             'during OS morphing. When unset, each destination provider uses '
+             'its own plugin list. When set, this list replaces the provider '
+             'default. A per-transfer destination_environment value of the '
+             'same name takes precedence over this option.'),
 ]
 
 proxy_opts = [
@@ -42,6 +53,125 @@ CONF.register_opts(opts)
 CONF.register_opts(proxy_opts, 'proxy')
 
 LOG = logging.getLogger(__name__)
+
+CLOUDBASE_INIT_PLUGINS_SCHEMA = {
+    "type": "array",
+    "items": {
+        "type": "string"
+    },
+    "title": "Cloudbase-Init Plugins",
+    "description": (
+        "Cloudbase-Init plugins written into Windows guests during OS "
+        "morphing. When unset, coriolis.conf cloudbase_init_plugins is used "
+        "if set, otherwise the destination provider default."),
+}
+
+
+def _inject_cloudbase_init_plugins_property(object_schema):
+    props = object_schema.get("properties")
+    if not isinstance(props, dict):
+        return
+    if CLOUDBASE_INIT_PLUGINS_OPT in props:
+        return
+    props[CLOUDBASE_INIT_PLUGINS_OPT] = copy.deepcopy(
+        CLOUDBASE_INIT_PLUGINS_SCHEMA)
+
+
+def inject_cloudbase_init_plugins_schema(schema):
+    """Add cloudbase_init_plugins to a provider target-environment schema."""
+    if not isinstance(schema, dict):
+        return schema
+    schema = copy.deepcopy(schema)
+    _inject_cloudbase_init_plugins_property(schema)
+    for key in ("oneOf", "anyOf"):
+        for alt in schema.get(key) or []:
+            if isinstance(alt, dict):
+                _inject_cloudbase_init_plugins_property(alt)
+    return schema
+
+
+def get_cloudbase_init_plugins_destination_option():
+    """Return the UI destination option for Cloudbase-Init plugins."""
+    from coriolis.osmorphing import windows as base_windows
+    plugins = list(base_windows.CLOUDBASE_INIT_DEFAULT_PLUGINS)
+    values = []
+    seen = set()
+    for plugin in plugins:
+        seen.add(plugin)
+        values.append({
+            "id": plugin,
+            "name": plugin.rsplit(".", 1)[-1],
+        })
+    default = CONF.cloudbase_init_plugins
+    if default:
+        default = list(default)
+        for plugin in default:
+            if plugin in seen:
+                continue
+            seen.add(plugin)
+            values.append({
+                "id": plugin,
+                "name": plugin.rsplit(".", 1)[-1],
+            })
+    else:
+        default = plugins
+    return {
+        "name": CLOUDBASE_INIT_PLUGINS_OPT,
+        "values": values,
+        "config_default": default,
+    }
+
+
+def filter_cloudbase_init_plugins_option_names(option_names):
+    """Remove the injected option so destination providers do not reject it."""
+    if not isinstance(option_names, (list, tuple, set)):
+        return option_names
+    return [
+        name for name in option_names if name != CLOUDBASE_INIT_PLUGINS_OPT]
+
+
+def inject_cloudbase_init_plugins_option(options, option_names=None):
+    """Append the plugins destination option when the provider omitted it.
+
+    The UI omits the options query. The API then passes ``{}``.
+    Treat ``{}`` and ``None`` as a request for all destination options.
+    Skip only for a non-empty name list that does not include this option.
+    Skip for mock sentinels in tests.
+    """
+    if isinstance(option_names, (list, tuple, set)):
+        if option_names and CLOUDBASE_INIT_PLUGINS_OPT not in option_names:
+            return options
+    elif option_names:
+        return options
+    options = list(options or [])
+    for option in options:
+        if (isinstance(option, dict) and
+                option.get("name") == CLOUDBASE_INIT_PLUGINS_OPT):
+            return options
+    options.append(get_cloudbase_init_plugins_destination_option())
+    return options
+
+
+def apply_cloudbase_init_plugins_override(
+        osmorphing_info, target_environment):
+    """Copy ``cloudbase_init_plugins`` from the transfer destination
+    environment into osmorphing_parameters when present (API override).
+    """
+    if not isinstance(osmorphing_info, dict):
+        return osmorphing_info or {}
+    if not isinstance(target_environment, dict):
+        return osmorphing_info
+    plugins = target_environment.get(CLOUDBASE_INIT_PLUGINS_OPT)
+    if not plugins:
+        return osmorphing_info
+    osmorphing_info = dict(osmorphing_info)
+    params = dict(osmorphing_info.get('osmorphing_parameters') or {})
+    params[CLOUDBASE_INIT_PLUGINS_OPT] = plugins
+    osmorphing_info['osmorphing_parameters'] = params
+    LOG.info(
+        "Applying Cloudbase-Init plugins override from destination "
+        "environment: %s", plugins)
+    return osmorphing_info
 
 
 def _get_proxy_settings():

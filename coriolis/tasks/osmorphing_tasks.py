@@ -150,6 +150,10 @@ class DeployOSMorphingResourcesTask(base.TaskRunner):
                 "'osmorphing_info'. Defaulting to %s",
                 destination["type"], os_morphing_info)
 
+        os_morphing_info = (
+            osmorphing_manager.apply_cloudbase_init_plugins_override(
+                os_morphing_info, target_environment))
+
         return {
             "os_morphing_resources": os_morphing_resources,
             "osmorphing_connection_info": osmorphing_connection_info,

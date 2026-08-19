@@ -544,11 +544,58 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_write_local_script.assert_called_once_with(
             'C:\\Cloudbase-Init', mocked_full_path, priority=10)
 
+    def test__resolve_cloudbase_init_plugins_provider_default(self):
+        provider_plugins = [
+            'cloudbaseinit.plugins.common.mtu.MTUPlugin']
+        result = self.morphing_tools._resolve_cloudbase_init_plugins(
+            provider_plugins)
+        self.assertEqual(result, provider_plugins)
+
+    def test__resolve_cloudbase_init_plugins_core_default(self):
+        result = self.morphing_tools._resolve_cloudbase_init_plugins()
+        self.assertEqual(result, windows.CLOUDBASE_INIT_DEFAULT_PLUGINS)
+
+    def test__resolve_cloudbase_init_plugins_conf_override(self):
+        conf_plugins = [
+            'cloudbaseinit.plugins.common.localscripts.LocalScriptsPlugin']
+        windows.CONF.set_override('cloudbase_init_plugins', conf_plugins)
+        self.addCleanup(
+            windows.CONF.clear_override, 'cloudbase_init_plugins')
+        result = self.morphing_tools._resolve_cloudbase_init_plugins(
+            ['cloudbaseinit.plugins.common.mtu.MTUPlugin'])
+        self.assertEqual(result, conf_plugins)
+
+    def test__resolve_cloudbase_init_plugins_api_override(self):
+        api_plugins = [
+            'cloudbaseinit.plugins.common.userdata.UserDataPlugin']
+        windows.CONF.set_override(
+            'cloudbase_init_plugins',
+            ['cloudbaseinit.plugins.common.mtu.MTUPlugin'])
+        self.addCleanup(
+            windows.CONF.clear_override, 'cloudbase_init_plugins')
+        self.morphing_tools._osmorphing_parameters = {
+            "cloudbase_init_plugins": api_plugins}
+        result = self.morphing_tools._resolve_cloudbase_init_plugins(
+            ['ignored.provider.Plugin'])
+        self.assertEqual(result, api_plugins)
+
+    def test__resolve_cloudbase_init_plugins_csv_string(self):
+        csv_plugins = (
+            "cloudbaseinit.plugins.common.mtu.MTUPlugin, "
+            "cloudbaseinit.plugins.common.localscripts.LocalScriptsPlugin")
+        self.morphing_tools._osmorphing_parameters = {
+            "cloudbase_init_plugins": csv_plugins}
+        result = self.morphing_tools._resolve_cloudbase_init_plugins()
+        self.assertEqual(
+            result,
+            ['cloudbaseinit.plugins.common.mtu.MTUPlugin',
+             'cloudbaseinit.plugins.common.localscripts.LocalScriptsPlugin'])
+
     @mock.patch.object(windows.utils, 'write_winrm_file')
     @mock.patch.object(windows.BaseWindowsMorphingTools, '_write_local_script')
     def test__write_cloudbase_init_conf_with_exception(
             self, mock_write_local_script, mock_write_winrm_file):
-        plugins = "invalid plugins"
+        plugins = {"invalid": "plugins"}
 
         self.assertRaises(
             exception.CoriolisException,

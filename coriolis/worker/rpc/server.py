@@ -22,6 +22,7 @@ from coriolis import constants
 from coriolis import context
 from coriolis import exception
 from coriolis.minion_manager.rpc import client as rpc_minion_manager_client
+from coriolis.osmorphing import manager as osmorphing_manager
 from coriolis.providers import factory as providers_factory
 from coriolis import schemas
 from coriolis import service
@@ -396,8 +397,15 @@ class WorkerServerEndpoint(object):
         secret_connection_info = utils.get_secret_connection_info(
             ctxt, connection_info)
 
+        provider_option_names = (
+            osmorphing_manager.filter_cloudbase_init_plugins_option_names(
+                option_names))
         options = provider.get_target_environment_options(
-            ctxt, secret_connection_info, env=env, option_names=option_names)
+            ctxt, secret_connection_info, env=env,
+            option_names=provider_option_names)
+
+        options = osmorphing_manager.inject_cloudbase_init_plugins_option(
+            options, option_names=option_names)
 
         schemas.validate_value(
             options, schemas.CORIOLIS_DESTINATION_ENVIRONMENT_OPTIONS_SCHEMA)
@@ -530,6 +538,9 @@ class WorkerServerEndpoint(object):
         provider = providers_factory.get_provider(
             platform_name, constants.PROVIDER_TYPE_OS_MORPHING, None)
         target_env_schema = provider.get_target_environment_schema()
+        target_env_schema = (
+            osmorphing_manager.inject_cloudbase_init_plugins_schema(
+                target_env_schema))
 
         is_valid = True
         message = None
@@ -642,6 +653,8 @@ class WorkerServerEndpoint(object):
 
         if provider_type == constants.PROVIDER_TYPE_TRANSFER_IMPORT:
             schema = provider.get_target_environment_schema()
+            schema = osmorphing_manager.inject_cloudbase_init_plugins_schema(
+                schema)
             schemas["destination_environment_schema"] = schema
 
         if provider_type == constants.PROVIDER_TYPE_TRANSFER_EXPORT:

@@ -57,6 +57,13 @@
             "retain_user_credentials": {
               "type": "boolean",
               "default": false
+            },
+            "cloudbase_init_plugins": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Cloudbase-Init plugin class names for Windows guests. Overrides coriolis.conf and provider defaults when set."
             }
           }
         }
