@@ -57,6 +57,13 @@
             "retain_user_credentials": {
               "type": "boolean",
               "default": false
+            },
+            "cloudbase_init_plugins": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Cloudbase-Init plugin class names for Windows guests. When set, this list is written into the guest. When omitted, the provider plugin list is used, then coriolis.conf, then the Windows morphing default."
             }
           }
         }
