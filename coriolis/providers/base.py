@@ -969,8 +969,9 @@ class BaseReplicaExportProvider(BaseExportInstanceProvider):
                                    parameters
         :param volumes_info: destination volumes conforming to
                              disk_sync_resources_info_schema.json
+        :returns: the updated volumes info
         """
-        pass
+        return volumes_info
 
     @abc.abstractmethod
     def shutdown_instance(
