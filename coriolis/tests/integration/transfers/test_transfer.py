@@ -237,12 +237,16 @@ class ClusteredTransferIntegrationTest(base.ReplicaIntegrationTestBase):
         super().setUp()
 
         self._own_device_a = self._src_device
-        self._own_device_b = test_utils.add_scsi_debug_device()
-        self.addCleanup(test_utils.remove_scsi_debug_device)
+        self._own_device_b = test_utils.create_loop_device(
+            self._SRC_DEVICE_SIZE_MB * 1024 * 1024
+        )
+        self.addCleanup(test_utils.remove_loop_device, self._own_device_b)
         test_utils.write_test_pattern(self._own_device_b, 8192)
 
-        self._shared_device = test_utils.add_scsi_debug_device()
-        self.addCleanup(test_utils.remove_scsi_debug_device)
+        self._shared_device = test_utils.create_loop_device(
+            self._SRC_DEVICE_SIZE_MB * 1024 * 1024
+        )
+        self.addCleanup(test_utils.remove_loop_device, self._shared_device)
         test_utils.write_test_pattern(self._shared_device, 4096)
 
         self._instance_a = "%s-%s-clustered" % (

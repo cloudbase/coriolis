@@ -57,7 +57,7 @@ class TestImportProvider(
     BaseDestinationMinionPoolProvider,
     provider_test_base.BaseTestImportProvider,
 ):
-    """Destination-side provider backed by a local `scsi_debug` block device.
+    """Destination-side provider backed by a local loop device.
 
     ``connection_info`` (the destination endpoint's connection info) has the
     form::
@@ -206,7 +206,7 @@ class TestImportProvider(
             result.append(
                 {
                     "disk_id": disk["id"],
-                    "volume_dev": test_utils.add_scsi_debug_device(),
+                    "volume_dev": test_utils.create_loop_device(disk["size_bytes"]),
                 }
             )
 
@@ -307,13 +307,13 @@ class TestImportProvider(
         for vol in volumes_info:
             device = vol.get('volume_dev')
             if device and os.path.exists(device):
-                test_utils.remove_scsi_debug_device()
+                test_utils.remove_loop_device(device)
         return volumes_info
 
     def create_replica_disk_snapshots(
         self, ctxt, connection_info, target_environment, volumes_info
     ):
-        # scsi_debug has no snapshot support.
+        # not implemented for loop devices.
         return volumes_info
 
     def delete_replica_target_disk_snapshots(
@@ -423,6 +423,7 @@ class TestImportProvider(
             "osmorphing_info": {
                 "os_type": instance_deployment_info.get("os_type", "linux"),
                 "ignore_devices": ignore_devices,
+                "_include_loop_devices": True,
                 constants.ENCRYPTED_DISKS_PASS: passphrase,
             },
         }
@@ -608,5 +609,6 @@ class TestImportProvider(
             "osmorphing_info": {
                 "os_type": instance_deployment_info.get("os_type", "linux"),
                 "ignore_devices": ignore_devices,
+                "_include_loop_devices": True,
             }
         }

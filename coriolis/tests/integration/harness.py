@@ -14,7 +14,7 @@ fake:// oslo.messaging transport is in-memory and process-local; subprocess
 tasks would initialise their own isolated transport with no conductor listener,
 causing every event-handler RPC call from the task to block indefinitely.
 
-Must be run as root (scsi_debug block device setup requires it).
+Must be run as root (loop device setup requires it).
 """
 
 import atexit
@@ -593,9 +593,9 @@ class _IntegrationHarness:
 
         shutil.rmtree(self.workdir, True)
         try:
-            test_utils.destroy_scsi_debug()
+            test_utils.destroy_leaked_loop_devices()
         except Exception:
-            LOG.exception("Failed to destroy the scsi_debug device.")
+            LOG.exception("Failed to destroy leaked loop devices.")
 
     def uses_core_test_import_provider(self):
         """Returns True when the test import provider is being used."""

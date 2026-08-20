@@ -16,7 +16,7 @@ Tests two symmetrical error-path scenarios:
   destination cleanup (DELETE_TRANSFER_TARGET_RESOURCES) must run,
   target_resources zeroed out.
 
-Must be run as root; requires the scsi_debug kernel module.
+Must be run as root; requires losetup support (loop devices).
 """
 
 import time

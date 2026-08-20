@@ -846,7 +846,27 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         result = self.base_os_mount_tools._get_volume_block_devices()
 
         mock_exec_cmd.assert_called_once_with("lsblk -lnao KNAME,TYPE")
+        # loop devices are never considered unless the provider opts in via
+        # the '_include_loop_devices' osmorphing_info flag.
         expected_result = ["/dev/sda", "/dev/sdb"]
+
+        self.assertEqual(result, expected_result)
+
+    @mock.patch.object(base.utils, 'test_ssh_path', return_value=True)
+    @mock.patch.object(base.BaseSSHOSMountTools, '_exec_cmd')
+    def test__get_volume_block_devices_include_loop_devices(
+        self, mock_exec_cmd, _mock_test_path
+    ):
+        lsblk_output = "sda  disk\nsdb  disk\nsdb1 part\nloop0 loop\nloop1 loop\n"
+        mock_exec_cmd.return_value = lsblk_output
+
+        self.base_os_mount_tools._ignore_devices = ["/dev/sda", "/dev/loop1"]
+        self.base_os_mount_tools._osmorphing_info = {"_include_loop_devices": True}
+
+        result = self.base_os_mount_tools._get_volume_block_devices()
+
+        mock_exec_cmd.assert_called_once_with("lsblk -lnao KNAME,TYPE")
+        expected_result = ["/dev/sdb", "/dev/loop0"]
 
         self.assertEqual(result, expected_result)
 

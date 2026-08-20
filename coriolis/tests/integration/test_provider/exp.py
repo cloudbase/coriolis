@@ -51,7 +51,7 @@ class TestExportProvider(
     BaseReplicaExportProvider,
     BaseReplicaExportValidationProvider,
 ):
-    """Source-side provider backed by a local `scsi_debug` block device.
+    """Source-side provider backed by a local loop device.
 
     ``connection_info`` (the source endpoint's connection info) has the form::
 
@@ -97,6 +97,7 @@ class TestExportProvider(
             volumes_info,
             repl_state,
             use_tunnel=conn_info.get("use_tunnel", False),
+            _allow_loop_devices=True,
         )
 
     # BaseProvider / BaseEndpointProvider
@@ -358,7 +359,7 @@ class TestExportProvider(
     def delete_replica_source_snapshots(
         self, ctxt, connection_info, source_environment, volumes_info
     ):
-        # scsi_debug devices have no snapshots.
+        # not implemented for loop devices.
         return volumes_info
 
     def shutdown_instance(

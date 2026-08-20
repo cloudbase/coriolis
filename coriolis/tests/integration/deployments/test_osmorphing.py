@@ -22,7 +22,7 @@ from coriolis.tests.integration import osmorphing_utils
 class OsMorphingDeploymentTestBase(integration_base.ReplicaIntegrationTestBase):
     # NOTE(claudiub): Size must be high enough to contain the tested OS and
     # any new packages to be added during OS morphing.
-    _SCSI_DEBUG_SIZE_MB = 256
+    _SRC_DEVICE_SIZE_MB = 256
 
     @classmethod
     def setUpClass(cls):

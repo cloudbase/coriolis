@@ -370,6 +370,7 @@ class Replicator(object):
         watch_devices=True,
         chunk_size=10485760,
         use_tunnel=False,
+        _allow_loop_devices=False,
     ):
         self._event_manager = event_manager
         self._repl_state = replica_state
@@ -386,6 +387,7 @@ class Replicator(object):
         self._hash_method = hash_method
         self._ignore_mounted = ignore_mounted
         self._chunk_size = chunk_size
+        self._allow_loop_devices = _allow_loop_devices
         self._ssh = self._setup_ssh()
         self._credentials = None
         self._cli = None
@@ -779,6 +781,7 @@ class Replicator(object):
             "-listen-port=%(listen_port)s "
             "-chunk-size=%(chunk_size)s "
             "-watch-devices=%(watch_devs)s "
+            "-allow-loop-devices=%(allow_loop_devices)s "
             "-state-file=%(state_file)s "
             "-ca-cert=%(ca_cert)s -cert=%(srv_cert)s "
             "-key=%(srv_key)s"
@@ -787,6 +790,7 @@ class Replicator(object):
                 "hash_method": self._hash_method,
                 "ignore_mounted": json.dumps(self._ignore_mounted),
                 "watch_devs": json.dumps(self._watch_devices),
+                "allow_loop_devices": json.dumps(self._allow_loop_devices),
                 "listen_port": str(port),
                 "state_file": state_file,
                 "chunk_size": self._chunk_size,

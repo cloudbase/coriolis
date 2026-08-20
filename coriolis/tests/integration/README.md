@@ -26,7 +26,8 @@ The test harness (`harness.py`) performs a one-time setup per process:
    provider.
 
 Teardown (registered with `atexit`) stops all services, removes the Docker
-container, removes the working directory, and unloads `scsi_debug`.
+container, removes the working directory, and detaches any leftover loop
+devices.
 
 ## Prerequisites
 
@@ -34,17 +35,14 @@ container, removes the working directory, and unloads `scsi_debug`.
 
 | Package | Why |
 |---------|-----|
-| `scsi_debug` kernel module | Virtual block devices used as source / destination storage |
-| `lsblk`, `udevadm` | Device discovery after hot-adding a `scsi_debug` host |
+| `losetup`, `truncate` | Sparse-file-backed loop devices used as source / destination storage |
 | `dd`, `sync`, `cmp` | Test-pattern writes and device comparison |
-| `modprobe` | Loading and unloading `scsi_debug` |
 | `docker` | MariaDB database container; data-minion container image |
 | `ssh-keygen` | Generates the ephemeral SSH key pair used by the test provider |
 
 On Ubuntu / Debian:
 ```bash
-sudo apt-get install util-linux kmod
-# scsi_debug ships with the standard kernel; no extra package is needed
+sudo apt-get install util-linux coreutils
 ```
 
 ### Docker image - data-minion
@@ -74,9 +72,7 @@ Key packages used by the harness:
 ### Root access
 
 The tests must run as root because:
-- `modprobe` requires root to load/unload `scsi_debug`.
-- Writing to the `scsi_debug` sysfs add-host knob (`/sys/bus/pseudo/…`)
-  requires root.
+- `losetup` requires root to attach / detach loop devices.
 - Raw block-device reads/writes (`dd`, `cmp`) require root.
 
 Tests that extend `CoriolisIntegrationTestBase` call `os.geteuid()` in
@@ -162,7 +158,7 @@ sudo -E CORIOLIS_PROVIDER_PACKAGE=/path/to/provider \
 | Class | Module | Use when |
 |-------|--------|----------|
 | `CoriolisIntegrationTestBase` | `base.py` | API-level tests; no block devices needed. |
-| `ReplicaIntegrationTestBase` | `base.py` | Tests that exercise the transfer / deployment pipeline with real disk I/O via `scsi_debug`. Requires the `coriolis-data-minion:test` Docker image. |
+| `ReplicaIntegrationTestBase` | `base.py` | Tests that exercise the transfer / deployment pipeline with real disk I/O via loop devices. Requires the `coriolis-data-minion:test` Docker image. |
 | `MinionPoolTestBase` | `base.py` | Like `CoriolisIntegrationTestBase`; skips when the import provider does not advertise minion-pool support. |
 | `MinionPoolReplicaTestBase` | `base.py` | Like `ReplicaIntegrationTestBase` with a pre-allocated minion pool; also asserts the pool and its machines return to a healthy state after each execution. |
 
@@ -180,7 +176,7 @@ sudo -E CORIOLIS_PROVIDER_PACKAGE=/path/to/provider \
 integration/
 ├── base.py                     # base test classes
 ├── harness.py                  # _IntegrationHarness singleton
-├── utils.py                    # scsi_debug helpers, device I/O, OS image utilities
+├── utils.py                    # loop device helpers, device I/O, OS image utilities
 ├── test_smoke.py
 ├── test_endpoints.py
 ├── test_failure_recovery.py
@@ -198,7 +194,7 @@ integration/
 │   ├── test_providers.py
 │   ├── test_region.py
 │   └── test_service.py
-├── test_provider/              # built-in fake cloud provider (scsi_debug backed)
+├── test_provider/              # built-in fake cloud provider
 │   ├── __init__.py
 │   ├── exp.py                  # Export provider
 │   ├── imp.py                  # Import provider

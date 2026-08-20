@@ -256,7 +256,7 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
 
 class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
     _CREATE_MINION_POOLS = False
-    _SCSI_DEBUG_SIZE_MB = 16
+    _SRC_DEVICE_SIZE_MB = 16
 
     # Extra source_environment entries merged into the default transfer's
     # source_environment.
@@ -293,20 +293,16 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             )
             cls._pool_id = pool.id
 
-        # (re)init the scsi_debug module.
-        test_utils.destroy_scsi_debug()
-        test_utils.init_scsi_debug(size_mb=cls._SCSI_DEBUG_SIZE_MB)
-
     def setUp(self):
         super().setUp()
 
-        self._src_device = test_utils.add_scsi_debug_device()
-        self.addCleanup(test_utils.remove_scsi_debug_device)
+        self._src_device = test_utils.create_loop_device(
+            self._SRC_DEVICE_SIZE_MB * 1024 * 1024
+        )
+        self.addCleanup(test_utils.remove_loop_device, self._src_device)
 
         # Write a test pattern on the src device.
         # Incremental transfer tests update the second chunk (offset=4096).
-        # We need to reset any residual data left in the scsi_debug backing
-        # store from a previous test run.
         test_utils.write_test_pattern(self._src_device, 8192)
 
         # Create transfer replica.
