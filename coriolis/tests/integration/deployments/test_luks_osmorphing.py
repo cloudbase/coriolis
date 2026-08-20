@@ -13,7 +13,7 @@ it. OS families tested:
   update-initramfs.
 - Rocky Linux 9 (dracut-based): initramfs is regenerated via dracut.
 
-Must be run as root; requires the scsi_debug kernel module and cryptsetup.
+Must be run as root; requires losetup support (loop devices) and cryptsetup.
 """
 
 import os
@@ -47,7 +47,7 @@ class _LUKSOSMorphingMixin:
 
     # Extra space for initramfs-tools and cryptsetup-initramfs packages that
     # the LUKS morphing tools install on top of the base OS image.
-    _SCSI_DEBUG_SIZE_MB = 512
+    _SRC_DEVICE_SIZE_MB = 512
     _CONTAINER_IMAGE = "ubuntu:24.04"
 
     @classmethod
@@ -218,7 +218,7 @@ class LUKSRockyLinuxOSMorphingDeploymentTest(
 
     # kernel-core (~150 MB installed) needs extra room on top of the base
     # container image and the other morphing packages.
-    _SCSI_DEBUG_SIZE_MB = 777
+    _SRC_DEVICE_SIZE_MB = 777
     _CONTAINER_IMAGE = "rockylinux:9"
 
     def _assert_firstboot_setup(self):

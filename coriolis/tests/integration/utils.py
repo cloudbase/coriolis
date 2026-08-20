@@ -19,97 +19,59 @@ from coriolis import utils as coriolis_utils
 
 LOG = logging.getLogger(__name__)
 
-_SETTLE_TIMEOUT = 15
-_POLL_INTERVAL = 1
-
-# Sysfs knob for adding / removing scsi_debug hosts. Writing "1" adds a new
-# host with its own independent backing store (requires per_host_store=1);
-# writing "-1" removes the most-recently added host (LIFO).
-_SCSI_DEBUG_ADD_HOST = "/sys/bus/pseudo/drivers/scsi_debug/add_host"
-
 DATA_MINION_IMAGE = "coriolis-data-minion:test"
+
+# device_path: backing_sparse_file, for devices created by create_loop_device().
+_loop_backing_files = {}
 
 
 def get_host_disk_devices() -> set:
-    """Return the /dev paths of disk-type block devices visible on the host."""
-    disk_names = _lsblk_disk_names()
-    return {"/dev/" + disk_name for disk_name in disk_names}
-
-
-def _lsblk_disk_names() -> set:
-    """Return the set of disk-type block device names visible to lsblk."""
+    """Return /dev paths of disk / loop block devices visible on the host."""
     result = _run(["lsblk", "-Jb", "-o", "NAME,TYPE"], check=False)
     if result.returncode != 0:
         return set()
 
     data = json.loads(result.stdout)
-    return {d["name"] for d in data.get("blockdevices", []) if d["type"] == "disk"}
+    return {
+        "/dev/%s" % d["name"]
+        for d in data.get("blockdevices", [])
+        if d["type"] in ("disk", "loop")
+    }
 
 
-def _poll_for_new_disks(before, count, timeout=_SETTLE_TIMEOUT):
-    """Block until *count* new disk names appear beyond *before*.
+def create_loop_device(size_bytes) -> str:
+    """Create a *size_bytes* sparse file and attach it as a loop device.
 
-    :returns: sorted list of new names.
-    :raises: ``AssertionError`` on timeout.
+    :returns: the /dev/loopN path.
     """
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        subprocess.call(["udevadm", "settle"])
-        new = sorted(_lsblk_disk_names() - before)
-        if len(new) >= count:
-            return new[:count]
-        time.sleep(_POLL_INTERVAL)
-    raise AssertionError(
-        "Only %d new disk(s) appeared within %ds (expected %d)"
-        % (len(sorted(_lsblk_disk_names() - before)), timeout, count)
-    )
+    fd, backing_file = tempfile.mkstemp(prefix="coriolis-loopdev-")
+    os.close(fd)
+    _run(["truncate", "-s", str(size_bytes), backing_file])
+
+    result = _run(["losetup", "--find", "--show", backing_file])
+    device_path = result.stdout.decode().strip()
+    _loop_backing_files[device_path] = backing_file
+    LOG.info("loop device created: %s (%d bytes)", device_path, size_bytes)
+
+    return device_path
 
 
-def init_scsi_debug(size_mb=16):
-    """Load scsi_debug with per_host_store=1 and size_mb per device.
+def remove_loop_device(device_path):
+    """Detach *device_path* and remove its backing file."""
+    _run(["losetup", "-d", device_path], check=False)
 
-    Call ``destroy_scsi_debug`` first if the module is already loaded with a
-    different size. With ``per_host_store=1`` every host added via the sysfs
-    knob gets its own independent backing store, so devices never share
-    storage.
-    """
-    _run(
-        [
-            "modprobe",
-            "scsi_debug",
-            "per_host_store=1",
-            "num_tgts=1",
-            f"dev_size_mb={size_mb}",
-        ]
-    )
+    backing_file = _loop_backing_files.pop(device_path, None)
+    if backing_file:
+        try:
+            os.unlink(backing_file)
+        except OSError:
+            pass
 
 
-def destroy_scsi_debug():
-    """Unload the scsi_debug module."""
-    _run(["modprobe", "-r", "scsi_debug"])
-
-
-def add_scsi_debug_device() -> str:
-    """Add one scsi_debug host and return its /dev/sdX path.
-
-    Each call creates an independent backing store (per_host_store=1), so
-    writing to one device is never visible through another.
-    """
-    before = _lsblk_disk_names()
-    with open(_SCSI_DEBUG_ADD_HOST, "w") as fh:
-        fh.write("1\n")
-
-    new = _poll_for_new_disks(before, count=1)
-    path = os.path.join("/dev", new[0])
-    LOG.info("scsi_debug device added: %s", path)
-
-    return path
-
-
-def remove_scsi_debug_device():
-    """Remove the most-recently added scsi_debug host."""
-    with open(_SCSI_DEBUG_ADD_HOST, "w") as fh:
-        fh.write("-1\n")
+def destroy_leaked_loop_devices():
+    """Detach and remove any loop devices left over from a previous run."""
+    for device_path in list(_loop_backing_files):
+        remove_loop_device(device_path)
 
 
 def write_test_pattern(device_path, chunk_size=4096):

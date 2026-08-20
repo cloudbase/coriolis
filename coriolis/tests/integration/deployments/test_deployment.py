@@ -10,7 +10,7 @@ replica and asserts that the deployment execution reaches COMPLETED.
 Covers deployments.list(), get(), list(detail=True), clone_disks=False,
 deployments.cancel().
 
-Must be run as root; requires the scsi_debug kernel module.
+Must be run as root; requires losetup support (loop devices).
 """
 
 from coriolis import constants

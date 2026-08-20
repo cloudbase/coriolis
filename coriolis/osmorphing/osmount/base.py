@@ -492,11 +492,16 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
         raw = self._exec_cmd("lsblk -lnao KNAME,TYPE")
         LOG.debug("All block devices: %s", raw)
 
-        # Include top-level disk devices only.
+        block_dev_types = _VOLUME_BLOCK_DEVICE_TYPES
+        if self._osmorphing_info.get("_include_loop_devices"):
+            # the test provider sets up loop devices.
+            block_dev_types |= {"loop"}
+
+        # Include top-level disk (and, if opted in, loop) devices only.
         volume_devs = []
         for line in raw.splitlines():
             parts = line.split()
-            if len(parts) >= 2 and parts[1] in _VOLUME_BLOCK_DEVICE_TYPES:
+            if len(parts) >= 2 and parts[1] in block_dev_types:
                 volume_devs.append("/dev/%s" % parts[0])
 
         LOG.debug("Ignoring block devices: %s", self._ignore_devices)

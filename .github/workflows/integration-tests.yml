@@ -31,11 +31,6 @@ jobs:
       run: |
         sudo apt install tox
 
-    - name: Install scsi_debug kernel module
-      shell: bash
-      run: |
-        sudo apt-get install -y linux-modules-extra-$(uname -r)
-
     - name: Build write_data resource binary
       shell: bash
       run: |

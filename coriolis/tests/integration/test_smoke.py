@@ -6,7 +6,7 @@ Smoke tests for the integration harness itself.
 
 Verifies that the in-process service stack (API, conductor, scheduler, worker)
 initialises correctly and that basic resource CRUD works end-to-end, without
-any cloud provider, block device, or scsi_debug involvement.
+any cloud provider or block device involvement.
 """
 
 from coriolis.tests.integration import base
