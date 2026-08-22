@@ -708,8 +708,20 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
     def _write_static_ip_script(self, base_dir, nics_info, ips_info):
         scripts_dir = self._get_cbslinit_scripts_dir(base_dir)
         script_path = "%s\\01-static-ip-config.ps1" % scripts_dir
+
+        nics_info = copy.deepcopy(nics_info)
+        for nic in nics_info:
+            # The static ip configuration script only requires the new
+            # MAC address.
+            if nic.get("new_mac_address"):
+                LOG.info(
+                    "Updated mac address: %s -> %s",
+                    nic["mac_address"], nic["new_mac_address"])
+                nic["mac_address"] = nic["new_mac_address"]
+
         nics_info_dump = json.dumps(nics_info)
         ips_info_dump = json.dumps(ips_info)
+
         contents = STATIC_IP_SCRIPT_TEMPLATE % {
             'nics_info': base64.b64encode(nics_info_dump.encode()).decode(),
             'ips_info': base64.b64encode(ips_info_dump.encode()).decode()}

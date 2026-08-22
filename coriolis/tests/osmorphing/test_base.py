@@ -1894,6 +1894,38 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
                 "eth2": "FF:FF:FF:FF:FF:FF",
             }
         ),
+        # MAC changed but the network config contains an explicit MAC
+        # assignment. An exception is expected since Coriolis cannot
+        # modify Linux network config files at the moment.
+        (
+            [
+                {"mac_address": "00:11:22:33:44:55",
+                 "new_mac_address": "ff:aa:11:22:33:44",
+                 "ip_addresses": ["192.168.1.10"]},
+            ],
+            {
+                "eth0": {"mac_address": "00:11:22:33:44:55",
+                         "ip_addresses": []},
+            },
+            exception.CoriolisException,
+        ),
+        # The MAC address changed but the network config files did not
+        # contain explicit MAC assignments, we can rely on the udev rules
+        # that preserve the interface names. The new MAC will be returned.
+        (
+            [
+                {"mac_address": "00:11:22:33:44:55",
+                 "new_mac_address": "ff:aa:11:22:33:44",
+                 "ip_addresses": ["192.168.1.10"]},
+            ],
+            {
+                "eth0": {"mac_address": None,
+                         "ip_addresses": ["192.168.1.10"]},
+            },
+            {
+                "eth0": "ff:aa:11:22:33:44",
+            }
+        ),
     )
     @ddt.unpack
     def test__setup_network_preservation(
@@ -1912,13 +1944,22 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
 
             self.os_morphing_tools._add_net_udev_rules = mock.MagicMock()
 
-            with self.assertLogs(
-                'coriolis.osmorphing.base', level=logging.INFO):
-                self.os_morphing_tools._setup_network_preservation(nics_info)
+            if isinstance(expected_net_ifaces, type) and issubclass(
+                    expected_net_ifaces, Exception):
+                self.assertRaises(
+                    expected_net_ifaces,
+                    self.os_morphing_tools._setup_network_preservation,
+                    nics_info,
+                )
+            else:
+                with self.assertLogs(
+                    'coriolis.osmorphing.base', level=logging.INFO):
+                    self.os_morphing_tools._setup_network_preservation(
+                        nics_info)
 
-            result_net_ifaces = dict(
-                self.os_morphing_tools._add_net_udev_rules.call_args[0][0])
+                result_net_ifaces = dict(
+                    self.os_morphing_tools._add_net_udev_rules.call_args[0][0])
 
-            mock_get_np.assert_called_once_with(self.os_morphing_tools)
-            self.os_morphing_tools._add_net_udev_rules.assert_called_once()
-            self.assertEqual(expected_net_ifaces, result_net_ifaces)
+                mock_get_np.assert_called_once_with(self.os_morphing_tools)
+                self.os_morphing_tools._add_net_udev_rules.assert_called_once()
+                self.assertEqual(expected_net_ifaces, result_net_ifaces)

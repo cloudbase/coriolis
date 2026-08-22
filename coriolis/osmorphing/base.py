@@ -1008,6 +1008,9 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
 
         for nic in nics_info:
             nic_mac = nic.get('mac_address')
+            new_nic_mac = nic.get('new_mac_address') or nic_mac
+            if new_nic_mac != nic_mac:
+                LOG.info("MAC address changed: %s -> %s", nic_mac, new_nic_mac)
             nic_ips = nic.get('ip_addresses')
             if not nic_mac:
                 LOG.warning(
@@ -1020,22 +1023,37 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
                 mac_address = info.get('mac_address')
                 ip_addresses = info.get('ip_addresses', [])
                 if mac_address and mac_address == nic_mac:
+                    if new_nic_mac != nic_mac:
+                        raise exception.CoriolisException(
+                            "The NIC '%s' configuration explicitly targets "
+                            "MAC '%s', however its MAC changed to '%s'. "
+                            "Coriolis defines udev rules for preserving the "
+                            "interface name, mapping it to the new MAC "
+                            "address but DOES NOT modify Linux network "
+                            "configuration files. Depending on the target "
+                            "platform capabilities, consider using DHCP, "
+                            "enabling MAC address preservation or removing "
+                            "the explicit MAC filter from the NIC "
+                            "configuration."
+                            % (nic.get('name'), nic_mac, new_nic_mac))
                     LOG.info(
-                        "Found matching interface for NIC '%s' with MAC '%s'",
+                        "Found matching interface for NIC '%s' with MAC '%s'.",
                         nic.get('name'), nic_mac)
                     matching_ifaces[iface] = nic_mac
                     break
                 if ip_addresses and nic_ips:
                     if set(ip_addresses) & set(nic_ips):
                         LOG.info(
-                            "Found matching interface for NIC '%s' with MAC "
-                            "'%s'", nic.get('name'), nic_mac)
-                        matching_ifaces[iface] = nic_mac
+                            "Found matching interface for NIC '%s' "
+                            "with new MAC '%s', identified by IP.",
+                            nic.get('name'), new_nic_mac)
+                        matching_ifaces[iface] = new_nic_mac
                         break
             if not matching_ifaces:
                 LOG.warning(
                     "Could not find a matching guest interface for NIC '%s' "
-                    "with MAC address '%s'", nic, nic_mac)
+                    "with MAC address '%s' (old MAC address: %s)",
+                    nic, new_nic_mac, nic_mac)
             net_ifaces_info.update(matching_ifaces)
 
         self._add_net_udev_rules(net_ifaces_info)
