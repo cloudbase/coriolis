@@ -3,9 +3,9 @@
 
 from webob import exc
 
+from coriolis import exception
 from coriolis.api import wsgi as api_wsgi
 from coriolis.deployments import api
-from coriolis import exception
 from coriolis.policies import deployments as deployment_policies
 
 

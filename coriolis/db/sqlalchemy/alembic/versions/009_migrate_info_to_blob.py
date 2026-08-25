@@ -16,8 +16,7 @@ depends_on = None
 
 
 def upgrade():
-    op.alter_column(
-        'base_transfer_action', 'info', type_=types.LargeBinary(4294967295))
+    op.alter_column('base_transfer_action', 'info', type_=types.LargeBinary(4294967295))
 
 
 def downgrade():

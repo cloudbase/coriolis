@@ -8,33 +8,35 @@ import threading
 from oslo_log import log as logging
 from oslo_utils import timeutils
 
+from coriolis import context, exception, utils
 from coriolis.conductor.rpc import client as rpc_client
-from coriolis import context
 from coriolis.cron import cron
-from coriolis import exception
-from coriolis import utils
 
 LOG = logging.getLogger(__name__)
 
 VERSION = "1.0"
 
 
-def _trigger_transfer(ctxt, conductor_client, transfer_id, shutdown_instance,
-                      auto_deploy):
+def _trigger_transfer(
+    ctxt, conductor_client, transfer_id, shutdown_instance, auto_deploy
+):
     try:
         execution = conductor_client.execute_transfer_tasks(
-            ctxt, transfer_id, shutdown_instances=shutdown_instance,
-            auto_deploy=auto_deploy)
+            ctxt,
+            transfer_id,
+            shutdown_instances=shutdown_instance,
+            auto_deploy=auto_deploy,
+        )
         result_msg = 'Execution %s for Transfer %s' % (
-            execution.get('id'), execution.get('action_id'))
+            execution.get('id'),
+            execution.get('action_id'),
+        )
         return result_msg
-    except (exception.InvalidTransferState,
-            exception.InvalidActionTasksExecutionState):
+    except (exception.InvalidTransferState, exception.InvalidActionTasksExecutionState):
         LOG.info("A replica or migration already running")
 
 
 class TransferCronServerEndpoint(object):
-
     def __init__(self):
         self._rpc_client = rpc_client.ConductorClient()
         # Setup cron loop
@@ -60,7 +62,8 @@ class TransferCronServerEndpoint(object):
         expires = sched.get("expiration_date")
         if expires:
             sched["expiration_date"] = timeutils.normalize_time(
-                timeutils.parse_isotime(expires))
+                timeutils.parse_isotime(expires)
+            )
         tmp = sched["schedule"]
         if type(tmp) is str:
             sched["schedule"] = json.loads(tmp)
@@ -73,15 +76,23 @@ class TransferCronServerEndpoint(object):
         if expires and expires <= date:
             LOG.info("Not registering expired schedule: %s" % sched["id"])
             return
-        trust_ctxt = context.get_admin_context(
-            trust_id=schedule["trust_id"])
+        trust_ctxt = context.get_admin_context(trust_id=schedule["trust_id"])
         description = "Scheduled job for %s" % sched["id"]
         job = cron.CronJob(
-            sched["id"], description, sched["schedule"],
-            sched["enabled"], sched["expiration_date"],
-            None, None, _trigger_transfer, trust_ctxt,
-            self._rpc_client, schedule["transfer_id"],
-            schedule["shutdown_instance"], schedule["auto_deploy"])
+            sched["id"],
+            description,
+            sched["schedule"],
+            sched["enabled"],
+            sched["expiration_date"],
+            None,
+            None,
+            _trigger_transfer,
+            trust_ctxt,
+            self._rpc_client,
+            schedule["transfer_id"],
+            schedule["shutdown_instance"],
+            schedule["auto_deploy"],
+        )
         self._cron.register(job)
 
     def _init_cron(self):
@@ -100,14 +111,16 @@ class TransferCronServerEndpoint(object):
 
     def _get_all_schedules(self):
         schedules = self._rpc_client.get_transfer_schedules(
-            self._admin_ctx, expired=False)
+            self._admin_ctx, expired=False
+        )
         return schedules
 
     def register(self, ctxt, schedule):
         self._ensure_cron_started()
         now = timeutils.utcnow()
-        LOG.debug("Registering new schedule %s: %r" % (
-            schedule["id"], schedule["schedule"]))
+        LOG.debug(
+            "Registering new schedule %s: %r" % (schedule["id"], schedule["schedule"])
+        )
         self._register_schedule(schedule, date=now)
 
     def unregister(self, ctxt, schedule):

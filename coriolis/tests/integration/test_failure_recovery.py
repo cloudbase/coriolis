@@ -50,8 +50,7 @@ class TransferFailureIntegrationTest(base.ReplicaIntegrationTestBase):
             % (task_type, cleanup_task.status, resource_key),
         )
 
-        action = db_api.get_action(
-            ctxt, execution.action_id, include_task_info=True)
+        action = db_api.get_action(ctxt, execution.action_id, include_task_info=True)
         for instance in execution.action.instances:
             self.assertIsNone(
                 action.info.get(instance, {}).get(resource_key),
@@ -94,7 +93,8 @@ class TransferFailureIntegrationTest(base.ReplicaIntegrationTestBase):
             _slow_then_fail,
         ):
             execution = self._client.transfer_executions.create(
-                self._transfer.id, shutdown_instances=False)
+                self._transfer.id, shutdown_instances=False
+            )
             self.assertExecutionErrored(execution.id)
 
         self.assertSourceResourcesCleaned(execution.id)
@@ -120,7 +120,8 @@ class TransferFailureIntegrationTest(base.ReplicaIntegrationTestBase):
             _slow_then_fail,
         ):
             execution = self._client.transfer_executions.create(
-                self._transfer.id, shutdown_instances=False)
+                self._transfer.id, shutdown_instances=False
+            )
             self.assertExecutionErrored(execution.id)
 
         self.assertTargetResourcesCleaned(execution.id)
@@ -144,14 +145,21 @@ class MinionPoolAllocationFailureTest(base.MinionPoolReplicaTestBase):
         """
         injected_error = Exception("injected minion failure")
 
-        with mock.patch.object(
-                self._harness.imp_provider_class, "healthcheck_minion",
-                side_effect=injected_error) as mock_healthcheck, \
-                mock.patch.object(
-                self._harness.imp_provider_class, "create_minion",
-                side_effect=injected_error) as mock_create:
+        with (
+            mock.patch.object(
+                self._harness.imp_provider_class,
+                "healthcheck_minion",
+                side_effect=injected_error,
+            ) as mock_healthcheck,
+            mock.patch.object(
+                self._harness.imp_provider_class,
+                "create_minion",
+                side_effect=injected_error,
+            ) as mock_create,
+        ):
             execution = self._client.transfer_executions.create(
-                self._transfer.id, shutdown_instances=False)
+                self._transfer.id, shutdown_instances=False
+            )
             self.assertExecutionErrored(execution.id)
 
         mock_healthcheck.assert_called()
@@ -164,10 +172,10 @@ class MinionPoolAllocationFailureTest(base.MinionPoolReplicaTestBase):
         # attempt. ending up as UNINITIALIZED. It then gets deleted, rather
         # than left dangling in a broken intermediate status.
         ctxt = self._get_db_context()
-        pool = db_api.get_minion_pool(
-            ctxt, self._pool_id, include_machines=True)
+        pool = db_api.get_minion_pool(ctxt, self._pool_id, include_machines=True)
         self.assertEqual(
-            [], pool.minion_machines,
+            [],
+            pool.minion_machines,
             "Minion machine(s) left in an inconsistent state after "
             "allocation failure: %s"
             % [(m.id, m.allocation_status) for m in pool.minion_machines],

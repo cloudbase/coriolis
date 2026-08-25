@@ -8,8 +8,8 @@ Revises: 006
 Create Date: 2018-11-13 13:37:09.000000
 """
 
-from alembic import op
 import sqlalchemy
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "007"
@@ -21,7 +21,8 @@ depends_on = None
 def upgrade():
     # add 'storage_mappings' column to 'base_transfer_action':
     storage_mappings = sqlalchemy.Column(
-        "storage_mappings", sqlalchemy.Text, nullable=True)
+        "storage_mappings", sqlalchemy.Text, nullable=True
+    )
     op.add_column("base_transfer_action", storage_mappings)
 
 

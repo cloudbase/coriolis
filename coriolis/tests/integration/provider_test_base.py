@@ -20,7 +20,6 @@ LOG = logging.getLogger(__name__)
 
 
 class BaseTestImportProvider(abc.ABC):
-
     def initialize(self, connection_info: dict):
         """One-time initialization, before any tests run.
 
@@ -39,7 +38,9 @@ class BaseTestImportProvider(abc.ABC):
         """Raise ``unittest.SkipTest`` if required infrastructure is absent."""
 
     def delete_deployed_instance(
-        self, connection_info: dict, instance_name: str,
+        self,
+        connection_info: dict,
+        instance_name: str,
     ):
         """Destroy the VM created at the destination by a completed deployment.
 

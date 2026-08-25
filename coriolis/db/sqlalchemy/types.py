@@ -17,8 +17,8 @@
 import zlib
 
 from oslo_serialization import jsonutils
-from sqlalchemy.dialects import mysql
 from sqlalchemy import types
+from sqlalchemy.dialects import mysql
 
 
 class LongText(types.TypeDecorator):
@@ -42,7 +42,6 @@ class Blob(types.TypeDecorator):
 
 
 class Json(LongText):
-
     def process_bind_param(self, value, dialect):
         return jsonutils.dumps(value)
 
@@ -53,10 +52,8 @@ class Json(LongText):
 
 
 class Bson(Blob):
-
     def process_bind_param(self, value, dialect):
-        return zlib.compress(
-            jsonutils.dumps(value).encode('utf-8'))
+        return zlib.compress(jsonutils.dumps(value).encode('utf-8'))
 
     def process_result_value(self, value, dialect):
         if value is None:

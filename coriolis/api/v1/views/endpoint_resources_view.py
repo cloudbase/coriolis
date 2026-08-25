@@ -9,8 +9,7 @@ def instance_single(instance, keys=None):
 
 
 def instances_collection(instances, keys=None):
-    formatted_instances = [view_utils.format_opt(m, keys)
-                           for m in instances]
+    formatted_instances = [view_utils.format_opt(m, keys) for m in instances]
     return {'instances': formatted_instances}
 
 
@@ -19,8 +18,7 @@ def network_single(network, keys=None):
 
 
 def networks_collection(networks, keys=None):
-    formatted_networks = [view_utils.format_opt(m, keys)
-                          for m in networks]
+    formatted_networks = [view_utils.format_opt(m, keys) for m in networks]
     return {'networks': formatted_networks}
 
 

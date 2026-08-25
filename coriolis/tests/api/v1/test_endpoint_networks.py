@@ -3,11 +3,11 @@
 
 from unittest import mock
 
+from coriolis import utils
 from coriolis.api.v1 import endpoint_networks as endpoint
 from coriolis.api.v1.views import endpoint_resources_view
 from coriolis.endpoint_resources import api
 from coriolis.tests import test_base
-from coriolis import utils
 
 
 class EndpointNetworkControllerTestCase(test_base.CoriolisBaseTestCase):
@@ -31,24 +31,19 @@ class EndpointNetworkControllerTestCase(test_base.CoriolisBaseTestCase):
         endpoint_id = mock.sentinel.endpoint_id
         mock_req.environ = {'coriolis.context': mock_context}
         env = mock.sentinel.env
-        mock_req.GET = {
-            'env': env
-        }
+        mock_req.GET = {'env': env}
 
         result = self.endpoint_api.index(mock_req, endpoint_id)
 
-        mock_context.can.assert_called_once_with(
-            'migration:endpoints:list_networks')
+        mock_context.can.assert_called_once_with('migration:endpoints:list_networks')
         mock_decode_base64_param.assert_called_once_with(env, is_json=True)
         mock_get_endpoint_networks.assert_called_once_with(
-            mock_context, endpoint_id,
-            mock_decode_base64_param.return_value)
-        mock_networks_collection.assert_called_once_with(
-            mock_get_endpoint_networks.return_value)
-        self.assertEqual(
-            mock_networks_collection.return_value,
-            result
+            mock_context, endpoint_id, mock_decode_base64_param.return_value
         )
+        mock_networks_collection.assert_called_once_with(
+            mock_get_endpoint_networks.return_value
+        )
+        self.assertEqual(mock_networks_collection.return_value, result)
 
     @mock.patch.object(utils, 'decode_base64_param')
     @mock.patch.object(endpoint_resources_view, 'networks_collection')
@@ -69,10 +64,9 @@ class EndpointNetworkControllerTestCase(test_base.CoriolisBaseTestCase):
 
         mock_decode_base64_param.assert_not_called()
         mock_get_endpoint_networks.assert_called_once_with(
-            mock_context, endpoint_id, {})
-        mock_networks_collection.assert_called_once_with(
-            mock_get_endpoint_networks.return_value)
-        self.assertEqual(
-            mock_networks_collection.return_value,
-            result
+            mock_context, endpoint_id, {}
         )
+        mock_networks_collection.assert_called_once_with(
+            mock_get_endpoint_networks.return_value
+        )
+        self.assertEqual(mock_networks_collection.return_value, result)

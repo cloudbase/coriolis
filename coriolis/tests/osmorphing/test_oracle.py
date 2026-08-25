@@ -7,8 +7,7 @@ from unittest import mock
 import ddt
 
 from coriolis import exception
-from coriolis.osmorphing import base
-from coriolis.osmorphing import oracle
+from coriolis.osmorphing import base, oracle
 from coriolis.tests import test_base
 
 
@@ -26,10 +25,14 @@ class BaseOracleMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         }
         self.enable_repos = ['repo1', 'repo2']
         self.oracle_morphing_tools = oracle.BaseOracleMorphingTools(
-            mock.sentinel.conn, mock.sentinel.os_root_dir,
-            mock.sentinel.os_root_dir, mock.sentinel.hypervisor,
-            mock.sentinel.event_manager, self.detected_os_info,
-            mock.sentinel.osmorphing_parameters)
+            mock.sentinel.conn,
+            mock.sentinel.os_root_dir,
+            mock.sentinel.os_root_dir,
+            mock.sentinel.hypervisor,
+            mock.sentinel.event_manager,
+            self.detected_os_info,
+            mock.sentinel.osmorphing_parameters,
+        )
 
     @ddt.data(
         ('7', True),
@@ -46,7 +49,8 @@ class BaseOracleMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
     def test_check_os_supported(self, release_version, expected):
         self.detected_os_info['release_version'] = release_version
         result = oracle.BaseOracleMorphingTools.check_os_supported(
-            self.detected_os_info)
+            self.detected_os_info
+        )
 
         self.assertEqual(expected, result)
 
@@ -54,7 +58,8 @@ class BaseOracleMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         self.detected_os_info['distribution_name'] = 'unsupported'
 
         result = oracle.BaseOracleMorphingTools.check_os_supported(
-            self.detected_os_info)
+            self.detected_os_info
+        )
 
         self.assertFalse(result)
 
@@ -73,10 +78,12 @@ class BaseOracleMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
 
         self.oracle_morphing_tools.enable_repos(self.enable_repos)
 
-        mock_exec_cmd_chroot.assert_has_calls([
-            mock.call("%s repo1" % expected_cmd),
-            mock.call("%s repo2" % expected_cmd),
-        ])
+        mock_exec_cmd_chroot.assert_has_calls(
+            [
+                mock.call("%s repo1" % expected_cmd),
+                mock.call("%s repo2" % expected_cmd),
+            ]
+        )
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     def test_enable_repos_empty(self, mock_exec_cmd_chroot):
@@ -89,9 +96,9 @@ class BaseOracleMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         self.oracle_morphing_tools._version = '7'
         mock_exec_cmd_chroot.side_effect = exception.CoriolisException()
 
-        with self.assertLogs(
-                'coriolis.osmorphing.oracle', level=logging.WARN):
+        with self.assertLogs('coriolis.osmorphing.oracle', level=logging.WARN):
             self.oracle_morphing_tools.enable_repos(['repo1'])
 
         mock_exec_cmd_chroot.assert_called_once_with(
-            "yum-config-manager --enable repo1")
+            "yum-config-manager --enable repo1"
+        )

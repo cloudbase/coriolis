@@ -105,10 +105,18 @@ def make_luks_device(device_path, key_file, container_image):
     writes a /etc/crypttab entry so that the LUKS mixin can find the UUID
     when configuring initramfs auto-unlock during OS morphing.
     """
-    _run([
-        "cryptsetup", "luksFormat", "--batch-mode", "--type", "luks2",
-        "--key-file", key_file, device_path,
-    ])
+    _run(
+        [
+            "cryptsetup",
+            "luksFormat",
+            "--batch-mode",
+            "--type",
+            "luks2",
+            "--key-file",
+            key_file,
+            device_path,
+        ]
+    )
 
     luks_uuid = get_luks_uuid(device_path)
 
@@ -141,10 +149,17 @@ def luks_open(device_path, key_file, disable_keyring=False):
 
 def luks_can_open(device_path, key_file):
     """Return True if `key_file` can unlock `device_path`, False otherwise."""
-    result = _run([
-        "cryptsetup", "luksOpen", "--test-passphrase",
-        "--key-file", key_file, device_path,
-    ], check=False)
+    result = _run(
+        [
+            "cryptsetup",
+            "luksOpen",
+            "--test-passphrase",
+            "--key-file",
+            key_file,
+            device_path,
+        ],
+        check=False,
+    )
 
     return result.returncode == 0
 
@@ -156,16 +171,18 @@ def luks_add_tpm2_token(device_path, keyslot_id):
     header reports a systemd-tpm2 token, letting tests verify that Coriolis
     removes it during OS morphing.
     """
-    token = json.dumps(
-        {"type": "systemd-tpm2", "keyslots": [str(keyslot_id)]})
+    token = json.dumps({"type": "systemd-tpm2", "keyslots": [str(keyslot_id)]})
     # --disable-external-tokens bypasses the libcryptsetup-token-systemd-tpm2
     # plugin that validates real systemd-tpm2 token fields (tpm2-pcrs, blob,
     # etc.). Our token is intentionally minimal, just enough for the test to
     # verify Coriolis removes it during OS morphing.
     subprocess.run(
         [
-            "cryptsetup", "token", "import",
-            "--disable-external-tokens", device_path,
+            "cryptsetup",
+            "token",
+            "import",
+            "--disable-external-tokens",
+            device_path,
         ],
         input=token.encode(),
         stdout=subprocess.DEVNULL,
@@ -210,12 +227,18 @@ def read_file_from_luks_device(device_path, key_file, rel_path):
 
 def luks_add_key(device_path, existing_key_file, new_key_file):
     """Add a new keyslot to `device_path` using `existing_key_file` to auth."""
-    _run([
-        "cryptsetup", "luksAddKey",
-        "--pbkdf-memory", "65536",
-        "--key-file", existing_key_file,
-        device_path, new_key_file,
-    ])
+    _run(
+        [
+            "cryptsetup",
+            "luksAddKey",
+            "--pbkdf-memory",
+            "65536",
+            "--key-file",
+            existing_key_file,
+            device_path,
+            new_key_file,
+        ]
+    )
 
 
 def luks_add_key_from_mapper(mapper_path, device_path, new_key_file):
@@ -239,12 +262,18 @@ def luks_add_key_from_mapper(mapper_path, device_path, new_key_file):
         fh.write(bytes.fromhex(master_key_hex))
 
     try:
-        _run([
-            "cryptsetup", "luksAddKey",
-            "--pbkdf-memory", "65536",
-            "--master-key-file", master_key_path,
-            device_path, new_key_file,
-        ])
+        _run(
+            [
+                "cryptsetup",
+                "luksAddKey",
+                "--pbkdf-memory",
+                "65536",
+                "--master-key-file",
+                master_key_path,
+                device_path,
+                new_key_file,
+            ]
+        )
     finally:
         os.unlink(master_key_path)
 

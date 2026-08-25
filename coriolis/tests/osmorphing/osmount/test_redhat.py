@@ -16,9 +16,11 @@ class BaseRedHatOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         self.ssh = mock.MagicMock()
 
         self.tools = redhat.RedHatOSMountTools(
-            self.ssh, mock.sentinel.event_manager,
+            self.ssh,
+            mock.sentinel.event_manager,
             mock.sentinel.ignore_devices,
-            mock.sentinel.operation_timeout)
+            mock.sentinel.operation_timeout,
+        )
 
         mock_connect.assert_called_once_with()
 
@@ -40,11 +42,11 @@ class BaseRedHatOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
 
         mock_setup.assert_called_once_with()
         mock_exec_sudo_env_cmd.assert_called_once_with(
-            "yum install -y lvm2 psmisc cryptsetup")
-        mock_exec_cmd.assert_has_calls([
-            mock.call("sudo modprobe dm-mod"),
-            mock.call("sudo modprobe dm-crypt")
-        ])
+            "yum install -y lvm2 psmisc cryptsetup"
+        )
+        mock_exec_cmd.assert_has_calls(
+            [mock.call("sudo modprobe dm-mod"), mock.call("sudo modprobe dm-crypt")]
+        )
 
     @mock.patch.object(redhat.base.BaseSSHOSMountTools, '_exec_cmd')
     @mock.patch.object(redhat.utils, 'restart_service')
@@ -53,5 +55,6 @@ class BaseRedHatOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         self.assertTrue(result)
 
         mock_exec_cmd.assert_called_once_with(
-            'sudo sed -i -e "\$aAcceptEnv *" /etc/ssh/sshd_config')
+            'sudo sed -i -e "\$aAcceptEnv *" /etc/ssh/sshd_config'
+        )
         mock_restart_service.assert_called_once_with(self.ssh, "sshd")

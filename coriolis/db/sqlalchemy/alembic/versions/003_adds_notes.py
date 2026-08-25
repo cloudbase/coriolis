@@ -8,8 +8,8 @@ Revises: 002
 Create Date: 2017-05-04 13:47:52.000000
 """
 
-from alembic import op
 import sqlalchemy
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "003"
@@ -19,8 +19,7 @@ depends_on = None
 
 
 def upgrade():
-    notes = sqlalchemy.Column(
-        "notes", sqlalchemy.Text, nullable=True)
+    notes = sqlalchemy.Column("notes", sqlalchemy.Text, nullable=True)
 
     op.add_column("base_transfer_action", notes)
 

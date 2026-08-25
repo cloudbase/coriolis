@@ -6,7 +6,7 @@ from coriolis.tests import test_base
 
 
 class DiagnosticViewTestCase(test_base.CoriolisBaseTestCase):
-    "Test suite for the Coriolis api v1 views."""
+    "Test suite for the Coriolis api v1 views."
 
     def test_single(self):
         mock_single = "mock_single"
@@ -14,10 +14,7 @@ class DiagnosticViewTestCase(test_base.CoriolisBaseTestCase):
 
         result = diagnostic_view.single(mock_single)
 
-        self.assertEqual(
-            expected_result,
-            result
-        )
+        self.assertEqual(expected_result, result)
 
     def test_single_none(self):
         mock_single = None
@@ -25,10 +22,7 @@ class DiagnosticViewTestCase(test_base.CoriolisBaseTestCase):
 
         result = diagnostic_view.single(mock_single)
 
-        self.assertEqual(
-            expected_result,
-            result
-        )
+        self.assertEqual(expected_result, result)
 
     def test_collection(self):
         mock_collection = {"mock_key_1": "value_1", "mock_key_2": "value_2"}
@@ -36,10 +30,7 @@ class DiagnosticViewTestCase(test_base.CoriolisBaseTestCase):
 
         result = diagnostic_view.collection(mock_collection)
 
-        self.assertEqual(
-            expected_result,
-            result
-        )
+        self.assertEqual(expected_result, result)
 
     def test_collection_none(self):
         mock_collection = {}
@@ -47,7 +38,4 @@ class DiagnosticViewTestCase(test_base.CoriolisBaseTestCase):
 
         result = diagnostic_view.collection(mock_collection)
 
-        self.assertEqual(
-            expected_result,
-            result
-        )
+        self.assertEqual(expected_result, result)

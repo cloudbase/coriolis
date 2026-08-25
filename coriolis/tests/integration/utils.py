@@ -12,8 +12,8 @@ import subprocess
 import tempfile
 import time
 
-from oslo_log import log as logging
 import paramiko
+from oslo_log import log as logging
 
 from coriolis import utils as coriolis_utils
 
@@ -43,10 +43,7 @@ def _lsblk_disk_names() -> set:
         return set()
 
     data = json.loads(result.stdout)
-    return {
-        d["name"] for d in data.get("blockdevices", [])
-        if d["type"] == "disk"
-    }
+    return {d["name"] for d in data.get("blockdevices", []) if d["type"] == "disk"}
 
 
 def _poll_for_new_disks(before, count, timeout=_SETTLE_TIMEOUT):
@@ -76,13 +73,15 @@ def init_scsi_debug(size_mb=16):
     knob gets its own independent backing store, so devices never share
     storage.
     """
-    _run([
-        "modprobe",
-        "scsi_debug",
-        "per_host_store=1",
-        "num_tgts=1",
-        f"dev_size_mb={size_mb}",
-    ])
+    _run(
+        [
+            "modprobe",
+            "scsi_debug",
+            "per_host_store=1",
+            "num_tgts=1",
+            f"dev_size_mb={size_mb}",
+        ]
+    )
 
 
 def destroy_scsi_debug():
@@ -127,8 +126,13 @@ def write_test_pattern(device_path, chunk_size=4096):
 
     try:
         _run(
-            ["dd", "if=%s" % tmp_path, "of=%s" % device_path,
-             "bs=%d" % chunk_size, "conv=notrunc"],
+            [
+                "dd",
+                "if=%s" % tmp_path,
+                "of=%s" % device_path,
+                "bs=%d" % chunk_size,
+                "conv=notrunc",
+            ],
         )
         _run(["sync"])
     finally:
@@ -164,7 +168,8 @@ def _run(cmd, check=True):
             "Command failed: %s, return code: %s, stderr: %s",
             " ".join(str(c) for c in cmd),
             ex.returncode,
-            ex.stderr)
+            ex.stderr,
+        )
         raise
 
 
@@ -183,15 +188,17 @@ def wait_for_ssh(host, port, username, pkey_path, timeout=30):
     while time.monotonic() < deadline:
         try:
             client = coriolis_utils.connect_ssh(
-                host, port, username, pkey=pkey, connect_timeout=5)
+                host, port, username, pkey=pkey, connect_timeout=5
+            )
             client.close()
             return
         except (paramiko.SSHException, socket.error, OSError) as exc:
             last_exc = exc
             time.sleep(1)
     raise AssertionError(
-        "SSH %s@%s:%d not ready after %ds: %s" % (
-            username, host, port, timeout, last_exc))
+        "SSH %s@%s:%d not ready after %ds: %s"
+        % (username, host, port, timeout, last_exc)
+    )
 
 
 # Docker utils
@@ -205,7 +212,8 @@ def list_containers(prefixes) -> set:
     )
 
     return {
-        name for name in result.stdout.splitlines()
+        name
+        for name in result.stdout.splitlines()
         if any(name.startswith(p) for p in prefixes)
     }
 
@@ -235,8 +243,14 @@ def _run_container(image, name, extra_args=None):
 
 
 def run_container(
-    image, name, is_systemd=False, ssh_key=None, volumes=None, devices=None,
-    device_cgroup_rules=None, extra_args=None,
+    image,
+    name,
+    is_systemd=False,
+    ssh_key=None,
+    volumes=None,
+    devices=None,
+    device_cgroup_rules=None,
+    extra_args=None,
 ):
     """Start a detached Docker container and return its container ID.
 
@@ -309,16 +323,26 @@ def get_container_ip(container_id):
     """
     try:
         result = _run(
-            ["docker", "inspect", "--format",
-             "{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}",
-             container_id])
+            [
+                "docker",
+                "inspect",
+                "--format",
+                "{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}",
+                container_id,
+            ]
+        )
     except subprocess.CalledProcessError as ex:
         if "template parsing error" in ex.stderr:
             # Fallback to the old format.
             result = _run(
-                ["docker", "inspect", "--format",
-                 "{{.NetworkSettings.IPAddress}}",
-                 container_id])
+                [
+                    "docker",
+                    "inspect",
+                    "--format",
+                    "{{.NetworkSettings.IPAddress}}",
+                    container_id,
+                ]
+            )
         else:
             raise
     return result.stdout.decode().strip()
@@ -326,8 +350,7 @@ def get_container_ip(container_id):
 
 def _get_container_pid(container_id):
     """Return the host PID of the init process of *container_id*."""
-    result = _run(
-        ["docker", "inspect", "--format", "{{.State.Pid}}", container_id])
+    result = _run(["docker", "inspect", "--format", "{{.State.Pid}}", container_id])
     return int(result.stdout.decode().strip())
 
 
@@ -338,16 +361,35 @@ def hotplug_device_to_container(container_id, device_path):
     major = os.major(stat_result.st_rdev)
     minor = os.minor(stat_result.st_rdev)
 
-    _run([
-        "nsenter", "--target", str(pid), "--mount", "--",
-        "mknod", device_path, "b", str(major), str(minor),
-    ])
+    _run(
+        [
+            "nsenter",
+            "--target",
+            str(pid),
+            "--mount",
+            "--",
+            "mknod",
+            device_path,
+            "b",
+            str(major),
+            str(minor),
+        ]
+    )
 
 
 def unplug_device_from_container(container_id, device_path):
     """Remove a device node from *container_id*'s mount namespace."""
     pid = _get_container_pid(container_id)
-    _run([
-        "nsenter", "--target", str(pid), "--mount", "--",
-        "rm", "-f", device_path,
-    ], check=False)
+    _run(
+        [
+            "nsenter",
+            "--target",
+            str(pid),
+            "--mount",
+            "--",
+            "rm",
+            "-f",
+            device_path,
+        ],
+        check=False,
+    )

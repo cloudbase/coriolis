@@ -8,8 +8,8 @@ Revises: 007
 Create Date: 2018-11-27 18:48:35.000000
 """
 
-from alembic import op
 import sqlalchemy
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "008"
@@ -21,7 +21,8 @@ depends_on = None
 def upgrade():
     # add 'source_environment' column to 'base_transfer_action':
     source_environment = sqlalchemy.Column(
-        "source_environment", sqlalchemy.Text, nullable=True)
+        "source_environment", sqlalchemy.Text, nullable=True
+    )
     op.add_column("base_transfer_action", source_environment)
 
 

@@ -4,16 +4,13 @@
 from coriolis.osmorphing import base
 from coriolis.osmorphing.osdetect import openwrt as openwrt_detect
 
-
 OPENWRT_DISTRO_IDENTIFIER = openwrt_detect.OPENWRT_DISTRO_IDENTIFIER
 
 
 class BaseOpenWRTMorphingTools(base.BaseLinuxOSMorphingTools):
-
     @classmethod
     def check_os_supported(cls, detected_os_info):
-        if detected_os_info['distribution_name'] == (
-                OPENWRT_DISTRO_IDENTIFIER):
+        if detected_os_info['distribution_name'] == (OPENWRT_DISTRO_IDENTIFIER):
             return True
         return False
 

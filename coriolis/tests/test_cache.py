@@ -3,8 +3,7 @@
 
 from unittest import mock
 
-from coriolis import cache
-from coriolis import exception
+from coriolis import cache, exception
 from coriolis.tests import test_base
 
 
@@ -18,15 +17,13 @@ class CacheTestCase(test_base.CoriolisBaseTestCase):
 
         self.assertEqual(result, mock_get_memoization_decorator.return_value)
         mock_get_memoization_decorator.assert_called_once_with(
-            cache.CONF,
-            cache.cache_region,
-            provider
+            cache.CONF, cache.cache_region, provider
         )
 
     def test_get_cache_decorator_invalid_provider_name(self):
         invalid_providers = [123, '', None]
 
         for provider in invalid_providers:
-            self.assertRaises(exception.CoriolisException,
-                              cache.get_cache_decorator,
-                              provider)
+            self.assertRaises(
+                exception.CoriolisException, cache.get_cache_decorator, provider
+            )

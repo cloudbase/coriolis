@@ -1,26 +1,24 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-from coriolis.api import common
-from coriolis.api.v1 import utils as api_utils
-from coriolis.api.v1.views import transfer_tasks_execution_view
-from coriolis.api.v1.views import transfer_view
-from coriolis.api import wsgi as api_wsgi
-from coriolis import constants
-from coriolis.endpoints import api as endpoints_api
-from coriolis import exception
-from coriolis.policies import transfers as transfer_policies
-from coriolis.transfers import api
-
 from oslo_log import log as logging
 from webob import exc
 
+from coriolis import constants, exception
+from coriolis.api import common
+from coriolis.api import wsgi as api_wsgi
+from coriolis.api.v1 import utils as api_utils
+from coriolis.api.v1.views import transfer_tasks_execution_view, transfer_view
+from coriolis.endpoints import api as endpoints_api
+from coriolis.policies import transfers as transfer_policies
+from coriolis.transfers import api
 
 LOG = logging.getLogger(__name__)
 
 SUPPORTED_TRANSFER_SCENARIOS = [
     constants.TRANSFER_SCENARIO_REPLICA,
-    constants.TRANSFER_SCENARIO_LIVE_MIGRATION]
+    constants.TRANSFER_SCENARIO_LIVE_MIGRATION,
+]
 
 
 class TransferController(api_wsgi.Controller):
@@ -33,10 +31,11 @@ class TransferController(api_wsgi.Controller):
         context = req.environ["coriolis.context"]
         context.can(transfer_policies.get_transfers_policy_label("show"))
         include_task_info = api_utils.get_bool_url_arg(
-            req, "include_task_info", default=False)
+            req, "include_task_info", default=False
+        )
         transfer = self._transfer_api.get_transfer(
-            context, id,
-            include_task_info=include_task_info)
+            context, id, include_task_info=include_task_info
+        )
         if not transfer:
             raise exc.HTTPNotFound()
 
@@ -47,19 +46,18 @@ class TransferController(api_wsgi.Controller):
         status = req.GET.get("status")
         if status is not None:
             if status not in constants.ALL_TASK_STATUSES:
-                raise exc.HTTPBadRequest(
-                    explanation=f"Unknown task status: {status}")
+                raise exc.HTTPBadRequest(explanation=f"Unknown task status: {status}")
             filters["status"] = status
         return filters
 
     def _list(self, req):
-        show_deleted = api_utils.get_bool_url_arg(
-            req, "show_deleted", default=False)
+        show_deleted = api_utils.get_bool_url_arg(req, "show_deleted", default=False)
         context = req.environ["coriolis.context"]
         context.show_deleted = show_deleted
         context.can(transfer_policies.get_transfers_policy_label("list"))
         include_task_info = api_utils.get_bool_url_arg(
-            req, "include_task_info", default=False)
+            req, "include_task_info", default=False
+        )
         marker, limit = common.get_paging_params(req)
         sort_keys, sort_dirs = common.get_sort_params(req)
         filters = self._get_filters(req)
@@ -68,10 +66,13 @@ class TransferController(api_wsgi.Controller):
                 context,
                 include_tasks_executions=include_task_info,
                 include_task_info=include_task_info,
-                marker=marker, limit=limit,
-                sort_keys=sort_keys, sort_dirs=sort_dirs,
+                marker=marker,
+                limit=limit,
+                sort_keys=sort_keys,
+                sort_dirs=sort_dirs,
                 filters=filters,
-            ))
+            )
+        )
 
     def index(self, req):
         return self._list(req)
@@ -88,42 +89,46 @@ class TransferController(api_wsgi.Controller):
             if scenario not in SUPPORTED_TRANSFER_SCENARIOS:
                 raise exc.HTTPBadRequest(
                     explanation=f"Unsupported Transfer creation scenario "
-                                f"'{scenario}', must be one of: "  # noqa
-                                f"{SUPPORTED_TRANSFER_SCENARIOS}")  # noqa
+                    f"'{scenario}', must be one of: "  # noqa
+                    f"{SUPPORTED_TRANSFER_SCENARIOS}"
+                )  # noqa
         else:
             scenario = constants.TRANSFER_SCENARIO_REPLICA
             LOG.warn(
                 "No Transfer 'scenario' field set in Transfer body, "
-                f"defaulting to: '{scenario}'")
+                f"defaulting to: '{scenario}'"
+            )
 
         origin_endpoint_id = transfer["origin_endpoint_id"]
         destination_endpoint_id = transfer["destination_endpoint_id"]
-        destination_environment = transfer.get(
-            "destination_environment", {})
+        destination_environment = transfer.get("destination_environment", {})
         instances = api_utils.validate_instances_list_for_transfer(
-            transfer.get('instances'))
+            transfer.get('instances')
+        )
 
         notes = transfer.get("notes")
 
         source_environment = transfer.get("source_environment", {})
         self._endpoints_api.validate_source_environment(
-            context, origin_endpoint_id, source_environment)
+            context, origin_endpoint_id, source_environment
+        )
 
-        origin_minion_pool_id = transfer.get(
-            'origin_minion_pool_id')
-        destination_minion_pool_id = transfer.get(
-            'destination_minion_pool_id')
+        origin_minion_pool_id = transfer.get('origin_minion_pool_id')
+        destination_minion_pool_id = transfer.get('destination_minion_pool_id')
         instance_osmorphing_minion_pool_mappings = transfer.get(
-            'instance_osmorphing_minion_pool_mappings', {})
+            'instance_osmorphing_minion_pool_mappings', {}
+        )
         extras = [
             instance
             for instance in instance_osmorphing_minion_pool_mappings
-            if instance not in instances]
+            if instance not in instances
+        ]
         if extras:
             raise ValueError(
                 "One or more instance OSMorphing pool mappings were "
                 "provided for instances (%s) which are not part of the "
-                "Transfer's declared instances (%s)" % (extras, instances))
+                "Transfer's declared instances (%s)" % (extras, instances)
+            )
 
         # TODO(aznashwan): until the provider plugin interface is updated
         # to have separate 'network_map' and 'storage_mappings' fields,
@@ -132,7 +137,8 @@ class TransferController(api_wsgi.Controller):
         api_utils.validate_network_map(network_map)
         destination_environment['network_map'] = network_map
         self._endpoints_api.validate_target_environment(
-            context, destination_endpoint_id, destination_environment)
+            context, destination_endpoint_id, destination_environment
+        )
 
         user_scripts = transfer.get('user_scripts', {})
         api_utils.validate_user_scripts(user_scripts)
@@ -149,32 +155,66 @@ class TransferController(api_wsgi.Controller):
         clone_disks = transfer.get('clone_disks', True)
         skip_os_morphing = transfer.get('skip_os_morphing', False)
 
-        return (scenario, origin_endpoint_id, destination_endpoint_id,
-                source_environment, destination_environment, instances,
-                network_map, storage_mappings, notes,
-                origin_minion_pool_id, destination_minion_pool_id,
-                instance_osmorphing_minion_pool_mappings, user_scripts,
-                clone_disks, skip_os_morphing)
+        return (
+            scenario,
+            origin_endpoint_id,
+            destination_endpoint_id,
+            source_environment,
+            destination_environment,
+            instances,
+            network_map,
+            storage_mappings,
+            notes,
+            origin_minion_pool_id,
+            destination_minion_pool_id,
+            instance_osmorphing_minion_pool_mappings,
+            user_scripts,
+            clone_disks,
+            skip_os_morphing,
+        )
 
     def create(self, req, body):
         context = req.environ["coriolis.context"]
         context.can(transfer_policies.get_transfers_policy_label("create"))
 
-        (scenario, origin_endpoint_id, destination_endpoint_id,
-         source_environment, destination_environment, instances, network_map,
-         storage_mappings, notes, origin_minion_pool_id,
-         destination_minion_pool_id,
-         instance_osmorphing_minion_pool_mappings, user_scripts, clone_disks,
-         skip_os_morphing) = (
-            self._validate_create_body(context, body))
+        (
+            scenario,
+            origin_endpoint_id,
+            destination_endpoint_id,
+            source_environment,
+            destination_environment,
+            instances,
+            network_map,
+            storage_mappings,
+            notes,
+            origin_minion_pool_id,
+            destination_minion_pool_id,
+            instance_osmorphing_minion_pool_mappings,
+            user_scripts,
+            clone_disks,
+            skip_os_morphing,
+        ) = self._validate_create_body(context, body)
 
-        return transfer_view.single(self._transfer_api.create(
-            context, scenario, origin_endpoint_id, destination_endpoint_id,
-            origin_minion_pool_id, destination_minion_pool_id,
-            instance_osmorphing_minion_pool_mappings, source_environment,
-            destination_environment, instances, network_map,
-            storage_mappings, notes, user_scripts, clone_disks,
-            skip_os_morphing))
+        return transfer_view.single(
+            self._transfer_api.create(
+                context,
+                scenario,
+                origin_endpoint_id,
+                destination_endpoint_id,
+                origin_minion_pool_id,
+                destination_minion_pool_id,
+                instance_osmorphing_minion_pool_mappings,
+                source_environment,
+                destination_environment,
+                instances,
+                network_map,
+                storage_mappings,
+                notes,
+                user_scripts,
+                clone_disks,
+                skip_os_morphing,
+            )
+        )
 
     def delete(self, req, id):
         context = req.environ["coriolis.context"]
@@ -186,46 +226,44 @@ class TransferController(api_wsgi.Controller):
             raise exc.HTTPNotFound(explanation=ex.msg)
 
     @staticmethod
-    def _update_storage_mappings(original_storage_mappings,
-                                 new_storage_mappings):
+    def _update_storage_mappings(original_storage_mappings, new_storage_mappings):
 
-        backend_mappings = original_storage_mappings.get(
-            'backend_mappings', [])
-        new_backend_mappings = new_storage_mappings.get(
-            'backend_mappings', [])
-        new_backend_mapping_sources = [mapping['source'] for mapping in
-                                       new_backend_mappings]
+        backend_mappings = original_storage_mappings.get('backend_mappings', [])
+        new_backend_mappings = new_storage_mappings.get('backend_mappings', [])
+        new_backend_mapping_sources = [
+            mapping['source'] for mapping in new_backend_mappings
+        ]
 
         disk_mappings = original_storage_mappings.get('disk_mappings', [])
         new_disk_mappings = new_storage_mappings.get('disk_mappings', [])
-        new_disk_mappings_disk_ids = [mapping['disk_id'] for mapping in
-                                      new_disk_mappings]
+        new_disk_mappings_disk_ids = [
+            mapping['disk_id'] for mapping in new_disk_mappings
+        ]
 
         non_duplicates_backend_mapping = []
         for mapping in backend_mappings:
             if mapping['source'] not in new_backend_mapping_sources:
                 non_duplicates_backend_mapping.append(mapping)
             else:
-                LOG.info("Storage Backend Mapping %s will be overwritten." %
-                         mapping)
+                LOG.info("Storage Backend Mapping %s will be overwritten." % mapping)
 
         non_duplicates_disk_mappings = []
         for mapping in disk_mappings:
             if mapping['disk_id'] not in new_disk_mappings_disk_ids:
                 non_duplicates_disk_mappings.append(mapping)
             else:
-                LOG.info("Storage Disk Mapping %s will be overwritten" %
-                         mapping)
+                LOG.info("Storage Disk Mapping %s will be overwritten" % mapping)
 
         non_duplicates_backend_mapping.extend(new_backend_mappings)
         non_duplicates_disk_mappings.extend(new_disk_mappings)
         storage_mappings = {
             'backend_mappings': non_duplicates_backend_mapping,
-            'disk_mappings': non_duplicates_disk_mappings}
+            'disk_mappings': non_duplicates_disk_mappings,
+        }
 
-        default_storage_backend = (
-            new_storage_mappings.get('default', None) or
-            original_storage_mappings.get('default', None))
+        default_storage_backend = new_storage_mappings.get(
+            'default', None
+        ) or original_storage_mappings.get('default', None)
         if default_storage_backend:
             storage_mappings['default'] = default_storage_backend
 
@@ -251,7 +289,7 @@ class TransferController(api_wsgi.Controller):
         return user_scripts
 
     def _get_merged_transfer_values(self, transfer, updated_values):
-        """ Looks for the following keys in the original transfer body and
+        """Looks for the following keys in the original transfer body and
         updated values (preferring the updated values where needed, but using
         `.update()` on dicts):
         "source_environment", "destination_environment", "network_map", "notes"
@@ -262,9 +300,7 @@ class TransferController(api_wsgi.Controller):
         final_values = {}
         # NOTE: this just replaces options at the top-level and does not do
         # merging of container types (ex: lists, dicts)
-        for option in [
-                "source_environment", "destination_environment",
-                "network_map"]:
+        for option in ["source_environment", "destination_environment", "network_map"]:
             before = transfer.get(option)
             after = updated_values.get(option)
             # NOTE: for Transfers created before the separation of these fields
@@ -284,14 +320,18 @@ class TransferController(api_wsgi.Controller):
         if new_storage_mappings is None:
             new_storage_mappings = {}
         final_values['storage_mappings'] = self._update_storage_mappings(
-            original_storage_mappings, new_storage_mappings)
+            original_storage_mappings, new_storage_mappings
+        )
 
         original_user_scripts = api_utils.validate_user_scripts(
-            transfer.get('user_scripts', {}))
+            transfer.get('user_scripts', {})
+        )
         new_user_scripts = api_utils.validate_user_scripts(
-            updated_values.get('user_scripts', {}))
+            updated_values.get('user_scripts', {})
+        )
         final_values['user_scripts'] = self._get_updated_user_scripts(
-            original_user_scripts, new_user_scripts)
+            original_user_scripts, new_user_scripts
+        )
 
         if 'notes' in updated_values:
             final_values['notes'] = updated_values.get('notes', '')
@@ -311,19 +351,24 @@ class TransferController(api_wsgi.Controller):
         final_storage_mappings = final_values['storage_mappings']
         final_network_map = final_values['network_map']
         if final_storage_mappings:
-            final_values['destination_environment'][
-                'storage_mappings'] = final_storage_mappings
+            final_values['destination_environment']['storage_mappings'] = (
+                final_storage_mappings
+            )
         if final_network_map:
-            final_values['destination_environment'][
-                'network_map'] = final_network_map
+            final_values['destination_environment']['network_map'] = final_network_map
 
         minion_pool_fields = [
-            "origin_minion_pool_id", "destination_minion_pool_id",
-            "instance_osmorphing_minion_pool_mappings"]
-        final_values.update({
-            mpf: updated_values[mpf]
-            for mpf in minion_pool_fields
-            if mpf in updated_values})
+            "origin_minion_pool_id",
+            "destination_minion_pool_id",
+            "instance_osmorphing_minion_pool_mappings",
+        ]
+        final_values.update(
+            {
+                mpf: updated_values[mpf]
+                for mpf in minion_pool_fields
+                if mpf in updated_values
+            }
+        )
 
         return final_values
 
@@ -335,46 +380,44 @@ class TransferController(api_wsgi.Controller):
         if scenario and scenario != transfer["scenario"]:
             raise exc.HTTPBadRequest(
                 explanation=f"Changing Transfer creation scenario is not "
-                            f"supported (original scenario is "  # noqa
-                            f"{transfer['scenario']}, received '{scenario}')")  # noqa
+                f"supported (original scenario is "  # noqa
+                f"{transfer['scenario']}, received '{scenario}')"
+            )  # noqa
 
         transfer_body = body['transfer']
         origin_endpoint_id = transfer_body.get('origin_endpoint_id', None)
-        destination_endpoint_id = transfer_body.get(
-            'destination_endpoint_id', None)
+        destination_endpoint_id = transfer_body.get('destination_endpoint_id', None)
         instances = body['transfer'].get('instances', None)
         if origin_endpoint_id or destination_endpoint_id:
             raise exc.HTTPBadRequest(
                 explanation="The source or destination endpoints for a "
-                            "Coriolis Transfer cannot be updated after its "
-                            "creation. If the credentials of any of the "
-                            "Transfer's endpoints need updating, please "
-                            "update the endpoints themselves.")
+                "Coriolis Transfer cannot be updated after its "
+                "creation. If the credentials of any of the "
+                "Transfer's endpoints need updating, please "
+                "update the endpoints themselves."
+            )
         if instances:
             raise exc.HTTPBadRequest(
-                explanation="The list of instances of a Transfer cannot be "
-                            "updated")
+                explanation="The list of instances of a Transfer cannot be updated"
+            )
 
-        merged_body = self._get_merged_transfer_values(
-            transfer, transfer_body)
+        merged_body = self._get_merged_transfer_values(transfer, transfer_body)
 
         transfer_origin_endpoint_id = transfer["origin_endpoint_id"]
-        transfer_destination_endpoint_id = transfer[
-            "destination_endpoint_id"]
+        transfer_destination_endpoint_id = transfer["destination_endpoint_id"]
 
         self._endpoints_api.validate_source_environment(
-            context, transfer_origin_endpoint_id,
-            merged_body["source_environment"])
+            context, transfer_origin_endpoint_id, merged_body["source_environment"]
+        )
 
         destination_environment = merged_body["destination_environment"]
         self._endpoints_api.validate_target_environment(
-            context, transfer_destination_endpoint_id,
-            destination_environment)
+            context, transfer_destination_endpoint_id, destination_environment
+        )
 
         api_utils.validate_network_map(merged_body["network_map"])
 
-        api_utils.validate_storage_mappings(
-            merged_body["storage_mappings"])
+        api_utils.validate_storage_mappings(merged_body["storage_mappings"])
 
         user_scripts = merged_body['user_scripts']
         api_utils.validate_user_scripts(user_scripts)
@@ -388,8 +431,10 @@ class TransferController(api_wsgi.Controller):
         updated_values = self._validate_update_body(id, context, body)
         try:
             return transfer_tasks_execution_view.single(
-                self._transfer_api.update(req.environ['coriolis.context'],
-                                          id, updated_values))
+                self._transfer_api.update(
+                    req.environ['coriolis.context'], id, updated_values
+                )
+            )
         except exception.NotFound as ex:
             raise exc.HTTPNotFound(explanation=ex.msg)
         except exception.InvalidParameterValue as ex:

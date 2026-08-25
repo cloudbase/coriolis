@@ -5,8 +5,8 @@ Revises: 011
 Create Date: 2019-10-16 15:40:42.000000
 """
 
-from alembic import op
 import sqlalchemy
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "012"
@@ -17,13 +17,16 @@ depends_on = None
 
 def upgrade():
     shutdown_instances = sqlalchemy.Column(
-        "shutdown_instances", sqlalchemy.Boolean,
-        nullable=False, server_default=sqlalchemy.false())
+        "shutdown_instances",
+        sqlalchemy.Boolean,
+        nullable=False,
+        server_default=sqlalchemy.false(),
+    )
     op.add_column("migration", shutdown_instances)
 
     replication_count = sqlalchemy.Column(
-        "replication_count", sqlalchemy.Integer,
-        nullable=False, server_default="0")
+        "replication_count", sqlalchemy.Integer, nullable=False, server_default="0"
+    )
     op.add_column("migration", replication_count)
 
 

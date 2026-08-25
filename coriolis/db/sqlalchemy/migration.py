@@ -3,10 +3,10 @@
 
 import os
 
+import sqlalchemy
 from alembic import command
 from alembic import config as alembic_config
 from alembic.runtime import migration as alembic_migration
-import sqlalchemy
 
 from coriolis import exception
 from coriolis.i18n import _
@@ -39,16 +39,19 @@ def _stamp_legacy_database_if_needed(engine, config):
 
     with engine.connect() as conn:
         legacy_version = conn.execute(
-            sqlalchemy.text(
-                f"SELECT version FROM {LEGACY_VERSION_TABLE}")).scalar()
+            sqlalchemy.text(f"SELECT version FROM {LEGACY_VERSION_TABLE}")
+        ).scalar()
 
     if legacy_version > LEGACY_FINAL_VERSION:
         raise exception.CoriolisException(
-            _("This database was last migrated using the legacy "
-              "sqlalchemy-migrate based coriolis-dbsync (version %(cur)s), "
-              "which is newer than the last version known to alembic "
-              "(%(final)s).") % {
-                "cur": legacy_version, "final": LEGACY_FINAL_VERSION})
+            _(
+                "This database was last migrated using the legacy "
+                "sqlalchemy-migrate based coriolis-dbsync (version %(cur)s), "
+                "which is newer than the last version known to alembic "
+                "(%(final)s)."
+            )
+            % {"cur": legacy_version, "final": LEGACY_FINAL_VERSION}
+        )
 
     config.attributes["connection"] = engine.connect()
     command.stamp(config, "%03d" % legacy_version)

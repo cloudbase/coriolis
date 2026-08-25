@@ -3,8 +3,8 @@
 
 from oslo_log import log as logging
 
-from coriolis.osmorphing.osmount import base
 from coriolis import utils
+from coriolis.osmorphing.osmount import base
 
 LOG = logging.getLogger(__name__)
 
@@ -24,8 +24,9 @@ class UbuntuOSMountTools(base.BaseLinuxOSMountTools):
         # another package list refresh is happening.
         # Apart from relying on possibly not-yet-installed tools like `fuser`,
         # or checking every /proc/*/fd ourselves, we simply retry it:
-        retry_ssh_cmd = utils.retry_on_error(
-            max_attempts=10, sleep_seconds=30)(self._exec_sudo_env_cmd)
+        retry_ssh_cmd = utils.retry_on_error(max_attempts=10, sleep_seconds=30)(
+            self._exec_sudo_env_cmd
+        )
         retry_ssh_cmd("apt-get update -y")
 
         # NOTE(aznashwan): in case an unattended upgrade is already happening
@@ -37,8 +38,8 @@ class UbuntuOSMountTools(base.BaseLinuxOSMountTools):
         # the install indefinitely.
         self._environment['DEBIAN_FRONTEND'] = 'noninteractive'
         self._exec_sudo_env_cmd(
-            "apt-get -o DPkg::Lock::Timeout=600 "
-            "install lvm2 psmisc cryptsetup -y")
+            "apt-get -o DPkg::Lock::Timeout=600 install lvm2 psmisc cryptsetup -y"
+        )
 
         self._exec_cmd("sudo modprobe dm-mod")
         self._exec_cmd("sudo modprobe dm-crypt")

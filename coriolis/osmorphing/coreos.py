@@ -6,11 +6,11 @@ from coriolis.osmorphing.osdetect import coreos as coreos_detect
 
 
 class BaseCoreOSMorphingTools(base.BaseLinuxOSMorphingTools):
-
     @classmethod
     def check_os_supported(cls, detected_os_info):
         if detected_os_info['distribution_name'] == (
-                coreos_detect.COREOS_DISTRO_IDENTIFIER):
+            coreos_detect.COREOS_DISTRO_IDENTIFIER
+        ):
             return True
         return False
 
