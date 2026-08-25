@@ -7,8 +7,8 @@ from oslo_config import cfg
 from oslo_db import options as db_options
 from oslo_db.sqlalchemy import session as db_session
 
-from coriolis.db.sqlalchemy import migration
 from coriolis import exception
+from coriolis.db.sqlalchemy import migration
 from coriolis.i18n import _
 
 CONF = cfg.CONF
@@ -43,7 +43,8 @@ def db_sync(engine, version=None):
         current_version = db_version(engine)
         if current_version is not None and int(version) < int(current_version):
             raise exception.CoriolisException(
-                _("Cannot migrate to lower schema version."))
+                _("Cannot migrate to lower schema version.")
+            )
 
     return migration.db_sync(engine, version=version)
 

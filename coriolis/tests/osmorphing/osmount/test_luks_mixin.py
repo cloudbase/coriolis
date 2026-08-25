@@ -5,16 +5,12 @@ import json
 import os
 from unittest import mock
 
-from coriolis import constants
-from coriolis import exception
-from coriolis.osmorphing.osmount import base
-from coriolis.osmorphing.osmount import luks_mixin
+from coriolis import constants, exception
+from coriolis.osmorphing.osmount import base, luks_mixin
 from coriolis.tests import test_base
 
 
-class ConcreteLinuxLUKSMixin(
-    luks_mixin.LinuxLUKSMixin, base.BaseSSHOSMountTools
-):
+class ConcreteLinuxLUKSMixin(luks_mixin.LinuxLUKSMixin, base.BaseSSHOSMountTools):
     def check_os(self):
         pass
 
@@ -53,12 +49,9 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
 
     def test_validate_config_pcrs(self):
         luks_mixin.CONF.set_override('tpm2_pcrs', [], group='luks')
-        self.addCleanup(
-            luks_mixin.CONF.clear_override, 'tpm2_pcrs', group='luks')
+        self.addCleanup(luks_mixin.CONF.clear_override, 'tpm2_pcrs', group='luks')
 
-        self.assertRaises(
-            exception.CoriolisException,
-            luks_mixin.validate_config)
+        self.assertRaises(exception.CoriolisException, luks_mixin.validate_config)
 
         luks_mixin.CONF.set_override('tpm2_pcrs', [4, 7], group='luks')
 
@@ -68,25 +61,25 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
         # PCR indexes outside of the valid 0-15 range are rejected by the
         # option's item_type as soon as they're set.
         self.assertRaises(
-            ValueError,
-            luks_mixin.CONF.set_override, 'tpm2_pcrs', ['16'], group='luks')
+            ValueError, luks_mixin.CONF.set_override, 'tpm2_pcrs', ['16'], group='luks'
+        )
 
         self.assertRaises(
-            ValueError,
-            luks_mixin.CONF.set_override, 'tpm2_pcrs', ['foo'], group='luks')
+            ValueError, luks_mixin.CONF.set_override, 'tpm2_pcrs', ['foo'], group='luks'
+        )
 
     def test_render_tpm2_pcrs(self):
         luks_mixin.CONF.set_override('tpm2_pcrs', ['7', '11'], group='luks')
-        self.addCleanup(
-            luks_mixin.CONF.clear_override, 'tpm2_pcrs', group='luks')
+        self.addCleanup(luks_mixin.CONF.clear_override, 'tpm2_pcrs', group='luks')
 
         dracut_out = luks_mixin._render_tpm2_pcrs(
-            luks_mixin._LUKS_FIRSTBOOT_SCRIPTS["dracut"], "dracut")
+            luks_mixin._LUKS_FIRSTBOOT_SCRIPTS["dracut"], "dracut"
+        )
         self.assertIn("--tpm2-pcrs=7:sha256+11:sha256", dracut_out)
 
         clevis_out = luks_mixin._render_tpm2_pcrs(
-            luks_mixin._LUKS_FIRSTBOOT_SCRIPTS["update-initramfs"],
-            "update-initramfs")
+            luks_mixin._LUKS_FIRSTBOOT_SCRIPTS["update-initramfs"], "update-initramfs"
+        )
         self.assertIn('"pcr_ids":"7,11"', clevis_out)
 
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, "_unlock_luks_device")
@@ -102,9 +95,7 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, "_close_luks_devices")
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, "_unlock_luks_device")
-    def test__unlock_luks_devices_cleans_up_on_error(
-        self, mock_unlock, mock_close
-    ):
+    def test__unlock_luks_devices_cleans_up_on_error(self, mock_unlock, mock_close):
         _DEV2 = "/dev/sdb"
         mock_unlock.side_effect = [
             "/dev/mapper/coriolis_sda",
@@ -156,9 +147,7 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
         result = self.mixin._unlock_luks_device(_DEV, _PASSPHRASE)
 
         self.assertEqual(result, "/dev/mapper/coriolis_sda")
-        mock_auth_luks.assert_called_once_with(
-            _PASSPHRASE, "/tmp/coriolis_sda.key"
-        )
+        mock_auth_luks.assert_called_once_with(_PASSPHRASE, "/tmp/coriolis_sda.key")
         mock_exec_cmd.assert_called_once_with(
             "sudo cryptsetup luksOpen --disable-keyring "
             "--key-file /tmp/coriolis_sda.key %s coriolis_sda" % _DEV
@@ -169,21 +158,20 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
         # True.
         mock_exec_cmd.return_value = ""
         self.assertTrue(self.mixin._is_luks(_DEV))
-        mock_exec_cmd.assert_called_once_with(
-            "sudo cryptsetup isLuks %s" % _DEV
-        )
+        mock_exec_cmd.assert_called_once_with("sudo cryptsetup isLuks %s" % _DEV)
 
         # False (exit code 1: not a LUKS device).
         mock_exec_cmd.side_effect = exception.SSHCommandFailed(
-            "boom goes the dynamite", exit_code=1)
+            "boom goes the dynamite", exit_code=1
+        )
         self.assertFalse(self.mixin._is_luks(_DEV))
 
         # Unexpected exit code (e.g. 4: device does not exist or access
         # denied), hard failure.
         mock_exec_cmd.side_effect = exception.SSHCommandFailed(
-            "boom goes a different dynamite", exit_code=4)
-        self.assertRaises(
-            exception.SSHCommandFailed, self.mixin._is_luks, _DEV)
+            "boom goes a different dynamite", exit_code=4
+        )
+        self.assertRaises(exception.SSHCommandFailed, self.mixin._is_luks, _DEV)
 
     @mock.patch.object(base.BaseSSHOSMountTools, "_exec_cmd")
     def test__close_luks_devices(self, mock_exec_cmd):
@@ -193,12 +181,8 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
         ]
         self.mixin._close_luks_devices()
 
-        mock_exec_cmd.assert_any_call(
-            "sudo cryptsetup luksClose coriolis_sda || true"
-        )
-        mock_exec_cmd.assert_any_call(
-            "sudo cryptsetup luksClose coriolis_sdb || true"
-        )
+        mock_exec_cmd.assert_any_call("sudo cryptsetup luksClose coriolis_sda || true")
+        mock_exec_cmd.assert_any_call("sudo cryptsetup luksClose coriolis_sdb || true")
         self.assertEqual(self.mixin._luks_opened, [])
 
     @mock.patch.object(luks_mixin.utils, "write_ssh_file")
@@ -207,9 +191,7 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
         mock_exec_cmd.return_value = "/foo/lish"
         self.mixin._write_remote_file("/bar/tender", "content")
 
-        mock_write.assert_called_once_with(
-            self.mixin._ssh, "/foo/lish", b"content"
-        )
+        mock_write.assert_called_once_with(self.mixin._ssh, "/foo/lish", b"content")
         mock_exec_cmd.assert_any_call("sudo mv /foo/lish /bar/tender")
 
         # With mode.
@@ -237,9 +219,7 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
         # Exception.
         mock_exec_cmd.return_value = ""
 
-        with self.assertLogs(
-            "coriolis.osmorphing.osmount.luks_mixin", level="WARNING"
-        ):
+        with self.assertLogs("coriolis.osmorphing.osmount.luks_mixin", level="WARNING"):
             result = self.mixin._get_tpm2_token_info(_DEV)
 
         self.assertEqual(result, [])
@@ -280,16 +260,13 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
             "sudo cryptsetup token remove --token-id 0 %s" % _DEV
         )
         mock_exec_cmd.assert_any_call(
-            "sudo cryptsetup luksKillSlot --key-file /tmp/coriolis_sda.key "
-            "%s 1" % _DEV
+            "sudo cryptsetup luksKillSlot --key-file /tmp/coriolis_sda.key %s 1" % _DEV
         )
         mock_auth.assert_called_once()
 
         # Token removal failed.
         mock_exec_cmd.side_effect = Exception("toe ken remove failed")
-        with self.assertLogs(
-            "coriolis.osmorphing.osmount.luks_mixin", level="WARNING"
-        ):
+        with self.assertLogs("coriolis.osmorphing.osmount.luks_mixin", level="WARNING"):
             self.mixin._remove_tpm2_tokens(_DEV, _PASSPHRASE)
 
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, "_write_remote_file")
@@ -323,17 +300,11 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, "_write_remote_file")
     @mock.patch.object(luks_mixin.utils, "read_ssh_file")
     @mock.patch.object(luks_mixin.utils, "test_ssh_path", return_value=True)
-    def test__remove_tpm2_crypttab_options(
-        self, mock_test_path, mock_read, mock_write
-    ):
-        line = (
-            "luks-root UUID=%s none tpm2-device=auto,x-initrd.attach\n" % _UUID
-        )
+    def test__remove_tpm2_crypttab_options(self, mock_test_path, mock_read, mock_write):
+        line = "luks-root UUID=%s none tpm2-device=auto,x-initrd.attach\n" % _UUID
         mock_read.return_value = line.encode("utf-8")
 
-        with self.assertLogs(
-            "coriolis.osmorphing.osmount.luks_mixin", level="INFO"
-        ):
+        with self.assertLogs("coriolis.osmorphing.osmount.luks_mixin", level="INFO"):
             self.mixin._remove_tpm2_crypttab_options(_OS_ROOT_DIR)
 
         new_content = mock_write.call_args[0][1]
@@ -341,9 +312,7 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
         self.assertIn("x-initrd.attach", new_content)
 
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, "_remove_tpm2_tokens")
-    @mock.patch.object(
-        luks_mixin.LinuxLUKSMixin, "_remove_tpm2_crypttab_options"
-    )
+    @mock.patch.object(luks_mixin.LinuxLUKSMixin, "_remove_tpm2_crypttab_options")
     def test_remove_encryption_artifacts(self, mock_opts, mock_tokens):
         # No LUKS devices open.
         self.mixin._luks_opened = []
@@ -374,9 +343,7 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
         result = self.mixin._get_luks_uuid(_DEV)
 
         self.assertEqual(result, _UUID)
-        mock_exec_cmd.assert_called_once_with(
-            "sudo cryptsetup luksUUID %s" % _DEV
-        )
+        mock_exec_cmd.assert_called_once_with("sudo cryptsetup luksUUID %s" % _DEV)
 
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, "_detect_initramfs_tool")
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, "_transform_crypttab")
@@ -412,8 +379,7 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
 
         # Case-insensitive UUID match: uppercase UUID in crypttab still matches
         # lowercase key in the map.
-        result = transform(
-            ["luks-root", "UUID=%s" % _UUID.upper(), "none", "none"])
+        result = transform(["luks-root", "UUID=%s" % _UUID.upper(), "none", "none"])
         self.assertEqual(result[2], _KEYFILE)
 
         # /by-uuid/ path also matches.
@@ -426,8 +392,7 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
         mock_detect_tool.return_value = "dracut"
         self.mixin._update_crypttab_keyfile(_OS_ROOT_DIR, {_UUID: _KEYFILE})
         transform_dracut = mock_transform.call_args[0][1]
-        result = transform_dracut(
-            ["luks-root", "UUID=%s" % _UUID, "none", "none"])
+        result = transform_dracut(["luks-root", "UUID=%s" % _UUID, "none", "none"])
         self.assertEqual(result[2], _KEYFILE)
         self.assertNotIn("initramfs", result[3].split(","))
 
@@ -442,9 +407,7 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, "_detect_initramfs_tool")
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, "_configure_dracut_keyfiles")
-    @mock.patch.object(
-        luks_mixin.LinuxLUKSMixin, "_configure_initramfs_tools_keyfiles"
-    )
+    @mock.patch.object(luks_mixin.LinuxLUKSMixin, "_configure_initramfs_tools_keyfiles")
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, "_update_crypttab_keyfile")
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, "_write_remote_file")
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, "_get_luks_uuid")
@@ -478,16 +441,12 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
             luks_mixin._LUKS_KEYFILE_DIR,
             "coriolis_%s.key" % os.path.basename(_DEV),
         )
-        expected_abs_path = os.path.join(
-            _OS_ROOT_DIR, keyfile_path.lstrip("/")
-        )
+        expected_abs_path = os.path.join(_OS_ROOT_DIR, keyfile_path.lstrip("/"))
         mock_write_file.assert_called_once_with(
             expected_abs_path, _PASSPHRASE, mode="400"
         )
         mock_update_ct.assert_called_once_with(_OS_ROOT_DIR, {_UUID: _KEYFILE})
-        mock_cfg_dracut.assert_called_once_with(
-            _OS_ROOT_DIR, {_UUID: _KEYFILE}
-        )
+        mock_cfg_dracut.assert_called_once_with(_OS_ROOT_DIR, {_UUID: _KEYFILE})
         mock_cfg_initramfs.assert_not_called()
 
         # update-initramfs branch.
@@ -521,9 +480,7 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, "_write_remote_file")
     @mock.patch.object(base.BaseSSHOSMountTools, "_exec_cmd")
     @mock.patch.object(luks_mixin.utils, "test_ssh_path")
-    def test__configure_dracut_keyfiles(
-        self, mock_test_path, mock_exec, mock_write
-    ):
+    def test__configure_dracut_keyfiles(self, mock_test_path, mock_exec, mock_write):
         plugin_path = luks_mixin._CRYPTSETUP_TPM2_PLUGIN_PATHS[0]
         plugin_abs = os.path.join(_OS_ROOT_DIR, plugin_path.lstrip("/"))
         conf_abs = os.path.join(
@@ -541,8 +498,7 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
         self.assertIn('add_dracutmodules+=" crypt "', written)
         self.assertNotIn(plugin_path, written)
         mock_exec.assert_called_once_with(
-            "sudo chown root:root %s && sudo chmod 644 %s"
-            % (conf_abs, conf_abs)
+            "sudo chown root:root %s && sudo chmod 644 %s" % (conf_abs, conf_abs)
         )
 
         # with TPM2 plugin.
@@ -561,9 +517,7 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
     def test__configure_initramfs_tools_keyfiles(
         self, mock_test, mock_exec, mock_read, mock_write
     ):
-        hook_abs = os.path.join(
-            _OS_ROOT_DIR, "etc/cryptsetup-initramfs/conf-hook"
-        )
+        hook_abs = os.path.join(_OS_ROOT_DIR, "etc/cryptsetup-initramfs/conf-hook")
 
         # existing conf-hook: content is preserved and KEYFILE_PATTERN
         # appended.
@@ -636,9 +590,7 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, "_rebuild_initramfs_dracut")
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, "_detect_initramfs_tool")
     @mock.patch.object(base.BaseSSHOSMountTools, "_exec_cmd")
-    def test__rebuild_initramfs(
-        self, mock_exec, mock_detect, mock_rebuild_dracut
-    ):
+    def test__rebuild_initramfs(self, mock_exec, mock_detect, mock_rebuild_dracut):
         # update-initramfs.
         mock_detect.return_value = "update-initramfs"
         self.mixin._rebuild_initramfs(_OS_ROOT_DIR)
@@ -695,7 +647,7 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
         mock_exec.reset_mock()
         mock_exec.side_effect = [
             "5.15.0-generic\n",  # ls /lib/modules/
-            None,                # dracut call
+            None,  # dracut call
         ]
         self.mixin._rebuild_initramfs_dracut(_OS_ROOT_DIR)
 
@@ -712,15 +664,18 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, '_fix_grub_luks_root')
     @mock.patch.object(luks_mixin.LinuxLUKSMixin, '_write_migration_keyfiles')
     def test_install_encryption_firstboot_setup(
-        self, mock_write_keyfiles, mock_grub, mock_rebuild, mock_detect_tool,
+        self,
+        mock_write_keyfiles,
+        mock_grub,
+        mock_rebuild,
+        mock_detect_tool,
         mock_render_tpm2_pcrs,
     ):
         mock_morphing_tools = mock.MagicMock()
 
         # No LUKS opened: early return, nothing called.
         self.mixin._luks_opened = []
-        self.mixin.install_encryption_firstboot_setup(
-            _OS_ROOT_DIR, mock_morphing_tools)
+        self.mixin.install_encryption_firstboot_setup(_OS_ROOT_DIR, mock_morphing_tools)
         mock_write_keyfiles.assert_not_called()
         mock_morphing_tools.register_firstboot_script.assert_not_called()
 
@@ -728,15 +683,15 @@ class LinuxLUKSMixinTestCase(test_base.CoriolisBaseTestCase):
         self.mixin._luks_opened = [("coriolis_sda", _DEV)]
         mock_detect_tool.return_value = "dracut"
 
-        self.mixin.install_encryption_firstboot_setup(
-            _OS_ROOT_DIR, mock_morphing_tools)
+        self.mixin.install_encryption_firstboot_setup(_OS_ROOT_DIR, mock_morphing_tools)
 
         mock_write_keyfiles.assert_called_once_with(_OS_ROOT_DIR)
         mock_grub.assert_called_once_with(_OS_ROOT_DIR)
         mock_rebuild.assert_called_once_with(_OS_ROOT_DIR)
 
         mock_render_tpm2_pcrs.assert_called_once_with(
-            luks_mixin._LUKS_FIRSTBOOT_SCRIPTS["dracut"], "dracut")
+            luks_mixin._LUKS_FIRSTBOOT_SCRIPTS["dracut"], "dracut"
+        )
         mock_morphing_tools.register_firstboot_script.assert_called_once_with(
             mock_render_tpm2_pcrs.return_value,
             user_provided=False,

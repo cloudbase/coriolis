@@ -5,8 +5,8 @@ Revises: 012
 Create Date: 2019-10-18 19:35:20.000000
 """
 
-from alembic import op
 import sqlalchemy
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "013"
@@ -17,7 +17,8 @@ depends_on = None
 
 def upgrade():
     index = sqlalchemy.Column(
-        "index", sqlalchemy.Integer, nullable=False, server_default="0")
+        "index", sqlalchemy.Integer, nullable=False, server_default="0"
+    )
     op.add_column("task", index)
 
 

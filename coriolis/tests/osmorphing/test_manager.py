@@ -4,8 +4,7 @@
 import logging
 from unittest import mock
 
-from coriolis import constants
-from coriolis import exception
+from coriolis import constants, exception
 from coriolis.osmorphing import base as base_osmorphing
 from coriolis.osmorphing import manager
 from coriolis.tests import test_base
@@ -16,10 +15,7 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
 
     def setUp(self):
         super(ManagerTestCase, self).setUp()
-        self.osmorphing_info = {
-            'os_type': 'linux',
-            'ignore_devices': []
-        }
+        self.osmorphing_info = {'os_type': 'linux', 'ignore_devices': []}
         self._mock_user_scripts = [
             {
                 "phase": constants.PHASE_OSMORPHING_PRE_OS_MOUNT,
@@ -68,31 +64,37 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
             "release_version": "22.04",
             "friendly_release_name": "Ubuntu 22.04",
         }
-        self.provider.get_custom_os_detect_tools.return_value = [
-            mock.sentinel.os_type]
+        self.provider.get_custom_os_detect_tools.return_value = [mock.sentinel.os_type]
         self.destination_provider.get_custom_os_detect_tools.return_value = [
-            mock.sentinel.os_type]
+            mock.sentinel.os_type
+        ]
 
         result = manager.run_os_detect(
-            self.provider, self.destination_provider, self.worker_connection,
-            mock.sentinel.os_type, mock.sentinel.os_root_dir,
-            self.osmorphing_info, tools_environment={})
+            self.provider,
+            self.destination_provider,
+            self.worker_connection,
+            mock.sentinel.os_type,
+            mock.sentinel.os_root_dir,
+            self.osmorphing_info,
+            tools_environment={},
+        )
 
         self.assertEqual(result, mock_detect_os.return_value)
 
-        self.provider.get_custom_os_detect_tools.\
-            assert_called_once_with(mock.sentinel.os_type,
-                                    self.osmorphing_info)
-        self.destination_provider.get_custom_os_detect_tools.\
-            assert_called_once_with(mock.sentinel.os_type,
-                                    self.osmorphing_info)
+        self.provider.get_custom_os_detect_tools.assert_called_once_with(
+            mock.sentinel.os_type, self.osmorphing_info
+        )
+        self.destination_provider.get_custom_os_detect_tools.assert_called_once_with(
+            mock.sentinel.os_type, self.osmorphing_info
+        )
         mock_detect_os.assert_called_once_with(
-            self.worker_connection, mock.sentinel.os_type,
+            self.worker_connection,
+            mock.sentinel.os_type,
             mock.sentinel.os_root_dir,
             60,
             tools_environment={},
-            custom_os_detect_tools=[mock.sentinel.os_type,
-                                    mock.sentinel.os_type])
+            custom_os_detect_tools=[mock.sentinel.os_type, mock.sentinel.os_type],
+        )
 
     def test_get_osmorphing_tools_class_for_provider(self):
         class MockToolsClass(base_osmorphing.BaseOSMorphingTools):
@@ -111,8 +113,11 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
         self.provider.get_os_morphing_tools.return_value = [MockToolsClass]
 
         result = manager.get_osmorphing_tools_class_for_provider(
-            self.provider, mock.sentinel.detected_os_info,
-            mock.sentinel.os_type, self.osmorphing_info)
+            self.provider,
+            mock.sentinel.detected_os_info,
+            mock.sentinel.os_type,
+            self.osmorphing_info,
+        )
 
         self.assertEqual(result, MockToolsClass)
 
@@ -120,13 +125,16 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
         class MockInvalidToolsClass:
             pass
 
-        self.provider.get_os_morphing_tools.return_value = [
-            MockInvalidToolsClass]
+        self.provider.get_os_morphing_tools.return_value = [MockInvalidToolsClass]
 
-        self.assertRaises(exception.InvalidOSMorphingTools,
-                          manager.get_osmorphing_tools_class_for_provider,
-                          self.provider, mock.sentinel.detected_os_info,
-                          mock.sentinel.os_type, self.osmorphing_info)
+        self.assertRaises(
+            exception.InvalidOSMorphingTools,
+            manager.get_osmorphing_tools_class_for_provider,
+            self.provider,
+            mock.sentinel.detected_os_info,
+            mock.sentinel.os_type,
+            self.osmorphing_info,
+        )
 
     def test_get_osmorphing_tools_class_for_provider_invalid_os_params(self):
         class MockToolsClass(base_osmorphing.BaseOSMorphingTools):
@@ -140,11 +148,13 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
 
         self.provider.get_os_morphing_tools.return_value = [MockToolsClass]
 
-        with self.assertLogs(
-            'coriolis.osmorphing.manager', level=logging.WARN):
+        with self.assertLogs('coriolis.osmorphing.manager', level=logging.WARN):
             result = manager.get_osmorphing_tools_class_for_provider(
-                self.provider, mock.sentinel.detected_os_info,
-                mock.sentinel.os_type, self.osmorphing_info)
+                self.provider,
+                mock.sentinel.detected_os_info,
+                mock.sentinel.os_type,
+                self.osmorphing_info,
+            )
 
         self.assertIsNone(result)
 
@@ -160,11 +170,13 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
 
         self.provider.get_os_morphing_tools.return_value = [MockToolsClass]
 
-        with self.assertLogs(
-            'coriolis.osmorphing.manager', level=logging.DEBUG):
+        with self.assertLogs('coriolis.osmorphing.manager', level=logging.DEBUG):
             result = manager.get_osmorphing_tools_class_for_provider(
-                self.provider, self.detected_os_info,
-                mock.sentinel.os_type, self.osmorphing_info)
+                self.provider,
+                self.detected_os_info,
+                mock.sentinel.os_type,
+                self.osmorphing_info,
+            )
 
         self.assertIsNone(result)
 
@@ -220,31 +232,42 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(manager, 'run_os_detect')
     @mock.patch.object(manager, 'get_osmorphing_tools_class_for_provider')
     def test_morph_image(
-            self, mock_get_osmorphing_tools_class, mock_run_os_detect,
-            mock_EventManager, mock_get_os_mount_tools):
+        self,
+        mock_get_osmorphing_tools_class,
+        mock_run_os_detect,
+        mock_EventManager,
+        mock_get_os_mount_tools,
+    ):
         mock_EventManager.return_value = self.event_manager
         mock_get_os_mount_tools.return_value = self.os_mount_tools
 
-        self.os_mount_tools.mount_os.return_value = (
-            'os_root_dir', 'os_root_dev')
+        self.os_mount_tools.mount_os.return_value = ('os_root_dir', 'os_root_dev')
         mock_run_os_detect.return_value = {'friendly_release_name': 'mock_os'}
 
-        mock_get_osmorphing_tools_class.return_value = (
-            self.MockOSMorphingToolsClass)
+        mock_get_osmorphing_tools_class.return_value = self.MockOSMorphingToolsClass
 
         manager.morph_image(
-            mock.sentinel.origin_provider, mock.sentinel.destination_provider,
-            mock.sentinel.connection_info, self.osmorphing_info,
-            self._mock_user_scripts, self.event_handler)
+            mock.sentinel.origin_provider,
+            mock.sentinel.destination_provider,
+            mock.sentinel.connection_info,
+            self.osmorphing_info,
+            self._mock_user_scripts,
+            self.event_handler,
+        )
 
         expected_calls = [
             mock.call(
-                mock.sentinel.origin_provider, mock_run_os_detect.return_value,
-                self.osmorphing_info.get('os_type'), self.osmorphing_info),
+                mock.sentinel.origin_provider,
+                mock_run_os_detect.return_value,
+                self.osmorphing_info.get('os_type'),
+                self.osmorphing_info,
+            ),
             mock.call(
                 mock.sentinel.destination_provider,
                 mock_run_os_detect.return_value,
-                self.osmorphing_info.get('os_type'), self.osmorphing_info)
+                self.osmorphing_info.get('os_type'),
+                self.osmorphing_info,
+            ),
         ]
         mock_get_osmorphing_tools_class.assert_has_calls(expected_calls)
 
@@ -253,8 +276,13 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
         self.os_mount_tools.dismount_os.assert_called_once()
 
         mock_get_os_mount_tools.assert_called_once_with(
-            'linux', mock.sentinel.connection_info, self.event_manager, [], 60,
-            osmorphing_info=self.osmorphing_info)
+            'linux',
+            mock.sentinel.connection_info,
+            self.event_manager,
+            [],
+            60,
+            osmorphing_info=self.osmorphing_info,
+        )
         mock_EventManager.assert_called_with(self.event_handler)
 
         self.os_mount_tools.dismount_os.assert_called_once()
@@ -263,8 +291,11 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(manager.osmount_factory, 'get_os_mount_tools')
     @mock.patch.object(manager.events, 'EventManager')
     def test_morph_image_failed_os_mount_setup(
-            self, mock_EventManager, mock_get_os_mount_tools,
-            mock_get_osmorphing_tools_class):
+        self,
+        mock_EventManager,
+        mock_get_os_mount_tools,
+        mock_get_osmorphing_tools_class,
+    ):
         mock_EventManager.return_value = self.event_manager
         mock_get_os_mount_tools.return_value = self.os_mount_tools
 
@@ -272,15 +303,23 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
 
         self.assertRaises(
             exception.CoriolisException,
-            manager.morph_image, mock.sentinel.origin_provider,
+            manager.morph_image,
+            mock.sentinel.origin_provider,
             mock.sentinel.destination_provider,
-            mock.sentinel.connection_info, self.osmorphing_info,
+            mock.sentinel.connection_info,
+            self.osmorphing_info,
             self._mock_user_scripts,
-            self.event_handler)
+            self.event_handler,
+        )
 
         mock_get_os_mount_tools.assert_called_once_with(
-            'linux', mock.sentinel.connection_info, self.event_manager, [], 60,
-            osmorphing_info=self.osmorphing_info)
+            'linux',
+            mock.sentinel.connection_info,
+            self.event_manager,
+            [],
+            60,
+            osmorphing_info=self.osmorphing_info,
+        )
         mock_EventManager.assert_called_once_with(self.event_handler)
 
         mock_get_osmorphing_tools_class.assert_not_called()
@@ -292,49 +331,61 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(manager, 'run_os_detect')
     @mock.patch.object(manager, 'get_osmorphing_tools_class_for_provider')
     def test_morph_image_no_import_os_morphing_tools_cls(
-            self, mock_get_osmorphing_tools_class, mock_run_os_detect,
-            mock_EventManager, mock_get_os_mount_tools):
+        self,
+        mock_get_osmorphing_tools_class,
+        mock_run_os_detect,
+        mock_EventManager,
+        mock_get_os_mount_tools,
+    ):
         mock_EventManager.return_value = self.event_manager
         mock_get_os_mount_tools.return_value = self.os_mount_tools
 
-        self.os_mount_tools.mount_os.return_value = (
-            'os_root_dir', 'os_root_dev')
+        self.os_mount_tools.mount_os.return_value = ('os_root_dir', 'os_root_dev')
         mock_run_os_detect.return_value = {'friendly_release_name': 'mock_os'}
 
         mock_get_osmorphing_tools_class.return_value = None
 
-        with self.assertLogs(
-            'coriolis.osmorphing.manager', level=logging.ERROR):
+        with self.assertLogs('coriolis.osmorphing.manager', level=logging.ERROR):
             self.assertRaises(
                 exception.OSMorphingToolsNotFound,
-                manager.morph_image, mock.sentinel.origin_provider,
+                manager.morph_image,
+                mock.sentinel.origin_provider,
                 mock.sentinel.destination_provider,
-                mock.sentinel.connection_info, self.osmorphing_info,
-                self._mock_user_scripts, self.event_handler)
+                mock.sentinel.connection_info,
+                self.osmorphing_info,
+                self._mock_user_scripts,
+                self.event_handler,
+            )
 
     @mock.patch.object(manager.osmount_factory, 'get_os_mount_tools')
     @mock.patch.object(manager.events, 'EventManager')
     @mock.patch.object(manager, 'run_os_detect')
     @mock.patch.object(manager, 'get_osmorphing_tools_class_for_provider')
     def test_morph_image_no_user_script(
-            self, mock_get_osmorphing_tools_class, mock_run_os_detect,
-            mock_EventManager, mock_get_os_mount_tools):
+        self,
+        mock_get_osmorphing_tools_class,
+        mock_run_os_detect,
+        mock_EventManager,
+        mock_get_os_mount_tools,
+    ):
         mock_user_script = None
 
         mock_EventManager.return_value = self.event_manager
         mock_get_os_mount_tools.return_value = self.os_mount_tools
 
-        self.os_mount_tools.mount_os.return_value = (
-            'os_root_dir', 'os_root_dev')
+        self.os_mount_tools.mount_os.return_value = ('os_root_dir', 'os_root_dev')
         mock_run_os_detect.return_value = {'friendly_release_name': 'mock_os'}
 
-        mock_get_osmorphing_tools_class.return_value = (
-            self.MockOSMorphingToolsClass)
+        mock_get_osmorphing_tools_class.return_value = self.MockOSMorphingToolsClass
 
         manager.morph_image(
-            mock.sentinel.origin_provider, mock.sentinel.destination_provider,
-            mock.sentinel.connection_info, self.osmorphing_info,
-            mock_user_script, self.event_handler)
+            mock.sentinel.origin_provider,
+            mock.sentinel.destination_provider,
+            mock.sentinel.connection_info,
+            self.osmorphing_info,
+            mock_user_script,
+            self.event_handler,
+        )
 
         mock_get_osmorphing_tools_class.run_user_script.assert_not_called()
 
@@ -343,23 +394,29 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(manager, 'run_os_detect')
     @mock.patch.object(manager, 'get_osmorphing_tools_class_for_provider')
     def test_morph_image_dismount_os_exception(
-            self, mock_get_osmorphing_tools_class, mock_run_os_detect,
-            mock_EventManager, mock_get_os_mount_tools):
+        self,
+        mock_get_osmorphing_tools_class,
+        mock_run_os_detect,
+        mock_EventManager,
+        mock_get_os_mount_tools,
+    ):
         mock_EventManager.return_value = self.event_manager
         mock_get_os_mount_tools.return_value = self.os_mount_tools
 
-        self.os_mount_tools.mount_os.return_value = (
-            'os_root_dir', 'os_root_dev')
+        self.os_mount_tools.mount_os.return_value = ('os_root_dir', 'os_root_dev')
         mock_run_os_detect.return_value = {'friendly_release_name': 'mock_os'}
 
-        mock_get_osmorphing_tools_class.return_value = (
-            self.MockOSMorphingToolsClass)
+        mock_get_osmorphing_tools_class.return_value = self.MockOSMorphingToolsClass
 
         self.os_mount_tools.dismount_os.side_effect = Exception()
 
         self.assertRaises(
             exception.CoriolisException,
-            manager.morph_image, mock.sentinel.origin_provider,
+            manager.morph_image,
+            mock.sentinel.origin_provider,
             mock.sentinel.destination_provider,
-            mock.sentinel.connection_info, self.osmorphing_info,
-            self._mock_user_scripts, self.event_handler)
+            mock.sentinel.connection_info,
+            self.osmorphing_info,
+            self._mock_user_scripts,
+            self.event_handler,
+        )

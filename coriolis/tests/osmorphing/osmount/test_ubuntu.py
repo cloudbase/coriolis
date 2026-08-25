@@ -16,8 +16,11 @@ class UbuntuOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         self.ssh = mock.MagicMock()
 
         self.tools = ubuntu.UbuntuOSMountTools(
-            self.ssh, mock.sentinel.event_manager,
-            mock.sentinel.ignore_devices, mock.sentinel.operation_timeout)
+            self.ssh,
+            mock.sentinel.event_manager,
+            mock.sentinel.ignore_devices,
+            mock.sentinel.operation_timeout,
+        )
 
         mock_connect.assert_called_once_with()
 
@@ -41,19 +44,21 @@ class UbuntuOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         # NOTE: the apt-get calls must go through '_exec_sudo_env_cmd' so
         # that any configured proxy reaches apt without relying on 'sudo -E',
         # which sudo-rs (the default on Ubuntu 26.04) does not support.
-        mock_exec_sudo_env_cmd.assert_has_calls([
-            mock.call("apt-get update -y"),
-            mock.call("apt-get -o DPkg::Lock::Timeout=600 "
-                      "install lvm2 psmisc cryptsetup -y"),
-        ])
+        mock_exec_sudo_env_cmd.assert_has_calls(
+            [
+                mock.call("apt-get update -y"),
+                mock.call(
+                    "apt-get -o DPkg::Lock::Timeout=600 "
+                    "install lvm2 psmisc cryptsetup -y"
+                ),
+            ]
+        )
         # NOTE: cryptsetup pulls in keyboard-configuration, whose postinst
         # would otherwise prompt for a keyboard layout and hang the install.
-        self.assertEqual(
-            'noninteractive', self.tools._environment['DEBIAN_FRONTEND'])
-        mock_exec_cmd.assert_has_calls([
-            mock.call("sudo modprobe dm-mod"),
-            mock.call("sudo modprobe dm-crypt")
-        ])
+        self.assertEqual('noninteractive', self.tools._environment['DEBIAN_FRONTEND'])
+        mock_exec_cmd.assert_has_calls(
+            [mock.call("sudo modprobe dm-mod"), mock.call("sudo modprobe dm-crypt")]
+        )
 
     @mock.patch.object(ubuntu.utils, 'exec_ssh_cmd')
     @mock.patch.object(ubuntu.base.BaseSSHOSMountTools, 'setup')
@@ -65,15 +70,24 @@ class UbuntuOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         self.tools.setup()
 
         apt_cmds = [
-            call[0][1] for call in mock_exec_ssh.call_args_list
-            if "apt-get" in call[0][1]]
+            call[0][1]
+            for call in mock_exec_ssh.call_args_list
+            if "apt-get" in call[0][1]
+        ]
         self.assertEqual(2, len(apt_cmds))
         for cmd in apt_cmds:
             self.assertTrue(
                 cmd.startswith("sudo env "),
-                "apt-get command is missing its env prefix: %s" % cmd)
-            for var in ('http_proxy', 'HTTP_PROXY', 'https_proxy',
-                        'HTTPS_PROXY', 'ftp_proxy', 'FTP_PROXY'):
+                "apt-get command is missing its env prefix: %s" % cmd,
+            )
+            for var in (
+                'http_proxy',
+                'HTTP_PROXY',
+                'https_proxy',
+                'HTTPS_PROXY',
+                'ftp_proxy',
+                'FTP_PROXY',
+            ):
                 self.assertIn("%s=%s" % (var, proxy), cmd)
 
     @mock.patch.object(ubuntu.base.BaseSSHOSMountTools, '_exec_cmd')
@@ -83,5 +97,6 @@ class UbuntuOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         self.assertTrue(result)
 
         mock_exec_cmd.assert_called_once_with(
-            'sudo sed -i -e "\$aAcceptEnv *" /etc/ssh/sshd_config')
+            'sudo sed -i -e "\$aAcceptEnv *" /etc/ssh/sshd_config'
+        )
         mock_restart_service.assert_called_once_with(self.ssh, "sshd")

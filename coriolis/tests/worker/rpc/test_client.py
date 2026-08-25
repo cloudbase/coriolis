@@ -38,7 +38,6 @@ POOL_VALIDATION_ARGS = {
 
 
 class WorkerClientTestCase(test_base.CoriolisRPCClientTestCase):
-
     def setUp(self):
         super(WorkerClientTestCase, self).setUp()
         self.client = client.WorkerClient()
@@ -50,11 +49,10 @@ class WorkerClientTestCase(test_base.CoriolisRPCClientTestCase):
         mock_conf.worker.worker_rpc_timeout = expected_timeout
         result = client.WorkerClient()
         mock_target.assert_called_once_with(
-            topic=constants.WORKER_MAIN_MESSAGING_TOPIC,
-            version=client.VERSION)
+            topic=constants.WORKER_MAIN_MESSAGING_TOPIC, version=client.VERSION
+        )
         self.assertEqual(result._target, mock_target.return_value)
-        self.assertEqual(
-            result._timeout, expected_timeout)
+        self.assertEqual(result._timeout, expected_timeout)
 
     @mock.patch.object(oslo_messaging, 'Target')
     def test__init__custom_args(self, mock_target):
@@ -64,34 +62,47 @@ class WorkerClientTestCase(test_base.CoriolisRPCClientTestCase):
         expected_topic = "topic.host"
 
         result = client.WorkerClient(
-            timeout=expected_timeout, host=host, base_worker_topic=topic)
+            timeout=expected_timeout, host=host, base_worker_topic=topic
+        )
         mock_target.assert_called_once_with(
-            topic=expected_topic, version=client.VERSION)
+            topic=expected_topic, version=client.VERSION
+        )
         self.assertEqual(result._target, mock_target.return_value)
         self.assertEqual(result._timeout, expected_timeout)
 
     def test_from_service_definition_invalid_topic(self):
         self.assertRaises(
-            ValueError, self.client.from_service_definition,
-            {'topic': 'invalid_service'})
+            ValueError,
+            self.client.from_service_definition,
+            {'topic': 'invalid_service'},
+        )
 
     def test_from_service_definition(self):
         rpc_client = self.client.from_service_definition(
-            {'topic': constants.WORKER_MAIN_MESSAGING_TOPIC})
+            {'topic': constants.WORKER_MAIN_MESSAGING_TOPIC}
+        )
         self.assertIsInstance(rpc_client, client.WorkerClient)
 
     def test_begin_task(self):
         args = EXEC_TASK_ARGS
         custom_args = {"report_to_conductor": True}
         self._test(
-            self.client.begin_task, args, rpc_op='_cast',
-            server_fun_name='exec_task', custom_args=custom_args)
+            self.client.begin_task,
+            args,
+            rpc_op='_cast',
+            server_fun_name='exec_task',
+            custom_args=custom_args,
+        )
 
     def test_run_task(self):
         args = EXEC_TASK_ARGS
         custom_args = {"report_to_conductor": False}
-        self._test(self.client.run_task, args, server_fun_name='exec_task',
-                   custom_args=custom_args)
+        self._test(
+            self.client.run_task,
+            args,
+            server_fun_name='exec_task',
+            custom_args=custom_args,
+        )
 
     def test_cancel_task(self):
         args = {
@@ -107,7 +118,7 @@ class WorkerClientTestCase(test_base.CoriolisRPCClientTestCase):
             'marker': None,
             'limit': None,
             'instance_name_pattern': None,
-            'refresh': False
+            'refresh': False,
         }
         self._test(self.client.get_endpoint_instances, args)
 
@@ -119,8 +130,7 @@ class WorkerClientTestCase(test_base.CoriolisRPCClientTestCase):
         self._test(self.client.get_endpoint_instance, args)
 
     def test_get_endpoint_destination_options(self):
-        self._test(
-            self.client.get_endpoint_destination_options, ENDPOINT_OPT_ARGS)
+        self._test(self.client.get_endpoint_destination_options, ENDPOINT_OPT_ARGS)
 
     def test_get_endpoint_source_options(self):
         self._test(self.client.get_endpoint_source_options, ENDPOINT_OPT_ARGS)
@@ -169,18 +179,23 @@ class WorkerClientTestCase(test_base.CoriolisRPCClientTestCase):
         self._test(self.client.get_service_status, {})
 
     def test_get_endpoint_source_minion_pool_options(self):
-        self._test(self.client.get_endpoint_source_minion_pool_options,
-                   ENDPOINT_OPT_ARGS)
+        self._test(
+            self.client.get_endpoint_source_minion_pool_options, ENDPOINT_OPT_ARGS
+        )
 
     def test_get_endpoint_minion_pool_options(self):
-        self._test(self.client.get_endpoint_destination_minion_pool_options,
-                   ENDPOINT_OPT_ARGS)
+        self._test(
+            self.client.get_endpoint_destination_minion_pool_options, ENDPOINT_OPT_ARGS
+        )
 
     def test_validate_endpoint_source_minion_pool_options(self):
-        self._test(self.client.validate_endpoint_source_minion_pool_options,
-                   POOL_VALIDATION_ARGS)
+        self._test(
+            self.client.validate_endpoint_source_minion_pool_options,
+            POOL_VALIDATION_ARGS,
+        )
 
     def test_validate_endpoint_destination_minion_pool_options(self):
         self._test(
             self.client.validate_endpoint_destination_minion_pool_options,
-            POOL_VALIDATION_ARGS)
+            POOL_VALIDATION_ARGS,
+        )

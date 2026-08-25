@@ -1,13 +1,12 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-from coriolis.api.v1.views import diagnostic_view
-from coriolis.api import wsgi as api_wsgi
-from coriolis.diagnostics import api
-from coriolis.policies import diagnostics
-
 import logging
 
+from coriolis.api import wsgi as api_wsgi
+from coriolis.api.v1.views import diagnostic_view
+from coriolis.diagnostics import api
+from coriolis.policies import diagnostics
 
 LOG = logging.getLogger(__name__)
 
@@ -19,11 +18,9 @@ class DiagnosticsController(api_wsgi.Controller):
 
     def index(self, req):
         context = req.environ['coriolis.context']
-        context.can(
-            diagnostics.get_diagnostics_policy_label("get"))
+        context.can(diagnostics.get_diagnostics_policy_label("get"))
 
-        return diagnostic_view.collection(
-            self._diag_api.get(context))
+        return diagnostic_view.collection(self._diag_api.get(context))
 
 
 def create_resource():

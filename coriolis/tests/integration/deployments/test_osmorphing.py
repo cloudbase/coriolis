@@ -10,8 +10,8 @@ installation in the target OS.
 import os
 import re
 import unittest
-from unittest import mock
 import uuid
+from unittest import mock
 
 from coriolis.db import api as db_api
 from coriolis.tests.integration import base as integration_base
@@ -19,9 +19,7 @@ from coriolis.tests.integration import harness as integration_harness
 from coriolis.tests.integration import osmorphing_utils
 
 
-class OsMorphingDeploymentTestBase(
-        integration_base.ReplicaIntegrationTestBase):
-
+class OsMorphingDeploymentTestBase(integration_base.ReplicaIntegrationTestBase):
     # NOTE(claudiub): Size must be high enough to contain the tested OS and
     # any new packages to be added during OS morphing.
     _SCSI_DEBUG_SIZE_MB = 256
@@ -30,29 +28,25 @@ class OsMorphingDeploymentTestBase(
     def setUpClass(cls):
         harness = integration_harness._IntegrationHarness.get()
         if not harness.uses_core_test_import_provider():
-            raise unittest.SkipTest(
-                "OS morphing tests require local disk access")
+            raise unittest.SkipTest("OS morphing tests require local disk access")
         super().setUpClass()
 
     def setUp(self):
         super().setUp()
-        osmorphing_utils.write_os_image_to_disk(
-            self._src_device, "ubuntu:24.04")
+        osmorphing_utils.write_os_image_to_disk(self._src_device, "ubuntu:24.04")
 
 
 class OsMorphingDeploymentTest(OsMorphingDeploymentTestBase):
     def test_deployment_with_os_morphing(self):
         self.assertFalse(
-            osmorphing_utils.path_exists_on_device(
-                self._src_device, "usr/bin/jq"),
+            osmorphing_utils.path_exists_on_device(self._src_device, "usr/bin/jq"),
             "jq was found on the source device before OS morphing",
         )
 
         self._execute_transfer_and_deployment()
 
         self.assertTrue(
-            osmorphing_utils.path_exists_on_device(
-                self._dst_device, "usr/bin/jq"),
+            osmorphing_utils.path_exists_on_device(self._dst_device, "usr/bin/jq"),
             "jq was not found on the destination device after OS morphing",
         )
 
@@ -73,16 +67,15 @@ class OsMorphingDeploymentTest(OsMorphingDeploymentTestBase):
         self._execute_transfer_and_deployment(deployment_kwargs)
 
         file_contents = osmorphing_utils.read_file_from_device(
-            self._dst_device,
-            "cookie")
+            self._dst_device, "cookie"
+        )
         self.assertEqual(expected_string, file_contents)
 
     def test_os_morphing_instance_script_basic_format(self):
         expected_string = str(uuid.uuid4())
         user_scripts = {
             'instances': {
-                self._instance_name: (
-                    f"echo -n {expected_string} > $1/cookie\n\r")
+                self._instance_name: (f"echo -n {expected_string} > $1/cookie\n\r")
             }
         }
         deployment_kwargs = {
@@ -91,8 +84,8 @@ class OsMorphingDeploymentTest(OsMorphingDeploymentTestBase):
         self._execute_transfer_and_deployment(deployment_kwargs)
 
         file_contents = osmorphing_utils.read_file_from_device(
-            self._dst_device,
-            "cookie")
+            self._dst_device, "cookie"
+        )
         self.assertEqual(expected_string, file_contents)
 
     def test_os_morphing_global_script_extended_format(self):
@@ -124,7 +117,7 @@ class OsMorphingDeploymentTest(OsMorphingDeploymentTestBase):
                         "phase": "osmorphing_post_os_mount",
                         "payload": "should-not-get-executed",
                     },
-                ]
+                ],
             }
         }
         deployment_kwargs = {
@@ -133,11 +126,11 @@ class OsMorphingDeploymentTest(OsMorphingDeploymentTestBase):
         self._execute_transfer_and_deployment(deployment_kwargs)
 
         pre_mounts = osmorphing_utils.read_file_from_device(
-            self._dst_device,
-            "pre_mounts")
+            self._dst_device, "pre_mounts"
+        )
         post_mounts = osmorphing_utils.read_file_from_device(
-            self._dst_device,
-            "post_mounts")
+            self._dst_device, "post_mounts"
+        )
 
         # Ensure that the "osmorphing_pre_os_mount" was executed before
         # the replica OS disk was mounted.
@@ -159,7 +152,7 @@ class OsMorphingDeploymentTest(OsMorphingDeploymentTestBase):
                         "phase": "replica_first_boot",
                         "payload": "should-not-get-executed",
                     },
-                ]
+                ],
             }
         }
         deployment_kwargs = {
@@ -176,31 +169,30 @@ class OsMorphingDeploymentTest(OsMorphingDeploymentTestBase):
         # have been injected at the expected location.
         first_boot_script_dir = "usr/lib/coriolis/firstboot/user"
         first_boot_scripts = osmorphing_utils.list_files_from_device(
-            self._dst_device, first_boot_script_dir)
+            self._dst_device, first_boot_script_dir
+        )
         if not first_boot_scripts:
             raise AssertionError("Couldn't find first boot script dir.")
 
         found = False
         for file_name in first_boot_scripts:
             if re.match(r"\d+-\w+\.sh", file_name):
-                first_boot_script_path = os.path.join(
-                    first_boot_script_dir, file_name)
+                first_boot_script_path = os.path.join(first_boot_script_dir, file_name)
                 first_boot_script = osmorphing_utils.read_file_from_device(
-                    self._dst_device,
-                    first_boot_script_path)
+                    self._dst_device, first_boot_script_path
+                )
                 if payload == first_boot_script:
                     found = True
                 if payload == "should-not-get-executed":
-                    raise AssertionError(
-                        "Linux instance contains Windows script.")
+                    raise AssertionError("Linux instance contains Windows script.")
 
         if not found:
-            raise AssertionError(
-                "Couldn't find the expected first boot script.")
+            raise AssertionError("Couldn't find the expected first boot script.")
 
 
 class OsMorphingMinionPoolDeploymentTest(
-        integration_base.MinionPoolTestBase, OsMorphingDeploymentTestBase):
+    integration_base.MinionPoolTestBase, OsMorphingDeploymentTestBase
+):
     """OS morphing deployment using a minion pool for the OS morphing phase."""
 
     @classmethod
@@ -208,14 +200,16 @@ class OsMorphingMinionPoolDeploymentTest(
         super().setUpClass()
 
         pool = cls._create_pool(
-            cls._dst_endpoint.id, "osmorph-pool", skip_allocation=False,
-            wait_for_allocation=True)
+            cls._dst_endpoint.id,
+            "osmorph-pool",
+            skip_allocation=False,
+            wait_for_allocation=True,
+        )
         cls._osmorph_pool_id = pool.id
 
     def test_deployment_with_os_morphing(self):
         self.assertFalse(
-            osmorphing_utils.path_exists_on_device(
-                self._src_device, "usr/bin/jq"),
+            osmorphing_utils.path_exists_on_device(self._src_device, "usr/bin/jq"),
             "jq was found on the source device before OS morphing",
         )
 
@@ -227,17 +221,15 @@ class OsMorphingMinionPoolDeploymentTest(
         self._execute_transfer_and_deployment(deployment_kwargs)
 
         self.assertTrue(
-            osmorphing_utils.path_exists_on_device(
-                self._dst_device, "usr/bin/jq"),
+            osmorphing_utils.path_exists_on_device(self._dst_device, "usr/bin/jq"),
             "jq was not found on the destination device after OS morphing",
         )
 
         ctxt = self._get_db_context()
         pool = db_api.get_minion_pool(
-            ctxt, self._osmorph_pool_id, include_machines=True)
-        self.assertTrue(
-            pool.minion_machines,
-            "OS morphing pool has no minion machines")
+            ctxt, self._osmorph_pool_id, include_machines=True
+        )
+        self.assertTrue(pool.minion_machines, "OS morphing pool has no minion machines")
 
         for machine in pool.minion_machines:
             self.assertIsNotNone(
@@ -268,17 +260,24 @@ class OsMorphingMinionPoolDeploymentTest(
             },
         }
 
-        with mock.patch.object(
-                self._harness.imp_provider_class, "healthcheck_minion",
-                side_effect=injected_error) as mock_healthcheck, \
-                mock.patch.object(
-                self._harness.imp_provider_class, "create_minion",
-                side_effect=injected_error) as mock_create:
+        with (
+            mock.patch.object(
+                self._harness.imp_provider_class,
+                "healthcheck_minion",
+                side_effect=injected_error,
+            ) as mock_healthcheck,
+            mock.patch.object(
+                self._harness.imp_provider_class,
+                "create_minion",
+                side_effect=injected_error,
+            ) as mock_create,
+        ):
             deployment = self._client.deployments.create_from_transfer(
-                self._transfer.id, skip_os_morphing=False,
-                **deployment_kwargs)
+                self._transfer.id, skip_os_morphing=False, **deployment_kwargs
+            )
             self.addCleanup(
-                self._cleanup_deployment, deployment.id, deployment.instances)
+                self._cleanup_deployment, deployment.id, deployment.instances
+            )
 
             self.assertDeploymentErrored(deployment.id)
 
@@ -287,9 +286,11 @@ class OsMorphingMinionPoolDeploymentTest(
 
         ctxt = self._get_db_context()
         pool = db_api.get_minion_pool(
-            ctxt, self._osmorph_pool_id, include_machines=True)
+            ctxt, self._osmorph_pool_id, include_machines=True
+        )
         self.assertEqual(
-            [], pool.minion_machines,
+            [],
+            pool.minion_machines,
             "Minion machine(s) left in an inconsistent state after "
             "allocation failure: %s"
             % [(m.id, m.allocation_status) for m in pool.minion_machines],

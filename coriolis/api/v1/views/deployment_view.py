@@ -10,7 +10,8 @@ def _format_deployment(deployment, keys=None):
 
     if len(deployment_dict.get("executions", [])):
         execution = view.format_transfer_tasks_execution(
-            deployment_dict["executions"][0], keys)
+            deployment_dict["executions"][0], keys
+        )
         del deployment_dict["executions"]
     else:
         execution = {}
@@ -27,6 +28,5 @@ def single(deployment, keys=None):
 
 
 def collection(deployments, keys=None):
-    formatted_deployments = [_format_deployment(m, keys)
-                             for m in deployments]
+    formatted_deployments = [_format_deployment(m, keys) for m in deployments]
     return {'deployments': formatted_deployments}

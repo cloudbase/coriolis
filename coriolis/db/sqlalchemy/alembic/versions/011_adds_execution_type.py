@@ -8,8 +8,8 @@ Revises: 010
 Create Date: 2019-08-15 07:30:35.000000
 """
 
-from alembic import op
 import sqlalchemy
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "011"
@@ -20,8 +20,7 @@ depends_on = None
 
 def upgrade():
     # add 'type' column to 'tasks_execution':
-    execution_type = sqlalchemy.Column(
-        "type", sqlalchemy.String(20))
+    execution_type = sqlalchemy.Column("type", sqlalchemy.String(20))
     op.add_column("tasks_execution", execution_type)
 
 

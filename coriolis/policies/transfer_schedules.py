@@ -5,15 +5,14 @@ from oslo_policy import policy
 
 from coriolis.policies import base
 
-
 TRANSFER_SCHEDULES_POLICY_PREFIX = "%s:transfer_schedules" % (
-    base.CORIOLIS_POLICIES_PREFIX)
+    base.CORIOLIS_POLICIES_PREFIX
+)
 TRANSFER_SCHEDULES_POLICY_DEFAULT_RULE = "rule:admin_or_owner"
 
 
 def get_transfer_schedules_policy_label(rule_label):
-    return "%s:%s" % (
-        TRANSFER_SCHEDULES_POLICY_PREFIX, rule_label)
+    return "%s:%s" % (TRANSFER_SCHEDULES_POLICY_PREFIX, rule_label)
 
 
 TRANSFER_SCHEDULES_POLICY_DEFAULT_RULES = [
@@ -21,34 +20,19 @@ TRANSFER_SCHEDULES_POLICY_DEFAULT_RULES = [
         get_transfer_schedules_policy_label('create'),
         TRANSFER_SCHEDULES_POLICY_DEFAULT_RULE,
         "Create a new execution schedule for a given Transfer",
-        [
-            {
-                "path": "/transfers/{transfer_id}/schedules",
-                "method": "POST"
-            }
-        ]
+        [{"path": "/transfers/{transfer_id}/schedules", "method": "POST"}],
     ),
     policy.DocumentedRuleDefault(
         get_transfer_schedules_policy_label('list'),
         TRANSFER_SCHEDULES_POLICY_DEFAULT_RULE,
         "List execution schedules for a given Transfer",
-        [
-            {
-                "path": "/transfers/{transfer_id}/schedules",
-                "method": "GET"
-            }
-        ]
+        [{"path": "/transfers/{transfer_id}/schedules", "method": "GET"}],
     ),
     policy.DocumentedRuleDefault(
         get_transfer_schedules_policy_label('show'),
         TRANSFER_SCHEDULES_POLICY_DEFAULT_RULE,
         "Show details for an execution schedule for a given Transfer",
-        [
-            {
-                "path": "/transfers/{transfer_id}/schedules/{schedule_id}",
-                "method": "GET"
-            }
-        ]
+        [{"path": "/transfers/{transfer_id}/schedules/{schedule_id}", "method": "GET"}],
     ),
     policy.DocumentedRuleDefault(
         get_transfer_schedules_policy_label('update'),
@@ -56,11 +40,10 @@ TRANSFER_SCHEDULES_POLICY_DEFAULT_RULES = [
         "Update an existing execution schedule for a given Transfer",
         [
             {
-                "path": (
-                    "/transfers/{transfer_id}/schedules/{schedule_id}"),
-                "method": "PUT"
+                "path": ("/transfers/{transfer_id}/schedules/{schedule_id}"),
+                "method": "PUT",
             }
-        ]
+        ],
     ),
     policy.DocumentedRuleDefault(
         get_transfer_schedules_policy_label('delete'),
@@ -69,10 +52,10 @@ TRANSFER_SCHEDULES_POLICY_DEFAULT_RULES = [
         [
             {
                 "path": "/transfers/{transfer_id}/schedules/{schedule_id}",
-                "method": "DELETE"
+                "method": "DELETE",
             }
-        ]
-    )
+        ],
+    ),
 ]
 
 

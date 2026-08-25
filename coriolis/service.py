@@ -7,31 +7,37 @@ import platform
 import sys
 import threading
 
+import oslo_messaging as messaging
 from cheroot import wsgi
 from oslo_concurrency import processutils
 from oslo_config import cfg
 from oslo_log import log as logging
-import oslo_messaging as messaging
 from oslo_service import service
 from oslo_service import wsgi as oslo_wsgi
 
-from coriolis import rpc
-from coriolis import utils
-
+from coriolis import rpc, utils
 
 service_opts = [
-    cfg.StrOpt('api_migration_listen',
-               default="0.0.0.0",
-               help='IP address on which the Migration API listens'),
-    cfg.PortOpt('api_migration_listen_port',
-                default=7667,
-                help='Port on which the Migration API listens'),
-    cfg.IntOpt('api_migration_workers',
-               help='Number of workers for the Migration API service. '
-                    'The default is equal to the number of CPUs available.'),
-    cfg.IntOpt('messaging_workers',
-               help='Number of workers for the messaging service. '
-                    'The default is equal to the number of CPUs available.'),
+    cfg.StrOpt(
+        'api_migration_listen',
+        default="0.0.0.0",
+        help='IP address on which the Migration API listens',
+    ),
+    cfg.PortOpt(
+        'api_migration_listen_port',
+        default=7667,
+        help='Port on which the Migration API listens',
+    ),
+    cfg.IntOpt(
+        'api_migration_workers',
+        help='Number of workers for the Migration API service. '
+        'The default is equal to the number of CPUs available.',
+    ),
+    cfg.IntOpt(
+        'messaging_workers',
+        help='Number of workers for the messaging service. '
+        'The default is equal to the number of CPUs available.',
+    ),
 ]
 
 CONF = cfg.CONF
@@ -40,7 +46,7 @@ LOG = logging.getLogger(__name__)
 
 
 def get_worker_count_from_args(argv):
-    """ Parses the args for '--worker-process-count' and returns a tuple
+    """Parses the args for '--worker-process-count' and returns a tuple
     containing the count (defaults to logical CPU count if
     --worker-process-count is not present), as well as the unprocessed args.
     """
@@ -51,19 +57,23 @@ def get_worker_count_from_args(argv):
         if count <= 0:
             raise argparse.ArgumentTypeError(
                 "Worker process count must be a strictly positive integer, "
-                "got: %s" % worker_count)
+                "got: %s" % worker_count
+            )
         return count
+
     parser.add_argument(
-        '--worker-process-count', metavar='N',
+        '--worker-process-count',
+        metavar='N',
         type=_check_positive_worker_count,
         help="Number of worker processes for this service. Defaults to the "
-        "number of logical CPU cores on the system.")
+        "number of logical CPU cores on the system.",
+    )
     args, unknown_args = parser.parse_known_args(args=argv)
     return args.worker_process_count, unknown_args
 
 
 def check_locks_dir_empty():
-    """ Checks whether the locks dir is empty and warns otherwise.
+    """Checks whether the locks dir is empty and warns otherwise.
 
     NOTE: external oslo_concurrency locks work based on listing open file
     descriptors so this check is not necessarily conclusive, though all freshly
@@ -80,27 +90,26 @@ def check_locks_dir_empty():
         return
 
     if not os.path.exists(locks_dir):
-        LOG.warn(
-            "Configured 'lock_path' directory '%s' does NOT exist!",
-            locks_dir)
+        LOG.warn("Configured 'lock_path' directory '%s' does NOT exist!", locks_dir)
         return
 
     if not os.path.isdir(locks_dir):
-        LOG.warn(
-            "Configured 'lock_path' directory '%s' is NOT a directory!",
-            locks_dir)
+        LOG.warn("Configured 'lock_path' directory '%s' is NOT a directory!", locks_dir)
         return
 
     locks_dir_contents = os.listdir(locks_dir)
     if locks_dir_contents:
         LOG.warn(
             "Configured 'lock_path' directory '%s' is NOT empty: %s",
-            locks_dir, locks_dir_contents)
+            locks_dir,
+            locks_dir_contents,
+        )
         return
 
     LOG.info(
         "Successfully checked 'lock_path' directory '%s' exists and is empty.",
-        locks_dir)
+        locks_dir,
+    )
 
 
 def get_application():
@@ -126,16 +135,16 @@ class WSGIService(service.ServiceBase):
             self._workers = int(worker_count)
         else:
             self._workers = (
-                CONF.api_migration_workers or processutils.get_worker_count())
+                CONF.api_migration_workers or processutils.get_worker_count()
+            )
 
         self._loader = oslo_wsgi.Loader(CONF)
         self._app = self._loader.load_app(name)
 
         bind_addr = (self._host, self._port)
         self._server = wsgi.Server(
-            bind_addr=bind_addr,
-            wsgi_app=self._app,
-            server_name=name)
+            bind_addr=bind_addr, wsgi_app=self._app, server_name=name
+        )
 
     def get_workers_count(self):
         return self._workers
@@ -143,10 +152,7 @@ class WSGIService(service.ServiceBase):
     def start(self):
         self._server.prepare()
 
-        self._thread = threading.Thread(
-            target=self._server.serve,
-            daemon=True
-        )
+        self._thread = threading.Thread(target=self._server.serve, daemon=True)
         self._thread.start()
 
     def stop(self):
@@ -164,13 +170,12 @@ class WSGIService(service.ServiceBase):
 
 
 class MessagingService(service.ServiceBase):
-    def __init__(self, topic, endpoints, version,
-                 worker_count=None, init_rpc=True):
+    def __init__(self, topic, endpoints, version, worker_count=None, init_rpc=True):
         if init_rpc:
             rpc.init()
-        target = messaging.Target(topic=topic,
-                                  server=utils.get_hostname(),
-                                  version=version)
+        target = messaging.Target(
+            topic=topic, server=utils.get_hostname(), version=version
+        )
         self._server = rpc.get_server(target, endpoints)
 
         # NOTE: oslo_service fork()'s, which won't work on Windows...

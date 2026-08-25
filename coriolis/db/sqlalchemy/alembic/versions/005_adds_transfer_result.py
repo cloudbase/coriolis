@@ -8,8 +8,8 @@ Revises: 004
 Create Date: 2018-09-18 18:33:14.000000
 """
 
-from alembic import op
 import sqlalchemy
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "005"
@@ -21,7 +21,8 @@ depends_on = None
 def upgrade():
     # add 'transfer_result' column to 'base_transfer_action':
     transfer_result = sqlalchemy.Column(
-        "transfer_result", sqlalchemy.Text, nullable=True)
+        "transfer_result", sqlalchemy.Text, nullable=True
+    )
     op.add_column("base_transfer_action", transfer_result)
 
 

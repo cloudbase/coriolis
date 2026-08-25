@@ -14,10 +14,10 @@ from coriolis.tests.integration import base
 
 
 class ServiceTests(base.CoriolisIntegrationTestBase):
-
     def _create_service(self, host, binary, topic):
         svc = self._client.services.create(
-            host=host, binary=binary, topic=topic, regions=[])
+            host=host, binary=binary, topic=topic, regions=[]
+        )
 
         self.addCleanup(self._ignoreExc(self._client.services.delete), svc.id)
 
@@ -28,13 +28,11 @@ class ServiceTests(base.CoriolisIntegrationTestBase):
         # the conductor; at least one service record should exist.
         services = self._client.services.list()
 
-        self.assertTrue(
-            len(services) > 0, "Expected at least one registered service")
+        self.assertTrue(len(services) > 0, "Expected at least one registered service")
 
         # Create.
         hostname = socket.gethostname()
-        svc = self._create_service(
-            hostname, "foo-binary", "coriolis_worker")
+        svc = self._create_service(hostname, "foo-binary", "coriolis_worker")
 
         # Get.
         fetched = self._client.services.get(svc.id)
@@ -57,34 +55,37 @@ class ServiceTests(base.CoriolisIntegrationTestBase):
         services = self._client.services.list()
         ids = [s.id for s in services]
         self.assertNotIn(svc.id, ids)
-        self.assertRaises(
-            http_exc.NotFound, self._client.services.get, svc.id)
+        self.assertRaises(http_exc.NotFound, self._client.services.get, svc.id)
 
     def test_service_registration_conflict(self):
         # ConductorServerEndpoint.register_service raises Conflict when a
         # service with the same host / binary / topic is already registered.
         hostname = socket.gethostname()
-        svc = self._create_service(
-            hostname, "conflict-binary", "coriolis_worker")
+        svc = self._create_service(hostname, "conflict-binary", "coriolis_worker")
 
         self.assertRaises(
             http_exc.Conflict,
             self._client.services.create,
-            host=hostname, binary="conflict-binary",
-            topic="coriolis_worker", regions=[])
+            host=hostname,
+            binary="conflict-binary",
+            topic="coriolis_worker",
+            regions=[],
+        )
 
         self._client.services.delete(svc.id)
 
     def test_service_registration_with_region(self):
         # Creates a service with a mapped region.
         region = self._client.regions.create("service-test-region")
-        self.addCleanup(
-            self._ignoreExc(self._client.regions.delete), region.id)
+        self.addCleanup(self._ignoreExc(self._client.regions.delete), region.id)
 
         hostname = socket.gethostname()
         svc = self._client.services.create(
-            host=hostname, binary="region-binary", topic="coriolis_worker",
-            regions=[region.id])
+            host=hostname,
+            binary="region-binary",
+            topic="coriolis_worker",
+            regions=[region.id],
+        )
         self.addCleanup(self._ignoreExc(self._client.services.delete), svc.id)
 
         fetched = self._client.services.get(svc.id)

@@ -10,8 +10,8 @@ Create Date: 2020-07-28 18:21:57.000000
 
 import uuid
 
-from alembic import op
 import sqlalchemy
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "014"
@@ -34,20 +34,25 @@ def upgrade():
         sqlalchemy.Table(
             'region',
             meta,
-            sqlalchemy.Column('id', sqlalchemy.String(36), primary_key=True,
-                              default=lambda: str(uuid.uuid4())),
-            sqlalchemy.Column('name', sqlalchemy.String(255), nullable=False),
             sqlalchemy.Column(
-                'description', sqlalchemy.String(1024), nullable=True),
+                'id',
+                sqlalchemy.String(36),
+                primary_key=True,
+                default=lambda: str(uuid.uuid4()),
+            ),
+            sqlalchemy.Column('name', sqlalchemy.String(255), nullable=False),
+            sqlalchemy.Column('description', sqlalchemy.String(1024), nullable=True),
             sqlalchemy.Column('created_at', sqlalchemy.DateTime),
             sqlalchemy.Column('updated_at', sqlalchemy.DateTime),
             sqlalchemy.Column('deleted_at', sqlalchemy.DateTime),
             sqlalchemy.Column('deleted', sqlalchemy.String(36)),
             sqlalchemy.Column(
-                'enabled', sqlalchemy.Boolean, nullable=True,
-                default=lambda: False),
+                'enabled', sqlalchemy.Boolean, nullable=True, default=lambda: False
+            ),
             mysql_engine='InnoDB',
-            mysql_charset='utf8'))
+            mysql_charset='utf8',
+        )
+    )
 
     # declare endpoint-region-mapping table:
     tables.append(
@@ -58,23 +63,28 @@ def upgrade():
                 'id',
                 sqlalchemy.String(36),
                 primary_key=True,
-                default=lambda: str(uuid.uuid4())),
+                default=lambda: str(uuid.uuid4()),
+            ),
             sqlalchemy.Column(
                 'endpoint_id',
                 sqlalchemy.String(36),
                 sqlalchemy.ForeignKey('endpoint.id'),
-                nullable=False),
+                nullable=False,
+            ),
             sqlalchemy.Column(
                 'region_id',
                 sqlalchemy.String(36),
                 sqlalchemy.ForeignKey('region.id'),
-                nullable=False),
+                nullable=False,
+            ),
             sqlalchemy.Column('created_at', sqlalchemy.DateTime),
             sqlalchemy.Column('updated_at', sqlalchemy.DateTime),
             sqlalchemy.Column('deleted_at', sqlalchemy.DateTime),
             sqlalchemy.Column('deleted', sqlalchemy.String(36)),
             mysql_engine='InnoDB',
-            mysql_charset='utf8'))
+            mysql_charset='utf8',
+        )
+    )
 
     # declare service table:
     tables.append(
@@ -85,29 +95,30 @@ def upgrade():
                 'id',
                 sqlalchemy.String(36),
                 primary_key=True,
-                default=lambda: str(uuid.uuid4())),
+                default=lambda: str(uuid.uuid4()),
+            ),
             sqlalchemy.Column(
-                'enabled', sqlalchemy.Boolean, nullable=True,
-                default=lambda: False),
+                'enabled', sqlalchemy.Boolean, nullable=True, default=lambda: False
+            ),
+            sqlalchemy.Column('host', sqlalchemy.String(255), nullable=False),
+            sqlalchemy.Column('binary', sqlalchemy.String(255), nullable=False),
+            sqlalchemy.Column('topic', sqlalchemy.String(255), nullable=False),
             sqlalchemy.Column(
-                'host', sqlalchemy.String(255), nullable=False),
-            sqlalchemy.Column(
-                'binary', sqlalchemy.String(255), nullable=False),
-            sqlalchemy.Column(
-                'topic', sqlalchemy.String(255), nullable=False),
-            sqlalchemy.Column(
-                'status', sqlalchemy.String(255), nullable=False,
-                default=lambda: "UNKNOWN"),
-            sqlalchemy.Column(
-                'providers', sqlalchemy.Text(), nullable=False),
-            sqlalchemy.Column(
-                'specs', sqlalchemy.Text(), nullable=False),
+                'status',
+                sqlalchemy.String(255),
+                nullable=False,
+                default=lambda: "UNKNOWN",
+            ),
+            sqlalchemy.Column('providers', sqlalchemy.Text(), nullable=False),
+            sqlalchemy.Column('specs', sqlalchemy.Text(), nullable=False),
             sqlalchemy.Column('created_at', sqlalchemy.DateTime),
             sqlalchemy.Column('updated_at', sqlalchemy.DateTime),
             sqlalchemy.Column('deleted_at', sqlalchemy.DateTime),
             sqlalchemy.Column('deleted', sqlalchemy.String(36)),
             mysql_engine='InnoDB',
-            mysql_charset='utf8'))
+            mysql_charset='utf8',
+        )
+    )
 
     # declare service-region mappings table:
     tables.append(
@@ -118,23 +129,28 @@ def upgrade():
                 'id',
                 sqlalchemy.String(36),
                 primary_key=True,
-                default=lambda: str(uuid.uuid4())),
+                default=lambda: str(uuid.uuid4()),
+            ),
             sqlalchemy.Column(
                 'service_id',
                 sqlalchemy.String(36),
                 sqlalchemy.ForeignKey('service.id'),
-                nullable=False),
+                nullable=False,
+            ),
             sqlalchemy.Column(
                 'region_id',
                 sqlalchemy.String(36),
                 sqlalchemy.ForeignKey('region.id'),
-                nullable=False),
+                nullable=False,
+            ),
             sqlalchemy.Column('created_at', sqlalchemy.DateTime),
             sqlalchemy.Column('updated_at', sqlalchemy.DateTime),
             sqlalchemy.Column('deleted_at', sqlalchemy.DateTime),
             sqlalchemy.Column('deleted', sqlalchemy.String(36)),
             mysql_engine='InnoDB',
-            mysql_charset='utf8'))
+            mysql_charset='utf8',
+        )
+    )
 
     for table in tables:
         table.create(bind=op.get_bind())

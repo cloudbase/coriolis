@@ -4,9 +4,8 @@
 
 from oslo_log import log as logging
 
-from coriolis.api.v1.views import utils as view_utils
 from coriolis import constants
-
+from coriolis.api.v1.views import utils as view_utils
 
 LOG = logging.getLogger(__name__)
 
@@ -18,11 +17,9 @@ def _sort_tasks(tasks, filter_error_only_tasks=True):
     """
     if filter_error_only_tasks:
         tasks = [
-            t for t in tasks
-            if t['status'] != (
-                constants.TASK_STATUS_ON_ERROR_ONLY)]
-    return sorted(
-        tasks, key=lambda t: t.get('index', 0))
+            t for t in tasks if t['status'] != (constants.TASK_STATUS_ON_ERROR_ONLY)
+        ]
+    return sorted(tasks, key=lambda t: t.get('index', 0))
 
 
 def format_transfer_tasks_execution(execution, keys=None):
@@ -39,6 +36,7 @@ def single(execution, keys=None):
 
 
 def collection(executions, keys=None):
-    formatted_executions = [format_transfer_tasks_execution(m, keys)
-                            for m in executions]
+    formatted_executions = [
+        format_transfer_tasks_execution(m, keys) for m in executions
+    ]
     return {'executions': formatted_executions}

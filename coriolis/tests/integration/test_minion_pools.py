@@ -22,7 +22,6 @@ CONF = cfg.CONF
 
 
 class MinionPoolLifecycleTest(base.MinionPoolTestBase):
-
     def setUp(self):
         super().setUp()
 
@@ -47,16 +46,15 @@ class MinionPoolLifecycleTest(base.MinionPoolTestBase):
 
         self.fail(
             "Minion pool machine '%s' did not reach status '%s' within %ds "
-            "(last status: %s)"
-            % (pool_id, status, timeout, machine.allocation_status))
+            "(last status: %s)" % (pool_id, status, timeout, machine.allocation_status)
+        )
 
     def test_minion_pool_crud(self):
         # Create
         pool = self._create_pool(self._endpoint.id)
 
         self.assertEqual("test-pool", pool.name)
-        self.assertEqual(
-            constants.MINION_POOL_STATUS_DEALLOCATED, pool.status)
+        self.assertEqual(constants.MINION_POOL_STATUS_DEALLOCATED, pool.status)
 
         # List
         pools = self._client.minion_pools.list()
@@ -88,8 +86,7 @@ class MinionPoolLifecycleTest(base.MinionPoolTestBase):
 
     def test_allocate_deallocate(self):
         pool = self._create_pool(self._endpoint.id)
-        self.assertEqual(
-            constants.MINION_POOL_STATUS_DEALLOCATED, pool.status)
+        self.assertEqual(constants.MINION_POOL_STATUS_DEALLOCATED, pool.status)
 
         # Allocate
         self._client.minion_pools.allocate_minion_pool(pool.id)
@@ -105,7 +102,8 @@ class MinionPoolLifecycleTest(base.MinionPoolTestBase):
         # AVAILABLE.
         self._client.minion_pools.refresh_minion_pool(pool.id)
         self._wait_for_machine_status(
-            pool.id, constants.MINION_MACHINE_STATUS_AVAILABLE)
+            pool.id, constants.MINION_MACHINE_STATUS_AVAILABLE
+        )
 
         # Deallocate
         self._client.minion_pools.deallocate_minion_pool(pool.id)
@@ -125,12 +123,13 @@ class MinionPoolLifecycleTest(base.MinionPoolTestBase):
         verifies that the refresh actually fires.
         """
         CONF.set_override(
-            "minion_pool_default_refresh_period_minutes", 1,
-            group="minion_manager")
+            "minion_pool_default_refresh_period_minutes", 1, group="minion_manager"
+        )
         self.addCleanup(
             CONF.clear_override,
             "minion_pool_default_refresh_period_minutes",
-            group="minion_manager")
+            group="minion_manager",
+        )
 
         # Refresh jobs are registered at pool-creation time based on the
         # CONF value above, so the pool must be created after the override.
@@ -140,7 +139,8 @@ class MinionPoolLifecycleTest(base.MinionPoolTestBase):
         self._wait_for_pool(pool.id, base.MINION_ALLOCATED_TERMINAL)
 
         machine = self._wait_for_machine_status(
-            pool.id, constants.MINION_MACHINE_STATUS_AVAILABLE)
+            pool.id, constants.MINION_MACHINE_STATUS_AVAILABLE
+        )
         baseline_updated_at = machine.updated_at
 
         ctxt = self._get_db_context()
@@ -150,8 +150,10 @@ class MinionPoolLifecycleTest(base.MinionPoolTestBase):
             pool = db_api.get_minion_pool(ctxt, pool.id, include_machines=True)
             m = pool.minion_machines[0]
             status = m.allocation_status
-            if (status == constants.MINION_MACHINE_STATUS_AVAILABLE and
-                    m.updated_at != baseline_updated_at):
+            if (
+                status == constants.MINION_MACHINE_STATUS_AVAILABLE
+                and m.updated_at != baseline_updated_at
+            ):
                 refreshed = True
                 break
             time.sleep(2)

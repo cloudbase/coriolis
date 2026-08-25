@@ -8,8 +8,8 @@ Revises: 018
 Create Date: 2024-04-09 14:42:14.000000
 """
 
-from alembic import op
 import sqlalchemy
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "019"
@@ -20,8 +20,8 @@ depends_on = None
 
 def upgrade():
     replica_scenario = sqlalchemy.Column(
-        "scenario", sqlalchemy.String(255), nullable=False,
-        server_default="replica")
+        "scenario", sqlalchemy.String(255), nullable=False, server_default="replica"
+    )
     op.add_column("replica", replica_scenario)
 
 

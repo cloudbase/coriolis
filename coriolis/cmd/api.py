@@ -8,13 +8,16 @@ from oslo_config import cfg
 from oslo_reports import guru_meditation_report as gmr
 from oslo_reports import opts as gmr_opts
 
-from coriolis import service
-from coriolis import utils
+from coriolis import service, utils
 
 api_opts = [
     cfg.IntOpt(
-        'worker_count', min=1, default=processutils.get_worker_count(),
-        help='Number of processes in which the service will be running')]
+        'worker_count',
+        min=1,
+        default=processutils.get_worker_count(),
+        help='Number of processes in which the service will be running',
+    )
+]
 
 CONF = cfg.CONF
 CONF.register_opts(api_opts, 'api')
@@ -30,10 +33,8 @@ def main():
     gmr_opts.set_defaults(CONF)
     gmr.TextGuruMeditation.setup_autorun(version="1.0.0", conf=CONF)
 
-    server = service.WSGIService(
-        'coriolis-api', worker_count=worker_count)
-    launcher = service.service.launch(
-        CONF, server, workers=server.get_workers_count())
+    server = service.WSGIService('coriolis-api', worker_count=worker_count)
+    launcher = service.service.launch(CONF, server, workers=server.get_workers_count())
     launcher.wait()
 
 

@@ -13,23 +13,25 @@ import os
 import unittest
 import uuid
 
-from oslo_log import log as logging
 import paramiko
+from oslo_log import log as logging
 
 from coriolis import constants
-from coriolis.providers import backup_writers
-from coriolis.providers.base import BaseDestinationMinionPoolProvider
-from coriolis.providers.base import BaseEndpointDestinationOptionsProvider
-from coriolis.providers.base import BaseEndpointNetworksProvider
-from coriolis.providers.base import BaseEndpointProvider
-from coriolis.providers.base import BaseEndpointStorageProvider
-from coriolis.providers.base import BaseReplicaImportProvider
-from coriolis.providers.base import BaseReplicaImportValidationProvider
-from coriolis.providers.base import BaseUpdateDestinationReplicaProvider
-from coriolis.tests.integration import provider_test_base
-from coriolis.tests.integration.test_provider import osmorphing
-from coriolis.tests.integration import utils as test_utils
 from coriolis import utils as coriolis_utils
+from coriolis.providers import backup_writers
+from coriolis.providers.base import (
+    BaseDestinationMinionPoolProvider,
+    BaseEndpointDestinationOptionsProvider,
+    BaseEndpointNetworksProvider,
+    BaseEndpointProvider,
+    BaseEndpointStorageProvider,
+    BaseReplicaImportProvider,
+    BaseReplicaImportValidationProvider,
+    BaseUpdateDestinationReplicaProvider,
+)
+from coriolis.tests.integration import provider_test_base
+from coriolis.tests.integration import utils as test_utils
+from coriolis.tests.integration.test_provider import osmorphing
 
 LOG = logging.getLogger(__name__)
 
@@ -45,15 +47,16 @@ _CONTAINER_PREFIXES = (
 
 
 class TestImportProvider(
-        BaseEndpointProvider,
-        BaseEndpointDestinationOptionsProvider,
-        BaseEndpointNetworksProvider,
-        BaseEndpointStorageProvider,
-        BaseUpdateDestinationReplicaProvider,
-        BaseReplicaImportProvider,
-        BaseReplicaImportValidationProvider,
-        BaseDestinationMinionPoolProvider,
-        provider_test_base.BaseTestImportProvider):
+    BaseEndpointProvider,
+    BaseEndpointDestinationOptionsProvider,
+    BaseEndpointNetworksProvider,
+    BaseEndpointStorageProvider,
+    BaseUpdateDestinationReplicaProvider,
+    BaseReplicaImportProvider,
+    BaseReplicaImportValidationProvider,
+    BaseDestinationMinionPoolProvider,
+    provider_test_base.BaseTestImportProvider,
+):
     """Destination-side provider backed by a local `scsi_debug` block device.
 
     ``connection_info`` (the destination endpoint's connection info) has the
@@ -83,9 +86,7 @@ class TestImportProvider(
     # BaseTestImportProvider - test only
 
     def initialize(self, connection_info: dict):
-        self._initial_containers = test_utils.list_containers(
-            _CONTAINER_PREFIXES
-        )
+        self._initial_containers = test_utils.list_containers(_CONTAINER_PREFIXES)
 
     def teardown(self, connection_info: dict):
         new_containers = test_utils.list_containers(_CONTAINER_PREFIXES)
@@ -141,7 +142,8 @@ class TestImportProvider(
     # BaseEndpointDestinationOptionsProvider
 
     def get_target_environment_options(
-            self, ctxt, connection_info, env=None, option_names=None):
+        self, ctxt, connection_info, env=None, option_names=None
+    ):
         return [
             {
                 "name": "dest_opt",
@@ -165,15 +167,21 @@ class TestImportProvider(
     # BaseUpdateDestinationReplicaProvider
 
     def check_update_destination_environment_params(
-            self, ctxt, connection_info, export_info, volumes_info,
-            old_params, new_params):
+        self, ctxt, connection_info, export_info, volumes_info, old_params, new_params
+    ):
         return volumes_info
 
     # BaseReplicaImportProvider
 
     def deploy_replica_disks(
-            self, ctxt, connection_info, target_environment, instance_name,
-            export_info, volumes_info):
+        self,
+        ctxt,
+        connection_info,
+        target_environment,
+        instance_name,
+        export_info,
+        volumes_info,
+    ):
         """Allocate disks and return volumes_info."""
         src_disks = export_info.get("devices", {}).get("disks", [])
 
@@ -186,35 +194,39 @@ class TestImportProvider(
                 # the destination volume and REPLICATE_DISKS copies the
                 # data into it. This instance only records a placeholder
                 # so the disk is still accounted for in its own volume_info.
-                result.append({
-                    "disk_id": disk["id"],
-                    "volume_dev": "",
-                    constants.VOLUME_INFO_REPLICATE_DISK_DATA: False,
-                })
+                result.append(
+                    {
+                        "disk_id": disk["id"],
+                        "volume_dev": "",
+                        constants.VOLUME_INFO_REPLICATE_DISK_DATA: False,
+                    }
+                )
                 continue
 
-            result.append({
-                "disk_id": disk["id"],
-                "volume_dev": test_utils.add_scsi_debug_device(),
-            })
+            result.append(
+                {
+                    "disk_id": disk["id"],
+                    "volume_dev": test_utils.add_scsi_debug_device(),
+                }
+            )
 
         return result
 
     def deploy_replica_target_resources(
-            self, ctxt, connection_info, target_environment, volumes_info):
+        self, ctxt, connection_info, target_environment, volumes_info
+    ):
         # Non-owners of shared disks do not write any data. Those disks do not
         # have any "volume_dev" info, so there is nothing to attach.
-        devices = [
-            vol["volume_dev"] for vol in volumes_info if vol.get("volume_dev")
-        ]
+        devices = [vol["volume_dev"] for vol in volumes_info if vol.get("volume_dev")]
         data_transfer_mechanism = target_environment.get(
-            "data_transfer_mechanism",
-            backup_writers.DATA_TRANSFER_MECHANISM_HTTPS)
+            "data_transfer_mechanism", backup_writers.DATA_TRANSFER_MECHANISM_HTTPS
+        )
         writer_backend = backup_writers.DATA_TRANSFER_MECHANISM_MAP[
-            data_transfer_mechanism]
+            data_transfer_mechanism
+        ]
         result = self._create_minion(
-            "coriolis-writer", connection_info, devices,
-            writer_backend=writer_backend)
+            "coriolis-writer", connection_info, devices, writer_backend=writer_backend
+        )
 
         return {
             "volumes_info": volumes_info,
@@ -223,9 +235,15 @@ class TestImportProvider(
         }
 
     def _create_minion(
-            self, name_prefix, connection_info, devices=None, volumes=None,
-            device_cgroup_rules=None, setup_writer=True,
-            writer_backend=backup_writers.BACKUP_WRITER_HTTP):
+        self,
+        name_prefix,
+        connection_info,
+        devices=None,
+        volumes=None,
+        device_cgroup_rules=None,
+        setup_writer=True,
+        writer_backend=backup_writers.BACKUP_WRITER_HTTP,
+    ):
         pkey_path = connection_info["pkey_path"]
         container_name = "%s-%s" % (name_prefix, uuid.uuid4().hex[:8])
 
@@ -262,9 +280,9 @@ class TestImportProvider(
                         "connection_details": ssh_conn_info,
                     }
                 else:
-                    bootstrapper = (
-                        backup_writers.HTTPBackupWriterBootstrapper(
-                            ssh_conn_info, WRITER_TEST_PORT))
+                    bootstrapper = backup_writers.HTTPBackupWriterBootstrapper(
+                        ssh_conn_info, WRITER_TEST_PORT
+                    )
                     writer_conn_details = bootstrapper.setup_writer()
                     info["backup_writer_connection_info"] = {
                         "backend": backup_writers.BACKUP_WRITER_HTTP,
@@ -277,14 +295,15 @@ class TestImportProvider(
             raise
 
     def delete_replica_target_resources(
-            self, ctxt, connection_info, target_environment,
-            migr_resources_dict):
+        self, ctxt, connection_info, target_environment, migr_resources_dict
+    ):
         container_id = (migr_resources_dict or {}).get("container_id")
         if container_id:
             test_utils.remove_container(container_id)
 
     def delete_replica_disks(
-            self, ctxt, connection_info, target_environment, volumes_info):
+        self, ctxt, connection_info, target_environment, volumes_info
+    ):
         for vol in volumes_info:
             device = vol.get('volume_dev')
             if device and os.path.exists(device):
@@ -292,24 +311,32 @@ class TestImportProvider(
         return volumes_info
 
     def create_replica_disk_snapshots(
-            self, ctxt, connection_info, target_environment, volumes_info):
+        self, ctxt, connection_info, target_environment, volumes_info
+    ):
         # scsi_debug has no snapshot support.
         return volumes_info
 
     def delete_replica_target_disk_snapshots(
-            self, ctxt, connection_info, target_environment, volumes_info):
+        self, ctxt, connection_info, target_environment, volumes_info
+    ):
         return volumes_info
 
     def restore_replica_disk_snapshots(
-            self, ctxt, connection_info, target_environment, volumes_info):
+        self, ctxt, connection_info, target_environment, volumes_info
+    ):
         return volumes_info
 
     def deploy_replica_instance(
-            self, ctxt, connection_info, target_environment, instance_name,
-            export_info, volumes_info, clone_disks):
-        devices = [
-            vol["volume_dev"] for vol in volumes_info if vol.get("volume_dev")
-        ]
+        self,
+        ctxt,
+        connection_info,
+        target_environment,
+        instance_name,
+        export_info,
+        volumes_info,
+        clone_disks,
+    ):
+        devices = [vol["volume_dev"] for vol in volumes_info if vol.get("volume_dev")]
         info = {"devices": devices}
 
         passphrase = target_environment.get(constants.ENCRYPTED_DISKS_PASS)
@@ -319,8 +346,8 @@ class TestImportProvider(
         return {"instance_deployment_info": info}
 
     def finalize_replica_instance_deployment(
-            self, ctxt, connection_info, target_environment,
-            instance_deployment_info):
+        self, ctxt, connection_info, target_environment, instance_deployment_info
+    ):
         return {
             "id": "test-instance",
             "name": "test-instance",
@@ -339,8 +366,8 @@ class TestImportProvider(
         }
 
     def cleanup_failed_replica_instance_deployment(
-            self, ctxt, connection_info, target_environment,
-            instance_deployment_info):
+        self, ctxt, connection_info, target_environment, instance_deployment_info
+    ):
         pass
 
     # BaseInstanceProvider
@@ -353,21 +380,18 @@ class TestImportProvider(
     # BaseImportInstanceProvider
 
     def deploy_os_morphing_resources(
-            self, ctxt, connection_info, target_environment,
-            instance_deployment_info):
+        self, ctxt, connection_info, target_environment, instance_deployment_info
+    ):
         devices = list(instance_deployment_info.get("devices", []))
 
         # lsblk inside the container sees all the host block devices because
         # Docker containers share the host kernel's sysfs (/sys/block/).
         # Populate ignore_devices with every host disk except the target
         # so osmorphing only considers the devices we actually attached.
-        ignore_devices = list(
-            test_utils.get_host_disk_devices() - set(devices)
-        )
+        ignore_devices = list(test_utils.get_host_disk_devices() - set(devices))
 
         device_cgroup_rules = None
-        passphrase = instance_deployment_info.get(
-            constants.ENCRYPTED_DISKS_PASS)
+        passphrase = instance_deployment_info.get(constants.ENCRYPTED_DISKS_PASS)
         if passphrase:
             # luksOpen inside the container needs /dev/mapper/control.
             # Docker only gives containers the device nodes passed at run time,
@@ -385,8 +409,11 @@ class TestImportProvider(
         # resolve built-in modules.
         volumes = ["/lib/modules:/lib/modules:ro"]
         result = self._create_minion(
-            "coriolis-osmorphing", connection_info, devices,
-            volumes, setup_writer=False,
+            "coriolis-osmorphing",
+            connection_info,
+            devices,
+            volumes,
+            setup_writer=False,
             device_cgroup_rules=device_cgroup_rules,
         )
 
@@ -401,8 +428,8 @@ class TestImportProvider(
         }
 
     def delete_os_morphing_resources(
-            self, ctxt, connection_info, target_environment,
-            os_morphing_resources):
+        self, ctxt, connection_info, target_environment, os_morphing_resources
+    ):
         if os_morphing_resources:
             container_id = os_morphing_resources.get("container_id")
             if container_id:
@@ -411,12 +438,19 @@ class TestImportProvider(
     # BaseReplicaImportValidationProvider
 
     def validate_replica_import_input(
-            self, ctxt, connection_info, target_environment, export_info,
-            check_os_morphing_resources=False, check_final_vm_params=False):
+        self,
+        ctxt,
+        connection_info,
+        target_environment,
+        export_info,
+        check_os_morphing_resources=False,
+        check_final_vm_params=False,
+    ):
         return {}
 
     def validate_replica_deployment_input(
-            self, ctxt, connection_info, target_environment, export_info):
+        self, ctxt, connection_info, target_environment, export_info
+    ):
         return {}
 
     # BaseDestinationMinionPoolProvider
@@ -425,31 +459,42 @@ class TestImportProvider(
         return self.get_target_environment_schema()
 
     def get_minion_pool_options(
-            self, ctxt, connection_info, env=None, option_names=None):
+        self, ctxt, connection_info, env=None, option_names=None
+    ):
         return self.get_target_environment_options(
-            ctxt, connection_info, env, option_names)
+            ctxt, connection_info, env, option_names
+        )
 
     def validate_minion_compatibility_for_transfer(
-            self, ctxt, connection_info, export_info, environment_options,
-            minion_properties):
+        self, ctxt, connection_info, export_info, environment_options, minion_properties
+    ):
         pass
 
     def validate_minion_pool_environment_options(
-            self, ctxt, connection_info, environment_options):
+        self, ctxt, connection_info, environment_options
+    ):
         pass
 
     def set_up_pool_shared_resources(
-            self, ctxt, connection_info, environment_options, pool_identifier):
+        self, ctxt, connection_info, environment_options, pool_identifier
+    ):
         return {}
 
     def tear_down_pool_shared_resources(
-            self, ctxt, connection_info, environment_options,
-            pool_shared_resources):
+        self, ctxt, connection_info, environment_options, pool_shared_resources
+    ):
         pass
 
     def create_minion(
-            self, ctxt, connection_info, environment_options, pool_identifier,
-            pool_os_type, pool_shared_resources, new_minion_identifier):
+        self,
+        ctxt,
+        connection_info,
+        environment_options,
+        pool_identifier,
+        pool_os_type,
+        pool_shared_resources,
+        new_minion_identifier,
+    ):
         # Devices are hotplugged after container creation via mknod / nsenter.
         # We must pre-authorize all block devices through the
         # --device-cgroup-rule option, otherwise any device added will be
@@ -459,8 +504,12 @@ class TestImportProvider(
         # resolve built-in modules.
         volumes = ["/lib/modules:/lib/modules:ro"]
         result = self._create_minion(
-            "coriolis-pool-minion", connection_info, [], volumes,
-            device_cgroup_rules=["b *:* rwm"])
+            "coriolis-pool-minion",
+            connection_info,
+            [],
+            volumes,
+            device_cgroup_rules=["b *:* rwm"],
+        )
 
         backup_writer_conn_info = result["backup_writer_connection_info"]
         return {
@@ -487,8 +536,13 @@ class TestImportProvider(
             test_utils.start_container(container_id)
 
     def attach_volumes_to_minion(
-            self, ctxt, connection_info, minion_properties,
-            minion_connection_info, volumes_info):
+        self,
+        ctxt,
+        connection_info,
+        minion_properties,
+        minion_connection_info,
+        volumes_info,
+    ):
         container_id = minion_properties["container_id"]
         for vol in volumes_info:
             device_path = vol["volume_dev"]
@@ -500,13 +554,18 @@ class TestImportProvider(
         }
 
     def detach_volumes_from_minion(
-            self, ctxt, connection_info, minion_properties,
-            minion_connection_info, volumes_info):
+        self,
+        ctxt,
+        connection_info,
+        minion_properties,
+        minion_connection_info,
+        volumes_info,
+    ):
         container_id = (minion_properties or {}).get("container_id")
         if not container_id:
             return
 
-        for vol in (volumes_info or []):
+        for vol in volumes_info or []:
             dev_path = vol.get("volume_dev")
             if not dev_path:
                 continue
@@ -519,8 +578,8 @@ class TestImportProvider(
         }
 
     def healthcheck_minion(
-            self, ctxt, connection_info, minion_properties,
-            minion_connection_info):
+        self, ctxt, connection_info, minion_properties, minion_connection_info
+    ):
         ip = minion_connection_info.get("ip")
         port = minion_connection_info.get("port", 22)
         username = minion_connection_info.get("username", "root")
@@ -530,22 +589,20 @@ class TestImportProvider(
         client.close()
 
     def validate_osmorphing_minion_compatibility_for_transfer(
-            self, ctxt, connection_info, export_info, environment_options,
-            minion_properties):
+        self, ctxt, connection_info, export_info, environment_options, minion_properties
+    ):
         pass
 
     def get_additional_os_morphing_info(
-            self, ctxt, connection_info, target_environment,
-            instance_deployment_info):
+        self, ctxt, connection_info, target_environment, instance_deployment_info
+    ):
         devices = list(instance_deployment_info.get("devices", []))
 
         # lsblk inside the container sees all the host block devices because
         # Docker containers share the host kernel's sysfs (/sys/block/).
         # Populate ignore_devices with every host disk except the target
         # so osmorphing only considers the devices we actually attached.
-        ignore_devices = list(
-            test_utils.get_host_disk_devices() - set(devices)
-        )
+        ignore_devices = list(test_utils.get_host_disk_devices() - set(devices))
 
         return {
             "osmorphing_info": {

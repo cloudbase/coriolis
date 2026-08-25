@@ -1,8 +1,8 @@
 # Copyright 2024 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-from unittest import mock
 import zlib
+from unittest import mock
 
 from coriolis.db.sqlalchemy import types
 from coriolis.tests import test_base
@@ -18,19 +18,13 @@ class DatabaseSqlalchemyLongTextTestCase(test_base.CoriolisBaseTestCase):
 
         result = long_text.load_dialect_impl(mock_dialect)
 
-        self.assertEqual(
-            mock_dialect.type_descriptor.return_value,
-            result
-        )
+        self.assertEqual(mock_dialect.type_descriptor.return_value, result)
 
         mock_dialect.name = 'sqlite'
 
         result = long_text.load_dialect_impl(mock_dialect)
 
-        self.assertEqual(
-            long_text.impl,
-            result
-        )
+        self.assertEqual(long_text.impl, result)
 
 
 class DatabaseSqlalchemyBlobTestCase(test_base.CoriolisBaseTestCase):
@@ -43,19 +37,13 @@ class DatabaseSqlalchemyBlobTestCase(test_base.CoriolisBaseTestCase):
 
         result = blob.load_dialect_impl(mock_dialect)
 
-        self.assertEqual(
-            mock_dialect.type_descriptor.return_value,
-            result
-        )
+        self.assertEqual(mock_dialect.type_descriptor.return_value, result)
 
         mock_dialect.name = 'sqlite'
 
         result = blob.load_dialect_impl(mock_dialect)
 
-        self.assertEqual(
-            blob.impl,
-            result
-        )
+        self.assertEqual(blob.impl, result)
 
 
 class DatabaseSqlalchemyJsonTestCase(test_base.CoriolisBaseTestCase):
@@ -68,31 +56,22 @@ class DatabaseSqlalchemyJsonTestCase(test_base.CoriolisBaseTestCase):
     def test_process_bind_param(self):
         mock_dialect = mock.Mock()
 
-        result = self.type.process_bind_param(
-            {"mock_key": "mock_value"}, mock_dialect)
+        result = self.type.process_bind_param({"mock_key": "mock_value"}, mock_dialect)
 
-        self.assertEqual(
-            '{"mock_key": "mock_value"}',
-            result
-        )
+        self.assertEqual('{"mock_key": "mock_value"}', result)
 
     def test_process_result_value(self):
         mock_dialect = mock.Mock()
 
         result = self.type.process_result_value(
-            '{"mock_key": "mock_value"}', mock_dialect)
-
-        self.assertEqual(
-            {"mock_key": "mock_value"},
-            result
+            '{"mock_key": "mock_value"}', mock_dialect
         )
+
+        self.assertEqual({"mock_key": "mock_value"}, result)
 
         result = self.type.process_result_value(None, mock_dialect)
 
-        self.assertEqual(
-            None,
-            result
-        )
+        self.assertEqual(None, result)
 
 
 class DatabaseSqlalchemyBsonTestCase(test_base.CoriolisBaseTestCase):
@@ -105,41 +84,30 @@ class DatabaseSqlalchemyBsonTestCase(test_base.CoriolisBaseTestCase):
     def test_process_bind_param(self):
         mock_dialect = mock.Mock()
 
-        result = self.type.process_bind_param(
-            {"mock_key": "mock_value"}, mock_dialect)
+        result = self.type.process_bind_param({"mock_key": "mock_value"}, mock_dialect)
 
         self.assertEqual(
-            '{"mock_key": "mock_value"}',
-            zlib.decompress(result).decode('utf-8')
+            '{"mock_key": "mock_value"}', zlib.decompress(result).decode('utf-8')
         )
 
     def test_process_result_value(self):
         mock_dialect = mock.Mock()
 
         result = self.type.process_result_value(
-            zlib.compress('{"mock_key": "mock_value"}'.encode('utf-8')),
-            mock_dialect
+            zlib.compress('{"mock_key": "mock_value"}'.encode('utf-8')), mock_dialect
         )
 
-        self.assertEqual(
-            {"mock_key": "mock_value"},
-            result
-        )
+        self.assertEqual({"mock_key": "mock_value"}, result)
 
         result = self.type.process_result_value(
-            '{"mock_key": "mock_value"}', mock_dialect)
-
-        self.assertEqual(
-            {"mock_key": "mock_value"},
-            result
+            '{"mock_key": "mock_value"}', mock_dialect
         )
+
+        self.assertEqual({"mock_key": "mock_value"}, result)
 
         result = self.type.process_result_value(None, mock_dialect)
 
-        self.assertEqual(
-            None,
-            result
-        )
+        self.assertEqual(None, result)
 
 
 class DatabaseSqlalchemyListTestCase(test_base.CoriolisBaseTestCase):
@@ -155,45 +123,30 @@ class DatabaseSqlalchemyListTestCase(test_base.CoriolisBaseTestCase):
 
         result = self.type.load_dialect_impl(mock_dialect)
 
-        self.assertEqual(
-            mock_dialect.type_descriptor.return_value,
-            result
-        )
+        self.assertEqual(mock_dialect.type_descriptor.return_value, result)
 
         mock_dialect.name = 'sqlite'
 
         result = self.type.load_dialect_impl(mock_dialect)
 
-        self.assertEqual(
-            self.type.impl,
-            result
-        )
+        self.assertEqual(self.type.impl, result)
 
     def test_process_bind_param(self):
         mock_dialect = mock.Mock()
 
-        result = self.type.process_bind_param(
-            {"mock_key": "mock_value"}, mock_dialect)
+        result = self.type.process_bind_param({"mock_key": "mock_value"}, mock_dialect)
 
-        self.assertEqual(
-            '{"mock_key": "mock_value"}',
-            result
-        )
+        self.assertEqual('{"mock_key": "mock_value"}', result)
 
     def test_process_result_value(self):
         mock_dialect = mock.Mock()
 
         result = self.type.process_result_value(
-            '{"mock_key": "mock_value"}', mock_dialect)
-
-        self.assertEqual(
-            {"mock_key": "mock_value"},
-            result
+            '{"mock_key": "mock_value"}', mock_dialect
         )
+
+        self.assertEqual({"mock_key": "mock_value"}, result)
 
         result = self.type.process_result_value(None, mock_dialect)
 
-        self.assertEqual(
-            None,
-            result
-        )
+        self.assertEqual(None, result)

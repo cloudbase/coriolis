@@ -34,8 +34,7 @@ class AlembicEnvTestCase(test_base.CoriolisBaseTestCase):
         env, mock_context = self._import_env(offline_mode=True)
 
         self.assertIs(env.config, mock_context.config)
-        mock_context.config.get_main_option.assert_called_once_with(
-            "sqlalchemy.url")
+        mock_context.config.get_main_option.assert_called_once_with("sqlalchemy.url")
         mock_context.configure.assert_called_once_with(
             url=mock_context.config.get_main_option.return_value,
             target_metadata=env.target_metadata,
@@ -48,10 +47,10 @@ class AlembicEnvTestCase(test_base.CoriolisBaseTestCase):
 
     def test_online_mode_with_existing_connection(self):
         env, mock_context = self._import_env(
-            offline_mode=False, connection=mock.sentinel.connection)
+            offline_mode=False, connection=mock.sentinel.connection
+        )
 
-        mock_context.config.attributes.get.assert_called_once_with(
-            "connection", None)
+        mock_context.config.attributes.get.assert_called_once_with("connection", None)
         mock_context.configure.assert_called_once_with(
             connection=mock.sentinel.connection,
             target_metadata=env.target_metadata,
@@ -71,8 +70,7 @@ class AlembicEnvTestCase(test_base.CoriolisBaseTestCase):
         )
         mock_connectable = mock_engine_from_config.return_value
         mock_connectable.connect.assert_called_once_with()
-        mock_connection = (
-            mock_connectable.connect.return_value.__enter__.return_value)
+        mock_connection = mock_connectable.connect.return_value.__enter__.return_value
         mock_context.configure.assert_called_once_with(
             connection=mock_connection,
             target_metadata=env.target_metadata,

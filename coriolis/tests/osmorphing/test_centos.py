@@ -7,8 +7,7 @@ from unittest import mock
 import ddt
 
 from coriolis import exception
-from coriolis.osmorphing import base
-from coriolis.osmorphing import centos
+from coriolis.osmorphing import base, centos
 from coriolis.tests import test_base
 
 
@@ -26,10 +25,14 @@ class BaseCentOSMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         }
         self.enable_repos = ['repo1', 'repo2']
         self.morphing_tools = centos.BaseCentOSMorphingTools(
-            mock.sentinel.conn, mock.sentinel.os_root_dir,
-            mock.sentinel.os_root_dir, mock.sentinel.hypervisor,
-            mock.sentinel.event_manager, self.detected_os_info,
-            mock.sentinel.osmorphing_parameters)
+            mock.sentinel.conn,
+            mock.sentinel.os_root_dir,
+            mock.sentinel.os_root_dir,
+            mock.sentinel.hypervisor,
+            mock.sentinel.event_manager,
+            self.detected_os_info,
+            mock.sentinel.osmorphing_parameters,
+        )
 
     @ddt.data(
         (centos.CENTOS_DISTRO_IDENTIFIER, '7', True),
@@ -45,15 +48,13 @@ class BaseCentOSMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         (centos.CENTOS_DISTRO_IDENTIFIER, 'abc', False),
     )
     @ddt.unpack
-    def test_check_os_supported(self, distribution_name, release_version,
-                                expected):
+    def test_check_os_supported(self, distribution_name, release_version, expected):
         detected_os_info = {
             "distribution_name": distribution_name,
-            "release_version": release_version
+            "release_version": release_version,
         }
 
-        result = centos.BaseCentOSMorphingTools.check_os_supported(
-            detected_os_info)
+        result = centos.BaseCentOSMorphingTools.check_os_supported(detected_os_info)
 
         self.assertEqual(expected, result)
 
@@ -72,10 +73,12 @@ class BaseCentOSMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
 
         self.morphing_tools.enable_repos(self.enable_repos)
 
-        mock_exec_cmd_chroot.assert_has_calls([
-            mock.call("%s repo1" % expected_cmd),
-            mock.call("%s repo2" % expected_cmd),
-        ])
+        mock_exec_cmd_chroot.assert_has_calls(
+            [
+                mock.call("%s repo1" % expected_cmd),
+                mock.call("%s repo2" % expected_cmd),
+            ]
+        )
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     def test_enable_repos_empty(self, mock_exec_cmd_chroot):
@@ -88,9 +91,9 @@ class BaseCentOSMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         self.morphing_tools._version = '7'
         mock_exec_cmd_chroot.side_effect = exception.CoriolisException()
 
-        with self.assertLogs(
-                'coriolis.osmorphing.centos', level=logging.WARN):
+        with self.assertLogs('coriolis.osmorphing.centos', level=logging.WARN):
             self.morphing_tools.enable_repos(['repo1'])
 
         mock_exec_cmd_chroot.assert_called_once_with(
-            "yum-config-manager --enable repo1")
+            "yum-config-manager --enable repo1"
+        )

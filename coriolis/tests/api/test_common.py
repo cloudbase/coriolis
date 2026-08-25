@@ -26,8 +26,8 @@ class ApiCommonTestCase(test_base.CoriolisBaseTestCase):
 
     def test_get_sort_params(self):
         req = webob.Request.blank(
-            '/some-path?'
-            'sort_key=key0&sort_dir=dir0&sort_key=key1&sort_dir=dir1')
+            '/some-path?sort_key=key0&sort_dir=dir0&sort_key=key1&sort_dir=dir1'
+        )
 
         sort_keys, sort_dirs = common.get_sort_params(req)
 

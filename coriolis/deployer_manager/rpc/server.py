@@ -6,12 +6,8 @@ import time
 from oslo_config import cfg
 from oslo_log import log as logging
 
+from coriolis import constants, context, exception, keystone, utils
 from coriolis.conductor.rpc import client as rpc_conductor_client
-from coriolis import constants
-from coriolis import context
-from coriolis import exception
-from coriolis import keystone
-from coriolis import utils
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
@@ -20,7 +16,6 @@ VERSION = "1.0"
 
 
 class DeployerManagerServerEndpoint:
-
     def __init__(self):
         self._admin_ctx = context.get_admin_context()
         self._conductor_client_instance = None
@@ -29,35 +24,36 @@ class DeployerManagerServerEndpoint:
     @property
     def _rpc_conductor_client(self):
         if not getattr(self, '_conductor_client_instance', None):
-            self._conductor_client_instance = (
-                rpc_conductor_client.ConductorClient())
+            self._conductor_client_instance = rpc_conductor_client.ConductorClient()
         return self._conductor_client_instance
 
     def _wait_for_pending_deployment_status_change(self, deployment_id):
         pending = constants.EXECUTION_STATUS_PENDING
         LOG.info(
-            f"Waiting for deployment '{deployment_id}' to be out of "
-            f"'{pending}' status")
+            f"Waiting for deployment '{deployment_id}' to be out of '{pending}' status"
+        )
         i = 0
         max_retries = 60
         while i < max_retries:
             deployment = self._rpc_conductor_client.get_deployment(
-                self._admin_ctx, deployment_id)
+                self._admin_ctx, deployment_id
+            )
             deployment_status = deployment['last_execution_status']
             if deployment_status != pending:
                 LOG.info(
                     f"Deployment '{deployment_id}' changed into "
-                    f"'{deployment_status}' and not {pending} anymore.")
+                    f"'{deployment_status}' and not {pending} anymore."
+                )
                 return
 
-            LOG.info(
-                f"Deployment '{deployment_id}' is still '{deployment_status}'")
+            LOG.info(f"Deployment '{deployment_id}' is still '{deployment_status}'")
             i += 1
             time.sleep(1)
 
         raise exception.InvalidDeploymentState(
             f"Timed out waiting for deployment '{deployment_id}' to be out of "
-            f"'{pending}' status.")
+            f"'{pending}' status."
+        )
 
     def _check_deployer_status(self, deployment_id):
         active_statuses = [
@@ -75,73 +71,85 @@ class DeployerManagerServerEndpoint:
         ]
         try:
             deployment = self._rpc_conductor_client.get_deployment(
-                self._admin_ctx, deployment_id)
+                self._admin_ctx, deployment_id
+            )
             deployer_id = deployment.get('deployer_id')
             transfer_id = deployment.get('transfer_id')
             if not deployer_id:
                 raise exception.InvalidDeploymentState(
                     f"Deployment '{deployment['id']}' is in {PENDING_STATUS} "
-                    f"status, without any deployer execution registered.")
+                    f"status, without any deployer execution registered."
+                )
             deployer_execution = (
                 self._rpc_conductor_client.get_transfer_tasks_execution(
-                    self._admin_ctx, transfer_id, deployer_id))
-            LOG.debug(
-                f"Waiting for deployer '{deployer_id}' to complete.")
+                    self._admin_ctx, transfer_id, deployer_id
+                )
+            )
+            LOG.debug(f"Waiting for deployer '{deployer_id}' to complete.")
             ex_status = deployer_execution['status']
             LOG.debug(f"Deployer '{deployer_id}' status is {ex_status}")
             if ex_status in active_statuses:
                 return
             elif ex_status == constants.EXECUTION_STATUS_COMPLETED:
-                LOG.debug(
-                    f"Confirming deployer '{deployer_id}' completed.")
-                admin_ctx = context.get_admin_context(
-                    trust_id=deployment['trust_id'])
+                LOG.debug(f"Confirming deployer '{deployer_id}' completed.")
+                admin_ctx = context.get_admin_context(trust_id=deployment['trust_id'])
                 admin_ctx.delete_trust_id = True
                 self._rpc_conductor_client.confirm_deployer_completed(
-                    admin_ctx, deployment['id'], force=False)
-                return self._wait_for_pending_deployment_status_change(
-                    deployment_id)
+                    admin_ctx, deployment['id'], force=False
+                )
+                return self._wait_for_pending_deployment_status_change(deployment_id)
             else:
                 if ex_status in error_statuses:
                     raise exception.InvalidTransferState(
                         f"Got status '{ex_status}' for execution with ID "
-                        f"'{deployer_id}'. Deployment cannot occur.")
+                        f"'{deployer_id}'. Deployment cannot occur."
+                    )
                 else:
                     raise exception.InvalidTransferState(
                         f"Deployer with ID '{deployer_id}' is in invalid "
-                        f"state '{ex_status}'. Deployment cannot occur.")
+                        f"state '{ex_status}'. Deployment cannot occur."
+                    )
         except BaseException as ex:
             LOG.error(
                 f"Reporting deployer failure for deployment "
                 f"'{deployment_id}'. Error was: "
-                f"{utils.get_exception_details()}")
+                f"{utils.get_exception_details()}"
+            )
             self._rpc_conductor_client.report_deployer_failure(
-                self._admin_ctx, deployment_id, str(ex))
+                self._admin_ctx, deployment_id, str(ex)
+            )
 
     def _loop(self):
         while True:
             try:
                 deployments = self._rpc_conductor_client.get_deployments(
-                    self._admin_ctx, include_tasks=False,
+                    self._admin_ctx,
+                    include_tasks=False,
                     include_task_info=False,
-                    filters={'status': PENDING_STATUS})
+                    filters={'status': PENDING_STATUS},
+                )
                 for pending_deployment in deployments:
                     self._check_deployer_status(pending_deployment['id'])
             except Exception:
                 LOG.warning(
                     f"Deployer manager failed to list pending deployments. "
-                    f"Error was: {utils.get_exception_details()}")
+                    f"Error was: {utils.get_exception_details()}"
+                )
             time.sleep(10)
 
     def _init_loop(self):
         utils.start_thread(self._loop)
 
-    def execute_auto_deployment(
-            self, ctxt, transfer_id, deployer_id, **kwargs):
+    def execute_auto_deployment(self, ctxt, transfer_id, deployer_id, **kwargs):
         LOG.debug(
             f"Creating deployment for deployer ID '{deployer_id}' of transfer "
-            f"'{transfer_id}'")
+            f"'{transfer_id}'"
+        )
         keystone.create_trust(ctxt)
         self._rpc_conductor_client.deploy_transfer_instances(
-            ctxt, transfer_id, wait_for_execution=deployer_id,
-            trust_id=ctxt.trust_id, **kwargs)
+            ctxt,
+            transfer_id,
+            wait_for_execution=deployer_id,
+            trust_id=ctxt.trust_id,
+            **kwargs,
+        )

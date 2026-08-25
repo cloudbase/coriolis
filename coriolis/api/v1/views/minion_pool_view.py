@@ -17,17 +17,18 @@ def _format_minion_pool(minion_pool, keys=None):
         if minion_conn.get('certificates'):
             for key in minion_conn['certificates']:
                 minion_conn['certificates'][key] = '***'
+
     if 'minion_machines' in minion_pool_dict:
         for machine in minion_pool_dict['minion_machines']:
             if 'connection_info' in machine:
                 _hide_minion_creds(machine['connection_info'])
             if 'backup_writer_connection_info' in machine:
                 if machine.get('backup_writer_connection_info') and (
-                        'connection_details' in machine[
-                            'backup_writer_connection_info']):
+                    'connection_details' in machine['backup_writer_connection_info']
+                ):
                     _hide_minion_creds(
-                        machine['backup_writer_connection_info'][
-                            'connection_details'])
+                        machine['backup_writer_connection_info']['connection_details']
+                    )
 
     return minion_pool_dict
 
@@ -37,6 +38,5 @@ def single(minion_pool, keys=None):
 
 
 def collection(minion_pools, keys=None):
-    formatted_minion_pools = [
-        _format_minion_pool(r, keys) for r in minion_pools]
+    formatted_minion_pools = [_format_minion_pool(r, keys) for r in minion_pools]
     return {'minion_pools': formatted_minion_pools}

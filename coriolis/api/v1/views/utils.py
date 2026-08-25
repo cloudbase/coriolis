@@ -10,5 +10,6 @@ def format_opt(option, keys=None):
             return
         yield (key, value)
 
-    return dict(itertools.chain.from_iterable(
-        transform(k, v) for k, v in option.items()))
+    return dict(
+        itertools.chain.from_iterable(transform(k, v) for k, v in option.items())
+    )

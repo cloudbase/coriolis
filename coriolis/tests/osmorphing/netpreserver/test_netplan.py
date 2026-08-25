@@ -29,7 +29,7 @@ class NetplanNetPreserverTestCase(test_base.CoriolisBaseTestCase):
                 self.event_manager,
                 self.detected_os_info,
                 mock.sentinel.osmorphing_parameters,
-                mock.sentinel.operation_timeout
+                mock.sentinel.operation_timeout,
             )
         )
 
@@ -37,8 +37,11 @@ class NetplanNetPreserverTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(debian.BaseDebianMorphingTools, '_test_path')
     def test_check_net_preserver_true(self, mock_test_path, mock_list_dir):
         mock_test_path.return_value = True
-        mock_list_dir.return_value = ["01-netplan.yaml", "notconfig.txt",
-                                      "02-other.yml"]
+        mock_list_dir.return_value = [
+            "01-netplan.yaml",
+            "notconfig.txt",
+            "02-other.yml",
+        ]
 
         result = self.netpreserver.check_net_preserver()
 
@@ -48,8 +51,7 @@ class NetplanNetPreserverTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(debian.BaseDebianMorphingTools, '_list_dir')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_test_path')
-    def test_check_net_preserver_false_no_file(self, mock_test_path,
-                                               mock_list_dir):
+    def test_check_net_preserver_false_no_file(self, mock_test_path, mock_list_dir):
         mock_test_path.return_value = True
         mock_list_dir.return_value = ["config.txt", "README.md"]
 
@@ -59,8 +61,9 @@ class NetplanNetPreserverTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(debian.BaseDebianMorphingTools, '_list_dir')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_test_path')
-    def test_check_net_preserver_false_no_directory(self, mock_test_path,
-                                                    mock_list_dir):
+    def test_check_net_preserver_false_no_directory(
+        self, mock_test_path, mock_list_dir
+    ):
         mock_test_path.return_value = False
         mock_list_dir.return_value = []
 
@@ -111,40 +114,24 @@ class NetplanNetPreserverTestCase(test_base.CoriolisBaseTestCase):
         expected_info = {
             "eth0": {
                 "mac_address": "00:11:22:33:44:55",
-                "ip_addresses": ["192.168.1.10"]
+                "ip_addresses": ["192.168.1.10"],
             },
             "eth1": {
                 "mac_address": "",
-                "ip_addresses": ["192.168.1.20", "192.168.1.21"]
+                "ip_addresses": ["192.168.1.20", "192.168.1.21"],
             },
-            "eth2": {
-                "mac_address": "AA:BB:CC:DD:EE:FF",
-                "ip_addresses": []
-            },
-            "eth3": {
-                "mac_address": "",
-                "ip_addresses": ["192.168.1.30"]
-            },
-            "eth4": {
-                "mac_address": "",
-                "ip_addresses": ["192.168.1.31"]
-            },
-            "eth5": {
-                "mac_address": "",
-                "ip_addresses": ["192.168.1.32"]
-            },
-            "eth6": {
-                "mac_address": "",
-                "ip_addresses": []
-            }
+            "eth2": {"mac_address": "AA:BB:CC:DD:EE:FF", "ip_addresses": []},
+            "eth3": {"mac_address": "", "ip_addresses": ["192.168.1.30"]},
+            "eth4": {"mac_address": "", "ip_addresses": ["192.168.1.31"]},
+            "eth5": {"mac_address": "", "ip_addresses": ["192.168.1.32"]},
+            "eth6": {"mac_address": "", "ip_addresses": []},
         }
 
         self.assertEqual(self.netpreserver.interface_info, expected_info)
 
     @mock.patch.object(debian.BaseDebianMorphingTools, '_read_file_sudo')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_list_dir')
-    def test_parse_network_invalid_file(self, mock_list_dir,
-                                        mock_read_file_sudo):
+    def test_parse_network_invalid_file(self, mock_list_dir, mock_read_file_sudo):
         mock_list_dir.return_value = ["01-netplan.yaml"]
         yaml_content = """
             network:

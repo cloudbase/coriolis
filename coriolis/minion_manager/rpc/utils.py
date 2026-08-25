@@ -10,19 +10,21 @@ from coriolis import constants
 
 def get_minion_pool_lock(minion_pool_id, external=True):
     return lockutils.lock(
-        constants.MINION_POOL_LOCK_NAME_FORMAT % minion_pool_id,
-        external=external)
+        constants.MINION_POOL_LOCK_NAME_FORMAT % minion_pool_id, external=external
+    )
 
 
 def minion_pool_synchronized(minion_pool_id, func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         @lockutils.synchronized(
-            constants.MINION_POOL_LOCK_NAME_FORMAT % minion_pool_id,
-            external=True)
+            constants.MINION_POOL_LOCK_NAME_FORMAT % minion_pool_id, external=True
+        )
         def inner():
             return func(*args, **kwargs)
+
         return inner()
+
     return wrapper
 
 
@@ -30,5 +32,7 @@ def minion_pool_synchronized_op(func):
     @functools.wraps(func)
     def wrapper(self, ctxt, minion_pool_id, *args, **kwargs):
         return minion_pool_synchronized(minion_pool_id, func)(
-            self, ctxt, minion_pool_id, *args, **kwargs)
+            self, ctxt, minion_pool_id, *args, **kwargs
+        )
+
     return wrapper

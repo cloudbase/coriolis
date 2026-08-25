@@ -8,17 +8,14 @@ import logging
 import os
 import shlex
 import socket
-from unittest import mock
 import uuid
+from unittest import mock
 
 import ddt
 from webob import exc
 
-from coriolis import constants
-from coriolis import exception
-from coriolis.tests import test_base
-from coriolis.tests import testutils
-from coriolis import utils
+from coriolis import constants, exception, utils
+from coriolis.tests import test_base, testutils
 
 
 class CoriolisTestException(Exception):
@@ -46,14 +43,15 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(utils.CONF, 'set_override')
     @mock.patch('oslo_log.log.setup')
-    def test_setup_logging_disable_file_handlers(
-            self, mock_setup, mock_set_override):
+    def test_setup_logging_disable_file_handlers(self, mock_setup, mock_set_override):
         utils.setup_logging(disable_file_handlers=True)
-        mock_set_override.assert_has_calls([
-            mock.call('log_dir', None),
-            mock.call('log_file', None),
-            mock.call('use_syslog', False),
-        ])
+        mock_set_override.assert_has_calls(
+            [
+                mock.call('log_dir', None),
+                mock.call('log_file', None),
+                mock.call('use_syslog', False),
+            ]
+        )
         mock_setup.assert_called_once_with(utils.CONF, 'coriolis')
 
     @mock.patch.object(utils, 'get_exception_details')
@@ -78,65 +76,85 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
 
     def test_retry_on_error_no_exception(self):
         result = utils.retry_on_error(
-            max_attempts=5, sleep_seconds=0,
-            terminal_exceptions=[])(self.mock_func)(
-                mock.sentinel.arg1, kwarg1=mock.sentinel.kwarg1)
+            max_attempts=5, sleep_seconds=0, terminal_exceptions=[]
+        )(self.mock_func)(mock.sentinel.arg1, kwarg1=mock.sentinel.kwarg1)
 
         self.assertEqual(result, self.mock_func.return_value)
         self.assertEqual(self.mock_func.call_count, 1)
         self.mock_func.assert_called_with(
-            mock.sentinel.arg1, kwarg1=mock.sentinel.kwarg1)
+            mock.sentinel.arg1, kwarg1=mock.sentinel.kwarg1
+        )
 
     def test_retry_on_error_exception_keyboard_interrupt(self):
         self.mock_func.side_effect = KeyboardInterrupt
 
-        self.assertRaises(KeyboardInterrupt, utils.retry_on_error(
-            max_attempts=5, sleep_seconds=0,
-            terminal_exceptions=[])(self.mock_func))
+        self.assertRaises(
+            KeyboardInterrupt,
+            utils.retry_on_error(
+                max_attempts=5, sleep_seconds=0, terminal_exceptions=[]
+            )(self.mock_func),
+        )
 
         self.assertEqual(self.mock_func.call_count, 1)
 
     def test_retry_on_error_not_in_list_of_retried(self):
         self.mock_func.side_effect = ValueError
 
-        self.assertRaises(ValueError, utils.retry_on_error(
-            max_attempts=5, sleep_seconds=0,
-            terminal_exceptions=[],
-            retried_exceptions=(CoriolisTestException, ))(self.mock_func))
+        self.assertRaises(
+            ValueError,
+            utils.retry_on_error(
+                max_attempts=5,
+                sleep_seconds=0,
+                terminal_exceptions=[],
+                retried_exceptions=(CoriolisTestException,),
+            )(self.mock_func),
+        )
 
         self.assertEqual(self.mock_func.call_count, 1)
 
     def test_retry_on_error_in_list_of_retried(self):
         self.mock_func.side_effect = CoriolisTestException
 
-        self.assertRaises(CoriolisTestException, utils.retry_on_error(
-            max_attempts=5, sleep_seconds=0,
-            terminal_exceptions=[],
-            retried_exceptions=(CoriolisTestException, ))(self.mock_func))
+        self.assertRaises(
+            CoriolisTestException,
+            utils.retry_on_error(
+                max_attempts=5,
+                sleep_seconds=0,
+                terminal_exceptions=[],
+                retried_exceptions=(CoriolisTestException,),
+            )(self.mock_func),
+        )
 
         self.assertEqual(self.mock_func.call_count, 5)
 
     def test_retry_on_error_terminal_exception(self):
         self.mock_func.side_effect = CoriolisTestException
 
-        self.assertRaises(CoriolisTestException, utils.retry_on_error(
-            max_attempts=5, sleep_seconds=0,
-            terminal_exceptions=[CoriolisTestException])(self.mock_func))
+        self.assertRaises(
+            CoriolisTestException,
+            utils.retry_on_error(
+                max_attempts=5,
+                sleep_seconds=0,
+                terminal_exceptions=[CoriolisTestException],
+            )(self.mock_func),
+        )
 
         self.assertEqual(self.mock_func.call_count, 1)
 
     def test_retry_on_error_exception_retry_max_attempts(self):
         self.mock_func.side_effect = CoriolisTestException
 
-        self.assertRaises(CoriolisTestException, utils.retry_on_error(
-            max_attempts=5, sleep_seconds=0,
-            terminal_exceptions=[])(self.mock_func))
+        self.assertRaises(
+            CoriolisTestException,
+            utils.retry_on_error(
+                max_attempts=5, sleep_seconds=0, terminal_exceptions=[]
+            )(self.mock_func),
+        )
 
         self.assertEqual(self.mock_func.call_count, 5)
 
     def test_get_udev_net_rules(self):
-        net_ifaces_info = {"eth0": "AA:BB:CC:DD:EE:FF",
-                           "eth1": "FF:EE:DD:CC:BB:AA"}
+        net_ifaces_info = {"eth0": "AA:BB:CC:DD:EE:FF", "eth1": "FF:EE:DD:CC:BB:AA"}
         expected_result = (
             'SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*", '
             'ATTR{address}=="aa:bb:cc:dd:ee:ff", '
@@ -156,8 +174,8 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         result = utils.parse_os_release(self.mock_ssh)
 
         mock_ssh_cmd.assert_called_once_with(
-            self.mock_ssh,
-            "[ -f '/etc/os-release' ] && cat /etc/os-release || true")
+            self.mock_ssh, "[ -f '/etc/os-release' ] && cat /etc/os-release || true"
+        )
 
         self.assertEqual(result, ('ubuntu', '20.04'))
 
@@ -168,8 +186,8 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         result = utils.parse_os_release(self.mock_ssh)
 
         mock_ssh_cmd.assert_called_once_with(
-            self.mock_ssh,
-            "[ -f '/etc/os-release' ] && cat /etc/os-release || true")
+            self.mock_ssh, "[ -f '/etc/os-release' ] && cat /etc/os-release || true"
+        )
 
         self.assertEqual(result, ("ubuntu", "20.04"))
 
@@ -180,8 +198,8 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         result = utils.parse_os_release(self.mock_ssh)
 
         mock_ssh_cmd.assert_called_once_with(
-            self.mock_ssh,
-            "[ -f '/etc/os-release' ] && cat /etc/os-release || true")
+            self.mock_ssh, "[ -f '/etc/os-release' ] && cat /etc/os-release || true"
+        )
 
         self.assertIsNone(result)
 
@@ -191,8 +209,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
 
         result = utils.parse_lsb_release(self.mock_ssh)
 
-        mock_ssh_cmd.assert_called_once_with(
-            self.mock_ssh, "lsb_release -a || true")
+        mock_ssh_cmd.assert_called_once_with(self.mock_ssh, "lsb_release -a || true")
 
         self.assertEqual(result, ("Ubuntu", "20.04"))
 
@@ -202,9 +219,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
 
         result = utils.parse_lsb_release(self.mock_ssh)
 
-        mock_ssh_cmd.assert_called_once_with(
-            self.mock_ssh,
-            "lsb_release -a || true")
+        mock_ssh_cmd.assert_called_once_with(self.mock_ssh, "lsb_release -a || true")
 
         self.assertIsNone(result)
 
@@ -217,8 +232,9 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(utils, 'parse_os_release')
     @mock.patch.object(utils, 'parse_lsb_release')
-    def test_get_linux_os_info_lsb_release(self, mock_parse_lsb_release,
-                                           mock_parse_os_release):
+    def test_get_linux_os_info_lsb_release(
+        self, mock_parse_lsb_release, mock_parse_os_release
+    ):
         mock_parse_os_release.return_value = None
         mock_parse_lsb_release.return_value = ("ubuntu", "20.04")
 
@@ -241,8 +257,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         self.assertEqual(result, True)
 
     def test_test_ssh_path_not_exists(self):
-        self.mock_sftp.stat.side_effect = IOError(2,
-                                                  "No such file or directory")
+        self.mock_sftp.stat.side_effect = IOError(2, "No such file or directory")
         self.mock_ssh.open_sftp.return_value = self.mock_sftp
 
         result = utils.test_ssh_path(self.mock_ssh, "/nonexistent/path")
@@ -256,11 +271,11 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         self.mock_sftp.stat.side_effect = IOError(1, "Some other error")
         self.mock_ssh.open_sftp.return_value = self.mock_sftp
 
-        original_test_ssh_path = testutils.get_wrapped_function(
-            utils.test_ssh_path)
+        original_test_ssh_path = testutils.get_wrapped_function(utils.test_ssh_path)
 
-        self.assertRaises(IOError, original_test_ssh_path, self.mock_ssh,
-                          "/nonexistent/path")
+        self.assertRaises(
+            IOError, original_test_ssh_path, self.mock_ssh, "/nonexistent/path"
+        )
 
     def test_read_ssh_file(self):
         self.mock_sftp.open.return_value = self.mock_file
@@ -288,8 +303,9 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         self.mock_conn.test_path.return_value = True
         self.mock_conn.exec_ps_command.return_value = None
 
-        utils.write_winrm_file(self.mock_conn, "/test/file", "file content",
-                               overwrite=True)
+        utils.write_winrm_file(
+            self.mock_conn, "/test/file", "file content", overwrite=True
+        )
 
         self.mock_conn.test_path.assert_called_once_with("/test/file")
         self.assertEqual(self.mock_conn.exec_ps_command.call_count, 2)
@@ -300,8 +316,9 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         self.mock_conn.test_path.return_value = False
         self.mock_conn.exec_ps_command.return_value = None
 
-        utils.write_winrm_file(self.mock_conn, "/nonexistent/path",
-                               "nonexistent-file", overwrite=True)
+        utils.write_winrm_file(
+            self.mock_conn, "/nonexistent/path", "nonexistent-file", overwrite=True
+        )
 
         self.mock_conn.test_path.assert_called_once_with("/nonexistent/path")
         mock_b64encode.assert_called_once_with(b"nonexistent-file")
@@ -310,9 +327,14 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         self.mock_conn.test_path.return_value = True
         self.mock_conn.exec_ps_command.return_value = None
 
-        self.assertRaises(exception.CoriolisException, utils.write_winrm_file,
-                          self.mock_conn, "/test/file", "file content",
-                          overwrite=False)
+        self.assertRaises(
+            exception.CoriolisException,
+            utils.write_winrm_file,
+            self.mock_conn,
+            "/test/file",
+            "file content",
+            overwrite=False,
+        )
 
         self.mock_conn.test_path.assert_called_once_with("/test/file")
 
@@ -321,8 +343,9 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         self.mock_conn.test_path.return_value = False
         self.mock_conn.exec_ps_command.return_value = None
 
-        utils.write_winrm_file(self.mock_conn, "/test/file", "file content",
-                               overwrite=True)
+        utils.write_winrm_file(
+            self.mock_conn, "/test/file", "file content", overwrite=True
+        )
 
         self.mock_conn.test_path.assert_called_once_with("/test/file")
         mock_b64encode.assert_called_once_with(b"file content")
@@ -334,13 +357,16 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         mock_b64encode.return_value = b'encoded_content'
         long_content = "a" * 3000
 
-        utils.write_winrm_file(self.mock_conn, "/test/file", long_content,
-                               overwrite=True)
+        utils.write_winrm_file(
+            self.mock_conn, "/test/file", long_content, overwrite=True
+        )
 
         self.mock_conn.test_path.assert_called_once_with("/test/file")
         self.assertEqual(self.mock_conn.exec_ps_command.call_count, 2)
-        expected_calls = [mock.call(long_content[:2048].encode()),
-                          mock.call(long_content[2048:].encode())]
+        expected_calls = [
+            mock.call(long_content[:2048].encode()),
+            mock.call(long_content[2048:].encode()),
+        ]
         mock_b64encode.assert_has_calls(expected_calls)
 
     def test_list_ssh_dir(self):
@@ -356,96 +382,136 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         self.mock_stdout.read.return_value = b'output\r\n'
         self.mock_stdout.channel.recv_exit_status.return_value = 0
         self.mock_ssh.exec_command.return_value = (
-            None, self.mock_stdout, self.mock_stdout)
+            None,
+            self.mock_stdout,
+            self.mock_stdout,
+        )
 
         result = utils.exec_ssh_cmd(self.mock_ssh, "command")
 
         self.mock_ssh.exec_command.assert_called_once_with(
-            "command", environment=None, get_pty=False, timeout=None)
+            "command", environment=None, get_pty=False, timeout=None
+        )
 
         self.assertEqual(result, 'output\n')
 
     def test_exec_ssh_cmd_timeout_with_timeout(self):
         self.mock_stdout.read.return_value = b'output\n'
         self.mock_stdout.channel.recv_exit_status.return_value = 0
-        self.mock_ssh.exec_command.return_value = (None, self.mock_stdout,
-                                                   self.mock_stdout)
+        self.mock_ssh.exec_command.return_value = (
+            None,
+            self.mock_stdout,
+            self.mock_stdout,
+        )
 
         result = utils.exec_ssh_cmd(self.mock_ssh, "command", timeout=10)
 
         self.mock_ssh.exec_command.assert_called_once_with(
-            "command", environment=None, get_pty=False, timeout=10.0)
+            "command", environment=None, get_pty=False, timeout=10.0
+        )
 
-        expected = self.mock_stdout.read.return_value.decode(
-            'utf-8', errors='replace')
+        expected = self.mock_stdout.read.return_value.decode('utf-8', errors='replace')
         self.assertEqual(result, expected)
 
     def test_exec_ssh_cmd_getpeername_value_error(self):
         self.mock_stdout.read.return_value = b'output\n'
         self.mock_stdout.channel.recv_exit_status.return_value = 0
-        self.mock_ssh.exec_command.return_value = (None, self.mock_stdout,
-                                                   self.mock_stdout)
+        self.mock_ssh.exec_command.return_value = (
+            None,
+            self.mock_stdout,
+            self.mock_stdout,
+        )
 
-        self.mock_ssh.get_transport.return_value.sock.\
-            getpeername.side_effect = ValueError
+        self.mock_ssh.get_transport.return_value.sock.getpeername.side_effect = (
+            ValueError
+        )
 
         with self.assertLogs('coriolis.utils', level=logging.WARN):
             output = utils.exec_ssh_cmd(self.mock_ssh, "command")
 
         self.mock_ssh.exec_command.assert_called_once_with(
-            "command", environment=None, get_pty=False, timeout=None)
+            "command", environment=None, get_pty=False, timeout=None
+        )
 
-        expected = self.mock_stdout.read.return_value.decode(
-            'utf-8', errors='replace')
+        expected = self.mock_stdout.read.return_value.decode('utf-8', errors='replace')
         self.assertEqual(output, expected)
 
     def test_exec_ssh_cmd_timeout(self):
         self.mock_stdout.read.side_effect = socket.timeout
-        self.mock_ssh.exec_command.return_value = (None, self.mock_stdout,
-                                                   self.mock_stdout)
+        self.mock_ssh.exec_command.return_value = (
+            None,
+            self.mock_stdout,
+            self.mock_stdout,
+        )
 
-        self.assertRaises(exception.MinionMachineCommandTimeout,
-                          utils.exec_ssh_cmd, self.mock_ssh, "command")
+        self.assertRaises(
+            exception.MinionMachineCommandTimeout,
+            utils.exec_ssh_cmd,
+            self.mock_ssh,
+            "command",
+        )
 
         self.mock_ssh.exec_command.assert_called_once_with(
-            "command", environment=None, get_pty=False, timeout=None)
+            "command", environment=None, get_pty=False, timeout=None
+        )
 
     def test_exec_ssh_cmd_exception(self):
         self.mock_stdout.read.return_value = b'some error output'
         self.mock_stdout.channel.recv_exit_status.return_value = 1
-        self.mock_ssh.exec_command.return_value = (None, self.mock_stdout,
-                                                   self.mock_stdout)
+        self.mock_ssh.exec_command.return_value = (
+            None,
+            self.mock_stdout,
+            self.mock_stdout,
+        )
 
         with self.assertRaises(exception.SSHCommandFailed) as ex:
             utils.exec_ssh_cmd(self.mock_ssh, "command")
             self.assertEqual(1, ex.exception.exit_code)
 
         self.mock_ssh.exec_command.assert_called_once_with(
-            "command", environment=None, get_pty=False, timeout=None)
+            "command", environment=None, get_pty=False, timeout=None
+        )
 
     def test_exec_ssh_cmd_command_not_found_in_stdout(self):
         self.mock_stdout.read.return_value = b'sudo: foo: command not found'
         self.mock_stdout.channel.recv_exit_status.return_value = 1
-        self.mock_ssh.exec_command.return_value = (None, self.mock_stdout,
-                                                   self.mock_stdout)
+        self.mock_ssh.exec_command.return_value = (
+            None,
+            self.mock_stdout,
+            self.mock_stdout,
+        )
 
-        self.assertRaises(exception.SSHCommandNotFoundException,
-                          utils.exec_ssh_cmd, self.mock_ssh, "command")
+        self.assertRaises(
+            exception.SSHCommandNotFoundException,
+            utils.exec_ssh_cmd,
+            self.mock_ssh,
+            "command",
+        )
 
     def test_exec_ssh_cmd_exit_code_127(self):
         self.mock_stdout.read.return_value = b''
         self.mock_stdout.channel.recv_exit_status.return_value = 127
-        self.mock_ssh.exec_command.return_value = (None, self.mock_stdout,
-                                                   self.mock_stdout)
+        self.mock_ssh.exec_command.return_value = (
+            None,
+            self.mock_stdout,
+            self.mock_stdout,
+        )
 
-        self.assertRaises(exception.SSHCommandNotFoundException,
-                          utils.exec_ssh_cmd, self.mock_ssh, "command")
+        self.assertRaises(
+            exception.SSHCommandNotFoundException,
+            utils.exec_ssh_cmd,
+            self.mock_ssh,
+            "command",
+        )
 
     def _setup_successful_ssh_cmd(self):
         self.mock_stdout.read.return_value = b'output\n'
         self.mock_stdout.channel.recv_exit_status.return_value = 0
-        self.mock_ssh.exec_command.return_value = (None, self.mock_stdout,
-                                                   self.mock_stdout)
+        self.mock_ssh.exec_command.return_value = (
+            None,
+            self.mock_stdout,
+            self.mock_stdout,
+        )
 
     def _get_executed_ssh_cmd(self):
         return self.mock_ssh.exec_command.call_args[0][0]
@@ -460,53 +526,58 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
     def test_check_env_command_missing(self):
         self.mock_stdout.read.return_value = b''
         self.mock_stdout.channel.recv_exit_status.return_value = 1
-        self.mock_ssh.exec_command.return_value = (None, self.mock_stdout,
-                                                   self.mock_stdout)
+        self.mock_ssh.exec_command.return_value = (
+            None,
+            self.mock_stdout,
+            self.mock_stdout,
+        )
 
         self.assertRaises(
-            exception.CoriolisException, utils.check_env_command,
-            self.mock_ssh)
+            exception.CoriolisException, utils.check_env_command, self.mock_ssh
+        )
 
     def test_check_env_command_not_found(self):
         # 'command -v' itself being unavailable must be reported the same
         # way as a missing env(1).
         self.mock_stdout.read.return_value = b''
         self.mock_stdout.channel.recv_exit_status.return_value = 127
-        self.mock_ssh.exec_command.return_value = (None, self.mock_stdout,
-                                                   self.mock_stdout)
+        self.mock_ssh.exec_command.return_value = (
+            None,
+            self.mock_stdout,
+            self.mock_stdout,
+        )
 
         self.assertRaises(
-            exception.CoriolisException, utils.check_env_command,
-            self.mock_ssh)
+            exception.CoriolisException, utils.check_env_command, self.mock_ssh
+        )
 
     def test_get_env_command_prefix(self):
         self.assertEqual("", utils.get_env_command_prefix(None))
         self.assertEqual("", utils.get_env_command_prefix({}))
         self.assertEqual(
             "env DEBIAN_FRONTEND=noninteractive ",
-            utils.get_env_command_prefix(
-                {"DEBIAN_FRONTEND": "noninteractive"}))
+            utils.get_env_command_prefix({"DEBIAN_FRONTEND": "noninteractive"}),
+        )
         # Values holding shell-sensitive characters must be quoted whole.
         self.assertEqual(
             "env 'http_proxy=http://a b' ",
-            utils.get_env_command_prefix({"http_proxy": "http://a b"}))
+            utils.get_env_command_prefix({"http_proxy": "http://a b"}),
+        )
         self.assertEqual(
             "env 'http_proxy=http://u:p'\"'\"'w@h:3128' ",
-            utils.get_env_command_prefix(
-                {"http_proxy": "http://u:p'w@h:3128"}))
+            utils.get_env_command_prefix({"http_proxy": "http://u:p'w@h:3128"}),
+        )
 
     def test_exec_ssh_cmd_chroot(self):
         self._setup_successful_ssh_cmd()
 
-        result = utils.exec_ssh_cmd_chroot(
-            self.mock_ssh, "/chroot", "command")
+        result = utils.exec_ssh_cmd_chroot(self.mock_ssh, "/chroot", "command")
 
         self.mock_ssh.exec_command.assert_called_once_with(
-            "sudo chroot /chroot command",
-            environment=None, get_pty=False, timeout=None)
+            "sudo chroot /chroot command", environment=None, get_pty=False, timeout=None
+        )
 
-        expected = self.mock_stdout.read.return_value.decode(
-            'utf-8', errors='replace')
+        expected = self.mock_stdout.read.return_value.decode('utf-8', errors='replace')
         self.assertEqual(result, expected)
 
     def test_exec_ssh_cmd_chroot_no_environment(self):
@@ -516,12 +587,15 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         for environment in (None, {}):
             self.mock_ssh.exec_command.reset_mock()
             utils.exec_ssh_cmd_chroot(
-                self.mock_ssh, "/chroot", "apt-get update -y",
-                environment=environment)
+                self.mock_ssh, "/chroot", "apt-get update -y", environment=environment
+            )
 
             self.mock_ssh.exec_command.assert_called_once_with(
                 "sudo chroot /chroot apt-get update -y",
-                environment=environment, get_pty=False, timeout=None)
+                environment=environment,
+                get_pty=False,
+                timeout=None,
+            )
 
     def test_exec_ssh_cmd_chroot_with_proxy_environment(self):
         """Proxy vars are passed through env(1), placed before the chroot."""
@@ -537,8 +611,8 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         }
 
         utils.exec_ssh_cmd_chroot(
-            self.mock_ssh, "/chroot", "apt-get update -y",
-            environment=environment)
+            self.mock_ssh, "/chroot", "apt-get update -y", environment=environment
+        )
 
         cmd = self._get_executed_ssh_cmd()
         self.assertEqual(
@@ -550,7 +624,9 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
             "ftp_proxy=http://10.0.0.1:3128 "
             "FTP_PROXY=http://10.0.0.1:3128 "
             "no_proxy=localhost.127.0.0.1 "
-            "chroot /chroot apt-get update -y", cmd)
+            "chroot /chroot apt-get update -y",
+            cmd,
+        )
         # env(1) must run before chroot(1) so that the variables are
         # inherited by the command running *inside* the chroot.
         self.assertLess(cmd.index("env "), cmd.index("chroot"))
@@ -562,13 +638,25 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         proxy = "http://user:p@ss w0rd&$(reboot)@10.0.0.1:3128?a=1"
 
         utils.exec_ssh_cmd_chroot(
-            self.mock_ssh, "/chroot", "apt-get update -y",
-            environment={"https_proxy": proxy})
+            self.mock_ssh,
+            "/chroot",
+            "apt-get update -y",
+            environment={"https_proxy": proxy},
+        )
 
         self.assertEqual(
-            ["sudo", "env", "https_proxy=%s" % proxy, "chroot", "/chroot",
-             "apt-get", "update", "-y"],
-            shlex.split(self._get_executed_ssh_cmd()))
+            [
+                "sudo",
+                "env",
+                "https_proxy=%s" % proxy,
+                "chroot",
+                "/chroot",
+                "apt-get",
+                "update",
+                "-y",
+            ],
+            shlex.split(self._get_executed_ssh_cmd()),
+        )
 
     def test_exec_ssh_cmd_chroot_does_not_re_quote_the_command(self):
         """Commands holding quotes must not get an extra quoting layer.
@@ -579,21 +667,32 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         "sed: unrecognized option '--word=8'".
         """
         self._setup_successful_ssh_cmd()
-        grub_value = (
-            'serial --word=8 --stop=1 --speed=115200 --parity=no --unit=0')
+        grub_value = 'serial --word=8 --stop=1 --speed=115200 --parity=no --unit=0'
         sed_script = '$aGRUB_SERIAL_COMMAND="%s"' % grub_value
         cmd = "sed -ie %s /tmp/tmp.OIK95wgYUb" % shlex.quote(sed_script)
 
         utils.exec_ssh_cmd_chroot(
-            self.mock_ssh, "/tmp/tmp.q15QdW45qE", cmd,
-            environment={"http_proxy": "http://10.0.0.1:3128"})
+            self.mock_ssh,
+            "/tmp/tmp.q15QdW45qE",
+            cmd,
+            environment={"http_proxy": "http://10.0.0.1:3128"},
+        )
 
         argv = shlex.split(self._get_executed_ssh_cmd())
         self.assertEqual(
-            ["sudo", "env", "http_proxy=http://10.0.0.1:3128", "chroot",
-             "/tmp/tmp.q15QdW45qE", "sed", "-ie", sed_script,
-             "/tmp/tmp.OIK95wgYUb"],
-            argv)
+            [
+                "sudo",
+                "env",
+                "http_proxy=http://10.0.0.1:3128",
+                "chroot",
+                "/tmp/tmp.q15QdW45qE",
+                "sed",
+                "-ie",
+                sed_script,
+                "/tmp/tmp.OIK95wgYUb",
+            ],
+            argv,
+        )
         # No part of the GRUB value may become a standalone sed option.
         self.assertNotIn("--word=8", argv)
         self.assertEqual([], [a for a in argv if a.startswith("--")])
@@ -603,13 +702,13 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         self._setup_successful_ssh_cmd()
 
         utils.exec_ssh_cmd_chroot(
-            self.mock_ssh, "/chroot",
-            '[ -f "/etc/default/grub" ] && echo 1 || echo 0')
+            self.mock_ssh, "/chroot", '[ -f "/etc/default/grub" ] && echo 1 || echo 0'
+        )
 
         self.assertEqual(
-            'sudo chroot /chroot [ -f "/etc/default/grub" ] '
-            '&& echo 1 || echo 0',
-            self._get_executed_ssh_cmd())
+            'sudo chroot /chroot [ -f "/etc/default/grub" ] && echo 1 || echo 0',
+            self._get_executed_ssh_cmd(),
+        )
 
     def test_exec_ssh_cmd_chroot_quotes_the_chroot_dir(self):
         self._setup_successful_ssh_cmd()
@@ -617,31 +716,44 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         utils.exec_ssh_cmd_chroot(self.mock_ssh, "/tmp/os root dir", "true")
 
         self.assertEqual(
-            "sudo chroot '/tmp/os root dir' true",
-            self._get_executed_ssh_cmd())
+            "sudo chroot '/tmp/os root dir' true", self._get_executed_ssh_cmd()
+        )
 
     def test_check_fs(self):
-        self.mock_stdout.read.return_value.replace.return_value = \
+        self.mock_stdout.read.return_value.replace.return_value = (
             self.mock_stdout.read.return_value
+        )
         self.mock_stdout.channel.recv_exit_status.return_value = 0
-        self.mock_ssh.exec_command.return_value = (None, self.mock_stdout,
-                                                   self.mock_stdout)
+        self.mock_ssh.exec_command.return_value = (
+            None,
+            self.mock_stdout,
+            self.mock_stdout,
+        )
 
         utils.check_fs(self.mock_ssh, "ext4", "/dev/sda1")
 
         self.mock_ssh.exec_command.assert_called_once_with(
-            "sudo fsck -p -t ext4 /dev/sda1", environment=None, get_pty=False,
-            timeout=None)
+            "sudo fsck -p -t ext4 /dev/sda1",
+            environment=None,
+            get_pty=False,
+            timeout=None,
+        )
 
     @mock.patch.object(utils, 'exec_ssh_cmd')
     def test_check_fs_exception(self, mock_exec_ssh_cmd):
         mock_exec_ssh_cmd.side_effect = exception.CoriolisException()
 
-        self.assertRaises(exception.CoriolisException, utils.check_fs,
-                          self.mock_ssh, "ext4", "/dev/sda1")
+        self.assertRaises(
+            exception.CoriolisException,
+            utils.check_fs,
+            self.mock_ssh,
+            "ext4",
+            "/dev/sda1",
+        )
 
         mock_exec_ssh_cmd.assert_called_once_with(
-            self.mock_ssh, "sudo fsck -p -t ext4 /dev/sda1", get_pty=False)
+            self.mock_ssh, "sudo fsck -p -t ext4 /dev/sda1", get_pty=False
+        )
 
     @mock.patch.object(utils, 'exec_ssh_cmd')
     def test_run_xfs_repair(self, mock_exec_ssh_cmd):
@@ -651,12 +763,11 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
 
         expected_calls = [
             mock.call(self.mock_ssh, "mktemp -d"),
-            mock.call(self.mock_ssh, "sudo mount /dev/sda1 /tmp/tmp_dir",
-                      get_pty=False),
-            mock.call(self.mock_ssh, "sudo umount /tmp/tmp_dir",
-                      get_pty=False),
-            mock.call(self.mock_ssh, "sudo xfs_repair /dev/sda1",
-                      get_pty=False),
+            mock.call(
+                self.mock_ssh, "sudo mount /dev/sda1 /tmp/tmp_dir", get_pty=False
+            ),
+            mock.call(self.mock_ssh, "sudo umount /tmp/tmp_dir", get_pty=False),
+            mock.call(self.mock_ssh, "sudo xfs_repair /dev/sda1", get_pty=False),
         ]
         mock_exec_ssh_cmd.assert_has_calls(expected_calls)
 
@@ -685,8 +796,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(utils, '_check_port_open')
     @mock.patch('time.sleep')
-    def test_wait_for_port_connectivity(self, mock_sleep,
-                                        mock_check_port_open):
+    def test_wait_for_port_connectivity(self, mock_sleep, mock_check_port_open):
         mock_check_port_open.return_value = True
         mock_sleep.return_value = None
 
@@ -695,14 +805,19 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
 
     @mock.patch.object(utils, '_check_port_open')
     @mock.patch('time.sleep')
-    def test_wait_for_port_connectivity_exception(self, mock_sleep,
-                                                  mock_check_port_open):
+    def test_wait_for_port_connectivity_exception(
+        self, mock_sleep, mock_check_port_open
+    ):
         mock_check_port_open.return_value = False
         mock_sleep.return_value = None
 
-        self.assertRaises(exception.CoriolisException,
-                          utils.wait_for_port_connectivity, 'localhost', 8080,
-                          max_wait=1)
+        self.assertRaises(
+            exception.CoriolisException,
+            utils.wait_for_port_connectivity,
+            'localhost',
+            8080,
+            max_wait=1,
+        )
         mock_check_port_open.assert_called_with('localhost', 8080)
 
     @mock.patch('subprocess.Popen')
@@ -722,8 +837,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         self.mock_process.communicate.return_value = (b'stdout', b'stderr')
         mock_popen.return_value = self.mock_process
 
-        self.assertRaises(exception.CoriolisException, utils.exec_process,
-                          "command")
+        self.assertRaises(exception.CoriolisException, utils.exec_process, "command")
 
         mock_popen.assert_called_once_with("command", stdout=-1, stderr=-1)
 
@@ -735,45 +849,74 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
 
         self.assertEqual(result, {'format': 'vhd'})
 
-        mock_exec_process.assert_called_with([utils.CONF.qemu_img_path,
-                                              'info', '--output=json',
-                                              'disk_path'])
+        mock_exec_process.assert_called_with(
+            [utils.CONF.qemu_img_path, 'info', '--output=json', 'disk_path']
+        )
 
     @mock.patch.object(utils, 'exec_process')
     def test_convert_disk_format(self, mock_exec_process):
         mock_exec_process.return_value = None
 
-        utils.convert_disk_format('disk_path', 'target_disk_path',
-                                  constants.DISK_FORMAT_VHD,
-                                  preallocated=True)
+        utils.convert_disk_format(
+            'disk_path',
+            'target_disk_path',
+            constants.DISK_FORMAT_VHD,
+            preallocated=True,
+        )
 
-        mock_exec_process.assert_called_with([utils.CONF.qemu_img_path,
-                                              'convert', '-O', 'vpc', '-o',
-                                              'subformat=fixed',
-                                              'disk_path',
-                                              'target_disk_path'])
+        mock_exec_process.assert_called_with(
+            [
+                utils.CONF.qemu_img_path,
+                'convert',
+                '-O',
+                'vpc',
+                '-o',
+                'subformat=fixed',
+                'disk_path',
+                'target_disk_path',
+            ]
+        )
 
     def test_convert_disk_format_not_vhd(self):
-        self.assertRaises(NotImplementedError, utils.convert_disk_format,
-                          'disk_path', 'target_disk_path', 'not_vhd',
-                          preallocated=True)
+        self.assertRaises(
+            NotImplementedError,
+            utils.convert_disk_format,
+            'disk_path',
+            'target_disk_path',
+            'not_vhd',
+            preallocated=True,
+        )
 
     @mock.patch.object(utils, 'exec_process')
     @mock.patch.object(utils, 'ignore_exceptions')
-    def test_convert_disk_format_exception(self, mock_ignore_exceptions,
-                                           mock_exec_process):
+    def test_convert_disk_format_exception(
+        self, mock_ignore_exceptions, mock_exec_process
+    ):
         mock_remove = mock.MagicMock()
         mock_exec_process.side_effect = exception.CoriolisException
         mock_ignore_exceptions.return_value = mock_remove
 
-        self.assertRaises(exception.CoriolisException,
-                          utils.convert_disk_format, 'disk_path',
-                          'target_disk_path', constants.DISK_FORMAT_VHD,
-                          preallocated=True)
+        self.assertRaises(
+            exception.CoriolisException,
+            utils.convert_disk_format,
+            'disk_path',
+            'target_disk_path',
+            constants.DISK_FORMAT_VHD,
+            preallocated=True,
+        )
 
         mock_exec_process.assert_called_with(
-            [utils.CONF.qemu_img_path, 'convert', '-O', 'vpc', '-o',
-             'subformat=fixed', 'disk_path', 'target_disk_path'])
+            [
+                utils.CONF.qemu_img_path,
+                'convert',
+                '-O',
+                'vpc',
+                '-o',
+                'subformat=fixed',
+                'disk_path',
+                'target_disk_path',
+            ]
+        )
 
         mock_ignore_exceptions.assert_called_with(os.remove)
         mock_remove.assert_called_with('target_disk_path')
@@ -804,19 +947,19 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch('socket.socket')
     @mock.patch('ssl.SSLContext')
     @mock.patch('OpenSSL.crypto')
-    def test_get_ssl_cert_thumbprint(self, mock_crypto, mock_ssl_context,
-                                     mock_socket):
+    def test_get_ssl_cert_thumbprint(self, mock_crypto, mock_ssl_context, mock_socket):
         mock_socket.return_value = mock.MagicMock()
         mock_ssl_context.return_value = mock.MagicMock()
 
         result = utils.get_ssl_cert_thumbprint(
-            mock_ssl_context.return_value, 'localhost',
-            digest_algorithm='sha1')
+            mock_ssl_context.return_value, 'localhost', digest_algorithm='sha1'
+        )
 
-        self.assertEqual(result, mock_crypto.load_certificate.return_value.
-                         digest.return_value.decode.return_value)
-        mock_crypto.load_certificate.return_value.digest.\
-            assert_called_once_with('sha1')
+        self.assertEqual(
+            result,
+            mock_crypto.load_certificate.return_value.digest.return_value.decode.return_value,
+        )
+        mock_crypto.load_certificate.return_value.digest.assert_called_once_with('sha1')
 
     @mock.patch('os.path')
     def test_get_resources_dir(self, mock_path):
@@ -854,7 +997,8 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         result = utils.deserialize_key('key', password='password')
 
         mock_rsa_key.from_private_key.assert_called_with(
-            mock_string_io.return_value, 'password')
+            mock_string_io.return_value, 'password'
+        )
         self.assertEqual(result, mock_rsa_key.from_private_key.return_value)
 
     @mock.patch('coriolis.utils.jsonutils.dumps')
@@ -890,14 +1034,12 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
     def test_check_md5_with_exception(self):
         data = b'test data'
         md5 = hashlib.md5(b'other data').hexdigest()
-        self.assertRaises(exception.CoriolisException, utils.check_md5, data,
-                          md5)
+        self.assertRaises(exception.CoriolisException, utils.check_md5, data, md5)
 
     @mock.patch.object(utils, 'secrets')
     def test_get_secret_connection_info_with_secret_ref(self, mock_secrets):
         with self.assertLogs('coriolis.utils', level=logging.INFO):
-            result = utils.get_secret_connection_info('context',
-                                                      {'secret_ref': 'ref'})
+            result = utils.get_secret_connection_info('context', {'secret_ref': 'ref'})
 
         self.assertEqual(result, mock_secrets.get_secret.return_value)
 
@@ -930,8 +1072,9 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
     )
     @ddt.unpack
     def test_decode_base64_param_with_invalid_input(self, value, is_json):
-        self.assertRaises(exception.InvalidInput, utils.decode_base64_param,
-                          value, is_json=is_json)
+        self.assertRaises(
+            exception.InvalidInput, utils.decode_base64_param, value, is_json=is_json
+        )
 
     def test_quote_url(self):
         result = utils.quote_url('Hello world')
@@ -955,8 +1098,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         123456789012,
     )
     def test_normalize_mac_address_with_invalid_input(self, input):
-        self.assertRaises(ValueError, utils.normalize_mac_address,
-                          input)
+        self.assertRaises(ValueError, utils.normalize_mac_address, input)
 
     def test_get_url_with_credentials(self):
         url = 'http://example.com'
@@ -983,26 +1125,26 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
             [
                 {'id': '1', 'name': 'Resource1'},
                 {'id': '2', 'name': 'Resource2'},
-                {'id': '3', 'name': 'Resource1'}
+                {'id': '3', 'name': 'Resource1'},
             ],
-            ['Resource2', '1', '3']
+            ['Resource2', '1', '3'],
         ),
         (
             [
                 {'id': '1', 'name': 'Resource1'},
                 {'id': '2', 'name': 'Resource2'},
-                {'id': '3', 'name': 'Resource3'}
+                {'id': '3', 'name': 'Resource3'},
             ],
-            ['Resource1', 'Resource2', 'Resource3']
+            ['Resource1', 'Resource2', 'Resource3'],
         ),
         (
             [
                 {'id': '1', 'name': 'Resource1'},
                 {'id': '2', 'name': 'Resource2'},
-                {'id': '3'}
+                {'id': '3'},
             ],
-            KeyError
-        )
+            KeyError,
+        ),
     )
     @ddt.unpack
     def test_get_unique_option_ids(self, resources, expected):
@@ -1016,11 +1158,12 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         resources = [
             {'custom_id': '1', 'custom_name': 'Resource1'},
             {'custom_id': '2', 'custom_name': 'Resource2'},
-            {'custom_id': '3', 'custom_name': 'Resource1'}
+            {'custom_id': '3', 'custom_name': 'Resource1'},
         ]
         expected_result = ['Resource2', '1', '3']
         result = utils.get_unique_option_ids(
-            resources, id_key='custom_id', name_key='custom_name')
+            resources, id_key='custom_id', name_key='custom_name'
+        )
         self.assertEqual(sorted(result), sorted(expected_result))
 
     def test_bad_request_on_error(self):
@@ -1040,40 +1183,40 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         self.assertRaises(exc.HTTPBadRequest, mock_func)
 
     @ddt.data(
-        ({
-            "key1": "value1",
-            "origin": {"connection_info": "sensitive_info"},
-            "destination": {"connection_info": "sensitive_info"},
-            "volumes_info": [
-                {
-                    "key2": "value2",
-                    "replica_state": {
-                        "key3": "value3",
-                        "chunks": "sensitive_info"
+        (
+            {
+                "key1": "value1",
+                "origin": {"connection_info": "sensitive_info"},
+                "destination": {"connection_info": "sensitive_info"},
+                "volumes_info": [
+                    {
+                        "key2": "value2",
+                        "replica_state": {"key3": "value3", "chunks": "sensitive_info"},
                     }
-                }
-            ]
-        }, {
-            "key1": "value1",
-            "origin": {"connection_info": {"got": "redacted"}},
-            "destination": {"connection_info": {"got": "redacted"}},
-            "volumes_info": [
-                {
-                    "key2": "value2",
-                    "replica_state": {
-                        "key3": "value3",
-                        "chunks": ["<redacted>"]
+                ],
+            },
+            {
+                "key1": "value1",
+                "origin": {"connection_info": {"got": "redacted"}},
+                "destination": {"connection_info": {"got": "redacted"}},
+                "volumes_info": [
+                    {
+                        "key2": "value2",
+                        "replica_state": {"key3": "value3", "chunks": ["<redacted>"]},
                     }
-                }
-            ]
-        }),
-        ({
-            "key1": "value1",
-            "key2": "value2",
-        }, {
-            "key1": "value1",
-            "key2": "value2",
-        }),
+                ],
+            },
+        ),
+        (
+            {
+                "key1": "value1",
+                "key2": "value2",
+            },
+            {
+                "key1": "value1",
+                "key2": "value2",
+            },
+        ),
     )
     @ddt.unpack
     def test_sanitize_task_info(self, task_info, expected):
@@ -1096,37 +1239,41 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch('coriolis.utils.test_ssh_path')
     @mock.patch('coriolis.utils.read_ssh_file')
     @mock.patch('coriolis.utils.parse_ini_config')
-    def test_read_ssh_ini_config_file_check_false(self, mock_parse_ini_config,
-                                                  mock_read_ssh_file,
-                                                  mock_test_ssh_path):
+    def test_read_ssh_ini_config_file_check_false(
+        self, mock_parse_ini_config, mock_read_ssh_file, mock_test_ssh_path
+    ):
         mock_test_ssh_path.return_value = True
 
-        result = utils.read_ssh_ini_config_file(self.mock_ssh, '/test/file',
-                                                check_exists=False)
+        result = utils.read_ssh_ini_config_file(
+            self.mock_ssh, '/test/file', check_exists=False
+        )
 
         self.assertEqual(result, mock_parse_ini_config.return_value)
         mock_read_ssh_file.assert_called_once_with(self.mock_ssh, '/test/file')
         mock_parse_ini_config.assert_called_once_with(
-            mock_read_ssh_file.return_value.decode())
+            mock_read_ssh_file.return_value.decode()
+        )
 
     @mock.patch('coriolis.utils.test_ssh_path')
     def test_read_ssh_ini_config_file_check_true_path_not_exists(
-            self, mock_test_ssh_path):
+        self, mock_test_ssh_path
+    ):
         mock_test_ssh_path.return_value = False
 
-        result = utils.read_ssh_ini_config_file(self.mock_ssh, '/test/to/file',
-                                                check_exists=True)
+        result = utils.read_ssh_ini_config_file(
+            self.mock_ssh, '/test/to/file', check_exists=True
+        )
 
         self.assertEqual(result, {})
-        mock_test_ssh_path.assert_called_once_with(self.mock_ssh,
-                                                   '/test/to/file')
+        mock_test_ssh_path.assert_called_once_with(self.mock_ssh, '/test/to/file')
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     @mock.patch('coriolis.utils.write_ssh_file')
     @mock.patch('coriolis.utils.test_ssh_path')
     @mock.patch.object(uuid, 'uuid4')
-    def test_write_systemd(self, mock_uuid, mock_test_ssh,
-                           mock_write_ssh_file, mock_exec_ssh_cmd):
+    def test_write_systemd(
+        self, mock_uuid, mock_test_ssh, mock_write_ssh_file, mock_exec_ssh_cmd
+    ):
         mock_uuid.return_value = 'uuid'
         mock_test_ssh.side_effect = [True, False]
         mock_write_ssh_file.return_value = None
@@ -1134,131 +1281,171 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         utils._write_systemd(self.mock_ssh, 'cmdline', 'svc_name')
 
         mock_uuid.assert_called_once_with()
-        mock_test_ssh.assert_has_calls([
-            mock.call(self.mock_ssh, '/lib/systemd/system'),
-            mock.call(self.mock_ssh,
-                      '/lib/systemd/system/svc_name.service')])
-        mock_write_ssh_file.assert_called_once_with(self.mock_ssh,
-                                                    '/tmp/uuid.service',
-                                                    mock.ANY)
-        mock_exec_ssh_cmd.assert_has_calls([
-            mock.call(self.mock_ssh, 'sudo mv /tmp/uuid.service '
-                      '/lib/systemd/system/svc_name.service', get_pty=False),
-            mock.call(self.mock_ssh, 'sudo restorecon -v '
-                      '/lib/systemd/system/svc_name.service', get_pty=False),
-            mock.call(self.mock_ssh, 'sudo systemctl daemon-reload',
-                      get_pty=False),
-            mock.call(self.mock_ssh, 'sudo systemctl start svc_name',
-                      get_pty=False)])
+        mock_test_ssh.assert_has_calls(
+            [
+                mock.call(self.mock_ssh, '/lib/systemd/system'),
+                mock.call(self.mock_ssh, '/lib/systemd/system/svc_name.service'),
+            ]
+        )
+        mock_write_ssh_file.assert_called_once_with(
+            self.mock_ssh, '/tmp/uuid.service', mock.ANY
+        )
+        mock_exec_ssh_cmd.assert_has_calls(
+            [
+                mock.call(
+                    self.mock_ssh,
+                    'sudo mv /tmp/uuid.service /lib/systemd/system/svc_name.service',
+                    get_pty=False,
+                ),
+                mock.call(
+                    self.mock_ssh,
+                    'sudo restorecon -v /lib/systemd/system/svc_name.service',
+                    get_pty=False,
+                ),
+                mock.call(self.mock_ssh, 'sudo systemctl daemon-reload', get_pty=False),
+                mock.call(
+                    self.mock_ssh, 'sudo systemctl start svc_name', get_pty=False
+                ),
+            ]
+        )
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     @mock.patch('coriolis.utils.write_ssh_file')
     @mock.patch('coriolis.utils.test_ssh_path')
     @mock.patch.object(uuid, 'uuid4')
-    def test_write_systemd_usr_lib(self, mock_uuid, mock_test_ssh,
-                                   mock_write_ssh_file, mock_exec_ssh_cmd):
+    def test_write_systemd_usr_lib(
+        self, mock_uuid, mock_test_ssh, mock_write_ssh_file, mock_exec_ssh_cmd
+    ):
         mock_uuid.return_value = 'uuid'
         mock_test_ssh.side_effect = [False, False]
         mock_write_ssh_file.return_value = None
 
         utils._write_systemd(self.mock_ssh, 'cmdline', 'svc_name')
 
-        mock_test_ssh.assert_has_calls([
-            mock.call(self.mock_ssh, '/lib/systemd/system'),
-            mock.call(self.mock_ssh,
-                      '/usr/lib/systemd/system/svc_name.service')])
-        mock_exec_ssh_cmd.assert_has_calls([
-            mock.call(self.mock_ssh, 'sudo mv /tmp/uuid.service '
-                      '/usr/lib/systemd/system/svc_name.service',
-                      get_pty=False)])
+        mock_test_ssh.assert_has_calls(
+            [
+                mock.call(self.mock_ssh, '/lib/systemd/system'),
+                mock.call(self.mock_ssh, '/usr/lib/systemd/system/svc_name.service'),
+            ]
+        )
+        mock_exec_ssh_cmd.assert_has_calls(
+            [
+                mock.call(
+                    self.mock_ssh,
+                    'sudo mv /tmp/uuid.service '
+                    '/usr/lib/systemd/system/svc_name.service',
+                    get_pty=False,
+                )
+            ]
+        )
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     @mock.patch('coriolis.utils.test_ssh_path')
-    def test_write_systemd_service_exists(self, mock_test_ssh,
-                                          mock_exec_ssh_cmd):
+    def test_write_systemd_service_exists(self, mock_test_ssh, mock_exec_ssh_cmd):
         mock_test_ssh.return_value = True
 
         utils._write_systemd(self.mock_ssh, 'cmdline', 'svc_name', start=True)
 
-        mock_test_ssh.assert_has_calls([
-            mock.call(self.mock_ssh, '/lib/systemd/system'),
-            mock.call(self.mock_ssh,
-                      '/lib/systemd/system/svc_name.service')])
+        mock_test_ssh.assert_has_calls(
+            [
+                mock.call(self.mock_ssh, '/lib/systemd/system'),
+                mock.call(self.mock_ssh, '/lib/systemd/system/svc_name.service'),
+            ]
+        )
         mock_exec_ssh_cmd.assert_called_once_with(
-            self.mock_ssh, 'sudo systemctl start svc_name', get_pty=False)
+            self.mock_ssh, 'sudo systemctl start svc_name', get_pty=False
+        )
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     @mock.patch('coriolis.utils.write_ssh_file')
     @mock.patch('coriolis.utils.test_ssh_path')
     @mock.patch.object(uuid, 'uuid4')
-    def test_write_systemd_service_selinux_exception(self, mock_uuid,
-                                                     mock_test_ssh,
-                                                     mock_write_ssh_file,
-                                                     mock_exec_ssh_cmd):
+    def test_write_systemd_service_selinux_exception(
+        self, mock_uuid, mock_test_ssh, mock_write_ssh_file, mock_exec_ssh_cmd
+    ):
         mock_uuid.return_value = 'uuid'
         mock_test_ssh.side_effect = [True, False]
         mock_write_ssh_file.return_value = None
         mock_exec_ssh_cmd.side_effect = [
-            None, exception.CoriolisException(), None, None]
+            None,
+            exception.CoriolisException(),
+            None,
+            None,
+        ]
 
         _write_systemd_undecorated = testutils.get_wrapped_function(
-            utils._write_systemd)
+            utils._write_systemd
+        )
 
         with self.assertLogs('coriolis.utils', level=logging.WARN):
-            _write_systemd_undecorated(self.mock_ssh, '/test/file', 'svc_name',
-                                       start=True)
+            _write_systemd_undecorated(
+                self.mock_ssh, '/test/file', 'svc_name', start=True
+            )
 
         mock_uuid.assert_called_once_with()
-        mock_test_ssh.assert_has_calls([
-            mock.call(self.mock_ssh, '/lib/systemd/system'),
-            mock.call(self.mock_ssh,
-                      '/lib/systemd/system/svc_name.service')])
-        mock_write_ssh_file.assert_called_once_with(self.mock_ssh,
-                                                    '/tmp/uuid.service',
-                                                    mock.ANY)
+        mock_test_ssh.assert_has_calls(
+            [
+                mock.call(self.mock_ssh, '/lib/systemd/system'),
+                mock.call(self.mock_ssh, '/lib/systemd/system/svc_name.service'),
+            ]
+        )
+        mock_write_ssh_file.assert_called_once_with(
+            self.mock_ssh, '/tmp/uuid.service', mock.ANY
+        )
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     @mock.patch('coriolis.utils.write_ssh_file')
     @mock.patch('coriolis.utils.test_ssh_path')
     @mock.patch.object(uuid, 'uuid4')
-    def test_test_write_systemd_with_run_as(self, mock_uuid, mock_test_ssh,
-                                            mock_write_ssh_file,
-                                            mock_exec_ssh_cmd):
+    def test_test_write_systemd_with_run_as(
+        self, mock_uuid, mock_test_ssh, mock_write_ssh_file, mock_exec_ssh_cmd
+    ):
 
         mock_uuid.return_value = 'uuid'
         mock_test_ssh.side_effect = [True, False]
 
-        utils._write_systemd(self.mock_ssh, 'cmdline', 'svc_name',
-                             run_as='test_user')
+        utils._write_systemd(self.mock_ssh, 'cmdline', 'svc_name', run_as='test_user')
 
         mock_uuid.assert_called_once_with()
-        mock_test_ssh.assert_has_calls([
-            mock.call(self.mock_ssh, '/lib/systemd/system'),
-            mock.call(self.mock_ssh,
-                      '/lib/systemd/system/svc_name.service')])
+        mock_test_ssh.assert_has_calls(
+            [
+                mock.call(self.mock_ssh, '/lib/systemd/system'),
+                mock.call(self.mock_ssh, '/lib/systemd/system/svc_name.service'),
+            ]
+        )
         mock_write_ssh_file.assert_called_once_with(
-            self.mock_ssh, '/tmp/uuid.service',
-            utils.SYSTEMD_TEMPLATE % {
-                "cmdline": 'cmdline',
-                "username": 'test_user',
-                "svc_name": 'svc_name'})
+            self.mock_ssh,
+            '/tmp/uuid.service',
+            utils.SYSTEMD_TEMPLATE
+            % {"cmdline": 'cmdline', "username": 'test_user', "svc_name": 'svc_name'},
+        )
 
-        mock_exec_ssh_cmd.assert_has_calls([
-            mock.call(self.mock_ssh, 'sudo mv /tmp/uuid.service '
-                      '/lib/systemd/system/svc_name.service', get_pty=False),
-            mock.call(self.mock_ssh, 'sudo restorecon -v '
-                      '/lib/systemd/system/svc_name.service', get_pty=False),
-            mock.call(self.mock_ssh, 'sudo systemctl daemon-reload',
-                      get_pty=False),
-            mock.call(self.mock_ssh, 'sudo systemctl start svc_name',
-                      get_pty=False)])
+        mock_exec_ssh_cmd.assert_has_calls(
+            [
+                mock.call(
+                    self.mock_ssh,
+                    'sudo mv /tmp/uuid.service /lib/systemd/system/svc_name.service',
+                    get_pty=False,
+                ),
+                mock.call(
+                    self.mock_ssh,
+                    'sudo restorecon -v /lib/systemd/system/svc_name.service',
+                    get_pty=False,
+                ),
+                mock.call(self.mock_ssh, 'sudo systemctl daemon-reload', get_pty=False),
+                mock.call(
+                    self.mock_ssh, 'sudo systemctl start svc_name', get_pty=False
+                ),
+            ]
+        )
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     @mock.patch('coriolis.utils.write_ssh_file')
     @mock.patch('coriolis.utils.test_ssh_path')
     @mock.patch.object(uuid, 'uuid4')
-    def test_write_upstart(self, mock_uuid, mock_test_ssh,
-                           mock_write_ssh_file, mock_exec_ssh_cmd):
+    def test_write_upstart(
+        self, mock_uuid, mock_test_ssh, mock_write_ssh_file, mock_exec_ssh_cmd
+    ):
         mock_uuid.return_value = 'uuid'
         mock_test_ssh.return_value = False
         mock_write_ssh_file.return_value = None
@@ -1266,15 +1453,20 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         utils._write_upstart(self.mock_ssh, 'cmdline', 'svc_name')
 
         mock_uuid.assert_called_once_with()
-        mock_test_ssh.assert_called_once_with(
-            self.mock_ssh, '/etc/init/svc_name.conf')
-        mock_write_ssh_file.assert_called_once_with(self.mock_ssh,
-                                                    '/tmp/uuid.conf',
-                                                    mock.ANY)
-        mock_exec_ssh_cmd.assert_has_calls([
-            mock.call(self.mock_ssh, 'sudo mv /tmp/uuid.conf '
-                      '/etc/init/svc_name.conf', get_pty=False),
-            mock.call(self.mock_ssh, 'start svc_name')])
+        mock_test_ssh.assert_called_once_with(self.mock_ssh, '/etc/init/svc_name.conf')
+        mock_write_ssh_file.assert_called_once_with(
+            self.mock_ssh, '/tmp/uuid.conf', mock.ANY
+        )
+        mock_exec_ssh_cmd.assert_has_calls(
+            [
+                mock.call(
+                    self.mock_ssh,
+                    'sudo mv /tmp/uuid.conf /etc/init/svc_name.conf',
+                    get_pty=False,
+                ),
+                mock.call(self.mock_ssh, 'start svc_name'),
+            ]
+        )
 
     @mock.patch('coriolis.utils.test_ssh_path')
     def test_write_upstart_service_exists(self, mock_test_ssh):
@@ -1282,173 +1474,184 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
 
         utils._write_upstart(self.mock_ssh, 'cmdline', 'svc_name')
 
-        mock_test_ssh.assert_called_once_with(
-            self.mock_ssh, '/etc/init/svc_name.conf')
+        mock_test_ssh.assert_called_once_with(self.mock_ssh, '/etc/init/svc_name.conf')
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     @mock.patch('coriolis.utils.write_ssh_file')
     @mock.patch('coriolis.utils.test_ssh_path')
     @mock.patch.object(uuid, 'uuid4')
-    def test_write_upstart_with_run_as(self, mock_uuid, mock_test_ssh,
-                                       mock_write_ssh_file,
-                                       mock_exec_ssh_cmd):
+    def test_write_upstart_with_run_as(
+        self, mock_uuid, mock_test_ssh, mock_write_ssh_file, mock_exec_ssh_cmd
+    ):
         mock_uuid.return_value = 'uuid'
         mock_test_ssh.return_value = False
 
-        utils._write_upstart(self.mock_ssh, 'cmdline', 'svc_name',
-                             run_as='test-user')
+        utils._write_upstart(self.mock_ssh, 'cmdline', 'svc_name', run_as='test-user')
 
         mock_uuid.assert_called_once_with()
-        mock_test_ssh.assert_called_once_with(
-            self.mock_ssh, '/etc/init/svc_name.conf')
+        mock_test_ssh.assert_called_once_with(self.mock_ssh, '/etc/init/svc_name.conf')
         mock_write_ssh_file.assert_called_once_with(
-            self.mock_ssh, '/tmp/uuid.conf',
-            utils.UPSTART_TEMPLATE % {
-                "cmdline": 'sudo -u test-user -- cmdline',
-                "svc_name": 'svc_name'})
+            self.mock_ssh,
+            '/tmp/uuid.conf',
+            utils.UPSTART_TEMPLATE
+            % {"cmdline": 'sudo -u test-user -- cmdline', "svc_name": 'svc_name'},
+        )
 
-        mock_exec_ssh_cmd.assert_has_calls([
-            mock.call(self.mock_ssh, 'sudo mv /tmp/uuid.conf '
-                      '/etc/init/svc_name.conf', get_pty=False),
-            mock.call(self.mock_ssh, 'start svc_name')])
+        mock_exec_ssh_cmd.assert_has_calls(
+            [
+                mock.call(
+                    self.mock_ssh,
+                    'sudo mv /tmp/uuid.conf /etc/init/svc_name.conf',
+                    get_pty=False,
+                ),
+                mock.call(self.mock_ssh, 'start svc_name'),
+            ]
+        )
 
     @mock.patch('coriolis.utils._write_systemd')
     @mock.patch('coriolis.utils.test_ssh_path')
     def test_create_service_systemd(self, mock_test_ssh, mock_write_systemd):
         mock_test_ssh.return_value = True
 
-        utils.create_service(self.mock_ssh, 'cmdline', 'svc_name',
-                             run_as='user', start=True)
+        utils.create_service(
+            self.mock_ssh, 'cmdline', 'svc_name', run_as='user', start=True
+        )
 
-        mock_write_systemd.assert_called_once_with(self.mock_ssh, 'cmdline',
-                                                   'svc_name', run_as='user',
-                                                   start=True)
+        mock_write_systemd.assert_called_once_with(
+            self.mock_ssh, 'cmdline', 'svc_name', run_as='user', start=True
+        )
 
     @mock.patch('coriolis.utils._write_upstart')
     @mock.patch('coriolis.utils.test_ssh_path')
     def test_create_service_upstart(self, mock_test_ssh, mock_write_upstart):
         mock_test_ssh.side_effect = [False, False, True]
 
-        utils.create_service(self.mock_ssh, 'cmdline', 'svc_name',
-                             run_as='user', start=True)
+        utils.create_service(
+            self.mock_ssh, 'cmdline', 'svc_name', run_as='user', start=True
+        )
 
-        mock_write_upstart.assert_called_once_with(self.mock_ssh, 'cmdline',
-                                                   'svc_name', run_as='user',
-                                                   start=True)
+        mock_write_upstart.assert_called_once_with(
+            self.mock_ssh, 'cmdline', 'svc_name', run_as='user', start=True
+        )
 
     @mock.patch('coriolis.utils._write_systemd')
     @mock.patch('coriolis.utils.test_ssh_path')
     def test_create_service_exception(self, mock_test_ssh, mock_write_systemd):
         mock_test_ssh.return_value = False
 
-        create_svc_undecorated = testutils.get_wrapped_function(
-            utils.create_service)
+        create_svc_undecorated = testutils.get_wrapped_function(utils.create_service)
 
-        self.assertRaises(exception.CoriolisException, create_svc_undecorated,
-                          self.mock_ssh, 'cmdline', 'svc_name', run_as='user',
-                          start=True)
+        self.assertRaises(
+            exception.CoriolisException,
+            create_svc_undecorated,
+            self.mock_ssh,
+            'cmdline',
+            'svc_name',
+            run_as='user',
+            start=True,
+        )
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     @mock.patch('coriolis.utils.test_ssh_path')
-    def test_restart_service_with_systemd(self, mock_test_ssh,
-                                          mock_exec_ssh_cmd):
+    def test_restart_service_with_systemd(self, mock_test_ssh, mock_exec_ssh_cmd):
         mock_test_ssh.return_value = True
 
         utils.restart_service(self.mock_ssh, 'svc_name')
 
-        mock_test_ssh.assert_called_once_with(self.mock_ssh,
-                                              '/lib/systemd/system')
+        mock_test_ssh.assert_called_once_with(self.mock_ssh, '/lib/systemd/system')
         mock_exec_ssh_cmd.assert_called_once_with(
-            self.mock_ssh, 'sudo systemctl restart svc_name', get_pty=False)
+            self.mock_ssh, 'sudo systemctl restart svc_name', get_pty=False
+        )
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     @mock.patch('coriolis.utils.test_ssh_path')
-    def test_restart_service_with_upstart(self, mock_test_ssh,
-                                          mock_exec_ssh_cmd):
+    def test_restart_service_with_upstart(self, mock_test_ssh, mock_exec_ssh_cmd):
         mock_test_ssh.side_effect = [False, False, True]
 
         utils.restart_service(self.mock_ssh, 'svc_name')
 
-        mock_exec_ssh_cmd.assert_called_once_with(
-            self.mock_ssh, 'restart svc_name')
+        mock_exec_ssh_cmd.assert_called_once_with(self.mock_ssh, 'restart svc_name')
 
     @mock.patch('coriolis.utils.test_ssh_path')
     def test_restart_service_exception(self, mock_test_ssh):
         mock_test_ssh.return_value = False
 
-        restart_svc_undecorated = testutils.get_wrapped_function(
-            utils.restart_service)
+        restart_svc_undecorated = testutils.get_wrapped_function(utils.restart_service)
 
-        self.assertRaises(exception.UnrecognizedWorkerInitSystem,
-                          restart_svc_undecorated, self.mock_ssh, 'svc_name')
+        self.assertRaises(
+            exception.UnrecognizedWorkerInitSystem,
+            restart_svc_undecorated,
+            self.mock_ssh,
+            'svc_name',
+        )
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     @mock.patch('coriolis.utils.test_ssh_path')
-    def test_start_service_with_systemd(self, mock_test_ssh,
-                                        mock_exec_ssh_cmd):
+    def test_start_service_with_systemd(self, mock_test_ssh, mock_exec_ssh_cmd):
         mock_test_ssh.return_value = True
 
         utils.start_service(self.mock_ssh, 'svc_name')
 
-        mock_test_ssh.assert_called_once_with(self.mock_ssh,
-                                              '/lib/systemd/system')
+        mock_test_ssh.assert_called_once_with(self.mock_ssh, '/lib/systemd/system')
         mock_exec_ssh_cmd.assert_called_once_with(
-            self.mock_ssh, 'sudo systemctl start svc_name', get_pty=False)
+            self.mock_ssh, 'sudo systemctl start svc_name', get_pty=False
+        )
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     @mock.patch('coriolis.utils.test_ssh_path')
-    def test_start_service_with_upstart(self, mock_test_ssh,
-                                        mock_exec_ssh_cmd):
+    def test_start_service_with_upstart(self, mock_test_ssh, mock_exec_ssh_cmd):
         mock_test_ssh.side_effect = [False, False, True]
 
         utils.start_service(self.mock_ssh, 'svc_name')
 
-        mock_exec_ssh_cmd.assert_called_once_with(
-            self.mock_ssh, 'start svc_name')
+        mock_exec_ssh_cmd.assert_called_once_with(self.mock_ssh, 'start svc_name')
 
     @mock.patch('coriolis.utils.test_ssh_path')
     def test_start_service_exception(self, mock_test_ssh):
         mock_test_ssh.return_value = False
 
-        start_svc_undecorated = testutils.get_wrapped_function(
-            utils.start_service)
+        start_svc_undecorated = testutils.get_wrapped_function(utils.start_service)
 
-        self.assertRaises(exception.UnrecognizedWorkerInitSystem,
-                          start_svc_undecorated, self.mock_ssh, 'svc_name')
+        self.assertRaises(
+            exception.UnrecognizedWorkerInitSystem,
+            start_svc_undecorated,
+            self.mock_ssh,
+            'svc_name',
+        )
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     @mock.patch('coriolis.utils.test_ssh_path')
-    def test_stop_service_with_systemd(self, mock_test_ssh,
-                                       mock_exec_ssh_cmd):
+    def test_stop_service_with_systemd(self, mock_test_ssh, mock_exec_ssh_cmd):
         mock_test_ssh.return_value = True
 
         utils.stop_service(self.mock_ssh, 'svc_name')
 
-        mock_test_ssh.assert_called_once_with(self.mock_ssh,
-                                              '/lib/systemd/system')
+        mock_test_ssh.assert_called_once_with(self.mock_ssh, '/lib/systemd/system')
         mock_exec_ssh_cmd.assert_called_once_with(
-            self.mock_ssh, 'sudo systemctl stop svc_name', get_pty=False)
+            self.mock_ssh, 'sudo systemctl stop svc_name', get_pty=False
+        )
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
     @mock.patch('coriolis.utils.test_ssh_path')
-    def test_stop_service_with_upstart(self, mock_test_ssh,
-                                       mock_exec_ssh_cmd):
+    def test_stop_service_with_upstart(self, mock_test_ssh, mock_exec_ssh_cmd):
         mock_test_ssh.side_effect = [False, False, True]
 
         utils.stop_service(self.mock_ssh, 'svc_name')
 
-        mock_exec_ssh_cmd.assert_called_once_with(
-            self.mock_ssh, 'stop svc_name')
+        mock_exec_ssh_cmd.assert_called_once_with(self.mock_ssh, 'stop svc_name')
 
     @mock.patch('coriolis.utils.test_ssh_path')
     def test_stop_service_exception(self, mock_test_ssh):
         mock_test_ssh.return_value = False
 
-        stop_svc_undecorated = testutils.get_wrapped_function(
-            utils.stop_service)
+        stop_svc_undecorated = testutils.get_wrapped_function(utils.stop_service)
 
-        self.assertRaises(exception.UnrecognizedWorkerInitSystem,
-                          stop_svc_undecorated, self.mock_ssh, 'svc_name')
+        self.assertRaises(
+            exception.UnrecognizedWorkerInitSystem,
+            stop_svc_undecorated,
+            self.mock_ssh,
+            'svc_name',
+        )
 
 
 @ddt.ddt
@@ -1462,8 +1665,7 @@ class Grub2ConfigEditorTestCase(test_base.CoriolisBaseTestCase):
 
     def test__init__(self):
         result = utils.Grub2ConfigEditor(self.cfg)
-        self.assertEqual(
-            result._parsed, [{'type': 'raw', 'payload': self.cfg}])
+        self.assertEqual(result._parsed, [{'type': 'raw', 'payload': self.cfg}])
 
     def test_parse_cfg_comment_line(self):
         self.cfg = '# This is a comment'
@@ -1473,52 +1675,80 @@ class Grub2ConfigEditorTestCase(test_base.CoriolisBaseTestCase):
 
     def test_parse_cfg_option_line_with_quoted_value(self):
         self.cfg = 'option="value"'
-        expected_result = [{'type': 'option', 'payload': self.cfg,
-                            'quoted': True, 'option_name': 'option',
-                            'option_value':
-                            [{'opt_type': 'single', 'opt_val': 'value'}]}]
+        expected_result = [
+            {
+                'type': 'option',
+                'payload': self.cfg,
+                'quoted': True,
+                'option_name': 'option',
+                'option_value': [{'opt_type': 'single', 'opt_val': 'value'}],
+            }
+        ]
 
         result = self.parser._parse_cfg(self.cfg)
         self.assertEqual(result, expected_result)
 
     def test_parse_cfg_option_line_without_value(self):
         self.cfg = 'option='
-        expected_result = [{'type': 'option', 'payload': self.cfg,
-                            'quoted': False, 'option_name': 'option',
-                            'option_value':
-                            [{'opt_type': 'single', 'opt_val': ''}]}]
+        expected_result = [
+            {
+                'type': 'option',
+                'payload': self.cfg,
+                'quoted': False,
+                'option_name': 'option',
+                'option_value': [{'opt_type': 'single', 'opt_val': ''}],
+            }
+        ]
 
         result = self.parser._parse_cfg(self.cfg)
         self.assertEqual(result, expected_result)
 
     def test_parse_cfg_option_line_with_value(self):
         self.cfg = 'option=value'
-        expected_result = [{'type': 'option', 'payload': self.cfg,
-                            'quoted': False, 'option_name': 'option',
-                            'option_value':
-                            [{'opt_type': 'single', 'opt_val': 'value'}]}]
+        expected_result = [
+            {
+                'type': 'option',
+                'payload': self.cfg,
+                'quoted': False,
+                'option_name': 'option',
+                'option_value': [{'opt_type': 'single', 'opt_val': 'value'}],
+            }
+        ]
 
         result = self.parser._parse_cfg(self.cfg)
         self.assertEqual(result, expected_result)
 
     def test_parse_cfg_option_line_with_multiple_values(self):
         self.cfg = 'option=value1 value2'
-        expected_result = [{'type': 'option', 'payload': self.cfg,
-                            'quoted': False, 'option_name': 'option',
-                            'option_value':
-                            [{'opt_type': 'single', 'opt_val': 'value1'},
-                             {'opt_type': 'single', 'opt_val': 'value2'}]}]
+        expected_result = [
+            {
+                'type': 'option',
+                'payload': self.cfg,
+                'quoted': False,
+                'option_name': 'option',
+                'option_value': [
+                    {'opt_type': 'single', 'opt_val': 'value1'},
+                    {'opt_type': 'single', 'opt_val': 'value2'},
+                ],
+            }
+        ]
 
         result = self.parser._parse_cfg(self.cfg)
         self.assertEqual(result, expected_result)
 
     def test_parse_cfg_option_line_with_key_value(self):
         self.cfg = 'option=key=value'
-        expected_result = [{'type': 'option', 'payload': self.cfg,
-                            'quoted': False, 'option_name': 'option',
-                            'option_value':
-                            [{'opt_type': 'key_val', 'opt_val': 'value',
-                              'opt_key': 'key'}]}]
+        expected_result = [
+            {
+                'type': 'option',
+                'payload': self.cfg,
+                'quoted': False,
+                'option_name': 'option',
+                'option_value': [
+                    {'opt_type': 'key_val', 'opt_val': 'value', 'opt_key': 'key'}
+                ],
+            }
+        ]
 
         result = self.parser._parse_cfg(self.cfg)
         self.assertEqual(result, expected_result)
@@ -1540,107 +1770,170 @@ class Grub2ConfigEditorTestCase(test_base.CoriolisBaseTestCase):
             self.parser._validate_value(value)
 
     def test_set_option_updates_existing_option(self):
-        self.parser._parsed = [{"option_name": "existing_option",
-                                "option_value": ["old_value"]}]
-        new_value = {"opt_type": "key_val", "opt_key": "key", "opt_val":
-                     "new_value"}
-        expected_value = [{"option_name": "existing_option",
-                           "option_value": [new_value]}]
+        self.parser._parsed = [
+            {"option_name": "existing_option", "option_value": ["old_value"]}
+        ]
+        new_value = {"opt_type": "key_val", "opt_key": "key", "opt_val": "new_value"}
+        expected_value = [
+            {"option_name": "existing_option", "option_value": [new_value]}
+        ]
 
         self.parser.set_option("existing_option", new_value)
         self.assertEqual(self.parser._parsed, expected_value)
 
     def test_set_option_adds_new_option(self):
-        self.parser._parsed = [{"option_name": "existing_option",
-                                "option_value": ["old_value"]}]
-        new_value = {"opt_type": "key_val", "opt_key": "key",
-                     "opt_val": "new_value", "quoted": True, "type": "option"}
-        expected_value = [{"option_name": "existing_option", "option_value":
-                           ["old_value"]}, {"option_name": "new_option",
-                                            "option_value": [new_value],
-                                            "quoted": True, "type": "option"}]
+        self.parser._parsed = [
+            {"option_name": "existing_option", "option_value": ["old_value"]}
+        ]
+        new_value = {
+            "opt_type": "key_val",
+            "opt_key": "key",
+            "opt_val": "new_value",
+            "quoted": True,
+            "type": "option",
+        }
+        expected_value = [
+            {"option_name": "existing_option", "option_value": ["old_value"]},
+            {
+                "option_name": "new_option",
+                "option_value": [new_value],
+                "quoted": True,
+                "type": "option",
+            },
+        ]
 
         self.parser.set_option("new_option", new_value)
         self.assertEqual(self.parser._parsed, expected_value)
 
     def test_append_to_option_updates_existing_key_val_option(self):
-        self.parser._parsed = [{"option_name": "existing_option",
-                                "option_value": [{"opt_type": "key_val",
-                                                  "opt_key": "key",
-                                                  "opt_val": "old_value"}]}]
-        new_value = {"opt_type": "key_val", "opt_key": "key",
-                     "opt_val": "new_value"}
-        expected_value = [{"option_name": "existing_option", "option_value":
-                           [new_value]}]
+        self.parser._parsed = [
+            {
+                "option_name": "existing_option",
+                "option_value": [
+                    {"opt_type": "key_val", "opt_key": "key", "opt_val": "old_value"}
+                ],
+            }
+        ]
+        new_value = {"opt_type": "key_val", "opt_key": "key", "opt_val": "new_value"}
+        expected_value = [
+            {"option_name": "existing_option", "option_value": [new_value]}
+        ]
 
         self.parser.append_to_option("existing_option", new_value)
         self.assertEqual(self.parser._parsed, expected_value)
 
     def test_append_to_option_ignores_existing_single_option(self):
-        self.parser._parsed = [{"option_name": "existing_option",
-                                "option_value": [{"opt_type": "single",
-                                                  "opt_val": "old_value"}]}]
+        self.parser._parsed = [
+            {
+                "option_name": "existing_option",
+                "option_value": [{"opt_type": "single", "opt_val": "old_value"}],
+            }
+        ]
         new_value = {"opt_type": "single", "opt_val": "old_value"}
-        expected_value = [{"option_name": "existing_option",
-                           "option_value": [new_value]}]
+        expected_value = [
+            {"option_name": "existing_option", "option_value": [new_value]}
+        ]
 
         self.parser.append_to_option("existing_option", new_value)
         self.assertEqual(self.parser._parsed, expected_value)
 
     def test_append_to_option_adds_new_single_option(self):
-        self.parser._parsed = [{"option_name": "existing_option",
-                                "option_value": [{"opt_type": "single",
-                                                  "opt_val": "old_value"}]}]
+        self.parser._parsed = [
+            {
+                "option_name": "existing_option",
+                "option_value": [{"opt_type": "single", "opt_val": "old_value"}],
+            }
+        ]
         new_value = {"opt_type": "single", "opt_val": "new_value"}
-        expected_value = [{
-            "option_name": "existing_option", "option_value":
-            [{"opt_type": "single", "opt_val": "old_value"}, new_value]}]
+        expected_value = [
+            {
+                "option_name": "existing_option",
+                "option_value": [
+                    {"opt_type": "single", "opt_val": "old_value"},
+                    new_value,
+                ],
+            }
+        ]
 
         self.parser.append_to_option("existing_option", new_value)
         self.assertEqual(self.parser._parsed, expected_value)
 
     def test_append_to_option_adds_new_option(self):
-        self.parser._parsed = [{"option_name": "existing_option",
-                                "option_value": [{"opt_type": "single",
-                                                  "opt_val": "old_value"}]}]
-        new_value = {"opt_type": "key_val", "opt_key": "key", "opt_val":
-                     "new_value"}
-        expected_value = [{
-            "option_name": "existing_option", "option_value":
-            [{"opt_type": "single", "opt_val": "old_value"}]},
-            {"option_name": "new_option", "option_value": [new_value],
-             "quoted": True, "type": "option"}]
+        self.parser._parsed = [
+            {
+                "option_name": "existing_option",
+                "option_value": [{"opt_type": "single", "opt_val": "old_value"}],
+            }
+        ]
+        new_value = {"opt_type": "key_val", "opt_key": "key", "opt_val": "new_value"}
+        expected_value = [
+            {
+                "option_name": "existing_option",
+                "option_value": [{"opt_type": "single", "opt_val": "old_value"}],
+            },
+            {
+                "option_name": "new_option",
+                "option_value": [new_value],
+                "quoted": True,
+                "type": "option",
+            },
+        ]
 
         self.parser.append_to_option("new_option", new_value)
         self.assertEqual(self.parser._parsed, expected_value)
 
     @ddt.data(
+        ([{"type": "raw", "payload": "raw_data"}], "raw_data\n"),
         (
-            [{"type": "raw", "payload": "raw_data"}],
-            "raw_data\n"
+            [
+                {
+                    "type": "option",
+                    "option_name": "option1",
+                    "option_value": [{"opt_type": "single", "opt_val": "value1"}],
+                    "quoted": False,
+                }
+            ],
+            "option1=value1\n",
         ),
         (
-            [{"type": "option", "option_name": "option1", "option_value":
-              [{"opt_type": "single", "opt_val": "value1"}], "quoted": False}],
-            "option1=value1\n"
+            [
+                {
+                    "type": "option",
+                    "option_name": "option2",
+                    "option_value": [
+                        {"opt_type": "key_val", "opt_key": "key2", "opt_val": "value2"}
+                    ],
+                    "quoted": True,
+                }
+            ],
+            "option2=\"key2=value2\"\n",
         ),
         (
-            [{"type": "option", "option_name": "option2", "option_value":
-              [{"opt_type": "key_val", "opt_key": "key2",
-                "opt_val": "value2"}],
-                "quoted": True}], "option2=\"key2=value2\"\n"
+            [
+                {
+                    "type": "option",
+                    "option_name": "option3",
+                    "option_value": [],
+                    "quoted": False,
+                }
+            ],
+            "option3=\n",
         ),
         (
-            [{"type": "option", "option_name": "option3", "option_value": [],
-              "quoted": False}], "option3=\n"
+            [
+                {
+                    "type": "option",
+                    "option_name": "option4",
+                    "option_value": [
+                        {"opt_type": "single", "opt_val": "value4_1"},
+                        {"opt_type": "single", "opt_val": "value4_2"},
+                    ],
+                    "quoted": False,
+                }
+            ],
+            "option4=\"value4_1 value4_2\"\n",
         ),
-        (
-            [{"type": "option", "option_name": "option4", "option_value":
-              [{"opt_type": "single", "opt_val": "value4_1"},
-               {"opt_type": "single", "opt_val":
-                "value4_2"}], "quoted": False}],
-            "option4=\"value4_1 value4_2\"\n"
-        ))
+    )
     @ddt.unpack
     def test_dump(self, parsed, expected_output):
         self.parser._parsed = parsed

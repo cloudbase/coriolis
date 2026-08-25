@@ -5,8 +5,8 @@ Revises: 022
 Create Date: 2025-02-06 14:42:29.000000
 """
 
-from alembic import op
 import sqlalchemy
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "023"
@@ -16,11 +16,9 @@ depends_on = None
 
 
 def upgrade():
-    deployer_id = sqlalchemy.Column(
-        'deployer_id', sqlalchemy.String(36), nullable=True)
+    deployer_id = sqlalchemy.Column('deployer_id', sqlalchemy.String(36), nullable=True)
     op.add_column("deployment", deployer_id)
-    trust_id = sqlalchemy.Column(
-        'trust_id', sqlalchemy.String(255), nullable=True)
+    trust_id = sqlalchemy.Column('trust_id', sqlalchemy.String(255), nullable=True)
     op.add_column("deployment", trust_id)
 
 
