@@ -15,6 +15,7 @@ import socketserver
 import tempfile
 import threading
 import time
+import unittest
 import uuid
 import zlib
 from unittest import mock
@@ -26,6 +27,7 @@ from coriolis.db import api as db_api
 from coriolis.providers import backup_writers
 from coriolis.providers import replicator as replicator_module
 from coriolis.tests.integration import base
+from coriolis.tests.integration import harness as integration_harness
 from coriolis.tests.integration import utils as test_utils
 
 CONF = cfg.CONF
@@ -72,6 +74,12 @@ class _ReplicaTransferTestsMixin:
 
         The content is verified only if the test import provider is being used.
         """
+        if not self._harness.uses_core_test_export_provider():
+            self.skipTest(
+                "Incremental transfer verification requires direct access "
+                "to the source device"
+            )
+
         # First run: full transfer
         self._execute_and_wait(self._transfer.id)
 
@@ -232,6 +240,15 @@ class ClusteredTransferIntegrationTest(base.ReplicaIntegrationTestBase):
     across instances. Each instance has its own disk + a disk shared between
     them (same disk id in both instances' export_info).
     """
+
+    @classmethod
+    def setUpClass(cls):
+        h = integration_harness._IntegrationHarness.get()
+        if not h.uses_core_test_export_provider():
+            raise unittest.SkipTest(
+                "Clustered transfers require the core test export provider"
+            )
+        super().setUpClass()
 
     def setUp(self):
         super().setUp()
@@ -427,6 +444,15 @@ class ReplicaTransferViaSSHTunnelTest(base.ReplicaIntegrationTestBase):
     """Transfer tests using an SSH tunneled replicator client."""
 
     _EXTRA_SOURCE_ENVIRONMENT = {"use_tunnel": True}
+
+    @classmethod
+    def setUpClass(cls):
+        h = integration_harness._IntegrationHarness.get()
+        if not h.uses_core_test_export_provider():
+            raise unittest.SkipTest(
+                "'use_tunnel' is a core test export provider option"
+            )
+        super().setUpClass()
 
     def test_transfer_via_ssh_tunnel(self):
         tunnel_starts = []

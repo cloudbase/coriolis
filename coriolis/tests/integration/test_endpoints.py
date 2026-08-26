@@ -17,6 +17,7 @@ Exercises endpoint-related operations via the Coriolis REST API:
 
 import unittest
 
+from coriolis import context as coriolis_context
 from coriolis.providers import base as provider_base
 from coriolis.tests.integration import base
 
@@ -86,7 +87,11 @@ class EndpointCapabilitiesTest(base.CoriolisIntegrationTestBase):
     def test_list_source_options(self):
         options = self._client.endpoint_source_options.list(self._src_endpoint.id)
         self.assertIsInstance(options, list)
-        self.assertTrue(len(options) > 0, "Expected at least one source option")
+
+        expected = self._exp_provider.get_source_environment_options(
+            coriolis_context.get_admin_context(), self._exp_conn_info
+        )
+        self.assertEqual(len(expected), len(options))
 
     def test_list_destination_options(self):
         options = self._client.endpoint_destination_options.list(self._dst_endpoint.id)

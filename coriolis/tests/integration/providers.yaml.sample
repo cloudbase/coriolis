@@ -1,18 +1,30 @@
-# Sample providers.yaml - built-in Docker test provider as destination.
+# Sample providers.yaml - built-in Docker test provider as source / destination.
 #
 # This sample uses the provider that ships with the test suite itself and
 # requires no external packages or credentials. It is the same provider the
 # harness uses when CORIOLIS_PROVIDERS_YAML is not set, so it is mainly useful
 # as a reference for the file format.
 #
-# To use a real destination provider, copy this file, adjust the ``provider``
-# dotted path to point at your provider's Import Provider, and fill in
-# ``connection_info``, ``environment``, and ``storage_mappings`` as required by
-# that provider.
+# To use a real source and / or destination provider, copy this file, adjust
+# the ``provider`` dotted path(s) to point at your provider's Export /
+# Import Provider, and fill in ``connection_info``, ``environment``, and
+# ``storage_mappings`` as required by that provider. The "source" and
+# "destination" sections are independent; either one can be left pointing at
+# the built-in test provider while the other uses an external provider.
 #
 # Run with:
 #   sudo -E CORIOLIS_PROVIDER_PACKAGE=/path/to/provider \
 #     CORIOLIS_PROVIDERS_YAML=./providers.yaml.sample tox -e integration
+
+source:
+  # Dotted path to an Export Provider to test. Must also implement BaseTestExportProvider
+  provider: "coriolis.tests.integration.test_provider.exp.TestExportProvider"
+
+  # connection_info is passed to the source endpoint.
+  connection_info: null
+
+  # source_environment options merged into each transfer's source_environment.
+  environment: {}
 
 destination:
   # Dotted path to an Import Provider to test. Must also implement BaseTestImportProvider

@@ -23,7 +23,8 @@ The test harness (`harness.py`) performs a one-time setup per process:
 6. Serves the REST API via cheroot on a random local port, with Keystone
    auth replaced by a no-op middleware that injects a fixed admin context.
 7. Registers the built-in `test_provider` as both the export and import
-   provider.
+   provider, unless external providers are configured via
+   `CORIOLIS_PROVIDERS_YAML` (see below).
 
 Teardown (registered with `atexit`) stops all services, removes the Docker
 container, removes the working directory, and detaches any leftover loop
@@ -94,36 +95,61 @@ sudo tox -e integration -- --no-discover coriolis.tests.integration.transfers.te
 > `sudo` is required because `tox` itself must run as root so that the
 > test process inherits root privileges.
 
-## Using an external destination provider
+## Using an external source / destination provider
 
 By default, the harness uses the built-in Docker test provider for both source
-and destination. To run the integration suite against a real destination
-provider, install the provider package via `CORIOLIS_PROVIDER_PACKAGE` and
-supply provider configuration via `CORIOLIS_PROVIDERS_YAML`.
+and destination. To run the integration suite against a real source and / or
+destination provider, install the provider package(s) via
+`CORIOLIS_SOURCE_PROVIDER_PACKAGE` / `CORIOLIS_DESTINATION_PROVIDER_PACKAGE`
+and supply provider configuration via `CORIOLIS_PROVIDERS_YAML`. The `source`
+and `destination` sections in that file are independent; either can be left
+pointing at the built-in test provider.
 
 ### What the harness does with `providers.yaml`
 
-1. Registers the destination provider class with `oslo.config`.
-2. Creates a destination endpoint with `destination.connection_info`.
-3. Uses `destination.environment` as `destination_environment` and
+1. Registers the source and destination provider classes with `oslo.config`.
+2. Creates a source endpoint with `source.connection_info`, and a destination
+   endpoint with `destination.connection_info`.
+3. For an external source provider, `source.instance_name` names a
+   pre-existing VM to migrate; the harness does not create or delete it (this
+   is unlike the destination side, where resources are created and torn down
+   per test). Merges `source.environment` into each transfer's
+   `source_environment`.
+4. Uses `destination.environment` as `destination_environment` and
    `destination.storage_mappings` as `storage_mappings` for each transfer.
 
 ### Running
 
-Set `CORIOLIS_PROVIDER_PACKAGE` to a local path or any pip-compatible specifier
-(`git+file://`, `git+https://`, etc.); tox installs it into the virtualenv
-before running the tests. Leave it unset to use only the built-in test provider.
+Set `CORIOLIS_SOURCE_PROVIDER_PACKAGE` and / or
+`CORIOLIS_DESTINATION_PROVIDER_PACKAGE` to a local path or pip-compatible
+specifier (`git+file://`, `git+https://`, etc.) for the corresponding
+provider package; tox installs them into the virtualenv before running the
+tests. If unset, the built-in test provider is used for that side.
 
 ```bash
-sudo -E CORIOLIS_PROVIDER_PACKAGE=/path/to/provider \
+# Single external provider (e.g.: destination only).
+sudo -E CORIOLIS_DESTINATION_PROVIDER_PACKAGE=/path/to/provider \
+  CORIOLIS_PROVIDERS_YAML=./providers.yaml tox -e integration
+
+# External providers from different packages.
+sudo -E CORIOLIS_SOURCE_PROVIDER_PACKAGE=/path/to/provider-a \
+  CORIOLIS_DESTINATION_PROVIDER_PACKAGE=/path/to/provider-b \
   CORIOLIS_PROVIDERS_YAML=./providers.yaml tox -e integration
 ```
 
 Supply `CORIOLIS_CONFIG_FILE` when provider-specific configurations are required:
 
 ```bash
-sudo -E CORIOLIS_PROVIDER_PACKAGE=/path/to/provider \
+sudo -E CORIOLIS_DESTINATION_PROVIDER_PACKAGE=/path/to/provider \
   CORIOLIS_CONFIG_FILE=./provider.conf \
+  CORIOLIS_PROVIDERS_YAML=./providers.yaml tox -e integration
+```
+
+Additional shared libraries (required by some providers) may be passed to tox:
+
+```bash
+sudo -E LD_LIBRARY_PATH=/path/to/native/libs \
+  CORIOLIS_SOURCE_PROVIDER_PACKAGE=/path/to/provider \
   CORIOLIS_PROVIDERS_YAML=./providers.yaml tox -e integration
 ```
 

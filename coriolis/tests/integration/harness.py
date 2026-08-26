@@ -58,6 +58,7 @@ from coriolis.taskflow import runner as taskflow_runner
 from coriolis.tasks import factory as task_runners_factory
 from coriolis.tests.integration import provider_test_base
 from coriolis.tests.integration import utils as test_utils
+from coriolis.tests.integration.test_provider import exp as test_provider_exp
 from coriolis.tests.integration.test_provider import imp as test_provider_imp
 from coriolis.transfer_cron.rpc import server as transfer_cron_rpc_server
 from coriolis.worker.rpc import server as worker_rpc_server
@@ -95,6 +96,13 @@ def _load_providers_config():
         with open(_PROVIDERS_YAML) as f:
             providers_config = yaml.safe_load(f) or {}
 
+    src_config = providers_config.get("source", {})
+    src_provider_path = src_config.get("provider") or _TEST_EXPORT_PROVIDER
+    src_provider_cls = _get_provider(src_provider_path)
+
+    if not issubclass(src_provider_cls, provider_test_base.BaseTestExportProvider):
+        raise TypeError("%s must subclass BaseTestExportProvider" % src_provider_path)
+
     dest_config = providers_config.get("destination", {})
     dest_provider_path = dest_config.get("provider") or _TEST_IMPORT_PROVIDER
     dest_provider_cls = _get_provider(dest_provider_path)
@@ -103,6 +111,13 @@ def _load_providers_config():
         raise TypeError("%s must subclass BaseTestImportProvider" % dest_provider_path)
 
     return {
+        "source": {
+            "provider": src_provider_path,
+            "provider_cls": src_provider_cls,
+            "connection_info": src_config.get("connection_info"),
+            "environment": src_config.get("environment") or {},
+            "instance_name": src_config.get("instance_name"),
+        },
         "destination": {
             "provider": dest_provider_path,
             "provider_cls": dest_provider_cls,
@@ -343,8 +358,9 @@ class _IntegrationHarness:
         cfg.CONF.set_override('messaging_transport_url', 'fake://')
 
         providers_config = _load_providers_config()
+        exp_provider = providers_config["source"]["provider"]
         imp_provider = providers_config["destination"]["provider"]
-        cfg.CONF.set_override('providers', [_TEST_EXPORT_PROVIDER, imp_provider])
+        cfg.CONF.set_override('providers', [exp_provider, imp_provider])
         db_url = (
             'mysql+pymysql://%(user)s:%(password)s@localhost:13306/%(database)s'
         ) % {
@@ -368,18 +384,22 @@ class _IntegrationHarness:
         policy_module.reset()
 
         # Init exporter.
-        self.exp_provider_class = _get_provider(_TEST_EXPORT_PROVIDER)
+        exp_provider_cls = providers_config["source"]["provider_cls"]
+        self.exp_provider_class = exp_provider_cls
         self.exp_provider_platform = self.exp_provider_class.platform
         self.exp_provider = providers_factory.get_provider(
             self.exp_provider_platform,
             constants.PROVIDER_TYPE_TRANSFER_EXPORT,
             event_handler=mock.MagicMock(),
         )
-        self.exp_conn_info = {
+        conn_info = providers_config["source"]["connection_info"]
+        self.exp_conn_info = conn_info or {
             "pkey_path": self.ssh_key_path,
             "role": "source",
         }
-        self.exp_provider.initialize(self.exp_conn_info)
+        self.exp_provider.initialize(self.exp_conn_info, providers_config["source"])
+        self.exp_provider.check_prerequisites()
+        self.exp_env_options = providers_config["source"]["environment"]
 
         # Init importer.
         imp_provider_cls = providers_config["destination"]["provider_cls"]
@@ -396,6 +416,7 @@ class _IntegrationHarness:
             "role": "destination",
         }
         self.imp_provider.initialize(self.imp_conn_info)
+        self.imp_provider.check_prerequisites()
         self.imp_env_options = providers_config["destination"]["environment"]
         self.imp_storage_mappings = providers_config["destination"]["storage_mappings"]
         self.imp_minion_pool_environment = providers_config["destination"][
@@ -609,4 +630,11 @@ class _IntegrationHarness:
         return isinstance(
             self.imp_provider,
             test_provider_imp.TestImportProvider,
+        )
+
+    def uses_core_test_export_provider(self):
+        """Returns True when the test export provider is being used."""
+        return isinstance(
+            self.exp_provider,
+            test_provider_exp.TestExportProvider,
         )
