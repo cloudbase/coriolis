@@ -1309,6 +1309,7 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
 
         mock_exec_cmd.assert_has_calls(
             [
+                mock.call("sudo sync"),
                 mock.call("sudo fuser --kill --mount /mnt/root_dir || true"),
                 mock.call(
                     "mountpoint -q /mnt/root_dir && sudo mount --make-rprivate "
@@ -1349,14 +1350,19 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         self.base_os_mount_tools.dismount_os("/mnt/root_dir")
 
         issued = [call.args[0] for call in mock_exec_cmd.call_args_list]
+        sync_cmd = "sudo sync"
+        fuser_cmd = "sudo fuser --kill --mount /mnt/root_dir || true"
         rprivate_cmd = (
             "mountpoint -q /mnt/root_dir && sudo mount --make-rprivate "
             "/mnt/root_dir || true"
         )
         umount_cmd = "mountpoint -q /mnt/root_dir && sudo umount -R /mnt/root_dir"
 
+        self.assertEqual(issued[0], sync_cmd)
+        self.assertIn(fuser_cmd, issued)
         self.assertIn(rprivate_cmd, issued)
         self.assertIn(umount_cmd, issued)
+        self.assertLess(issued.index(sync_cmd), issued.index(fuser_cmd))
         self.assertLess(issued.index(rprivate_cmd), issued.index(umount_cmd))
 
     @mock.patch.object(base.utils, 'get_url_with_credentials')

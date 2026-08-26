@@ -739,6 +739,9 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
         return os_root_dir, os_root_device
 
     def dismount_os(self, root_dir):
+        # Flush dirty pages to replica volumes before unmount.
+        # Later volume detach would otherwise drop in-memory writes.
+        self._exec_cmd("sudo sync")
         self._exec_cmd('sudo fuser --kill --mount %s || true' % root_dir)
         # NOTE: the binds are made private as they are made, but a mount can
         # still propagate in before that happens, and chroots mounted by an
