@@ -632,6 +632,11 @@ class AttachVolumesToOSMorphingMinionTask(_BaseVolumesMinionMachineAttachmentTas
     @classmethod
     def _get_volumes_info_from_task_info(cls, task_info):
         # Similar to _BaseAttachVolumesToTransferMinionTask.
+        if "volumes_info" in task_info["instance_deployment_info"]:
+            # Use the updated volumes info reported by the provider.
+            # If volume cloning is used, those won't be the original volumes.
+            return task_info["instance_deployment_info"]["volumes_info"]
+        # The provider didn't include volumes info, use the original list.
         return task_info["volumes_info"]
 
     @classmethod
