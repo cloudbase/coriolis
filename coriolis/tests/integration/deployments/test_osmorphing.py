@@ -27,7 +27,10 @@ class OsMorphingDeploymentTestBase(integration_base.ReplicaIntegrationTestBase):
     @classmethod
     def setUpClass(cls):
         harness = integration_harness._IntegrationHarness.get()
-        if not harness.uses_core_test_import_provider():
+        if not (
+            harness.uses_core_test_export_provider()
+            and harness.uses_core_test_import_provider()
+        ):
             raise unittest.SkipTest("OS morphing tests require local disk access")
         super().setUpClass()
 

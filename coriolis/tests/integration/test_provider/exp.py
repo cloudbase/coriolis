@@ -82,7 +82,7 @@ class TestExportProvider(
 
     # BaseTestExportProvider - test only
 
-    def initialize(self, connection_info: dict):
+    def initialize(self, connection_info: dict, source_config: dict):
         self._initial_containers = test_utils.list_containers(_CONTAINER_PREFIXES)
 
     def teardown(self, connection_info: dict):

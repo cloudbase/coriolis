@@ -63,6 +63,7 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
         cls._exp_provider = cls._harness.exp_provider
         cls._exp_platform = cls._harness.exp_provider_platform
         cls._exp_conn_info = cls._harness.exp_conn_info
+        cls._exp_env_options = cls._harness.exp_env_options
 
         cls._imp_provider = cls._harness.imp_provider
         cls._imp_platform = cls._harness.imp_provider_platform
@@ -263,8 +264,6 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
 
     @classmethod
     def setUpClass(cls):
-        harness._IntegrationHarness.get().imp_provider.check_prerequisites()
-
         super().setUpClass()
 
         cls._src_endpoint = cls._create_endpoint(
@@ -307,6 +306,7 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             destination_minion_pool_id=self._pool_id,
             source_environment={
                 **extra_source_env,
+                **self._exp_env_options,
                 **self._EXTRA_SOURCE_ENVIRONMENT,
             },
         )
