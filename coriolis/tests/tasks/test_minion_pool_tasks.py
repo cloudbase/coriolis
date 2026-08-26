@@ -505,7 +505,7 @@ class AttachVolumesToOSMorphingMinionTaskTestCase(test_base.CoriolisBaseTestCase
         self.task_runner = mp_tasks.AttachVolumesToOSMorphingMinionTask()
 
     def test__get_volumes_info_from_task_info(self):
-        task_info = {"volumes_info": [{"id": "vol1"}]}
+        task_info = {"instance_deployment_info": {"volumes_info": [{"id": "vol1"}]}}
         result = mp_tasks.AttachVolumesToOSMorphingMinionTask._get_volumes_info_from_task_info(
             task_info
         )
