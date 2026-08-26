@@ -11,6 +11,7 @@ manage the coriolis-replicator service and perform disk replication.
 import csv
 import io
 import os
+import unittest
 import uuid
 
 import paramiko
@@ -28,6 +29,7 @@ from coriolis.providers.base import (
     BaseReplicaExportValidationProvider,
     BaseUpdateSourceReplicaProvider,
 )
+from coriolis.tests.integration import provider_test_base
 from coriolis.tests.integration import utils as test_utils
 
 CONF = cfg.CONF
@@ -42,6 +44,9 @@ _TEST_NIC = {
     "mac_address": "fa:16:3e:12:34:56",
 }
 
+# Name prefixes used by deploy_replica_source_resources.
+_CONTAINER_PREFIXES = ("coriolis-replicator-",)
+
 
 class TestExportProvider(
     BaseEndpointInstancesProvider,
@@ -50,6 +55,7 @@ class TestExportProvider(
     BaseUpdateSourceReplicaProvider,
     BaseReplicaExportProvider,
     BaseReplicaExportValidationProvider,
+    provider_test_base.BaseTestExportProvider,
 ):
     """Source-side provider backed by a local loop device.
 
@@ -72,6 +78,54 @@ class TestExportProvider(
 
     def __init__(self, event_handler):
         self._event_handler = event_handler
+        self._test_devices = {}  # instance_name -> loop device path
+
+    # BaseTestExportProvider - test only
+
+    def initialize(self, connection_info: dict):
+        self._initial_containers = test_utils.list_containers(_CONTAINER_PREFIXES)
+
+    def teardown(self, connection_info: dict):
+        new_containers = test_utils.list_containers(_CONTAINER_PREFIXES)
+        leaked_containers = new_containers - self._initial_containers
+
+        if not leaked_containers:
+            return
+
+        for name in leaked_containers:
+            test_utils.remove_container(name)
+
+        raise AssertionError(
+            "Found leaked containers during teardown: %s" % leaked_containers
+        )
+
+    def check_prerequisites(self):
+        if not test_utils.container_image_exists(test_utils.DATA_MINION_IMAGE):
+            raise unittest.SkipTest(
+                "Docker image '%s' not found; build it with: "
+                "docker build -t %s "
+                "coriolis/tests/integration/dockerfiles/data-minion/"
+                % (test_utils.DATA_MINION_IMAGE, test_utils.DATA_MINION_IMAGE)
+            )
+
+    def get_test_instance(self, size_mb: int):
+        device = test_utils.create_loop_device(size_mb * 1024 * 1024)
+        test_utils.write_test_pattern(device, 8192)
+
+        instance_name = "%s-%s" % (os.path.basename(device), uuid.uuid4().hex[:8])
+        self._test_devices[instance_name] = device
+
+        return instance_name, {
+            "instance_block_devices": {instance_name: [device]},
+        }
+
+    def delete_test_instance(self, instance_name: str):
+        device = self._test_devices.pop(instance_name, None)
+        if device:
+            test_utils.remove_loop_device(device)
+
+    def get_test_instance_device(self, instance_name: str):
+        return self._test_devices.get(instance_name)
 
     def _event_manager(self):
         return events.EventManager(self._event_handler)
