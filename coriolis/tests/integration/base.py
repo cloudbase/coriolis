@@ -15,7 +15,6 @@ Subclasses must be run as root.
 import os
 import time
 import unittest
-import uuid
 from unittest import mock
 
 import oslo_messaging as messaging
@@ -31,7 +30,6 @@ from coriolis.db import api as db_api
 from coriolis.providers import factory as providers_factory
 from coriolis.tests import test_base
 from coriolis.tests.integration import harness
-from coriolis.tests.integration import utils as test_utils
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
@@ -62,6 +60,7 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
         cls._workdir = cls._harness.workdir
         cls._lock_path = cls._harness.lock_path
         cls._api_port = cls._harness.api_port
+        cls._exp_provider = cls._harness.exp_provider
         cls._exp_platform = cls._harness.exp_provider_platform
         cls._exp_conn_info = cls._harness.exp_conn_info
 
@@ -296,29 +295,18 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
     def setUp(self):
         super().setUp()
 
-        self._src_device = test_utils.create_loop_device(
-            self._SRC_DEVICE_SIZE_MB * 1024 * 1024
+        self._instance_name, extra_source_env = self._exp_provider.get_test_instance(
+            size_mb=self._SRC_DEVICE_SIZE_MB,
         )
-        self.addCleanup(test_utils.remove_loop_device, self._src_device)
+        self.addCleanup(self._exp_provider.delete_test_instance, self._instance_name)
 
-        # Write a test pattern on the src device.
-        # Incremental transfer tests update the second chunk (offset=4096).
-        test_utils.write_test_pattern(self._src_device, 8192)
-
-        # Create transfer replica.
-        # Use basename as instance name; real VM names do not contain slashes,
-        # and some providers use the name as is in resource indentifiers.
-        self._instance_name = "%s-%s" % (
-            os.path.basename(self._src_device),
-            uuid.uuid4().hex[:8],
-        )
         self._transfer = self._create_transfer(
             self._src_endpoint.id,
             self._dst_endpoint.id,
             instances=[self._instance_name],
             destination_minion_pool_id=self._pool_id,
             source_environment={
-                "instance_block_devices": {self._instance_name: [self._src_device]},
+                **extra_source_env,
                 **self._EXTRA_SOURCE_ENVIRONMENT,
             },
         )
@@ -337,6 +325,11 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             mocker = mock.patch(prop)
             mocker.start()
             self.addCleanup(mocker.stop)
+
+    @property
+    def _src_device(self):
+        """Local loop device path backing the source instance, if any."""
+        return self._exp_provider.get_test_instance_device(self._instance_name)
 
     @property
     def _dst_device(self):

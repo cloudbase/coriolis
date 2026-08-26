@@ -370,10 +370,16 @@ class _IntegrationHarness:
         # Init exporter.
         self.exp_provider_class = _get_provider(_TEST_EXPORT_PROVIDER)
         self.exp_provider_platform = self.exp_provider_class.platform
+        self.exp_provider = providers_factory.get_provider(
+            self.exp_provider_platform,
+            constants.PROVIDER_TYPE_TRANSFER_EXPORT,
+            event_handler=mock.MagicMock(),
+        )
         self.exp_conn_info = {
             "pkey_path": self.ssh_key_path,
             "role": "source",
         }
+        self.exp_provider.initialize(self.exp_conn_info)
 
         # Init importer.
         imp_provider_cls = providers_config["destination"]["provider_cls"]
@@ -412,6 +418,7 @@ class _IntegrationHarness:
         sqlalchemy_api._facade = None
         rpc_module._TRANSPORT = None
 
+        atexit.register(self.exp_provider.teardown, self.exp_conn_info)
         atexit.register(self.imp_provider.teardown, self.imp_conn_info)
         atexit.register(self._teardown)
 
