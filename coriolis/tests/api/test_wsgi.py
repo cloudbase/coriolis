@@ -30,6 +30,11 @@ class ResourceExceptionHandlerTestCase(test_base.CoriolisBaseTestCase):
         raised = self.assertRaises(wsgi.Fault, self._run, exc)
         self.assertEqual(exc.code, raised.status_int)
 
+    def test_conflict(self):
+        exc = exception.Conflict("already exists")
+        raised = self.assertRaises(wsgi.Fault, self._run, exc)
+        self.assertEqual(exc.code, raised.status_int)
+
     def test_type_error(self):
         exc = TypeError("wrong type")
         raised = self.assertRaises(wsgi.Fault, self._run, exc)

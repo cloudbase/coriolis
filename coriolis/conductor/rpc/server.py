@@ -8,6 +8,7 @@ import uuid
 
 from oslo_concurrency import lockutils
 from oslo_config import cfg
+from oslo_db import exception as db_exception
 from oslo_log import log as logging
 
 from coriolis import constants, context, exception, keystone, schemas, utils
@@ -4568,7 +4569,13 @@ class ConductorServerEndpoint(object):
             service.specs = specs
 
         # create the service:
-        db_api.add_service(ctxt, service)
+        try:
+            db_api.add_service(ctxt, service)
+        except db_exception.DBDuplicateEntry:
+            raise exception.Conflict(
+                "A Service with the specified parameters (host %s, binary %s, "
+                "topic %s) has already been registered." % (host, binary, topic)
+            )
         LOG.debug("Added new service to DB: %s", service.id)
 
         # add region associations:

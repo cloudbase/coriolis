@@ -660,6 +660,12 @@ class ResourceExceptionHandler(object):
                     code=ex_value.code, explanation=ex_value.msg
                 )
             )
+        elif isinstance(ex_value, exception.Conflict):
+            raise Fault(
+                exception.ConvertedException(
+                    code=ex_value.code, explanation=ex_value.msg
+                )
+            )
         elif isinstance(ex_value, TypeError):
             exc_info = (ex_type, ex_value, ex_traceback)
             LOG.error(
