@@ -9,6 +9,7 @@ from unittest import mock
 import ddt
 from oslo_concurrency import lockutils
 from oslo_config import cfg
+from oslo_db import exception as db_exception
 
 from coriolis import constants, context, exception, keystone, schemas, utils
 from coriolis.conductor.rpc import server
@@ -4913,6 +4914,27 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.context, mock_Service.return_value.id
         )
         mock_get_service.assert_not_called()
+
+    @mock.patch.object(db_api, "add_service")
+    @mock.patch.object(models, "Service")
+    @mock.patch.object(db_api, "find_service")
+    def test_register_service_db_duplicate_entry(
+        self, mock_find_service, mock_Service, mock_add_service
+    ):
+        mock_find_service.return_value = None
+        mock_add_service.side_effect = db_exception.DBDuplicateEntry()
+
+        self.assertRaises(
+            exception.Conflict,
+            self.server.register_service,
+            mock.sentinel.context,
+            mock.sentinel.host,
+            mock.sentinel.binary,
+            mock.sentinel.topic,
+            mock.sentinel.enabled,
+            providers=mock.sentinel.providers,
+            specs=mock.sentinel.specs,
+        )
 
     @mock.patch.object(db_api, "find_service")
     def test_check_service_registered(self, mock_find_service):

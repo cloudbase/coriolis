@@ -32,7 +32,7 @@ class ServiceTests(base.CoriolisIntegrationTestBase):
 
         # Create.
         hostname = socket.gethostname()
-        svc = self._create_service(hostname, "foo-binary", "coriolis_worker")
+        svc = self._create_service(hostname, "foo-binary", "lish-topic")
 
         # Get.
         fetched = self._client.services.get(svc.id)
@@ -61,14 +61,14 @@ class ServiceTests(base.CoriolisIntegrationTestBase):
         # ConductorServerEndpoint.register_service raises Conflict when a
         # service with the same host / binary / topic is already registered.
         hostname = socket.gethostname()
-        svc = self._create_service(hostname, "conflict-binary", "coriolis_worker")
+        svc = self._create_service(hostname, "conflict-binary", "conflict-topic")
 
         self.assertRaises(
             http_exc.Conflict,
             self._client.services.create,
             host=hostname,
             binary="conflict-binary",
-            topic="coriolis_worker",
+            topic="conflict-topic",
             regions=[],
         )
 
@@ -83,7 +83,7 @@ class ServiceTests(base.CoriolisIntegrationTestBase):
         svc = self._client.services.create(
             host=hostname,
             binary="region-binary",
-            topic="coriolis_worker",
+            topic="region-topic",
             regions=[region.id],
         )
         self.addCleanup(self._ignoreExc(self._client.services.delete), svc.id)
