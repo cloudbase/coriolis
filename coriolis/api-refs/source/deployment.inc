@@ -19,6 +19,19 @@ Normal response codes: 200
 Error response codes:   unauthorized(401),
 forbidden(403)
 
+Request
+-------
+
+.. rest_parameters:: parameters.yaml
+
+  - show_deleted : show_deleted
+  - include_task_info : include_task_info
+  - status : transfer_status_filter
+  - marker : paging_marker
+  - limit : paging_limit
+  - sort_key : sort_key
+  - sort_dir : sort_dir
+
 Response
 --------
 
@@ -26,8 +39,6 @@ Response
 
   - deployments : deployments_array
   - id : deployment_id
-  - include_task_info : include_task_info
-  - show_deleted : show_deleted
   - deleted : deployment_deleted
   - deleted_at : deployment_deleted_at
   - instances : deployment_instances
@@ -50,9 +61,14 @@ Response
   - destination_minion_pool_id : destination_minion_pool_id
   - instance_osmorphing_minion_pool_mappings : instance_osmorphing_minion_pool_mappings
   - user_scripts : user_scripts
-  - transfer_id : transfer_id
   - transfer_scenario_type : transfer_scenario_type
-  - shutdown_instances : deployment_shutdown_instances
+  - clone_disks : deployment_clone_disks
+  - skip_os_morphing : skip_os_morphing
+  - clustered : deployment_clustered
+  - reservation_id : deployment_reservation_id
+  - transfer_result : deployment_transfer_result
+  - deployer_id : deployment_deployer_id
+  - trust_id : deployment_trust_id
 
 **Example of a Deployment List**
 
@@ -82,6 +98,7 @@ Request
 .. rest_parameters:: parameters.yaml
 
   - deployment_id : deployment_id_path
+  - include_task_info : include_task_info
 
 Response
 --------
@@ -90,7 +107,6 @@ Response
 
   - deployment : deployment_object
   - id : deployment_id
-  - include_task_info : include_task_info
   - deleted : deployment_deleted
   - deleted_at : deployment_deleted_at
   - instances : deployment_instances
@@ -114,9 +130,15 @@ Response
   - destination_minion_pool_id : destination_minion_pool_id
   - instance_osmorphing_minion_pool_mappings : instance_osmorphing_minion_pool_mappings
   - user_scripts : user_scripts
-  - transfer_id : transfer_id
   - transfer_scenario_type : transfer_scenario_type
-  - shutdown_instances : deployment_shutdown_instances
+  - clone_disks : deployment_clone_disks
+  - skip_os_morphing : skip_os_morphing
+  - clustered : deployment_clustered
+  - reservation_id : deployment_reservation_id
+  - transfer_result : deployment_transfer_result
+  - deployer_id : deployment_deployer_id
+  - trust_id : deployment_trust_id
+  - info : deployment_info
 
 **Example of a Deployment Show Response**
   .. literalinclude:: ../api_samples/deployment/openstack-deployment-get-resp.json
@@ -151,6 +173,7 @@ Request
     - clone_disks : deployment_clone_disks
     - skip_os_morphing : skip_os_morphing
     - instance_osmorphing_minion_pool_mappings : instance_osmorphing_minion_pool_mappings
+    - user_scripts : user_scripts
 
 **Example of Deployment Create From Transfer Request**
   .. literalinclude:: ../api_samples/deployment/deployment-from-transfer-req.json
@@ -167,11 +190,10 @@ Response
   - deleted_at : deployment_deleted_at
   - instances : deployment_instances
   - notes : deployment_notes
-  - status : deployment_notes
   - tasks : deployment_tasks
   - user_id : user_id
   - destination_environment : destination_environment
-  - source_environtment : source_environment
+  - source_environment : source_environment
   - type : deployment_type
   - info : deployment_info
   - origin_endpoint_id : deployment_origin_endpoint_id
@@ -187,7 +209,15 @@ Response
   - origin_minion_pool_id : origin_minion_pool_id
   - destination_minion_pool_id : destination_minion_pool_id
   - instance_osmorphing_minion_pool_mappings : instance_osmorphing_minion_pool_mappings
-  - shutdown_instances : deployment_shutdown_instances
+  - user_scripts : user_scripts
+  - transfer_scenario_type : transfer_scenario_type
+  - clone_disks : deployment_clone_disks
+  - skip_os_morphing : skip_os_morphing
+  - clustered : deployment_clustered
+  - reservation_id : deployment_reservation_id
+  - transfer_result : deployment_transfer_result
+  - deployer_id : deployment_deployer_id
+  - trust_id : deployment_trust_id
 
 **Example of Deployment Create From Transfer Response**
   .. literalinclude:: ../api_samples/deployment/openstack-deployment-from-transfer-resp.json
@@ -244,8 +274,8 @@ Request
 .. rest_parameters:: parameters.yaml
 
   - deployment_id : deployment_id_path
-  - force : deployment_cancel_force
   - cancel : deployment_cancel
+  - force : deployment_cancel_force
 
 **Example of A Deployment Cancellation Request**
   .. literalinclude:: ../api_samples/deployment/deployment-cancel-req.json

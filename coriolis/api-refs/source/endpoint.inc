@@ -80,8 +80,8 @@ Response
   - user_id : user_id
   - project_id : project_id
   - connection_info: connection_info
-  - type : endpoint_id
-  - name : endpoint_created_at
+  - type : endpoint_type
+  - name : endpoint_name
   - description : endpoint_description
   - mapped_regions : endpoint_mapped_regions
 
@@ -128,7 +128,7 @@ Response
 .. rest_parameters:: parameters.yaml
 
   - endpoint : endpoint_object
-  - name : endpoint_created_at
+  - name : endpoint_name
   - description : endpoint_description
   - id : endpoint_id
   - connection_info: connection_info
@@ -193,9 +193,10 @@ Response
   - user_id : user_id
   - project_id : project_id
   - connection_info: connection_info
-  - type : endpoint_id
-  - name : endpoint_created_at
+  - type : endpoint_type
+  - name : endpoint_name
   - description : endpoint_description
+  - mapped_regions : endpoint_mapped_regions
 
 **Example of Endpoint Update Response**
   .. literalinclude:: ../api_samples/endpoint/openstack-endpoint-update-resp.json
@@ -252,6 +253,10 @@ Request
 
    - endpoint_id : endpoint_id_path
    - refresh : instance_refresh
+   - marker : instance_marker
+   - limit : instance_limit
+   - name : instance_name_filter
+   - env : endpoint_resources_env
 
 Response
 --------
@@ -259,7 +264,6 @@ Response
 .. rest_parameters:: parameters.yaml
 
   - instances : instance_array
-  - limit : instance_limit
   - name : instance_identifier
   - num_cpu : instance_num_cpu
   - num_cores_per_socket : instance_cores_per_socket
@@ -301,6 +305,7 @@ Request
 
    - endpoint_id : endpoint_id_path
    - instance_name_base64 : instance_name_base64_path
+   - env : endpoint_resources_env
 
 Response
 --------
@@ -408,6 +413,8 @@ Request
 .. rest_parameters:: parameters.yaml
 
    - endpoint_id : endpoint_id_path
+   - env : endpoint_resources_env
+   - options : endpoint_options_query
 
 Response
 --------
@@ -448,6 +455,8 @@ Request
 .. rest_parameters:: parameters.yaml
 
    - endpoint_id : endpoint_id_path
+   - env : endpoint_resources_env
+   - options : endpoint_options_query
 
 Response
 --------
@@ -485,6 +494,7 @@ Request
 .. rest_parameters:: parameters.yaml
 
    - endpoint_id : endpoint_id_path
+   - env : endpoint_resources_env
 
 Response
 --------
@@ -523,12 +533,14 @@ Request
 .. rest_parameters:: parameters.yaml
 
   - endpoint_id : endpoint_id_path
+  - env : endpoint_resources_env
 
 Response
 --------
 
 .. rest_parameters:: parameters.yaml
 
+  - storage : storage
   - storage_backends : storage_backends
   - name : storage_name
   - id : storage_id
@@ -563,7 +575,7 @@ Request
 
 .. rest_parameters:: parameters.yaml
 
-  - validate_connection : validate_connection
+  - validate-connection : validate_connection
   - endpoint_id : endpoint_id_path
 
 **Example of Endpoint Validate Connection Request**
@@ -575,7 +587,7 @@ Response
 
 .. rest_parameters:: parameters.yaml
 
-  - validate_connection : validate_connection
+  - validate-connection : validate_connection
   - valid : valid_connection
   - message : validation_message
 
@@ -615,6 +627,8 @@ Request
 .. rest_parameters:: parameters.yaml
 
    - endpoint_id : endpoint_id_path
+   - env : endpoint_resources_env
+   - options : endpoint_options_query
 
 Response
 --------
@@ -654,6 +668,8 @@ Request
 .. rest_parameters:: parameters.yaml
 
    - endpoint_id : endpoint_id_path
+   - env : endpoint_resources_env
+   - options : endpoint_options_query
 
 Response
 --------

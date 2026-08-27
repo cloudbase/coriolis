@@ -33,7 +33,7 @@ Response
 List Provider Schemas
 =====================
 
-.. rest_method:: GET /providers/{platform}/schemas/{provider_type}
+.. rest_method:: GET /providers/{platform_name}/schemas/{provider_type}
 
 Lists a provider schema by given platform and provider type.
 
@@ -50,8 +50,8 @@ Request
 
 .. rest_parameters:: parameters.yaml
 
-    - platform : platform
-    - provider_type : provider_id
+    - platform_name : platform_name_path
+    - provider_type : provider_type_path
 
 Response
 --------

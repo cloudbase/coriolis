@@ -1,5 +1,6 @@
 {
   "execution": {
-    "shutdown_instances": false
+    "shutdown_instances": false,
+    "auto_deploy": false
   }
 }

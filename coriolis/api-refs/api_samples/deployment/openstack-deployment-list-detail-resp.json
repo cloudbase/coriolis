@@ -75,8 +75,12 @@
         "global": {},
         "instances": {}
       },
-      "transfer_scenario_type": "replica",
-      "shutdown_instances": false
+      "clone_disks": true,
+      "skip_os_morphing": false,
+      "clustered": false,
+      "deployer_id": null,
+      "trust_id": null,
+      "transfer_scenario_type": "replica"
     },
     {
       "created_at": "2019-08-22T08:29:33.000000",
@@ -90,7 +94,6 @@
       "origin_minion_pool_id": null,
       "destination_minion_pool_id": "a5e00fd3-42ac-4570-898b-5bbee0ff4acb",
       "instance_osmorphing_minion_pool_mappings": {},
-      "shutdown_instances": false,
       "destination_environment": {
         "network_map": {
           "VM Network": "0e83bf34-9cc7-4580-9189-a9d9c3c7abb8"
@@ -184,6 +187,11 @@
         "global": {},
         "instances": {}
       },
+      "clone_disks": true,
+      "skip_os_morphing": false,
+      "clustered": false,
+      "deployer_id": null,
+      "trust_id": null,
       "id": "9566af98-2c89-4969-ad73-a416e8a8a5ce",
       "transfer_id": "0460aa4d-6b16-4c98-bd56-27ee186e4a22",
       "transfer_scenario_type": "replica"

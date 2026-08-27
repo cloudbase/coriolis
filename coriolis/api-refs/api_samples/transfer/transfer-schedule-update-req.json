@@ -4,5 +4,6 @@
     "dow": 0,
     "minute": 30,
     "hour": 20
-  }
+  },
+  "auto_deploy": false
 }
