@@ -29,15 +29,17 @@ minion_pool_id_path:
   in: path
   type: uuid
   required: true
-platform:
+platform_name_path:
   description: |
-    The type of cloud service platform.
+    The name of the cloud service platform (e.g. "openstack", "vmware_vsphere").
   in: path
   type: string
   required: true
-provider_id:
+provider_type_path:
   description: |
-    The ID of cloud service provider.
+    The numeric provider type bitmask flag for the schema requested (e.g.
+    4 for Transfer Import, 8 for Transfer Export, 512 for Destination
+    Endpoint Options), as defined by the ``PROVIDER_TYPE_*`` constants.
   in: path
   type: integer
   required: true
@@ -110,7 +112,82 @@ show_deleted:
   required: false
   type: boolean
   default: false
+instance_marker:
+  description: |
+    The id of the last instance seen in a previous page, used to fetch the
+    next page of results.
+  in: query
+  required: false
+  type: string
+instance_name_filter:
+  description: |
+    Filters returned instances by name.
+  in: query
+  required: false
+  type: string
+endpoint_resources_env:
+  description: |
+    Optional base64-encoded JSON object containing environment options used
+    to filter/scope the request. When omitted, the provider's defaults are
+    used.
+  in: query
+  required: false
+  type: string
+endpoint_options_query:
+  description: |
+    Optional base64-encoded JSON object listing the specific option names to
+    retrieve. When omitted, all available options are returned.
+  in: query
+  required: false
+  type: string
+paging_marker:
+  description: |
+    The id of the last item seen in a previous page, used to fetch the next
+    page of results.
+  in: query
+  required: false
+  type: string
+paging_limit:
+  description: |
+    Returns a number of items up to a limit value.
+  in: query
+  required: false
+  type: integer
+sort_key:
+  description: |
+    The field to sort results by.
+  in: query
+  required: false
+  type: string
+sort_dir:
+  description: |
+    The direction to sort results in. Possible values: "asc", "desc".
+  in: query
+  required: false
+  type: string
+transfer_status_filter:
+  description: |
+    Filters transfers/executions by task status.
+  in: query
+  required: false
+  type: string
+show_expired:
+  description: |
+    Whether to include expired transfer schedules in the response.
+  in: query
+  required: false
+  type: boolean
+  default: true
 # body variables
+auto_deploy:
+  description: |
+    Boolean whether the transfer execution/schedule should automatically
+    deploy the transferred instances once the execution completes
+    successfully.
+  in: body
+  type: boolean
+  required: false
+  default: false
 base_id:
   description: |
     The id of the deployment in the mariadb database.
@@ -143,17 +220,25 @@ deployment_cancel:
   description: |
     Object containing information about the type of deployment cancellation.
   in: body
-  type: string
-  required: true
+  type: object
+  required: false
 deployment_cancel_force:
   description: |
     Boolean representing whether the deployment cancellation is forced.
+    Defaults to false.
   in: body
   type: boolean
-  required: true
+  required: false
 deployment_clone_disks:
   description: |
     Boolean representing whether the deployment is started from transferred disks.
+  in: body
+  type: boolean
+  required: true
+deployment_clustered:
+  description: |
+    Boolean representing whether the deployment enables cross-instance sync
+    barriers and shared-disk handling for multi-instance transfers.
   in: body
   type: boolean
   required: true
@@ -166,10 +251,10 @@ deployment_created_at:
 deployment_deleted:
   description: |
     Whether a deployment is deleted or not.
-    1 for deleted
-    0 for not deleted
+    "1" for deleted
+    "0" for not deleted
   in: body
-  type: integer
+  type: string
   required: true
 deployment_deleted_at:
   description: |
@@ -177,6 +262,12 @@ deployment_deleted_at:
   in: body
   type: object
   required: true
+deployment_deployer_id:
+  description: |
+    The id of the transfer execution used to deploy the deployment.
+  in: body
+  type: uuid
+  required: false
 deployment_destination_endpoint_id:
   description: |
     The id of the deployment destination cloud endpoint.
@@ -225,18 +316,31 @@ deployment_object:
   in: body
   type: object
   required: true
+deployment_reservation_id:
+  description: |
+    The id of the resource reservation associated with the deployment, if any.
+  in: body
+  type: string
+  required: false
+deployment_transfer_result:
+  description: |
+    Object describing the resulting deployed instance(s) once the deployment
+    has completed.
+  in: body
+  type: object
+  required: false
+deployment_trust_id:
+  description: |
+    The id of the Keystone trust created for the deployment to perform
+    automated actions on the user's behalf.
+  in: body
+  type: string
+  required: false
 deployment_origin_endpoint_id:
   description: |
     The id of the deployment source cloud endpoint.
   in: body
   type: uuid
-  required: true
-deployment_shutdown_instances:
-  description: |
-    A boolean which describes whether the execution to shutdown the source
-    instance for the deployment process.
-  in: body
-  type: boolean
   required: true
 deployment_tasks:
   description: |
@@ -543,6 +647,13 @@ minion_pool_deallocate:
   in: body
   type: object
   required: true
+minion_pool_deallocate_force:
+  description: |
+    Boolean representing whether the minion pool deallocation is forced.
+    Defaults to false.
+  in: body
+  type: boolean
+  required: false
 minion_pool_deleted:
   description: |
     Whether a minion pool is deleted or not.
@@ -656,7 +767,7 @@ minion_pool_skip_allocation:
 minion_pool_status:
   description: |
     The status of the minion pool. Accepted values: 'UNKNOWN', 'ERROR',
-    'DEALLOCATED', 'VALIATING_INPUTS', 'ALLOCATING_SHARED_RESOURCES',
+    'DEALLOCATED', 'VALIDATING_INPUTS', 'ALLOCATING_SHARED_RESOURCES',
     'ALLOCATING_MACHINES', 'DEALLOCATING_MACHINES',
     'DEALLOCATING_SHARED_RESOURCES', 'ALLOCATED', 'IN_MAINTENANCE'.
   in: body
@@ -963,6 +1074,12 @@ source_options:
   in: body
   type: object
   required: true
+storage:
+  description: |
+    Object containing the storage available on an endpoint.
+  in: body
+  type: object
+  required: true
 storage_backends:
   description: |
     Array containing storage backends available to an endpoint.
@@ -993,6 +1110,13 @@ transfer_action_id:
   in: body
   type: uuid
   required: true
+transfer_clone_disks:
+  description: |
+    Boolean representing whether the transfer's disks should be cloned.
+    Defaults to true.
+  in: body
+  type: boolean
+  required: false
 transfer_created_at:
   description: |
     Timestamp of transfer creation.
@@ -1001,7 +1125,8 @@ transfer_created_at:
   required: true
 transfer_delete_disks:
   description: |
-    An object that describes delete disk transfer action.
+    The action key for the delete disks transfer action; the request body
+    has no other required fields.
   in: body
   type: object
   required: true
@@ -1247,6 +1372,13 @@ transfer_schedule_month:
   in: body
   type: integer
   required: false
+transfer_schedule_trust_id:
+  description: |
+    The id of the Keystone trust created for the transfer schedule to
+    perform automated actions on the user's behalf.
+  in: body
+  type: string
+  required: true
 transfer_schedule_updated_at:
   description: |
     Timestamp of last transfer schedule update.

@@ -99,8 +99,6 @@ Response
   - minion_max_idle_time : minion_max_idle_time
   - minion_retention_strategy : minion_pool_retention_strategy
   - minion_machines : minion_pool_machines
-  - user_id : user_id
-  - project_id : project_id
   - events : minion_pool_events
   - progress_updates : minion_pool_progress_updates
 
@@ -169,8 +167,6 @@ Response
   - minion_max_idle_time : minion_max_idle_time
   - minion_retention_strategy : minion_pool_retention_strategy
   - minion_machines : minion_pool_machines
-  - user_id : user_id
-  - project_id : project_id
   - events : minion_pool_events
   - progress_updates : minion_pool_progress_updates
 
@@ -204,15 +200,12 @@ Request
     - minion_pool : minion_pool_object
     - name : minion_pool_name
     - notes : minion_pool_notes
-    - endpoint_id : minion_pool_endpoint_id
     - environment_options : minion_pool_environment_options
     - os_type : minion_pool_os_type
-    - platform : minion_pool_platform
     - minimum_minions : minimum_minions
     - maximum_minions : maximum_minions
     - minion_max_idle_time : minion_max_idle_time
     - minion_retention_strategy : minion_pool_retention_strategy
-    - notes : minion_pool_notes
 
 **Example of Minion Pool Update Request**
 
@@ -244,8 +237,6 @@ Response
     - minion_max_idle_time : minion_max_idle_time
     - minion_retention_strategy : minion_pool_retention_strategy
     - minion_machines : minion_pool_machines
-    - user_id : user_id
-    - project_id : project_id
     - events : minion_pool_events
     - progress_updates : minion_pool_progress_updates
 
@@ -341,8 +332,6 @@ Response
   - minion_max_idle_time : minion_max_idle_time
   - minion_retention_strategy : minion_pool_retention_strategy
   - minion_machines : minion_pool_machines
-  - user_id : user_id
-  - project_id : project_id
   - events : minion_pool_events
   - progress_updates : minion_pool_progress_updates
 
@@ -375,6 +364,7 @@ Request
 
   - minion_pool_id : minion_pool_id_path
   - deallocate : minion_pool_deallocate
+  - force : minion_pool_deallocate_force
 
 **Example of Minion Pool Deallocation Request**
 
@@ -406,8 +396,6 @@ Response
   - minion_max_idle_time : minion_max_idle_time
   - minion_retention_strategy : minion_pool_retention_strategy
   - minion_machines : minion_pool_machines
-  - user_id : user_id
-  - project_id : project_id
   - events : minion_pool_events
   - progress_updates : minion_pool_progress_updates
 
@@ -471,8 +459,6 @@ Response
   - minion_max_idle_time : minion_max_idle_time
   - minion_retention_strategy : minion_pool_retention_strategy
   - minion_machines : minion_pool_machines
-  - user_id : user_id
-  - project_id : project_id
   - events : minion_pool_events
   - progress_updates : minion_pool_progress_updates
 

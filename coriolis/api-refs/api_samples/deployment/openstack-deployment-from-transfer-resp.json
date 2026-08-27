@@ -43,8 +43,12 @@
       "instance1": "morphing_pool"
     },
     "user_scripts": {},
+    "clone_disks": true,
+    "skip_os_morphing": false,
+    "clustered": false,
+    "deployer_id": null,
+    "trust_id": null,
     "transfer_scenario_type": "replica",
-    "shutdown_instances": false,
     "tasks": [
       {
         "created_at": "2019-07-11T13:01:03.000000",
