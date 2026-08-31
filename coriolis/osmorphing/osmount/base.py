@@ -670,6 +670,7 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
 
             self._exec_cmd("sudo vgchange -ay -S vg_uuid=%s" % vg_uuid)
             self._exec_cmd("sudo vgchange --refresh")
+            self._exec_cmd(f"sudo vgmknodes {vg_props['name']}")
             dev_vg_path = f"/dev/{vg_props['name']}"
             if not utils.test_ssh_path(self._ssh, dev_vg_path):
                 LOG.warning("Volume Group '%s' not found. Skipping.", dev_vg_path)
