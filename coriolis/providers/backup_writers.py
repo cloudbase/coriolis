@@ -121,14 +121,18 @@ def _disable_lvm_metad_udev_rule(ssh):
     detected with lvm partitions (after a transfer is complete). During normal
     migrations with multiple replications, these services need to be disabled,
     therefore we make it impossible for the minion OS to create them.
+
+    The lvm2 initramfs hook must be deleted as well, otherwise the initrd
+    cannot be regenerated when installing packages.
     """
-    rule_paths = [
+    removed_paths = [
         "/lib/udev/rules.d/69-lvm-metad.rules",
         "/lib/udev/rules.d/69-dm-lvm.rules",
         "/lib/udev/rules.d/69-lvm.rules",
         "/lib/udev/rules.d/56-lvm.rules",
+        "/usr/share/initramfs-tools/hooks/lvm2",
     ]
-    for path in rule_paths:
+    for path in removed_paths:
         if utils.test_ssh_path(ssh, path):
             utils.exec_ssh_cmd(ssh, "sudo rm %s" % path, get_pty=False)
 
