@@ -655,6 +655,15 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
         return os_root_dir, os_root_device
 
     def mount_os(self):
+        # Prevent Coriolis mounts from being propagated to other namespaces
+        # belonging to Systemd services. These would be leaked when running
+        # "unmount -R" in this namespace, being especially troublesome if the
+        # minion gets reused. Stale mounts can prevent the FS from being
+        # remounted (e.g. if os-morphing gets retried).
+        #
+        # The other "--make-(r)private" calls may no longer be required.
+        self._exec_cmd("sudo mount --make-rprivate /")
+
         dev_paths = []
         mounted_devs = self._get_mounted_devices()
 
