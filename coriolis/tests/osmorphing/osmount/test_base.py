@@ -1190,6 +1190,7 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_find_dev_with_contents.return_value = "/dev/sdb1"
         mock_exec_cmd.side_effect = [
             "",
+            "",
             "/dev/sda1",
             "",
             "/dev/sdb1",
@@ -1211,6 +1212,7 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
 
         mock_exec_cmd.assert_has_calls(
             [
+                mock.call('sudo mount --make-rprivate /'),
                 mock.call('sudo partx -v -a /dev/sda || true'),
                 mock.call('sudo ls -1 /dev/sda*'),
                 mock.call('sudo partx -v -a /dev/sdb || true'),
@@ -1275,6 +1277,7 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_get_mounted_devices.return_value = ["/dev/sda1"]
         mock_exec_cmd.side_effect = [
             "",
+            "",
             "xfs\n",
             "",
             "xfs\n",
@@ -1294,6 +1297,7 @@ class BaseLinuxOSMountToolsTestCase(test_base.CoriolisBaseTestCase):
 
         mock_exec_cmd.assert_has_calls(
             [
+                mock.call('sudo mount --make-rprivate /'),
                 mock.call('sudo partx -v -a /dev/sda || true'),
                 mock.call('sudo ls -1 /dev/sda*'),
                 mock.call('sudo partx -v -a /dev/sdb || true'),
