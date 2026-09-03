@@ -163,6 +163,10 @@ def _preserve_hostname_info(old_export_info, new_export_info):
     new_hostname = new_export_info.get("hostname", "")
     if not new_hostname:
         new_export_info['hostname'] = old_hostname
+    old_fqdn = old_export_info.get("fqdn", "")
+    new_fqdn = new_export_info.get("fqdn", "")
+    if not new_fqdn:
+        new_export_info['fqdn'] = old_fqdn
 
 
 def _update_export_info(old_export_info, result_export_info):

@@ -26,6 +26,10 @@
       "type": "string",
       "description": "Guest hostname of the VM."
     },
+    "fqdn": {
+      "type": "string",
+      "description": "Guest fully-qualified domain name of the VM."
+    },
     "dynamic_memory_enabled": {
       "type": "boolean",
       "description": "Indicates whether not the VM's physical memory was allocated dynamically."
