@@ -806,8 +806,12 @@ class ReplicatorTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(replicator_module.Replicator, '_copy_file')
     @mock.patch.object(replicator_module.Replicator, 'restart')
     @mock.patch.object(replicator_module.Client, '_test_connection')
+    @mock.patch.object(replicator_module.os, 'close')
+    @mock.patch.object(replicator_module.os, 'remove')
     def test_update_state(
         self,
+        mock_remove,
+        mock_close,
         mock_test_connection,
         mock_restart,
         mock_copy_file,
@@ -815,18 +819,20 @@ class ReplicatorTestCase(test_base.CoriolisBaseTestCase):
         mock_dump,
         mock_open,
     ):
-        mock_mkstemp.return_value = (None, mock.sentinel.state)
+        mock_mkstemp.return_value = (mock.sentinel.fd, mock.sentinel.state)
         mock_dump.return_value = None
 
         self.replicator.update_state(mock.sentinel.state, restart=False)
 
         mock_mkstemp.assert_called_once()
+        mock_close.assert_called_once_with(mock.sentinel.fd)
         mock_open.assert_called_once_with(mock.sentinel.state, 'w')
         mock_copy_file.assert_called_once_with(
             self.replicator._ssh,
             mock_mkstemp.return_value[1],
             replicator_module.REPLICATOR_STATE,
         )
+        mock_remove.assert_called_once_with(mock.sentinel.state)
         mock_restart.assert_not_called()
         mock_test_connection.assert_not_called()
 
@@ -836,8 +842,12 @@ class ReplicatorTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(replicator_module.Replicator, '_copy_file')
     @mock.patch.object(replicator_module.Replicator, 'restart')
     @mock.patch.object(replicator_module.Client, '_test_connection')
+    @mock.patch.object(replicator_module.os, 'close')
+    @mock.patch.object(replicator_module.os, 'remove')
     def test_update_state_with_restart(
         self,
+        mock_remove,
+        mock_close,
         mock_test_connection,
         mock_restart,
         mock_copy_file,
@@ -845,7 +855,7 @@ class ReplicatorTestCase(test_base.CoriolisBaseTestCase):
         mock_dump,
         mock_open,
     ):
-        mock_mkstemp.return_value = (None, mock.sentinel.state)
+        mock_mkstemp.return_value = (mock.sentinel.fd, mock.sentinel.state)
         mock_dump.return_value = None
 
         self.replicator._cli._test_connection = mock_test_connection
@@ -853,14 +863,39 @@ class ReplicatorTestCase(test_base.CoriolisBaseTestCase):
         self.replicator.update_state(mock.sentinel.state, restart=True)
 
         mock_mkstemp.assert_called_once()
+        mock_close.assert_called_once_with(mock.sentinel.fd)
         mock_open.assert_called_once_with(mock.sentinel.state, 'w')
         mock_copy_file.assert_called_once_with(
             self.replicator._ssh,
             mock_mkstemp.return_value[1],
             replicator_module.REPLICATOR_STATE,
         )
+        mock_remove.assert_called_once_with(mock.sentinel.state)
         mock_restart.assert_called_once()
         mock_test_connection.assert_called_once()
+
+    @mock.patch('builtins.open')
+    @mock.patch.object(replicator_module.json, 'dump')
+    @mock.patch.object(replicator_module.tempfile, 'mkstemp')
+    @mock.patch.object(replicator_module.Replicator, '_copy_file')
+    @mock.patch.object(replicator_module.os, 'close')
+    @mock.patch.object(replicator_module.os, 'remove')
+    def test_update_state_removes_temp_file_on_copy_error(
+        self,
+        mock_remove,
+        mock_close,
+        mock_copy_file,
+        mock_mkstemp,
+        mock_dump,
+        mock_open,
+    ):
+        mock_mkstemp.return_value = (mock.sentinel.fd, mock.sentinel.state)
+        mock_copy_file.side_effect = Exception('copy failed')
+
+        self.assertRaises(Exception, self.replicator.update_state, mock.sentinel.state)
+
+        mock_close.assert_called_once_with(mock.sentinel.fd)
+        mock_remove.assert_called_once_with(mock.sentinel.state)
 
     @mock.patch.object(replicator_module.paramiko, 'SSHClient')
     def test__get_ssh_client(self, mock_ssh_client):
