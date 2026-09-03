@@ -11,9 +11,7 @@ manage the coriolis-replicator service and perform disk replication.
 import csv
 import io
 import os
-import uuid
 
-import paramiko
 from oslo_config import cfg
 from oslo_log import log as logging
 
@@ -26,9 +24,11 @@ from coriolis.providers.base import (
     BaseEndpointSourceOptionsProvider,
     BaseReplicaExportProvider,
     BaseReplicaExportValidationProvider,
+    BaseSourceMinionPoolProvider,
     BaseUpdateSourceReplicaProvider,
 )
 from coriolis.tests.integration import utils as test_utils
+from coriolis.tests.integration.test_provider import common
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
@@ -44,12 +44,14 @@ _TEST_NIC = {
 
 
 class TestExportProvider(
+    common.TestProviderMixin,
     BaseEndpointInstancesProvider,
     BaseEndpointInventoryExportProvider,
     BaseEndpointSourceOptionsProvider,
     BaseUpdateSourceReplicaProvider,
     BaseReplicaExportProvider,
     BaseReplicaExportValidationProvider,
+    BaseSourceMinionPoolProvider,
 ):
     """Source-side provider backed by a local loop device.
 
@@ -70,52 +72,25 @@ class TestExportProvider(
 
     platform = "test-src"
 
-    def __init__(self, event_handler):
-        self._event_handler = event_handler
-
     def _event_manager(self):
         return events.EventManager(self._event_handler)
 
     def _make_replicator(self, conn_info, event_mgr, volumes_info, repl_state):
         """Build a Replicator that connects via SSH to *conn_info*.
 
-        *conn_info* must contain ``ip``, ``port``, ``username``, and
-        ``pkey_path`` keys. An optional ``use_tunnel`` key forces the
-        replicator client to connect through an SSH tunnel instead of
-        directly to the replicator's TCP port.
+        *conn_info* must contain ``ip``, ``port``, ``username``, and a ``pkey``, as
+        returned by ``TestProviderMixin._create_minion``'s ``ssh_connection_info``.
+        An optional ``use_tunnel`` key forces the replicator client to connect through
+        an SSH tunnel instead of directly to the replicator's TCP port.
         """
-        pkey = paramiko.RSAKey.from_private_key_file(conn_info["pkey_path"])
-        repl_conn_info = {
-            "ip": conn_info["ip"],
-            "port": conn_info.get("port", 22),
-            "username": conn_info.get("username", "root"),
-            "pkey": pkey,
-        }
         return replicator_module.Replicator(
-            repl_conn_info,
+            conn_info,
             event_mgr,
             volumes_info,
             repl_state,
             use_tunnel=conn_info.get("use_tunnel", False),
             _allow_loop_devices=True,
         )
-
-    # BaseProvider / BaseEndpointProvider
-
-    def get_connection_info_schema(self):
-        return {
-            "type": "object",
-            "properties": {
-                "pkey_path": {"type": "string"},
-                "role": {"type": "string"},
-            },
-            "required": ["pkey_path"],
-        }
-
-    def validate_connection(self, ctxt, connection_info):
-        pkey_path = connection_info["pkey_path"]
-        if not os.path.exists(pkey_path):
-            raise ValueError("SSH private key not found: %s" % pkey_path)
 
     # BaseExportInstanceProvider
 
@@ -259,28 +234,17 @@ class TestExportProvider(
     ):
         block_devices = source_environment.get("instance_block_devices", {})
         block_device_paths = block_devices.get(export_info["instance_name"], [])
-        pkey_path = connection_info["pkey_path"]
 
-        container_name = "coriolis-replicator-%s" % uuid.uuid4().hex[:8]
-        container_id = test_utils.run_container(
-            test_utils.DATA_MINION_IMAGE,
-            container_name,
-            is_systemd=True,
-            ssh_key=f"{pkey_path}.pub",
+        info = self._create_minion(
+            "coriolis-replicator",
+            connection_info,
             devices=block_device_paths,
         )
+        container_id = info["container_id"]
+        src_conn_info = info["ssh_connection_info"]
+        src_conn_info["use_tunnel"] = source_environment.get("use_tunnel", False)
 
         try:
-            container_ip = test_utils.get_container_ip(container_id)
-            test_utils.wait_for_ssh(container_ip, 22, "root", pkey_path)
-
-            src_conn_info = {
-                "ip": container_ip,
-                "port": 22,
-                "username": "root",
-                "pkey_path": pkey_path,
-                "use_tunnel": source_environment.get("use_tunnel", False),
-            }
             replicator = self._make_replicator(
                 src_conn_info, self._event_manager(), [], None
             )
@@ -374,6 +338,45 @@ class TestExportProvider(
         self, ctxt, connection_info, instance_name, source_environment
     ):
         return {}
+
+    # BaseSourceMinionPoolProvider
+
+    def get_minion_pool_environment_schema(self):
+        return self.get_source_environment_schema()
+
+    def get_minion_pool_options(
+        self, ctxt, connection_info, env=None, option_names=None
+    ):
+        return self.get_source_environment_options(
+            ctxt, connection_info, env, option_names
+        )
+
+    def create_minion(
+        self,
+        ctxt,
+        connection_info,
+        environment_options,
+        pool_identifier,
+        pool_os_type,
+        pool_shared_resources,
+        new_minion_identifier,
+    ):
+        # Devices are hotplugged after container creation via mknod / nsenter.
+        # We must pre-authorize all block devices through the
+        # --device-cgroup-rule option, otherwise any device added will be
+        # inaccessible ("operation not permitted" error on open).
+        result = self._create_minion(
+            "coriolis-pool-minion",
+            connection_info,
+            device_cgroup_rules=["b *:* rwm"],
+        )
+
+        return {
+            "connection_info": result["ssh_connection_info"],
+            "minion_provider_properties": {
+                "container_id": result["container_id"],
+            },
+        }
 
 
 # Helpers

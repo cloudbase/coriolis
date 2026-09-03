@@ -70,7 +70,8 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
         cls._imp_conn_info = cls._harness.imp_conn_info
         cls._imp_env_options = cls._harness.imp_env_options
         cls._storage_mappings = cls._harness.imp_storage_mappings
-        cls._pool_env = cls._harness.imp_minion_pool_environment
+        cls._imp_pool_env = cls._harness.imp_minion_pool_environment
+        cls._exp_pool_env = cls._harness.exp_minion_pool_environment
 
         cls._client = cls.get_client()
 
@@ -168,13 +169,19 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
         name="test-pool",
         skip_allocation=True,
         wait_for_allocation=False,
+        platform=constants.PROVIDER_PLATFORM_DESTINATION,
     ):
+        env_options = (
+            cls._imp_pool_env
+            if platform == constants.PROVIDER_PLATFORM_DESTINATION
+            else cls._exp_pool_env
+        )
         pool = cls._client.minion_pools.create(
             name=name,
             endpoint=endpoint_id,
-            platform=constants.PROVIDER_PLATFORM_DESTINATION,
+            platform=platform,
             os_type=constants.OS_TYPE_LINUX,
-            environment_options=cls._pool_env,
+            environment_options=env_options,
             minimum_minions=1,
             maximum_minions=1,
             minion_max_idle_time=3600,
@@ -241,6 +248,39 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
             is_admin=True,
         )
 
+    def assertPoolAllocated(self, pool_id):
+        """Assert the pool is healthy and still in ALLOCATED status."""
+        ctxt = self._get_db_context()
+        pool = db_api.get_minion_pool(ctxt, pool_id)
+        self.assertIsNotNone(pool, "Pool %s not found" % pool_id)
+        self.assertEqual(
+            constants.MINION_POOL_STATUS_ALLOCATED,
+            pool.status,
+            "Pool %s is not ALLOCATED (got %s)" % (pool_id, pool.status),
+        )
+
+    def assertMachinesAvailable(self, pool_id):
+        """Assert all machines in the pool are AVAILABLE and have been used."""
+        ctxt = self._get_db_context()
+        pool = db_api.get_minion_pool(ctxt, pool_id, include_machines=True)
+        self.assertIsNotNone(pool, "Pool %s not found" % pool_id)
+        self.assertTrue(
+            pool.minion_machines,
+            "Pool %s has no minion machines" % pool_id,
+        )
+        for machine in pool.minion_machines:
+            self.assertEqual(
+                constants.MINION_MACHINE_STATUS_AVAILABLE,
+                machine.allocation_status,
+                "Machine %s in pool %s is not AVAILABLE (got %s)"
+                % (machine.id, pool_id, machine.allocation_status),
+            )
+            self.assertIsNotNone(
+                machine.last_used_at,
+                "Machine %s in pool %s has no last_used_at; "
+                "it may not have been used by the transfer" % (machine.id, pool_id),
+            )
+
     @staticmethod
     def _ignoreExc(func, ignored_exc=Exception):
         """Wrap the given function, ignoring exceptions."""
@@ -255,7 +295,8 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
 
 
 class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
-    _CREATE_MINION_POOLS = False
+    _CREATE_DST_MINION_POOL = False
+    _CREATE_SRC_MINION_POOL = False
     _SRC_DEVICE_SIZE_MB = 16
 
     # Extra source_environment entries merged into the default transfer's
@@ -283,15 +324,27 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
         )
 
         # Create minion pool if needed.
-        cls._pool_id = None
-        if cls._CREATE_MINION_POOLS:
+        cls._dst_pool_id = None
+        if cls._CREATE_DST_MINION_POOL:
             pool = cls._create_pool(
                 cls._dst_endpoint.id,
-                "transfer-pool",
+                "dst-transfer-pool",
                 skip_allocation=False,
                 wait_for_allocation=True,
             )
-            cls._pool_id = pool.id
+            cls._dst_pool_id = pool.id
+
+        # Create source minion pool if needed.
+        cls._src_pool_id = None
+        if cls._CREATE_SRC_MINION_POOL:
+            pool = cls._create_pool(
+                cls._src_endpoint.id,
+                "src-transfer-pool",
+                skip_allocation=False,
+                wait_for_allocation=True,
+                platform=constants.PROVIDER_PLATFORM_SOURCE,
+            )
+            cls._src_pool_id = pool.id
 
     def setUp(self):
         super().setUp()
@@ -316,7 +369,8 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             self._src_endpoint.id,
             self._dst_endpoint.id,
             instances=[self._instance_name],
-            destination_minion_pool_id=self._pool_id,
+            destination_minion_pool_id=self._dst_pool_id,
+            origin_minion_pool_id=self._src_pool_id,
             source_environment={
                 "instance_block_devices": {self._instance_name: [self._src_device]},
                 **self._EXTRA_SOURCE_ENVIRONMENT,
@@ -598,7 +652,28 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
         self.addCleanup(patcher.stop)
 
 
-class MinionPoolTestBase(CoriolisIntegrationTestBase):
+class SourceMinionPoolTestBase(CoriolisIntegrationTestBase):
+    """Base class for source minion pool integration tests.
+
+    Skips the entire test class when the export provider does not advertise
+    ``PROVIDER_TYPE_SOURCE_MINION_POOL`` support.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        h = harness._IntegrationHarness.get()
+        available = providers_factory.get_available_providers()
+        exp_types = available.get(h.exp_provider_platform, {}).get("types", [])
+        if constants.PROVIDER_TYPE_SOURCE_MINION_POOL not in exp_types:
+            raise unittest.SkipTest(
+                "Export provider '%s' does not support minion pools"
+                % h.exp_provider_platform
+            )
+
+        super().setUpClass()
+
+
+class DestinationMinionPoolTestBase(CoriolisIntegrationTestBase):
     """Base class for minion pool integration tests.
 
     Skips the entire test class when the import provider does not advertise
@@ -622,59 +697,50 @@ class MinionPoolTestBase(CoriolisIntegrationTestBase):
         super().setUpClass()
 
 
-class MinionPoolReplicaTestBase(MinionPoolTestBase, ReplicaIntegrationTestBase):
-    """Base class for replica integration tests using minion pools.
+class MinionPoolReplicaTestBase(
+    DestinationMinionPoolTestBase, ReplicaIntegrationTestBase
+):
+    """Base class for replica integration tests using destination minion pools.
 
     Extends the assertions to also verify that the minions in the pool have
     been used, and that the minions and the pool returns to an available state.
     """
 
-    _CREATE_MINION_POOLS = True
+    _CREATE_DST_MINION_POOL = True
 
     def _execute_and_wait(self, transfer_id, timeout=600):
         super()._execute_and_wait(transfer_id, timeout=timeout)
-        self.assertPoolAllocated(self._pool_id)
-        self.assertMachinesAvailable(self._pool_id)
+        self.assertPoolAllocated(self._dst_pool_id)
+        self.assertMachinesAvailable(self._dst_pool_id)
 
     def assertExecutionCompleted(self, execution_id, timeout=600):
         super().assertExecutionCompleted(execution_id, timeout=timeout)
-        self.assertPoolAllocated(self._pool_id)
-        self.assertMachinesAvailable(self._pool_id)
+        self.assertPoolAllocated(self._dst_pool_id)
+        self.assertMachinesAvailable(self._dst_pool_id)
 
     def assertDeploymentCompleted(self, deployment_id, timeout=600):
         super().assertDeploymentCompleted(deployment_id, timeout=timeout)
-        self.assertPoolAllocated(self._pool_id)
-        self.assertMachinesAvailable(self._pool_id)
+        self.assertPoolAllocated(self._dst_pool_id)
+        self.assertMachinesAvailable(self._dst_pool_id)
 
-    def assertPoolAllocated(self, pool_id):
-        """Assert the pool is healthy and still in ALLOCATED status."""
-        ctxt = self._get_db_context()
-        pool = db_api.get_minion_pool(ctxt, pool_id)
-        self.assertIsNotNone(pool, "Pool %s not found" % pool_id)
-        self.assertEqual(
-            constants.MINION_POOL_STATUS_ALLOCATED,
-            pool.status,
-            "Pool %s is not ALLOCATED (got %s)" % (pool_id, pool.status),
-        )
 
-    def assertMachinesAvailable(self, pool_id):
-        """Assert all machines in the pool are AVAILABLE and have been used."""
-        ctxt = self._get_db_context()
-        pool = db_api.get_minion_pool(ctxt, pool_id, include_machines=True)
-        self.assertIsNotNone(pool, "Pool %s not found" % pool_id)
-        self.assertTrue(
-            pool.minion_machines,
-            "Pool %s has no minion machines" % pool_id,
-        )
-        for machine in pool.minion_machines:
-            self.assertEqual(
-                constants.MINION_MACHINE_STATUS_AVAILABLE,
-                machine.allocation_status,
-                "Machine %s in pool %s is not AVAILABLE (got %s)"
-                % (machine.id, pool_id, machine.allocation_status),
-            )
-            self.assertIsNotNone(
-                machine.last_used_at,
-                "Machine %s in pool %s has no last_used_at; "
-                "it may not have been used by the transfer" % (machine.id, pool_id),
-            )
+class SourceMinionPoolReplicaTestBase(
+    SourceMinionPoolTestBase, ReplicaIntegrationTestBase
+):
+    """Base class for replica integration tests using source minion pools.
+
+    Extends the assertions to also verify that the minions in the pool have
+    been used, and that the minions and the pool returns to an available state.
+    """
+
+    _CREATE_SRC_MINION_POOL = True
+
+    def _execute_and_wait(self, transfer_id, timeout=600):
+        super()._execute_and_wait(transfer_id, timeout=timeout)
+        self.assertPoolAllocated(self._src_pool_id)
+        self.assertMachinesAvailable(self._src_pool_id)
+
+    def assertExecutionCompleted(self, execution_id, timeout=600):
+        super().assertExecutionCompleted(execution_id, timeout=timeout)
+        self.assertPoolAllocated(self._src_pool_id)
+        self.assertMachinesAvailable(self._src_pool_id)
