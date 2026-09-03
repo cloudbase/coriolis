@@ -3,26 +3,35 @@
   new_export_info: {}
   expected_export_info:
     hostname: ""
+    fqdn: ""
 
 # Hostname in old info
 - old_export_info:
-    hostname: old.host.name
+    hostname: old-host
+    fqdn: old-host.example.com
   new_export_info: {}
   expected_export_info:
-    hostname: old.host.name
+    hostname: old-host
+    fqdn: old-host.example.com
 
 # Hostname in new info only
 - old_export_info:
     hostname: ""
+    fqdn: ""
   new_export_info:
-    hostname: "new.host.name"
+    hostname: "new-host"
+    fqdn: "new-host.example.com"
   expected_export_info:
-    hostname: "new.host.name"
+    hostname: "new-host"
+    fqdn: "new-host.example.com"
 
 # Hostname update from old to new
 - old_export_info:
-    hostname: "old.host.name"
+    hostname: "old-host"
+    fqdn: "old-host.example.com"
   new_export_info:
-    hostname: "new.host.name"
+    hostname: "new-host"
+    fqdn: "new-host.example.com"
   expected_export_info:
-    hostname: "new.host.name"
+    hostname: "new-host"
+    fqdn: "new-host.example.com"
