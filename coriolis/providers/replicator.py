@@ -634,14 +634,18 @@ class Replicator(object):
         utils.restart_service(self._ssh, REPLICATOR_SVC_NAME)
 
     def update_state(self, state, restart=False):
-        state_file = tempfile.mkstemp()[1]
-        with open(state_file, 'w') as fp:
-            json.dump(state, fp)
+        fd, state_file = tempfile.mkstemp()
+        try:
+            os.close(fd)
+            with open(state_file, 'w') as fp:
+                json.dump(state, fp)
 
-        self._copy_file(self._ssh, state_file, REPLICATOR_STATE)
-        if restart:
-            self.restart()
-            self._cli._test_connection()
+            self._copy_file(self._ssh, state_file, REPLICATOR_STATE)
+            if restart:
+                self.restart()
+                self._cli._test_connection()
+        finally:
+            utils.ignore_exceptions(os.remove)(state_file)
 
     @utils.retry_on_error(sleep_seconds=5)
     def _get_ssh_client(self, args):
