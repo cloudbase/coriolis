@@ -370,6 +370,7 @@ class Replicator(object):
         watch_devices=True,
         chunk_size=10485760,
         use_tunnel=False,
+        disable_chunking=False,
         _allow_loop_devices=False,
     ):
         self._event_manager = event_manager
@@ -388,6 +389,7 @@ class Replicator(object):
         self._ignore_mounted = ignore_mounted
         self._chunk_size = chunk_size
         self._allow_loop_devices = _allow_loop_devices
+        self._disable_chunking = disable_chunking
         self._ssh = self._setup_ssh()
         self._credentials = None
         self._cli = None
@@ -442,6 +444,13 @@ class Replicator(object):
             "Disk status after Replicator initialization: %s",
             self._cli.get_status(device=None, brief=True),
         )
+
+    def read_disk_range(self, dev_name, offset, length):
+        """Reads `length` bytes at `offset` from the given attached disk.
+
+        :param dev_name: replicator device name (e.g.: 'sdb').
+        """
+        return self._cli.download_chunk(dev_name, {"offset": offset, "length": length})
 
     def get_current_disks_status(self):
         """Returns a list of the current status of the attached data disks.
@@ -786,6 +795,7 @@ class Replicator(object):
             "-chunk-size=%(chunk_size)s "
             "-watch-devices=%(watch_devs)s "
             "-allow-loop-devices=%(allow_loop_devices)s "
+            "-disable-chunking=%(disable_chunking)s "
             "-state-file=%(state_file)s "
             "-ca-cert=%(ca_cert)s -cert=%(srv_cert)s "
             "-key=%(srv_key)s"
@@ -795,6 +805,7 @@ class Replicator(object):
                 "ignore_mounted": json.dumps(self._ignore_mounted),
                 "watch_devs": json.dumps(self._watch_devices),
                 "allow_loop_devices": json.dumps(self._allow_loop_devices),
+                "disable_chunking": json.dumps(self._disable_chunking),
                 "listen_port": str(port),
                 "state_file": state_file,
                 "chunk_size": self._chunk_size,
