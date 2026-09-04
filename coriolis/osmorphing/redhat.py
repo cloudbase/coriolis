@@ -56,8 +56,7 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         )
 
     def disable_predictable_nic_names(self):
-        cmd = 'grubby --update-kernel=ALL --args="%s"'
-        self._exec_cmd_chroot(cmd % "net.ifnames=0 biosdevname=0")
+        self._update_kernel_cmdline_args(args_to_add=["net.ifnames=0", "biosdevname=0"])
 
     def get_update_grub2_command(self):
         location = self._get_grub2_cfg_location()

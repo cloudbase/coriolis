@@ -67,11 +67,20 @@ class BaseRedHatMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
 
         self.assertFalse(result)
 
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_update_kernel_cmdline_args')
+    def test_disable_predictable_nic_names(self, mock_update_kernel_cmdline_args):
+        self.morphing_tools.disable_predictable_nic_names()
+        mock_update_kernel_cmdline_args.assert_called_once_with(
+            args_to_add=['net.ifnames=0', 'biosdevname=0']
+        )
+
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
-    def test_disable_predictable_nic_names(self, mock_exec_cmd_chroot):
+    def test_disable_predictable_nic_names_updates_all_kernels(
+        self, mock_exec_cmd_chroot
+    ):
         self.morphing_tools.disable_predictable_nic_names()
         mock_exec_cmd_chroot.assert_called_once_with(
-            'grubby --update-kernel=ALL --args="net.ifnames=0 biosdevname=0"'
+            "grubby --update-kernel=ALL --args='net.ifnames=0 biosdevname=0'"
         )
 
     @mock.patch.object(redhat.BaseRedHatMorphingTools, '_get_grub2_cfg_location')

@@ -760,6 +760,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
                     "sed -i '/cloud-init=disabled/d' %s" % grub_conf_disabler
                 )
                 self._schedule_grub2_update()
+                self._update_kernel_cmdline_args(args_to_remove=["cloud-init=disabled"])
 
     def _reset_cloud_init_run(self):
         self._exec_cmd_chroot("cloud-init clean --logs")
@@ -951,6 +952,36 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
                 "GRUB_CMDLINE_LINUX", kernel_cmd, config_obj, replace=replace
             )
 
+    def _update_kernel_cmdline_args(self, args_to_add=None, args_to_remove=None):
+        if isinstance(args_to_add, str):
+            args_to_add = [args_to_add]
+        if isinstance(args_to_remove, str):
+            args_to_remove = [args_to_remove]
+        if not args_to_add and not args_to_remove:
+            return False
+
+        try:
+            for option, args in (
+                ("--remove-args", args_to_remove),
+                ("--args", args_to_add),
+            ):
+                if not args:
+                    continue
+                self._exec_cmd_chroot(
+                    "grubby --update-kernel=ALL %s=%s"
+                    % (option, shlex.quote(" ".join(args)))
+                )
+        except Exception:
+            LOG.warning(
+                "Failed to update the kernel arguments using 'grubby' (it is "
+                "not available on all distros). Falling back to the GRUB "
+                "config regeneration. Error was: %s",
+                utils.get_exception_details(),
+            )
+            return False
+
+        return True
+
     def _get_grub_default_conf(self):
         grub_conf = "/etc/default/grub"
         if self._test_path_chroot(grub_conf):
@@ -1057,6 +1088,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
 
         self._set_grub2_cmdline(config_obj, options)
         self._apply_grub2_config(config_obj, execute_update_grub)
+        self._update_kernel_cmdline_args(args_to_add=options)
 
     def _add_net_udev_rules(self, net_ifaces_info):
         coriolis_udev_rules_file = "etc/udev/rules.d/99-coriolis-net.rules"
