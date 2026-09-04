@@ -18,4 +18,3 @@
     - "{{ coriolis_export_dir }}"
     - "{{ coriolis_hyperv_share_local_dir }}"
     - "{{ coriolis_vmware_vix_disklib_dir }}"
-    - "{{ vmware_vix_disklib_local_archive }}"

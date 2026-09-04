@@ -9,36 +9,6 @@
     - "{{ coriolis_hyperv_share_local_dir }}"
     - "{{ coriolis_vmware_vix_disklib_log_dir }}"
 
-- name: Download VMware vixDiskLib
-  get_url:
-    url: "{{ vmware_vix_disklib_url }}"
-    dest: "{{ vmware_vix_disklib_local_archive }}"
-  register: vixdisklib_download
-  retries: 10
-  delay: 5
-  until: vixdisklib_download is succeeded
-
-- block:
-  - name: Remove VMWare vixDiskLib directory
-    file:
-      path: "{{ coriolis_vmware_vix_disklib_dir }}"
-      state: absent
-
-  - name: Create VMWare vixDiskLib directory
-    file:
-      path: "{{ coriolis_vmware_vix_disklib_dir }}"
-      state: directory
-
-  - name: Extract VMWare vixDiskLib
-    unarchive:
-      src: "{{ vmware_vix_disklib_local_archive }}"
-      dest: "{{ coriolis_vmware_vix_disklib_dir }}"
-      remote_src: yes
-      extra_opts:
-        - --strip-components=2
-        - vmware-vix-disklib-distrib/lib64
-  when: vixdisklib_download.changed
-
 - name: Ensure libvirt provider DB file exists on the host
   file:
     path: "{{ coriolis_libvirt_provider_db_file }}"

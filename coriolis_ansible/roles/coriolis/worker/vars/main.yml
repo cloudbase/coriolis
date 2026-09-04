@@ -3,6 +3,4 @@ custom_repo_owner_names: {}
 custom_repo_branch_names: {}
 
 libqemu_url: https://cloudbase.it/downloads/libqemu.so.gz
-vmware_vix_disklib_url: https://uscoriolis.blob.core.windows.net/vixdisklib/VMware-vix-disklib-8.0.2-22388865.x86_64.tar.gz
-vmware_vix_disklib_local_archive: "/tmp/VMware-vix-disklib.tar.gz"
 coriolis_worker_docker_image_url: "{{ docker_registry }}/{{ docker_namespace }}/coriolis-worker:{{ coriolis_worker_docker_image_tag }}"
