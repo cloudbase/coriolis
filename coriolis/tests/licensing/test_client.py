@@ -124,6 +124,23 @@ class LicensingClientTestCase(test_base.CoriolisBaseTestCase):
 
         mock_response.raise_for_status.assert_not_called()
 
+    def test_raise_response_error_forbidden(self):
+        mock_response = mock.Mock()
+        mock_response.json.return_value = {
+            'error': {
+                'code': 403,
+                'message': 'refreshing fulfilled Reservation is forbidden',
+            }
+        }
+
+        exc = self.assertRaises(
+            exception.LicensingException,
+            self.client._raise_response_error,
+            mock_response,
+        )
+        self.assertEqual(403, exc.code)
+        mock_response.raise_for_status.assert_not_called()
+
     def test_raise_response_error_json_exception(self):
         mock_response = mock.Mock()
         mock_response.json.side_effect = KeyboardInterrupt()

@@ -84,7 +84,9 @@ class LicensingClient(object):
                 utils.get_exception_details(),
             )
         if error and all([x in error for x in ['code', 'message']]):
-            raise exception.Conflict(message=error['message'], code=int(error['code']))
+            exc = exception.LicensingException(message=error['message'])
+            exc.code = int(error['code'])
+            raise exc
         else:
             resp.raise_for_status()
 
