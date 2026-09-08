@@ -6,7 +6,7 @@ import paramiko
 import requests
 from oslo_log import log as logging
 
-from coriolis import constants, exception, utils, wsman
+from coriolis import constants, exception, utils
 
 LOG = logging.getLogger(__name__)
 
@@ -170,6 +170,10 @@ def _poll_instance_until_reachable_ssh(
     timeout: int = 600,
     poll_interval: int = 10,
 ):
+    if not connection_info.get("password") and not connection_info.get("pkey"):
+        raise exception.InvalidInput(
+            "SSH connection info must include password or pkey."
+        )
     start = time.time()
     while (time.time() - start) < timeout:
         try:
@@ -177,8 +181,8 @@ def _poll_instance_until_reachable_ssh(
                 hostname=connection_info["ip"],
                 port=connection_info["port"],
                 username=connection_info["username"],
-                password=connection_info["password"],
-                pkey=connection_info["pkey"],
+                password=connection_info.get("password"),
+                pkey=connection_info.get("pkey"),
             )
             try:
                 # "exit 0" should work across platforms.
@@ -201,30 +205,6 @@ def _poll_instance_until_reachable_ssh(
     )
 
 
-def _poll_instance_until_reachable_winrm(
-    connection_info: dict,
-    timeout: int = 600,
-    poll_interval: int = 10,
-):
-    start = time.time()
-    while (time.time() - start) < timeout:
-        try:
-            conn = wsman.WSManConnection.from_connection_info(connection_info)
-            conn.exec_ps_command("whoami")
-            return
-        except Exception as ex:
-            LOG.debug(
-                f"Could not conect to Windows host: {str(ex)}. "
-                f"Retrying, time left: {timeout - (time.time() - start)}."
-            )
-        time.sleep(poll_interval)
-
-    raise exception.CoriolisException(
-        f"Operation timed out after waiting {timeout}s for Windows host to "
-        f"be accessible via WinRM."
-    )
-
-
 def poll_instance_until_reachable(
     connection_info: dict,
     protocol: str = constants.PROTOCOL_SSH,
@@ -239,22 +219,19 @@ def poll_instance_until_reachable(
         * username
         * password
         * pkey - Paramiko keypair
-    :param protocol: connection protocol, "ssh" or "winrm"
+    :param protocol: connection protocol. Only "ssh" is supported.
     :param timeout: the maximum amount of time to wait
     :param poll_interval: the amount of time to wait between retries
     """
-    # TODO(lpetrut): consider including the connection protocol in the
-    # connection info. We'd have to modify a few schemas used during os
-    # morphing. We currently pick the protocol based on the OS type but
-    # we may want to use SSH on Windows as well.
-    if protocol == constants.PROTOCOL_SSH:
-        helper = _poll_instance_until_reachable_ssh
-    elif protocol == constants.PROTOCOL_WINRM:
-        helper = _poll_instance_until_reachable_winrm
-    else:
+    if protocol != constants.PROTOCOL_SSH:
         raise exception.InvalidInput(
             f"Unsupported instance connection protocol: {protocol}"
         )
-    return helper(
-        connection_info=connection_info, timeout=timeout, poll_interval=poll_interval
+    ssh_connection_info = dict(connection_info)
+    if ssh_connection_info.get("port") is None:
+        ssh_connection_info["port"] = 22
+    return _poll_instance_until_reachable_ssh(
+        connection_info=ssh_connection_info,
+        timeout=timeout,
+        poll_interval=poll_interval,
     )

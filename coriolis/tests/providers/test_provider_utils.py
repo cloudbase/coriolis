@@ -351,52 +351,42 @@ class ProviderUtilsTestCase(test_base.CoriolisBaseTestCase):
             poll_interval=poll_interval,
         )
 
-    @mock.patch("coriolis.wsman.WSManConnection", new_callable=mock.Mock)
-    @mock.patch("time.sleep")
-    def test_poll_instance_winrm(
-        self,
-        mock_sleep,
-        mock_wsman,
-    ):
-        mock_conn = mock.Mock()
-        mock_conn.exec_ps_command.side_effect = [Exception, mock.sentinel.stdout]
-        mock_wsman.from_connection_info.return_value = mock_conn
-        poll_interval = 5
-
-        connection_info = self._get_mock_conn_info()
-        provider_utils.poll_instance_until_reachable(
-            connection_info=connection_info,
-            protocol=constants.PROTOCOL_WINRM,
-            timeout=30,
-            poll_interval=poll_interval,
-        )
-
-        mock_wsman.from_connection_info.assert_has_calls(
-            [mock.call(connection_info)] * 2, any_order=True
-        )
-        mock_conn.exec_ps_command.assert_has_calls([mock.call("whoami")] * 2)
-        mock_sleep.assert_called_once_with(poll_interval)
-
-    @mock.patch("coriolis.wsman.WSManConnection", new_callable=mock.Mock)
-    @mock.patch("time.sleep")
-    @mock.patch("time.time")
-    def test_poll_instance_winrm_timeout(
-        self,
-        mock_time,
-        mock_sleep,
-        mock_wsman,
-    ):
-        poll_interval = 5
-        mock_time.side_effect = [x * 10 for x in range(20)]
-        mock_conn = mock.Mock()
-        mock_conn.exec_ps_command.side_effect = IOError
-        mock_wsman.from_connection_info.return_value = mock_conn
-        connection_info = self._get_mock_conn_info()
+    def test_poll_instance_missing_auth(self):
+        connection_info = {
+            "ip": "1.2.3.4",
+            "port": 22,
+            "username": "Administrator",
+        }
         self.assertRaises(
-            exception.CoriolisException,
+            exception.InvalidInput,
+            provider_utils.poll_instance_until_reachable,
+            connection_info=connection_info,
+            protocol=constants.PROTOCOL_SSH,
+            timeout=600,
+            poll_interval=5,
+        )
+
+    def test_poll_instance_winrm_rejected(self):
+        connection_info = {
+            "ip": "1.2.3.4",
+            "port": 5986,
+            "username": "Administrator",
+            "password": "pwned",
+        }
+        self.assertRaises(
+            exception.InvalidInput,
             provider_utils.poll_instance_until_reachable,
             connection_info=connection_info,
             protocol=constants.PROTOCOL_WINRM,
             timeout=30,
-            poll_interval=poll_interval,
+            poll_interval=5,
+        )
+
+    def test_poll_instance_unsupported_protocol(self):
+        connection_info = self._get_mock_conn_info()
+        self.assertRaises(
+            exception.InvalidInput,
+            provider_utils.poll_instance_until_reachable,
+            connection_info=connection_info,
+            protocol="ftp",
         )

@@ -274,12 +274,14 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
         LOG.info("Adding driver: %s" % driver_path)
         dism_path = self._get_dism_path()
         try:
+            # Pass a raw /driver: path. Nested quotes become part of the
+            # path after SSH wraps the command in cmd.exe /c.
             return self._conn.exec_command(
                 dism_path,
                 [
                     "/add-driver",
                     "/image:%s" % self._os_root_dir,
-                    "/driver:\"%s\"" % driver_path,
+                    "/driver:%s" % driver_path,
                     "/recurse",
                     "/forceunsigned",
                 ],
@@ -306,7 +308,7 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
     def _mount_disk_image(self, path):
         LOG.info("Mounting disk image: %s" % path)
         drive_letter, stderr = self._conn.exec_ps_command(
-            "(Mount-DiskImage '%s' -PassThru | Get-Volume).DriveLetter" % path,
+            '"$((Mount-DiskImage \'%s\' -PassThru | Get-Volume).DriveLetter)"' % path,
             include_stderr=True,
         )
         if not drive_letter:
@@ -343,6 +345,7 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
                     self._conn.exec_ps_command("rm -recurse -force %s" % destination)
 
         self._conn.exec_ps_command(
+            "$ProgressPreference = 'SilentlyContinue'; "
             "Expand-Archive -LiteralPath '%(path)s' "
             "-DestinationPath '%(destination)s' -Force"
             % {"path": path, "destination": destination},
@@ -1039,8 +1042,9 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
                 )
             else:
                 self._conn.exec_ps_command(
-                    "Copy-Item '%s' -Destination '%s'"
-                    % (msi_source_path, msi_dest_path)
+                    "Copy-Item -Force '%s' -Destination '%s'"
+                    % (msi_source_path, msi_dest_path),
+                    ignore_stdout=True,
                 )
             local_script = QEMU_GUEST_AGENT_INSTALL_SCRIPT_FORMAT % {
                 "agent_msi_path": "%s\\%s"

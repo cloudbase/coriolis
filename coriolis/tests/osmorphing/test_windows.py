@@ -168,7 +168,7 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             [
                 '/add-driver',
                 '/image:%s' % self.os_root_dir,
-                '/driver:"%s"' % mock.sentinel.driver_path,
+                '/driver:%s' % mock.sentinel.driver_path,
                 '/recurse',
                 '/forceunsigned',
             ],
@@ -209,7 +209,7 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         result = self.morphing_tools._mount_disk_image(mock.sentinel.path)
 
         self.conn.exec_ps_command.assert_called_once_with(
-            "(Mount-DiskImage '%s' -PassThru | Get-Volume).DriveLetter"
+            '"$((Mount-DiskImage \'%s\' -PassThru | Get-Volume).DriveLetter)"'
             % mock.sentinel.path,
             include_stderr=True,
         )
@@ -251,6 +251,7 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
             [
                 mock.call("rm -recurse -force %s" % destination),
                 mock.call(
+                    "$ProgressPreference = 'SilentlyContinue'; "
                     "Expand-Archive -LiteralPath '%(path)s' "
                     "-DestinationPath '%(destination)s' -Force"
                     % {"path": mock.sentinel.archive_path, "destination": destination},
@@ -1464,8 +1465,9 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         exp_msi_dest_path = "C:\\Cloudbase-Init\\qemu-ga.msi"
         self.morphing_tools._conn.download_file.assert_not_called()
         self.morphing_tools._conn.exec_ps_command.assert_called_once_with(
-            "Copy-Item '%s' -Destination '%s'"
-            % (fake_msi_source_path, exp_msi_dest_path)
+            "Copy-Item -Force '%s' -Destination '%s'"
+            % (fake_msi_source_path, exp_msi_dest_path),
+            ignore_stdout=True,
         )
 
         exp_script = windows.QEMU_GUEST_AGENT_INSTALL_SCRIPT_FORMAT % {
