@@ -6,7 +6,7 @@ import uuid
 
 from oslo_log import log as logging
 
-from coriolis import constants, exception, utils, wsman
+from coriolis import constants, exception, utils, windows_conn
 from coriolis.osmorphing.osmount import base
 
 LOG = logging.getLogger(__name__)
@@ -22,14 +22,16 @@ class WindowsMountTools(base.BaseOSMountTools):
 
     def _connect(self):
         connection_info = self._connection_info
-
         host = connection_info["ip"]
-        port = connection_info.get("port", 5986)
+        protocol = windows_conn.connection_protocol(connection_info)
+        port = connection_info.get("port") or windows_conn.DEFAULT_PROTOCOL_PORTS.get(
+            protocol, windows_conn.WINRM_HTTPS_PORT
+        )
         self._event_manager.progress_update(
-            "Connecting to WinRM host: %(host)s:%(port)s" % {"host": host, "port": port}
+            f"Connecting to {protocol} host: {host}:{port}"
         )
 
-        self._conn = wsman.WSManConnection.from_connection_info(
+        self._conn = windows_conn.from_connection_info(
             connection_info, self._osmount_operation_timeout
         )
 
