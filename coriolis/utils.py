@@ -1144,6 +1144,51 @@ class Grub2ConfigEditor(object):
                 }
             )
 
+    @staticmethod
+    def _split_value(value):
+        """Returns the (name, value) pair held by an option value.
+
+        The value is None for a name which has none assigned to it. Values
+        of type "single" are also split, as they are used for opaque
+        arguments which may themselves be "name=value" pairs.
+        """
+
+        if value["opt_type"] == "key_val":
+            return str(value["opt_key"]), str(value["opt_val"])
+        name, separator, val = str(value["opt_val"]).partition("=")
+        return name, val if separator else None
+
+    @classmethod
+    def _matches_for_removal(cls, existing, value):
+        """Checks whether an existing option value is targeted by 'value'."""
+
+        existing_name, existing_val = cls._split_value(existing)
+        name, val = cls._split_value(value)
+        if existing_name != name:
+            return False
+        return val is None or existing_val == val
+
+    def remove_from_option(self, option, value):
+        """Removes a value from the specified option.
+
+        The semantics match those of 'grubby --remove-args': a bare name
+        removes the argument no matter which value it holds (removing
+        "cloud-init" drops both "cloud-init" and "cloud-init=disabled"),
+        while a name/value pair only removes an argument with that exact
+        same name and value.
+        """
+
+        self._validate_value(value)
+        for opt in self._parsed:
+            if opt.get("option_name") != option:
+                continue
+            opt["option_value"] = [
+                val
+                for val in opt["option_value"]
+                if not self._matches_for_removal(val, value)
+            ]
+            break
+
     def dump(self):
         """dumps the contents of the file"""
         tmp = StringIO()
