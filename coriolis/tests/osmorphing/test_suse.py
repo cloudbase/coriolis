@@ -474,39 +474,12 @@ class BaseSUSEMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         self.assertEqual(result, [])
         mock_get_keyfiles_by_type.assert_not_called()
 
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_write_file_sudo')
-    @mock.patch.object(suse.BaseSUSEMorphingTools, '_schedule_grub2_update')
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_read_file_sudo')
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path')
-    def test_disable_predictable_nic_names(
-        self,
-        mock_test_path,
-        mock_read_file_sudo,
-        mock_schedule_grub2_update,
-        mock_write_file_sudo,
-    ):
-        mock_test_path.return_value = True
-        mock_read_file_sudo.return_value = (
-            'GRUB_CMDLINE_LINUX_DEFAULT=""\nGRUB_CMDLINE_LINUX=""\n'
-        )
-
+    @mock.patch.object(suse.BaseSUSEMorphingTools, '_update_kernel_cmdline_args')
+    def test_disable_predictable_nic_names(self, mock_update_kernel_cmdline_args):
         self.morphing_tools.disable_predictable_nic_names()
-
-        mock_read_file_sudo.assert_called_once_with("etc/default/grub")
-        mock_write_file_sudo.assert_called_once()
-        written_path, written_contents = mock_write_file_sudo.call_args[0]
-        self.assertEqual("etc/default/grub", written_path)
-        self.assertIn("net.ifnames=0", written_contents)
-        self.assertIn("biosdevname=0", written_contents)
-        # The (slow) grub regeneration must be deferred, not run eagerly.
-        mock_schedule_grub2_update.assert_called_once_with()
-
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path')
-    def test_disable_predictable_nic_names_no_grub_cfg(self, mock_test_path):
-        mock_test_path.return_value = False
-
-        with self.assertLogs('coriolis.osmorphing.suse', level=logging.WARNING):
-            self.morphing_tools.disable_predictable_nic_names()
+        mock_update_kernel_cmdline_args.assert_called_once_with(
+            args_to_add=['net.ifnames=0', 'biosdevname=0']
+        )
 
     def test__ifcfg_class_attributes(self):
         self.assertEqual(

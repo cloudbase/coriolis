@@ -69,33 +69,7 @@ class BaseSUSEMorphingTools(base.BaseLinuxOSMorphingTools):
         return False
 
     def disable_predictable_nic_names(self):
-        grub_cfg = "etc/default/grub"
-        if not self._test_path(grub_cfg):
-            LOG.warning(
-                "Could not find /%s. Skipping predictable NIC names disabling.",
-                grub_cfg,
-            )
-            return
-        contents = self._read_file_sudo(grub_cfg)
-        cfg = utils.Grub2ConfigEditor(contents)
-        cfg.append_to_option(
-            "GRUB_CMDLINE_LINUX_DEFAULT",
-            {"opt_type": "key_val", "opt_key": "net.ifnames", "opt_val": 0},
-        )
-        cfg.append_to_option(
-            "GRUB_CMDLINE_LINUX_DEFAULT",
-            {"opt_type": "key_val", "opt_key": "biosdevname", "opt_val": 0},
-        )
-        cfg.append_to_option(
-            "GRUB_CMDLINE_LINUX",
-            {"opt_type": "key_val", "opt_key": "net.ifnames", "opt_val": 0},
-        )
-        cfg.append_to_option(
-            "GRUB_CMDLINE_LINUX",
-            {"opt_type": "key_val", "opt_key": "biosdevname", "opt_val": 0},
-        )
-        self._write_file_sudo("etc/default/grub", cfg.dump())
-        self._schedule_grub2_update()
+        self._update_kernel_cmdline_args(args_to_add=["net.ifnames=0", "biosdevname=0"])
 
     def set_net_config(self, nics_info, dhcp):
         if dhcp:
