@@ -24,7 +24,7 @@ class CoriolisTestException(Exception):
 class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
     """Test suite for the WindowsMountTools class."""
 
-    @mock.patch.object(windows.windows_ssh.WindowsSSHConnection, 'from_connection_info')
+    @mock.patch.object(windows.windows_conn, 'from_connection_info')
     def setUp(self, mock_from_connection_info):
         super(WindowsMountToolsTestCase, self).setUp()
         self.event_manager = mock.MagicMock()
@@ -45,19 +45,13 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
         )
         self.tools._conn = mock.MagicMock()
 
-    @mock.patch.object(windows.windows_ssh.WindowsSSHConnection, 'from_connection_info')
+    @mock.patch.object(windows.windows_conn, 'from_connection_info')
     def test__connect(self, mock_from_connection_info):
         result = self.tools._connect()
         self.assertIsNone(result)
 
-        expected_conn_info = {
-            "ip": "127.0.0.1",
-            "username": "random_username",
-            "password": "random_password",
-            "pkey": "random_pkey",
-        }
         mock_from_connection_info.assert_called_once_with(
-            expected_conn_info, mock.sentinel.operation_timeout
+            self.conn_info, mock.sentinel.operation_timeout
         )
 
     def test_get_connection(self):

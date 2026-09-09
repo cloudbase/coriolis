@@ -6,7 +6,7 @@ import paramiko
 import requests
 from oslo_log import log as logging
 
-from coriolis import constants, exception, utils
+from coriolis import constants, exception, utils, windows_conn, wsman
 
 LOG = logging.getLogger(__name__)
 
@@ -205,9 +205,41 @@ def _poll_instance_until_reachable_ssh(
     )
 
 
+def _poll_instance_until_reachable_winrm(
+    connection_info: dict,
+    timeout: int = 600,
+    poll_interval: int = 10,
+):
+    start = time.time()
+    while (time.time() - start) < timeout:
+        try:
+            conn = wsman.WSManConnection.from_connection_info(connection_info)
+            conn.exec_ps_command("whoami")
+            return
+        except Exception as ex:
+            LOG.debug(
+                f"Could not conect to Windows host: {str(ex)}. "
+                f"Retrying, time left: {timeout - (time.time() - start)}."
+            )
+        time.sleep(poll_interval)
+
+    raise exception.CoriolisException(
+        f"Operation timed out after waiting {timeout}s for Windows host to "
+        f"be accessible via WinRM."
+    )
+
+
+def _protocol_from_connection_info(connection_info, protocol):
+    if protocol:
+        return protocol
+    if windows_conn.uses_winrm(connection_info):
+        return constants.PROTOCOL_WINRM
+    return constants.PROTOCOL_SSH
+
+
 def poll_instance_until_reachable(
     connection_info: dict,
-    protocol: str = constants.PROTOCOL_SSH,
+    protocol: str = None,
     timeout: int = 600,
     poll_interval: int = 10,
 ) -> paramiko.SSHClient:
@@ -219,19 +251,27 @@ def poll_instance_until_reachable(
         * username
         * password
         * pkey - Paramiko keypair
-    :param protocol: connection protocol. Only "ssh" is supported.
+    :param protocol: connection protocol, "ssh" or "winrm". If omitted,
+        port 5986 selects WinRM. Any other port selects SSH.
     :param timeout: the maximum amount of time to wait
     :param poll_interval: the amount of time to wait between retries
     """
-    if protocol != constants.PROTOCOL_SSH:
-        raise exception.InvalidInput(
-            f"Unsupported instance connection protocol: {protocol}"
+    resolved = _protocol_from_connection_info(connection_info, protocol)
+    if resolved == constants.PROTOCOL_SSH:
+        ssh_connection_info = dict(connection_info)
+        if ssh_connection_info.get("port") is None:
+            ssh_connection_info["port"] = 22
+        return _poll_instance_until_reachable_ssh(
+            connection_info=ssh_connection_info,
+            timeout=timeout,
+            poll_interval=poll_interval,
         )
-    ssh_connection_info = dict(connection_info)
-    if ssh_connection_info.get("port") is None:
-        ssh_connection_info["port"] = 22
-    return _poll_instance_until_reachable_ssh(
-        connection_info=ssh_connection_info,
-        timeout=timeout,
-        poll_interval=poll_interval,
+    if resolved == constants.PROTOCOL_WINRM:
+        return _poll_instance_until_reachable_winrm(
+            connection_info=connection_info,
+            timeout=timeout,
+            poll_interval=poll_interval,
+        )
+    raise exception.InvalidInput(
+        f"Unsupported instance connection protocol: {resolved}"
     )

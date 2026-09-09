@@ -255,42 +255,21 @@ class WindowsSSHConnectionTestCase(test_base.CoriolisBaseTestCase):
         self.assertTrue(windows_ssh._is_reg_exe("C:\\Windows\\System32\\reg.exe"))
         self.assertFalse(windows_ssh._is_reg_exe("dism.exe"))
 
-    def test_exec_command_releases_ps_handles_for_reg(self):
-        self.conn._release_ps_registry_handles = mock.Mock()
+    def test_exec_command_closes_ps_session_for_reg(self):
+        self.conn._close_ps_session = mock.Mock()
         stdout = mock.Mock()
         stdout.channel = _fake_exec_channel()
         self.conn._ssh.exec_command.return_value = (None, stdout, mock.Mock())
         self.conn.exec_command("reg.exe", ["unload", "HKLM\\x"])
-        self.conn._release_ps_registry_handles.assert_called_once_with()
+        self.conn._close_ps_session.assert_called_once_with(wait=True)
 
-    def test_exec_command_skips_handle_release_for_other_cmds(self):
-        self.conn._release_ps_registry_handles = mock.Mock()
+    def test_exec_command_keeps_ps_session_for_other_cmds(self):
+        self.conn._close_ps_session = mock.Mock()
         stdout = mock.Mock()
         stdout.channel = _fake_exec_channel()
         self.conn._ssh.exec_command.return_value = (None, stdout, mock.Mock())
         self.conn.exec_command("dism.exe", ["/Get-WimInfo"])
-        self.conn._release_ps_registry_handles.assert_not_called()
-
-    def test_release_ps_registry_handles_closes_session(self):
-        self.conn._close_ps_session = mock.Mock()
-        self.conn._release_ps_registry_handles()
-        self.conn._close_ps_session.assert_called_once_with(wait=True)
-
-    def test_escape_trailing_backslash_for_ssh(self):
-        odd = "dism.exe /get-drivers /image:F:\\"
-        self.assertEqual(
-            windows_ssh._escape_trailing_backslash_for_ssh(odd),
-            "dism.exe /get-drivers /image:F:\\\\",
-        )
-        self.assertEqual(
-            windows_ssh._escape_trailing_backslash_for_ssh("reg.exe unload HKLM\\x"),
-            "reg.exe unload HKLM\\x",
-        )
-        even = "cmd /c dir C:\\\\"
-        self.assertEqual(
-            windows_ssh._escape_trailing_backslash_for_ssh(even),
-            even,
-        )
+        self.conn._close_ps_session.assert_not_called()
 
     def test_exec_ps_command(self):
         self.conn._invoke_persistent_ps = mock.Mock()
@@ -343,74 +322,6 @@ class WindowsSSHConnectionTestCase(test_base.CoriolisBaseTestCase):
             ignore_stdout=True,
         )
 
-    def test_format_windows_command_quotes_spaces(self):
-        result = windows_ssh._format_windows_command(
-            "reg.exe", ["load", "HKLM\\x", "C:\\Program Files\\hive"]
-        )
-        self.assertEqual(result, 'reg.exe load HKLM\\x "C:\\Program Files\\hive"')
-
-    def test_format_windows_command_quotes_icacls_grant(self):
-        grant = "*S-1-5-21-841993420-4016469602-3165386176-500:(OI)(CI)F"
-        result = windows_ssh._format_windows_command(
-            "icacls.exe",
-            [
-                "F:\\Windows\\System32\\DriverStore\\FileRepository",
-                "/grant",
-                grant,
-            ],
-        )
-        self.assertEqual(
-            result,
-            'icacls.exe F:\\Windows\\System32\\DriverStore\\FileRepository '
-            '/grant "%s"' % grant,
-        )
-
-    def test_build_ssh_exec_command_wraps_cmd_and_quotes_grant(self):
-        grant = "*S-1-5-21-841993420-4016469602-3165386176-500:(OI)(CI)F"
-        result = windows_ssh._build_ssh_exec_command(
-            "icacls.exe",
-            [
-                "F:\\Windows\\System32\\DriverStore\\FileRepository",
-                "/grant",
-                grant,
-            ],
-        )
-        self.assertEqual(
-            result,
-            'cmd.exe /c "icacls.exe '
-            'F:\\Windows\\System32\\DriverStore\\FileRepository '
-            '/grant ""%s"""' % grant,
-        )
-
-    def test_build_ssh_exec_command_dism_image_trailing_backslash(self):
-        result = windows_ssh._build_ssh_exec_command(
-            "dism.exe", ["/Get-Drivers", "/image:F:\\"]
-        )
-        self.assertEqual(
-            result,
-            'cmd.exe /c "dism.exe /Get-Drivers /image:F:\\\\"',
-        )
-
-    def test_build_ssh_exec_command_dism_add_driver_no_nested_quotes(self):
-        driver = "G:\\Balloon\\2k19\\amd64"
-        result = windows_ssh._build_ssh_exec_command(
-            "C:\\Windows\\System32\\dism.exe",
-            [
-                "/add-driver",
-                "/image:F:\\",
-                "/driver:%s" % driver,
-                "/recurse",
-                "/forceunsigned",
-            ],
-        )
-        self.assertEqual(
-            result,
-            'cmd.exe /c "C:\\Windows\\System32\\dism.exe /add-driver '
-            '/image:F:\\ /driver:G:\\Balloon\\2k19\\amd64 /recurse '
-            '/forceunsigned"',
-        )
-        self.assertNotIn("/driver:\"", result)
-
     def test_split_on_marker_line(self):
         buf = b"True\r\nCORIOLIS_PS_DONE_abc:0\r\nleftover"
         parsed = windows_ssh._split_on_marker_line(buf, "CORIOLIS_PS_DONE_abc")
@@ -427,6 +338,7 @@ class WindowsSSHConnectionTestCase(test_base.CoriolisBaseTestCase):
     def test_strip_ps_output_trims_blank_lines(self):
         self.assertEqual(windows_ssh._strip_ps_output("\r\nG\r\n"), "G")
         self.assertEqual(windows_ssh._strip_ps_output("True\r\n"), "True")
+        self.assertEqual(windows_ssh._strip_ps_output("\n1\n\n2\n"), "1\r\n2")
 
     def test_ps_session_is_alive(self):
         channel = mock.Mock()
@@ -487,6 +399,7 @@ class WindowsSSHConnectionTestCase(test_base.CoriolisBaseTestCase):
         wrapper = self.conn._build_ps_wrapper("Test-Path", "abc")
         self.assertIn("CORIOLIS_PS_DONE_abc", wrapper)
         self.assertIn("Invoke-Expression", wrapper)
+        self.assertIn("Out-String", wrapper)
         self.assertIn("$ProgressPreference = 'SilentlyContinue'", wrapper)
         self.assertIn("VABlAHMAdAAtAFAAYQB0AGgA", wrapper)
 

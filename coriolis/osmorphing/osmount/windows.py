@@ -6,7 +6,7 @@ import uuid
 
 from oslo_log import log as logging
 
-from coriolis import constants, exception, utils, windows_ssh
+from coriolis import constants, exception, utils, windows_conn
 from coriolis.osmorphing.osmount import base
 
 LOG = logging.getLogger(__name__)
@@ -21,13 +21,21 @@ class WindowsMountTools(base.BaseOSMountTools):
         self._unlocked_volumes: list[str] = []
 
     def _connect(self):
-        host = self._connection_info["ip"]
-        self._event_manager.progress_update(
-            "Connecting through SSH to OSMorphing host on: %s" % host
-        )
+        connection_info = self._connection_info
+        host = connection_info["ip"]
+        if windows_conn.uses_winrm(connection_info):
+            port = connection_info.get("port", windows_conn.WINRM_HTTPS_PORT)
+            self._event_manager.progress_update(
+                "Connecting to WinRM host: %(host)s:%(port)s"
+                % {"host": host, "port": port}
+            )
+        else:
+            self._event_manager.progress_update(
+                "Connecting through SSH to OSMorphing host on: %s" % host
+            )
 
-        self._conn = windows_ssh.WindowsSSHConnection.from_connection_info(
-            self._connection_info, self._osmount_operation_timeout
+        self._conn = windows_conn.from_connection_info(
+            connection_info, self._osmount_operation_timeout
         )
 
     def get_connection(self):

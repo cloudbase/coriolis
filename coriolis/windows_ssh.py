@@ -3,9 +3,11 @@
 
 """SSH connection for Windows OS morphing minions.
 
-The Coriolis worker connects to the minion over OpenSSH. It does not open
-WinRM. Morphing commands still run as powershell.exe, diskpart, reg.exe,
-and DISM.
+The Coriolis worker connects to the minion over OpenSSH when
+connection_info port is not 5986. Port 5986 still uses WinRM.
+
+Morphing commands stay in WinRM argv form. Native commands are converted
+for SSH in coriolis.windows_ssh_cmd.
 
 Minion requirements
 -------------------
@@ -24,9 +26,9 @@ The Windows morphing minion must provide all of the following:
   present on Windows Server.
 * The Coriolis worker must reach the minion IP on the SSH port.
 
-Not required
-------------
-* WinRM, HTTPS port 5986, or a WinRM listener.
+Not required for the SSH path
+-----------------------------
+* WinRM, HTTPS port 5986, or a WinRM listener (used only when port is 5986).
 * PowerShell 7, pwsh.exe, or an OpenSSH Subsystem powershell line.
 * PSRP remoting (Enter-PSSession -HostName, pypsrp SSH).
 """
@@ -40,7 +42,7 @@ import paramiko
 from oslo_log import log as logging
 from oslo_utils import strutils
 
-from coriolis import exception, utils
+from coriolis import exception, utils, windows_ssh_cmd
 
 LOG = logging.getLogger(__name__)
 
@@ -70,51 +72,14 @@ def _is_reg_exe(cmd):
     return base in ("reg", "reg.exe")
 
 
-_CMD_QUOTE_CHARS = (" ", "\t", '"', "&", "|", "(", ")", "<", ">", "^", "%")
-
-
-def _quote_cmd_arg(part):
-    part_str = str(part)
-    if (not part_str) or any(ch in part_str for ch in _CMD_QUOTE_CHARS):
-        return '"%s"' % part_str.replace('"', '""')
-    return part_str
-
-
-def _format_windows_command(cmd, args):
-    return " ".join(_quote_cmd_arg(p) for p in [cmd] + list(args or []))
-
-
-def _escape_trailing_backslash_for_ssh(command):
-    """Keep a trailing backslash from eating the SSH quote.
-
-    Windows OpenSSH wraps the exec string in double quotes. An odd number
-    of trailing backslashes escapes that quote. PowerShell then reports a
-    missing string terminator. DISM /image:F:\\ is the usual case.
-    """
-    n = len(command) - len(command.rstrip("\\"))
-    if n % 2 == 1:
-        return command + "\\"
-    return command
-
-
-def _wrap_native_command_for_ssh(command):
-    """Run native tools via cmd.exe.
-
-    OpenSSH DefaultShell is often PowerShell. PowerShell parses (OI) in
-    icacls grants as a command. cmd.exe does not when the grant is quoted.
-    """
-    command = _escape_trailing_backslash_for_ssh(command)
-    return 'cmd.exe /c "%s"' % command.replace('"', '""')
-
-
-def _build_ssh_exec_command(cmd, args):
-    formatted = _format_windows_command(cmd, args)
-    wrapped = _wrap_native_command_for_ssh(formatted)
-    return _escape_trailing_backslash_for_ssh(wrapped)
-
-
 def _strip_ps_output(stdout):
-    return (stdout or "").strip()
+    """Drop blank lines that persistent PowerShell Out-Default inserts."""
+    lines = [
+        line.strip()
+        for line in (stdout or "").replace("\r\n", "\n").split("\n")
+        if line.strip()
+    ]
+    return "\r\n".join(lines)
 
 
 def _drain_ssh_channel(channel, stdout_buf, stderr_buf):
@@ -438,15 +403,6 @@ class WindowsSSHConnection(object):
         LOG.warning("PowerShell SSH session is not alive. Starting a new session.")
         self._restart_ps_session()
 
-    def _release_ps_registry_handles(self):
-        """Stop PowerShell so it does not hold loaded hive keys.
-
-        Get-ItemProperty keeps RegistryKey objects in this process.
-        Garbage collection does not drop those handles. End the process
-        before reg.exe load or unload.
-        """
-        self._close_ps_session(wait=True)
-
     def _build_ps_wrapper(self, cmd, token):
         encoded_cmd = base64.b64encode(cmd.encode("utf-16le")).decode()
         marker = "CORIOLIS_PS_DONE_%s" % token
@@ -455,7 +411,12 @@ class WindowsSSHConnection(object):
             "$__c = [System.Text.Encoding]::Unicode.GetString("
             "[Convert]::FromBase64String('%s')); "
             "$__e = 0; "
-            "try { Invoke-Expression -Command $__c } "
+            "try { "
+            "Invoke-Expression -Command $__c | "
+            "Out-String -Width 4096 -Stream | "
+            "Where-Object { $_.Trim() -ne '' } | "
+            "ForEach-Object { Write-Output $_.Trim() } "
+            "} "
             "catch { Write-Error -ErrorRecord $_; $__e = 1 }; "
             "Write-Output ('%s:' + $__e)\r\n" % (encoded_cmd, marker)
         )
@@ -533,7 +494,7 @@ class WindowsSSHConnection(object):
         ]
     )
     def _exec_command(self, cmd, args=[], timeout=None, sanitizable=True):
-        command = _build_ssh_exec_command(cmd, args)
+        command = windows_ssh_cmd.winrm_exec_to_ssh(cmd, args)
         if sanitizable:
             sanitized_cmd = strutils.mask_password(command)
         else:
@@ -558,11 +519,15 @@ class WindowsSSHConnection(object):
         include_stderr=False,
     ):
         if sanitizable:
-            sanitized_cmd = strutils.mask_password(_build_ssh_exec_command(cmd, args))
+            sanitized_cmd = strutils.mask_password(
+                windows_ssh_cmd.winrm_exec_to_ssh(cmd, args)
+            )
         else:
             sanitized_cmd = "***"
         if _is_reg_exe(cmd):
-            self._release_ps_registry_handles()
+            # Get-ItemProperty keeps hive handles in this powershell.exe.
+            # Close that process before reg.exe load or unload.
+            self._close_ps_session(wait=True)
         LOG.debug("Executing Windows SSH command: %s", sanitized_cmd)
         std_out, std_err, exit_code = self._exec_command(
             cmd, args, timeout=timeout, sanitizable=sanitizable
