@@ -3,7 +3,7 @@ name: Coriolis Integration Tests
 on:
   workflow_dispatch:
   pull_request:
-    branches: [ "master" ]
+    branches: [ "main" ]
 
 permissions:
   contents: read
