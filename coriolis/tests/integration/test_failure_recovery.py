@@ -30,6 +30,11 @@ from coriolis.tests.integration import base
 class TransferFailureIntegrationTest(base.ReplicaIntegrationTestBase):
     """Error path and resource cleanup."""
 
+    # Patches deploy_replica_{target,source}_resources, which are not used for
+    # pool-backed transfers.
+    _CREATE_DST_MINION_POOL = False
+    _CREATE_SRC_MINION_POOL = False
+
     def _assertResourcesCleaned(self, execution_id, task_type, resource_key):
         ctxt = self._get_db_context()
         execution = db_api.get_tasks_execution(ctxt, execution_id)
@@ -127,8 +132,18 @@ class TransferFailureIntegrationTest(base.ReplicaIntegrationTestBase):
         self.assertTargetResourcesCleaned(execution.id)
 
 
-class MinionPoolAllocationFailureTest(base.MinionPoolReplicaTestBase):
-    """Transfer minion pool allocation failure tests."""
+class MinionPoolAllocationFailureTest(
+    base.DedicatedMinionPoolsMixin,
+    base.DestinationMinionPoolTestBase,
+    base.ReplicaIntegrationTestBase,
+):
+    """Transfer minion pool allocation failure tests.
+
+    Deliberately breaks its pool's only machine, so it needs a dedicated pool
+    rather than the shared one.
+    """
+
+    _CREATE_SRC_MINION_POOL = False
 
     def test_transfer_minion_allocation_failure_cleans_up(self):
         """Transfer minion pool allocation fail test.
