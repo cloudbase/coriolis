@@ -12,6 +12,7 @@ harness and is not repeated for each subclass.
 Subclasses must be run as root.
 """
 
+import atexit
 import os
 import time
 import unittest
@@ -45,6 +46,22 @@ MINION_DEALLOCATED_TERMINAL = {
     constants.MINION_POOL_STATUS_DEALLOCATED,
     constants.MINION_POOL_STATUS_ERROR,
 }
+
+# We'll be creating a minion pool per provider (for providers that support them), and
+# we'll be using them for most of the integration tests. Some transfer / OS morphing
+# tests will run without minion pools, as those scenarios still have to be tested.
+_DEFAULT_POOL_MINIMUM_MINIONS = 1
+_DEFAULT_POOL_MAXIMUM_MINIONS = 1
+_DEFAULT_POOL_MINION_MAX_IDLE_TIME = 3600
+_DEFAULT_POOL_MINION_RETENTION_STRATEGY = (
+    constants.MINION_POOL_MACHINE_RETENTION_STRATEGY_DELETE
+)
+
+# Default endpoints / pools, created lazily once per run as needed
+# (_get_shared_endpoint / _get_shared_pool), keyed by provider platform
+# (constants.PROVIDER_PLATFORM_SOURCE / _DESTINATION).
+_SHARED_ENDPOINTS = {}
+_SHARED_POOL_IDS = {}
 
 
 class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
@@ -172,13 +189,13 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
         skip_allocation=True,
         wait_for_allocation=False,
         platform=constants.PROVIDER_PLATFORM_DESTINATION,
-        minimum_minions=1,
-        maximum_minions=1,
-        minion_max_idle_time=3600,
-        minion_retention_strategy=(
-            constants.MINION_POOL_MACHINE_RETENTION_STRATEGY_DELETE
-        ),
+        minimum_minions=_DEFAULT_POOL_MINIMUM_MINIONS,
+        maximum_minions=_DEFAULT_POOL_MAXIMUM_MINIONS,
+        minion_max_idle_time=_DEFAULT_POOL_MINION_MAX_IDLE_TIME,
+        minion_retention_strategy=_DEFAULT_POOL_MINION_RETENTION_STRATEGY,
+        class_cleanup=True,
     ):
+        """Create a pool, deleted at class teardown if *class_cleanup*."""
         env_options = (
             cls._imp_pool_env
             if platform == constants.PROVIDER_PLATFORM_DESTINATION
@@ -196,7 +213,8 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
             minion_retention_strategy=minion_retention_strategy,
             skip_allocation=skip_allocation,
         )
-        cls.addClassCleanup(cls._safe_delete_pool, pool.id)
+        if class_cleanup:
+            cls.addClassCleanup(cls._safe_delete_pool, pool.id)
 
         if wait_for_allocation:
             pool_obj = cls._wait_for_pool(pool.id, MINION_ALLOCATED_TERMINAL)
@@ -265,10 +283,27 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
             "Pool %s is not ALLOCATED (got %s)" % (pool_id, pool.status),
         )
 
-    def assertMachinesAvailable(self, pool_id):
-        """Assert all machines in the pool are AVAILABLE and have been used."""
+    def assertMachinesAvailable(self, pool_id, timeout=30):
+        """Assert all machines in the pool are AVAILABLE and have been used.
+
+        Machines are healthchecked asynchronously after being released, so wait
+        up to *timeout* seconds for them to settle before asserting.
+        """
         ctxt = self._get_db_context()
-        pool = db_api.get_minion_pool(ctxt, pool_id, include_machines=True)
+        deadline = time.monotonic() + timeout
+        while True:
+            pool = db_api.get_minion_pool(ctxt, pool_id, include_machines=True)
+            if (
+                pool is None
+                or all(
+                    m.allocation_status == constants.MINION_MACHINE_STATUS_AVAILABLE
+                    for m in pool.minion_machines
+                )
+                or time.monotonic() >= deadline
+            ):
+                break
+            time.sleep(1)
+
         self.assertIsNotNone(pool, "Pool %s not found" % pool_id)
         self.assertTrue(
             pool.minion_machines,
@@ -299,73 +334,138 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
 
         return f
 
+    @classmethod
+    def _get_shared_endpoint(cls, platform):
+        """Lazily create and cache (once per run) the default endpoint.
+
+        *platform* is constants.PROVIDER_PLATFORM_SOURCE or _DESTINATION.
+        Created once for the whole run and reused by test classes. Torn down via
+        atexit, not addClassCleanup.
+
+        Tests that mutate endpoint state (e.g.: mapped_regions) must create their own
+        endpoint instead of using this one.
+        """
+        endpoint = _SHARED_ENDPOINTS.get(platform)
+        if endpoint is not None:
+            return endpoint
+
+        if platform == constants.PROVIDER_PLATFORM_SOURCE:
+            endpoint = cls._client.endpoints.create(
+                name="shared-test-src",
+                endpoint_type=cls._exp_platform,
+                description="shared integration source endpoint",
+                connection_info=cls._exp_conn_info,
+                regions=[],
+            )
+        else:
+            endpoint = cls._client.endpoints.create(
+                name="shared-test-dest",
+                endpoint_type=cls._imp_platform,
+                description="shared integration destination endpoint",
+                connection_info=cls._imp_conn_info,
+                regions=[],
+            )
+
+        atexit.register(
+            cls._ignoreExc(lambda: cls._client.endpoints.delete(endpoint.id))
+        )
+        _SHARED_ENDPOINTS[platform] = endpoint
+
+        return endpoint
+
+    @classmethod
+    def _get_shared_pool(cls, platform):
+        """Lazily create and cache (once per run) the default pool.
+
+        *platform* is constants.PROVIDER_PLATFORM_SOURCE or _DESTINATION. Bound to the
+        shared endpoint for that platform. Torn down via atexit, not addClassCleanup.
+
+        Tests that need different pool sizing, or that exercise the pool mechanism
+        disruptively, must create their own dedicated pool instead.
+        """
+        pool_id = _SHARED_POOL_IDS.get(platform)
+        if pool_id is not None:
+            return pool_id
+
+        is_dst = platform == constants.PROVIDER_PLATFORM_DESTINATION
+        endpoint = cls._get_shared_endpoint(platform)
+        pool = cls._create_pool(
+            endpoint.id,
+            "shared-dst-transfer-pool" if is_dst else "shared-src-transfer-pool",
+            skip_allocation=False,
+            wait_for_allocation=True,
+            platform=platform,
+            class_cleanup=False,
+        )
+        atexit.register(cls._ignoreExc(lambda: cls._safe_delete_pool(pool.id)))
+        _SHARED_POOL_IDS[platform] = pool.id
+
+        return pool.id
+
+    @classmethod
+    def _src_minion_pool_supported(cls):
+        """Whether the export provider advertises source pool support."""
+        available = providers_factory.get_available_providers()
+        exp_types = available.get(cls._exp_platform, {}).get("types", [])
+        return constants.PROVIDER_TYPE_SOURCE_MINION_POOL in exp_types
+
+    @classmethod
+    def _dst_minion_pool_supported(cls):
+        """Whether the import provider advertises destination pool support."""
+        available = providers_factory.get_available_providers()
+        imp_types = available.get(cls._imp_platform, {}).get("types", [])
+        return constants.PROVIDER_TYPE_DESTINATION_MINION_POOL in imp_types
+
+    @classmethod
+    def _get_src_endpoint(cls):
+        return cls._get_shared_endpoint(constants.PROVIDER_PLATFORM_SOURCE)
+
+    @classmethod
+    def _get_dst_endpoint(cls):
+        return cls._get_shared_endpoint(constants.PROVIDER_PLATFORM_DESTINATION)
+
+    @classmethod
+    def _get_src_pool_id(cls):
+        return cls._get_shared_pool(constants.PROVIDER_PLATFORM_SOURCE)
+
+    @classmethod
+    def _get_dst_pool_id(cls):
+        return cls._get_shared_pool(constants.PROVIDER_PLATFORM_DESTINATION)
+
 
 class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
-    _CREATE_DST_MINION_POOL = False
-    _CREATE_SRC_MINION_POOL = False
+    # Minion pools are used by default if the provider supports them, falling back to
+    # temporary workers if not. Tests that specifically exercise the temporary workers
+    # (e.g.: transfer-specific tests) must set these to False.
+    _CREATE_DST_MINION_POOL = True
+    _CREATE_SRC_MINION_POOL = True
+
+    # Whether the OS Morphing phase of a deployment uses the destination pool
+    # (when there is one) instead of a temporary OS Morphing minion. Tests without
+    # a destination pool always use a temporary minion.
+    _USE_MINION_POOL_FOR_OSMORPHING = True
     _SRC_DEVICE_SIZE_MB = 16
 
     # Extra source_environment entries merged into the default transfer's
     # source_environment.
     _EXTRA_SOURCE_ENVIRONMENT = {}
 
-    # Overridable params for the pool(s) created when _CREATE_DST_MINION_POOL /
-    # _CREATE_SRC_MINION_POOL is set.
-    _POOL_MINIMUM_MINIONS = 1
-    _POOL_MAXIMUM_MINIONS = 1
-    _POOL_MINION_MAX_IDLE_TIME = 3600
-    _POOL_MINION_RETENTION_STRATEGY = (
-        constants.MINION_POOL_MACHINE_RETENTION_STRATEGY_DELETE
-    )
-
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
 
-        cls._src_endpoint = cls._create_endpoint(
-            name="test-src",
-            endpoint_type=cls._exp_platform,
-            description="integration source endpoint",
-            connection_info=cls._exp_conn_info,
-        )
+        cls._src_endpoint = cls._get_src_endpoint()
+        cls._dst_endpoint = cls._get_dst_endpoint()
 
-        cls._dst_endpoint = cls._create_endpoint(
-            name="test-dest",
-            endpoint_type=cls._imp_platform,
-            description="integration destination endpoint",
-            connection_info=cls._imp_conn_info,
-        )
-
-        # Create minion pool if needed.
+        # Create minion pools whenever the provider supports them and the subclass did
+        # not opt out, otherwise transfers will use temporary workers.
         cls._dst_pool_id = None
-        if cls._CREATE_DST_MINION_POOL:
-            pool = cls._create_pool(
-                cls._dst_endpoint.id,
-                "dst-transfer-pool",
-                skip_allocation=False,
-                wait_for_allocation=True,
-                minimum_minions=cls._POOL_MINIMUM_MINIONS,
-                maximum_minions=cls._POOL_MAXIMUM_MINIONS,
-                minion_max_idle_time=cls._POOL_MINION_MAX_IDLE_TIME,
-                minion_retention_strategy=cls._POOL_MINION_RETENTION_STRATEGY,
-            )
-            cls._dst_pool_id = pool.id
+        if cls._CREATE_DST_MINION_POOL and cls._dst_minion_pool_supported():
+            cls._dst_pool_id = cls._get_dst_pool_id()
 
-        # Create source minion pool if needed.
         cls._src_pool_id = None
-        if cls._CREATE_SRC_MINION_POOL:
-            pool = cls._create_pool(
-                cls._src_endpoint.id,
-                "src-transfer-pool",
-                skip_allocation=False,
-                wait_for_allocation=True,
-                platform=constants.PROVIDER_PLATFORM_SOURCE,
-                minimum_minions=cls._POOL_MINIMUM_MINIONS,
-                maximum_minions=cls._POOL_MAXIMUM_MINIONS,
-                minion_max_idle_time=cls._POOL_MINION_MAX_IDLE_TIME,
-                minion_retention_strategy=cls._POOL_MINION_RETENTION_STRATEGY,
-            )
-            cls._src_pool_id = pool.id
+        if cls._CREATE_SRC_MINION_POOL and cls._src_minion_pool_supported():
+            cls._src_pool_id = cls._get_src_pool_id()
 
     def setUp(self):
         super().setUp()
@@ -460,12 +560,29 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             for transfer_id in transfer_ids
         ]
         for execution in executions:
-            self.assertExecutionCompleted(execution.id, timeout=timeout)
+            self.assertExecutionCompleted(
+                execution.id, timeout=timeout, check_pools=False
+            )
+
+        self._assertMinionPoolsHealthy()
 
     def _execute_transfer_and_deployment(self, deployment_kwargs=None):
-        deployment_kwargs = deployment_kwargs or {}
+        deployment_kwargs = dict(deployment_kwargs or {})
 
         self._execute_and_wait(self._transfer.id)
+
+        # Reuse the transfer's destination pool for the OS Morphing phase too, unless
+        # the test class opts out. Callers that need a specific OS Morphing pool can
+        # pass their own mapping to override this.
+        if (
+            self._USE_MINION_POOL_FOR_OSMORPHING
+            and self._dst_pool_id
+            and "instance_osmorphing_minion_pool_mappings" not in deployment_kwargs
+        ):
+            deployment_kwargs["instance_osmorphing_minion_pool_mappings"] = {
+                self._instance_name: self._dst_pool_id,
+            }
+
         deployment = self._client.deployments.create_from_transfer(
             self._transfer.id,
             skip_os_morphing=False,
@@ -523,8 +640,28 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             % (execution_id, desired_statuses, timeout, execution.status)
         )
 
-    def assertExecutionCompleted(self, execution_id, timeout=600):
-        """Assert that *execution_id* completes successfully."""
+    def _assertMinionPoolsHealthy(self):
+        """Assert that any pool(s) used by this test are still usable.
+
+        No-op for pools that weren't created (e.g.: provider doesn't support them, or
+        the subclass opted out via _CREATE_DST_MINION_POOL / _CREATE_SRC_MINION_POOL).
+        """
+        if self._dst_pool_id:
+            self.assertPoolAllocated(self._dst_pool_id)
+            self.assertMachinesAvailable(self._dst_pool_id)
+
+        if self._src_pool_id:
+            self.assertPoolAllocated(self._src_pool_id)
+            self.assertMachinesAvailable(self._src_pool_id)
+
+    def assertExecutionCompleted(self, execution_id, timeout=600, check_pools=True):
+        """Assert that *execution_id* completes successfully.
+
+        :param check_pools: also assert that the minion pools are healthy. Callers
+            waiting on several concurrent executions should disable this and call
+            _assertMinionPoolsHealthy() once all of them completed, since machines
+            of running executions are still in use.
+        """
         execution = self.wait_for_execution(execution_id, timeout=timeout)
         self.assertEqual(
             constants.EXECUTION_STATUS_COMPLETED,
@@ -544,6 +681,9 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
                 ],
             ),
         )
+
+        if check_pools:
+            self._assertMinionPoolsHealthy()
 
     def assertExecutionErrored(self, execution_id, timeout=600):
         """Assert that *execution_id* ends in an error state."""
@@ -645,6 +785,7 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             "Deployment %s ended with status %s"
             % (deployment_id, deployment.last_execution_status),
         )
+        self._assertMinionPoolsHealthy()
 
     def assertDeploymentErrored(self, deployment_id, timeout=600):
         """Assert that *deployment_id* ends in an error state."""
@@ -683,11 +824,16 @@ class SourceMinionPoolTestBase(CoriolisIntegrationTestBase):
     """Base class for source minion pool integration tests.
 
     Skips the entire test class when the export provider does not advertise
-    ``PROVIDER_TYPE_SOURCE_MINION_POOL`` support.
+    ``PROVIDER_TYPE_SOURCE_MINION_POOL`` support. Use for tests that *need*
+    source pools (a hard skip, rather than the silent fallback to temporary
+    workers that ReplicaIntegrationTestBase's opt-in pool usage gives you).
     """
 
     @classmethod
     def setUpClass(cls):
+        # Check before super(), so that ReplicaIntegrationTestBase.setUpClass
+        # does not attempt pool creation against a provider that doesn't
+        # support it.
         h = harness._IntegrationHarness.get()
         available = providers_factory.get_available_providers()
         exp_types = available.get(h.exp_provider_platform, {}).get("types", [])
@@ -704,7 +850,9 @@ class DestinationMinionPoolTestBase(CoriolisIntegrationTestBase):
     """Base class for minion pool integration tests.
 
     Skips the entire test class when the import provider does not advertise
-    ``PROVIDER_TYPE_DESTINATION_MINION_POOL`` support.
+    ``PROVIDER_TYPE_DESTINATION_MINION_POOL`` support. Use for tests that *need*
+    destination pools (a hard skip, rather than the silent fallback to
+    temporary workers that ReplicaIntegrationTestBase's opt-in pool usage gives you).
     """
 
     @classmethod
@@ -724,50 +872,63 @@ class DestinationMinionPoolTestBase(CoriolisIntegrationTestBase):
         super().setUpClass()
 
 
-class MinionPoolReplicaTestBase(
-    DestinationMinionPoolTestBase, ReplicaIntegrationTestBase
-):
-    """Base class for replica integration tests using destination minion pools.
+class AnyMinionPoolMixin:
+    """Skips the test class if neither the source nor the destination has minion pools.
 
-    Extends the assertions to also verify that the minions in the pool have
-    been used, and that the minions and the pool returns to an available state.
+    For tests that use minion pools on each side that supports them. Must come before
+    ReplicaIntegrationTestBase in the bases list.
     """
 
-    _CREATE_DST_MINION_POOL = True
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
 
-    def _execute_and_wait(self, transfer_id, timeout=600):
-        super()._execute_and_wait(transfer_id, timeout=timeout)
-        self.assertPoolAllocated(self._dst_pool_id)
-        self.assertMachinesAvailable(self._dst_pool_id)
-
-    def assertExecutionCompleted(self, execution_id, timeout=600):
-        super().assertExecutionCompleted(execution_id, timeout=timeout)
-        self.assertPoolAllocated(self._dst_pool_id)
-        self.assertMachinesAvailable(self._dst_pool_id)
-
-    def assertDeploymentCompleted(self, deployment_id, timeout=600):
-        super().assertDeploymentCompleted(deployment_id, timeout=timeout)
-        self.assertPoolAllocated(self._dst_pool_id)
-        self.assertMachinesAvailable(self._dst_pool_id)
+        if not (cls._dst_pool_id or cls._src_pool_id):
+            raise unittest.SkipTest(
+                "Neither the source nor the destination provider supports minion pools"
+            )
 
 
-class SourceMinionPoolReplicaTestBase(
-    SourceMinionPoolTestBase, ReplicaIntegrationTestBase
-):
-    """Base class for replica integration tests using source minion pools.
+class DedicatedMinionPoolsMixin:
+    """Gives a ReplicaIntegrationTestBase subclass its own pool(s).
 
-    Extends the assertions to also verify that the minions in the pool have
-    been used, and that the minions and the pool returns to an available state.
+    For tests that are disruptive to the pool or need a sizing other than the
+    shared pool's configurations. Must come before the test base in the bases list.
     """
 
-    _CREATE_SRC_MINION_POOL = True
+    # Overridable params for the dedicated pool(s) created by _create_dedicated_pool,
+    # e.g.: to exercise pool machine power-cycling via small idle time and the
+    # "poweroff" strategy.
+    _POOL_MINIMUM_MINIONS = _DEFAULT_POOL_MINIMUM_MINIONS
+    _POOL_MAXIMUM_MINIONS = _DEFAULT_POOL_MAXIMUM_MINIONS
+    _POOL_MINION_MAX_IDLE_TIME = _DEFAULT_POOL_MINION_MAX_IDLE_TIME
+    _POOL_MINION_RETENTION_STRATEGY = _DEFAULT_POOL_MINION_RETENTION_STRATEGY
 
-    def _execute_and_wait(self, transfer_id, timeout=600):
-        super()._execute_and_wait(transfer_id, timeout=timeout)
-        self.assertPoolAllocated(self._src_pool_id)
-        self.assertMachinesAvailable(self._src_pool_id)
+    @classmethod
+    def _create_dedicated_pool(cls, platform):
+        """Create a class-scoped pool on the class's endpoint of *platform*.
 
-    def assertExecutionCompleted(self, execution_id, timeout=600):
-        super().assertExecutionCompleted(execution_id, timeout=timeout)
-        self.assertPoolAllocated(self._src_pool_id)
-        self.assertMachinesAvailable(self._src_pool_id)
+        Sized per the _POOL_* configurations.
+        """
+        is_dst = platform == constants.PROVIDER_PLATFORM_DESTINATION
+        endpoint = cls._get_shared_endpoint(platform)
+        pool = cls._create_pool(
+            endpoint.id,
+            "dst-transfer-pool" if is_dst else "src-transfer-pool",
+            skip_allocation=False,
+            wait_for_allocation=True,
+            platform=platform,
+            minimum_minions=cls._POOL_MINIMUM_MINIONS,
+            maximum_minions=cls._POOL_MAXIMUM_MINIONS,
+            minion_max_idle_time=cls._POOL_MINION_MAX_IDLE_TIME,
+            minion_retention_strategy=cls._POOL_MINION_RETENTION_STRATEGY,
+        )
+        return pool.id
+
+    @classmethod
+    def _get_src_pool_id(cls):
+        return cls._create_dedicated_pool(constants.PROVIDER_PLATFORM_SOURCE)
+
+    @classmethod
+    def _get_dst_pool_id(cls):
+        return cls._create_dedicated_pool(constants.PROVIDER_PLATFORM_DESTINATION)

@@ -445,11 +445,18 @@ class TestImportProvider(
         #
         # Mount the host's /lib/modules tree so that modprobe can
         # resolve built-in modules.
+        #
+        # A pool minion is created once and reused for arbitrary future
+        # transfers / deployments, so unlike deploy_os_morphing_resources (which
+        # only adds /dev/mapper/control when it already knows the deployment
+        # is LUKS-encrypted), this must always include it: luksOpen needs it,
+        # and there's no way to add it retroactively to an already-running
+        # container if a later LUKS-encrypted instance gets mapped to it.
         volumes = ["/lib/modules:/lib/modules:ro"]
         result = self._create_minion(
             "coriolis-pool-minion",
             connection_info,
-            [],
+            ["/dev/mapper/control"],
             volumes,
             device_cgroup_rules=["b *:* rwm"],
         )
@@ -484,5 +491,8 @@ class TestImportProvider(
                 "os_type": instance_deployment_info.get("os_type", "linux"),
                 "ignore_devices": ignore_devices,
                 "_include_loop_devices": True,
+                constants.ENCRYPTED_DISKS_PASS: instance_deployment_info.get(
+                    constants.ENCRYPTED_DISKS_PASS
+                ),
             }
         }

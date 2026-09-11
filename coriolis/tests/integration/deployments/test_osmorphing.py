@@ -40,6 +40,9 @@ class OsMorphingDeploymentTestBase(integration_base.ReplicaIntegrationTestBase):
 
 
 class OsMorphingDeploymentTest(OsMorphingDeploymentTestBase):
+    # Exercises the temporary workers.
+    _CREATE_DST_MINION_POOL = False
+
     def test_deployment_with_os_morphing(self):
         self.assertFalse(
             osmorphing_utils.path_exists_on_device(self._src_device, "usr/bin/jq"),
@@ -53,6 +56,8 @@ class OsMorphingDeploymentTest(OsMorphingDeploymentTestBase):
             "jq was not found on the destination device after OS morphing",
         )
 
+
+class _OsMorphingScriptTestsMixin:
     def test_os_morphing_global_script_basic_format(self):
         expected_string = str(uuid.uuid4())
         user_scripts = {
@@ -194,9 +199,50 @@ class OsMorphingDeploymentTest(OsMorphingDeploymentTestBase):
 
 
 class OsMorphingMinionPoolDeploymentTest(
+    integration_base.DestinationMinionPoolTestBase,
+    _OsMorphingScriptTestsMixin,
+    OsMorphingDeploymentTestBase,
+):
+    """OS morphing deployment using the shared destination pool.
+
+    OsMorphingDeploymentTest tests cover the temporary OS Morphing minion, while these
+    ones covers OS Morphing in a (reused) pool minion, including the user scripts.
+    """
+
+    _CREATE_DST_MINION_POOL = True
+
+    def test_deployment_with_os_morphing(self):
+        self.assertFalse(
+            osmorphing_utils.path_exists_on_device(self._src_device, "usr/bin/jq"),
+            "jq was found on the source device before OS morphing",
+        )
+
+        self._execute_transfer_and_deployment()
+
+        self.assertTrue(
+            osmorphing_utils.path_exists_on_device(self._dst_device, "usr/bin/jq"),
+            "jq was not found on the destination device after OS morphing",
+        )
+
+        ctxt = self._get_db_context()
+        pool = db_api.get_minion_pool(ctxt, self._dst_pool_id, include_machines=True)
+        self.assertTrue(pool.minion_machines, "OS morphing pool has no minion machines")
+
+        for machine in pool.minion_machines:
+            self.assertIsNotNone(
+                machine.last_used_at,
+                "OS morphing minion machine %s was never used" % machine.id,
+            )
+
+
+class OsMorphingMinionPoolAllocationFailureTest(
     integration_base.DestinationMinionPoolTestBase, OsMorphingDeploymentTestBase
 ):
-    """OS morphing deployment using a minion pool for the OS morphing phase."""
+    """OS morphing minion pool allocation failure test.
+
+    Deliberately breaks the pool's only machine, so it needs its own dedicated pool,
+    rather than the shared one.
+    """
 
     @classmethod
     def setUpClass(cls):
@@ -209,36 +255,6 @@ class OsMorphingMinionPoolDeploymentTest(
             wait_for_allocation=True,
         )
         cls._osmorph_pool_id = pool.id
-
-    def test_deployment_with_os_morphing(self):
-        self.assertFalse(
-            osmorphing_utils.path_exists_on_device(self._src_device, "usr/bin/jq"),
-            "jq was found on the source device before OS morphing",
-        )
-
-        deployment_kwargs = {
-            "instance_osmorphing_minion_pool_mappings": {
-                self._instance_name: self._osmorph_pool_id,
-            },
-        }
-        self._execute_transfer_and_deployment(deployment_kwargs)
-
-        self.assertTrue(
-            osmorphing_utils.path_exists_on_device(self._dst_device, "usr/bin/jq"),
-            "jq was not found on the destination device after OS morphing",
-        )
-
-        ctxt = self._get_db_context()
-        pool = db_api.get_minion_pool(
-            ctxt, self._osmorph_pool_id, include_machines=True
-        )
-        self.assertTrue(pool.minion_machines, "OS morphing pool has no minion machines")
-
-        for machine in pool.minion_machines:
-            self.assertIsNotNone(
-                machine.last_used_at,
-                "OS morphing minion machine %s was never used" % machine.id,
-            )
 
     def test_osmorphing_minion_allocation_failure_cleans_up(self):
         """OS morphing minion pool allocation fail test.

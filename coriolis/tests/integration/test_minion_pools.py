@@ -197,7 +197,7 @@ class SourceMinionPoolLifecycleTests(
         )
 
 
-class _MinionPoolPowerCycleTestMixin:
+class _MinionPoolPowerCycleTestMixin(base.DedicatedMinionPoolsMixin):
     """Transfer that reuses pool machines across a power cycle.
 
     The pool allows up to 2 machines (minimum 1) with a tiny idle time and the
@@ -305,9 +305,13 @@ class _MinionPoolPowerCycleTestMixin:
 
 
 class MinionPoolPowerCycleTransferTest(
-    _MinionPoolPowerCycleTestMixin, base.MinionPoolReplicaTestBase
+    _MinionPoolPowerCycleTestMixin,
+    base.DestinationMinionPoolTestBase,
+    base.ReplicaIntegrationTestBase,
 ):
     """Power-cycle test exercising a destination minion pool."""
+
+    _CREATE_SRC_MINION_POOL = False
 
     @property
     def _pool_id(self):
@@ -315,16 +319,20 @@ class MinionPoolPowerCycleTransferTest(
 
 
 class SourceMinionPoolPowerCycleTransferTest(
-    _MinionPoolPowerCycleTestMixin, base.SourceMinionPoolReplicaTestBase
+    _MinionPoolPowerCycleTestMixin,
+    base.SourceMinionPoolTestBase,
+    base.ReplicaIntegrationTestBase,
 ):
     """Power-cycle test exercising a source minion pool."""
+
+    _CREATE_DST_MINION_POOL = False
 
     @property
     def _pool_id(self):
         return self._src_pool_id
 
 
-class _MinionPoolRefreshDeallocationTestMixin:
+class _MinionPoolRefreshDeallocationTestMixin(base.DedicatedMinionPoolsMixin):
     """Excess pool machine gets deleted on refresh.
 
     Mirrors _MinionPoolPowerCycleTestMixin but with the default "delete" retention
@@ -395,9 +403,13 @@ class _MinionPoolRefreshDeallocationTestMixin:
 
 
 class MinionPoolRefreshDeallocationTransferTest(
-    _MinionPoolRefreshDeallocationTestMixin, base.MinionPoolReplicaTestBase
+    _MinionPoolRefreshDeallocationTestMixin,
+    base.DestinationMinionPoolTestBase,
+    base.ReplicaIntegrationTestBase,
 ):
     """Deletion-on-refresh test exercising a destination minion pool."""
+
+    _CREATE_SRC_MINION_POOL = False
 
     @property
     def _pool_id(self):
@@ -405,9 +417,13 @@ class MinionPoolRefreshDeallocationTransferTest(
 
 
 class SourceMinionPoolRefreshDeallocationTransferTest(
-    _MinionPoolRefreshDeallocationTestMixin, base.SourceMinionPoolReplicaTestBase
+    _MinionPoolRefreshDeallocationTestMixin,
+    base.SourceMinionPoolTestBase,
+    base.ReplicaIntegrationTestBase,
 ):
     """Deletion-on-refresh test exercising a source minion pool."""
+
+    _CREATE_DST_MINION_POOL = False
 
     @property
     def _pool_id(self):

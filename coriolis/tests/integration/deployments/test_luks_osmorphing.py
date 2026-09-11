@@ -50,6 +50,9 @@ class _LUKSOSMorphingMixin:
     _SRC_DEVICE_SIZE_MB = 512
     _CONTAINER_IMAGE = "ubuntu:24.04"
 
+    # Exercises the temporary OS Morphing minions.
+    _CREATE_DST_MINION_POOL = False
+
     @classmethod
     def setUpClass(cls):
         harness = integration_harness._IntegrationHarness.get()
@@ -214,10 +217,20 @@ class LUKSOSMorphingDeploymentTest(
         )
 
 
+class LUKSOSMorphingMinionPoolDeploymentTest(
+    integration_base.DestinationMinionPoolTestBase, LUKSOSMorphingDeploymentTest
+):
+    """Same as LUKSOSMorphingDeploymentTest, OS Morphing in a pool minion."""
+
+    _CREATE_DST_MINION_POOL = True
+
+
 class LUKSRockyLinuxOSMorphingDeploymentTest(
     _LUKSOSMorphingMixin, integration_base.ReplicaIntegrationTestBase
 ):
     """LUKS + dracut OS morphing test using Rocky Linux 9."""
+
+    _CREATE_DST_MINION_POOL = True
 
     # kernel-core (~150 MB installed) needs extra room on top of the base
     # container image and the other morphing packages.
