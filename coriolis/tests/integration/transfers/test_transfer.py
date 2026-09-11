@@ -150,6 +150,10 @@ class ReplicaTransferIntegrationTest(
 ):
     """Full-pipeline replica transfer integration tests."""
 
+    # Exercises the temporary workers code path.
+    _CREATE_DST_MINION_POOL = False
+    _CREATE_SRC_MINION_POOL = False
+
     def test_transfer_with_ssh_backup_writer(self):
         # NOTE: for minion pools, updating the data_transfer_mechanism will not
         # set up the new transfer mechanism into existing minions.
@@ -240,6 +244,10 @@ class ClusteredTransferIntegrationTest(base.ReplicaIntegrationTestBase):
     across instances. Each instance has its own disk + a disk shared between
     them (same disk id in both instances' export_info).
     """
+
+    # Exercises the temporary workers code path.
+    _CREATE_DST_MINION_POOL = False
+    _CREATE_SRC_MINION_POOL = False
 
     @classmethod
     def setUpClass(cls):
@@ -430,20 +438,24 @@ class ClusteredTransferIntegrationTest(base.ReplicaIntegrationTestBase):
 
 
 class MinionPoolTransferTest(
-    base.MinionPoolReplicaTestBase, _ReplicaTransferTestsMixin
+    base.AnyMinionPoolMixin,
+    _ReplicaTransferTestsMixin,
+    base.ReplicaIntegrationTestBase,
 ):
-    """Transfer execution that uses a pre-allocated destination minion pool."""
+    """Transfer execution that uses pre-allocated source and destination minion pools.
 
-    def test_transfer(self):
-        super().test_transfer()
-        self.assertPoolAllocated(self._dst_pool_id)
-        self.assertMachinesAvailable(self._dst_pool_id)
+    The pools are used on each side that supports them; the pools' health is checked
+    by assertExecutionCompleted.
+    """
 
 
 class ReplicaTransferViaSSHTunnelTest(base.ReplicaIntegrationTestBase):
     """Transfer tests using an SSH tunneled replicator client."""
 
     _EXTRA_SOURCE_ENVIRONMENT = {"use_tunnel": True}
+    # Exercises the temporary workers code path.
+    _CREATE_DST_MINION_POOL = False
+    _CREATE_SRC_MINION_POOL = False
 
     @classmethod
     def setUpClass(cls):
@@ -480,14 +492,3 @@ class ReplicaTransferViaSSHTunnelTest(base.ReplicaIntegrationTestBase):
                 test_utils.devices_match(self._src_device, self._dst_device),
                 "Devices do not match after transfer via SSH tunnel",
             )
-
-
-class SourceMinionPoolTransferTest(
-    base.SourceMinionPoolReplicaTestBase, _ReplicaTransferTestsMixin
-):
-    """Transfer execution that uses a pre-allocated source minion pool."""
-
-    def test_transfer(self):
-        super().test_transfer()
-        self.assertPoolAllocated(self._src_pool_id)
-        self.assertMachinesAvailable(self._src_pool_id)
