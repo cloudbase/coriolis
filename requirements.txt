@@ -25,6 +25,7 @@ oslo.service>=1.12.0
 oslo.versionedobjects
 oslo.reports
 paramiko>=2.1.0
+git+https://github.com/cloudbase/pywinrm.git@requests#egg=pywinrm
 paste
 pbr
 psutil
@@ -34,7 +35,6 @@ python-keystoneclient
 python-memcached>=1.56
 python-barbicanclient
 python-swiftclient>=3.2
-git+https://github.com/cloudbase/pywinrm.git@requests#egg=pywinrm
 PyYAML
 redis
 requests
