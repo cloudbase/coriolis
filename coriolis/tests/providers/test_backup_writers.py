@@ -282,6 +282,15 @@ class FileBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         self.writer.write(mock.sentinel.data)
         self.writer._file.write.assert_called_once_with(mock.sentinel.data)
 
+    def test_write_with_encoding(self):
+        self.assertRaises(
+            exception.InvalidInput,
+            self.writer.write,
+            mock.sentinel.data,
+            encoding='gzip',
+        )
+        self.writer._file.write.assert_not_called()
+
     @mock.patch('os.system')
     def test_close(self, mock_system):
         self.writer.close()
@@ -478,6 +487,19 @@ class SSHBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         self._enc_queue.put.assert_called_once_with(expected_payload)
         self.assertEqual(self.writer._offset, len('test_data'))
         self.assertEqual(self.writer._msg_id, 1)
+
+    def test_write_with_encoding(self):
+        self.writer._closing = False
+        self.writer._exception = None
+        self.writer._enc_q = self._enc_queue
+
+        self.assertRaises(
+            exception.InvalidInput,
+            self.writer.write,
+            'test_data',
+            encoding='gzip',
+        )
+        self._enc_queue.put.assert_not_called()
 
     def test_write_with_closing(self):
         self.writer._closing = True
@@ -1055,6 +1077,44 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
         self.assertEqual(self.writer._write_error, False)
         self.assertIsInstance(self.writer._exception, BaseException)
 
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_ensure_session')
+    @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_uri')
+    @mock.patch.object(backup_writers, 'CONF')
+    def test__sender_with_uncompressed_size(
+        self, mock_conf, mock_uri, mock_ensure_session
+    ):
+        self.writer._session = mock.MagicMock()
+        self.writer._sender_q = mock.MagicMock()
+        self.writer._sender_q.get.return_value = {
+            "offset": mock.sentinel.offset,
+            "chunk": 'compressed_data',
+            "encoding": "fastlz",
+            "uncompressed_size": 4096,
+        }
+
+        mock_response = mock.MagicMock()
+        mock_response.status_code = 200
+        mock_response.content = "OK"
+        mock_response.raise_for_status.side_effect = [None, BaseException()]
+        self.writer._session.post.return_value = mock_response
+
+        with self.assertLogs('coriolis.providers.backup_writers', level=logging.ERROR):
+            self.assertRaises(BaseException, self.writer._sender)
+
+        expected_headers = {
+            "X-Write-Offset": str(mock.sentinel.offset),
+            "X-Client-Token": self.writer._id,
+            "content-encoding": "fastlz",
+            "X-Uncompressed-Content-Length": "4096",
+        }
+
+        self.writer._session.post.assert_called_with(
+            mock_uri,
+            headers=expected_headers,
+            data='compressed_data',
+            timeout=mock_conf.default_requests_timeout,
+        )
+
     @mock.patch("time.sleep")
     @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_ensure_session')
     @mock.patch.object(backup_writers.HTTPBackupWriterImpl, '_uri')
@@ -1112,7 +1172,116 @@ class HTTPBackupWriterImplTestCase(test_base.CoriolisBaseTestCase):
             "data": 'test_data',
         }
         self.writer._comp_q.put.assert_called_once_with(expected_payload)
+        self.writer._sender_q.put.assert_not_called()
         self.assertEqual(self.writer._offset, len('test_data'))
+
+    def test_write_with_precompressed_encoding(self):
+        self.writer._closing = False
+        self.writer._exception = None
+        self.writer._comp_q = mock.MagicMock()
+        self.writer._sender_q = mock.MagicMock()
+        original_write = testutils.get_wrapped_function(self.writer.write)
+
+        for encoding in ('gzip', 'zlib', 'deflate'):
+            self.writer._offset = 0
+            self.writer._comp_q.reset_mock()
+            self.writer._sender_q.reset_mock()
+
+            original_write(self.writer, 'compressed', encoding=encoding)
+
+            expected_payload = {
+                "offset": 0,
+                "data": 'compressed',
+                "encoding": encoding,
+                "chunk": 'compressed',
+            }
+            self.writer._sender_q.put.assert_called_once_with(expected_payload)
+            self.writer._comp_q.put.assert_not_called()
+            self.assertEqual(self.writer._offset, len('compressed'))
+
+    def test_write_with_fastlz_encoding(self):
+        self.writer._closing = False
+        self.writer._exception = None
+        self.writer._comp_q = mock.MagicMock()
+        self.writer._sender_q = mock.MagicMock()
+        self.writer._offset = 0
+
+        original_write = testutils.get_wrapped_function(self.writer.write)
+
+        original_write(
+            self.writer, 'compressed', encoding='fastlz', uncompressed_size=4096
+        )
+
+        expected_payload = {
+            "offset": 0,
+            "data": 'compressed',
+            "encoding": 'fastlz',
+            "chunk": 'compressed',
+            "uncompressed_size": 4096,
+        }
+        self.writer._sender_q.put.assert_called_once_with(expected_payload)
+        self.writer._comp_q.put.assert_not_called()
+        self.assertEqual(self.writer._offset, len('compressed'))
+
+    def test_write_with_fastlz_encoding_missing_uncompressed_size(self):
+        self.writer._closing = False
+        self.writer._exception = None
+        self.writer._comp_q = mock.MagicMock()
+        self.writer._sender_q = mock.MagicMock()
+        self.writer._offset = 0
+
+        original_write = testutils.get_wrapped_function(self.writer.write)
+
+        self.assertRaises(
+            exception.InvalidInput,
+            original_write,
+            self.writer,
+            'compressed',
+            encoding='fastlz',
+        )
+        self.writer._sender_q.put.assert_not_called()
+        self.writer._comp_q.put.assert_not_called()
+        self.assertEqual(self.writer._offset, 0)
+
+    def test_write_with_incompressible_encoding(self):
+        self.writer._closing = False
+        self.writer._exception = None
+        self.writer._comp_q = mock.MagicMock()
+        self.writer._sender_q = mock.MagicMock()
+        self.writer._offset = 0
+
+        original_write = testutils.get_wrapped_function(self.writer.write)
+
+        original_write(self.writer, 'test_data', encoding='incompressible')
+
+        expected_payload = {
+            "offset": 0,
+            "data": 'test_data',
+            "chunk": 'test_data',
+        }
+        self.writer._sender_q.put.assert_called_once_with(expected_payload)
+        self.writer._comp_q.put.assert_not_called()
+        self.assertEqual(self.writer._offset, len('test_data'))
+
+    def test_write_with_unsupported_encoding(self):
+        self.writer._closing = False
+        self.writer._exception = None
+        self.writer._comp_q = mock.MagicMock()
+        self.writer._sender_q = mock.MagicMock()
+        self.writer._offset = 0
+
+        original_write = testutils.get_wrapped_function(self.writer.write)
+
+        self.assertRaises(
+            exception.InvalidInput,
+            original_write,
+            self.writer,
+            'test_data',
+            encoding='lz4',
+        )
+        self.writer._sender_q.put.assert_not_called()
+        self.writer._comp_q.put.assert_not_called()
+        self.assertEqual(self.writer._offset, 0)
 
     def test_write_with_closing(self):
         self.writer._closing = True
