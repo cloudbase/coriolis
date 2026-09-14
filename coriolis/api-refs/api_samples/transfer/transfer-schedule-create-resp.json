@@ -15,6 +15,7 @@
     "expiration_date": null,
     "enabled": true,
     "shutdown_instance": false,
+    "auto_deploy": false,
     "trust_id": "cfebd7de4dbf48369b6345dba7610e6d"
   }
 }
