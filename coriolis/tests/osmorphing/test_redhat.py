@@ -67,12 +67,66 @@ class BaseRedHatMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
 
         self.assertFalse(result)
 
+    @mock.patch.object(redhat.BaseRedHatMorphingTools, '_update_kernel_cmdline_args')
+    def test_disable_predictable_nic_names(self, mock_update_kernel_cmdline_args):
+        self.morphing_tools.disable_predictable_nic_names()
+        mock_update_kernel_cmdline_args.assert_called_once_with(
+            args_to_add=['net.ifnames=0', 'biosdevname=0']
+        )
+
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
-    def test_disable_predictable_nic_names(self, mock_exec_cmd_chroot):
+    def test_disable_predictable_nic_names_updates_all_kernels(
+        self, mock_exec_cmd_chroot
+    ):
         self.morphing_tools.disable_predictable_nic_names()
         mock_exec_cmd_chroot.assert_called_once_with(
-            'grubby --update-kernel=ALL --args="net.ifnames=0 biosdevname=0"'
+            "grubby --update-kernel=ALL --args='net.ifnames=0 biosdevname=0'"
         )
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
+    def test__update_kernel_cmdline_args_remove(self, mock_exec_cmd_chroot):
+        result = self.morphing_tools._update_kernel_cmdline_args(
+            args_to_remove=['cloud-init=disabled']
+        )
+
+        self.assertTrue(result)
+        mock_exec_cmd_chroot.assert_called_once_with(
+            'grubby --update-kernel=ALL --remove-args=cloud-init=disabled'
+        )
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
+    def test__update_kernel_cmdline_args_add_and_remove(self, mock_exec_cmd_chroot):
+        result = self.morphing_tools._update_kernel_cmdline_args(
+            args_to_add=['console=ttyS0'], args_to_remove=['console=ttyS1']
+        )
+
+        self.assertTrue(result)
+        self.assertEqual(
+            [
+                mock.call('grubby --update-kernel=ALL --remove-args=console=ttyS1'),
+                mock.call('grubby --update-kernel=ALL --args=console=ttyS0'),
+            ],
+            mock_exec_cmd_chroot.call_args_list,
+        )
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_schedule_grub2_update')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_write_file_sudo')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
+    def test__update_kernel_cmdline_args_does_not_touch_grub_defaults(
+        self, _mock_exec_cmd_chroot, mock_write_file_sudo, mock_schedule_grub2_update
+    ):
+        """Red Hat must use 'grubby' only, never both update mechanisms."""
+        self.morphing_tools._update_kernel_cmdline_args(args_to_add=['edd=off'])
+
+        mock_write_file_sudo.assert_not_called()
+        mock_schedule_grub2_update.assert_not_called()
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
+    def test__update_kernel_cmdline_args_no_args(self, mock_exec_cmd_chroot):
+        result = self.morphing_tools._update_kernel_cmdline_args()
+
+        self.assertFalse(result)
+        mock_exec_cmd_chroot.assert_not_called()
 
     @mock.patch.object(redhat.BaseRedHatMorphingTools, '_get_grub2_cfg_location')
     def test_get_update_grub2_command(self, mock_get_grub2_cfg_location):

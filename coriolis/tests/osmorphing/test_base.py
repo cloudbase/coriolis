@@ -1006,14 +1006,14 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         (
             (False, False, True),
             'GRUB_CMDLINE_LINUX="console=ttyS0 cloud-init=disabled"',
-            ["sed -i '/cloud-init=disabled/d' /etc/default/grub"],
+            [],
             True,
         ),
         ((False, False, True), 'GRUB_CMDLINE_LINUX="console=ttyS0"', [], False),
     )
     @ddt.unpack
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, "_update_kernel_cmdline_args")
     @mock.patch.object(base.BaseLinuxOSMorphingTools, "_read_file_sudo")
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, "_schedule_grub2_update")
     @mock.patch.object(base.BaseLinuxOSMorphingTools, "_exec_cmd_chroot")
     @mock.patch.object(base.BaseLinuxOSMorphingTools, "_test_path")
     def test__ensure_cloud_init_not_disabled(
@@ -1024,8 +1024,8 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         updates_grub,
         mock__test_path,
         mock__exec_cmd_chroot,
-        mock__schedule_grub2_update,
         mock__read_file_sudo,
+        mock__update_kernel_cmdline_args,
     ):
         mock__test_path.side_effect = test_path_results
         mock__read_file_sudo.return_value = grub_defaults_contents
@@ -1035,9 +1035,11 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         called_cmds = [call.args[0] for call in mock__exec_cmd_chroot.call_args_list]
         self.assertEqual(called_cmds, expected_cmds)
         if updates_grub:
-            mock__schedule_grub2_update.assert_called_once()
+            mock__update_kernel_cmdline_args.assert_called_once_with(
+                args_to_remove=["cloud-init=disabled"]
+            )
         else:
-            mock__schedule_grub2_update.assert_not_called()
+            mock__update_kernel_cmdline_args.assert_not_called()
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, "_exec_cmd_chroot")
     def test__reset_cloud_init_run(self, mock__exec_cmd_chroot):
@@ -1486,53 +1488,89 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
             shlex.split(mock_exec_cmd_chroot.call_args[0][0]),
         )
 
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, 'set_grub_value')
-    def test__set_grub2_cmdline_clobber(self, mock_set_grub_value):
-        config_obj = {
-            'contents': {
-                'GRUB_CMDLINE_LINUX_DEFAULT': mock.sentinel.default,
-                'GRUB_CMDLINE_LINUX': mock.sentinel.linux,
-            },
-        }
-        options = ['option1', 'option2']
-
-        self.os_morphing_tools._set_grub2_cmdline(config_obj, options, clobber=True)
-
-        mock_set_grub_value.assert_called_once_with(
-            'GRUB_CMDLINE_LINUX', ' '.join(options), config_obj, replace=True
+    @ddt.data(
+        (
+            'console=ttyS0',
+            {'opt_type': 'key_val', 'opt_key': 'console', 'opt_val': 'ttyS0'},
+        ),
+        ('cloud-init', {'opt_type': 'single', 'opt_val': 'cloud-init'}),
+        (
+            'rd.lvm.lv=vg/root',
+            {'opt_type': 'key_val', 'opt_key': 'rd.lvm.lv', 'opt_val': 'vg/root'},
+        ),
+    )
+    @ddt.unpack
+    def test__get_kernel_cmdline_arg_value(self, arg, expected_value):
+        self.assertEqual(
+            expected_value,
+            self.os_morphing_tools._get_kernel_cmdline_arg_value(arg),
         )
 
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, 'set_grub_value')
-    def test__set_grub2_cmdline_add_options(self, mock_set_grub_value):
-        config_obj = {
-            'contents': {
-                'GRUB_CMDLINE_LINUX_DEFAULT': 'quiet_default',
-                'GRUB_CMDLINE_LINUX': 'quiet_linux',
-            },
-        }
-        options = ['option1', 'option2']
-
-        self.os_morphing_tools._set_grub2_cmdline(config_obj, options, clobber=False)
-
-        mock_set_grub_value.assert_called_once_with(
-            'GRUB_CMDLINE_LINUX',
-            'quiet_linux option1 option2',
-            config_obj,
-            replace=True,
+    @ddt.data((None, None), ([], []), ('', ''))
+    @ddt.unpack
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_get_grub_default_conf')
+    def test__update_kernel_cmdline_args_no_args(
+        self, args_to_add, args_to_remove, mock_get_grub_default_conf
+    ):
+        result = self.os_morphing_tools._update_kernel_cmdline_args(
+            args_to_add=args_to_add, args_to_remove=args_to_remove
         )
 
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, 'set_grub_value')
-    def test__set_grub2_cmdline_no_options_to_add(self, mock_set_grub_value):
-        config_obj = {
-            'contents': {
-                'GRUB_CMDLINE_LINUX_DEFAULT': 'quiet_option1',
-                'GRUB_CMDLINE_LINUX': 'quiet_option2',
-            },
-        }
-        options = ['option1']
+        self.assertFalse(result)
+        mock_get_grub_default_conf.assert_not_called()
 
-        self.os_morphing_tools._set_grub2_cmdline(config_obj, options, clobber=False)
-        mock_set_grub_value.assert_not_called()
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_schedule_grub2_update')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_write_file_sudo')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_read_file_sudo')
+    @mock.patch.object(
+        base.BaseLinuxOSMorphingTools,
+        '_get_grub_default_conf',
+        return_value='/etc/default/grub',
+    )
+    def test__update_kernel_cmdline_args(
+        self,
+        _mock_get_grub_default_conf,
+        mock_read_file_sudo,
+        mock_write_file_sudo,
+        mock_schedule_grub2_update,
+    ):
+        mock_read_file_sudo.return_value = (
+            'GRUB_CMDLINE_LINUX="console=ttyS1 cloud-init=disabled"\n'
+        )
+
+        result = self.os_morphing_tools._update_kernel_cmdline_args(
+            args_to_add=['console=ttyS0'], args_to_remove=['cloud-init']
+        )
+
+        self.assertTrue(result)
+        mock_read_file_sudo.assert_called_once_with('/etc/default/grub')
+        mock_write_file_sudo.assert_called_once_with(
+            'etc/default/grub',
+            'GRUB_CMDLINE_LINUX="console=ttyS1 console=ttyS0"\n'
+            'GRUB_CMDLINE_LINUX_DEFAULT="console=ttyS0"\n',
+        )
+        mock_schedule_grub2_update.assert_called_once_with()
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_schedule_grub2_update')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_write_file_sudo')
+    @mock.patch.object(
+        base.BaseLinuxOSMorphingTools,
+        '_get_grub_default_conf',
+        return_value=None,
+    )
+    def test__update_kernel_cmdline_args_no_grub_defaults(
+        self,
+        _mock_get_grub_default_conf,
+        mock_write_file_sudo,
+        mock_schedule_grub2_update,
+    ):
+        result = self.os_morphing_tools._update_kernel_cmdline_args(
+            args_to_add=['console=ttyS0']
+        )
+
+        self.assertFalse(result)
+        mock_write_file_sudo.assert_not_called()
+        mock_schedule_grub2_update.assert_not_called()
 
     @mock.patch.object(
         base.BaseLinuxOSMorphingTools,
@@ -1792,16 +1830,16 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
             consoles='invalid_consoles',
         )
 
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_update_kernel_cmdline_args')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_apply_grub2_config')
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_set_grub2_cmdline')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, 'set_grub_value')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_get_grub_config_obj')
     def test__set_grub2_console_settings_all_params(
         self,
         mock_get_grub_config_obj,
         mock_set_grub_value,
-        mock_set_grub2_cmdline,
         mock_apply_grub2_config,
+        mock_update_kernel_cmdline_args,
     ):
         consoles = ['tty0', 'ttyS0']
         speed = 9600
@@ -1821,21 +1859,21 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         mock_set_grub_value.assert_called_once_with(
             'GRUB_SERIAL_COMMAND', serial_cmd, config_obj
         )
-        mock_set_grub2_cmdline.assert_called_once_with(
-            config_obj, ['console=tty0', 'console=ttyS0']
-        )
         mock_apply_grub2_config.assert_called_once_with(config_obj, False)
+        mock_update_kernel_cmdline_args.assert_called_once_with(
+            args_to_add=['console=tty0', 'console=ttyS0']
+        )
 
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_update_kernel_cmdline_args')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_apply_grub2_config')
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_set_grub2_cmdline')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, 'set_grub_value')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_get_grub_config_obj')
     def test__set_grub2_console_settings_default_params(
         self,
         mock_get_grub_config_obj,
         mock_set_grub_value,
-        mock_set_grub2_cmdline,
         mock_apply_grub2_config,
+        mock_update_kernel_cmdline_args,
     ):
         grub_conf = '/etc/default/grub'
 
@@ -1852,10 +1890,10 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
             'serial --word=8 --stop=1 --speed=115200 --parity=no --unit=0',
             config_obj,
         )
-        mock_set_grub2_cmdline.assert_called_once_with(
-            config_obj, ['console=tty0', 'console=ttyS0']
-        )
         mock_apply_grub2_config.assert_called_once_with(config_obj, True)
+        mock_update_kernel_cmdline_args.assert_called_once_with(
+            args_to_add=['console=tty0', 'console=ttyS0']
+        )
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_write_file_sudo')

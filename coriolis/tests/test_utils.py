@@ -1883,6 +1883,69 @@ class Grub2ConfigEditorTestCase(test_base.CoriolisBaseTestCase):
         self.assertEqual(self.parser._parsed, expected_value)
 
     @ddt.data(
+        (
+            'GRUB_CMDLINE_LINUX="cloud-init=disabled console=ttyS0"',
+            {"opt_type": "single", "opt_val": "cloud-init"},
+            'GRUB_CMDLINE_LINUX="console=ttyS0"\n',
+        ),
+        (
+            'GRUB_CMDLINE_LINUX="cloud-init=enabled console=ttyS0"',
+            {"opt_type": "single", "opt_val": "cloud-init"},
+            'GRUB_CMDLINE_LINUX="console=ttyS0"\n',
+        ),
+        (
+            'GRUB_CMDLINE_LINUX="quiet console=ttyS0"',
+            {"opt_type": "single", "opt_val": "quiet"},
+            'GRUB_CMDLINE_LINUX="console=ttyS0"\n',
+        ),
+        (
+            'GRUB_CMDLINE_LINUX="cloud-init=enabled console=ttyS0"',
+            {"opt_type": "key_val", "opt_key": "cloud-init", "opt_val": "disabled"},
+            'GRUB_CMDLINE_LINUX="cloud-init=enabled console=ttyS0"\n',
+        ),
+        (
+            'GRUB_CMDLINE_LINUX="cloud-init=disabled console=ttyS0"',
+            {"opt_type": "key_val", "opt_key": "cloud-init", "opt_val": "disabled"},
+            'GRUB_CMDLINE_LINUX="console=ttyS0"\n',
+        ),
+        (
+            'GRUB_CMDLINE_LINUX="console=tty0 console=ttyS0 quiet"',
+            {"opt_type": "single", "opt_val": "console"},
+            'GRUB_CMDLINE_LINUX="quiet"\n',
+        ),
+        (
+            'GRUB_CMDLINE_LINUX="console=ttyS0"',
+            {"opt_type": "single", "opt_val": "cloud-init"},
+            'GRUB_CMDLINE_LINUX="console=ttyS0"\n',
+        ),
+    )
+    @ddt.unpack
+    def test_remove_from_option(self, cfg, value, expected_output):
+        parser = utils.Grub2ConfigEditor(cfg)
+
+        parser.remove_from_option("GRUB_CMDLINE_LINUX", value)
+
+        self.assertEqual(expected_output, parser.dump())
+
+    def test_remove_from_option_missing_option(self):
+        cfg = 'GRUB_CMDLINE_LINUX="console=ttyS0"'
+        parser = utils.Grub2ConfigEditor(cfg)
+
+        parser.remove_from_option(
+            "GRUB_CMDLINE_LINUX_DEFAULT", {"opt_type": "single", "opt_val": "quiet"}
+        )
+
+        self.assertEqual('GRUB_CMDLINE_LINUX="console=ttyS0"\n', parser.dump())
+
+    def test_remove_from_option_invalid_value(self):
+        self.assertRaises(
+            ValueError,
+            self.parser.remove_from_option,
+            "GRUB_CMDLINE_LINUX",
+            {"opt_type": "invalid", "opt_val": "quiet"},
+        )
+
+    @ddt.data(
         ([{"type": "raw", "payload": "raw_data"}], "raw_data\n"),
         (
             [
