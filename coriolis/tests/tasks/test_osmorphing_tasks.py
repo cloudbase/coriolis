@@ -6,6 +6,7 @@ from unittest import mock
 import ddt
 
 from coriolis import constants, exception, schemas
+from coriolis.osmorphing import conf as dest_opts
 from coriolis.tasks import osmorphing_tasks
 from coriolis.tests import test_base
 
@@ -126,7 +127,10 @@ class DeployOSMorphingResourcesTaskTestCase(test_base.CoriolisBaseTestCase):
             expected_result = {
                 "os_morphing_resources": import_info.get('os_morphing_resources'),
                 "osmorphing_connection_info": (mock_marshal_conn_info.return_value),
-                "osmorphing_info": import_info.get('osmorphing_info', {}),
+                "osmorphing_info": dest_opts.apply_core_destination_overrides(
+                    dict(import_info.get('osmorphing_info') or {}),
+                    {},
+                ),
             }
             self.assertEqual(expected_result, _get_result(*method_args))
             mock_get_provider.assert_called_once_with(
@@ -149,6 +153,54 @@ class DeployOSMorphingResourcesTaskTestCase(test_base.CoriolisBaseTestCase):
             mock_marshal_conn_info.assert_called_once_with(
                 import_info.get('osmorphing_connection_info')
             )
+
+    @mock.patch('coriolis.providers.factory.get_provider')
+    @mock.patch('coriolis.tasks.base.get_connection_info')
+    @mock.patch('coriolis.schemas.validate_value')
+    @mock.patch('coriolis.tasks.base.marshal_migr_conn_info')
+    def test__run_applies_cloudbase_init_plugins_from_target_environment(
+        self,
+        mock_marshal_conn_info,
+        mock_validate_value,
+        mock_get_conn_info,
+        mock_get_provider,
+    ):
+        plugins = ['cloudbaseinit.plugins.common.mtu.MTUPlugin']
+        import_info = {
+            "os_morphing_resources": {"res1": "id1"},
+            "osmorphing_connection_info": {"info1": "secret1"},
+            "osmorphing_info": {
+                "os_type": "windows",
+                "osmorphing_parameters": {"set_dhcp": True},
+            },
+        }
+        prov_fun = mock_get_provider.return_value.deploy_os_morphing_resources
+        prov_fun.return_value = import_info
+        task_info = {
+            "target_environment": {
+                "cloudbase_init_plugins": plugins,
+                "set_dhcp": False,
+            },
+            "instance_deployment_info": {},
+        }
+        destination = mock.MagicMock()
+
+        result = self.task_runner._run(
+            mock.sentinel.ctxt,
+            mock.sentinel.instance,
+            mock.sentinel.origin,
+            destination,
+            task_info,
+            mock.sentinel.event_handler,
+        )
+
+        self.assertEqual(
+            result["osmorphing_info"]["osmorphing_parameters"][
+                "cloudbase_init_plugins"
+            ],
+            plugins,
+        )
+        self.assertFalse(result["osmorphing_info"]["osmorphing_parameters"]["set_dhcp"])
 
 
 class DeleteOSMorphingResourcesTaskTestCase(test_base.CoriolisBaseTestCase):

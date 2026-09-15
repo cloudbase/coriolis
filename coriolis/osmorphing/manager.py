@@ -362,7 +362,7 @@ def _morph_image(
     import_os_morphing_tools.pre_packages_install(packages_add)
 
     nics_info = osmorphing_info.get('nics_info')
-    set_dhcp = osmorphing_info.get('nics_set_dhcp', True)
+    set_dhcp = osmorphing_parameters.get('set_dhcp', True)
     import_os_morphing_tools.set_net_config(nics_info, dhcp=set_dhcp)
     LOG.info("Pre packages")
 
