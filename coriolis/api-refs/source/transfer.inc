@@ -19,6 +19,19 @@ Normal response codes: 200
 Error response codes: unauthorized(401),
 forbidden(403), itemNotFound(404)
 
+Request
+-------
+
+.. rest_parameters:: parameters.yaml
+
+  - show_deleted : show_deleted
+  - include_task_info : include_task_info
+  - status : transfer_status_filter
+  - marker : paging_marker
+  - limit : paging_limit
+  - sort_key : sort_key
+  - sort_dir : sort_dir
+
 Response
 --------
 
@@ -26,8 +39,6 @@ Response
 
   - transfers : transfers_array
   - id : transfer_id
-  - include_task_info: include_task_info
-  - show_deleted : show_deleted
   - deleted : transfer_deleted
   - deleted_at : transfer_deleted_at
   - executions : transfer_empty_execution_array
@@ -150,6 +161,9 @@ Request
   - user_scripts : user_scripts
   - id : transfer_id
   - scenario: scenario_type
+  - notes : transfer_notes
+  - clone_disks : transfer_clone_disks
+  - skip_os_morphing : skip_os_morphing
 
 **Example of Transfer Create Request**
 
@@ -213,11 +227,18 @@ Request
   .. rest_parameters:: parameters.yaml
 
       - transfer_id : transfer_id_path
+      - transfer : transfer_object
       - destination_environment : transfer_destination_environment
       - source_environment : transfer_source_environment
       - network_map : transfer_network_map
       - notes : transfer_update_notes
       - storage_mappings : transfer_storage_map
+      - user_scripts : user_scripts
+      - clone_disks : transfer_clone_disks
+      - skip_os_morphing : skip_os_morphing
+      - origin_minion_pool_id : origin_minion_pool_id
+      - destination_minion_pool_id : destination_minion_pool_id
+      - instance_osmorphing_minion_pool_mappings : instance_osmorphing_minion_pool_mappings
 
 **Example of Transfer Update Request**
 
@@ -299,8 +320,10 @@ Request
 
 .. rest_parameters:: parameters.yaml
 
-    - shutdown_instances : transfer_shutdown_instances
     - transfer_id : transfer_id_path
+    - execution : transfer_execution_object
+    - shutdown_instances : transfer_shutdown_instances
+    - auto_deploy : auto_deploy
 
 **Example Transfer Execution Create Request**
 
@@ -351,6 +374,11 @@ Request
 .. rest_parameters:: parameters.yaml
 
    - transfer_id : transfer_id_path
+   - status : transfer_status_filter
+   - marker : paging_marker
+   - limit : paging_limit
+   - sort_key : sort_key
+   - sort_dir : sort_dir
 
 Response
 --------
@@ -445,7 +473,7 @@ Request
 
 .. rest_parameters:: parameters.yaml
 
-    - delete_disks : transfer_delete_disks
+    - delete-disks : transfer_delete_disks
     - transfer_id : transfer_id_path
 
 **Example of Transfer Execution Cancel Request**
@@ -551,6 +579,7 @@ Request
   .. rest_parameters:: parameters.yaml
 
     - transfer_id : transfer_id_path
+    - show_expired : show_expired
 
 Response
 --------
@@ -566,6 +595,7 @@ Response
     - transfer_id : transfer_id
     - enabled : transfer_schedule_enabled
     - shutdown_instance : transfer_shutdown_instances
+    - auto_deploy : auto_deploy
     - schedule : transfer_schedule
     - minute : transfer_schedule_minute
     - hour : transfer_schedule_hour
@@ -573,6 +603,7 @@ Response
     - month : transfer_schedule_month
     - dow : transfer_schedule_day_of_week
     - expiration_date : transfer_schedule_expiration
+    - trust_id : transfer_schedule_trust_id
 
 **Example of Transfer Schedule List Response**
 
@@ -616,6 +647,7 @@ Response
     - transfer_id : transfer_id
     - enabled : transfer_schedule_enabled
     - shutdown_instance : transfer_shutdown_instances
+    - auto_deploy : auto_deploy
     - schedule : transfer_schedule
     - minute : transfer_schedule_minute
     - hour : transfer_schedule_hour
@@ -623,6 +655,7 @@ Response
     - month : transfer_schedule_month
     - dow : transfer_schedule_day_of_week
     - expiration_date : transfer_schedule_expiration
+    - trust_id : transfer_schedule_trust_id
 
 **Example Transfer Schedule Show Response**
 
@@ -646,9 +679,10 @@ Request
 
 .. rest_parameters:: parameters.yaml
 
-  - transfer_id : transfer_id
+  - transfer_id : transfer_id_path
   - enabled : transfer_schedule_enabled
   - shutdown_instance : transfer_shutdown_instances
+  - auto_deploy : auto_deploy
   - schedule : transfer_schedule
   - minute : transfer_schedule_minute
   - hour : transfer_schedule_hour
@@ -676,6 +710,7 @@ Response
   - transfer_id : transfer_id
   - enabled : transfer_schedule_enabled
   - shutdown_instance : transfer_shutdown_instances
+  - auto_deploy : auto_deploy
   - schedule : transfer_schedule
   - minute : transfer_schedule_minute
   - hour : transfer_schedule_hour
@@ -683,6 +718,7 @@ Response
   - month : transfer_schedule_month
   - dow : transfer_schedule_day_of_week
   - expiration_date : transfer_schedule_expiration
+  - trust_id : transfer_schedule_trust_id
 
 **Example of Transfer Schedule Create Response**
 
@@ -709,9 +745,11 @@ Request
 
   .. rest_parameters:: parameters.yaml
 
-    - transfer_id : transfer_id
+    - transfer_id : transfer_id_path
     - schedule_id : transfer_schedule_id_path
+    - enabled : transfer_schedule_enabled
     - shutdown_instance : transfer_shutdown_instances
+    - auto_deploy : auto_deploy
     - schedule : transfer_schedule
     - minute : transfer_schedule_minute
     - hour : transfer_schedule_hour
@@ -738,6 +776,7 @@ Response
     - transfer_id : transfer_id
     - enabled : transfer_schedule_enabled
     - shutdown_instance : transfer_shutdown_instances
+    - auto_deploy : auto_deploy
     - schedule : transfer_schedule
     - minute : transfer_schedule_minute
     - hour : transfer_schedule_hour
@@ -745,6 +784,7 @@ Response
     - month : transfer_schedule_month
     - dow : transfer_schedule_day_of_week
     - expiration_date : transfer_schedule_expiration
+    - trust_id : transfer_schedule_trust_id
 
 **Example of Transfer Schedule Update Response**
 
@@ -772,7 +812,7 @@ Request
   .. rest_parameters:: parameters.yaml
 
     - transfer_id : transfer_id_path
-    - schedule_id : transfer_schedule_id
+    - schedule_id : transfer_schedule_id_path
 
 Response
 --------
