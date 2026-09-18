@@ -11,6 +11,7 @@ manage the coriolis-replicator service and perform disk replication.
 import csv
 import io
 import os
+import shutil
 import unittest
 import uuid
 
@@ -29,7 +30,7 @@ from coriolis.providers.base import (
     BaseSourceMinionPoolProvider,
     BaseUpdateSourceReplicaProvider,
 )
-from coriolis.tests.integration import provider_test_base
+from coriolis.tests.integration import osmorphing_utils, provider_test_base, ssh_utils
 from coriolis.tests.integration import utils as test_utils
 from coriolis.tests.integration.test_provider import common
 
@@ -103,6 +104,12 @@ class TestExportProvider(
         )
 
     def check_prerequisites(self):
+        if not shutil.which("busybox"):
+            raise unittest.SkipTest(
+                "A statically linked 'busybox' binary is required on the host "
+                "(e.g.: the busybox-static package)"
+            )
+
         if not test_utils.container_image_exists(test_utils.DATA_MINION_IMAGE):
             raise unittest.SkipTest(
                 "Docker image '%s' not found; build it with: "
@@ -113,7 +120,7 @@ class TestExportProvider(
 
     def get_test_instance(self, size_mb: int):
         device = test_utils.create_loop_device(size_mb * 1024 * 1024)
-        test_utils.write_test_pattern(device, 8192)
+        osmorphing_utils.write_busybox_rootfs_to_device(device)
 
         instance_name = "%s-%s" % (os.path.basename(device), uuid.uuid4().hex[:8])
         self._test_devices[instance_name] = device
@@ -129,6 +136,18 @@ class TestExportProvider(
 
     def get_test_instance_device(self, instance_name: str):
         return self._test_devices.get(instance_name)
+
+    def can_exec_test_vm(self):
+        return True
+
+    def exec_test_vm(self, instance_name: str, command: str):
+        """Run *command* chrooted in the instance's busybox rootfs."""
+        result = osmorphing_utils.chroot_exec(
+            self._test_devices[instance_name], command
+        )
+        return ssh_utils.ExecResult(
+            result.returncode, result.stdout.decode(), result.stderr.decode()
+        )
 
     def _event_manager(self):
         return events.EventManager(self._event_handler)
