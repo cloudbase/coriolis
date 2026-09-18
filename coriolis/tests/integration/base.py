@@ -160,7 +160,7 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
             skip_os_morphing=True,
             **kwargs,
         )
-        self.addCleanup(self._client.transfers.delete, transfer.id)
+        self.addCleanup(self._ignoreExc(self._client.transfers.delete), transfer.id)
 
         return transfer
 

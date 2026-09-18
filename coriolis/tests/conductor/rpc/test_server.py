@@ -1652,6 +1652,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         )
 
     @mock.patch.object(db_api, 'delete_transfer')
+    @mock.patch.object(server.ConductorServerEndpoint, '_delete_transfer_schedules')
     @mock.patch.object(
         server.ConductorServerEndpoint, '_check_delete_reservation_for_transfer'
     )
@@ -1664,6 +1665,7 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_get_transfer,
         mock_check_transfer_running_executions,
         mock_check_delete_reservation_for_transfer,
+        mock_delete_transfer_schedules,
         mock_delete_transfer,
     ):
         testutils.get_wrapped_function(self.server.delete_transfer)(
@@ -1678,8 +1680,57 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_check_delete_reservation_for_transfer.assert_called_once_with(
             mock_get_transfer.return_value
         )
+        mock_delete_transfer_schedules.assert_called_once_with(
+            mock.sentinel.context, mock.sentinel.transfer_id
+        )
         mock_delete_transfer.assert_called_once_with(
             mock.sentinel.context, mock.sentinel.transfer_id
+        )
+
+    @mock.patch.object(db_api, 'delete_transfer_schedule')
+    @mock.patch.object(db_api, 'get_transfer_schedules')
+    def test_delete_transfer_schedules(
+        self, mock_get_transfer_schedules, mock_delete_transfer_schedule
+    ):
+        schedule = mock.Mock(id=mock.sentinel.schedule_id)
+        mock_get_transfer_schedules.return_value = [schedule]
+
+        self.server._delete_transfer_schedules(
+            mock.sentinel.context, mock.sentinel.transfer_id
+        )
+
+        mock_get_transfer_schedules.assert_called_once_with(
+            mock.sentinel.context, transfer_id=mock.sentinel.transfer_id
+        )
+        mock_delete_transfer_schedule.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.transfer_id,
+            mock.sentinel.schedule_id,
+            None,
+            mock.ANY,
+        )
+
+    @mock.patch.object(db_api, 'delete_transfer_schedule')
+    @mock.patch.object(db_api, 'get_transfer_schedules')
+    def test_delete_transfer_schedules_already_deleted(
+        self, mock_get_transfer_schedules, mock_delete_transfer_schedule
+    ):
+        schedule = mock.Mock(id=mock.sentinel.schedule_id)
+        mock_get_transfer_schedules.return_value = [schedule]
+        mock_delete_transfer_schedule.side_effect = exception.NotFound(
+            "No such schedule"
+        )
+
+        self.server._delete_transfer_schedules(
+            mock.sentinel.context, mock.sentinel.transfer_id
+        )
+
+        mock_delete_transfer_schedule.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.transfer_id,
+            mock.sentinel.schedule_id,
+            None,
+            mock.ANY,
         )
 
     @mock.patch.object(server.ConductorServerEndpoint, 'get_transfer_tasks_execution')
