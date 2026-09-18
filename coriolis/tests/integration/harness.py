@@ -321,9 +321,8 @@ class _IntegrationHarness:
         self.lock_path = os.path.join(self.workdir, "locks")
         os.makedirs(self.lock_path)
 
-        self._mysql_container_name = (
-            "coriolis-test-mysql-%s" % str(uuid.uuid4()).split("-")[0]
-        )
+        session_tag = str(uuid.uuid4()).split("-")[0]
+        self._mysql_container_name = "coriolis-test-mysql-%s" % session_tag
         self._mysql_username = "root"
         self._mysql_password = "coriolis"
         self._mysql_database = "coriolis"
@@ -362,14 +361,6 @@ class _IntegrationHarness:
         exp_provider = providers_config["source"]["provider"]
         imp_provider = providers_config["destination"]["provider"]
         cfg.CONF.set_override('providers', [exp_provider, imp_provider])
-        db_url = (
-            'mysql+pymysql://%(user)s:%(password)s@localhost:13306/%(database)s'
-        ) % {
-            "user": self._mysql_username,
-            "password": self._mysql_password,
-            "database": self._mysql_database,
-        }
-        cfg.CONF.set_override('connection', db_url, group='database')
         cfg.CONF.set_override('retry_interval', 1, group='database')
         cfg.CONF.set_override('lock_path', self.lock_path, group='oslo_concurrency')
 
@@ -466,11 +457,19 @@ class _IntegrationHarness:
                 f"MYSQL_ROOT_PASSWORD={self._mysql_password}",
                 "-e",
                 f"MYSQL_DATABASE={self._mysql_database}",
-                "-p",
-                "13306:3306",
                 "mariadb:10-jammy",
             ]
         )
+        self._mysql_ip = test_utils.get_container_ip(self._mysql_container_name)
+        db_url = (
+            'mysql+pymysql://%(user)s:%(password)s@%(host)s:3306/%(database)s'
+        ) % {
+            "user": self._mysql_username,
+            "password": self._mysql_password,
+            "host": self._mysql_ip,
+            "database": self._mysql_database,
+        }
+        cfg.CONF.set_override('connection', db_url, group='database')
 
     def _start_coriolis_services(self):
         """Start conductor, scheduler, worker, and API in-process."""

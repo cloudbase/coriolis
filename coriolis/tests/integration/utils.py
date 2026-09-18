@@ -11,6 +11,7 @@ import socket
 import subprocess
 import tempfile
 import time
+import uuid
 
 import paramiko
 from oslo_log import log as logging
@@ -20,6 +21,10 @@ from coriolis import utils as coriolis_utils
 LOG = logging.getLogger(__name__)
 
 DATA_MINION_IMAGE = "coriolis-data-minion:test"
+
+# Unique per test-process prefix for loop device backing files, so that
+# destroy_leaked_loop_devices() only ever touches devices created by this session.
+_LOOPDEV_BACKING_PREFIX = "coriolis-loopdev-%s-" % uuid.uuid4().hex[:8]
 
 # device_path: backing_sparse_file, for devices created by create_loop_device().
 _loop_backing_files = {}
@@ -44,7 +49,7 @@ def create_loop_device(size_bytes) -> str:
 
     :returns: the /dev/loopN path.
     """
-    fd, backing_file = tempfile.mkstemp(prefix="coriolis-loopdev-")
+    fd, backing_file = tempfile.mkstemp(prefix=_LOOPDEV_BACKING_PREFIX)
     os.close(fd)
     _run(["truncate", "-s", str(size_bytes), backing_file])
 
@@ -69,9 +74,31 @@ def remove_loop_device(device_path):
 
 
 def destroy_leaked_loop_devices():
-    """Detach and remove any loop devices left over from a previous run."""
+    """Detach and remove any loop devices left over from this session.
+
+    First cleans up everything still tracked in-process, then scans losetup for devices
+    this session created (matched via _LOOPDEV_BACKING_PREFIX on the backing file) but
+    lost track of..
+    """
     for device_path in list(_loop_backing_files):
         remove_loop_device(device_path)
+
+    result = _run(["losetup", "-J"], check=False)
+    if result.returncode != 0:
+        return
+
+    for entry in json.loads(result.stdout).get("loopdevices", []):
+        back_file = entry.get("back-file") or ""
+        if not os.path.basename(back_file).startswith(_LOOPDEV_BACKING_PREFIX):
+            continue
+
+        device_path = entry["name"]
+        LOG.warning("Destroying leaked loop device: %s", device_path)
+        _run(["losetup", "-d", device_path], check=False)
+        try:
+            os.unlink(back_file)
+        except OSError:
+            pass
 
 
 def write_test_pattern(device_path, chunk_size=4096):
