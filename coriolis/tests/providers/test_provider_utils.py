@@ -351,6 +351,21 @@ class ProviderUtilsTestCase(test_base.CoriolisBaseTestCase):
             poll_interval=poll_interval,
         )
 
+    def test_poll_instance_missing_auth(self):
+        connection_info = {
+            "ip": "1.2.3.4",
+            "port": 22,
+            "username": "Administrator",
+        }
+        self.assertRaises(
+            exception.InvalidInput,
+            provider_utils.poll_instance_until_reachable,
+            connection_info=connection_info,
+            protocol=constants.PROTOCOL_SSH,
+            timeout=600,
+            poll_interval=5,
+        )
+
     @mock.patch("coriolis.wsman.WSManConnection", new_callable=mock.Mock)
     @mock.patch("time.sleep")
     def test_poll_instance_winrm(
@@ -399,4 +414,13 @@ class ProviderUtilsTestCase(test_base.CoriolisBaseTestCase):
             protocol=constants.PROTOCOL_WINRM,
             timeout=30,
             poll_interval=poll_interval,
+        )
+
+    def test_poll_instance_unsupported_protocol(self):
+        connection_info = self._get_mock_conn_info()
+        self.assertRaises(
+            exception.InvalidInput,
+            provider_utils.poll_instance_until_reachable,
+            connection_info=connection_info,
+            protocol="ftp",
         )
