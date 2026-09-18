@@ -12,6 +12,7 @@ import time
 
 from oslo_utils import timeutils
 
+from coriolis.db import api as db_api
 from coriolis.tests.integration import base
 
 
@@ -137,3 +138,24 @@ class TransferScheduleTests(_TransferScheduleTestBase):
         )
 
         self.assertExecutionCompleted(execution.id)
+
+    def test_deleting_transfer_deletes_schedule(self):
+        """Deleting a Transfer must delete its schedules along with it.
+
+        Regression test: ``delete_transfer`` used to leave attached schedules in place,
+        both in the DB and registered with the transfer-cron service, which kept firing
+        on its configured cadence against a Transfer that no longer existed.
+        """
+        target = timeutils.utcnow() + datetime.timedelta(seconds=10)
+        self._create_schedule(
+            schedule={"minute": target.minute, "hour": target.hour},
+            enabled=True,
+        )
+
+        self._client.transfers.delete(self._transfer.id)
+
+        ctxt = self._get_db_context()
+        remaining = db_api.get_transfer_schedules(ctxt, transfer_id=self._transfer.id)
+        self.assertEqual(
+            [], remaining, "Schedule was not deleted along with its Transfer"
+        )

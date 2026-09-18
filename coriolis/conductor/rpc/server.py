@@ -1474,7 +1474,25 @@ class ConductorServerEndpoint(object):
         transfer = self._get_transfer(ctxt, transfer_id)
         self._check_transfer_running_executions(ctxt, transfer)
         self._check_delete_reservation_for_transfer(transfer)
+        self._delete_transfer_schedules(ctxt, transfer_id)
         db_api.delete_transfer(ctxt, transfer_id)
+
+    def _delete_transfer_schedules(self, ctxt, transfer_id):
+        for schedule in db_api.get_transfer_schedules(ctxt, transfer_id=transfer_id):
+            try:
+                db_api.delete_transfer_schedule(
+                    ctxt,
+                    transfer_id,
+                    schedule.id,
+                    None,
+                    lambda ctxt, sched: self._cleanup_schedule_resources(ctxt, sched),
+                )
+            except exception.NotFound:
+                LOG.debug(
+                    "Schedule '%s' for Transfer '%s' was already deleted.",
+                    schedule.id,
+                    transfer_id,
+                )
 
     @transfer_synchronized
     def delete_transfer_disks(self, ctxt, transfer_id):
