@@ -936,6 +936,34 @@ class TransferSchedulesDBAPITestCase(BaseDBAPITestCase):
         ).first()
         self.assertEqual(result, self.valid_transfer_schedule)
 
+    def test__get_transfer_schedules_filter_excludes_deleted_transfer(self):
+        deleted_transfer = models.Transfer()
+        deleted_transfer.id = str(uuid.uuid4())
+        deleted_transfer.user_id = "1"
+        deleted_transfer.project_id = "1"
+        deleted_transfer.base_id = deleted_transfer.id
+        deleted_transfer.scenario = constants.TRANSFER_SCENARIO_REPLICA
+        deleted_transfer.last_execution_status = DEFAULT_EXECUTION_STATUS
+        deleted_transfer.executions = []
+        deleted_transfer.instances = [DEFAULT_INSTANCE]
+        deleted_transfer.info = DEFAULT_TASK_INFO
+        deleted_transfer.origin_endpoint_id = self.valid_transfer.origin_endpoint_id
+        deleted_transfer.destination_endpoint_id = (
+            self.valid_transfer.destination_endpoint_id
+        )
+        deleted_transfer.deleted_at = timeutils.utcnow()
+        self.session.add(deleted_transfer)
+
+        orphaned_schedule = self._create_dummy_transfer_schedule(
+            deleted_transfer, expiration_date=None
+        )
+        self.session.add(orphaned_schedule)
+
+        result = api._get_transfer_schedules_filter(
+            self.context, schedule_id=orphaned_schedule.id
+        ).first()
+        self.assertIsNone(result)
+
     def test__get_transfer_schedules_filter_by_not_expired(self):
         expiration_date = timeutils.utcnow() + datetime.timedelta(days=1)
         unexpired_transfer_schedule = self._create_dummy_transfer_schedule(

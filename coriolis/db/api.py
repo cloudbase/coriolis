@@ -112,6 +112,10 @@ def _get_transfer_schedules_filter(
             models.Transfer.project_id == context.project_id
         )
 
+    # NOTE: a schedule whose Transfer has been deleted is an orphaned record. It should
+    # not be surfaced, it has no valid Transfer to run against.
+    sched_filter = sched_filter.filter(models.Transfer.deleted_at == null())
+
     if transfer_id:
         sched_filter = sched_filter.filter(models.Transfer.id == transfer_id)
     if schedule_id:
