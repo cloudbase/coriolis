@@ -82,6 +82,8 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
             # Prevent the test runner from being killed by Coriolis sending
             # SIGINT to in-process workers.
             "psutil.Process.send_signal",
+            # We're not using keystone for tests. This is called in a few places.
+            "coriolis.keystone.delete_trust",
         ]
         for thing in to_patch:
             patcher = mock.patch(thing)
@@ -214,7 +216,7 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
             cls._client.minion_pools.deallocate_minion_pool(pool_id, force=True)
             cls._wait_for_pool(pool_id, MINION_DEALLOCATED_TERMINAL)
 
-        with mock.patch("coriolis.keystone.delete_trust"):
+        with mock.patch("coriolis.keystone.delete_trust", autospec=False):
             # When removing minion pools, this is also called.
             # There is no Keystone, so it needs to be mocked.
             cls._client.minion_pools.delete(pool_id)
