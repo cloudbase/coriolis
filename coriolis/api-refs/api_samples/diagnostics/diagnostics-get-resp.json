@@ -24,6 +24,33 @@
                 ""
             ],
             "hostname": "coriolis-conductor",
+            "filesystems": [
+                {
+                    "filesystem": "/dev/sda1",
+                    "size": 21474836480,
+                    "used": 10737418240,
+                    "available": 10737418240,
+                    "capacity": 50,
+                    "mounted_on": "/"
+                }
+            ],
+            "memory": {
+                "total": 8589934592,
+                "used": 2147483648,
+                "free": 4294967296,
+                "shared": 134217728,
+                "buff_cache": 2147483648,
+                "available": 6442450944,
+                "swap": {
+                    "total": 2147483648,
+                    "used": 0,
+                    "free": 2147483648
+                }
+            },
+            "cpu_usage": [
+                {"core": 0, "percent": 3.2},
+                {"core": 1, "percent": 1.0}
+            ],
             "ip_addresses": [
                 {
                     "eth0": {
@@ -113,6 +140,33 @@
                 ""
             ],
             "hostname": "coriolis-replica-cron",
+            "filesystems": [
+                {
+                    "filesystem": "/dev/sda1",
+                    "size": 21474836480,
+                    "used": 10737418240,
+                    "available": 10737418240,
+                    "capacity": 50,
+                    "mounted_on": "/"
+                }
+            ],
+            "memory": {
+                "total": 8589934592,
+                "used": 2147483648,
+                "free": 4294967296,
+                "shared": 134217728,
+                "buff_cache": 2147483648,
+                "available": 6442450944,
+                "swap": {
+                    "total": 2147483648,
+                    "used": 0,
+                    "free": 2147483648
+                }
+            },
+            "cpu_usage": [
+                {"core": 0, "percent": 3.2},
+                {"core": 1, "percent": 1.0}
+            ],
             "ip_addresses": [
                 {
                     "eth0": {

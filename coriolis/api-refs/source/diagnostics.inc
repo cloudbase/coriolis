@@ -29,6 +29,9 @@ Response
   - os_info : diagnostic_os_info
   - hostname : diagnostic_hostname
   - ip_addresses : diagnostic_ip_addresses
+  - filesystems : diagnostic_filesystems
+  - memory : diagnostic_memory
+  - cpu_usage : diagnostic_cpu_usage
   - licensing_status : diagnostic_licensing_status
   - packages : diagnostic_packages
   - licences : diagnostic_licences

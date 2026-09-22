@@ -26,6 +26,7 @@ from io import StringIO
 import netifaces
 import OpenSSL
 import paramiko
+import psutil
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
@@ -56,6 +57,9 @@ LOG = logging.getLogger(__name__)
 
 UNSPACED_MAC_ADDRESS_REGEX = "^([0-9a-f]{12})$"
 SPACED_MAC_ADDRESS_REGEX = "^(([0-9a-f]{2}:){5}([0-9a-f]{2}))$"
+
+# Short sample so diagnostics stay responsive when several services are queried.
+_CPU_SAMPLE_SECONDS = 0.1
 
 SYSTEMD_TEMPLATE = """
 [Unit]
@@ -124,9 +128,93 @@ def _get_release_tag():
     return release_tag
 
 
+def _filesystem_capacity(used, available):
+    """Return the used-space percentage, rounded up.
+
+    This is the integer Capacity column ``df`` prints:
+    ``used / (used + available) * 100``.
+    """
+    total = used + available
+    if total == 0:
+        return 100 if used else 0
+    return (used * 100 + total - 1) // total
+
+
+def _get_filesystems():
+    """Return usage for mounted block devices, in bytes.
+
+    The mount list is ``psutil.disk_partitions(all=False)``: devices with a
+    real block filesystem, including squashfs, and not nodev types such as
+    tmpfs. ``capacity`` is the integer percentage of used space, rounded up.
+    """
+    filesystems = []
+    for partition in psutil.disk_partitions(all=False):
+        try:
+            usage = psutil.disk_usage(partition.mountpoint)
+        except OSError as exc:
+            LOG.warning(
+                "Unable to read usage for %s (%s): %s",
+                partition.mountpoint,
+                partition.device,
+                exc,
+            )
+            continue
+        filesystems.append(
+            {
+                "filesystem": partition.device,
+                "size": usage.total,
+                "used": usage.used,
+                "available": usage.free,
+                "capacity": _filesystem_capacity(usage.used, usage.free),
+                "mounted_on": partition.mountpoint,
+            }
+        )
+    return filesystems
+
+
+def _get_memory():
+    """Return memory usage in bytes.
+
+    Values come from ``psutil``, which reads ``/proc/meminfo``. ``used`` and
+    ``buff_cache`` follow the ``free`` command: ``buff_cache`` is buffers plus
+    cached memory, and ``used`` is total minus free minus that cache. psutil's
+    own ``used`` field (total minus available) is not used.
+    """
+    mem = psutil.virtual_memory()
+    swap = psutil.swap_memory()
+    buff_cache = mem.buffers + mem.cached
+    return {
+        "total": mem.total,
+        "used": mem.total - mem.free - buff_cache,
+        "free": mem.free,
+        "shared": mem.shared,
+        "buff_cache": buff_cache,
+        "available": mem.available,
+        "swap": {
+            "total": swap.total,
+            "used": swap.used,
+            "free": swap.free,
+        },
+    }
+
+
+def _get_cpu_usage():
+    """Return recent CPU usage percentage for each core.
+
+    The list is ordered by core index, matching ``psutil.cpu_percent``.
+    """
+    percents = psutil.cpu_percent(interval=_CPU_SAMPLE_SECONDS, percpu=True)
+    return [{"core": core, "percent": percent} for core, percent in enumerate(percents)]
+
+
 def get_diagnostics_info():
-    # TODO(gsamfira): decide if we want any other kind of
-    # diagnostics.
+    """Return diagnostic details for this Coriolis service process.
+
+    Host resource fields:
+    - ``filesystems``: block-device usage from psutil, in bytes
+    - ``memory``: usage from ``/proc/meminfo`` via psutil, in bytes, including swap
+    - ``cpu_usage``: CPU usage percentage for each core
+    """
     packages = list(freeze.freeze())
     return {
         "application": get_binary_name(),
@@ -135,6 +223,9 @@ def get_diagnostics_info():
         "hostname": get_hostname(),
         "ip_addresses": _get_local_ips(),
         "release_tag": _get_release_tag(),
+        "filesystems": _get_filesystems(),
+        "memory": _get_memory(),
+        "cpu_usage": _get_cpu_usage(),
     }
 
 

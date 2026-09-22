@@ -74,6 +74,132 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         result = utils.get_single_result([1])
         self.assertEqual(result, 1)
 
+    @mock.patch.object(utils.psutil, 'disk_usage')
+    @mock.patch.object(utils.psutil, 'disk_partitions')
+    def test_get_filesystems(self, mock_partitions, mock_usage):
+        mock_partitions.return_value = [
+            mock.Mock(device='/dev/sda1', mountpoint='/'),
+            mock.Mock(device='/dev/sdb1', mountpoint='/mnt/my data'),
+        ]
+        mock_usage.side_effect = lambda path: {
+            '/': mock.Mock(total=1000, used=400, free=600),
+            # 1 / (1 + 2) is 33.3%, which rounds up to 34.
+            '/mnt/my data': mock.Mock(total=10, used=1, free=2),
+        }[path]
+
+        result = utils._get_filesystems()
+
+        mock_partitions.assert_called_once_with(all=False)
+        self.assertEqual(
+            result,
+            [
+                {
+                    "filesystem": "/dev/sda1",
+                    "size": 1000,
+                    "used": 400,
+                    "available": 600,
+                    "capacity": 40,
+                    "mounted_on": "/",
+                },
+                {
+                    "filesystem": "/dev/sdb1",
+                    "size": 10,
+                    "used": 1,
+                    "available": 2,
+                    "capacity": 34,
+                    "mounted_on": "/mnt/my data",
+                },
+            ],
+        )
+
+    @mock.patch.object(utils.psutil, 'disk_usage')
+    @mock.patch.object(utils.psutil, 'disk_partitions')
+    def test_get_filesystems_skips_unreadable_mounts(self, mock_partitions, mock_usage):
+        mock_partitions.return_value = [
+            mock.Mock(device='/dev/sda1', mountpoint='/'),
+            mock.Mock(device='/dev/sdb1', mountpoint='/mnt/data'),
+        ]
+
+        def _usage(path):
+            if path == '/':
+                raise OSError('denied')
+            return mock.Mock(total=1000, used=400, free=600)
+
+        mock_usage.side_effect = _usage
+
+        with self.assertLogs('coriolis.utils', level=logging.WARNING):
+            result = utils._get_filesystems()
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["mounted_on"], "/mnt/data")
+
+    @mock.patch.object(utils.psutil, 'swap_memory')
+    @mock.patch.object(utils.psutil, 'virtual_memory')
+    def test_get_memory(self, mock_virtual_memory, mock_swap_memory):
+        # psutil's used is total - available (4000). free's used is
+        # total - free - buffers - cached (5000).
+        mock_virtual_memory.return_value = mock.Mock(
+            total=10000,
+            used=4000,
+            free=2000,
+            buffers=500,
+            cached=2500,
+            shared=100,
+            available=6000,
+        )
+        mock_swap_memory.return_value = mock.Mock(total=1000, used=0, free=1000)
+
+        result = utils._get_memory()
+
+        mock_virtual_memory.assert_called_once_with()
+        mock_swap_memory.assert_called_once_with()
+        self.assertEqual(
+            result,
+            {
+                "total": 10000,
+                "used": 5000,
+                "free": 2000,
+                "shared": 100,
+                "buff_cache": 3000,
+                "available": 6000,
+                "swap": {"total": 1000, "used": 0, "free": 1000},
+            },
+        )
+
+    @mock.patch.object(utils.psutil, 'cpu_percent', return_value=[1.5, 0.0])
+    def test_get_cpu_usage(self, mock_cpu_percent):
+        result = utils._get_cpu_usage()
+
+        mock_cpu_percent.assert_called_once_with(
+            interval=utils._CPU_SAMPLE_SECONDS, percpu=True
+        )
+        self.assertEqual(
+            result,
+            [
+                {"core": 0, "percent": 1.5},
+                {"core": 1, "percent": 0.0},
+            ],
+        )
+
+    @mock.patch.object(
+        utils, '_get_cpu_usage', return_value=[{"core": 0, "percent": 1.0}]
+    )
+    @mock.patch.object(utils, '_get_memory', return_value={"total": 1})
+    @mock.patch.object(
+        utils, '_get_filesystems', return_value=[{"filesystem": "/dev/sda1"}]
+    )
+    def test_get_diagnostics_info_includes_host_resources(
+        self, mock_filesystems, mock_memory, mock_cpu_usage
+    ):
+        info = utils.get_diagnostics_info()
+
+        self.assertEqual(info["filesystems"], mock_filesystems.return_value)
+        self.assertEqual(info["memory"], mock_memory.return_value)
+        self.assertEqual(info["cpu_usage"], mock_cpu_usage.return_value)
+        mock_filesystems.assert_called_once_with()
+        mock_memory.assert_called_once_with()
+        mock_cpu_usage.assert_called_once_with()
+
     def test_retry_on_error_no_exception(self):
         result = utils.retry_on_error(
             max_attempts=5, sleep_seconds=0, terminal_exceptions=[]

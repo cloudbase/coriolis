@@ -407,6 +407,21 @@ diagnostic_application:
   in: body
   type: string
   required: true
+diagnostic_cpu_usage:
+  description: |
+    CPU usage percentage for each core. Each entry has core (zero-based
+    index) and percent.
+  in: body
+  type: array
+  required: true
+diagnostic_filesystems:
+  description: |
+    Usage of mounted block devices, in bytes. Each entry reports the
+    filesystem, mount point, size, used and available bytes, and capacity
+    percentage. Nodev filesystems such as tmpfs are omitted.
+  in: body
+  type: array
+  required: true
 diagnostic_hostname:
   description: |
     The hostname of the Coriolis service container.
@@ -428,6 +443,14 @@ diagnostic_licences:
 diagnostic_licensing_status:
   description: |
     The licensing status of the Coriolis appliance.
+  in: body
+  type: object
+  required: true
+diagnostic_memory:
+  description: |
+    Memory usage in bytes, from /proc/meminfo. Includes total, used, free,
+    shared, buff_cache, available, and swap (total, used, free). used is
+    total minus free minus buff_cache.
   in: body
   type: object
   required: true
