@@ -626,7 +626,18 @@ class BaseRedHatMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         self.morphing_tools._yum_uninstall(self.package_names)
 
         mock_exec_cmd_chroot.assert_has_calls(
-            [mock.call("yum remove package1 -y"), mock.call("yum remove package2 -y")]
+            [
+                mock.call("yum remove package1 -y --noautoremove"),
+                mock.call("yum remove package2 -y --noautoremove"),
+            ]
+        )
+
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
+    def test__yum_uninstall_open_vm_tools(self, mock_exec_cmd_chroot):
+        self.morphing_tools._yum_uninstall(['open-vm-tools'])
+
+        mock_exec_cmd_chroot.assert_called_once_with(
+            "yum remove open-vm-tools -y --noautoremove"
         )
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
