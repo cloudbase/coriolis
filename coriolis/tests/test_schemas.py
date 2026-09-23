@@ -159,3 +159,40 @@ class SchemasTestCase(test_base.CoriolisBaseTestCase):
                 test_value, test_schema, raise_on_error=False
             )
         self.assertEqual(result, False)
+
+
+def _minimal_export_info():
+    return {
+        "id": "vm-id",
+        "name": "vm-name",
+        "num_cpu": 1,
+        "memory_mb": 4096,
+        "os_type": "linux",
+        "nested_virtualization": False,
+        "devices": {
+            "disks": [{"id": "disk-1", "size_bytes": 1}],
+            "cdroms": [],
+            "nics": [{"network_name": "net", "mac_address": "00:00:00:00:00:00"}],
+            "serial_ports": [],
+            "floppies": [],
+            "controllers": [],
+        },
+    }
+
+
+class VMExportInfoSchemaTestCase(test_base.CoriolisBaseTestCase):
+    def test_memory_ballooning_fields_optional(self):
+        schemas.validate_value(
+            _minimal_export_info(), schemas.CORIOLIS_VM_EXPORT_INFO_SCHEMA
+        )
+
+    def test_memory_ballooning_fields_accepted(self):
+        export_info = _minimal_export_info()
+        export_info.update(
+            {
+                "dynamic_memory_enabled": True,
+                "min_memory_mb": 2048,
+                "max_memory_mb": 8192,
+            }
+        )
+        schemas.validate_value(export_info, schemas.CORIOLIS_VM_EXPORT_INFO_SCHEMA)

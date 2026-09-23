@@ -218,6 +218,9 @@ class TestExportProvider(
             "instance_name": name,
             "num_cpu": 1,
             "memory_mb": 512,
+            "min_memory_mb": 512,
+            "max_memory_mb": 512,
+            "dynamic_memory_enabled": False,
             "os_type": "linux",
             "nested_virtualization": False,
             "devices": {
@@ -268,6 +271,9 @@ class TestExportProvider(
             "instance_name": instance_name,
             "num_cpu": 1,
             "memory_mb": 512,
+            "min_memory_mb": 512,
+            "max_memory_mb": 512,
+            "dynamic_memory_enabled": False,
             "os_type": "linux",
             "nested_virtualization": False,
             "devices": {
