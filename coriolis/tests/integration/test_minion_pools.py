@@ -236,17 +236,6 @@ class _MinionPoolPowerCycleTestMixin:
             origin_minion_pool_id=self._src_pool_id,
         )
 
-    def _execute_concurrently_and_wait(self, transfer_ids, timeout=600):
-        """Start one execution per transfer id before waiting on any."""
-        executions = [
-            self._client.transfer_executions.create(
-                transfer_id, shutdown_instances=False
-            )
-            for transfer_id in transfer_ids
-        ]
-        for execution in executions:
-            self.assertExecutionCompleted(execution.id, timeout=timeout)
-
     def _wait_for_power_status(self, status, timeout=120):
         """Poll until one of the pool's machines reaches *status*."""
         ctxt = self._get_db_context()
@@ -328,6 +317,96 @@ class SourceMinionPoolPowerCycleTransferTest(
     _MinionPoolPowerCycleTestMixin, base.SourceMinionPoolReplicaTestBase
 ):
     """Power-cycle test exercising a source minion pool."""
+
+    @property
+    def _pool_id(self):
+        return self._src_pool_id
+
+
+class _MinionPoolRefreshDeallocationTestMixin:
+    """Excess pool machine gets deleted on refresh.
+
+    Mirrors _MinionPoolPowerCycleTestMixin but with the default "delete" retention
+    strategy: once the pool's excess machine (beyond its minimum of 1) goes idle,
+    refreshing the pool deletes it instead of powering it off, exercising
+
+    Subclasses select which side's pool gets exercised by overriding the ``_pool_id``
+    property.
+    """
+
+    _POOL_MAXIMUM_MINIONS = 2
+    _POOL_MINION_MAX_IDLE_TIME = 1
+
+    @property
+    def _pool_id(self):
+        raise NotImplementedError
+
+    def setUp(self):
+        super().setUp()
+
+        # A second transfer, independent from self._transfer (created by
+        # ReplicaIntegrationTestBase.setUp). Running it concurrently with self._transfer
+        # forces the pool to allocate a second machine, since the first is already
+        # reserved by self._transfer's execution.
+        self._pool_transfer_b = self._create_transfer(
+            self._src_endpoint.id,
+            self._dst_endpoint.id,
+            instances=[self._instance_name],
+            source_environment=self._transfer._info["source_environment"],
+            destination_minion_pool_id=self._dst_pool_id,
+            origin_minion_pool_id=self._src_pool_id,
+        )
+
+    def test_excess_pool_machine_deleted_on_refresh(self):
+        transfer_ids = [self._transfer.id, self._pool_transfer_b.id]
+
+        # Concurrently executing both transfers forces the second one to allocate a new
+        # machine, since the pre-existing minimum one is already reserved by the first
+        # (up to the pool's maximum of 2).
+        self._execute_concurrently_and_wait(transfer_ids)
+
+        pool = db_api.get_minion_pool(
+            self._get_db_context(), self._pool_id, include_machines=True
+        )
+        self.assertEqual(2, len(pool.minion_machines))
+
+        # Let both machines' idle time expire, then refresh the pool: since their count
+        # exceeds the pool minimum of 1, the excess one gets deleted.
+        time.sleep(self._POOL_MINION_MAX_IDLE_TIME + 1)
+        self._client.minion_pools.refresh_minion_pool(self._pool_id)
+
+        ctxt = self._get_db_context()
+        deadline = time.monotonic() + 120
+        pool = None
+        while time.monotonic() < deadline:
+            pool = db_api.get_minion_pool(ctxt, self._pool_id, include_machines=True)
+            if len(pool.minion_machines) == 1:
+                break
+            time.sleep(1)
+
+        self.assertEqual(
+            1,
+            len(pool.minion_machines),
+            "Expected the excess minion machine to be deleted from pool '%s'; "
+            "machines still present: %s"
+            % (self._pool_id, [m.id for m in pool.minion_machines]),
+        )
+
+
+class MinionPoolRefreshDeallocationTransferTest(
+    _MinionPoolRefreshDeallocationTestMixin, base.MinionPoolReplicaTestBase
+):
+    """Deletion-on-refresh test exercising a destination minion pool."""
+
+    @property
+    def _pool_id(self):
+        return self._dst_pool_id
+
+
+class SourceMinionPoolRefreshDeallocationTransferTest(
+    _MinionPoolRefreshDeallocationTestMixin, base.SourceMinionPoolReplicaTestBase
+):
+    """Deletion-on-refresh test exercising a source minion pool."""
 
     @property
     def _pool_id(self):
