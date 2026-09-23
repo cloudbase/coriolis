@@ -10,6 +10,14 @@
       "type": "integer",
       "description": "Memory of the VM in MegaBytes."
     },
+    "min_memory_mb": {
+      "type": "integer",
+      "description": "Minimum guaranteed/reserved memory of the VM in MegaBytes. Source providers should populate this from the source balloon floor, reservation, or dynamic-memory minimum. When dynamic memory is disabled, this should equal memory_mb."
+    },
+    "max_memory_mb": {
+      "type": "integer",
+      "description": "Maximum memory the VM may consume in MegaBytes when dynamic memory/ballooning is enabled. When omitted or when dynamic memory is disabled, this should equal memory_mb."
+    },
     "name": {
       "type": "string",
       "description": "Human-readable name of th VM."
