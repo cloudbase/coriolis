@@ -100,6 +100,14 @@ class EndpointCapabilitiesTest(base.CoriolisIntegrationTestBase):
         self.assertTrue(len(options) > 0, "Expected at least one destination option")
 
     def test_list_source_minion_pool_options(self):
+        if not isinstance(
+            self._exp_provider, provider_base.BaseSourceMinionPoolProvider
+        ):
+            raise unittest.SkipTest(
+                "Source provider '%s' does not support minion pools"
+                % self._exp_platform
+            )
+
         options = self._client.endpoint_source_minion_pool_options.list(
             self._src_endpoint.id
         )
