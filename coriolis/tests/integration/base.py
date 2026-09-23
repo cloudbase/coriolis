@@ -451,6 +451,17 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
         )
         self.assertExecutionCompleted(execution.id, timeout=timeout)
 
+    def _execute_concurrently_and_wait(self, transfer_ids, timeout=600):
+        """Start one execution per transfer id before waiting on any."""
+        executions = [
+            self._client.transfer_executions.create(
+                transfer_id, shutdown_instances=False
+            )
+            for transfer_id in transfer_ids
+        ]
+        for execution in executions:
+            self.assertExecutionCompleted(execution.id, timeout=timeout)
+
     def _execute_transfer_and_deployment(self, deployment_kwargs=None):
         deployment_kwargs = deployment_kwargs or {}
 
