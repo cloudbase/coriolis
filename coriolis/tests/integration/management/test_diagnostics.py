@@ -63,12 +63,20 @@ class DiagnosticsTest(base.CoriolisIntegrationTestBase):
         for entry in filesystems:
             self.assertEqual(
                 set(entry.keys()),
-                {"filesystem", "size", "used", "available", "capacity", "mounted_on"},
+                {
+                    "filesystem",
+                    "size",
+                    "used",
+                    "available",
+                    "used_percentage",
+                    "mounted_on",
+                },
             )
             self.assertIsInstance(entry["filesystem"], str)
             self.assertIsInstance(entry["mounted_on"], str)
-            for field in ("size", "used", "available", "capacity"):
+            for field in ("size", "used", "available", "used_percentage"):
                 self.assertIsInstance(entry[field], int)
+            self.assertEqual(entry["size"], entry["used"] + entry["available"])
             mounts.append(entry["mounted_on"])
         self.assertIn("/", mounts)
 

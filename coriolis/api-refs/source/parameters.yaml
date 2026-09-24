@@ -417,8 +417,9 @@ diagnostic_cpu_usage:
 diagnostic_filesystems:
   description: |
     Usage of mounted block devices, in bytes. Each entry reports the
-    filesystem, mount point, size, used and available bytes, and capacity
-    percentage. Nodev filesystems such as tmpfs are omitted.
+    filesystem, mount point, size, used and available bytes, and
+    used_percentage. used includes blocks reserved for root, so size
+    equals used plus available. Nodev filesystems such as tmpfs are omitted.
   in: body
   type: array
   required: true

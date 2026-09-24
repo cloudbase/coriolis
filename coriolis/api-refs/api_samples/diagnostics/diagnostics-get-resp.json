@@ -30,7 +30,7 @@
                     "size": 21474836480,
                     "used": 10737418240,
                     "available": 10737418240,
-                    "capacity": 50,
+                    "used_percentage": 50,
                     "mounted_on": "/"
                 }
             ],
@@ -146,7 +146,7 @@
                     "size": 21474836480,
                     "used": 10737418240,
                     "available": 10737418240,
-                    "capacity": 50,
+                    "used_percentage": 50,
                     "mounted_on": "/"
                 }
             ],

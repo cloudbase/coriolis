@@ -128,15 +128,15 @@ def _get_release_tag():
     return release_tag
 
 
-def _filesystem_capacity(used, available):
+def _filesystem_used_percentage(used, available):
     """Return the used-space percentage, rounded up.
 
-    This is the integer Capacity column ``df`` prints:
+    ``available`` is space a normal user can still use. The percentage is
     ``used / (used + available) * 100``.
     """
     total = used + available
     if total == 0:
-        return 100 if used else 0
+        return 0
     return (used * 100 + total - 1) // total
 
 
@@ -145,7 +145,9 @@ def _get_filesystems():
 
     The mount list is ``psutil.disk_partitions(all=False)``: devices with a
     real block filesystem, including squashfs, and not nodev types such as
-    tmpfs. ``capacity`` is the integer percentage of used space, rounded up.
+    tmpfs. ``size`` is the whole filesystem. ``used`` includes blocks
+    reserved for root, so ``size`` equals ``used + available``.
+    ``used_percentage`` is that used share, rounded up.
     """
     filesystems = []
     for partition in psutil.disk_partitions(all=False):
@@ -159,13 +161,16 @@ def _get_filesystems():
                 exc,
             )
             continue
+        total = usage.total
+        available = usage.free
+        used = total - available
         filesystems.append(
             {
                 "filesystem": partition.device,
-                "size": usage.total,
-                "used": usage.used,
-                "available": usage.free,
-                "capacity": _filesystem_capacity(usage.used, usage.free),
+                "size": total,
+                "used": used,
+                "available": available,
+                "used_percentage": _filesystem_used_percentage(used, available),
                 "mounted_on": partition.mountpoint,
             }
         )

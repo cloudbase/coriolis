@@ -83,7 +83,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         ]
         mock_usage.side_effect = lambda path: {
             '/': mock.Mock(total=1000, used=400, free=600),
-            # 1 / (1 + 2) is 33.3%, which rounds up to 34.
+            # 7 bytes are reserved for root, so reported used is 8, not 1.
             '/mnt/my data': mock.Mock(total=10, used=1, free=2),
         }[path]
 
@@ -98,15 +98,15 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
                     "size": 1000,
                     "used": 400,
                     "available": 600,
-                    "capacity": 40,
+                    "used_percentage": 40,
                     "mounted_on": "/",
                 },
                 {
                     "filesystem": "/dev/sdb1",
                     "size": 10,
-                    "used": 1,
+                    "used": 8,
                     "available": 2,
-                    "capacity": 34,
+                    "used_percentage": 80,
                     "mounted_on": "/mnt/my data",
                 },
             ],
