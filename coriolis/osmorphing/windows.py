@@ -218,6 +218,7 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
         detected_os_info,
         osmorphing_parameters,
         operation_timeout=None,
+        nics_set_dhcp=True,
     ):
         super(BaseWindowsMorphingTools, self).__init__(
             conn,
@@ -228,6 +229,7 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
             detected_os_info,
             osmorphing_parameters,
             operation_timeout,
+            nics_set_dhcp,
         )
 
         self._version_number = detected_os_info['version_number']

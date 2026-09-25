@@ -40,6 +40,7 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
         detected_os_info,
         osmorphing_parameters,
         operation_timeout=None,
+        nics_set_dhcp=True,
     ):
         super(BaseDebianMorphingTools, self).__init__(
             conn,
@@ -50,6 +51,7 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
             detected_os_info,
             osmorphing_parameters,
             operation_timeout,
+            nics_set_dhcp,
         )
 
         # NOTE: every dpkg invocation may run maintainer scripts which prompt

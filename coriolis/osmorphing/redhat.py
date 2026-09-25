@@ -43,6 +43,7 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         detected_os_info,
         osmorphing_parameters,
         operation_timeout=None,
+        nics_set_dhcp=True,
     ):
         super(BaseRedHatMorphingTools, self).__init__(
             conn,
@@ -53,6 +54,7 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
             detected_os_info,
             osmorphing_parameters,
             operation_timeout,
+            nics_set_dhcp,
         )
 
     def disable_predictable_nic_names(self):
