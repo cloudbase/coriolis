@@ -3,6 +3,7 @@
 
 import os
 import re
+import shlex
 import uuid
 
 from oslo_log import log as logging
@@ -56,8 +57,36 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         )
 
     def disable_predictable_nic_names(self):
-        cmd = 'grubby --update-kernel=ALL --args="%s"'
-        self._exec_cmd_chroot(cmd % "net.ifnames=0 biosdevname=0")
+        self._update_kernel_cmdline_args(args_to_add=["net.ifnames=0", "biosdevname=0"])
+
+    def _update_kernel_cmdline_args(self, args_to_add=None, args_to_remove=None):
+        """Updates the kernel command line arguments using 'grubby'.
+
+        On BLS-based releases (RHEL 9+), 'grub2-mkconfig' does not propagate
+        kernel arguments into the '/boot/loader/entries' boot entries.
+        'grubby --update-kernel=ALL' updates every boot entry and replaces
+        the base implementation rather than supplementing it, so it must not
+        be paired with a GRUB2 regeneration for the same update.
+
+        """
+
+        args_to_add = self._normalize_kernel_cmdline_args(args_to_add)
+        args_to_remove = self._normalize_kernel_cmdline_args(args_to_remove)
+        if not args_to_add and not args_to_remove:
+            return False
+
+        for option, args in (
+            ("--remove-args", args_to_remove),
+            ("--args", args_to_add),
+        ):
+            if not args:
+                continue
+            self._exec_cmd_chroot(
+                "grubby --update-kernel=ALL %s=%s"
+                % (option, shlex.quote(" ".join(args)))
+            )
+
+        return True
 
     def get_update_grub2_command(self):
         location = self._get_grub2_cfg_location()

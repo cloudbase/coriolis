@@ -477,22 +477,22 @@ class BaseSUSEMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_write_file_sudo')
     @mock.patch.object(suse.BaseSUSEMorphingTools, '_schedule_grub2_update')
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_read_file_sudo')
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path')
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path_chroot')
     def test_disable_predictable_nic_names(
         self,
-        mock_test_path,
+        mock_test_path_chroot,
         mock_read_file_sudo,
         mock_schedule_grub2_update,
         mock_write_file_sudo,
     ):
-        mock_test_path.return_value = True
+        mock_test_path_chroot.return_value = True
         mock_read_file_sudo.return_value = (
             'GRUB_CMDLINE_LINUX_DEFAULT=""\nGRUB_CMDLINE_LINUX=""\n'
         )
 
         self.morphing_tools.disable_predictable_nic_names()
 
-        mock_read_file_sudo.assert_called_once_with("etc/default/grub")
+        mock_read_file_sudo.assert_called_once_with("/etc/default/grub")
         mock_write_file_sudo.assert_called_once()
         written_path, written_contents = mock_write_file_sudo.call_args[0]
         self.assertEqual("etc/default/grub", written_path)
@@ -501,11 +501,11 @@ class BaseSUSEMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         # The (slow) grub regeneration must be deferred, not run eagerly.
         mock_schedule_grub2_update.assert_called_once_with()
 
-    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path')
-    def test_disable_predictable_nic_names_no_grub_cfg(self, mock_test_path):
-        mock_test_path.return_value = False
+    @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path_chroot')
+    def test_disable_predictable_nic_names_no_grub_cfg(self, mock_test_path_chroot):
+        mock_test_path_chroot.return_value = False
 
-        with self.assertLogs('coriolis.osmorphing.suse', level=logging.WARNING):
+        with self.assertLogs('coriolis.osmorphing.base', level=logging.WARNING):
             self.morphing_tools.disable_predictable_nic_names()
 
     def test__ifcfg_class_attributes(self):

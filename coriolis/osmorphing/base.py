@@ -17,6 +17,7 @@ from coriolis import exception, utils
 from coriolis.osmorphing.netpreserver import factory
 
 GRUB2_SERIAL = "serial --word=8 --stop=1 --speed=%d --parity=%s --unit=0"
+GRUB2_CMDLINE_OPTIONS = ["GRUB_CMDLINE_LINUX", "GRUB_CMDLINE_LINUX_DEFAULT"]
 LOG = logging.getLogger(__name__)
 
 IFCFG_TEMPLATE = """
@@ -756,10 +757,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         if self._test_path(grub_conf_disabler):
             contents = self._read_file_sudo(grub_conf_disabler)
             if "cloud-init=disabled" in contents:
-                self._exec_cmd_chroot(
-                    "sed -i '/cloud-init=disabled/d' %s" % grub_conf_disabler
-                )
-                self._schedule_grub2_update()
+                self._update_kernel_cmdline_args(args_to_remove=["cloud-init=disabled"])
 
     def _reset_cloud_init_run(self):
         self._exec_cmd_chroot("cloud-init clean --logs")
@@ -930,26 +928,53 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         cfg = self._read_file_sudo(config_obj["location"])
         LOG.warning("TEMP CONFIG IS: %r" % cfg)
 
-    def _set_grub2_cmdline(self, config_obj, options, clobber=False):
-        kernel_cmd_def = config_obj["contents"].get("GRUB_CMDLINE_LINUX_DEFAULT")
-        kernel_cmd = config_obj["contents"].get("GRUB_CMDLINE_LINUX")
-        replace = kernel_cmd is not None
+    @staticmethod
+    def _normalize_kernel_cmdline_args(args):
+        """Returns the given kernel command line arguments as a list."""
 
-        if clobber:
-            opt = " ".join(options)
-            self.set_grub_value("GRUB_CMDLINE_LINUX", opt, config_obj, replace=replace)
-            return
-        kernel_cmd_def = kernel_cmd_def or ""
-        kernel_cmd = kernel_cmd or ""
-        to_add = []
-        for option in options:
-            if option not in kernel_cmd_def and option not in kernel_cmd:
-                to_add.append(option)
-        if len(to_add):
-            kernel_cmd = "%s %s" % (kernel_cmd, " ".join(to_add))
-            self.set_grub_value(
-                "GRUB_CMDLINE_LINUX", kernel_cmd, config_obj, replace=replace
+        if isinstance(args, str):
+            return [args] if args else []
+        return list(args or [])
+
+    @staticmethod
+    def _get_kernel_cmdline_arg_value(arg):
+        """Converts a kernel command line argument to a Grub2ConfigEditor value."""
+
+        key, separator, value = arg.partition("=")
+        if not separator:
+            return {"opt_type": "single", "opt_val": key}
+        return {"opt_type": "key_val", "opt_key": key, "opt_val": value}
+
+    def _update_kernel_cmdline_args(self, args_to_add=None, args_to_remove=None):
+        """Updates the kernel command line arguments in the GRUB2 defaults.
+
+        The arguments are edited in '/etc/default/grub' and the GRUB2 config
+        regeneration is scheduled so that they reach the boot entries.
+        """
+        args_to_add = self._normalize_kernel_cmdline_args(args_to_add)
+        args_to_remove = self._normalize_kernel_cmdline_args(args_to_remove)
+        if not args_to_add and not args_to_remove:
+            return False
+
+        grub_conf = self._get_grub_default_conf()
+        if not grub_conf:
+            LOG.warning(
+                "Could not find '/etc/default/grub'. Skipping kernel command "
+                "line arguments update."
             )
+            return False
+
+        cfg = utils.Grub2ConfigEditor(self._read_file_sudo(grub_conf))
+        for option in GRUB2_CMDLINE_OPTIONS:
+            for arg in args_to_remove:
+                cfg.remove_from_option(option, self._get_kernel_cmdline_arg_value(arg))
+            for arg in args_to_add:
+                cfg.remove_from_option(option, self._get_kernel_cmdline_arg_value(arg))
+                cfg.append_to_option(option, {"opt_type": "single", "opt_val": arg})
+        self._write_file_sudo(grub_conf.lstrip("/"), cfg.dump())
+        self._schedule_grub2_update()
+
+        return True
 
     def _get_grub_default_conf(self):
         grub_conf = "/etc/default/grub"
@@ -1055,8 +1080,8 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             c = "console=%s" % console
             options.append(c)
 
-        self._set_grub2_cmdline(config_obj, options)
         self._apply_grub2_config(config_obj, execute_update_grub)
+        self._update_kernel_cmdline_args(args_to_add=options)
 
     def _add_net_udev_rules(self, net_ifaces_info):
         coriolis_udev_rules_file = "etc/udev/rules.d/99-coriolis-net.rules"

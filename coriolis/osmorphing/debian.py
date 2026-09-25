@@ -8,7 +8,7 @@ from io import StringIO
 import yaml
 from oslo_log import log as logging
 
-from coriolis import constants, exception, utils
+from coriolis import constants, exception
 from coriolis.osmorphing import base
 from coriolis.osmorphing.osdetect import debian as debian_osdetect
 
@@ -69,29 +69,7 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
         )
 
     def disable_predictable_nic_names(self):
-        grub_cfg = "etc/default/grub"
-        if self._test_path_chroot(grub_cfg) is False:
-            return
-        contents = self._read_file_sudo(grub_cfg)
-        cfg = utils.Grub2ConfigEditor(contents)
-        cfg.append_to_option(
-            "GRUB_CMDLINE_LINUX_DEFAULT",
-            {"opt_type": "key_val", "opt_key": "net.ifnames", "opt_val": 0},
-        )
-        cfg.append_to_option(
-            "GRUB_CMDLINE_LINUX_DEFAULT",
-            {"opt_type": "key_val", "opt_key": "biosdevname", "opt_val": 0},
-        )
-        cfg.append_to_option(
-            "GRUB_CMDLINE_LINUX",
-            {"opt_type": "key_val", "opt_key": "net.ifnames", "opt_val": 0},
-        )
-        cfg.append_to_option(
-            "GRUB_CMDLINE_LINUX",
-            {"opt_type": "key_val", "opt_key": "biosdevname", "opt_val": 0},
-        )
-        self._write_file_sudo("etc/default/grub", cfg.dump())
-        self._schedule_grub2_update()
+        self._update_kernel_cmdline_args(args_to_add=["net.ifnames=0", "biosdevname=0"])
 
     def get_update_grub2_command(self):
         return "update-grub"

@@ -71,7 +71,6 @@ class BaseDebianMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         )
 
     @mock.patch.object(debian.BaseDebianMorphingTools, '_schedule_grub2_update')
-    @mock.patch('coriolis.utils.Grub2ConfigEditor')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_test_path_chroot')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_write_file_sudo')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_read_file_sudo')
@@ -80,53 +79,35 @@ class BaseDebianMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_read_file_sudo,
         mock_write_file_sudo,
         mock_test_path_chroot,
-        mock_grub2_cfg_editor,
         mock_schedule_grub2_update,
     ):
         mock_test_path_chroot.return_value = True
+        mock_read_file_sudo.return_value = (
+            'GRUB_CMDLINE_LINUX_DEFAULT=""\nGRUB_CMDLINE_LINUX=""\n'
+        )
 
         self.morpher.disable_predictable_nic_names()
 
-        mock_test_path_chroot.assert_called_once_with('etc/default/grub')
-        mock_grub2_cfg_editor.assert_called_once_with(mock_read_file_sudo.return_value)
-        mock_grub2_cfg_editor.return_value.append_to_option.assert_has_calls(
-            [
-                mock.call(
-                    "GRUB_CMDLINE_LINUX_DEFAULT",
-                    {"opt_type": "key_val", "opt_key": "net.ifnames", "opt_val": 0},
-                ),
-                mock.call(
-                    "GRUB_CMDLINE_LINUX_DEFAULT",
-                    {"opt_type": "key_val", "opt_key": "biosdevname", "opt_val": 0},
-                ),
-                mock.call(
-                    "GRUB_CMDLINE_LINUX",
-                    {"opt_type": "key_val", "opt_key": "net.ifnames", "opt_val": 0},
-                ),
-                mock.call(
-                    "GRUB_CMDLINE_LINUX",
-                    {"opt_type": "key_val", "opt_key": "biosdevname", "opt_val": 0},
-                ),
-            ]
-        )
-        mock_read_file_sudo.assert_called_once_with('etc/default/grub')
-        mock_write_file_sudo.assert_called_once_with(
-            "etc/default/grub", mock_grub2_cfg_editor.return_value.dump()
-        )
+        mock_test_path_chroot.assert_called_once_with('/etc/default/grub')
+        mock_read_file_sudo.assert_called_once_with('/etc/default/grub')
+        written_path, written_contents = mock_write_file_sudo.call_args[0]
+        self.assertEqual("etc/default/grub", written_path)
+        self.assertIn("net.ifnames=0", written_contents)
+        self.assertIn("biosdevname=0", written_contents)
         mock_schedule_grub2_update.assert_called_once_with()
 
-    @mock.patch('coriolis.utils.Grub2ConfigEditor')
+    @mock.patch.object(debian.BaseDebianMorphingTools, '_schedule_grub2_update')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_exec_cmd_chroot')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_write_file_sudo')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_read_file_sudo')
     @mock.patch.object(debian.BaseDebianMorphingTools, '_test_path_chroot')
-    def test_disable_predictable_nic_names_no_test_path_chroot(
+    def test_disable_predictable_nic_names_no_grub_defaults(
         self,
         mock_test_path_chroot,
         mock_read_file_sudo,
         mock_write_file_sudo,
         mock_exec_cmd_chroot,
-        mock_grub2_cfg_editor,
+        mock_schedule_grub2_update,
     ):
 
         mock_test_path_chroot.return_value = False
@@ -136,7 +117,7 @@ class BaseDebianMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         mock_read_file_sudo.assert_not_called()
         mock_write_file_sudo.assert_not_called()
         mock_exec_cmd_chroot.assert_not_called()
-        mock_grub2_cfg_editor.assert_not_called()
+        mock_schedule_grub2_update.assert_not_called()
 
     def test_get_update_grub2_command(self):
         result = self.morpher.get_update_grub2_command()
