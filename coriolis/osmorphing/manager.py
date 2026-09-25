@@ -259,6 +259,7 @@ def _morph_image(
     # - automatically detect the target hypervisor type from the worker VM
     hypervisor_type = osmorphing_info.get('hypervisor_type', None)
     osmorphing_parameters = osmorphing_info.get('osmorphing_parameters', {})
+    nics_set_dhcp = osmorphing_info.get('nics_set_dhcp', True)
 
     export_os_morphing_tools = None
     try:
@@ -280,6 +281,7 @@ def _morph_image(
                 detected_os_info,
                 osmorphing_parameters,
                 CONF.default_osmorphing_operation_timeout,
+                nics_set_dhcp,
             )
             export_os_morphing_tools.set_environment(environment)
         else:
@@ -313,6 +315,7 @@ def _morph_image(
         detected_os_info,
         osmorphing_parameters,
         CONF.default_osmorphing_operation_timeout,
+        nics_set_dhcp,
     )
     import_os_morphing_tools.set_environment(environment)
 
@@ -362,8 +365,7 @@ def _morph_image(
     import_os_morphing_tools.pre_packages_install(packages_add)
 
     nics_info = osmorphing_info.get('nics_info')
-    set_dhcp = osmorphing_info.get('nics_set_dhcp', True)
-    import_os_morphing_tools.set_net_config(nics_info, dhcp=set_dhcp)
+    import_os_morphing_tools.set_net_config(nics_info, dhcp=nics_set_dhcp)
     LOG.info("Pre packages")
 
     if packages_add:

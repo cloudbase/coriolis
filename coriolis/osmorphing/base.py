@@ -141,6 +141,7 @@ class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
         detected_os_info,
         osmorphing_parameters,
         operation_timeout,
+        nics_set_dhcp=True,
     ):
 
         self.check_detected_os_info_parameters(detected_os_info)
@@ -155,6 +156,7 @@ class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
         self._detected_os_info = detected_os_info
         self._environment = {}
         self._osmorphing_parameters = osmorphing_parameters
+        self._nics_set_dhcp = nics_set_dhcp
         self._osmorphing_operation_timeout = operation_timeout
 
     @classmethod
@@ -293,6 +295,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         detected_os_info,
         osmorphing_parameters,
         operation_timeout=None,
+        nics_set_dhcp=True,
     ):
         super(BaseLinuxOSMorphingTools, self).__init__(
             conn,
@@ -303,6 +306,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             detected_os_info,
             osmorphing_parameters,
             operation_timeout,
+            nics_set_dhcp,
         )
         self._ssh = conn
         self._grub2_update_scheduled = False
@@ -813,7 +817,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         else:
             self._create_cloudinit_user()
 
-        if not self._osmorphing_parameters.get('set_dhcp', True):
+        if not self._nics_set_dhcp:
             disabled_network_config = {"network": {"config": "disabled"}}
             cloud_cfg_mods.update(disabled_network_config)
             modules = self._get_cloud_init_modules()
