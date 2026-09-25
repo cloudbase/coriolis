@@ -179,5 +179,8 @@ class TestProviderMixin:
         username = minion_connection_info.get("username", "root")
         pkey = minion_connection_info.get("pkey")
 
+        # A freshly power-cycled minion needs a moment to boot sshd back up.
+        coriolis_utils.wait_for_port_connectivity(ip, port, max_wait=60)
+
         client = coriolis_utils.connect_ssh(ip, port, username, pkey=pkey)
         client.close()

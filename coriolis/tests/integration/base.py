@@ -172,6 +172,12 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
         skip_allocation=True,
         wait_for_allocation=False,
         platform=constants.PROVIDER_PLATFORM_DESTINATION,
+        minimum_minions=1,
+        maximum_minions=1,
+        minion_max_idle_time=3600,
+        minion_retention_strategy=(
+            constants.MINION_POOL_MACHINE_RETENTION_STRATEGY_DELETE
+        ),
     ):
         env_options = (
             cls._imp_pool_env
@@ -184,12 +190,10 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
             platform=platform,
             os_type=constants.OS_TYPE_LINUX,
             environment_options=env_options,
-            minimum_minions=1,
-            maximum_minions=1,
-            minion_max_idle_time=3600,
-            minion_retention_strategy=(
-                constants.MINION_POOL_MACHINE_RETENTION_STRATEGY_DELETE
-            ),
+            minimum_minions=minimum_minions,
+            maximum_minions=maximum_minions,
+            minion_max_idle_time=minion_max_idle_time,
+            minion_retention_strategy=minion_retention_strategy,
             skip_allocation=skip_allocation,
         )
         cls.addClassCleanup(cls._safe_delete_pool, pool.id)
@@ -305,6 +309,15 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
     # source_environment.
     _EXTRA_SOURCE_ENVIRONMENT = {}
 
+    # Overridable params for the pool(s) created when _CREATE_DST_MINION_POOL /
+    # _CREATE_SRC_MINION_POOL is set.
+    _POOL_MINIMUM_MINIONS = 1
+    _POOL_MAXIMUM_MINIONS = 1
+    _POOL_MINION_MAX_IDLE_TIME = 3600
+    _POOL_MINION_RETENTION_STRATEGY = (
+        constants.MINION_POOL_MACHINE_RETENTION_STRATEGY_DELETE
+    )
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -331,6 +344,10 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
                 "dst-transfer-pool",
                 skip_allocation=False,
                 wait_for_allocation=True,
+                minimum_minions=cls._POOL_MINIMUM_MINIONS,
+                maximum_minions=cls._POOL_MAXIMUM_MINIONS,
+                minion_max_idle_time=cls._POOL_MINION_MAX_IDLE_TIME,
+                minion_retention_strategy=cls._POOL_MINION_RETENTION_STRATEGY,
             )
             cls._dst_pool_id = pool.id
 
@@ -343,6 +360,10 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
                 skip_allocation=False,
                 wait_for_allocation=True,
                 platform=constants.PROVIDER_PLATFORM_SOURCE,
+                minimum_minions=cls._POOL_MINIMUM_MINIONS,
+                maximum_minions=cls._POOL_MAXIMUM_MINIONS,
+                minion_max_idle_time=cls._POOL_MINION_MAX_IDLE_TIME,
+                minion_retention_strategy=cls._POOL_MINION_RETENTION_STRATEGY,
             )
             cls._src_pool_id = pool.id
 
@@ -429,6 +450,17 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             transfer_id, shutdown_instances=False
         )
         self.assertExecutionCompleted(execution.id, timeout=timeout)
+
+    def _execute_concurrently_and_wait(self, transfer_ids, timeout=600):
+        """Start one execution per transfer id before waiting on any."""
+        executions = [
+            self._client.transfer_executions.create(
+                transfer_id, shutdown_instances=False
+            )
+            for transfer_id in transfer_ids
+        ]
+        for execution in executions:
+            self.assertExecutionCompleted(execution.id, timeout=timeout)
 
     def _execute_transfer_and_deployment(self, deployment_kwargs=None):
         deployment_kwargs = deployment_kwargs or {}

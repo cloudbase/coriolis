@@ -1430,6 +1430,9 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
                 ),
                 mock.call(self.mock_ssh, 'sudo systemctl daemon-reload', get_pty=False),
                 mock.call(
+                    self.mock_ssh, 'sudo systemctl enable svc_name', get_pty=False
+                ),
+                mock.call(
                     self.mock_ssh, 'sudo systemctl start svc_name', get_pty=False
                 ),
             ]
@@ -1478,8 +1481,15 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
                 mock.call(self.mock_ssh, '/lib/systemd/system/svc_name.service'),
             ]
         )
-        mock_exec_ssh_cmd.assert_called_once_with(
-            self.mock_ssh, 'sudo systemctl start svc_name', get_pty=False
+        mock_exec_ssh_cmd.assert_has_calls(
+            [
+                mock.call(
+                    self.mock_ssh, 'sudo systemctl enable svc_name', get_pty=False
+                ),
+                mock.call(
+                    self.mock_ssh, 'sudo systemctl start svc_name', get_pty=False
+                ),
+            ]
         )
 
     @mock.patch('coriolis.utils.exec_ssh_cmd')
@@ -1495,6 +1505,7 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
         mock_exec_ssh_cmd.side_effect = [
             None,
             exception.CoriolisException(),
+            None,
             None,
             None,
         ]
@@ -1559,6 +1570,9 @@ class UtilsTestCase(test_base.CoriolisBaseTestCase):
                     get_pty=False,
                 ),
                 mock.call(self.mock_ssh, 'sudo systemctl daemon-reload', get_pty=False),
+                mock.call(
+                    self.mock_ssh, 'sudo systemctl enable svc_name', get_pty=False
+                ),
                 mock.call(
                     self.mock_ssh, 'sudo systemctl start svc_name', get_pty=False
                 ),
