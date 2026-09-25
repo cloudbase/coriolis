@@ -281,6 +281,7 @@ def _morph_image(
                 osmorphing_parameters,
                 CONF.default_osmorphing_operation_timeout,
             )
+            export_os_morphing_tools._osmorphing_info = osmorphing_info
             export_os_morphing_tools.set_environment(environment)
         else:
             LOG.debug(
@@ -314,6 +315,7 @@ def _morph_image(
         osmorphing_parameters,
         CONF.default_osmorphing_operation_timeout,
     )
+    import_os_morphing_tools._osmorphing_info = osmorphing_info
     import_os_morphing_tools.set_environment(environment)
 
     post_os_mount_user_scripts = [

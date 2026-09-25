@@ -1129,11 +1129,12 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         mock__exec_cmd_chroot.assert_not_called()
 
     @ddt.data(
-        (None, ["vim"], {}, False, [], None, False),
+        (None, ["vim"], {}, {}, False, [], None, False),
         (
             ["Oracle"],
             ["cloud-init"],
-            {"retain_user_credentials": True, "set_dhcp": False},
+            {"retain_user_credentials": True},
+            {"nics_set_dhcp": False},
             False,
             ["set_hostname"],
             {
@@ -1148,7 +1149,8 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         (
             [],
             ["cloud-init", "vim"],
-            {"retain_user_credentials": False, "set_dhcp": True},
+            {"retain_user_credentials": False},
+            {"nics_set_dhcp": True},
             True,
             [],
             {},
@@ -1157,7 +1159,8 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         (
             [],
             ["cloud-init", "vim"],
-            {"retain_user_credentials": False, "set_dhcp": False},
+            {"retain_user_credentials": False},
+            {"nics_set_dhcp": False},
             True,
             ["update_etc_hosts", "set_hostname", "write_files"],
             {
@@ -1169,7 +1172,8 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         (
             ["ConfigDrive", "OpenStack"],
             ["cloud-init", "vim"],
-            {"retain_user_credentials": False, "set_dhcp": True},
+            {"retain_user_credentials": False},
+            {"nics_set_dhcp": True},
             True,
             [],
             {"datasource_list": ["ConfigDrive", "OpenStack"]},
@@ -1194,6 +1198,7 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         datasource_list,
         returned_packages,
         osmorphing_params,
+        osmorphing_info,
         creates_cloudinit_user,
         cloud_init_modules,
         expected_result,
@@ -1213,6 +1218,7 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
             mock_datasource_list.return_value = datasource_list
         mock_get_packages.return_value = returned_packages
         self.os_morphing_tools._osmorphing_parameters = osmorphing_params
+        self.os_morphing_tools._osmorphing_info = osmorphing_info
         mock__has_systemd_chroot.return_value = has_systemd_chroot
         mock__get_cloud_init_modules.return_value = cloud_init_modules
 
