@@ -155,6 +155,7 @@ class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
         self._detected_os_info = detected_os_info
         self._environment = {}
         self._osmorphing_parameters = osmorphing_parameters
+        self._osmorphing_info = {}
         self._osmorphing_operation_timeout = operation_timeout
 
     @classmethod
@@ -813,7 +814,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         else:
             self._create_cloudinit_user()
 
-        if not self._osmorphing_parameters.get('set_dhcp', True):
+        if not self._osmorphing_info.get('nics_set_dhcp', True):
             disabled_network_config = {"network": {"config": "disabled"}}
             cloud_cfg_mods.update(disabled_network_config)
             modules = self._get_cloud_init_modules()
