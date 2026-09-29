@@ -1115,7 +1115,8 @@ class Grub2ConfigEditor(object):
         in a key_val type and the option already exists, the value
         will be replaced. Options of type "single", if absent from the
         list, will be appended. If a single value already exists
-        it will be ignored.
+        it will be ignored, including a "name=value" single value that
+        already exists as a key_val one.
         """
         self._validate_value(value)
         opt_found = False
@@ -1128,8 +1129,8 @@ class Grub2ConfigEditor(object):
                         if str(val["opt_key"]) == str(value["opt_key"]):
                             val["opt_val"] = value["opt_val"]
                             found = True
-                    elif val["opt_type"] == "single" and value["opt_type"] == "single":
-                        if str(val["opt_val"]) == str(value["opt_val"]):
+                    elif value["opt_type"] == "single":
+                        if self._split_value(val) == self._split_value(value):
                             found = True
                 if not found:
                     opt["option_value"].append(value)

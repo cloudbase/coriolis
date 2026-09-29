@@ -1837,6 +1837,22 @@ class Grub2ConfigEditorTestCase(test_base.CoriolisBaseTestCase):
         self.parser.append_to_option("existing_option", new_value)
         self.assertEqual(self.parser._parsed, expected_value)
 
+    def test_append_to_option_ignores_existing_key_val_as_single_option(self):
+        existing_value = {"opt_type": "key_val", "opt_key": "key", "opt_val": "value"}
+        self.parser._parsed = [
+            {
+                "option_name": "existing_option",
+                "option_value": [existing_value],
+            }
+        ]
+        new_value = {"opt_type": "single", "opt_val": "key=value"}
+        expected_value = [
+            {"option_name": "existing_option", "option_value": [existing_value]}
+        ]
+
+        self.parser.append_to_option("existing_option", new_value)
+        self.assertEqual(self.parser._parsed, expected_value)
+
     def test_append_to_option_adds_new_single_option(self):
         self.parser._parsed = [
             {
