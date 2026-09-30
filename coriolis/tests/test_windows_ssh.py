@@ -301,7 +301,11 @@ class WindowsSSHConnectionTestCase(test_base.CoriolisBaseTestCase):
     def test_download_file(self):
         self.conn.exec_ps_command = mock.Mock()
         self.conn.download_file(self.url, self.remote_path)
-        self.conn.exec_ps_command.assert_called_once()
+        cmd = self.conn.exec_ps_command.call_args[0][0]
+        self.assertIn(self.url, cmd)
+        self.assertIn(self.remote_path, cmd)
+        self.assertIn("$outFile.Dispose()", cmd)
+        self.assertIn("$client.Dispose()", cmd)
 
     def test_download_file_exception(self):
         self.conn.exec_ps_command = mock.Mock()

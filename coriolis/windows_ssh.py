@@ -571,17 +571,27 @@ class WindowsSSHConnection(object):
             "Downloading: \"%(url)s\" to \"%(path)s\"",
             {"url": url, "path": remote_path},
         )
+        # This PowerShell process stays open for later commands.
+        # Close the zip file here. Expand-Archive must open that path next.
         try:
             self.exec_ps_command(
                 "[Net.ServicePointManager]::SecurityProtocol = "
-                "[Net.SecurityProtocolType]::Tls12;"
-                "if(!([System.Management.Automation.PSTypeName]'"
-                "System.Net.Http.HttpClient').Type) {$assembly = "
+                "[Net.SecurityProtocolType]::Tls12; "
+                "if (!([System.Management.Automation.PSTypeName]"
+                "'System.Net.Http.HttpClient').Type) { "
                 "[System.Reflection.Assembly]::LoadWithPartialName("
-                "'System.Net.Http')}; (new-object System.Net.Http.HttpClient)."
-                "GetStreamAsync('%(url)s').Result.CopyTo("
-                "(New-Object IO.FileStream '%(outfile)s', Create, Write, "
-                "None), 1MB)" % {"url": url, "outfile": remote_path},
+                "'System.Net.Http') | Out-Null }; "
+                "$client = New-Object System.Net.Http.HttpClient; "
+                "$inStream = $null; $outFile = $null; "
+                "try { "
+                "$inStream = $client.GetStreamAsync('%(url)s').Result; "
+                "$outFile = New-Object IO.FileStream '%(outfile)s', "
+                "Create, Write, None; "
+                "$inStream.CopyTo($outFile, 1MB) "
+                "} finally { "
+                "if ($outFile) { $outFile.Dispose() }; "
+                "if ($inStream) { $inStream.Dispose() }; "
+                "$client.Dispose() }" % {"url": url, "outfile": remote_path},
                 ignore_stdout=True,
             )
         except exception.CoriolisException as ex:
