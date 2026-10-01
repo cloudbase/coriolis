@@ -1478,10 +1478,23 @@ valid_connection:
   required: true
 validate_connection:
   description: |
-    An object that contains the validate connection action for the
-    endpoint connection.
+    An object that contains the validate connection action, holding the
+    endpoint platform and connection info to be validated.
   in: body
   type: object
+  required: true
+validate_connection_mapped_regions:
+  description: |
+    List of IDs of the Coriolis regions whose workers should be used to
+    validate the connection. Any worker can be used if omitted.
+  in: body
+  type: array
+  required: false
+validate_connection_platform:
+  description: |
+    The type of cloud service platform the connection info is for.
+  in: body
+  type: string
   required: true
 validation_message:
   description: |
