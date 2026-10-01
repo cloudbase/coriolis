@@ -68,6 +68,7 @@ def _build_keyerror_message(resource, method, key):
     method_mapping = {
         "create": "creation",
         "update": "update",
+        "validate": "validation",
     }
 
     if resource == key:
