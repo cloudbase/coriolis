@@ -6,8 +6,8 @@
 The Coriolis worker connects to the minion over OpenSSH when
 connection_info port is not 5986. Port 5986 still uses WinRM.
 
-Morphing commands stay in WinRM argv form. Native commands are converted
-for SSH in coriolis.windows_ssh_cmd.
+Morphing commands stay in WinRM argv form. SSH runs them in one open
+PowerShell process. The process is started with -Command -.
 
 Minion requirements
 -------------------
@@ -21,7 +21,7 @@ The Windows morphing minion must provide all of the following:
 * An SSH login that can run elevated morphing commands. Providers usually
   send Administrator. Auth is a password or an SSH private key.
 * The SSH user must start powershell.exe with -Command -. The process
-  reads commands from stdin. PowerShell 7 (pwsh) is not required.
+  reads later commands from stdin. PowerShell 7 (pwsh) is not required.
 * diskpart.exe, reg.exe, and DISM must be available. These tools are
   present on Windows Server.
 * The Coriolis worker must reach the minion IP on the SSH port.
@@ -42,7 +42,7 @@ import paramiko
 from oslo_log import log as logging
 from oslo_utils import strutils
 
-from coriolis import exception, utils, windows_ssh_cmd
+from coriolis import exception, utils
 
 LOG = logging.getLogger(__name__)
 
@@ -65,6 +65,24 @@ _PS_BOOTSTRAP = (
     "$ErrorActionPreference = 'Continue'; "
     "Write-Output '%s'\r\n" % _PS_READY_MARKER
 )
+
+
+def _ps_single_quote(text):
+    return "'" + str(text).replace("'", "''") + "'"
+
+
+def _native_ps_script(cmd, args):
+    """Return a PowerShell script that runs one program.
+
+    The script runs inside the open PowerShell process. It must not call
+    exit. exit would stop that process.
+    """
+    parts = [_ps_single_quote(cmd)]
+    parts.extend(_ps_single_quote(part) for part in (args or []))
+    return (
+        "& %s; if ($null -eq $LASTEXITCODE -or $LASTEXITCODE -ne 0) { "
+        "throw ('native exit ' + $LASTEXITCODE) }" % " ".join(parts)
+    )
 
 
 def _is_reg_exe(cmd):
@@ -125,8 +143,7 @@ class WindowsSSHConnection(object):
     """Windows morphing minion connection over SSH.
 
     See the module docstring for minion requirements. PowerShell cmdlets
-    reuse one remote powershell.exe process. Native commands still use one
-    SSH exec per call.
+    and native programs reuse one remote powershell.exe process.
     """
 
     EOL = "\r\n"
@@ -459,56 +476,8 @@ class WindowsSSHConnection(object):
         if timeout:
             self._conn_timeout = int(timeout)
 
-    def _read_ssh_exec_output(self, channel, timeout, sanitized_cmd):
-        """Read stdout and stderr until the SSH exec channel exits."""
-        deadline = time.monotonic() + int(timeout)
-        stdout_buf = bytearray()
-        stderr_buf = bytearray()
-        channel.settimeout(0.1)
-        while True:
-            if time.monotonic() >= deadline:
-                raise exception.OSMorphingSSHOperationTimeout(
-                    cmd=sanitized_cmd, timeout=timeout
-                )
-            try:
-                _drain_ssh_channel(channel, stdout_buf, stderr_buf)
-            except socket.timeout:
-                pass
-            if channel.exit_status_ready():
-                try:
-                    _drain_ssh_channel(channel, stdout_buf, stderr_buf)
-                except socket.timeout:
-                    pass
-                if not channel.recv_ready() and not channel.recv_stderr_ready():
-                    break
-            time.sleep(0.05)
-        exit_code = channel.recv_exit_status()
-        stdout_str = stdout_buf.decode("utf-8", errors="replace")
-        stderr_str = stderr_buf.decode("utf-8", errors="replace")
-        return stdout_str, stderr_str, exit_code
-
-    @utils.retry_on_error(
-        terminal_exceptions=[
-            exception.NotAuthorized,
-            exception.OSMorphingSSHOperationTimeout,
-        ]
-    )
-    def _exec_command(self, cmd, args=[], timeout=None, sanitizable=True):
-        command = windows_ssh_cmd.winrm_exec_to_ssh(cmd, args)
-        if sanitizable:
-            sanitized_cmd = strutils.mask_password(command)
-        else:
-            sanitized_cmd = "***"
-
-        timeout = int(timeout or self._conn_timeout)
-        LOG.debug("Executing SSH command: %s", sanitized_cmd)
-        try:
-            _, stdout, _stderr = self._ssh.exec_command(command, timeout=float(timeout))
-            return self._read_ssh_exec_output(stdout.channel, timeout, sanitized_cmd)
-        except socket.timeout as ex:
-            raise exception.OSMorphingSSHOperationTimeout(
-                cmd=sanitized_cmd, timeout=timeout
-            ) from ex
+    def _exec_command(self, cmd, args=[], timeout=None):
+        return self._invoke_persistent_ps(_native_ps_script(cmd, args), timeout=timeout)
 
     def exec_command(
         self,
@@ -520,7 +489,7 @@ class WindowsSSHConnection(object):
     ):
         if sanitizable:
             sanitized_cmd = strutils.mask_password(
-                windows_ssh_cmd.winrm_exec_to_ssh(cmd, args)
+                "%s %s" % (cmd, " ".join(str(part) for part in (args or [])))
             )
         else:
             sanitized_cmd = "***"
@@ -529,9 +498,7 @@ class WindowsSSHConnection(object):
             # Close that process before reg.exe load or unload.
             self._close_ps_session(wait=True)
         LOG.debug("Executing Windows SSH command: %s", sanitized_cmd)
-        std_out, std_err, exit_code = self._exec_command(
-            cmd, args, timeout=timeout, sanitizable=sanitizable
-        )
+        std_out, std_err, exit_code = self._exec_command(cmd, args, timeout=timeout)
 
         if exit_code:
             raise exception.CoriolisException(
