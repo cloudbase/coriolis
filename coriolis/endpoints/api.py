@@ -32,9 +32,9 @@ class API(object):
     def get_endpoint(self, ctxt, endpoint_id):
         return self._rpc_conductor_client.get_endpoint(ctxt, endpoint_id)
 
-    def validate_connection(self, ctxt, endpoint_id):
+    def validate_connection(self, ctxt, platform, connection_info, mapped_regions):
         return self._rpc_conductor_client.validate_endpoint_connection(
-            ctxt, endpoint_id
+            ctxt, platform, connection_info, mapped_regions
         )
 
     @utils.bad_request_on_error("Invalid destination environment: %s")

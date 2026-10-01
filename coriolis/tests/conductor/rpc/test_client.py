@@ -115,7 +115,11 @@ class ConductorClientTestCase(test_base.CoriolisRPCClientTestCase):
         self._test(self.client.get_endpoint_storage, args)
 
     def test_validate_endpoint_connection(self):
-        args = {"endpoint_id": "mock_endpoint_id"}
+        args = {
+            "platform": "mock_platform",
+            "connection_info": "mock_connection_info",
+            "mapped_regions": "mock_mapped_regions",
+        }
         self._test(self.client.validate_endpoint_connection, args)
 
     def test_validate_endpoint_target_environment(self):
