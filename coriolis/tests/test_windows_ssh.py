@@ -11,37 +11,6 @@ from coriolis import exception, windows_ssh
 from coriolis.tests import test_base
 
 
-def _fake_exec_channel(stdout=b"std_out", stderr=b"std_err", exit_code=0):
-    """SSH channel that yields stdout/stderr once, then reports exit."""
-    out = [stdout]
-    err = [stderr]
-    channel = mock.Mock()
-
-    def recv_ready():
-        return bool(out[0])
-
-    def recv_stderr_ready():
-        return bool(err[0])
-
-    def recv(_size):
-        data = out[0]
-        out[0] = b""
-        return data
-
-    def recv_stderr(_size):
-        data = err[0]
-        err[0] = b""
-        return data
-
-    channel.recv_ready.side_effect = recv_ready
-    channel.recv_stderr_ready.side_effect = recv_stderr_ready
-    channel.recv.side_effect = recv
-    channel.recv_stderr.side_effect = recv_stderr
-    channel.exit_status_ready.return_value = True
-    channel.recv_exit_status.return_value = exit_code
-    return channel
-
-
 class WindowsSSHConnectionTestCase(test_base.CoriolisBaseTestCase):
     """Test suite for WindowsSSHConnection."""
 
@@ -194,58 +163,35 @@ class WindowsSSHConnectionTestCase(test_base.CoriolisBaseTestCase):
         )
 
     def test__exec_command(self):
-        stdout = mock.Mock()
-        stdout.channel = _fake_exec_channel()
-        self.conn._ssh.exec_command.return_value = (None, stdout, mock.Mock())
-
+        self.conn._invoke_persistent_ps = mock.Mock(
+            return_value=("std_out", "std_err", 0)
+        )
         std_out, std_err, exit_code = self.conn._exec_command(self.cmd, self.args)
-
+        script = self.conn._invoke_persistent_ps.call_args[0][0]
         self.assertEqual(std_out, "std_out")
         self.assertEqual(std_err, "std_err")
         self.assertEqual(exit_code, 0)
-        self.conn._ssh.exec_command.assert_called_once_with(
-            "cmd.exe /c \"test_cmd -RecoveryPassword 'ShouldNotBeLogged'\"",
-            timeout=float(self.conn._conn_timeout),
-        )
-
-    def test__exec_command_reads_stderr_progress_without_stdout(self):
-        stdout = mock.Mock()
-        stdout.channel = _fake_exec_channel(stdout=b"", stderr=b"progress" * 100)
-        self.conn._ssh.exec_command.return_value = (None, stdout, mock.Mock())
-
-        std_out, std_err, exit_code = self.conn._exec_command("dism.exe", [])
-
-        self.assertEqual(std_out, "")
-        self.assertIn("progress", std_err)
-        self.assertEqual(exit_code, 0)
-
-    def test__exec_command_timeout(self):
-        self.conn._ssh.exec_command.side_effect = socket.timeout
-        self.assertRaises(
-            exception.OSMorphingSSHOperationTimeout,
-            self.conn._exec_command,
-            self.cmd,
-            self.args,
-        )
+        self.assertIn("& 'test_cmd' '-RecoveryPassword'", script)
+        self.assertIn("ShouldNotBeLogged", script)
+        self.assertNotRegex(script, r"(?:^|[;{])\s*exit\b")
 
     def test_exec_command(self):
-        stdout = mock.Mock()
-        stdout.channel = _fake_exec_channel()
-        self.conn._ssh.exec_command.return_value = (None, stdout, mock.Mock())
-
-        sanitized_cmd = "cmd.exe /c \"test_cmd -RecoveryPassword '***'\""
-        exp_log = "DEBUG:coriolis.windows_ssh:Executing Windows SSH command: %s" % (
-            sanitized_cmd
+        self.conn._invoke_persistent_ps = mock.Mock(return_value=("std_out", "", 0))
+        exp_log = (
+            "DEBUG:coriolis.windows_ssh:Executing Windows SSH command: "
+            "test_cmd -RecoveryPassword '***'"
         )
         with self.assertLogs("coriolis.windows_ssh", level=logging.DEBUG) as log_cm:
             std_out = self.conn.exec_command(self.cmd, self.args)
             self.assertEqual(std_out, "std_out")
         self.assertIn(exp_log, log_cm.output)
+        script = self.conn._invoke_persistent_ps.call_args[0][0]
+        self.assertIn("& 'test_cmd'", script)
 
     def test_exec_command_exception(self):
-        stdout = mock.Mock()
-        stdout.channel = _fake_exec_channel(exit_code=1)
-        self.conn._ssh.exec_command.return_value = (None, stdout, mock.Mock())
+        self.conn._invoke_persistent_ps = mock.Mock(
+            return_value=("std_out", "bad arg", 1)
+        )
         self.assertRaises(
             exception.CoriolisException, self.conn.exec_command, self.cmd, self.args
         )
@@ -257,17 +203,13 @@ class WindowsSSHConnectionTestCase(test_base.CoriolisBaseTestCase):
 
     def test_exec_command_closes_ps_session_for_reg(self):
         self.conn._close_ps_session = mock.Mock()
-        stdout = mock.Mock()
-        stdout.channel = _fake_exec_channel()
-        self.conn._ssh.exec_command.return_value = (None, stdout, mock.Mock())
+        self.conn._invoke_persistent_ps = mock.Mock(return_value=("", "", 0))
         self.conn.exec_command("reg.exe", ["unload", "HKLM\\x"])
         self.conn._close_ps_session.assert_called_once_with(wait=True)
 
     def test_exec_command_keeps_ps_session_for_other_cmds(self):
         self.conn._close_ps_session = mock.Mock()
-        stdout = mock.Mock()
-        stdout.channel = _fake_exec_channel()
-        self.conn._ssh.exec_command.return_value = (None, stdout, mock.Mock())
+        self.conn._invoke_persistent_ps = mock.Mock(return_value=("", "", 0))
         self.conn.exec_command("dism.exe", ["/Get-WimInfo"])
         self.conn._close_ps_session.assert_not_called()
 
