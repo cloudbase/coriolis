@@ -90,10 +90,43 @@ class TransferCronServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(server.TransferCronServerEndpoint, '_init_cron')
     def test_ensure_cron_started_is_idempotent(self, mock_init_cron):
         self.server._cron_started = False
-        self.server._ensure_cron_started()
-        self.server._ensure_cron_started()
+        self.server._loader_started = False
+
+        def _run_inline(target, args=(), kwargs=None, daemon=True):
+            target(*(args or ()), **(kwargs or {}))
+
+        with mock.patch.object(server.utils, 'start_thread', side_effect=_run_inline):
+            self.server._ensure_cron_started()
+            self.server._ensure_cron_started()
 
         mock_init_cron.assert_called_once()
+        self.assertTrue(self.server._cron_started)
+
+    @mock.patch.object(server.time, 'sleep')
+    def test_load_schedules_retries_after_conductor_timeout(self, mock_sleep):
+        self.server._cron_started = False
+        self.server._init_cron = mock.Mock(side_effect=[Exception('timeout'), None])
+
+        with self.assertLogs('coriolis.transfer_cron.rpc.server', level=logging.ERROR):
+            self.server._load_schedules_until_started()
+
+        self.assertEqual(self.server._init_cron.call_count, 2)
+        mock_sleep.assert_called_once_with(60)
+        self.assertTrue(self.server._cron_started)
+
+    def test_ensure_cron_started_does_not_raise(self):
+        self.server._cron_started = False
+        self.server._loader_started = False
+
+        with mock.patch.object(
+            server.utils, 'start_thread', side_effect=RuntimeError('boom')
+        ):
+            with self.assertLogs(
+                'coriolis.transfer_cron.rpc.server', level=logging.ERROR
+            ):
+                self.server._ensure_cron_started()
+
+        self.assertFalse(self.server._loader_started)
 
     @ddt.data(
         {
