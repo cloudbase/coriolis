@@ -1316,26 +1316,25 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
     def test__get_grub_config_obj_file_exists(
         self, mock_test_path_chroot, mock_exec_cmd_chroot, mock_read_grub_config
     ):
-        grub_conf = "/etc/default/grub"
         tmp_file = "/tmp/tmp_file"
 
         mock_test_path_chroot.return_value = True
         mock_exec_cmd_chroot.side_effect = [tmp_file, None]
         mock_read_grub_config.return_value = mock_exec_cmd_chroot.return_value
 
-        result = self.os_morphing_tools._get_grub_config_obj(grub_conf)
+        result = self.os_morphing_tools._get_grub_config_obj(GRUB_DEFAULT_CONF)
 
-        mock_test_path_chroot.assert_called_once_with(grub_conf)
+        mock_test_path_chroot.assert_called_once_with(GRUB_DEFAULT_CONF)
         mock_exec_cmd_chroot.assert_has_calls(
             [
                 mock.call('mktemp'),
-                mock.call('/bin/cp -fp %s %s' % (grub_conf, tmp_file)),
+                mock.call('/bin/cp -fp %s %s' % (GRUB_DEFAULT_CONF, tmp_file)),
             ]
         )
         mock_read_grub_config.assert_called_once_with(tmp_file)
 
         expected_result = {
-            'source': grub_conf,
+            'source': GRUB_DEFAULT_CONF,
             'location': tmp_file,
             'contents': mock_read_grub_config.return_value,
         }
@@ -1348,12 +1347,10 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
     def test__get_grub_config_obj_file_not_exists(
         self, mock_test_path_chroot, mock_exec_cmd_chroot, mock_read_grub_config
     ):
-        grub_conf = "/etc/default/grub"
-
         mock_test_path_chroot.return_value = False
 
         self.assertRaises(
-            IOError, self.os_morphing_tools._get_grub_config_obj, grub_conf
+            IOError, self.os_morphing_tools._get_grub_config_obj, GRUB_DEFAULT_CONF
         )
 
         mock_exec_cmd_chroot.assert_not_called()
@@ -1390,7 +1387,7 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         value = 'value'
         config_obj = {
             'location': '/tmp/tmp_file',
-            'source': '/etc/default/grub',
+            'source': GRUB_DEFAULT_CONF,
             'contents': {'GRUB_DEFAULT': '0'},
         }
         cfg = 'cfg'
@@ -1411,7 +1408,7 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         value = 'value'
         config_obj = {
             'location': '/tmp/tmp_file',
-            'source': '/etc/default/grub',
+            'source': GRUB_DEFAULT_CONF,
             'contents': {option: 'old_value'},
         }
         cfg = 'cfg'
@@ -1443,7 +1440,7 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         serial_cmd = base.GRUB2_SERIAL % (115200, "no")
         config_obj = {
             'location': '/tmp/tmp.OIK95wgYUb',
-            'source': '/etc/default/grub',
+            'source': GRUB_DEFAULT_CONF,
             'contents': {'GRUB_DEFAULT': '0'},
         }
 
@@ -1478,7 +1475,7 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         """Values holding quotes must not break out of the sed script."""
         config_obj = {
             'location': '/tmp/tmp_file',
-            'source': '/etc/default/grub',
+            'source': GRUB_DEFAULT_CONF,
             'contents': {'GRUB_DEFAULT': '0'},
         }
 
@@ -1626,8 +1623,8 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
 
         result = self.os_morphing_tools._get_grub_default_conf()
 
-        mock_test_path_chroot.assert_called_once_with('/etc/default/grub')
-        self.assertEqual(result, '/etc/default/grub')
+        mock_test_path_chroot.assert_called_once_with(GRUB_DEFAULT_CONF)
+        self.assertEqual(result, GRUB_DEFAULT_CONF)
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_test_path_chroot')
     def test__get_grub_default_conf_missing(self, mock_test_path_chroot):
@@ -1635,17 +1632,15 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
 
         result = self.os_morphing_tools._get_grub_default_conf()
 
-        mock_test_path_chroot.assert_called_once_with('/etc/default/grub')
+        mock_test_path_chroot.assert_called_once_with(GRUB_DEFAULT_CONF)
         self.assertIsNone(result)
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_exec_cmd_chroot')
     def test__set_grub_os_prober_setting_remove(self, mock_exec_cmd_chroot):
-        grub_conf = '/etc/default/grub'
-
-        self.os_morphing_tools._set_grub_os_prober_setting(grub_conf, None)
+        self.os_morphing_tools._set_grub_os_prober_setting(GRUB_DEFAULT_CONF, None)
 
         mock_exec_cmd_chroot.assert_called_once_with(
-            "sed -i '/^GRUB_DISABLE_OS_PROBER=/d' %s" % grub_conf
+            "sed -i '/^GRUB_DISABLE_OS_PROBER=/d' %s" % GRUB_DEFAULT_CONF
         )
 
     @mock.patch.object(base.BaseLinuxOSMorphingTools, '_apply_grub2_config')
@@ -1654,17 +1649,16 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
     def test__set_grub_os_prober_setting_append(
         self, mock_get_grub_config_obj, mock_set_grub_value, mock_apply_grub2_config
     ):
-        grub_conf = '/etc/default/grub'
         config_obj = {
             'location': mock.sentinel.location,
-            'source': grub_conf,
+            'source': GRUB_DEFAULT_CONF,
             'contents': {},
         }
         mock_get_grub_config_obj.return_value = config_obj
 
-        self.os_morphing_tools._set_grub_os_prober_setting(grub_conf, 'true')
+        self.os_morphing_tools._set_grub_os_prober_setting(GRUB_DEFAULT_CONF, 'true')
 
-        mock_get_grub_config_obj.assert_called_once_with(grub_conf)
+        mock_get_grub_config_obj.assert_called_once_with(GRUB_DEFAULT_CONF)
         mock_set_grub_value.assert_called_once_with(
             'GRUB_DISABLE_OS_PROBER', 'true', config_obj, replace=False
         )
@@ -1678,17 +1672,16 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
     def test__set_grub_os_prober_setting_replace(
         self, mock_get_grub_config_obj, mock_set_grub_value, mock_apply_grub2_config
     ):
-        grub_conf = '/etc/default/grub'
         config_obj = {
             'location': mock.sentinel.location,
-            'source': grub_conf,
+            'source': GRUB_DEFAULT_CONF,
             'contents': {'GRUB_DISABLE_OS_PROBER': 'false'},
         }
         mock_get_grub_config_obj.return_value = config_obj
 
-        self.os_morphing_tools._set_grub_os_prober_setting(grub_conf, 'true')
+        self.os_morphing_tools._set_grub_os_prober_setting(GRUB_DEFAULT_CONF, 'true')
 
-        mock_get_grub_config_obj.assert_called_once_with(grub_conf)
+        mock_get_grub_config_obj.assert_called_once_with(GRUB_DEFAULT_CONF)
         mock_set_grub_value.assert_called_once_with(
             'GRUB_DISABLE_OS_PROBER', 'true', config_obj, replace=True
         )
@@ -1709,7 +1702,7 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(
         base.BaseLinuxOSMorphingTools,
         '_get_grub_default_conf',
-        return_value='/etc/default/grub',
+        return_value=GRUB_DEFAULT_CONF,
     )
     def test__execute_update_grub_toggles_os_prober(
         self,
@@ -1725,11 +1718,11 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
 
         self.os_morphing_tools._execute_update_grub()
 
-        mock_read_grub_config.assert_called_once_with('/etc/default/grub')
+        mock_read_grub_config.assert_called_once_with(GRUB_DEFAULT_CONF)
         mock_set_grub_os_prober_setting.assert_has_calls(
             [
-                mock.call('/etc/default/grub', 'true'),
-                mock.call('/etc/default/grub', expected_restore_value),
+                mock.call(GRUB_DEFAULT_CONF, 'true'),
+                mock.call(GRUB_DEFAULT_CONF, expected_restore_value),
             ]
         )
         mock_get_update_grub2_command.assert_called_once_with()
@@ -1744,7 +1737,7 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
     @mock.patch.object(
         base.BaseLinuxOSMorphingTools,
         '_get_grub_default_conf',
-        return_value='/etc/default/grub',
+        return_value=GRUB_DEFAULT_CONF,
     )
     def test__execute_update_grub_restores_os_prober_on_failure(
         self,
@@ -1765,8 +1758,8 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
 
         mock_set_grub_os_prober_setting.assert_has_calls(
             [
-                mock.call('/etc/default/grub', 'true'),
-                mock.call('/etc/default/grub', 'false'),
+                mock.call(GRUB_DEFAULT_CONF, 'true'),
+                mock.call(GRUB_DEFAULT_CONF, 'false'),
             ]
         )
         mock_get_update_grub2_command.assert_called_once_with()
@@ -1872,18 +1865,17 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         consoles = ['tty0', 'ttyS0']
         speed = 9600
         parity = 'odd'
-        grub_conf = '/etc/default/grub'
 
-        config_obj = {'location': grub_conf}
+        config_obj = {'location': GRUB_DEFAULT_CONF}
         mock_get_grub_config_obj.return_value = config_obj
 
         serial_cmd = base.GRUB2_SERIAL % (speed, parity)
 
         self.os_morphing_tools._set_grub2_console_settings(
-            consoles, speed, parity, grub_conf, execute_update_grub=False
+            consoles, speed, parity, GRUB_DEFAULT_CONF, execute_update_grub=False
         )
 
-        mock_get_grub_config_obj.assert_called_once_with(grub_conf)
+        mock_get_grub_config_obj.assert_called_once_with(GRUB_DEFAULT_CONF)
         mock_set_grub_value.assert_called_once_with(
             'GRUB_SERIAL_COMMAND', serial_cmd, config_obj
         )
@@ -1903,16 +1895,14 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
         mock_apply_grub2_config,
         mock_update_kernel_cmdline_args,
     ):
-        grub_conf = '/etc/default/grub'
-
-        config_obj = {'location': grub_conf}
+        config_obj = {'location': GRUB_DEFAULT_CONF}
         mock_get_grub_config_obj.return_value = config_obj
 
         self.os_morphing_tools._set_grub2_console_settings(
-            grub_conf=grub_conf, execute_update_grub=True
+            grub_conf=GRUB_DEFAULT_CONF, execute_update_grub=True
         )
 
-        mock_get_grub_config_obj.assert_called_once_with(grub_conf)
+        mock_get_grub_config_obj.assert_called_once_with(GRUB_DEFAULT_CONF)
         mock_set_grub_value.assert_called_once_with(
             'GRUB_SERIAL_COMMAND',
             'serial --word=8 --stop=1 --speed=115200 --parity=no --unit=0',
