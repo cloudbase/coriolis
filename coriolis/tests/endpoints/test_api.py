@@ -78,7 +78,12 @@ class EndpointsAPITestCase(test_base.CoriolisBaseTestCase):
         )
 
     def test_validate_connection(self):
-        args = {"ctxt": mock.sentinel.ctxt, "endpoint_id": mock.sentinel.endpoint_id}
+        args = {
+            "ctxt": mock.sentinel.ctxt,
+            "platform": mock.sentinel.platform,
+            "connection_info": mock.sentinel.connection_info,
+            "mapped_regions": mock.sentinel.mapped_regions,
+        }
         result = self.endpoints_api.validate_connection(**args)
         (
             self.endpoints_api._rpc_conductor_client.validate_endpoint_connection.assert_called_once_with

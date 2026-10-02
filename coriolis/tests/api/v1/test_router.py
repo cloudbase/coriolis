@@ -207,7 +207,7 @@ class APIRouterTestCase(test_base.CoriolisBaseTestCase):
             ),
             mock.call(
                 'endpoint_actions',
-                '/{project_id}/endpoints/{id}/actions',
+                '/{project_id}/endpoints/actions',
                 controller=mock_endpoint_actions_create_resource.return_value,
                 action='action',
                 conditions={'method': 'POST'},

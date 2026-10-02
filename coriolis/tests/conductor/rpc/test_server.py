@@ -590,28 +590,31 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     def test_validate_endpoint_connection(
         self, mock_get_endpoint, mock_get_worker_service_rpc_for_specs
     ):
-        self.server.validate_endpoint_connection(
-            mock.sentinel.context, mock.sentinel.endpoint_id
+        result = self.server.validate_endpoint_connection(
+            mock.sentinel.context,
+            mock.sentinel.platform,
+            mock.sentinel.connection_info,
+            ["mock_region"],
         )
 
-        mock_get_endpoint.assert_called_once_with(
-            mock.sentinel.context, mock.sentinel.endpoint_id
-        )
-
+        mock_get_endpoint.assert_not_called()
         mock_get_worker_service_rpc_for_specs.assert_called_once_with(
             mock.sentinel.context,
             enabled=True,
-            region_sets=[[]],
+            region_sets=[["mock_region"]],
             provider_requirements={
-                mock_get_endpoint.return_value.type: [constants.PROVIDER_TYPE_ENDPOINT]
+                mock.sentinel.platform: [constants.PROVIDER_TYPE_ENDPOINT]
             },
         )
 
         rpc_return_value = mock_get_worker_service_rpc_for_specs.return_value
         rpc_return_value.validate_endpoint_connection.assert_called_once_with(
             mock.sentinel.context,
-            mock_get_endpoint.return_value.type,
-            mock_get_endpoint.return_value.connection_info,
+            mock.sentinel.platform,
+            mock.sentinel.connection_info,
+        )
+        self.assertEqual(
+            rpc_return_value.validate_endpoint_connection.return_value, result
         )
 
     @mock.patch.object(

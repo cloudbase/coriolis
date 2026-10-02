@@ -556,18 +556,15 @@ Endpoint Actions
 Validate Endpoint Connection
 ============================
 
-.. rest_method:: POST /endpoints/{endpoint_id}/actions
+.. rest_method:: POST /endpoints/actions
 
-Validates connection to endpoint.
-
-**Preconditions**
-
-The endpoint must exist.
-
+Validates the connection info for an endpoint platform, without requiring the
+endpoint to exist. Nothing is persisted, so this can be used to validate the
+connection info of an endpoint before creating or updating it.
 
 Normal response codes: 200
 
-Error response codes: unauthorized(401), forbidden(403),
+Error response codes: badRequest(400), unauthorized(401), forbidden(403),
 itemNotFound(404)
 
 Request
@@ -576,7 +573,9 @@ Request
 .. rest_parameters:: parameters.yaml
 
   - validate-connection : validate_connection
-  - endpoint_id : endpoint_id_path
+  - platform : validate_connection_platform
+  - connection_info : connection_info
+  - mapped_regions : validate_connection_mapped_regions
 
 **Example of Endpoint Validate Connection Request**
   .. literalinclude:: ../api_samples/endpoint/endpoint-validate-connection-req.json
