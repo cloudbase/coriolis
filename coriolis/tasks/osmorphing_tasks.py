@@ -4,6 +4,7 @@
 from oslo_log import log as logging
 
 from coriolis import constants, exception, schemas
+from coriolis.osmorphing import conf as osmorphing_conf
 from coriolis.osmorphing import manager as osmorphing_manager
 from coriolis.providers import factory as providers_factory
 from coriolis.tasks import base
@@ -150,6 +151,10 @@ class DeployOSMorphingResourcesTask(base.TaskRunner):
                 destination["type"],
                 os_morphing_info,
             )
+
+        os_morphing_info = osmorphing_conf.apply_core_destination_overrides(
+            os_morphing_info, target_environment
+        )
 
         return {
             "os_morphing_resources": os_morphing_resources,
