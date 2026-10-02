@@ -28,3 +28,23 @@ class WindowsConnTestCase(test_base.CoriolisBaseTestCase):
         windows_conn.from_connection_info(conn_info, timeout=30)
         mock_ssh.assert_called_once_with(conn_info, 30)
         mock_winrm.assert_not_called()
+
+    def test_minion_connection_default_is_ssh(self):
+        windows_conn.CONF.clear_override("connection_type", group="windows_minion")
+        self.assertEqual("ssh", windows_conn.minion_connection())
+        self.assertTrue(windows_conn.minion_uses_ssh())
+        self.assertEqual(22, windows_conn.minion_port())
+
+    def test_minion_connection_winrm(self):
+        windows_conn.CONF.set_override(
+            "connection_type", "winrm", group="windows_minion"
+        )
+        self.addCleanup(
+            windows_conn.CONF.clear_override,
+            "connection_type",
+            group="windows_minion",
+        )
+        self.assertEqual("winrm", windows_conn.minion_connection())
+        self.assertFalse(windows_conn.minion_uses_ssh())
+        self.assertEqual(5986, windows_conn.minion_port())
+        self.assertFalse(windows_conn.uses_winrm({"port": 22}))
