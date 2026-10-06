@@ -87,6 +87,7 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
         cls._imp_env_options = cls._harness.imp_env_options
         cls._storage_mappings = cls._harness.imp_storage_mappings
         cls._imp_pool_env = cls._harness.imp_minion_pool_environment
+        cls._imp_windows_pool_env = cls._harness.imp_windows_minion_pool_environment
         cls._exp_pool_env = cls._harness.exp_minion_pool_environment
 
         cls._client = cls.get_client()
@@ -185,6 +186,7 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
         skip_allocation=True,
         wait_for_allocation=False,
         platform=constants.PROVIDER_PLATFORM_DESTINATION,
+        os_type=constants.OS_TYPE_LINUX,
         minimum_minions=_DEFAULT_POOL_MINIMUM_MINIONS,
         maximum_minions=_DEFAULT_POOL_MAXIMUM_MINIONS,
         minion_max_idle_time=_DEFAULT_POOL_MINION_MAX_IDLE_TIME,
@@ -192,16 +194,18 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
         class_cleanup=True,
     ):
         """Create a pool, deleted at class teardown if *class_cleanup*."""
-        env_options = (
-            cls._imp_pool_env
-            if platform == constants.PROVIDER_PLATFORM_DESTINATION
-            else cls._exp_pool_env
-        )
+        if platform != constants.PROVIDER_PLATFORM_DESTINATION:
+            env_options = cls._exp_pool_env
+        elif os_type == constants.OS_TYPE_WINDOWS:
+            env_options = cls._imp_windows_pool_env
+        else:
+            env_options = cls._imp_pool_env
+
         pool = cls._client.minion_pools.create(
             name=name,
             endpoint=endpoint_id,
             platform=platform,
-            os_type=constants.OS_TYPE_LINUX,
+            os_type=os_type,
             environment_options=env_options,
             minimum_minions=minimum_minions,
             maximum_minions=maximum_minions,
