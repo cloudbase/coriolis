@@ -50,6 +50,33 @@ class RegionTests(base.CoriolisIntegrationTestBase):
 
 
 class RegionSchedulingTests(base.ReplicaIntegrationTestBase):
+    """Tests scheduling for endpoints with mapped regions.
+
+    Mutates the endpoints' mapped_regions, so it can't use the shared ones. Since it's
+    a new endpoint, we can't reuse the existing minion pool.
+    """
+
+    _CREATE_DST_MINION_POOL = False
+    _CREATE_SRC_MINION_POOL = False
+
+    @classmethod
+    def _get_src_endpoint(cls):
+        return cls._create_endpoint(
+            name="test-src",
+            endpoint_type=cls._exp_platform,
+            description="integration source endpoint",
+            connection_info=cls._exp_conn_info,
+        )
+
+    @classmethod
+    def _get_dst_endpoint(cls):
+        return cls._create_endpoint(
+            name="test-dest",
+            endpoint_type=cls._imp_platform,
+            description="integration destination endpoint",
+            connection_info=cls._imp_conn_info,
+        )
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
