@@ -6,8 +6,8 @@ Base test harness for Coriolis integration tests.
 
 Starts conductor, scheduler, and worker services in-process using
 oslo.messaging's fake:// transport and a temporary SQLite database. Serves
-the Coriolis REST API via cheroot on a random local port. No RabbitMQ,
-Keystone, or Barbican are required.
+the Coriolis REST API via cheroot on a random local port, a keystonemiddleware
+auth_token + CoriolisKeystoneContext pipeline. No RabbitMQ or Barbican are required.
 
 Tasks are executed in-process as greenlets rather than subprocesses. The
 fake:// oslo.messaging transport is in-memory and process-local; subprocess
@@ -28,10 +28,10 @@ import tempfile
 import uuid
 from unittest import mock
 
-import webob.dec
 import yaml
 from cheroot import wsgi as cheroot_wsgi
 from cheroot.workers import threadpool as cheroot_threadpool
+from keystonemiddleware import auth_token as ks_auth_token
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_middleware import request_id as request_id_middleware
@@ -39,11 +39,11 @@ from oslo_service import wsgi as base_wsgi
 
 from coriolis import api as api_module
 from coriolis import conf as coriolis_conf
-from coriolis import constants, context, exception, service
+from coriolis import constants, exception, service
 from coriolis import policy as policy_module
 from coriolis import rpc as rpc_module
 from coriolis import utils as coriolis_utils
-from coriolis.api import wsgi as api_wsgi
+from coriolis.api.middleware import auth as keystone_context_middleware
 from coriolis.api.middleware import fault as fault_middleware
 from coriolis.api.v1 import router as api_v1_router
 from coriolis.conductor.rpc import server as conductor_rpc_server
@@ -56,7 +56,7 @@ from coriolis.providers import factory as providers_factory
 from coriolis.scheduler.rpc import server as scheduler_rpc_server
 from coriolis.taskflow import runner as taskflow_runner
 from coriolis.tasks import factory as task_runners_factory
-from coriolis.tests.integration import provider_test_base
+from coriolis.tests.integration import keystone_utils, provider_test_base
 from coriolis.tests.integration import utils as test_utils
 from coriolis.tests.integration.test_provider import exp as test_provider_exp
 from coriolis.tests.integration.test_provider import imp as test_provider_imp
@@ -74,9 +74,6 @@ _TEST_EXPORT_PROVIDER = (
 _TEST_IMPORT_PROVIDER = (
     "coriolis.tests.integration.test_provider.imp.TestImportProvider"
 )
-
-# Fixed project used for all test requests.
-_TEST_PROJECT_ID = 'integration-project'
 
 # Path to an optional YAML file that configures the destination provider,
 # its connection_info, environment, and storage mappings.
@@ -161,19 +158,20 @@ class DaemonCherootWorker(cheroot_threadpool.WorkerThread):
 cheroot_threadpool.WorkerThread = DaemonCherootWorker
 
 
-class _NoAuthMiddleware(api_wsgi.Middleware):
-    """Injects a fixed admin RequestContext; replaces keystonecontext."""
+class _AdminRoleMiddleware:
+    """Marks contexts holding the admin role as is_admin.
 
-    @webob.dec.wsgify(RequestClass=api_wsgi.Request)
-    def __call__(self, req):
-        req.environ['coriolis.context'] = context.RequestContext(
-            user='integration-test',
-            project_id=_TEST_PROJECT_ID,
-            is_admin=True,
-            # Skip Keystone trust creation / deletion.
-            trust_id='integration-dummy-trust',
-        )
-        return self.application
+    Sits after CoriolisKeystoneContext, which builds the contexts.
+    """
+
+    def __init__(self, app):
+        self._app = app
+
+    def __call__(self, environ, start_response):
+        ctx = environ.get('coriolis.context')
+        if ctx is not None and keystone_utils.ROLE_NAME in ctx.roles:
+            ctx.is_admin = True
+        return self._app(environ, start_response)
 
 
 class _TestAPIRouter(api_v1_router.APIRouter):
@@ -321,8 +319,8 @@ class _IntegrationHarness:
         self.lock_path = os.path.join(self.workdir, "locks")
         os.makedirs(self.lock_path)
 
-        session_tag = str(uuid.uuid4()).split("-")[0]
-        self._mysql_container_name = "coriolis-test-mysql-%s" % session_tag
+        self._session_tag = str(uuid.uuid4()).split("-")[0]
+        self._mysql_container_name = "coriolis-test-mysql-%s" % self._session_tag
         self._mysql_username = "root"
         self._mysql_password = "coriolis"
         self._mysql_database = "coriolis"
@@ -442,6 +440,16 @@ class _IntegrationHarness:
 
         engine = db_api.get_engine()
         db_migration.db_sync(engine)
+
+        self.keystone = keystone_utils.KeystoneContainer(
+            self.workdir,
+            self._session_tag,
+            self._mysql_container_name,
+            self._mysql_ip,
+            self._mysql_username,
+            self._mysql_password,
+        )
+        self.keystone.setup()
 
         self._start_coriolis_services()
 
@@ -563,10 +571,13 @@ class _IntegrationHarness:
         )
         self._worker_host_svc.start()
 
-        # API: build the WSGI stack without keystonemiddleware and serve it
-        # on a random local port.
+        # API: build the same pipeline as api-paste.ini (request_id, faultwrap,
+        # authtoken, keystonecontext, apiv1) and serve it on a random local port.
+        # authtoken validates tokens against the Keystone container started above.
         wsgi_app = _TestAPIRouter()
-        wsgi_app = _NoAuthMiddleware(wsgi_app)
+        wsgi_app = _AdminRoleMiddleware(wsgi_app)
+        wsgi_app = keystone_context_middleware.CoriolisKeystoneContext(wsgi_app)
+        wsgi_app = ks_auth_token.AuthProtocol(wsgi_app, {})
         wsgi_app = fault_middleware.FaultWrapper(wsgi_app)
         wsgi_app = request_id_middleware.RequestId(wsgi_app)
 
@@ -621,6 +632,11 @@ class _IntegrationHarness:
                 "Failed to stop / remove the MySQL container: %s",
                 self._mysql_container_name,
             )
+
+        try:
+            self.keystone.teardown()
+        except Exception:
+            LOG.exception("Failed to stop / remove the Keystone container.")
 
         shutil.rmtree(self.workdir, True)
         try:

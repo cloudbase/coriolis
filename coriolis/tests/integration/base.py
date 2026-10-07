@@ -20,7 +20,6 @@ from unittest import mock
 import oslo_messaging as messaging
 from coriolisclient import client as coriolis_client
 from keystoneauth1 import session as ks_session
-from keystoneauth1 import token_endpoint
 from oslo_config import cfg
 from oslo_db.sqlalchemy import models
 from oslo_log import log as logging
@@ -82,8 +81,6 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
             # Prevent the test runner from being killed by Coriolis sending
             # SIGINT to in-process workers.
             "psutil.Process.send_signal",
-            # We're not using keystone for tests. This is called in a few places.
-            "coriolis.keystone.delete_trust",
         ]
         for thing in to_patch:
             patcher = mock.patch(thing)
@@ -113,13 +110,12 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
     @classmethod
     def get_client(cls):
         """Return a coriolisclient.Client pointed at the in-process API."""
-        auth = token_endpoint.Token(
-            endpoint='http://127.0.0.1:%d' % cls._api_port,
-            token='integration-dummy-token',
-        )
+        auth = cls._harness.keystone.get_auth()
         return coriolis_client.Client(
             session=ks_session.Session(auth=auth),
-            project_id=harness._TEST_PROJECT_ID,
+            project_id=cls._harness.keystone.project_id,
+            # Not "endpoint": that appends "/v1", which the test router doesn't use.
+            endpoint_override='http://127.0.0.1:%d' % cls._api_port,
         )
 
     @classmethod
@@ -220,10 +216,7 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
             cls._client.minion_pools.deallocate_minion_pool(pool_id, force=True)
             cls._wait_for_pool(pool_id, MINION_DEALLOCATED_TERMINAL)
 
-        with mock.patch("coriolis.keystone.delete_trust", autospec=False):
-            # When removing minion pools, this is also called.
-            # There is no Keystone, so it needs to be mocked.
-            cls._client.minion_pools.delete(pool_id)
+        cls._client.minion_pools.delete(pool_id)
 
     @classmethod
     def _wait_for_pool(cls, pool_id, terminal_statuses, timeout=600):
@@ -246,11 +239,11 @@ class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
             % (pool_id, terminal_statuses, timeout, last)
         )
 
-    @staticmethod
-    def _get_db_context():
+    @classmethod
+    def _get_db_context(cls):
         return context.RequestContext(
             user='int-test',
-            project_id=harness._TEST_PROJECT_ID,
+            project_id=cls._harness.keystone.project_id,
             is_admin=True,
         )
 
