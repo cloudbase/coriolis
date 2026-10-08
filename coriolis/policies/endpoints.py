@@ -50,7 +50,7 @@ ENDPOINTS_POLICY_DEFAULT_RULES = [
         get_endpoints_policy_label('validate_connection'),
         ENDPOINTS_POLICY_DEFAULT_RULE,
         "Validate endpoint connection info",
-        [{"path": "/endpoints/{endpoint_id}/actions", "method": "POST"}],
+        [{"path": "/endpoints/actions", "method": "POST"}],
     ),
     policy.DocumentedRuleDefault(
         get_endpoints_policy_label('list_instances'),

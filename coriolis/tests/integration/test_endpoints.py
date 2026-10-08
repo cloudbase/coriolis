@@ -39,26 +39,27 @@ class EndpointCapabilitiesTest(base.CoriolisIntegrationTestBase):
 
     def test_validate_connection(self):
         valid, message = self._client.endpoints.validate_connection(
-            self._src_endpoint.id
+            self._exp_platform, self._exp_conn_info
         )
         self.assertTrue(valid, f"source: {message}")
 
         valid, message = self._client.endpoints.validate_connection(
-            self._dst_endpoint.id
+            self._imp_platform, self._imp_conn_info
         )
         self.assertTrue(valid, f"destination: {message}")
 
     def test_validate_connection_failure(self):
-        bad_endpoint = self._create_endpoint(
-            name="cap-bad",
-            endpoint_type=self._exp_platform,
-            connection_info={
+        endpoints_count = len(self._client.endpoints.list())
+
+        valid, message = self._client.endpoints.validate_connection(
+            self._exp_platform,
+            {
                 "pkey_path": "/root/.ssh/coriolis-no-such-key",
             },
         )
-        valid, message = self._client.endpoints.validate_connection(bad_endpoint.id)
         self.assertFalse(valid)
         self.assertIsNotNone(message)
+        self.assertEqual(endpoints_count, len(self._client.endpoints.list()))
 
     def test_endpoint_update(self):
         updated = self._client.endpoints.update(

@@ -722,19 +722,17 @@ class ConductorServerEndpoint(object):
             ctxt, endpoint.type, endpoint.connection_info, source_environment
         )
 
-    def validate_endpoint_connection(self, ctxt, endpoint_id):
-        endpoint = self.get_endpoint(ctxt, endpoint_id)
-
+    def validate_endpoint_connection(
+        self, ctxt, platform, connection_info, mapped_regions=None
+    ):
         worker_rpc = self._get_worker_service_rpc_for_specs(
             ctxt,
             enabled=True,
-            region_sets=[[reg.id for reg in endpoint.mapped_regions]],
-            provider_requirements={endpoint.type: [constants.PROVIDER_TYPE_ENDPOINT]},
+            region_sets=[mapped_regions or []],
+            provider_requirements={platform: [constants.PROVIDER_TYPE_ENDPOINT]},
         )
 
-        return worker_rpc.validate_endpoint_connection(
-            ctxt, endpoint.type, endpoint.connection_info
-        )
+        return worker_rpc.validate_endpoint_connection(ctxt, platform, connection_info)
 
     def validate_endpoint_target_environment(self, ctxt, endpoint_id, target_env):
         endpoint = self.get_endpoint(ctxt, endpoint_id)
