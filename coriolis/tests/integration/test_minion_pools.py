@@ -236,6 +236,8 @@ class _MinionPoolPowerCycleTestMixin:
             destination_minion_pool_id=self._dst_pool_id,
             origin_minion_pool_id=self._src_pool_id,
         )
+        # Registered after the transfer, so it runs (LIFO) before the transfer delete.
+        self.addCleanup(self._cleanup_provider_dst_devices, self._pool_transfer_b.id)
 
     def _wait_for_power_status(self, status, timeout=120):
         """Poll until one of the pool's machines reaches *status*."""
@@ -357,6 +359,8 @@ class _MinionPoolRefreshDeallocationTestMixin:
             destination_minion_pool_id=self._dst_pool_id,
             origin_minion_pool_id=self._src_pool_id,
         )
+        # Registered after the transfer, so it runs (LIFO) before the transfer delete.
+        self.addCleanup(self._cleanup_provider_dst_devices, self._pool_transfer_b.id)
 
     def test_excess_pool_machine_deleted_on_refresh(self):
         transfer_ids = [self._transfer.id, self._pool_transfer_b.id]
