@@ -618,6 +618,64 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         server.ConductorServerEndpoint, "_get_worker_service_rpc_for_specs"
     )
     @mock.patch.object(server.ConductorServerEndpoint, "get_endpoint")
+    def test_validate_endpoint_connection_info(
+        self, mock_get_endpoint, mock_get_worker_service_rpc_for_specs
+    ):
+        result = self.server.validate_endpoint_connection_info(
+            mock.sentinel.context,
+            mock.sentinel.platform,
+            mock.sentinel.connection_info,
+            ["mock_region"],
+        )
+
+        # No endpoint is looked up, since none has to exist.
+        mock_get_endpoint.assert_not_called()
+        mock_get_worker_service_rpc_for_specs.assert_called_once_with(
+            mock.sentinel.context,
+            enabled=True,
+            region_sets=[["mock_region"]],
+            provider_requirements={
+                mock.sentinel.platform: [constants.PROVIDER_TYPE_ENDPOINT]
+            },
+        )
+
+        rpc_return_value = mock_get_worker_service_rpc_for_specs.return_value
+        rpc_return_value.validate_endpoint_connection.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.platform,
+            mock.sentinel.connection_info,
+        )
+        self.assertEqual(
+            rpc_return_value.validate_endpoint_connection.return_value, result
+        )
+
+    @mock.patch.object(
+        server.ConductorServerEndpoint, "_get_worker_service_rpc_for_specs"
+    )
+    @mock.patch.object(server.ConductorServerEndpoint, "get_endpoint")
+    def test_validate_endpoint_connection_info_no_mapped_regions(
+        self, mock_get_endpoint, mock_get_worker_service_rpc_for_specs
+    ):
+        self.server.validate_endpoint_connection_info(
+            mock.sentinel.context,
+            mock.sentinel.platform,
+            mock.sentinel.connection_info,
+        )
+
+        mock_get_endpoint.assert_not_called()
+        mock_get_worker_service_rpc_for_specs.assert_called_once_with(
+            mock.sentinel.context,
+            enabled=True,
+            region_sets=[[]],
+            provider_requirements={
+                mock.sentinel.platform: [constants.PROVIDER_TYPE_ENDPOINT]
+            },
+        )
+
+    @mock.patch.object(
+        server.ConductorServerEndpoint, "_get_worker_service_rpc_for_specs"
+    )
+    @mock.patch.object(server.ConductorServerEndpoint, "get_endpoint")
     def test_validate_endpoint_target_environment(
         self, mock_get_endpoint, mock_get_worker_service_rpc_for_specs
     ):

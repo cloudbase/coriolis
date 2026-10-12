@@ -202,6 +202,9 @@ class _TestAPIRouter(api_v1_router.APIRouter):
         action_url_pairs = [
             ('minion_pool_actions', '/minion_pools/{id}/actions'),
             ('endpoint_actions', '/endpoints/{id}/actions'),
+            # The endpoint actions controller also serves the collection,
+            # for the actions which do not need an existing endpoint.
+            ('endpoint_actions', '/endpoints/actions'),
             ('deployment_actions', '/deployments/{id}/actions'),
             ('transfer_actions', '/transfers/{id}/actions'),
             (

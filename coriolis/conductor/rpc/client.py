@@ -129,6 +129,17 @@ class ConductorClient(rpc.BaseRPCClient):
     def validate_endpoint_connection(self, ctxt, endpoint_id):
         return self._call(ctxt, 'validate_endpoint_connection', endpoint_id=endpoint_id)
 
+    def validate_endpoint_connection_info(
+        self, ctxt, platform, connection_info, mapped_regions=None
+    ):
+        return self._call(
+            ctxt,
+            'validate_endpoint_connection_info',
+            platform=platform,
+            connection_info=connection_info,
+            mapped_regions=mapped_regions,
+        )
+
     def validate_endpoint_target_environment(self, ctxt, endpoint_id, target_env):
         return self._call(
             ctxt,
