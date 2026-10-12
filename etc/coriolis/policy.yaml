@@ -9,6 +9,7 @@
 "migration:endpoints:update": "rule:admin_or_owner"
 "migration:endpoints:delete": "rule:admin_or_owner"
 "migration:endpoints:validate_connection": "rule:admin_or_owner"
+"migration:endpoints:validate_connection_info": "rule:admin_or_owner"
 "migration:endpoints:list_instances": "rule:admin_or_owner"
 "migration:endpoints:get_instance": "rule:admin_or_owner"
 "migration:endpoints:list_networks": "rule:admin_or_owner"
