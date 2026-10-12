@@ -1483,6 +1483,26 @@ validate_connection:
   in: body
   type: object
   required: true
+validate_connection_info:
+  description: |
+    An object that contains the validate connection info action for the
+    given endpoint connection info.
+  in: body
+  type: object
+  required: true
+validate_connection_mapped_regions:
+  description: |
+    List of IDs of the Coriolis regions whose workers should be used to
+    validate the connection. Any worker can be used if omitted.
+  in: body
+  type: array
+  required: false
+validate_connection_platform:
+  description: |
+    The type of cloud service platform the connection info is for.
+  in: body
+  type: string
+  required: true
 validation_message:
   description: |
     The error message in case of endpoint validation failure.
