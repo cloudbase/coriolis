@@ -601,6 +601,53 @@ Response
   .. literalinclude:: ../api_samples/endpoint/endpoint-validate-connection-error-resp.json
      :language: javascript
 
+Validate Endpoint Connection Info
+=================================
+
+.. rest_method:: POST /endpoints/actions
+
+Validates the given connection info for an endpoint platform. This action does
+not depend on an existing endpoint and persists nothing, so it can be used to
+validate the connection info of an endpoint before creating or updating it.
+
+Normal response codes: 200
+
+Error response codes: badRequest(400), unauthorized(401), forbidden(403),
+itemNotFound(404)
+
+Request
+-------
+
+.. rest_parameters:: parameters.yaml
+
+  - validate-connection-info : validate_connection_info
+  - platform : validate_connection_platform
+  - connection_info : connection_info
+  - mapped_regions : validate_connection_mapped_regions
+
+**Example of Endpoint Validate Connection Info Request**
+  .. literalinclude:: ../api_samples/endpoint/endpoint-validate-connection-info-req.json
+      :language: javascript
+
+Response
+--------
+
+.. rest_parameters:: parameters.yaml
+
+  - validate-connection-info : validate_connection_info
+  - valid : valid_connection
+  - message : validation_message
+
+**Example of Endpoint Validate Connection Info Response**
+  .. literalinclude:: ../api_samples/endpoint/endpoint-validate-connection-info-resp.json
+     :language: javascript
+
+.. note:: In case the validation fails, an error message will be returned, as in the example below
+
+**Example of Failed Endpoint Connection Info Validation Response**
+  .. literalinclude:: ../api_samples/endpoint/endpoint-validate-connection-info-error-resp.json
+     :language: javascript
+
 
 Endpoint Minion Pool Options
 ============================
