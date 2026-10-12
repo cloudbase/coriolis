@@ -53,6 +53,12 @@ ENDPOINTS_POLICY_DEFAULT_RULES = [
         [{"path": "/endpoints/{endpoint_id}/actions", "method": "POST"}],
     ),
     policy.DocumentedRuleDefault(
+        get_endpoints_policy_label('validate_connection_info'),
+        ENDPOINTS_POLICY_DEFAULT_RULE,
+        "Validate the given endpoint connection info without an endpoint",
+        [{"path": "/endpoints/actions", "method": "POST"}],
+    ),
+    policy.DocumentedRuleDefault(
         get_endpoints_policy_label('list_instances'),
         ENDPOINTS_POLICY_DEFAULT_RULE,
         "List instances available for migration/replication",
