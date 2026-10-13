@@ -52,6 +52,14 @@ CORE_SCHEMA_PROPERTIES = {
             "during the OSMorphing stage."
         ),
     },
+    "retain_user_credentials": {
+        "type": "boolean",
+        "title": "Retain User Credentials",
+        "description": (
+            "Keep the guest user accounts during OS morphing. "
+            "When false, OS morphing creates the cloud-init user."
+        ),
+    },
 }
 
 CORE_DESTINATION_OPTIONS = (
@@ -65,6 +73,11 @@ CORE_DESTINATION_OPTIONS = (
         "name": "set_dhcp",
         "values": [],
         "config_default": True,
+    },
+    {
+        "name": "retain_user_credentials",
+        "values": [],
+        "config_default": False,
     },
 )
 
@@ -83,6 +96,11 @@ OSMORPHING_OVERRIDES = (
         "option": "set_dhcp",
         "field": "nics_set_dhcp",
         "target": "info",
+    },
+    {
+        "option": "retain_user_credentials",
+        "field": "retain_user_credentials",
+        "target": "parameters",
     },
 )
 
@@ -111,6 +129,11 @@ opts = [
     ),
     cfg.BoolOpt(
         "set_dhcp", default=True, help=CORE_SCHEMA_PROPERTIES["set_dhcp"]["description"]
+    ),
+    cfg.BoolOpt(
+        "retain_user_credentials",
+        default=False,
+        help=CORE_SCHEMA_PROPERTIES["retain_user_credentials"]["description"],
     ),
 ]
 

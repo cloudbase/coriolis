@@ -475,6 +475,7 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
         )
         self.assertTrue(result["nics_set_dhcp"])
         self.assertNotIn("set_dhcp", result.get("osmorphing_parameters") or {})
+        self.assertFalse(result["osmorphing_parameters"]["retain_user_credentials"])
 
     def test_inject_core_target_environment_schema_simple(self):
         schema = {
@@ -486,13 +487,18 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
         self.assertIn("cloudbase_init_plugins", result["properties"])
         self.assertIn("data_transfer_mechanism", result["properties"])
         self.assertIn("set_dhcp", result["properties"])
+        self.assertIn("retain_user_credentials", result["properties"])
         self.assertEqual(
             ["SSH", "HTTPS"], result["properties"]["data_transfer_mechanism"]["enum"]
         )
         self.assertEqual("boolean", result["properties"]["set_dhcp"]["type"])
+        self.assertEqual(
+            "boolean", result["properties"]["retain_user_credentials"]["type"]
+        )
         self.assertNotIn("cloudbase_init_plugins", schema["properties"])
         self.assertNotIn("data_transfer_mechanism", schema["properties"])
         self.assertNotIn("set_dhcp", schema["properties"])
+        self.assertNotIn("retain_user_credentials", schema["properties"])
 
     def test_inject_core_target_environment_schema_keeps_provider(self):
         schema = {
@@ -522,6 +528,7 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
             self.assertIn("cloudbase_init_plugins", alt["properties"])
             self.assertIn("data_transfer_mechanism", alt["properties"])
             self.assertIn("set_dhcp", alt["properties"])
+            self.assertIn("retain_user_credentials", alt["properties"])
 
     def _row_by_name(self, options, name):
         for opt in options:
@@ -536,6 +543,7 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
         self.assertIn("cloudbase_init_plugins", names)
         self.assertIn("data_transfer_mechanism", names)
         self.assertIn("set_dhcp", names)
+        self.assertIn("retain_user_credentials", names)
         self.assertEqual(options, [{"name": "zone", "values": []}])
 
     def test_merge_core_destination_options_provider_overwrites(self):
@@ -555,6 +563,10 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
             self._row_by_name(merged, "data_transfer_mechanism")["config_default"],
         )
         self.assertEqual(True, self._row_by_name(merged, "set_dhcp")["config_default"])
+        self.assertEqual(
+            False,
+            self._row_by_name(merged, "retain_user_credentials")["config_default"],
+        )
 
     def test_merge_core_destination_options_nested_row_fields(self):
         provider_options = [
@@ -582,6 +594,7 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
         self.assertIn("cloudbase_init_plugins", names)
         self.assertIn("data_transfer_mechanism", names)
         self.assertIn("set_dhcp", names)
+        self.assertIn("retain_user_credentials", names)
 
     def test_filter_core_option_names(self):
         result = dest_opts.filter_core_option_names(
@@ -590,6 +603,7 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
                 "cloudbase_init_plugins",
                 "data_transfer_mechanism",
                 "set_dhcp",
+                "retain_user_credentials",
                 "import_node",
             ]
         )

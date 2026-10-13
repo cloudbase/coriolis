@@ -56,7 +56,8 @@
           "properties": {
             "retain_user_credentials": {
               "type": "boolean",
-              "default": false
+              "default": false,
+              "description": "Keep the guest user accounts during OS morphing. When false, OS morphing creates the cloud-init user."
             },
             "cloudbase_init_plugins": {
               "type": "array",
