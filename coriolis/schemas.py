@@ -50,7 +50,11 @@ _CORIOLIS_DETECTED_OS_MORPHING_INFO_SCHEMA_NAME = (
 )
 
 
-def get_schema(package_name, schema_name, schemas_directory=DEFAULT_SCHEMAS_DIRECTORY):
+def get_schema(
+    package_name: str,
+    schema_name: str,
+    schemas_directory: str = DEFAULT_SCHEMAS_DIRECTORY,
+) -> dict:
     """Loads the schema using jinja2 template loading.
 
     Loads the schema with the given 'schema_name' using jinja2 template
@@ -88,7 +92,9 @@ def get_schema(package_name, schema_name, schemas_directory=DEFAULT_SCHEMAS_DIRE
     return schema
 
 
-def validate_value(val, schema, format_checker=None, raise_on_error=True):
+def validate_value(
+    val: dict | list, schema: dict, format_checker=None, raise_on_error: bool = True
+) -> bool:
     """Simple wrapper for jsonschema.validate for usability.
     NOTE: silently passes empty schemas.
 

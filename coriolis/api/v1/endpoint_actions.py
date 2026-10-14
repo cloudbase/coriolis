@@ -15,7 +15,9 @@ class EndpointActionsController(api_wsgi.Controller):
         super(EndpointActionsController, self).__init__()
 
     @api_wsgi.action('validate-connection')
-    def _validate_connection(self, req, id, body):
+    def _validate_connection(
+        self, req: api_wsgi.Request, id: str, body: dict[str, None]
+    ) -> dict[str, dict]:
         context = req.environ['coriolis.context']
         context.can(
             "%s:validate_connection" % (endpoint_policies.ENDPOINTS_POLICY_PREFIX)
@@ -29,5 +31,5 @@ class EndpointActionsController(api_wsgi.Controller):
             raise exc.HTTPNotFound(explanation=ex.msg)
 
 
-def create_resource():
+def create_resource() -> api_wsgi.Resource:
     return api_wsgi.Resource(EndpointActionsController())

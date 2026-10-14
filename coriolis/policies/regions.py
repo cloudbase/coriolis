@@ -10,7 +10,7 @@ REGIONS_POLICY_PREFIX = "%s:regions" % base.CORIOLIS_POLICIES_PREFIX
 REGIONS_POLICY_DEFAULT_RULE = "rule:admin_or_owner"
 
 
-def get_regions_policy_label(rule_label):
+def get_regions_policy_label(rule_label: str) -> str:
     return "%s:%s" % (REGIONS_POLICY_PREFIX, rule_label)
 
 
@@ -48,5 +48,5 @@ REGIONS_POLICY_DEFAULT_RULES = [
 ]
 
 
-def list_rules():
+def list_rules() -> list[policy.DocumentedRuleDefault]:
     return REGIONS_POLICY_DEFAULT_RULES

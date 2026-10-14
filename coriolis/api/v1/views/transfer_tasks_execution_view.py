@@ -10,7 +10,7 @@ from coriolis.api.v1.views import utils as view_utils
 LOG = logging.getLogger(__name__)
 
 
-def _sort_tasks(tasks, filter_error_only_tasks=True):
+def _sort_tasks(tasks: list, filter_error_only_tasks: bool = True) -> list:
     """
     Sorts the given list of dicts representing tasks.
     Tasks are sorted primarily based on their index.
@@ -22,7 +22,7 @@ def _sort_tasks(tasks, filter_error_only_tasks=True):
     return sorted(tasks, key=lambda t: t.get('index', 0))
 
 
-def format_transfer_tasks_execution(execution, keys=None):
+def format_transfer_tasks_execution(execution: dict, keys=None) -> dict:
     if "tasks" in execution:
         execution["tasks"] = _sort_tasks(execution["tasks"])
 
@@ -31,11 +31,11 @@ def format_transfer_tasks_execution(execution, keys=None):
     return execution_dict
 
 
-def single(execution, keys=None):
+def single(execution: dict, keys=None) -> dict[str, dict]:
     return {"execution": format_transfer_tasks_execution(execution, keys)}
 
 
-def collection(executions, keys=None):
+def collection(executions: list, keys=None) -> dict[str, list]:
     formatted_executions = [
         format_transfer_tasks_execution(m, keys) for m in executions
     ]

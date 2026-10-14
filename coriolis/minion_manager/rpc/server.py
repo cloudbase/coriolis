@@ -4,6 +4,7 @@
 import datetime
 import math
 import uuid
+from typing import Any, ValuesView
 
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -47,7 +48,11 @@ MINION_POOL_REFRESH_CRON_JOB_DESCRIPTION_FORMAT = (
 )
 
 
-def _trigger_pool_refresh(ctxt, minion_manager_client, minion_pool_id):
+def _trigger_pool_refresh(
+    ctxt: context.RequestContext,
+    minion_manager_client: rpc_minion_manager_client.MinionManagerClient,
+    minion_pool_id: str,
+) -> None:
     try:
         minion_manager_client.refresh_minion_pool(ctxt, minion_pool_id)
     except exception.InvalidMinionPoolState as ex:
@@ -80,7 +85,7 @@ class MinionManagerServerEndpoint(object):
                 utils.get_exception_details(),
             )
 
-    def _init_pools_refresh_cron_jobs(self):
+    def _init_pools_refresh_cron_jobs(self) -> None:
         minion_pools = db_api.get_minion_pools(
             self._admin_ctxt,
             include_machines=False,
@@ -124,7 +129,9 @@ class MinionManagerServerEndpoint(object):
                     utils.get_exception_details(),
                 )
 
-    def _register_refresh_jobs_for_minion_pool(self, minion_pool, period_minutes=None):
+    def _register_refresh_jobs_for_minion_pool(
+        self, minion_pool: models.MinionPool, period_minutes: int | None = None
+    ) -> None:
         if period_minutes is None:
             period_minutes = (
                 CONF.minion_manager.minion_pool_default_refresh_period_minutes
@@ -181,8 +188,8 @@ class MinionManagerServerEndpoint(object):
             )
 
     def _unregister_refresh_jobs_for_minion_pool(
-        self, minion_pool, raise_on_error=True
-    ):
+        self, minion_pool: models.MinionPool, raise_on_error: bool = True
+    ) -> None:
         job_prefix = MINION_POOL_REFRESH_JOB_PREFIX_FORMAT % (minion_pool.id)
         try:
             self._cron.unregister_jobs_with_prefix(job_prefix)
@@ -216,29 +223,33 @@ class MinionManagerServerEndpoint(object):
         return self._worker_client_instance
 
     @property
-    def _rpc_scheduler_client(self):
+    def _rpc_scheduler_client(self) -> rpc_scheduler_client.SchedulerClient:
         if not getattr(self, '_scheduler_client_instance', None):
             self._scheduler_client_instance = rpc_scheduler_client.SchedulerClient()
         return self._scheduler_client_instance
 
     @property
-    def _rpc_conductor_client(self):
+    def _rpc_conductor_client(self) -> rpc_conductor_client.ConductorClient:
         if not getattr(self, '_conductor_client_instance', None):
             self._conductor_client_instance = rpc_conductor_client.ConductorClient()
         return self._conductor_client_instance
 
     @property
-    def _rpc_minion_manager_client(self):
+    def _rpc_minion_manager_client(
+        self,
+    ) -> rpc_minion_manager_client.MinionManagerClient:
         if not getattr(self, '_minion_manager_client_instance', None):
             self._minion_manager_client_instance = (
                 rpc_minion_manager_client.MinionManagerClient()
             )
         return self._minion_manager_client_instance
 
-    def get_diagnostics(self, ctxt):
+    def get_diagnostics(self, ctxt: context.RequestContext) -> dict:
         return utils.get_diagnostics_info()
 
-    def _check_minion_pool_capability(self, ctxt, platform_name, provider_type):
+    def _check_minion_pool_capability(
+        self, ctxt: context.RequestContext, platform_name: str, provider_type: int
+    ) -> None:
         # Raises 405 error if the platform does not support minion pools.
         provider_types = (
             self._rpc_conductor_client.get_available_providers(ctxt)
@@ -251,8 +262,12 @@ class MinionManagerServerEndpoint(object):
             )
 
     def get_endpoint_source_minion_pool_options(
-        self, ctxt, endpoint_id, env, option_names
-    ):
+        self,
+        ctxt: context.RequestContext,
+        endpoint_id: str,
+        env: dict[Any, Any],
+        option_names: dict[Any, Any],
+    ) -> list[dict]:
         endpoint = self._rpc_conductor_client.get_endpoint(ctxt, endpoint_id)
         self._check_minion_pool_capability(
             ctxt, endpoint['type'], constants.PROVIDER_TYPE_SOURCE_MINION_POOL
@@ -275,8 +290,12 @@ class MinionManagerServerEndpoint(object):
         )
 
     def get_endpoint_destination_minion_pool_options(
-        self, ctxt, endpoint_id, env, option_names
-    ):
+        self,
+        ctxt: context.RequestContext,
+        endpoint_id: str,
+        env: dict[Any, Any],
+        option_names: dict[Any, Any],
+    ) -> list[dict]:
         endpoint = self._rpc_conductor_client.get_endpoint(ctxt, endpoint_id)
         self._check_minion_pool_capability(
             ctxt, endpoint['type'], constants.PROVIDER_TYPE_DESTINATION_MINION_POOL
@@ -299,8 +318,11 @@ class MinionManagerServerEndpoint(object):
         )
 
     def validate_endpoint_source_minion_pool_options(
-        self, ctxt, endpoint_id, pool_environment
-    ):
+        self,
+        ctxt: context.RequestContext,
+        endpoint_id: str,
+        pool_environment: dict[Any, Any],
+    ) -> tuple[bool, None]:
         endpoint = self._rpc_conductor_client.get_endpoint(ctxt, endpoint_id)
         self._check_minion_pool_capability(
             ctxt, endpoint['type'], constants.PROVIDER_TYPE_SOURCE_MINION_POOL
@@ -323,8 +345,11 @@ class MinionManagerServerEndpoint(object):
         )
 
     def validate_endpoint_destination_minion_pool_options(
-        self, ctxt, endpoint_id, pool_environment
-    ):
+        self,
+        ctxt: context.RequestContext,
+        endpoint_id: str,
+        pool_environment: dict[Any, Any],
+    ) -> tuple[bool, None]:
         endpoint = self._rpc_conductor_client.get_endpoint(ctxt, endpoint_id)
         self._check_minion_pool_capability(
             ctxt, endpoint['type'], constants.PROVIDER_TYPE_DESTINATION_MINION_POOL
@@ -346,7 +371,13 @@ class MinionManagerServerEndpoint(object):
             ctxt, endpoint['type'], pool_environment
         )
 
-    def _add_minion_pool_event(self, ctxt, minion_pool_id, level, message):
+    def _add_minion_pool_event(
+        self,
+        ctxt: context.RequestContext,
+        minion_pool_id: str,
+        level: str,
+        message: str,
+    ) -> None:
         LOG.info("Minion pool event for pool %s: %s", minion_pool_id, message)
         pool = db_api.get_minion_pool(ctxt, minion_pool_id)
         db_api.add_minion_pool_event(ctxt, pool.id, level, message)
@@ -405,8 +436,11 @@ class MinionManagerServerEndpoint(object):
         )
 
     def _check_keys_for_action_dict(
-        self, action, required_action_properties, operation=None
-    ):
+        self,
+        action: dict,
+        required_action_properties: list[str],
+        operation: str | None = None,
+    ) -> None:
         if not isinstance(action, dict):
             raise exception.InvalidInput(
                 "Action must be a dict, got '%s': %s" % (type(action), action)
@@ -418,7 +452,9 @@ class MinionManagerServerEndpoint(object):
                 "%s: %s. Got %s" % (operation, missing, action)
             )
 
-    def validate_minion_pool_selections_for_action(self, ctxt, action):
+    def validate_minion_pool_selections_for_action(
+        self, ctxt: context.RequestContext, action: dict
+    ) -> None:
         """Validates the minion pool selections for a given action."""
         required_action_properties = [
             'id',
@@ -448,7 +484,7 @@ class MinionManagerServerEndpoint(object):
             )
         }
 
-        def _get_pool(pool_id):
+        def _get_pool(pool_id: str) -> models.MinionPool:
             pool = minion_pools.get(pool_id)
             if not pool:
                 raise exception.NotFound(
@@ -456,7 +492,11 @@ class MinionManagerServerEndpoint(object):
                 )
             return pool
 
-        def _check_pool_minion_count(minion_pool, instances, minion_pool_type=""):
+        def _check_pool_minion_count(
+            minion_pool: models.MinionPool,
+            instances: list[str],
+            minion_pool_type: str = "",
+        ) -> None:
             desired_minion_count = len(instances)
             if minion_pool.status != constants.MINION_POOL_STATUS_ALLOCATED:
                 raise exception.InvalidMinionPoolState(
@@ -639,7 +679,9 @@ class MinionManagerServerEndpoint(object):
             strutils.mask_dict_password(action),
         )
 
-    def allocate_minion_machines_for_transfer(self, ctxt, transfer):
+    def allocate_minion_machines_for_transfer(
+        self, ctxt: context.RequestContext, transfer: dict
+    ) -> None:
         try:
             self._run_machine_allocation_subflow_for_action(
                 ctxt,
@@ -667,11 +709,11 @@ class MinionManagerServerEndpoint(object):
 
     def allocate_minion_machines_for_deployment(
         self,
-        ctxt,
-        deployment,
-        include_transfer_minions=True,
-        include_osmorphing_minions=True,
-    ):
+        ctxt: context.RequestContext,
+        deployment: dict,
+        include_transfer_minions: bool = True,
+        include_osmorphing_minions: bool = True,
+    ) -> None:
         try:
             self._run_machine_allocation_subflow_for_action(
                 ctxt,
@@ -699,13 +741,13 @@ class MinionManagerServerEndpoint(object):
 
     def _make_minion_machine_allocation_subflow_for_action(
         self,
-        ctxt,
-        minion_pool,
-        action_id,
-        action_instances,
-        subflow_name,
-        inject_for_tasks=None,
-    ):
+        ctxt: context.RequestContext,
+        minion_pool: models.MinionPool,
+        action_id: str,
+        action_instances: list[str],
+        subflow_name: str,
+        inject_for_tasks: dict | None = None,
+    ) -> dict:
         """Creates a subflow for allocating minion machines from the
         provided minion pool to the given action (one for each instance)
 
@@ -747,7 +789,9 @@ class MinionManagerServerEndpoint(object):
                 )
             )
 
-        def _select_machine(minion_pool, exclude=None):
+        def _select_machine(
+            minion_pool: models.MinionPool, exclude: ValuesView[Any] | None = None
+        ) -> models.MinionMachine:
             selected_machine = None
             # NOTE(aznashwan): this will iterate through machines in a set
             # order every time, thus ensuring that some are preferred over
@@ -964,12 +1008,12 @@ class MinionManagerServerEndpoint(object):
 
     def _run_machine_allocation_subflow_for_action(
         self,
-        ctxt,
-        action,
-        action_type,
-        include_transfer_minions=True,
-        include_osmorphing_minions=True,
-    ):
+        ctxt: context.RequestContext,
+        action: dict,
+        action_type: str,
+        include_transfer_minions: bool = True,
+        include_osmorphing_minions: bool = True,
+    ) -> linear_flow.Flow:
         """Defines and starts a taskflow subflow for allocating minion
         machines for the given action.
         If there are no more minion machines available, upscaling will occur.
@@ -1041,7 +1085,9 @@ class MinionManagerServerEndpoint(object):
         )
         pools_used = []
 
-        def _check_pool_allocation_status(minion_pool, minion_pool_type):
+        def _check_pool_allocation_status(
+            minion_pool: models.MinionPool, minion_pool_type: str
+        ) -> None:
             if minion_pool.status != constants.MINION_POOL_STATUS_ALLOCATED:
                 raise exception.InvalidMinionPoolState(
                     "Minion Pool '%s' is an invalid state ('%s') to be "
@@ -1360,7 +1406,9 @@ class MinionManagerServerEndpoint(object):
                     )
                     db_api.delete_minion_machine(ctxt, machine.id)
 
-    def deallocate_minion_machine(self, ctxt, minion_machine_id):
+    def deallocate_minion_machine(
+        self, ctxt: context.RequestContext, minion_machine_id: str
+    ) -> None:
 
         minion_machine = db_api.get_minion_machine(ctxt, minion_machine_id)
         if not minion_machine:
@@ -1406,7 +1454,9 @@ class MinionManagerServerEndpoint(object):
                 "Successfully deallocated minion machine with '%s'.", minion_machine.id
             )
 
-    def deallocate_minion_machines_for_action(self, ctxt, action_id):
+    def deallocate_minion_machines_for_action(
+        self, ctxt: context.RequestContext, action_id: str
+    ) -> None:
 
         allocated_minion_machines = db_api.get_minion_machines(
             ctxt, allocated_action_id=action_id
@@ -1487,13 +1537,13 @@ class MinionManagerServerEndpoint(object):
 
     def _get_healtchcheck_flow_for_minion_machine(
         self,
-        minion_pool,
-        minion_machine,
-        allocate_to_action=None,
-        machine_status_on_success=constants.MINION_MACHINE_STATUS_AVAILABLE,  # noqa: E501
-        power_on_machine=True,
-        inject_for_tasks=None,
-    ):
+        minion_pool: models.MinionPool,
+        minion_machine: models.MinionMachine,
+        allocate_to_action: str | None = None,
+        machine_status_on_success: str = constants.MINION_MACHINE_STATUS_AVAILABLE,  # noqa: E501
+        power_on_machine: bool = True,
+        inject_for_tasks: dict | None = None,
+    ) -> graph_flow.Flow:
         """Returns a taskflow graph flow with a healtcheck task
         and redeployment subflow on error."""
         # define healthcheck subflow for each machine:
@@ -1599,7 +1649,12 @@ class MinionManagerServerEndpoint(object):
 
         return machine_healthcheck_subflow
 
-    def _get_minion_pool_refresh_flow(self, ctxt, minion_pool, requery=True):
+    def _get_minion_pool_refresh_flow(
+        self,
+        ctxt: context.RequestContext,
+        minion_pool: models.MinionPool,
+        requery: bool = True,
+    ) -> unordered_flow.Flow:
 
         if requery:
             minion_pool = self._get_minion_pool(
@@ -1817,7 +1872,9 @@ class MinionManagerServerEndpoint(object):
         return pool_refresh_flow
 
     @minion_manager_utils.minion_pool_synchronized_op
-    def refresh_minion_pool(self, ctxt, minion_pool_id):
+    def refresh_minion_pool(
+        self, ctxt: context.RequestContext, minion_pool_id: str
+    ) -> models.MinionPool:
         LOG.info("Attempting to healthcheck Minion Pool '%s'.", minion_pool_id)
         minion_pool = self._get_minion_pool(
             ctxt,
@@ -1876,7 +1933,9 @@ class MinionManagerServerEndpoint(object):
             include_progress_updates=True,
         )
 
-    def _get_minion_pool_allocation_flow(self, minion_pool):
+    def _get_minion_pool_allocation_flow(
+        self, minion_pool: models.MinionPool
+    ) -> linear_flow.Flow:
         """Returns a taskflow.Flow object pertaining to all the tasks
         required for allocating a minion pool (validation, shared resource
         setup, and actual minion creation)
@@ -1968,19 +2027,19 @@ class MinionManagerServerEndpoint(object):
 
     def create_minion_pool(
         self,
-        ctxt,
-        name,
-        endpoint_id,
-        pool_platform,
-        pool_os_type,
-        environment_options,
-        minimum_minions,
-        maximum_minions,
-        minion_max_idle_time,
-        minion_retention_strategy,
+        ctxt: context.RequestContext,
+        name: str,
+        endpoint_id: str,
+        pool_platform: str,
+        pool_os_type: str,
+        environment_options: dict[Any, Any],
+        minimum_minions: int,
+        maximum_minions: int,
+        minion_max_idle_time: int,
+        minion_retention_strategy: str,
         notes=None,
-        skip_allocation=False,
-    ):
+        skip_allocation: bool = False,
+    ) -> models.MinionPool:
 
         endpoint_dict = self._rpc_conductor_client.get_endpoint(ctxt, endpoint_id)
         minion_pool = models.MinionPool()
@@ -2046,7 +2105,12 @@ class MinionManagerServerEndpoint(object):
 
         return self.get_minion_pool(ctxt, minion_pool.id)
 
-    def _get_pool_initial_taskflow_store_base(self, ctxt, minion_pool, endpoint_dict):
+    def _get_pool_initial_taskflow_store_base(
+        self,
+        ctxt: context.RequestContext,
+        minion_pool: models.MinionPool,
+        endpoint_dict: models.Endpoint,
+    ) -> dict:
         # NOTE: considering pools are associated to strictly one endpoint,
         # we can duplicate the 'origin/destination':
         origin_info = {
@@ -2072,8 +2136,12 @@ class MinionManagerServerEndpoint(object):
         return initial_store
 
     def _check_pool_machines_in_use(
-        self, ctxt, minion_pool, raise_if_in_use=False, requery=False
-    ):
+        self,
+        ctxt: context.RequestContext,
+        minion_pool: models.MinionPool,
+        raise_if_in_use: bool = False,
+        requery: bool = False,
+    ) -> set[Any]:
         """Checks whether the given pool has any machines currently in-use.
         Returns a list of the used machines if so, or an empty list of not.
         """
@@ -2105,7 +2173,9 @@ class MinionManagerServerEndpoint(object):
         return used_machines
 
     @minion_manager_utils.minion_pool_synchronized_op
-    def allocate_minion_pool(self, ctxt, minion_pool_id):
+    def allocate_minion_pool(
+        self, ctxt: context.RequestContext, minion_pool_id: str
+    ) -> models.MinionPool:
         LOG.info("Attempting to allocate Minion Pool '%s'.", minion_pool_id)
         minion_pool = self._get_minion_pool(
             ctxt,
@@ -2168,7 +2238,9 @@ class MinionManagerServerEndpoint(object):
             include_progress_updates=True,
         )
 
-    def _get_minion_pool_deallocation_flow(self, minion_pool, raise_on_error=True):
+    def _get_minion_pool_deallocation_flow(
+        self, minion_pool: models.MinionPool, raise_on_error: bool = True
+    ) -> linear_flow.Flow:
         """Returns a taskflow.Flow object pertaining to all the tasks
         required for deallocating a minion pool (machines and shared resources)
         """
@@ -2229,7 +2301,12 @@ class MinionManagerServerEndpoint(object):
 
         return deallocation_flow
 
-    def _get_pool_deallocation_initial_store(self, ctxt, minion_pool, endpoint_dict):
+    def _get_pool_deallocation_initial_store(
+        self,
+        ctxt: context.RequestContext,
+        minion_pool: models.MinionPool,
+        endpoint_dict: models.Endpoint,
+    ) -> dict:
         base = self._get_pool_initial_taskflow_store_base(
             ctxt, minion_pool, endpoint_dict
         )
@@ -2239,7 +2316,9 @@ class MinionManagerServerEndpoint(object):
         return base
 
     @minion_manager_utils.minion_pool_synchronized_op
-    def deallocate_minion_pool(self, ctxt, minion_pool_id, force=False):
+    def deallocate_minion_pool(
+        self, ctxt: context.RequestContext, minion_pool_id: str, force: bool = False
+    ) -> models.MinionPool:
         LOG.info("Attempting to deallocate Minion Pool '%s'.", minion_pool_id)
         minion_pool = self._get_minion_pool(
             ctxt,
@@ -2332,7 +2411,9 @@ class MinionManagerServerEndpoint(object):
             include_progress_updates=True,
         )
 
-    def get_minion_pools(self, ctxt, include_machines=True):
+    def get_minion_pools(
+        self, ctxt: context.RequestContext, include_machines: bool = True
+    ) -> list:
         return db_api.get_minion_pools(
             ctxt,
             include_machines=include_machines,
@@ -2342,12 +2423,12 @@ class MinionManagerServerEndpoint(object):
 
     def _get_minion_pool(
         self,
-        ctxt,
-        minion_pool_id,
-        include_machines=False,
-        include_events=False,
-        include_progress_updates=False,
-    ):
+        ctxt: context.RequestContext,
+        minion_pool_id: str,
+        include_machines: bool = False,
+        include_events: bool = False,
+        include_progress_updates: bool = False,
+    ) -> models.MinionPool:
         minion_pool = db_api.get_minion_pool(
             ctxt,
             minion_pool_id,
@@ -2363,7 +2444,9 @@ class MinionManagerServerEndpoint(object):
         return minion_pool
 
     @minion_manager_utils.minion_pool_synchronized_op
-    def get_minion_pool(self, ctxt, minion_pool_id):
+    def get_minion_pool(
+        self, ctxt: context.RequestContext, minion_pool_id: str
+    ) -> models.MinionPool | None:
         return self._get_minion_pool(
             ctxt,
             minion_pool_id,
@@ -2373,7 +2456,9 @@ class MinionManagerServerEndpoint(object):
         )
 
     @minion_manager_utils.minion_pool_synchronized_op
-    def update_minion_pool(self, ctxt, minion_pool_id, updated_values):
+    def update_minion_pool(
+        self, ctxt: context.RequestContext, minion_pool_id: str, updated_values: dict
+    ) -> models.MinionPool:
         minion_pool = self._get_minion_pool(
             ctxt, minion_pool_id, include_machines=False
         )
@@ -2411,7 +2496,9 @@ class MinionManagerServerEndpoint(object):
         )
 
     @minion_manager_utils.minion_pool_synchronized_op
-    def delete_minion_pool(self, ctxt, minion_pool_id):
+    def delete_minion_pool(
+        self, ctxt: context.RequestContext, minion_pool_id: str
+    ) -> None:
         minion_pool = self._get_minion_pool(ctxt, minion_pool_id, include_machines=True)
         acceptable_deletion_statuses = [
             constants.MINION_POOL_STATUS_DEALLOCATED,

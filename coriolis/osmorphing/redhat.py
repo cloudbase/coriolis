@@ -5,6 +5,7 @@ import os
 import re
 import shlex
 import uuid
+from typing import Any
 
 from oslo_log import log as logging
 
@@ -37,14 +38,14 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
     def __init__(
         self,
         conn,
-        os_root_dir,
-        os_root_dev,
+        os_root_dir: str,
+        os_root_dev: str,
         hypervisor,
         event_manager,
-        detected_os_info,
-        osmorphing_parameters,
+        detected_os_info: dict[str, str],
+        osmorphing_parameters: dict[Any, Any],
         operation_timeout=None,
-        nics_set_dhcp=True,
+        nics_set_dhcp: bool = True,
     ):
         super(BaseRedHatMorphingTools, self).__init__(
             conn,
@@ -178,7 +179,7 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
                 )
             LOG.debug("Commented all %s references from '%s'" % (keys, fullpath))
 
-    def set_net_config(self, nics_info, dhcp):
+    def set_net_config(self, nics_info: list | None, dhcp: bool) -> None:
         if dhcp:
             nics_info = nics_info or []
             if not nics_info:
@@ -194,7 +195,7 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         LOG.info("Setting static IP configuration")
         self._setup_network_preservation(nics_info)
 
-    def get_installed_packages(self):
+    def get_installed_packages(self) -> None:
         cmd = 'rpm -qa --qf "%{NAME}\\n"'
         try:
             self.installed_packages = self._exec_cmd_chroot(cmd).splitlines()
@@ -203,7 +204,7 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
             LOG.trace(utils.get_exception_details())
             self.installed_packages = []
 
-    def _yum_install(self, package_names):
+    def _yum_install(self, package_names: list[str]) -> None:
         try:
             yum_cmd = 'yum install %s -y %s %s' % (
                 " ".join(package_names),
@@ -230,7 +231,7 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
                 package_names=package_names, package_manager='yum', error=str(err)
             ) from err
 
-    def _yum_clean_all(self):
+    def _yum_clean_all(self) -> None:
         try:
             self._exec_cmd_chroot("yum clean all")
         except exception.CoriolisException:
@@ -244,10 +245,10 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         if self._test_path('var/cache/yum'):
             self._exec_cmd_chroot("rm -rf /var/cache/yum")
 
-    def _get_repos_to_enable(self):
+    def _get_repos_to_enable(self) -> list[Any]:
         return []
 
-    def enable_repos(self, repo_names):
+    def enable_repos(self, repo_names: list[Any]):
         """Enable repositories using subscription-manager for
         Red Hat Enterprise Linux.
 
@@ -269,7 +270,7 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
                     f"Error was: {utils.get_exception_details()}"
                 )
 
-    def pre_packages_install(self, package_names):
+    def pre_packages_install(self, package_names: list[str]) -> None:
         super(BaseRedHatMorphingTools, self).pre_packages_install(package_names)
         self._yum_clean_all()
         if 'grubby' not in self.installed_packages:
@@ -277,13 +278,13 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
         else:
             LOG.debug("Skipping package 'grubby' as it's already installed")
 
-    def post_packages_install(self, package_names):
+    def post_packages_install(self, package_names: list[str]) -> None:
         self._configure_cloud_init()
         self._run_dracut()
         self._set_selinux_autorelabel()
         super(BaseRedHatMorphingTools, self).post_packages_install(package_names)
 
-    def install_packages(self, package_names):
+    def install_packages(self, package_names: list[str]) -> None:
         repos_to_enable = self._get_repos_to_enable()
         self.enable_repos(repos_to_enable)
         self._yum_install(package_names)
@@ -291,7 +292,7 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
     def uninstall_packages(self, package_names):
         self._yum_uninstall(package_names)
 
-    def _run_dracut(self):
+    def _run_dracut(self) -> None:
         self._exec_cmd_chroot("dracut --regenerate-all -f")
 
     def _set_network_nozeroconf_config(self):

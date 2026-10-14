@@ -17,7 +17,7 @@ class EndpointSourceOptionsController(api_wsgi.Controller):
         self._source_options_api = api.API()
         super(EndpointSourceOptionsController, self).__init__()
 
-    def index(self, req, endpoint_id):
+    def index(self, req: api_wsgi.Request, endpoint_id: str) -> dict[str, list]:
         context = req.environ['coriolis.context']
         context.can(
             "%s:list_source_options" % (endpoint_policies.ENDPOINTS_POLICY_PREFIX)
@@ -42,5 +42,5 @@ class EndpointSourceOptionsController(api_wsgi.Controller):
         )
 
 
-def create_resource():
+def create_resource() -> api_wsgi.Resource:
     return api_wsgi.Resource(EndpointSourceOptionsController())

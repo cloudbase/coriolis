@@ -42,14 +42,14 @@ DEFAULT_POLICIES_MODULES = [
 ]
 
 
-def reset():
+def reset() -> None:
     global _ENFORCER
     if _ENFORCER:
         _ENFORCER.clear()
     _ENFORCER = None
 
 
-def init():
+def init() -> None:
     global _ENFORCER
     global saved_file_rules
 
@@ -59,7 +59,7 @@ def init():
         _ENFORCER.load_rules()
 
 
-def register_rules(enforcer):
+def register_rules(enforcer: policy.Enforcer) -> None:
     enforcer.register_defaults(
         itertools.chain(*[m.list_rules() for m in DEFAULT_POLICIES_MODULES])
     )
@@ -70,7 +70,13 @@ def get_enforcer():
     return _ENFORCER
 
 
-def check_policy_for_context(context, action, target, exc=None, do_raise=True):
+def check_policy_for_context(
+    context,
+    action: str,
+    target: dict[str, str],
+    exc: type[exception.PolicyNotAuthorized] | None = None,
+    do_raise: bool = True,
+) -> bool:
     """Checks the validity of the given action of the given target based on
     set policies.
     On success, returns a value where bool(val) == True.

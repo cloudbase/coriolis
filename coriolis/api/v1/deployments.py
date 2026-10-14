@@ -1,6 +1,8 @@
 # Copyright 2024 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from typing import NoReturn
+
 from oslo_log import log as logging
 from webob import exc
 
@@ -22,7 +24,7 @@ class DeploymentsController(api_wsgi.Controller):
         self._endpoints_api = endpoints_api.API()
         super(DeploymentsController, self).__init__()
 
-    def show(self, req, id):
+    def show(self, req: api_wsgi.Request, id: str) -> dict[str, dict]:
         context = req.environ["coriolis.context"]
         context.can(deployment_policies.get_deployments_policy_label("show"))
         include_task_info = api_utils.get_bool_url_arg(
@@ -36,7 +38,7 @@ class DeploymentsController(api_wsgi.Controller):
 
         return deployment_view.single(deployment)
 
-    def _get_filters(self, req) -> dict:
+    def _get_filters(self, req: api_wsgi.Request) -> dict:
         filters = {}
         # For simplicity and consistency, we'll use "status" to search for a
         # given "last_execution_status".
@@ -49,7 +51,7 @@ class DeploymentsController(api_wsgi.Controller):
             filters["status"] = status
         return filters
 
-    def _list(self, req):
+    def _list(self, req: api_wsgi.Request) -> dict[str, list]:
         show_deleted = api_utils.get_bool_url_arg(req, "show_deleted", default=False)
         context = req.environ["coriolis.context"]
         context.show_deleted = show_deleted
@@ -75,14 +77,14 @@ class DeploymentsController(api_wsgi.Controller):
             )
         )
 
-    def index(self, req):
+    def index(self, req: api_wsgi.Request) -> dict[str, list]:
         return self._list(req)
 
     def detail(self, req):
         return self._list(req)
 
     @api_utils.format_keyerror_message(resource='deployment', method='create')
-    def _validate_deployment_input(self, context, body):
+    def _validate_deployment_input(self, context, body) -> tuple:
         deployment = body["deployment"]
 
         transfer_id = deployment.get("transfer_id", "")
@@ -111,7 +113,7 @@ class DeploymentsController(api_wsgi.Controller):
             user_scripts,
         )
 
-    def create(self, req, body):
+    def create(self, req: api_wsgi.Request, body: dict[str, dict]) -> dict[str, dict]:
         context = req.environ['coriolis.context']
         context.can(deployment_policies.get_deployments_policy_label("create"))
 
@@ -138,7 +140,7 @@ class DeploymentsController(api_wsgi.Controller):
 
         return deployment_view.single(deployment)
 
-    def delete(self, req, id):
+    def delete(self, req: api_wsgi.Request, id: str) -> NoReturn:
         context = req.environ['coriolis.context']
         context.can(deployment_policies.get_deployments_policy_label("delete"))
         try:
@@ -148,5 +150,5 @@ class DeploymentsController(api_wsgi.Controller):
             raise exc.HTTPNotFound(explanation=ex.msg)
 
 
-def create_resource():
+def create_resource() -> api_wsgi.Resource:
     return api_wsgi.Resource(DeploymentsController())

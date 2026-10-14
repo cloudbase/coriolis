@@ -8,6 +8,7 @@ import sys
 import threading
 import time
 from logging import handlers
+from typing import Any
 
 import psutil
 from oslo_config import cfg
@@ -32,7 +33,12 @@ VERSION = "1.0"
 
 # TODO(aznashwan): parametrize the event handler provided during task execution
 # to decouple what gets notified from the task running logic itself:
-def _get_event_handler_for_task_type(task_type, ctxt, task_object_id):
+def _get_event_handler_for_task_type(
+    task_type: str, ctxt: context.RequestContext, task_object_id: str
+) -> (
+    rpc_conductor_client.ConductorTaskRpcEventHandler
+    | rpc_minion_manager_client.MinionManagerPoolRpcEventHandler
+):
     if task_type in constants.MINION_POOL_OPERATIONS_TASKS:
         return rpc_minion_manager_client.MinionManagerPoolRpcEventHandler(
             ctxt, task_object_id
@@ -48,7 +54,7 @@ class WorkerServerEndpoint(object):
         self._lock = threading.Lock()
 
     @property
-    def _rpc_conductor_client(self):
+    def _rpc_conductor_client(self) -> rpc_conductor_client.ConductorClient:
         # NOTE(aznashwan): it is unsafe to fork processes with pre-instantiated
         # oslo_messaging clients as the underlying thread queues will
         # be invalidated. Considering this class both serves from a "main
@@ -91,7 +97,7 @@ class WorkerServerEndpoint(object):
         self._service_registration = service_registration
         return service_registration
 
-    def get_service_status(self, ctxt):
+    def get_service_status(self, ctxt: context.RequestContext) -> dict:
         diagnostics = self.get_diagnostics(ctxt)
         status = {
             "host": diagnostics["hostname"],
@@ -103,7 +109,9 @@ class WorkerServerEndpoint(object):
 
         return status
 
-    def cancel_task(self, ctxt, task_id, process_id, force):
+    def cancel_task(
+        self, ctxt: context.RequestContext, task_id: str, process_id: int, force: bool
+    ) -> None:
         LOG.debug(
             "Received request to cancel task '%s' (process %s)", task_id, process_id
         )
@@ -323,15 +331,15 @@ class WorkerServerEndpoint(object):
 
     def exec_task(
         self,
-        ctxt,
-        task_id,
-        task_type,
-        origin,
-        destination,
-        instance,
-        task_info,
-        report_to_conductor=True,
-    ):
+        ctxt: context.RequestContext,
+        task_id: str,
+        task_type: str,
+        origin: dict,
+        destination: dict,
+        instance: str,
+        task_info: dict,
+        report_to_conductor: bool = True,
+    ) -> dict | None:
         try:
             task_result = self._exec_task_process(
                 ctxt,
@@ -393,15 +401,15 @@ class WorkerServerEndpoint(object):
 
     def get_endpoint_instances(
         self,
-        ctxt,
-        platform_name,
-        connection_info,
-        source_environment,
+        ctxt: context.RequestContext,
+        platform_name: str,
+        connection_info: dict[str, str],
+        source_environment: dict[Any, Any],
         marker,
         limit,
-        instance_name_pattern,
-        refresh=False,
-    ):
+        instance_name_pattern: str | None,
+        refresh: bool = False,
+    ) -> list[dict]:
         export_provider = providers_factory.get_provider(
             platform_name, constants.PROVIDER_TYPE_ENDPOINT_INSTANCES, None
         )
@@ -425,8 +433,13 @@ class WorkerServerEndpoint(object):
         return instances_info
 
     def get_endpoint_instance(
-        self, ctxt, platform_name, connection_info, source_environment, instance_name
-    ):
+        self,
+        ctxt: context.RequestContext,
+        platform_name: str,
+        connection_info: dict[str, str],
+        source_environment: dict[Any, Any],
+        instance_name: str,
+    ) -> dict:
         provider = providers_factory.get_provider(
             platform_name, constants.PROVIDER_TYPE_ENDPOINT_INSTANCES, None
         )
@@ -442,8 +455,13 @@ class WorkerServerEndpoint(object):
         return instance_info
 
     def get_endpoint_destination_options(
-        self, ctxt, platform_name, connection_info, env, option_names
-    ):
+        self,
+        ctxt: context.RequestContext,
+        platform_name: str,
+        connection_info: dict[str, str],
+        env: dict[Any, Any],
+        option_names: dict[Any, Any],
+    ) -> list[dict]:
         provider = providers_factory.get_provider(
             platform_name,
             constants.PROVIDER_TYPE_DESTINATION_ENDPOINT_OPTIONS,
@@ -469,8 +487,13 @@ class WorkerServerEndpoint(object):
         return options
 
     def get_endpoint_source_minion_pool_options(
-        self, ctxt, platform_name, connection_info, env, option_names
-    ):
+        self,
+        ctxt: context.RequestContext,
+        platform_name: str,
+        connection_info: dict[str, str],
+        env: dict[Any, Any],
+        option_names: dict[Any, Any],
+    ) -> list[dict]:
         provider = providers_factory.get_provider(
             platform_name,
             constants.PROVIDER_TYPE_SOURCE_MINION_POOL,
@@ -497,8 +520,13 @@ class WorkerServerEndpoint(object):
         return options
 
     def get_endpoint_destination_minion_pool_options(
-        self, ctxt, platform_name, connection_info, env, option_names
-    ):
+        self,
+        ctxt: context.RequestContext,
+        platform_name: str,
+        connection_info: dict[str, str],
+        env: dict[Any, Any],
+        option_names: dict[Any, Any],
+    ) -> list[dict]:
         provider = providers_factory.get_provider(
             platform_name,
             constants.PROVIDER_TYPE_DESTINATION_MINION_POOL,
@@ -525,8 +553,13 @@ class WorkerServerEndpoint(object):
         return options
 
     def get_endpoint_source_options(
-        self, ctxt, platform_name, connection_info, env, option_names
-    ):
+        self,
+        ctxt: context.RequestContext,
+        platform_name: str,
+        connection_info: dict[str, str],
+        env: dict[Any, Any],
+        option_names: dict[Any, Any],
+    ) -> list[dict]:
         provider = providers_factory.get_provider(
             platform_name,
             constants.PROVIDER_TYPE_SOURCE_ENDPOINT_OPTIONS,
@@ -551,7 +584,13 @@ class WorkerServerEndpoint(object):
 
         return options
 
-    def get_endpoint_networks(self, ctxt, platform_name, connection_info, env):
+    def get_endpoint_networks(
+        self,
+        ctxt: context.RequestContext,
+        platform_name: str,
+        connection_info: dict[str, str],
+        env: dict[Any, Any],
+    ) -> list[dict]:
         env = env or {}
         provider = providers_factory.get_provider(
             platform_name, constants.PROVIDER_TYPE_ENDPOINT_NETWORKS, None
@@ -565,7 +604,13 @@ class WorkerServerEndpoint(object):
 
         return networks_info
 
-    def get_endpoint_storage(self, ctxt, platform_name, connection_info, env):
+    def get_endpoint_storage(
+        self,
+        ctxt: context.RequestContext,
+        platform_name: str,
+        connection_info: dict[str, str],
+        env: dict[Any, Any],
+    ) -> dict[str, list]:
         provider = providers_factory.get_provider(
             platform_name, constants.PROVIDER_TYPE_ENDPOINT_STORAGE, None
         )
@@ -579,8 +624,12 @@ class WorkerServerEndpoint(object):
         return storage
 
     def get_endpoint_inventory_csv(
-        self, ctxt, platform_name, connection_info, source_environment
-    ):
+        self,
+        ctxt: context.RequestContext,
+        platform_name: str,
+        connection_info: dict[str, str],
+        source_environment: dict[Any, Any],
+    ) -> str:
         provider = providers_factory.get_provider(
             platform_name, constants.PROVIDER_TYPE_ENDPOINT_INVENTORY_EXPORT, None
         )
@@ -596,10 +645,12 @@ class WorkerServerEndpoint(object):
             ctxt, secret_connection_info, source_environment
         )
 
-    def get_available_providers(self, ctxt):
+    def get_available_providers(self, ctxt: context.RequestContext) -> dict[str, dict]:
         return providers_factory.get_available_providers()
 
-    def validate_endpoint_target_environment(self, ctxt, platform_name, target_env):
+    def validate_endpoint_target_environment(
+        self, ctxt: context.RequestContext, platform_name: str, target_env: dict
+    ) -> tuple[bool, None]:
         provider = providers_factory.get_provider(
             platform_name, constants.PROVIDER_TYPE_OS_MORPHING, None
         )
@@ -616,7 +667,9 @@ class WorkerServerEndpoint(object):
 
         return (is_valid, message)
 
-    def validate_endpoint_source_environment(self, ctxt, platform_name, source_env):
+    def validate_endpoint_source_environment(
+        self, ctxt: context.RequestContext, platform_name: str, source_env: dict
+    ) -> tuple[bool, None]:
         provider = providers_factory.get_provider(
             platform_name, constants.PROVIDER_TYPE_TRANSFER_EXPORT, None
         )
@@ -634,8 +687,11 @@ class WorkerServerEndpoint(object):
         return (is_valid, message)
 
     def validate_endpoint_source_minion_pool_options(
-        self, ctxt, platform_name, pool_environment
-    ):
+        self,
+        ctxt: context.RequestContext,
+        platform_name: str,
+        pool_environment: dict[Any, Any],
+    ) -> tuple[bool, None]:
         provider = providers_factory.get_provider(
             platform_name, constants.PROVIDER_TYPE_SOURCE_MINION_POOL, None
         )
@@ -653,8 +709,11 @@ class WorkerServerEndpoint(object):
         return (is_valid, message)
 
     def validate_endpoint_destination_minion_pool_options(
-        self, ctxt, platform_name, pool_environment
-    ):
+        self,
+        ctxt: context.RequestContext,
+        platform_name: str,
+        pool_environment: dict[Any, Any],
+    ) -> tuple[bool, None]:
         provider = providers_factory.get_provider(
             platform_name, constants.PROVIDER_TYPE_DESTINATION_MINION_POOL, None
         )
@@ -671,7 +730,12 @@ class WorkerServerEndpoint(object):
 
         return (is_valid, message)
 
-    def validate_endpoint_connection(self, ctxt, platform_name, connection_info):
+    def validate_endpoint_connection(
+        self,
+        ctxt: context.RequestContext,
+        platform_name: str,
+        connection_info: dict[str, str],
+    ) -> tuple:
         provider = providers_factory.get_provider(
             platform_name, constants.PROVIDER_TYPE_ENDPOINT, None
         )
@@ -707,7 +771,9 @@ class WorkerServerEndpoint(object):
 
         return (is_valid, message)
 
-    def get_provider_schemas(self, ctxt, platform_name, provider_type):
+    def get_provider_schemas(
+        self, ctxt: context.RequestContext, platform_name: str, provider_type: int
+    ) -> dict[str, dict]:
         provider = providers_factory.get_provider(platform_name, provider_type, None)
 
         schemas = {}
@@ -734,7 +800,7 @@ class WorkerServerEndpoint(object):
 
         return schemas
 
-    def get_diagnostics(self, ctxt):
+    def get_diagnostics(self, ctxt: context.RequestContext) -> dict:
         return utils.get_diagnostics_info()
 
 

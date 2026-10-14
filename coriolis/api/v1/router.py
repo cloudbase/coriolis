@@ -1,6 +1,8 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from typing import Any
+
 from oslo_log import log as logging
 
 from coriolis import api
@@ -35,17 +37,17 @@ LOG = logging.getLogger(__name__)
 
 
 class ExtensionManager(object):
-    def get_resources(self):
+    def get_resources(self) -> list[Any]:
         return []
 
-    def get_controller_extensions(self):
+    def get_controller_extensions(self) -> list[Any]:
         return []
 
 
 class APIRouter(api.APIRouter):
     ExtensionManager = ExtensionManager
 
-    def _setup_routes(self, mapper, ext_mgr):
+    def _setup_routes(self, mapper: api.APIMapper, ext_mgr: ExtensionManager) -> None:
         mapper.redirect("", "/")
 
         self.resources['providers'] = providers.create_resource()

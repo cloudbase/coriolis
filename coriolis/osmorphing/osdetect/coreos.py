@@ -1,6 +1,8 @@
 # Copyright 2020 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from typing import Any
+
 from coriolis import constants
 from coriolis.osmorphing.osdetect import base
 
@@ -8,7 +10,7 @@ COREOS_DISTRO_IDENTIFIER = "CoreOS"
 
 
 class CoreOSOSDetectTools(base.BaseLinuxOSDetectTools):
-    def detect_os(self):
+    def detect_os(self) -> dict[Any, Any]:
         info = {}
         os_release = self._get_os_release()
         osid = os_release.get("ID")

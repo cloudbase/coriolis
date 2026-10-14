@@ -94,7 +94,7 @@ class TaskProgressUpdate(
     total_steps = sqlalchemy.Column(sqlalchemy.BigInteger, nullable=True)
     message = sqlalchemy.Column(sqlalchemy.Text, nullable=True)
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         result = {
             "id": self.id,
             "task_id": self.task_id,
@@ -178,7 +178,7 @@ class Task(BASE, models.TimestampMixin, models.SoftDeleteMixin, models.ModelBase
         order_by=(TaskProgressUpdate.index),
     )
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         result = {
             "id": self.id,
             "execution_id": self.execution_id,
@@ -228,7 +228,7 @@ class TasksExecution(
     number = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)
     type = sqlalchemy.Column(sqlalchemy.String(255))
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         result = {
             "id": self.id,
             "action_id": self.action_id,
@@ -308,7 +308,9 @@ class BaseTransferAction(
         'polymorphic_on': type,
     }
 
-    def to_dict(self, include_task_info=True, include_executions=True):
+    def to_dict(
+        self, include_task_info: bool = True, include_executions: bool = True
+    ) -> dict:
         result = {
             "base_id": self.base_id,
             "user_id": self.user_id,
@@ -364,7 +366,9 @@ class Transfer(BaseTransferAction):
         'polymorphic_identity': 'transfer',
     }
 
-    def to_dict(self, include_task_info=True, include_executions=True):
+    def to_dict(
+        self, include_task_info: bool = True, include_executions: bool = True
+    ) -> dict:
         base = super(Transfer, self).to_dict(
             include_task_info=include_task_info, include_executions=include_executions
         )
@@ -393,7 +397,9 @@ class Deployment(BaseTransferAction):
         'polymorphic_identity': 'deployment',
     }
 
-    def to_dict(self, include_task_info=True, include_tasks=True):
+    def to_dict(
+        self, include_task_info: bool = True, include_tasks: bool = True
+    ) -> dict:
         base = super(Deployment, self).to_dict(
             include_task_info=include_task_info, include_executions=include_tasks
         )
@@ -545,7 +551,7 @@ class MinionMachine(
 
     provider_properties = sqlalchemy.Column(types.Json, nullable=True)
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         result = {
             "id": self.id,
             "user_id": self.user_id,
@@ -615,8 +621,11 @@ class MinionPool(BASE, models.TimestampMixin, models.ModelBase, models.SoftDelet
     )
 
     def to_dict(
-        self, include_machines=True, include_events=True, include_progress_updates=True
-    ):
+        self,
+        include_machines: bool = True,
+        include_events: bool = True,
+        include_progress_updates: bool = True,
+    ) -> dict:
         base = {
             "id": self.id,
             "name": self.name,

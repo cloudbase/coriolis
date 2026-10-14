@@ -4,7 +4,7 @@
 from oslo_config import cfg
 
 
-def init_common_opts():
+def init_common_opts() -> None:
     opts = [
         cfg.IntOpt(
             'default_requests_timeout',

@@ -22,6 +22,7 @@ import time
 import traceback
 import uuid
 from io import StringIO
+from typing import Any, Callable, Iterator, Sequence
 
 import netifaces
 import OpenSSL
@@ -93,7 +94,7 @@ exec %(cmdline)s
 """
 
 
-def _get_local_ips():
+def _get_local_ips() -> list:
     ifaces = netifaces.interfaces()
     ret = []
     for iface in ifaces:
@@ -111,7 +112,7 @@ def _get_local_ips():
     return ret
 
 
-def _get_host_os_info():
+def _get_host_os_info() -> list[str]:
     info = None
     # This exists on all modern Linux systems
     if os.path.isfile("/etc/os-release"):
@@ -120,7 +121,7 @@ def _get_host_os_info():
     return info
 
 
-def _get_release_tag():
+def _get_release_tag() -> str:
     release_tag = "latest"
     if os.path.isfile("/etc/coriolis/coriolis.release"):
         with open("/etc/coriolis/coriolis.release") as fd:
@@ -128,7 +129,7 @@ def _get_release_tag():
     return release_tag
 
 
-def _filesystem_used_percentage(used, available):
+def _filesystem_used_percentage(used: int, available: int) -> int:
     """Return the used-space percentage, rounded up.
 
     ``available`` is space a normal user can still use. The percentage is
@@ -140,7 +141,7 @@ def _filesystem_used_percentage(used, available):
     return (used * 100 + total - 1) // total
 
 
-def _get_filesystems():
+def _get_filesystems() -> list[dict]:
     """Return usage for mounted block devices, in bytes.
 
     The mount list is ``psutil.disk_partitions(all=False)``: devices with a
@@ -177,7 +178,7 @@ def _get_filesystems():
     return filesystems
 
 
-def _get_memory():
+def _get_memory() -> dict:
     """Return memory usage in bytes.
 
     Values come from ``psutil``, which reads ``/proc/meminfo``. ``used`` and
@@ -203,7 +204,7 @@ def _get_memory():
     }
 
 
-def _get_cpu_usage():
+def _get_cpu_usage() -> list[dict]:
     """Return recent CPU usage percentage for each core.
 
     The list is ordered by core index, matching ``psutil.cpu_percent``.
@@ -212,7 +213,7 @@ def _get_cpu_usage():
     return [{"core": core, "percent": percent} for core, percent in enumerate(percents)]
 
 
-def get_diagnostics_info():
+def get_diagnostics_info() -> dict:
     """Return diagnostic details for this Coriolis service process.
 
     Host resource fields:
@@ -234,7 +235,7 @@ def get_diagnostics_info():
     }
 
 
-def setup_logging(disable_file_handlers=False):
+def setup_logging(disable_file_handlers: bool = False) -> None:
     """Configure oslo logging for Coriolis.
 
     :param disable_file_handlers: When True, clear log_dir/log_file and disable
@@ -252,9 +253,9 @@ def setup_logging(disable_file_handlers=False):
     logging.setup(CONF, 'coriolis')
 
 
-def ignore_exceptions(func):
+def ignore_exceptions(func: Callable) -> Callable:
     @functools.wraps(func)
-    def _ignore_exceptions(*args, **kwargs):
+    def _ignore_exceptions(*args, **kwargs) -> None:
         try:
             return func(*args, **kwargs)
         except Exception:
@@ -277,12 +278,12 @@ def get_single_result(lis):
 
 
 def retry_on_error(
-    max_attempts=5,
-    sleep_seconds=1,
-    terminal_exceptions=[],
-    retried_exceptions=(Exception,),
-):
-    def _retry_on_error(func):
+    max_attempts: int = 5,
+    sleep_seconds: int = 1,
+    terminal_exceptions: Sequence[type[exception.MinionMachineCommandTimeout]] = [],
+    retried_exceptions: tuple = (Exception,),
+) -> Callable:
+    def _retry_on_error(func: Callable) -> Callable:
         @functools.wraps(func)
         def _exec_retry(*args, **kwargs):
             i = 0
@@ -325,7 +326,7 @@ def get_udev_net_rules(net_ifaces_info):
     return content
 
 
-def parse_os_release(ssh):
+def parse_os_release(ssh: paramiko.SSHClient) -> tuple[str, str]:
     os_release_info = exec_ssh_cmd(
         ssh, "[ -f '/etc/os-release' ] && cat /etc/os-release || true"
     )
@@ -349,7 +350,7 @@ def parse_lsb_release(ssh):
         return (dist_id[0], release[0])
 
 
-def get_linux_os_info(ssh):
+def get_linux_os_info(ssh: paramiko.SSHClient) -> tuple[str, str]:
     info = parse_os_release(ssh)
     if info is None:
         # Fall back to lsb_release
@@ -358,7 +359,10 @@ def get_linux_os_info(ssh):
 
 
 @retry_on_error()
-def test_ssh_path(ssh, remote_path):
+def test_ssh_path(
+    ssh,
+    remote_path,
+) -> bool | bytes | paramiko.SSHClient | None:
     sftp = ssh.open_sftp()
     try:
         sftp.stat(remote_path)
@@ -370,13 +374,17 @@ def test_ssh_path(ssh, remote_path):
 
 
 @retry_on_error()
-def read_ssh_file(ssh, remote_path):
+def read_ssh_file(ssh: paramiko.SSHClient, remote_path: str) -> bytes:
     sftp = ssh.open_sftp()
     return sftp.open(remote_path, 'rb').read()
 
 
 @retry_on_error()
-def write_ssh_file(ssh, remote_path, content):
+def write_ssh_file(
+    ssh,
+    remote_path,
+    content,
+) -> bool | bytes | list | paramiko.SSHClient | None:
     sftp = ssh.open_sftp()
     fd = sftp.open(remote_path, 'wb')
     # Enabling pipelined transfers here will make
@@ -418,7 +426,7 @@ def write_winrm_file(conn, remote_path, content, overwrite=True):
 
 
 @retry_on_error()
-def list_ssh_dir(ssh, remote_path):
+def list_ssh_dir(ssh: paramiko.SSHClient, remote_path: str) -> list[str]:
     """List directory contents via SFTP, falling back to ls on
     encoding errors."""
     try:
@@ -433,7 +441,7 @@ def list_ssh_dir(ssh, remote_path):
         return [f for f in output.splitlines() if f.strip()]
 
 
-def get_env_command_prefix(environment):
+def get_env_command_prefix(environment: dict[str, str]) -> str:
     """
     Each variable is shell-quoted individually, so values containing
     spaces or other shell-sensitive characters are passed through
@@ -447,7 +455,7 @@ def get_env_command_prefix(environment):
     )
 
 
-def check_env_command(ssh):
+def check_env_command(ssh: paramiko.SSHClient) -> None:
     """
     Checks that env(1) exists on the given machine, as it is what carries
     the environment variables over to privileged and chrooted commands.
@@ -467,7 +475,13 @@ def check_env_command(ssh):
         ) from ex
 
 
-def _exec_ssh_cmd(ssh, cmd, environment=None, get_pty=False, timeout=None):
+def _exec_ssh_cmd(
+    ssh: paramiko.SSHClient,
+    cmd: str,
+    environment: dict | None = None,
+    get_pty: bool = False,
+    timeout=None,
+) -> str:
     sanitized_cmd = strutils.mask_password(cmd)
     remote_str = "<undeterminable>"
     if timeout is not None:
@@ -520,19 +534,19 @@ def _exec_ssh_cmd(ssh, cmd, environment=None, get_pty=False, timeout=None):
 
 
 def exec_ssh_cmd(
-    ssh,
-    cmd,
-    environment=None,
-    get_pty=False,
+    ssh: paramiko.SSHClient,
+    cmd: str,
+    environment: dict | None = None,
+    get_pty: bool = False,
     timeout=None,
-    max_attempts=5,
-    retry_interval=1,
-    terminal_exceptions=(
+    max_attempts: int = 5,
+    retry_interval: int = 1,
+    terminal_exceptions: tuple = (
         exception.MinionMachineCommandTimeout,
         exception.SSHCommandNotFoundException,
     ),
-    retried_exceptions=(paramiko.ssh_exception.SSHException,),
-):
+    retried_exceptions: tuple = (paramiko.ssh_exception.SSHException,),
+) -> str:
     # By default, we'll perform retries only in case of SSH failures.
     #
     # Add "SSHCommandFailed" to the list of retried exceptions if failed
@@ -544,15 +558,20 @@ def exec_ssh_cmd(
         terminal_exceptions=terminal_exceptions,
         retried_exceptions=retried_exceptions,
     )
-    def wrapper():
+    def wrapper() -> str:
         return _exec_ssh_cmd(ssh, cmd, environment, get_pty, timeout)
 
     return wrapper()
 
 
 def exec_ssh_cmd_chroot(
-    ssh, chroot_dir, cmd, environment=None, get_pty=False, timeout=None
-):
+    ssh: paramiko.SSHClient,
+    chroot_dir: str,
+    cmd: str,
+    environment: dict | None = None,
+    get_pty: bool = False,
+    timeout=None,
+) -> str:
     return exec_ssh_cmd(
         ssh,
         "sudo %schroot %s %s"
@@ -563,7 +582,7 @@ def exec_ssh_cmd_chroot(
     )
 
 
-def check_fs(ssh, fs_type, dev_path):
+def check_fs(ssh: paramiko.SSHClient, fs_type: str, dev_path: str) -> None:
     try:
         out = exec_ssh_cmd(
             ssh, "sudo fsck -p -t %s %s" % (fs_type, dev_path), get_pty=False
@@ -593,7 +612,7 @@ def run_xfs_repair(ssh, dev_path):
         LOG.warn("xfs_repair returned an error:\n%s", str(ex))
 
 
-def _check_port_open(host, port):
+def _check_port_open(host: str, port: int) -> bool:
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         s.settimeout(1)
@@ -605,7 +624,7 @@ def _check_port_open(host, port):
         s.close()
 
 
-def wait_for_port_connectivity(address, port, max_wait=300):
+def wait_for_port_connectivity(address: str, port: int, max_wait: int = 300) -> None:
     i = 0
     while not _check_port_open(address, port) and i < max_wait:
         time.sleep(1)
@@ -614,7 +633,7 @@ def wait_for_port_connectivity(address, port, max_wait=300):
         raise exception.CoriolisException("Connection failed on port %s" % port)
 
 
-def exec_process(args):
+def exec_process(args: list[str]) -> bytes:
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     std_out, std_err = p.communicate()
     if p.returncode:
@@ -661,19 +680,21 @@ def convert_disk_format(disk_path, target_disk_path, target_format, preallocated
         raise
 
 
-def get_hostname():
+def get_hostname() -> str:
     return socket.gethostname()
 
 
-def get_binary_name():
+def get_binary_name() -> str:
     return os.path.basename(sys.argv[0])
 
 
-def get_exception_details():
+def get_exception_details() -> str:
     return traceback.format_exc()
 
 
-def walk_class_hierarchy(clazz, encountered=None):
+def walk_class_hierarchy(
+    clazz: type[exc.HTTPClientError], encountered: list | None = None
+) -> Iterator[None]:
     """Walk class hierarchy, yielding most derived classes first."""
     if not encountered:
         encountered = []
@@ -698,34 +719,34 @@ def get_ssl_cert_thumbprint(context, host, port=443, digest_algorithm="sha1"):
     return x509.digest(digest_algorithm).decode()
 
 
-def get_resources_dir():
+def get_resources_dir() -> str:
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources")
 
 
-def get_resources_bin_dir():
+def get_resources_bin_dir() -> str:
     return os.path.join(get_resources_dir(), "bin")
 
 
-def serialize_key(key, password=None):
+def serialize_key(key: paramiko.RSAKey, password=None) -> str:
     key_io = io.StringIO()
     key.write_private_key(key_io, password)
     return key_io.getvalue()
 
 
-def deserialize_key(key_bytes, password=None):
+def deserialize_key(key_bytes: str, password=None) -> paramiko.RSAKey:
     key_io = io.StringIO(key_bytes)
     return paramiko.RSAKey.from_private_key(key_io, password)
 
 
 def connect_ssh(
-    hostname,
-    port,
-    username,
-    pkey=None,
+    hostname: str,
+    port: int,
+    username: str,
+    pkey: paramiko.RSAKey | None = None,
     password=None,
-    connect_timeout=None,
-    banner_timeout=None,
-):
+    connect_timeout: int | None = None,
+    banner_timeout: int | None = None,
+) -> paramiko.SSHClient:
     """Open and return a connected paramiko SSHClient.
 
     :param pkey: a paramiko.PKey instance, a serialized PEM string, or None.
@@ -760,7 +781,7 @@ def connect_ssh(
     return ssh
 
 
-def is_serializable(obj):
+def is_serializable(obj: dict) -> None:
     pickle.dumps(obj)
 
 
@@ -780,7 +801,7 @@ def to_dict(obj, max_depth=10):
     return jsonutils.loads(jsonutils.dumps(obj, default=_to_primitive))
 
 
-def load_class(class_path):
+def load_class(class_path: str) -> type[Any]:
     LOG.debug('Loading class \'%s\'' % class_path)
     parts = class_path.rsplit('.', 1)
     module = __import__(parts[0], fromlist=parts[1])
@@ -795,7 +816,7 @@ def check_md5(data, md5):
         raise exception.CoriolisException("MD5 check failed")
 
 
-def get_secret_connection_info(ctxt, connection_info):
+def get_secret_connection_info(ctxt, connection_info: dict[str, str]) -> dict[str, str]:
     secret_ref = connection_info.get("secret_ref")
     if secret_ref:
         LOG.info("Retrieving connection info from secret: %s", secret_ref)
@@ -803,14 +824,14 @@ def get_secret_connection_info(ctxt, connection_info):
     return connection_info
 
 
-def parse_int_value(value):
+def parse_int_value(value: str) -> int:
     try:
         return int(str(value))
     except ValueError:
         raise exception.InvalidInput("Invalid integer: %s" % value)
 
 
-def decode_base64_param(value, is_json=False):
+def decode_base64_param(value: str, is_json: bool = False) -> dict | str:
     try:
         decoded = base64.urlsafe_b64decode(value).decode()
         if is_json:
@@ -895,9 +916,11 @@ def get_unique_option_ids(resources, id_key="id", name_key="name"):
     return identifiers
 
 
-def bad_request_on_error(error_message):
-    def _bad_request_on_error(func):
-        def wrapper(*args, **kwargs):
+def bad_request_on_error(error_message: str) -> Callable[[Callable], Callable]:
+    def _bad_request_on_error(
+        func,
+    ):
+        def wrapper(*args, **kwargs) -> tuple[bool, None]:
             (is_valid, message) = func(*args, **kwargs)
             if not is_valid:
                 raise exc.HTTPBadRequest(explanation=(error_message % message))
@@ -908,7 +931,7 @@ def bad_request_on_error(error_message):
     return _bad_request_on_error
 
 
-def sanitize_task_info(task_info):
+def sanitize_task_info(task_info: dict) -> dict:
     """Returns a copy of the given task info with any chunking
     info for volumes and sensitive credentials removed.
     """
@@ -948,7 +971,7 @@ def sanitize_task_info(task_info):
     return new
 
 
-def parse_ini_config(file_contents):
+def parse_ini_config(file_contents: str) -> dict[str, str]:
     """Parses the contents of the given .ini config file and
     returns a dict with the options/values within it.
     """
@@ -962,7 +985,9 @@ def parse_ini_config(file_contents):
     return config
 
 
-def read_ssh_ini_config_file(ssh, path, check_exists=False):
+def read_ssh_ini_config_file(
+    ssh: paramiko.SSHClient, path: str, check_exists: bool = False
+) -> dict[str, str]:
     """Reads and parses the contents of an .ini file at the given path."""
     if not check_exists or test_ssh_path(ssh, path):
         content = read_ssh_file(ssh, path).decode()
@@ -971,14 +996,20 @@ def read_ssh_ini_config_file(ssh, path, check_exists=False):
         return {}
 
 
-def _get_systemd_unit_path(ssh):
+def _get_systemd_unit_path(ssh: paramiko.SSHClient) -> str:
     """Returns the systemd unit directory path on the remote system."""
     if test_ssh_path(ssh, "/lib/systemd/system"):
         return "/lib/systemd/system"
     return "/usr/lib/systemd/system"
 
 
-def _write_systemd(ssh, cmdline, svcname, run_as=None, start=True):
+def _write_systemd(
+    ssh: paramiko.SSHClient,
+    cmdline: str,
+    svcname: str,
+    run_as: str | None = None,
+    start: bool = True,
+) -> None:
     systemd_unit_dir = _get_systemd_unit_path(ssh)
     serviceFilePath = "%s/%s.service" % (systemd_unit_dir, svcname)
 
@@ -988,7 +1019,7 @@ def _write_systemd(ssh, cmdline, svcname, run_as=None, start=True):
             exec_ssh_cmd(ssh, "sudo systemctl start %s" % svcname, get_pty=False)
         return
 
-    def _reload_and_start(start=True):
+    def _reload_and_start(start: bool = True) -> None:
         exec_ssh_cmd(ssh, "sudo systemctl daemon-reload", get_pty=False)
         # NOTE: the service must be enabled so that it comes back up on its own after
         # the underlying instance is rebooted or power-cycled (e.g.: minion pool
@@ -997,7 +1028,7 @@ def _write_systemd(ssh, cmdline, svcname, run_as=None, start=True):
         if start:
             exec_ssh_cmd(ssh, "sudo systemctl start %s" % svcname, get_pty=False)
 
-    def _correct_selinux_label():
+    def _correct_selinux_label() -> None:
         cmd = "sudo restorecon -v %s" % serviceFilePath
         try:
             exec_ssh_cmd(ssh, cmd, get_pty=False)
@@ -1050,14 +1081,20 @@ def _write_upstart(ssh, cmdline, svcname, run_as=None, start=True):
         exec_ssh_cmd(ssh, "start %s" % svcname)
 
 
-def _has_systemd(ssh):
+def _has_systemd(ssh: paramiko.SSHClient) -> bool:
     """Check if the remote system uses systemd as its init system."""
     return test_ssh_path(ssh, "/lib/systemd/system") or test_ssh_path(
         ssh, "/usr/lib/systemd/system"
     )
 
 
-def create_service(ssh, cmdline, svcname, run_as=None, start=True):
+def create_service(
+    ssh: paramiko.SSHClient,
+    cmdline: str,
+    svcname: str,
+    run_as: str | None = None,
+    start: bool = True,
+) -> None:
     # Simplistic check for init system. We usually use official images,
     # and none of the supported operating systems come with both upstart
     # and systemd installed side by side. So if /lib/systemd/system
@@ -1071,7 +1108,7 @@ def create_service(ssh, cmdline, svcname, run_as=None, start=True):
         raise exception.CoriolisException("could not determine init system")
 
 
-def restart_service(ssh, svcname):
+def restart_service(ssh: paramiko.SSHClient, svcname: str) -> None:
     if _has_systemd(ssh):
         exec_ssh_cmd(ssh, "sudo systemctl restart %s" % svcname, get_pty=False)
     elif test_ssh_path(ssh, "/etc/init"):
@@ -1323,7 +1360,12 @@ class Grub2ConfigEditor(object):
         return tmp.read()
 
 
-def start_thread(target, args=(), kwargs=None, daemon=True):
+def start_thread(
+    target: Callable,
+    args: list | tuple = (),
+    kwargs: dict | None = None,
+    daemon: bool = True,
+):
     """Convenience helper for one-liner thread spawning."""
     thread = threading.Thread(
         target=target,

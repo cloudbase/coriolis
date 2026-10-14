@@ -4,7 +4,7 @@
 from coriolis.api.v1.views import utils as view_utils
 
 
-def _format_service(service, keys=None):
+def _format_service(service, keys=None) -> dict:
     service_dict = view_utils.format_opt(service, keys)
 
     mapped_regions = service_dict.get('mapped_regions', [])
@@ -13,10 +13,10 @@ def _format_service(service, keys=None):
     return service_dict
 
 
-def single(service, keys=None):
+def single(service, keys=None) -> dict[str, dict]:
     return {"service": _format_service(service, keys)}
 
 
-def collection(services, keys=None):
+def collection(services, keys=None) -> dict[str, list]:
     formatted_services = [_format_service(r, keys) for r in services]
     return {'services': formatted_services}

@@ -29,7 +29,9 @@ CONF.register_opts(taskflow_opts, 'taskflow')
 class BaseCoriolisTaskflowTask(taskflow_tasks.Task):
     """Base class for all TaskFlow tasks within Coriolis."""
 
-    def _get_error_str_for_flow_failures(self, flow_failures, full_tracebacks=True):
+    def _get_error_str_for_flow_failures(
+        self, flow_failures: dict[str, failure.Failure], full_tracebacks: bool = True
+    ) -> str:
         if not flow_failures:
             return "No flow failures provided."
 
@@ -61,7 +63,7 @@ class BaseCoriolisTaskflowTask(taskflow_tasks.Task):
 
         return res
 
-    def revert(self, *args, **kwargs):
+    def revert(self, *args, **kwargs) -> None:
         result = kwargs.get('result')
         if isinstance(result, failure.Failure):
             # it means that this is the task which error'd out:
@@ -106,13 +108,13 @@ class BaseRunWorkerTask(BaseCoriolisTaskflowTask):
 
     def __init__(
         self,
-        task_name,
-        task_id,
-        task_instance,
-        main_task_runner_type,
-        cleanup_task_runner_type=None,
+        task_name: str,
+        task_id: str,
+        task_instance: str,
+        main_task_runner_type: str,
+        cleanup_task_runner_type: str | None = None,
         depends_on=None,
-        raise_on_cleanup_failure=False,
+        raise_on_cleanup_failure: bool = False,
         **kwargs,
     ):
         self._task_id = task_id
@@ -126,7 +128,7 @@ class BaseRunWorkerTask(BaseCoriolisTaskflowTask):
         super(BaseRunWorkerTask, self).__init__(name=task_name, **kwargs)
 
     @property
-    def _scheduler_client(self):
+    def _scheduler_client(self) -> rpc_scheduler_client.SchedulerClient:
         if not getattr(self, '_scheduler_client_instance', None):
             self._scheduler_client_instance = rpc_scheduler_client.SchedulerClient()
         return self._scheduler_client_instance
@@ -134,14 +136,14 @@ class BaseRunWorkerTask(BaseCoriolisTaskflowTask):
     def _get_worker_service_rpc_for_task(
         self,
         ctxt,
-        task_id,
-        task_type,
-        origin,
-        destination,
-        retry_count=5,
-        retry_period=2,
-        rpc_timeout=CONF.taskflow.worker_task_execution_timeout,
-    ):
+        task_id: str,
+        task_type: str,
+        origin: dict,
+        destination: dict,
+        retry_count: int = 5,
+        retry_period: int = 2,
+        rpc_timeout: int = CONF.taskflow.worker_task_execution_timeout,
+    ) -> rpc_worker_client.WorkerClient:
         task_info = {"id": task_id, "task_type": task_type}
         worker_service = self._scheduler_client.get_worker_service_for_task(
             ctxt,
@@ -164,7 +166,15 @@ class BaseRunWorkerTask(BaseCoriolisTaskflowTask):
             worker_service, timeout=rpc_timeout
         )
 
-    def _execute_task(self, ctxt, task_id, task_type, origin, destination, task_info):
+    def _execute_task(
+        self,
+        ctxt,
+        task_id: str,
+        task_type: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+    ) -> dict:
         worker_rpc = self._get_worker_service_rpc_for_task(
             ctxt, self._task_id, task_type, origin, destination
         )
@@ -200,7 +210,13 @@ class BaseRunWorkerTask(BaseCoriolisTaskflowTask):
             )
             raise
 
-    def execute(self, context, origin, destination, task_info):
+    def execute(
+        self,
+        context,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+    ) -> dict | None:
         res = self._execute_task(
             context,
             self._task_id,
@@ -211,7 +227,14 @@ class BaseRunWorkerTask(BaseCoriolisTaskflowTask):
         )
         return res
 
-    def revert(self, context, origin, destination, task_info, **kwargs):
+    def revert(
+        self,
+        context,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        **kwargs,
+    ) -> None:
         super(BaseRunWorkerTask, self).revert(
             context, origin, destination, task_info, **kwargs
         )

@@ -1,6 +1,8 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from typing import NoReturn
+
 from oslo_log import log as logging
 from webob import exc
 
@@ -19,7 +21,7 @@ class EndpointController(api_wsgi.Controller):
         self._endpoint_api = api.API()
         super(EndpointController, self).__init__()
 
-    def show(self, req, id):
+    def show(self, req: api_wsgi.Request, id: str) -> dict[str, dict]:
         context = req.environ["coriolis.context"]
         context.can(endpoint_policies.get_endpoints_policy_label("show"))
         endpoint = self._endpoint_api.get_endpoint(context, id)
@@ -28,13 +30,15 @@ class EndpointController(api_wsgi.Controller):
 
         return endpoint_view.single(endpoint)
 
-    def index(self, req):
+    def index(self, req: api_wsgi.Request) -> dict[str, list]:
         context = req.environ["coriolis.context"]
         context.can(endpoint_policies.get_endpoints_policy_label("list"))
         return endpoint_view.collection(self._endpoint_api.get_endpoints(context))
 
     @api_utils.format_keyerror_message(resource='endpoint', method='create')
-    def _validate_create_body(self, body):
+    def _validate_create_body(
+        self, body: dict[str, dict]
+    ) -> tuple[str, str, str, dict, list]:
         endpoint = body["endpoint"]
         name = endpoint["name"]
         description = endpoint.get("description")
@@ -43,7 +47,7 @@ class EndpointController(api_wsgi.Controller):
         mapped_regions = endpoint.get("mapped_regions", [])
         return (name, endpoint_type, description, connection_info, mapped_regions)
 
-    def create(self, req, body):
+    def create(self, req: api_wsgi.Request, body: dict[str, dict]) -> dict[str, dict]:
         context = req.environ["coriolis.context"]
         context.can(endpoint_policies.get_endpoints_policy_label("create"))
         (name, endpoint_type, description, connection_info, mapped_regions) = (
@@ -61,7 +65,7 @@ class EndpointController(api_wsgi.Controller):
         )
 
     @api_utils.format_keyerror_message(resource='endpoint', method='update')
-    def _validate_update_body(self, body):
+    def _validate_update_body(self, body: dict[str, dict]) -> dict | tuple:
         endpoint = body["endpoint"]
         return {
             k: endpoint[k]
@@ -69,7 +73,9 @@ class EndpointController(api_wsgi.Controller):
             & {"name", "description", "connection_info", "mapped_regions"}
         }
 
-    def update(self, req, id, body):
+    def update(
+        self, req: api_wsgi.Request, id: str, body: dict[str, dict]
+    ) -> dict[str, dict]:
         context = req.environ["coriolis.context"]
         context.can(endpoint_policies.get_endpoints_policy_label("update"))
         updated_values = self._validate_update_body(body)
@@ -79,7 +85,7 @@ class EndpointController(api_wsgi.Controller):
             )
         )
 
-    def delete(self, req, id):
+    def delete(self, req: api_wsgi.Request, id: str) -> NoReturn:
         context = req.environ["coriolis.context"]
         context.can(endpoint_policies.get_endpoints_policy_label("delete"))
         try:
@@ -89,5 +95,5 @@ class EndpointController(api_wsgi.Controller):
             raise exc.HTTPNotFound(explanation=ex.msg)
 
 
-def create_resource():
+def create_resource() -> api_wsgi.Resource:
     return api_wsgi.Resource(EndpointController())

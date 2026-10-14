@@ -19,8 +19,12 @@ VERSION = "1.0"
 
 
 def _trigger_transfer(
-    ctxt, conductor_client, transfer_id, shutdown_instance, auto_deploy
-):
+    ctxt: context.RequestContext,
+    conductor_client: rpc_client.ConductorClient,
+    transfer_id: str,
+    shutdown_instance: bool,
+    auto_deploy: bool,
+) -> str | None:
     try:
         execution = conductor_client.execute_transfer_tasks(
             ctxt,
@@ -59,7 +63,7 @@ class TransferCronServerEndpoint(object):
         # leave this process up with the schedule loop never started.
         os.register_at_fork(after_in_child=self._ensure_cron_started)
 
-    def _ensure_cron_started(self):
+    def _ensure_cron_started(self) -> None:
         try:
             with self._cron_lock:
                 if self._cron_started or self._loader_started:
@@ -72,7 +76,7 @@ class TransferCronServerEndpoint(object):
                 if not self._cron_started:
                     self._loader_started = False
 
-    def _load_schedules_until_started(self):
+    def _load_schedules_until_started(self) -> None:
         delay = 60
         while True:
             try:
@@ -90,7 +94,7 @@ class TransferCronServerEndpoint(object):
             LOG.info("Transfer schedules loaded, cron loop started")
             return
 
-    def _start_cron_loop(self):
+    def _start_cron_loop(self) -> None:
         with self._cron_lock:
             if self._cron_loop_started:
                 return
@@ -108,7 +112,11 @@ class TransferCronServerEndpoint(object):
             sched["schedule"] = json.loads(tmp)
         return sched
 
-    def _register_schedule(self, schedule, date=None):
+    def _register_schedule(
+        self,
+        schedule,
+        date=None,
+    ) -> None:
         date = date or timeutils.utcnow()
         sched = self._deserialize_schedule(schedule)
         expires = sched.get("expiration_date")
@@ -134,7 +142,7 @@ class TransferCronServerEndpoint(object):
         )
         self._cron.register(job)
 
-    def _init_cron(self):
+    def _init_cron(self) -> None:
         now = timeutils.utcnow()
         schedules = self._get_all_schedules()
         for schedule in schedules:
@@ -148,13 +156,15 @@ class TransferCronServerEndpoint(object):
                 LOG.exception(err)
         self._start_cron_loop()
 
-    def _get_all_schedules(self):
+    def _get_all_schedules(
+        self,
+    ):
         schedules = self._rpc_client.get_transfer_schedules(
             self._admin_ctx, expired=False
         )
         return schedules
 
-    def register(self, ctxt, schedule):
+    def register(self, ctxt: context.RequestContext, schedule: dict) -> None:
         self._ensure_cron_started()
         now = timeutils.utcnow()
         LOG.debug(
@@ -162,11 +172,11 @@ class TransferCronServerEndpoint(object):
         )
         self._register_schedule(schedule, date=now)
 
-    def unregister(self, ctxt, schedule):
+    def unregister(self, ctxt: context.RequestContext, schedule: dict) -> None:
         self._ensure_cron_started()
         schedule_id = schedule["id"]
         LOG.debug("removing schedule %s" % schedule_id)
         self._cron.unregister(schedule_id)
 
-    def get_diagnostics(self, ctxt):
+    def get_diagnostics(self, ctxt: context.RequestContext) -> dict:
         return utils.get_diagnostics_info()

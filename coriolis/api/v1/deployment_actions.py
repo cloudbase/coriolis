@@ -1,6 +1,8 @@
 # Copyright 2024 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from typing import NoReturn
+
 from webob import exc
 
 from coriolis import exception
@@ -15,7 +17,9 @@ class DeploymentActionsController(api_wsgi.Controller):
         super(DeploymentActionsController, self).__init__()
 
     @api_wsgi.action('cancel')
-    def _cancel(self, req, id, body):
+    def _cancel(
+        self, req: api_wsgi.Request, id: str, body: dict[str, dict]
+    ) -> NoReturn:
         context = req.environ['coriolis.context']
         context.can(deployment_policies.get_deployments_policy_label("cancel"))
         try:
@@ -29,5 +33,5 @@ class DeploymentActionsController(api_wsgi.Controller):
             raise exc.HTTPNotFound(explanation=ex.msg)
 
 
-def create_resource():
+def create_resource() -> api_wsgi.Resource:
     return api_wsgi.Resource(DeploymentActionsController())

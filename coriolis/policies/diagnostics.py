@@ -9,7 +9,7 @@ DIAGNOSTICS_POLICY_PREFIX = "%s:diagnostics" % (base.CORIOLIS_POLICIES_PREFIX)
 DIAGNOSTICS_POLICY_DEFAULT_RULE = "rule:admin_or_owner"
 
 
-def get_diagnostics_policy_label(rule_label):
+def get_diagnostics_policy_label(rule_label: str) -> str:
     return "%s:%s" % (DIAGNOSTICS_POLICY_PREFIX, rule_label)
 
 
@@ -23,5 +23,5 @@ DIAGNOSTICS_POLICY_DEFAULT_RULES = [
 ]
 
 
-def list_rules():
+def list_rules() -> list[policy.DocumentedRuleDefault]:
     return DIAGNOSTICS_POLICY_DEFAULT_RULES

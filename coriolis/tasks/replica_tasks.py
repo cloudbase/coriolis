@@ -1,6 +1,8 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from typing import Any
+
 from oslo_log import log as logging
 
 from coriolis import constants, events, exception, schemas, utils
@@ -11,7 +13,7 @@ from coriolis.tasks import base
 LOG = logging.getLogger(__name__)
 
 
-def _get_volumes_info(task_info):
+def _get_volumes_info(task_info: dict) -> list:
     volumes_info = task_info.get("volumes_info", [])
     if not volumes_info:
         raise exception.InvalidActionTasksExecutionState(
@@ -20,7 +22,7 @@ def _get_volumes_info(task_info):
     return volumes_info
 
 
-def _check_ensure_volumes_info_ordering(export_info, volumes_info):
+def _check_ensure_volumes_info_ordering(export_info: dict, volumes_info: list) -> list:
     """Returns a new list of volumes_info, ensuring that the order of
     the disks in 'volumes_info' is consistent with the order that the
     disks appear in 'export_info[devices][disks]'
@@ -83,7 +85,9 @@ def _check_ensure_volumes_info_ordering(export_info, volumes_info):
     return ordered_volumes_info
 
 
-def _update_legacy_disk_ids_in_volumes_info(export_info, volumes_info):
+def _update_legacy_disk_ids_in_volumes_info(
+    export_info: dict, volumes_info: list[dict]
+) -> list[dict]:
     """Migrates volumes_info entries keyed on legacy disk identifiers.
 
     Source providers may change their disk identification methodology
@@ -140,8 +144,10 @@ def _update_legacy_disk_ids_in_volumes_info(export_info, volumes_info):
     return volumes_info
 
 
-def _preserve_old_export_info_nic_ips(old_export_info, new_export_info):
-    def _get_nic(nics_info, nic_id):
+def _preserve_old_export_info_nic_ips(
+    old_export_info: dict, new_export_info: dict
+) -> None:
+    def _get_nic(nics_info: list, nic_id: str) -> dict | None:
         for nic_info in nics_info:
             if nic_info['id'] == nic_id:
                 return nic_info
@@ -158,7 +164,7 @@ def _preserve_old_export_info_nic_ips(old_export_info, new_export_info):
                 new_info['ip_addresses'] = old_ips
 
 
-def _preserve_hostname_info(old_export_info, new_export_info):
+def _preserve_hostname_info(old_export_info: dict, new_export_info: dict) -> None:
     old_hostname = old_export_info.get("hostname", "")
     new_hostname = new_export_info.get("hostname", "")
     if not new_hostname:
@@ -169,7 +175,7 @@ def _preserve_hostname_info(old_export_info, new_export_info):
         new_export_info['fqdn'] = old_fqdn
 
 
-def _update_export_info(old_export_info, result_export_info):
+def _update_export_info(old_export_info: dict, result_export_info: dict) -> None:
     _preserve_hostname_info(old_export_info, result_export_info)
     _preserve_old_export_info_nic_ips(old_export_info, result_export_info)
 
@@ -178,26 +184,34 @@ class GetInstanceInfoTask(base.TaskRunner):
     """Task which gathers the export info for a VM."""
 
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.TASK_PLATFORM_SOURCE
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["source_environment"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[str]:
         return ["export_info"]
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return {
             constants.PROVIDER_PLATFORM_SOURCE: [
                 constants.PROVIDER_TYPE_TRANSFER_EXPORT
             ]
         }
 
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict[str, dict]:
         provider = providers_factory.get_provider(
             origin["type"], constants.PROVIDER_TYPE_TRANSFER_EXPORT, event_handler
         )
@@ -220,26 +234,34 @@ class ShutdownInstanceTask(base.TaskRunner):
     """Task which shuts down a VM."""
 
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.TASK_PLATFORM_SOURCE
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["source_environment"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[Any]:
         return []
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return {
             constants.PROVIDER_PLATFORM_SOURCE: [
                 constants.PROVIDER_TYPE_TRANSFER_EXPORT
             ]
         }
 
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict[Any, Any]:
         provider = providers_factory.get_provider(
             origin["type"], constants.PROVIDER_TYPE_TRANSFER_EXPORT, event_handler
         )
@@ -252,14 +274,14 @@ class ShutdownInstanceTask(base.TaskRunner):
 
 class ReplicateDisksTask(base.TaskRunner):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         # NOTE: considering Replication reads from one end (be it PMR minion
         # or otherwise) to the disk writer minion on the destination,
         # replicate_disks would need access to both:
         return constants.TASK_PLATFORM_BILATERAL
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return [
             "export_info",
             "volumes_info",
@@ -270,18 +292,26 @@ class ReplicateDisksTask(base.TaskRunner):
         ]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[str]:
         return ["volumes_info"]
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return {
             constants.PROVIDER_PLATFORM_SOURCE: [
                 constants.PROVIDER_TYPE_TRANSFER_EXPORT
             ]
         }
 
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict[str, list]:
         provider = providers_factory.get_provider(
             origin["type"], constants.PROVIDER_TYPE_TRANSFER_EXPORT, event_handler
         )
@@ -341,26 +371,34 @@ class ReplicateDisksTask(base.TaskRunner):
 
 class DeployReplicaDisksTask(base.TaskRunner):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.TASK_PLATFORM_DESTINATION
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["export_info", "volumes_info", "target_environment"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[str]:
         return ["volumes_info"]
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return {
             constants.PROVIDER_PLATFORM_DESTINATION: [
                 constants.PROVIDER_TYPE_TRANSFER_IMPORT
             ]
         }
 
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict[str, list]:
         target_environment = task_info['target_environment']
         export_info = task_info["export_info"]
 
@@ -393,26 +431,34 @@ class DeployReplicaDisksTask(base.TaskRunner):
 
 class DeleteReplicaSourceDiskSnapshotsTask(base.TaskRunner):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.TASK_PLATFORM_SOURCE
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["volumes_info", "source_environment"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[str]:
         return ["volumes_info"]
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return {
             constants.PROVIDER_PLATFORM_SOURCE: [
                 constants.PROVIDER_TYPE_TRANSFER_EXPORT
             ]
         }
 
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict[str, list]:
         event_manager = events.EventManager(event_handler)
         if not task_info.get("volumes_info"):
             LOG.debug("No volumes_info present. Skipping source snapshot deletion.")
@@ -437,26 +483,34 @@ class DeleteReplicaSourceDiskSnapshotsTask(base.TaskRunner):
 
 class DeleteReplicaDisksTask(base.TaskRunner):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.TASK_PLATFORM_DESTINATION
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["volumes_info", "target_environment"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[str]:
         return ["volumes_info"]
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return {
             constants.PROVIDER_PLATFORM_DESTINATION: [
                 constants.PROVIDER_TYPE_TRANSFER_IMPORT
             ]
         }
 
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict[str, list]:
         event_manager = events.EventManager(event_handler)
         if not task_info.get("volumes_info"):
             LOG.debug("No volumes_info present. Skipping disk deletion.")
@@ -488,26 +542,34 @@ class DeleteReplicaDisksTask(base.TaskRunner):
 
 class DeployReplicaSourceResourcesTask(base.TaskRunner):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.TASK_PLATFORM_SOURCE
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["source_environment", "export_info"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[str]:
         return ["source_resources", "source_resources_connection_info"]
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return {
             constants.PROVIDER_PLATFORM_SOURCE: [
                 constants.PROVIDER_TYPE_TRANSFER_EXPORT
             ]
         }
 
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict:
         provider = providers_factory.get_provider(
             origin["type"], constants.PROVIDER_TYPE_TRANSFER_EXPORT, event_handler
         )
@@ -565,26 +627,34 @@ class DeployReplicaSourceResourcesTask(base.TaskRunner):
 
 class DeleteReplicaSourceResourcesTask(base.TaskRunner):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.TASK_PLATFORM_SOURCE
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["source_environment", "source_resources"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[str]:
         return ["source_resources", "source_resources_connection_info"]
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return {
             constants.PROVIDER_PLATFORM_SOURCE: [
                 constants.PROVIDER_TYPE_TRANSFER_EXPORT
             ]
         }
 
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict[str, None]:
         provider = providers_factory.get_provider(
             origin["type"], constants.PROVIDER_TYPE_TRANSFER_EXPORT, event_handler
         )
@@ -605,26 +675,26 @@ class DeleteReplicaSourceResourcesTask(base.TaskRunner):
 
 class DeployReplicaTargetResourcesTask(base.TaskRunner):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.TASK_PLATFORM_DESTINATION
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["export_info", "volumes_info", "target_environment"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[str]:
         return ["volumes_info", "target_resources", "target_resources_connection_info"]
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return {
             constants.PROVIDER_PLATFORM_DESTINATION: [
                 constants.PROVIDER_TYPE_TRANSFER_IMPORT
             ]
         }
 
-    def _validate_connection_info(self, migr_connection_info):
+    def _validate_connection_info(self, migr_connection_info: dict) -> None:
         try:
             backup_writers.BackupWritersFactory(migr_connection_info, None).get_writer()
         except Exception as err:
@@ -648,7 +718,15 @@ class DeployReplicaTargetResourcesTask(base.TaskRunner):
                 raise_on_error=False,
             )
 
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict:
         target_environment = task_info["target_environment"]
         export_info = task_info['export_info']
 
@@ -713,26 +791,34 @@ class DeployReplicaTargetResourcesTask(base.TaskRunner):
 
 class DeleteReplicaTargetResourcesTask(base.TaskRunner):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.TASK_PLATFORM_DESTINATION
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["target_resources", "target_environment"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[str]:
         return ["target_resources", "target_resources_connection_info"]
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return {
             constants.PROVIDER_PLATFORM_DESTINATION: [
                 constants.PROVIDER_TYPE_TRANSFER_IMPORT
             ]
         }
 
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict[str, None]:
         provider = providers_factory.get_provider(
             destination["type"], constants.PROVIDER_TYPE_TRANSFER_IMPORT, event_handler
         )
@@ -751,26 +837,34 @@ class DeleteReplicaTargetResourcesTask(base.TaskRunner):
 
 class DeployReplicaInstanceResourcesTask(base.TaskRunner):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.TASK_PLATFORM_DESTINATION
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["export_info", "target_environment", "clone_disks", "volumes_info"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[str]:
         return ["instance_deployment_info"]
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return {
             constants.PROVIDER_PLATFORM_DESTINATION: [
                 constants.PROVIDER_TYPE_TRANSFER_IMPORT
             ]
         }
 
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict[str, dict]:
         target_environment = task_info["target_environment"]
         export_info = task_info["export_info"]
 
@@ -798,26 +892,34 @@ class DeployReplicaInstanceResourcesTask(base.TaskRunner):
 
 class FinalizeReplicaInstanceDeploymentTask(base.TaskRunner):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.TASK_PLATFORM_DESTINATION
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["target_environment", "instance_deployment_info"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[str]:
         return ["transfer_result"]
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return {
             constants.PROVIDER_PLATFORM_DESTINATION: [
                 constants.PROVIDER_TYPE_TRANSFER_IMPORT
             ]
         }
 
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict[str, dict]:
         provider = providers_factory.get_provider(
             destination["type"], constants.PROVIDER_TYPE_TRANSFER_IMPORT, event_handler
         )
@@ -844,11 +946,11 @@ class CleanupFailedReplicaInstanceDeploymentTask(base.TaskRunner):
         return constants.TASK_PLATFORM_DESTINATION
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["target_environment", "instance_deployment_info"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[str]:
         return ["instance_deployment_info"]
 
     @classmethod
@@ -876,26 +978,34 @@ class CleanupFailedReplicaInstanceDeploymentTask(base.TaskRunner):
 
 class CreateReplicaDiskSnapshotsTask(base.TaskRunner):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.TASK_PLATFORM_DESTINATION
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["target_environment", "export_info", "volumes_info"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[str]:
         return ["volumes_info"]
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return {
             constants.PROVIDER_PLATFORM_DESTINATION: [
                 constants.PROVIDER_TYPE_TRANSFER_IMPORT
             ]
         }
 
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict[str, list]:
         provider = providers_factory.get_provider(
             destination["type"], constants.PROVIDER_TYPE_TRANSFER_IMPORT, event_handler
         )
@@ -917,26 +1027,34 @@ class CreateReplicaDiskSnapshotsTask(base.TaskRunner):
 
 class DeleteReplicaTargetDiskSnapshotsTask(base.TaskRunner):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.TASK_PLATFORM_DESTINATION
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["target_environment", "export_info", "volumes_info"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[str]:
         return ["volumes_info"]
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return {
             constants.PROVIDER_PLATFORM_DESTINATION: [
                 constants.PROVIDER_TYPE_TRANSFER_IMPORT
             ]
         }
 
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict[str, list]:
         export_info = task_info['export_info']
         provider = providers_factory.get_provider(
             destination["type"], constants.PROVIDER_TYPE_TRANSFER_IMPORT, event_handler
@@ -962,11 +1080,11 @@ class RestoreReplicaDiskSnapshotsTask(base.TaskRunner):
         return constants.TASK_PLATFORM_DESTINATION
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["target_environment", "export_info", "volumes_info"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[str]:
         return ["volumes_info"]
 
     @classmethod
@@ -999,26 +1117,34 @@ class RestoreReplicaDiskSnapshotsTask(base.TaskRunner):
 
 class ValidateReplicaExecutionSourceInputsTask(base.TaskRunner):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.TASK_PLATFORM_SOURCE
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["source_environment"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[Any]:
         return []
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return {
             constants.PROVIDER_PLATFORM_SOURCE: [
                 constants.PROVIDER_TYPE_VALIDATE_TRANSFER_EXPORT
             ]
         }
 
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict[Any, Any]:
         event_manager = events.EventManager(event_handler)
         origin_type = origin["type"]
         source_provider = providers_factory.get_provider(
@@ -1046,19 +1172,19 @@ class ValidateReplicaExecutionSourceInputsTask(base.TaskRunner):
 
 class ValidateReplicaExecutionDestinationInputsTask(base.TaskRunner):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.TASK_PLATFORM_DESTINATION
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["export_info", "target_environment"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[Any]:
         return []
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return {
             constants.PROVIDER_PLATFORM_DESTINATION: [
                 constants.PROVIDER_TYPE_VALIDATE_TRANSFER_IMPORT
@@ -1066,8 +1192,13 @@ class ValidateReplicaExecutionDestinationInputsTask(base.TaskRunner):
         }
 
     def _validate_provider_replica_import_input(
-        self, provider, ctxt, conn_info, target_environment, export_info
-    ):
+        self,
+        provider,
+        ctxt,
+        conn_info: dict[str, str],
+        target_environment: dict,
+        export_info: dict,
+    ) -> None:
         provider.validate_replica_import_input(
             ctxt,
             conn_info,
@@ -1077,7 +1208,15 @@ class ValidateReplicaExecutionDestinationInputsTask(base.TaskRunner):
             check_final_vm_params=False,
         )
 
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict[Any, Any]:
         event_manager = events.EventManager(event_handler)
         destination_type = destination["type"]
 
@@ -1128,26 +1267,34 @@ class ValidateReplicaExecutionDestinationInputsTask(base.TaskRunner):
 
 class ValidateReplicaDeploymentParametersTask(base.TaskRunner):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.TASK_PLATFORM_DESTINATION
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["export_info", "target_environment"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[Any]:
         return []
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return {
             constants.PROVIDER_PLATFORM_DESTINATION: [
                 constants.PROVIDER_TYPE_VALIDATE_TRANSFER_IMPORT
             ]
         }
 
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict[Any, Any]:
         event_manager = events.EventManager(event_handler)
         destination_connection_info = base.get_connection_info(ctxt, destination)
         destination_type = destination["type"]
@@ -1181,26 +1328,34 @@ class ValidateReplicaDeploymentParametersTask(base.TaskRunner):
 
 class UpdateSourceReplicaTask(base.TaskRunner):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.TASK_PLATFORM_SOURCE
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["volumes_info", "source_environment"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[str]:
         return ["volumes_info", "source_environment"]
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return {
             constants.PROVIDER_PLATFORM_SOURCE: [
                 constants.PROVIDER_TYPE_SOURCE_TRANSFER_UPDATE
             ]
         }
 
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict:
         event_manager = events.EventManager(event_handler)
 
         volumes_info = task_info.get("volumes_info", [])
@@ -1251,26 +1406,34 @@ class UpdateSourceReplicaTask(base.TaskRunner):
 
 class UpdateDestinationReplicaTask(base.TaskRunner):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.TASK_PLATFORM_DESTINATION
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["export_info", "volumes_info", "target_environment"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[str]:
         return ["volumes_info", "target_environment"]
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return {
             constants.PROVIDER_PLATFORM_DESTINATION: [
                 constants.PROVIDER_TYPE_DESTINATION_TRANSFER_UPDATE
             ]
         }
 
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict:
         event_manager = events.EventManager(event_handler)
 
         volumes_info = task_info.get("volumes_info", [])

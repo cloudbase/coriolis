@@ -1,6 +1,8 @@
 # Copyright 2023 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from typing import Any
+
 from oslo_log import log as logging
 
 from coriolis import exception, utils
@@ -15,14 +17,14 @@ class BaseRockyLinuxMorphingTools(centos.BaseCentOSMorphingTools):
     UEFI_GRUB_LOCATION = "/boot/efi/EFI/rocky"
 
     @classmethod
-    def check_os_supported(cls, detected_os_info):
+    def check_os_supported(cls, detected_os_info: dict[str, str]) -> bool:
         if detected_os_info['distribution_name'] != (ROCKY_LINUX_DISTRO_IDENTIFIER):
             return False
         return cls._version_supported_util(
             detected_os_info['release_version'], minimum=8
         )
 
-    def enable_repos(self, repo_names):
+    def enable_repos(self, repo_names: list[Any]) -> None:
         """Enable repositories for Rocky Linux.
 
         Uses dnf config-manager for all Rocky Linux versions (8+).

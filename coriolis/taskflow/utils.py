@@ -9,10 +9,10 @@ LOG = logging.getLogger(__name__)
 class DummyDecider(object):
     """A callable to decide execution in a pre-defined manner."""
 
-    def __init__(self, allow=True):
+    def __init__(self, allow: bool = True):
         self._allow = allow
 
-    def __call__(self, history):
+    def __call__(self, history: dict[str, dict]) -> bool:
         LOG.debug(
             "Dummy decider returning '%s'. Provided task history was: %s",
             self._allow,

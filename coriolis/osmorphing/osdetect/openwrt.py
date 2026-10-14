@@ -1,6 +1,8 @@
 # Copyright 2020 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from typing import Any
+
 from coriolis import constants
 from coriolis.osmorphing.osdetect import base
 
@@ -8,7 +10,7 @@ OPENWRT_DISTRO_IDENTIFIER = "OpenWRT"
 
 
 class OpenWRTOSDetectTools(base.BaseLinuxOSDetectTools):
-    def detect_os(self):
+    def detect_os(self) -> dict[Any, Any]:
         info = {}
         openwrt_release = self._read_config_file(
             "etc/openwrt_release", check_exists=True

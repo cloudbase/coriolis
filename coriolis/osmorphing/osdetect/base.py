@@ -23,7 +23,7 @@ REQUIRED_DETECTED_OS_FIELDS = [
 
 
 class BaseOSDetectTools(object, with_metaclass(abc.ABCMeta)):
-    def __init__(self, conn, os_root_dir, operation_timeout):
+    def __init__(self, conn, os_root_dir: str, operation_timeout):
         self._conn = conn
         self._os_root_dir = os_root_dir
         self._environment = {}
@@ -37,7 +37,7 @@ class BaseOSDetectTools(object, with_metaclass(abc.ABCMeta)):
         )
 
     @abc.abstractmethod
-    def detect_os(self):
+    def detect_os(self) -> dict[str, str]:
         """Attempts to detect the mounted OS and return all relevant
         release info as a dict.
 
@@ -47,7 +47,7 @@ class BaseOSDetectTools(object, with_metaclass(abc.ABCMeta)):
             "`detect_os` not implemented for OS detection tools '%s'" % (type(self))
         )
 
-    def set_environment(self, environment):
+    def set_environment(self, environment: dict[str, str]) -> None:
         self._environment = environment
 
     # @abc.abstractmethod
@@ -61,23 +61,25 @@ class BaseOSDetectTools(object, with_metaclass(abc.ABCMeta)):
 
 class BaseLinuxOSDetectTools(BaseOSDetectTools):
     @classmethod
-    def returned_detected_os_info_fields(cls):
+    def returned_detected_os_info_fields(cls) -> list[str]:
         return REQUIRED_DETECTED_OS_FIELDS
 
     def _read_file(self, chroot_path):
         path = os.path.join(self._os_root_dir, chroot_path)
         return utils.read_ssh_file(self._conn, path)
 
-    def _read_config_file(self, chroot_path, check_exists=False):
+    def _read_config_file(
+        self, chroot_path: str, check_exists: bool = False
+    ) -> dict[str, str]:
         full_path = os.path.join(self._os_root_dir, chroot_path)
         return utils.read_ssh_ini_config_file(
             self._conn, full_path, check_exists=check_exists
         )
 
-    def _get_os_release(self):
+    def _get_os_release(self) -> dict[str, str]:
         return self._read_config_file("etc/os-release", check_exists=True)
 
-    def _test_path(self, chroot_path):
+    def _test_path(self, chroot_path: str) -> bool:
         full_path = os.path.join(self._os_root_dir, chroot_path)
         return utils.test_ssh_path(self._conn, full_path)
 
@@ -118,7 +120,7 @@ class BaseLinuxOSDetectTools(BaseOSDetectTools):
 class LinuxOSDetectUsingOSRelease(BaseLinuxOSDetectTools):
     """OS detection based on the standard /etc/os-release file."""
 
-    def detect_os(self):
+    def detect_os(self) -> dict[str, str]:
         """Detect a Linux distro from /etc/os-release."""
         os_release = self._get_os_release()
         if not os_release:

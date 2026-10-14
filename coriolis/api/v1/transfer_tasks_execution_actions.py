@@ -1,6 +1,8 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from typing import NoReturn
+
 from webob import exc
 
 from coriolis import exception
@@ -15,7 +17,9 @@ class TransferTasksExecutionActionsController(api_wsgi.Controller):
         super(TransferTasksExecutionActionsController, self).__init__()
 
     @api_wsgi.action('cancel')
-    def _cancel(self, req, transfer_id, id, body):
+    def _cancel(
+        self, req: api_wsgi.Request, transfer_id: str, id: str, body: dict[str, dict]
+    ) -> NoReturn:
         context = req.environ['coriolis.context']
         context.can(execution_policies.get_transfer_executions_policy_label('cancel'))
         try:
@@ -29,5 +33,5 @@ class TransferTasksExecutionActionsController(api_wsgi.Controller):
             raise exc.HTTPNotFound(explanation=ex.msg)
 
 
-def create_resource():
+def create_resource() -> api_wsgi.Resource:
     return api_wsgi.Resource(TransferTasksExecutionActionsController())

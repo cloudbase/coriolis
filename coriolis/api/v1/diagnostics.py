@@ -16,12 +16,12 @@ class DiagnosticsController(api_wsgi.Controller):
         self._diag_api = api.API()
         super(DiagnosticsController, self).__init__()
 
-    def index(self, req):
+    def index(self, req: api_wsgi.Request) -> dict[str, list]:
         context = req.environ['coriolis.context']
         context.can(diagnostics.get_diagnostics_policy_label("get"))
 
         return diagnostic_view.collection(self._diag_api.get(context))
 
 
-def create_resource():
+def create_resource() -> api_wsgi.Resource:
     return api_wsgi.Resource(DiagnosticsController())

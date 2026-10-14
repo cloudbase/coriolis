@@ -18,7 +18,7 @@ class EndpointInventoryController(api_wsgi.Controller):
         self._endpoint_resources_api = api.API()
         super(EndpointInventoryController, self).__init__()
 
-    def index(self, req, endpoint_id):
+    def index(self, req: api_wsgi.Request, endpoint_id: str) -> api_wsgi.ResponseObject:
         context = req.environ['coriolis.context']
         context.can("%s:export_inventory" % (endpoint_policies.ENDPOINTS_POLICY_PREFIX))
 
@@ -35,5 +35,5 @@ class EndpointInventoryController(api_wsgi.Controller):
         return api_wsgi.ResponseObject(csv_content)
 
 
-def create_resource():
+def create_resource() -> api_wsgi.Resource:
     return api_wsgi.Resource(EndpointInventoryController())

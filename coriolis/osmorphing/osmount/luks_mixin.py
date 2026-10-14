@@ -5,6 +5,7 @@ import contextlib
 import json
 import os
 import re
+from typing import Callable, Iterator
 
 from oslo_config import cfg, types
 from oslo_log import log as logging
@@ -45,7 +46,7 @@ _CRYPTSETUP_TPM2_PLUGIN_PATHS = [
 _RESOURCES_DIR = os.path.join(os.path.dirname(__file__), "resources")
 
 
-def _load_script(filename):
+def _load_script(filename: str) -> str:
     with open(os.path.join(_RESOURCES_DIR, filename)) as fh:
         return fh.read()
 
@@ -69,7 +70,7 @@ def validate_config():
         )
 
 
-def _render_tpm2_pcrs(script_content, initramfs_tool):
+def _render_tpm2_pcrs(script_content: str, initramfs_tool: str) -> str:
     """Substitute the configured TPM2 PCR list into the given script_content.
 
     The list is formatted based on the given initramfs_tool's enrollment
@@ -98,7 +99,7 @@ class LinuxLUKSMixin:
         super().__init__(*args, **kwargs)
         self._luks_opened = []
 
-    def _unlock_luks_devices(self, dev_paths):
+    def _unlock_luks_devices(self, dev_paths: list[str]) -> None:
         """Open any LUKS-encrypted devices listed in dev_paths in-place.
 
         Reads osmorphing_info["encrypted_disks_passphrase"], a single
@@ -125,7 +126,7 @@ class LinuxLUKSMixin:
             self._close_luks_devices()
             raise
 
-    def _unlock_luks_device(self, dev_path, passphrase):
+    def _unlock_luks_device(self, dev_path: str, passphrase: str | None) -> str | None:
         """Open a single LUKS-encrypted device.
 
         :raises CoriolisException: if the device is LUKS-encrypted but no
@@ -156,7 +157,7 @@ class LinuxLUKSMixin:
 
         return mapper_path
 
-    def _is_luks(self, dev_path):
+    def _is_luks(self, dev_path: str) -> bool:
         try:
             self._exec_cmd("sudo cryptsetup isLuks %s" % dev_path)
             return True
@@ -169,14 +170,16 @@ class LinuxLUKSMixin:
                 return False
             raise
 
-    def _close_luks_devices(self):
+    def _close_luks_devices(self) -> None:
         """Close any LUKS mapper devices opened by _unlock_luks_devices."""
         for mapper_name, _ in self._luks_opened:
             self._exec_cmd("sudo cryptsetup luksClose %s || true" % mapper_name)
 
         self._luks_opened = []
 
-    def _write_remote_file(self, dest_path, content, mode=None):
+    def _write_remote_file(
+        self, dest_path: str, content: str, mode: str | None = None
+    ) -> None:
         """Write content to dest_path on the remote host via a temp file."""
         tmp = self._exec_cmd("mktemp").strip()
         utils.write_ssh_file(self._ssh, tmp, content.encode("utf-8"))
@@ -188,7 +191,7 @@ class LinuxLUKSMixin:
             self._exec_cmd("sudo mv %s %s" % (tmp, dest_path))
 
     @contextlib.contextmanager
-    def _auth_luks(self, passphrase, key_path):
+    def _auth_luks(self, passphrase: str, key_path: str) -> Iterator[str]:
         """Write passphrase to key_path on the remote host; yield; delete."""
         self._write_remote_file(key_path, passphrase)
         try:
@@ -196,7 +199,7 @@ class LinuxLUKSMixin:
         finally:
             self._exec_cmd("sudo rm -f %s" % key_path)
 
-    def _get_tpm2_token_info(self, dev_path):
+    def _get_tpm2_token_info(self, dev_path: str) -> list[tuple]:
         """Return list of (token_id, keyslot_id) pairs for systemd-tpm2 tokens.
 
         Returns an empty list for LUKS1 devices, which do not support tokens.
@@ -224,7 +227,7 @@ class LinuxLUKSMixin:
 
         return results
 
-    def _remove_tpm2_tokens(self, dev_path, passphrase):
+    def _remove_tpm2_tokens(self, dev_path: str, passphrase: str) -> None:
         """Remove systemd-tpm2 tokens and kill their keyslots from dev_path.
 
         Token removal modifies only the LUKS2 header metadata. Keyslot
@@ -266,7 +269,9 @@ class LinuxLUKSMixin:
                     utils.get_exception_details(),
                 )
 
-    def _transform_crypttab(self, os_root_dir, transform):
+    def _transform_crypttab(
+        self, os_root_dir: str, transform: Callable[[list], list]
+    ) -> bool:
         """Apply transform to each non-comment entry in /etc/crypttab.
 
         transform(parts) receives the split fields [name, device, keyfile,
@@ -304,14 +309,14 @@ class LinuxLUKSMixin:
         self._write_remote_file(crypttab_path, "".join(new_lines))
         return True
 
-    def _remove_tpm2_crypttab_options(self, os_root_dir):
+    def _remove_tpm2_crypttab_options(self, os_root_dir: str) -> None:
         """Strip tpm2-* options from /etc/crypttab in the mounted OS.
 
         Prevents the initramfs from attempting TPM2 unsealing on the target,
         which would fail because the source TPM is not present there.
         """
 
-        def _strip_tpm2(parts):
+        def _strip_tpm2(parts: list[str]) -> list[str]:
             if len(parts) < 4:
                 return None
 
@@ -325,7 +330,7 @@ class LinuxLUKSMixin:
         if self._transform_crypttab(os_root_dir, _strip_tpm2):
             LOG.info("Removed TPM2 options from /etc/crypttab in '%s'", os_root_dir)
 
-    def remove_encryption_artifacts(self, os_root_dir):
+    def remove_encryption_artifacts(self, os_root_dir: str) -> None:
         """Remove stale TPM2 tokens, kill their keyslots, and strip tpm2-*
         options from /etc/crypttab.
 
@@ -345,13 +350,15 @@ class LinuxLUKSMixin:
 
         self._remove_tpm2_crypttab_options(os_root_dir)
 
-    def _get_migration_keyfile_path(self, dev_path):
+    def _get_migration_keyfile_path(self, dev_path: str) -> str:
         return "%s/coriolis_%s.key" % (_LUKS_KEYFILE_DIR, os.path.basename(dev_path))
 
-    def _get_luks_uuid(self, dev_path):
+    def _get_luks_uuid(self, dev_path: str) -> str:
         return self._exec_cmd("sudo cryptsetup luksUUID %s" % dev_path).strip()
 
-    def _update_crypttab_keyfile(self, os_root_dir, uuid_to_keyfile):
+    def _update_crypttab_keyfile(
+        self, os_root_dir: str, uuid_to_keyfile: dict[str, str]
+    ) -> None:
         """Update the keyfile column in crypttab for matching LUKS UUIDs."""
         # cryptsetup-initramfs (Ubuntu 22.04+) only embeds crypttab entries
         # in the initramfs when the device is verifiable at build time OR when
@@ -364,7 +371,7 @@ class LinuxLUKSMixin:
             self._detect_initramfs_tool(os_root_dir) == "update-initramfs"
         )
 
-        def _set_keyfile(parts):
+        def _set_keyfile(parts: list[str]) -> list[str]:
             if len(parts) < 2:
                 return None
 
@@ -398,7 +405,7 @@ class LinuxLUKSMixin:
 
         LOG.info("Updated crypttab keyfile entries in '%s'", os_root_dir)
 
-    def _write_migration_keyfiles(self, os_root_dir):
+    def _write_migration_keyfiles(self, os_root_dir: str) -> None:
         """Write migration keyfiles into the OS and update crypttab."""
         passphrase = self._osmorphing_info.get(constants.ENCRYPTED_DISKS_PASS)
         if not passphrase or not self._luks_opened:
@@ -443,7 +450,9 @@ class LinuxLUKSMixin:
                 "keyfile-based LUKS auto-unlock." % os_root_dir
             )
 
-    def _configure_dracut_keyfiles(self, os_root_dir, uuid_to_keyfile):
+    def _configure_dracut_keyfiles(
+        self, os_root_dir: str, uuid_to_keyfile: dict[str, str]
+    ) -> None:
         """Write a dracut.conf.d snippet to embed keyfiles in the initramfs."""
         install_items = list(uuid_to_keyfile.values())
 
@@ -477,7 +486,7 @@ class LinuxLUKSMixin:
         )
         LOG.info("Written dracut LUKS keyfile config at '%s'", _DRACUT_LUKS_CONF_PATH)
 
-    def _configure_initramfs_tools_keyfiles(self, os_root_dir):
+    def _configure_initramfs_tools_keyfiles(self, os_root_dir: str) -> None:
         """Set KEYFILE_PATTERN in cryptsetup-initramfs conf-hook.
 
         cryptsetup-initramfs (Debian / Ubuntu) only embeds keyfiles whose paths
@@ -505,7 +514,7 @@ class LinuxLUKSMixin:
             "Set KEYFILE_PATTERN in cryptsetup-initramfs conf-hook at '%s'", hook_abs
         )
 
-    def _detect_initramfs_tool(self, os_root_dir):
+    def _detect_initramfs_tool(self, os_root_dir: str) -> str:
         initramfs_bins = ["usr/sbin/update-initramfs", "sbin/update-initramfs"]
         for initramfs_bin in initramfs_bins:
             path = os.path.join(os_root_dir, initramfs_bin)
@@ -519,7 +528,7 @@ class LinuxLUKSMixin:
 
         return None
 
-    def _build_dracut_include_args(self, os_root_dir):
+    def _build_dracut_include_args(self, os_root_dir: str) -> list[str]:
         """Return --include args that force-embed crypttab and LUKS keyfiles.
 
         dracut's install_items embeds the keyfile but does not guarantee that
@@ -551,7 +560,7 @@ class LinuxLUKSMixin:
 
         return args
 
-    def _rebuild_initramfs(self, os_root_dir):
+    def _rebuild_initramfs(self, os_root_dir: str) -> None:
         """Rebuild the initramfs inside the mounted OS chroot.
 
         /dev, /proc, /sys, /run are already bind-mounted by mount_os().
@@ -567,7 +576,9 @@ class LinuxLUKSMixin:
                 "initramfs for LUKS auto-unlock." % os_root_dir
             )
 
-    def install_encryption_firstboot_setup(self, os_root_dir, os_morphing_tools):
+    def install_encryption_firstboot_setup(
+        self, os_root_dir: str, os_morphing_tools
+    ) -> None:
         """Install a firstboot script to re-enroll TPM2."""
         if not self._luks_opened:
             return
@@ -593,7 +604,7 @@ class LinuxLUKSMixin:
             script_content, user_provided=False, script_filename="luks-firstboot.sh"
         )
 
-    def _rebuild_initramfs_dracut(self, os_root_dir):
+    def _rebuild_initramfs_dracut(self, os_root_dir: str) -> None:
         """Rebuild all dracut initramfs images inside the OS chroot."""
         include_args = self._build_dracut_include_args(os_root_dir)
 
@@ -626,7 +637,7 @@ class LinuxLUKSMixin:
                 % (os_root_dir, kver, " ".join(include_args))
             )
 
-    def _fix_grub_luks_root(self, os_root_dir):
+    def _fix_grub_luks_root(self, os_root_dir: str) -> None:
         """Patch grub.cfg to use crypttab mapper names for LUKS root devices.
 
         update-grub names the root device after the mapper opened by osmount

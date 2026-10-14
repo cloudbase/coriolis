@@ -1,6 +1,8 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from typing import Any, NoReturn
+
 from oslo_log import log as logging
 from webob import exc
 
@@ -27,7 +29,7 @@ class TransferController(api_wsgi.Controller):
         self._endpoints_api = endpoints_api.API()
         super(TransferController, self).__init__()
 
-    def show(self, req, id):
+    def show(self, req: api_wsgi.Request, id: str) -> dict[str, dict]:
         context = req.environ["coriolis.context"]
         context.can(transfer_policies.get_transfers_policy_label("show"))
         include_task_info = api_utils.get_bool_url_arg(
@@ -41,7 +43,7 @@ class TransferController(api_wsgi.Controller):
 
         return transfer_view.single(transfer)
 
-    def _get_filters(self, req) -> dict:
+    def _get_filters(self, req: api_wsgi.Request) -> dict:
         filters = {}
         status = req.GET.get("status")
         if status is not None:
@@ -50,7 +52,7 @@ class TransferController(api_wsgi.Controller):
             filters["status"] = status
         return filters
 
-    def _list(self, req):
+    def _list(self, req: api_wsgi.Request) -> dict:
         show_deleted = api_utils.get_bool_url_arg(req, "show_deleted", default=False)
         context = req.environ["coriolis.context"]
         context.show_deleted = show_deleted
@@ -74,14 +76,14 @@ class TransferController(api_wsgi.Controller):
             )
         )
 
-    def index(self, req):
+    def index(self, req: api_wsgi.Request) -> dict[str, list]:
         return self._list(req)
 
-    def detail(self, req):
+    def detail(self, req: api_wsgi.Request) -> dict[str, list]:
         return self._list(req)
 
     @api_utils.format_keyerror_message(resource='transfer', method='create')
-    def _validate_create_body(self, context, body):
+    def _validate_create_body(self, context, body: dict) -> tuple:
         transfer = body["transfer"]
 
         scenario = transfer.get("scenario", "")
@@ -173,7 +175,7 @@ class TransferController(api_wsgi.Controller):
             skip_os_morphing,
         )
 
-    def create(self, req, body):
+    def create(self, req: api_wsgi.Request, body: dict) -> dict:
         context = req.environ["coriolis.context"]
         context.can(transfer_policies.get_transfers_policy_label("create"))
 
@@ -216,7 +218,7 @@ class TransferController(api_wsgi.Controller):
             )
         )
 
-    def delete(self, req, id):
+    def delete(self, req: api_wsgi.Request, id: str) -> NoReturn:
         context = req.environ["coriolis.context"]
         context.can(transfer_policies.get_transfers_policy_label("delete"))
         try:
@@ -226,7 +228,9 @@ class TransferController(api_wsgi.Controller):
             raise exc.HTTPNotFound(explanation=ex.msg)
 
     @staticmethod
-    def _update_storage_mappings(original_storage_mappings, new_storage_mappings):
+    def _update_storage_mappings(
+        original_storage_mappings: dict[Any, Any], new_storage_mappings: dict[Any, Any]
+    ) -> dict[str, list]:
 
         backend_mappings = original_storage_mappings.get('backend_mappings', [])
         new_backend_mappings = new_storage_mappings.get('backend_mappings', [])
@@ -270,7 +274,9 @@ class TransferController(api_wsgi.Controller):
         return storage_mappings
 
     @staticmethod
-    def _get_updated_user_scripts(original_user_scripts, new_user_scripts):
+    def _get_updated_user_scripts(
+        original_user_scripts: dict[Any, Any], new_user_scripts: dict[Any, Any]
+    ) -> dict[str, dict]:
         global_scripts = original_user_scripts.get('global', {})
         new_global_scripts = new_user_scripts.get('global', {})
         if new_global_scripts:
@@ -288,7 +294,7 @@ class TransferController(api_wsgi.Controller):
 
         return user_scripts
 
-    def _get_merged_transfer_values(self, transfer, updated_values):
+    def _get_merged_transfer_values(self, transfer: dict, updated_values: dict) -> dict:
         """Looks for the following keys in the original transfer body and
         updated values (preferring the updated values where needed, but using
         `.update()` on dicts):
@@ -373,7 +379,7 @@ class TransferController(api_wsgi.Controller):
         return final_values
 
     @api_utils.format_keyerror_message(resource='transfer', method='update')
-    def _validate_update_body(self, id, context, body):
+    def _validate_update_body(self, id, context, body) -> dict | tuple:
         transfer = self._transfer_api.get_transfer(context, id)
 
         scenario = body.get("scenario", "")
@@ -424,7 +430,9 @@ class TransferController(api_wsgi.Controller):
 
         return merged_body
 
-    def update(self, req, id, body):
+    def update(
+        self, req: api_wsgi.Request, id: str, body: dict[str, dict]
+    ) -> dict[str, dict]:
         context = req.environ["coriolis.context"]
         context.can(transfer_policies.get_transfers_policy_label("update"))
 
@@ -441,5 +449,5 @@ class TransferController(api_wsgi.Controller):
             raise exc.HTTPNotFound(explanation=ex.msg)
 
 
-def create_resource():
+def create_resource() -> api_wsgi.Resource:
     return api_wsgi.Resource(TransferController())

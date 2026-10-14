@@ -22,12 +22,12 @@ class DeployerManagerServerEndpoint:
         self._init_loop()
 
     @property
-    def _rpc_conductor_client(self):
+    def _rpc_conductor_client(self) -> rpc_conductor_client.ConductorClient:
         if not getattr(self, '_conductor_client_instance', None):
             self._conductor_client_instance = rpc_conductor_client.ConductorClient()
         return self._conductor_client_instance
 
-    def _wait_for_pending_deployment_status_change(self, deployment_id):
+    def _wait_for_pending_deployment_status_change(self, deployment_id: str) -> None:
         pending = constants.EXECUTION_STATUS_PENDING
         LOG.info(
             f"Waiting for deployment '{deployment_id}' to be out of '{pending}' status"
@@ -55,7 +55,7 @@ class DeployerManagerServerEndpoint:
             f"'{pending}' status."
         )
 
-    def _check_deployer_status(self, deployment_id):
+    def _check_deployer_status(self, deployment_id: str) -> None:
         active_statuses = [
             constants.EXECUTION_STATUS_UNEXECUTED,
             constants.EXECUTION_STATUS_RUNNING,
@@ -137,10 +137,12 @@ class DeployerManagerServerEndpoint:
                 )
             time.sleep(10)
 
-    def _init_loop(self):
+    def _init_loop(self) -> None:
         utils.start_thread(self._loop)
 
-    def execute_auto_deployment(self, ctxt, transfer_id, deployer_id, **kwargs):
+    def execute_auto_deployment(
+        self, ctxt: context.RequestContext, transfer_id: str, deployer_id: str, **kwargs
+    ) -> None:
         LOG.debug(
             f"Creating deployment for deployer ID '{deployer_id}' of transfer "
             f"'{transfer_id}'"

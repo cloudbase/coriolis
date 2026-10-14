@@ -1,6 +1,8 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from typing import Any
+
 from coriolis import constants, exception
 from coriolis.tasks import (
     migration_tasks,
@@ -67,7 +69,7 @@ _TASKS_MAP = {
 }
 
 
-def get_task_runner_class(task_type):
+def get_task_runner_class(task_type: str) -> type[Any]:
     cls = _TASKS_MAP.get(task_type)
     if not cls:
         raise exception.NotFound("TaskRunner not found for task type: %s" % task_type)

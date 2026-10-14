@@ -37,7 +37,7 @@ _COMPRESS_FUNC = {
 }
 
 
-def _get_session_and_address():
+def _get_session_and_address() -> tuple:
     if not CONF.compressor_address:
         return None, None
 
@@ -61,7 +61,7 @@ def _get_session_and_address():
     return (requests.Session(), "http://%s/" % CONF.compressor_address)
 
 
-def compression_proxy(content, fmt):
+def compression_proxy(content: bytes, fmt: str) -> tuple[bytes, bool]:
     if fmt not in constants.VALID_COMPRESSION_FORMATS:
         raise exception.CoriolisException(
             "Invalid compression format requested: %s" % fmt
@@ -101,7 +101,9 @@ def compression_proxy(content, fmt):
     return data, compress
 
 
-def encode_data(msg_id, path, offset, content, compress=True):
+def encode_data(
+    msg_id: int, path: str, offset: int, content: bytes, compress: bool = True
+) -> bytes:
     inflated_content = path.encode() + b'\0' + struct.pack("<Q", offset) + content
 
     data_len_inflated = len(inflated_content)
@@ -126,5 +128,5 @@ def encode_data(msg_id, path, offset, content, compress=True):
     )
 
 
-def encode_eod(msg_id):
+def encode_eod(msg_id: int) -> bytes:
     return struct.pack("<I", msg_id) + struct.pack("<I", 0)

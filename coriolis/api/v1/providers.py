@@ -15,11 +15,11 @@ class ProviderController(api_wsgi.Controller):
         self._provider_api = api.API()
         super(ProviderController, self).__init__()
 
-    def index(self, req):
+    def index(self, req: api_wsgi.Request) -> dict[str, dict]:
         context = req.environ['coriolis.context']
         context.can(general_policies.get_providers_policy_label('list'))
         return {"providers": self._provider_api.get_available_providers(context)}
 
 
-def create_resource():
+def create_resource() -> api_wsgi.Resource:
     return api_wsgi.Resource(ProviderController())

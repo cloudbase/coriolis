@@ -3,6 +3,7 @@ import queue
 import sys
 import threading
 import time
+from typing import Callable
 
 import schedule
 from oslo_log import log
@@ -18,14 +19,14 @@ SCHEDULE_FIELDS = ("minute", "hour", "dom", "month", "dow")
 class CronJob(object):
     def __init__(
         self,
-        name,
-        description,
-        schedule,
-        enabled,
+        name: str,
+        description: str,
+        schedule: dict[str, int],
+        enabled: bool,
         expires,
         on_success,
         on_error,
-        job_callable,
+        job_callable: Callable,
         *args,
         **kw,
     ):
@@ -80,7 +81,7 @@ class CronJob(object):
                 raise exception.CoriolisException("Invalid expires")
         self._expires = expires
 
-    def _compare(self, pairs):
+    def _compare(self, pairs: list) -> list[bool]:
         # we don't support the full cron syntax. Either exact matches
         # or wildcard matches are allowed. Expressions such as:
         # */10 (every 10 units)
@@ -93,13 +94,13 @@ class CronJob(object):
                 ret.append(False)
         return ret
 
-    def is_expired(self):
+    def is_expired(self) -> bool:
         now = timeutils.utcnow()
         if self._expires and self._expires < now:
             return True
         return False
 
-    def should_run(self, dt):
+    def should_run(self, dt: datetime.datetime) -> bool:
         # NOTE(gsamfira): I find your lack of strong typing....disturbing
         if type(dt) is not datetime.datetime:
             raise exception.CoriolisException("Invalid datetime object")
@@ -117,12 +118,12 @@ class CronJob(object):
         compared = self._compare(pairs)
         return False not in compared
 
-    def _send_status(self, queue, status):
+    def _send_status(self, queue: queue.Queue, status: dict) -> None:
         if not queue:
             return
         queue.put(status)
 
-    def start(self, status_queue=None):
+    def start(self, status_queue: queue.Queue = None) -> None:
         result = None
         exc_info = None
         try:
@@ -156,7 +157,7 @@ class Cron(object):
         self._threads = []
         self._semaphore = threading.Semaphore(value=1)
 
-    def register(self, job):
+    def register(self, job: CronJob) -> None:
         if not isinstance(job, CronJob):
             raise ValueError("Invalid job class")
         name = job.name
@@ -164,14 +165,14 @@ class Cron(object):
         with self._semaphore:
             self._jobs[name] = job
 
-    def unregister(self, name):
+    def unregister(self, name: str) -> None:
         job = self._jobs.get(name)
         if job:
             LOG.debug("Unregistering cron job with name '%s'", name)
             with self._semaphore:
                 del self._jobs[name]
 
-    def unregister_jobs_with_prefix(self, prefix):
+    def unregister_jobs_with_prefix(self, prefix: str) -> None:
         jobs = [job for job in self._jobs if job.startswith(prefix)]
         if jobs:
             LOG.debug(
@@ -184,7 +185,7 @@ class Cron(object):
                 for job in jobs:
                     del self._jobs[job]
 
-    def _check_jobs(self):
+    def _check_jobs(self) -> None:
         LOG.debug("Checking cron jobs")
         jobs = self._jobs.copy()
         job_nr = len(jobs)
@@ -209,12 +210,12 @@ class Cron(object):
             % {"seconds": delta.seconds, "jobs": spawned}
         )
 
-    def _loop(self):
+    def _loop(self) -> None:
         while not self._should_stop:
             schedule.run_pending()
             time.sleep(0.2)
 
-    def _result_loop(self):
+    def _result_loop(self) -> None:
         while not self._should_stop:
             job_info = self._queue.get()
             result = job_info["result"]
@@ -232,7 +233,7 @@ class Cron(object):
                     "Job %(desc)s returned: %(ret)r" % {"desc": desc, "ret": result}
                 )
 
-    def _janitor(self):
+    def _janitor(self) -> None:
         # remove expired jobs from memory. The check for expired
         # jobs runs once every minute.
         while not self._should_stop:
@@ -248,7 +249,7 @@ class Cron(object):
             # No need to run very often. Once a minute should do
             time.sleep(60)
 
-    def start(self):
+    def start(self) -> None:
         schedule.every().minute.do(self._check_jobs)
         self._threads.append(utils.start_thread(self._loop))
         # TODO(lpetrut): consider using "schedule" for the janitor job to avoid
@@ -256,5 +257,5 @@ class Cron(object):
         self._threads.append(utils.start_thread(self._janitor))
         self._threads.append(utils.start_thread(self._result_loop))
 
-    def stop(self):
+    def stop(self) -> None:
         self._should_stop = True

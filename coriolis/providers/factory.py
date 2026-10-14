@@ -49,7 +49,7 @@ PROVIDER_TYPE_MAP = {
 }
 
 
-def get_available_providers():
+def get_available_providers() -> dict[str, dict]:
     providers = {}
     for provider in CONF.providers:
         cls = utils.load_class(provider)
@@ -65,7 +65,12 @@ def get_available_providers():
     return providers
 
 
-def get_provider(platform_name, provider_type, event_handler, raise_if_not_found=True):
+def get_provider(
+    platform_name: str,
+    provider_type: int,
+    event_handler,
+    raise_if_not_found: bool = True,
+):
     for provider in CONF.providers:
         cls = utils.load_class(provider)
         parent = PROVIDER_TYPE_MAP.get(provider_type)
