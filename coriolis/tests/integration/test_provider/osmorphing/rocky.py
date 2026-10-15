@@ -30,6 +30,10 @@ class LUKSTestRockyLinuxOSMorphingTools(TestRockyLinuxOSMorphingTools):
     is not needed for initramfs rebuilds and would overflow the test device
     during download. install_weak_deps is therefore disabled in the chroot's
     dnf.conf before any packages are installed.
+
+    The default repos point at a mirrorlist, so dnf picks a random public
+    mirror per run. A throttled mirror can stall the first metadata download for
+    minutes. The repos are pinned to Rocky's CDN to keep the duration stable.
     """
 
     _packages = {
@@ -47,5 +51,17 @@ class LUKSTestRockyLinuxOSMorphingTools(TestRockyLinuxOSMorphingTools):
         self._exec_cmd_chroot(
             "bash -c 'mkdir -p /etc/dnf && "
             "echo install_weak_deps=False >> /etc/dnf/dnf.conf'"
+        )
+
+        # Swap the mirrorlist-based repo definitions for Rocky's CDN baseurls.
+        # Must run before super(), as BaseRedHatMorphingTools.pre_packages_install
+        # wipes the dnf cache and installs grubby, forcing a full metadata
+        # download from whichever mirror the mirrorlist happened to return.
+        self._exec_cmd_chroot(
+            "bash -c \"sed -i "
+            "-e 's|^mirrorlist=|#mirrorlist=|' "
+            "-e 's|^#baseurl=http://dl.rockylinux.org|"
+            "baseurl=https://dl.rockylinux.org|' "
+            "/etc/yum.repos.d/rocky*.repo\""
         )
         super().pre_packages_install(package_names)
