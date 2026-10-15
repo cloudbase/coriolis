@@ -456,8 +456,16 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
             "os_type": "windows",
             "osmorphing_parameters": {"cloudbase_init_plugins": plugins},
         }
-        dest_opts.CONF.set_override("cloudbase_init_plugins", ["other.Plugin"])
-        self.addCleanup(dest_opts.CONF.clear_override, "cloudbase_init_plugins")
+        dest_opts.CONF.set_override(
+            "cloudbase_init_plugins",
+            ["other.Plugin"],
+            group=dest_opts.COMMON_TARGET_OPTION_GROUP,
+        )
+        self.addCleanup(
+            dest_opts.CONF.clear_override,
+            "cloudbase_init_plugins",
+            group=dest_opts.COMMON_TARGET_OPTION_GROUP,
+        )
         result = dest_opts.apply_core_destination_overrides(
             osmorphing_info, {"zone": "zone1"}
         )
@@ -611,17 +619,13 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
         self.assertEqual({}, dest_opts.filter_core_option_names({}))
 
     def test_get_data_transfer_mechanism_destination_option(self):
-        result = self._row_by_name(
-            dest_opts.CORE_DESTINATION_OPTIONS, "data_transfer_mechanism"
-        )
+        result = dest_opts.CORE_DESTINATION_OPTIONS["data_transfer_mechanism"]
         self.assertEqual("data_transfer_mechanism", result["name"])
         self.assertEqual(["SSH", "HTTPS"], result["values"])
         self.assertEqual("HTTPS", result["config_default"])
 
     def test_get_cloudbase_init_plugins_destination_option(self):
-        result = self._row_by_name(
-            dest_opts.CORE_DESTINATION_OPTIONS, "cloudbase_init_plugins"
-        )
+        result = dest_opts.CORE_DESTINATION_OPTIONS["cloudbase_init_plugins"]
         self.assertEqual("cloudbase_init_plugins", result["name"])
         self.assertTrue(result["values"])
         self.assertIn("id", result["values"][0])
@@ -647,8 +651,16 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
             "os_type": "linux",
             "osmorphing_parameters": {},
         }
-        dest_opts.CONF.set_override("set_dhcp", False)
-        self.addCleanup(dest_opts.CONF.clear_override, "set_dhcp")
+        dest_opts.CONF.set_override(
+            "set_dhcp",
+            False,
+            group=dest_opts.COMMON_TARGET_OPTION_GROUP,
+        )
+        self.addCleanup(
+            dest_opts.CONF.clear_override,
+            "set_dhcp",
+            group=dest_opts.COMMON_TARGET_OPTION_GROUP,
+        )
         result = dest_opts.apply_core_destination_overrides(
             osmorphing_info, {"zone": "zone1"}
         )
@@ -660,8 +672,16 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
             "os_type": "linux",
             "nics_set_dhcp": True,
         }
-        dest_opts.CONF.set_override("set_dhcp", False)
-        self.addCleanup(dest_opts.CONF.clear_override, "set_dhcp")
+        dest_opts.CONF.set_override(
+            "set_dhcp",
+            False,
+            group=dest_opts.COMMON_TARGET_OPTION_GROUP,
+        )
+        self.addCleanup(
+            dest_opts.CONF.clear_override,
+            "set_dhcp",
+            group=dest_opts.COMMON_TARGET_OPTION_GROUP,
+        )
         result = dest_opts.apply_core_destination_overrides(
             osmorphing_info, {"zone": "zone1"}
         )
@@ -669,8 +689,16 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
         self.assertNotIn("set_dhcp", result.get("osmorphing_parameters") or {})
 
     def test_apply_core_destination_overrides_set_dhcp_from_dest_env(self):
-        dest_opts.CONF.set_override("set_dhcp", True)
-        self.addCleanup(dest_opts.CONF.clear_override, "set_dhcp")
+        dest_opts.CONF.set_override(
+            "set_dhcp",
+            True,
+            group=dest_opts.COMMON_TARGET_OPTION_GROUP,
+        )
+        self.addCleanup(
+            dest_opts.CONF.clear_override,
+            "set_dhcp",
+            group=dest_opts.COMMON_TARGET_OPTION_GROUP,
+        )
         result = dest_opts.apply_core_destination_overrides(
             {
                 "os_type": "linux",
@@ -698,8 +726,16 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
             "os_type": "linux",
             "osmorphing_parameters": {"retain_user_credentials": True},
         }
-        dest_opts.CONF.set_override("retain_user_credentials", False)
-        self.addCleanup(dest_opts.CONF.clear_override, "retain_user_credentials")
+        dest_opts.CONF.set_override(
+            "retain_user_credentials",
+            False,
+            group=dest_opts.COMMON_TARGET_OPTION_GROUP,
+        )
+        self.addCleanup(
+            dest_opts.CONF.clear_override,
+            "retain_user_credentials",
+            group=dest_opts.COMMON_TARGET_OPTION_GROUP,
+        )
         result = dest_opts.apply_core_destination_overrides(
             osmorphing_info, {"zone": "zone1"}
         )

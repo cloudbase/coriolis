@@ -9,6 +9,7 @@ The provider overwrites matching fields. Core rows always stay.
 Provider-written schema properties are kept.
 Destination environment values take precedence over provider values.
 Provider values take precedence over coriolis.conf.
+The oslo options are in the common_target_option group.
 """
 
 import copy
@@ -19,13 +20,19 @@ from oslo_log import log as logging
 
 from coriolis.osmorphing import windows
 
+COMMON_TARGET_OPTION_GROUP = "common_target_option"
+
 CORE_SCHEMA_PROPERTIES = {
     "cloudbase_init_plugins": {
         "type": "array",
         "items": {"type": "string"},
         "title": "Cloudbase-Init Plugins",
         "description": (
-            "Cloudbase-Init plugins to run in Windows guests after OS morphing."
+            "Cloudbase-Init plugin class names for Windows guests. "
+            "When set, this list is written into the guest. "
+            "When omitted, coriolis.conf is used, "
+            "then the provider plugin list, "
+            "then the built-in list in Coriolis Windows OS morphing."
         ),
     },
     "data_transfer_mechanism": {
@@ -49,39 +56,42 @@ CORE_SCHEMA_PROPERTIES = {
         "title": "Set DHCP",
         "description": (
             "Sets whether or not to configure the VM to use DHCP "
-            "during the OSMorphing stage."
+            "during the OSMorphing stage. "
+            "When disabled, guest static IPs will be preserved "
+            "after the migration."
         ),
     },
     "retain_user_credentials": {
         "type": "boolean",
         "title": "Retain User Credentials",
         "description": (
-            "Keep the guest user accounts during OS morphing. "
-            "When false, OS morphing creates the cloud-init user."
+            "Prevents the destination cloud provisioning from resetting "
+            "the pre-existing credentials. "
+            "When disabled, the destination platform may also create "
+            "a provisioned cloud guest user."
         ),
     },
 }
 
-CORE_DESTINATION_OPTIONS = (
-    windows.CLOUDBASE_INIT_PLUGINS_DESTINATION_OPTION,
-    {
+CORE_DESTINATION_OPTIONS = {
+    "cloudbase_init_plugins": windows.CLOUDBASE_INIT_PLUGINS_DESTINATION_OPTION,
+    "data_transfer_mechanism": {
         "name": "data_transfer_mechanism",
         "values": ["SSH", "HTTPS"],
         "config_default": "HTTPS",
     },
-    {
+    "set_dhcp": {
         "name": "set_dhcp",
         "values": [],
         "config_default": True,
     },
-    {
+    "retain_user_credentials": {
         "name": "retain_user_credentials",
         "values": [],
         "config_default": False,
     },
-)
+}
 
-CORE_OPTION_NAMES = {row["name"] for row in CORE_DESTINATION_OPTIONS}
 # option: name in the destination environment and in coriolis.conf.
 # field: stored name. It can differ from option.
 # target "parameters": write the field on osmorphing_parameters.
@@ -121,29 +131,28 @@ opts = [
         default=None,
         help=CORE_SCHEMA_PROPERTIES["cloudbase_init_plugins"]["description"],
     ),
-    cfg.StrOpt(
-        "data_transfer_mechanism",
-        default="HTTPS",
-        choices=["SSH", "HTTPS"],
-        help=CORE_SCHEMA_PROPERTIES["data_transfer_mechanism"]["description"],
-    ),
     cfg.BoolOpt(
-        "set_dhcp", default=True, help=CORE_SCHEMA_PROPERTIES["set_dhcp"]["description"]
+        "set_dhcp",
+        default=CORE_DESTINATION_OPTIONS["set_dhcp"]["config_default"],
+        help=CORE_SCHEMA_PROPERTIES["set_dhcp"]["description"],
     ),
     cfg.BoolOpt(
         "retain_user_credentials",
-        default=False,
+        default=CORE_DESTINATION_OPTIONS["retain_user_credentials"]["config_default"],
         help=CORE_SCHEMA_PROPERTIES["retain_user_credentials"]["description"],
     ),
 ]
 
 CONF = cfg.CONF
-CONF.register_opts(opts)
+CONF.register_opts(opts, COMMON_TARGET_OPTION_GROUP)
 
 LOG = logging.getLogger(__name__)
 
 
-def merge_core_destination_options(provider_options, option_names=None):
+def merge_core_destination_options(
+    provider_options: list | tuple | None,
+    option_names: list | tuple | set | None = None,
+) -> list:
     """Merge provider dest-options onto the core list.
 
     Use jsonmerge arrayMergeById on name. Core is the base. The
@@ -158,8 +167,8 @@ def merge_core_destination_options(provider_options, option_names=None):
         requested = None
     core = [
         copy.deepcopy(row)
-        for row in CORE_DESTINATION_OPTIONS
-        if requested is None or row["name"] in requested
+        for name, row in CORE_DESTINATION_OPTIONS.items()
+        if requested is None or name in requested
     ]
     if not isinstance(provider_options, (list, tuple)):
         provider_options = []
@@ -172,7 +181,9 @@ def merge_core_destination_options(provider_options, option_names=None):
     return merged
 
 
-def _inject_core_schema_property(object_schema, name, schema_fragment):
+def _inject_core_schema_property(
+    object_schema: dict, name: str, schema_fragment: dict
+) -> None:
     props = object_schema.get("properties")
     if not isinstance(props, dict):
         return
@@ -181,7 +192,7 @@ def _inject_core_schema_property(object_schema, name, schema_fragment):
     props[name] = copy.deepcopy(schema_fragment)
 
 
-def inject_core_target_environment_schema(schema):
+def inject_core_target_environment_schema(schema: dict | None) -> dict | None:
     """Write core destination fields onto a provider schema.
 
     Skip a property when the provider already declared it.
@@ -198,21 +209,24 @@ def inject_core_target_environment_schema(schema):
     return schema
 
 
-def filter_core_option_names(option_names):
+def filter_core_option_names(
+    option_names: list | tuple | set | None,
+) -> list | tuple | set | None:
     """Remove injected options so destination providers do not reject them."""
     if not isinstance(option_names, (list, tuple, set)):
         return option_names
-    names = CORE_OPTION_NAMES
-    return [name for name in option_names if name not in names]
+    return [name for name in option_names if name not in CORE_DESTINATION_OPTIONS]
 
 
-def _current_values(spec, osmorphing_info, params):
+def _current_values(spec: dict, osmorphing_info: dict, params: dict) -> dict:
     if spec["target"] == "parameters":
         return params
     return osmorphing_info
 
 
-def _resolve_destination_option(spec, dest_env, current):
+def _resolve_destination_option(
+    spec: dict, dest_env: dict, current: dict
+) -> bool | list | None:
     """Return the stored value for one destination option.
 
     Resolved in this order:
@@ -220,7 +234,7 @@ def _resolve_destination_option(spec, dest_env, current):
     1. The destination environment value when it is not None.
     2. The current stored value when the destination environment
        omits the key.
-    3. The coriolis.conf value.
+    3. The common_target_option value in coriolis.conf.
 
     False and [] are stored. None means the option stays unset.
     """
@@ -230,10 +244,14 @@ def _resolve_destination_option(spec, dest_env, current):
         return dest_env[option]
     if field in current and current[field] is not None:
         return current[field]
-    return getattr(CONF, option, None)
+    group = getattr(CONF, COMMON_TARGET_OPTION_GROUP)
+    return getattr(group, option, None)
 
 
-def apply_core_destination_overrides(osmorphing_info, target_environment):
+def apply_core_destination_overrides(
+    osmorphing_info: dict | None,
+    target_environment: dict | None,
+) -> dict:
     """Copy destination environment options onto osmorphing info.
 
     Each entry in ``OSMORPHING_OVERRIDES`` uses

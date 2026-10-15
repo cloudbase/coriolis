@@ -9,7 +9,6 @@ import os
 import re
 import uuid
 
-from oslo_config import cfg
 from oslo_log import log as logging
 from packaging import version
 
@@ -17,7 +16,6 @@ from coriolis import constants, exception, utils
 from coriolis.osmorphing import base
 from coriolis.osmorphing.osdetect import windows as windows_osdetect
 
-CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
 WINDOWS_CLIENT_IDENTIFIER = windows_osdetect.WINDOWS_CLIENT_IDENTIFIER
@@ -547,38 +545,18 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
         )
 
     def _parse_cloudbase_init_plugins(self, plugins):
-        """Return a list of plugin class names, or None if unset.
+        """Return the plugin list, or None if unset.
 
-        A CSV string is split on commas. Tokens are stripped.
-        Empty tokens are skipped.
+        None means the caller left the value unset.
+        Any other value must be a list.
         """
         if plugins is None:
             return None
-        if isinstance(plugins, str):
-            text = plugins.strip()
-            if not text:
-                return []
-            parsed = []
-            for raw_token in text.split(","):
-                token = raw_token.strip()
-                if not token:
-                    continue
-                parsed.append(token)
-            return parsed
         if not isinstance(plugins, list):
             raise exception.CoriolisException(
                 "Invalid plugins parameter. Must be list."
             )
-        parsed = []
-        for item in plugins:
-            if not isinstance(item, str):
-                raise exception.CoriolisException(
-                    "Invalid plugins parameter. Must be list."
-                )
-            token = item.strip()
-            if token:
-                parsed.append(token)
-        return parsed
+        return plugins
 
     def _resolve_cloudbase_init_plugins(self, plugins=None):
         """Return the Cloudbase-Init plugin list to write into the guest.
@@ -586,8 +564,10 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
         Resolved in this order:
 
         1. osmorphing_parameters ``cloudbase_init_plugins``
-        2. provider-supplied ``plugins`` argument
-        3. coriolis.conf ``cloudbase_init_plugins``
+        2. coriolis.conf ``[common_target_option] cloudbase_init_plugins``.
+           ``apply_core_destination_overrides`` stores this list before
+           the provider argument is read.
+        3. provider-supplied ``plugins`` argument
         4. ``CLOUDBASE_INIT_DEFAULT_PLUGINS``
         """
         param_plugins = self._parse_cloudbase_init_plugins(
@@ -604,7 +584,11 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
         if provider_plugins is not None:
             return provider_plugins
 
-        conf_plugins = self._parse_cloudbase_init_plugins(CONF.cloudbase_init_plugins)
+        from coriolis.osmorphing import conf as osmorphing_conf
+
+        conf_plugins = self._parse_cloudbase_init_plugins(
+            osmorphing_conf.CONF.common_target_option.cloudbase_init_plugins
+        )
         if conf_plugins is not None:
             LOG.info(
                 "Using Cloudbase-Init plugins from coriolis.conf: %s",
