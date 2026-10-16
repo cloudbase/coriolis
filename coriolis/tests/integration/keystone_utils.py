@@ -31,7 +31,7 @@ LOG = logging.getLogger(__name__)
 
 # kolla publishes the official Keystone images that kolla-ansible deploys in
 # production OpenStack.
-KEYSTONE_IMAGE = "quay.io/openstack.kolla/keystone:2024.1-ubuntu-noble"
+KEYSTONE_IMAGE = "quay.io/openstack.kolla/keystone:2026.1-ubuntu-noble"
 
 # Project / domain / role name used to bootstrap Keystone for this session.
 PROJECT_NAME = 'integration-project'
@@ -53,39 +53,43 @@ while [ ! -f "${FERNET_KEY_DIR}/0" ]; do
     sleep 5
 done
 
-exec /usr/sbin/apache2 -DFOREGROUND
+exec /var/lib/kolla/venv/bin/uwsgi --ini /etc/keystone/keystone-uwsgi.ini
 """
 
-_WSGI_CONF = """
-Listen 0.0.0.0:5000
+# Keystone 2026.1 (and its kolla image) dropped Apache in favour of uWSGI, which
+# Keystone ships configuration for itself ("httpd/keystone-uwsgi-public.ini" in
+# the source tree).
+_UWSGI_INI = """
+[uwsgi]
+module = keystone.wsgi.api:application
 
-ServerSignature Off
-ServerTokens Prod
-TraceEnable off
+http = 0.0.0.0:5000
 
-ErrorLog "/var/log/kolla/keystone/apache-error.log"
-<IfModule log_config_module>
-    CustomLog "/var/log/kolla/keystone/apache-access.log" common
-</IfModule>
+# By default, the uWSGI http router closes the connection after every response
+# without announcing it, so clients that pool connections (python requests, used by
+# keystoneauth1) reuse a closed socket and fail with "Connection reset by peer" or
+# "Remote end closed connection without response". Enable proper keep-alive.
+http-keepalive = 1
+http-auto-chunked = true
+add-header = Connection: Keep-Alive
 
-<Directory "/var/lib/kolla/venv/bin">
-    <FilesMatch "^keystone-wsgi-(public|admin)$">
-        AllowOverride None
-        Options None
-        Require all granted
-    </FilesMatch>
-</Directory>
+# Keystone tokens and catalog documents are large; the 4k default is too small.
+buffer-size = 65535
 
-<VirtualHost *:5000>
-    WSGIDaemonProcess keystone-public processes=2 threads=1 \
-user=keystone group=keystone display-name=keystone-public
-    WSGIProcessGroup keystone-public
-    WSGIScriptAlias / /var/lib/kolla/venv/bin/keystone-wsgi-public
-    WSGIApplicationGroup %{GLOBAL}
-    WSGIPassAuthorization On
-    ErrorLog "/var/log/kolla/keystone/keystone-apache-public-error.log"
-    CustomLog "/var/log/kolla/keystone/keystone-apache-public-access.log" common
-</VirtualHost>
+master = true
+processes = 2
+threads = 4
+enable-threads = true
+
+# This ensures that file descriptors aren't shared between keystone processes.
+lazy-apps = true
+
+# Recommended by uWSGI to avoid a thundering herd on accept.
+thunder-lock = true
+
+# "docker stop" sends SIGTERM, which uWSGI otherwise treats as a request to
+# gracefully reload, leaving the master running until the stop timeout expires.
+die-on-term = true
 """
 
 
@@ -213,13 +217,13 @@ class KeystoneContainer:
 
         with open(os.path.join(config_dir, "keystone.conf"), "w") as f:
             f.write(keystone_conf)
-        with open(os.path.join(config_dir, "wsgi-keystone.conf"), "w") as f:
-            f.write(_WSGI_CONF)
+        with open(os.path.join(config_dir, "keystone-uwsgi.ini"), "w") as f:
+            f.write(_UWSGI_INI)
         with open(os.path.join(config_dir, "keystone-startup.sh"), "w") as f:
             f.write(_STARTUP_SH)
 
         # Its only purpose is to force kolla_set_configs to create the
-        # /var/log/kolla/keystone directory that Apache logs into (it only
+        # /var/log/kolla/keystone directory that Keystone logs into (it only
         # creates parent directories of "config_files" destinations).
         with open(os.path.join(config_dir, "log_dir_placeholder"), "w"):
             pass
@@ -240,8 +244,8 @@ class KeystoneContainer:
                     "perm": "0600",
                 },
                 {
-                    "source": "/var/lib/kolla/config_files/wsgi-keystone.conf",
-                    "dest": "/etc/apache2/conf-enabled/wsgi-keystone.conf",
+                    "source": "/var/lib/kolla/config_files/keystone-uwsgi.ini",
+                    "dest": "/etc/keystone/keystone-uwsgi.ini",
                     "owner": "root",
                     "perm": "0644",
                 },
