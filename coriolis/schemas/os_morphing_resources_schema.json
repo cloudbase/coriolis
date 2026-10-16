@@ -43,7 +43,8 @@
         },
         "nics_set_dhcp": {
           "type": "boolean",
-          "default": "true"
+          "default": true,
+          "description": "Sets whether or not to configure the VM to use DHCP during the OSMorphing stage. When disabled, guest static IPs will be preserved after the migration."
         },
         "ignore_devices": {
           "type": "array",
@@ -56,7 +57,15 @@
           "properties": {
             "retain_user_credentials": {
               "type": "boolean",
-              "default": false
+              "default": false,
+              "description": "Prevents the destination cloud provisioning from resetting the pre-existing credentials. When disabled, the destination platform may also create a provisioned cloud guest user."
+            },
+            "cloudbase_init_plugins": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Cloudbase-Init plugin class names for Windows guests. When set, this list is written into the guest. When omitted, coriolis.conf is used, then the provider plugin list, then the built-in list in Coriolis Windows OS morphing."
             }
           }
         }

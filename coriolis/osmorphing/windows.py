@@ -45,6 +45,19 @@ CLOUDBASE_INIT_DEFAULT_PLUGINS = [
     'cloudbaseinit.plugins.common.localscripts.LocalScriptsPlugin',
 ]
 
+CLOUDBASE_INIT_PLUGINS_DESTINATION_OPTION = {
+    "name": "cloudbase_init_plugins",
+    "values": [
+        {
+            "id": item,
+            "name": item.rsplit(".", 1)[-1],
+        }
+        for item in CLOUDBASE_INIT_DEFAULT_PLUGINS
+    ],
+    "config_default": list(CLOUDBASE_INIT_DEFAULT_PLUGINS),
+}
+
+
 CLOUDBASE_INIT_DEFAULT_METADATA_SVCS = [
     'cloudbaseinit.metadata.services.httpservice.HttpService',
     'cloudbaseinit.metadata.services.configdrive.ConfigDriveService',
@@ -531,6 +544,60 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
             remote_script_path,
         )
 
+    def _parse_cloudbase_init_plugins(self, plugins):
+        """Return the plugin list, or None if unset.
+
+        None means the caller left the value unset.
+        Any other value must be a list.
+        """
+        if plugins is None:
+            return None
+        if not isinstance(plugins, list):
+            raise exception.CoriolisException(
+                "Invalid plugins parameter. Must be list."
+            )
+        return plugins
+
+    def _resolve_cloudbase_init_plugins(self, plugins=None):
+        """Return the Cloudbase-Init plugin list to write into the guest.
+
+        Resolved in this order:
+
+        1. osmorphing_parameters ``cloudbase_init_plugins``
+        2. coriolis.conf ``[common_target_option] cloudbase_init_plugins``.
+           ``apply_core_destination_overrides`` stores this list before
+           the provider argument is read.
+        3. provider-supplied ``plugins`` argument
+        4. ``CLOUDBASE_INIT_DEFAULT_PLUGINS``
+        """
+        param_plugins = self._parse_cloudbase_init_plugins(
+            self._osmorphing_parameters.get("cloudbase_init_plugins")
+        )
+        if param_plugins is not None:
+            LOG.info(
+                "Using Cloudbase-Init plugins from OS morphing parameters: %s",
+                param_plugins,
+            )
+            return param_plugins
+
+        provider_plugins = self._parse_cloudbase_init_plugins(plugins)
+        if provider_plugins is not None:
+            return provider_plugins
+
+        from coriolis.osmorphing import conf as osmorphing_conf
+
+        conf_plugins = self._parse_cloudbase_init_plugins(
+            osmorphing_conf.CONF.common_target_option.cloudbase_init_plugins
+        )
+        if conf_plugins is not None:
+            LOG.info(
+                "Using Cloudbase-Init plugins from coriolis.conf: %s",
+                conf_plugins,
+            )
+            return conf_plugins
+
+        return list(CLOUDBASE_INIT_DEFAULT_PLUGINS)
+
     def _write_cloudbase_init_conf(
         self,
         cloudbaseinit_base_dir,
@@ -543,12 +610,7 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
         if metadata_services is None:
             metadata_services = CLOUDBASE_INIT_DEFAULT_METADATA_SVCS
 
-        if plugins is None:
-            plugins = CLOUDBASE_INIT_DEFAULT_PLUGINS
-        elif type(plugins) is not list:
-            raise exception.CoriolisException(
-                "Invalid plugins parameter. Must be list."
-            )
+        plugins = self._resolve_cloudbase_init_plugins(plugins)
 
         LOG.info("Writing Cloudbase-Init configuration files")
         conf_dir = "%s\\conf" % cloudbaseinit_base_dir
