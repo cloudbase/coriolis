@@ -9,6 +9,7 @@ import itertools
 import os
 import re
 import uuid
+from typing import Any
 
 from oslo_log import log as logging
 from six import with_metaclass
@@ -27,11 +28,11 @@ _VOLUME_BLOCK_DEVICE_TYPES = frozenset({"disk"})
 class BaseOSMountTools(object, with_metaclass(abc.ABCMeta)):
     def __init__(
         self,
-        connection_info,
+        connection_info: dict,
         event_manager,
-        ignore_devices,
+        ignore_devices: list[str],
         operation_timeout,
-        osmorphing_info=None,
+        osmorphing_info: dict | None = None,
     ):
         self._event_manager = event_manager
         self._ignore_devices = ignore_devices
@@ -42,7 +43,7 @@ class BaseOSMountTools(object, with_metaclass(abc.ABCMeta)):
         self._connect()
 
     @abc.abstractmethod
-    def _connect(self):
+    def _connect(self) -> None:
         pass
 
     @abc.abstractmethod
@@ -50,41 +51,41 @@ class BaseOSMountTools(object, with_metaclass(abc.ABCMeta)):
         pass
 
     @abc.abstractmethod
-    def check_os(self):
+    def check_os(self) -> bool:
         pass
 
     def setup(self):
         pass
 
     @abc.abstractmethod
-    def mount_os(self):
+    def mount_os(self) -> tuple[str, str]:
         pass
 
     @abc.abstractmethod
-    def dismount_os(self, root_dir):
+    def dismount_os(self, root_dir: str) -> None:
         pass
 
-    def set_proxy(self, proxy_settings):
+    def set_proxy(self, proxy_settings: dict):
         pass
 
-    def remove_encryption_artifacts(self, os_root_dir):
+    def remove_encryption_artifacts(self, os_root_dir: str):
         pass
 
-    def install_encryption_firstboot_setup(self, os_root_dir, os_morphing_tools):
+    def install_encryption_firstboot_setup(self, os_root_dir: str, os_morphing_tools):
         pass
 
-    def get_environment(self):
+    def get_environment(self) -> dict[str, str]:
         return self._environment
 
     @abc.abstractmethod
-    def run_user_script(self, user_script):
+    def run_user_script(self, user_script: str) -> None:
         """Run pre-os-mount user script."""
         pass
 
 
 class BaseSSHOSMountTools(BaseOSMountTools):
     @utils.retry_on_error(max_attempts=5, sleep_seconds=3)
-    def _connect(self):
+    def _connect(self) -> None:
         connection_info = self._connection_info
 
         ip = connection_info["ip"]
@@ -107,13 +108,13 @@ class BaseSSHOSMountTools(BaseOSMountTools):
         ssh.set_log_channel("paramiko.morpher.%s.%s" % (ip, port))
         self._ssh = ssh
 
-    def setup(self):
+    def setup(self) -> None:
         utils.check_env_command(self._ssh)
         if self._allow_ssh_env_vars():
             self._ssh.close()
             self._connect()
 
-    def _allow_ssh_env_vars(self):
+    def _allow_ssh_env_vars(self) -> bool:
         self._exec_cmd('sudo sed -i -e "\$aAcceptEnv *" /etc/ssh/sshd_config')
         try:
             utils.restart_service(self._ssh, "sshd")
@@ -125,7 +126,7 @@ class BaseSSHOSMountTools(BaseOSMountTools):
             utils.restart_service(self._ssh, 'ssh')
         return True
 
-    def _exec_cmd(self, cmd, timeout=None):
+    def _exec_cmd(self, cmd: str, timeout=None) -> str:
         if not timeout:
             timeout = self._osmount_operation_timeout
         try:
@@ -137,7 +138,7 @@ class BaseSSHOSMountTools(BaseOSMountTools):
                 cmd=cmd, timeout=timeout
             ) from ex
 
-    def _exec_sudo_env_cmd(self, cmd, timeout=None):
+    def _exec_sudo_env_cmd(self, cmd: str, timeout=None) -> str:
         """
         Runs a sudo command that also passes all the environment variables to
         the underlying command. Replaces sudo's -E flag, which is not currently
@@ -186,7 +187,7 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
         LOG.debug("Physical Volume attributes: %s", pvs)
         return pvs
 
-    def _get_vgs(self):
+    def _get_vgs(self) -> dict[Any, Any]:
         """Returns a dict of the form: {
             "VG UUID": {
                 "name": "<VG name>",
@@ -228,7 +229,7 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
 
         return vgs_uuid_map
 
-    def _check_vgs(self):
+    def _check_vgs(self) -> None:
         try:
             self._exec_cmd("sudo vgck")
         except Exception as ex:
@@ -254,7 +255,7 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
         LOG.debug("Volume group names: %s", vg_names)
         return vg_names
 
-    def _get_lv_paths(self):
+    def _get_lv_paths(self) -> list[Any]:
         """Returns list with paths of available LVM volumes."""
         lvm_paths = []
         out = self._exec_cmd("sudo lvdisplay -c").strip()
@@ -271,11 +272,11 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
 
     def _check_mount_fstab_partitions(
         self,
-        os_root_dir,
-        skip_mounts=["/", "/boot"],
-        skip_filesystems=["swap"],
-        mountable_lvm_devs=None,
-    ):
+        os_root_dir: str,
+        skip_mounts: list[str] = ["/", "/boot"],
+        skip_filesystems: list[str] = ["swap"],
+        mountable_lvm_devs: list | None = None,
+    ) -> list[Any]:
         """Reads the contents of /etc/fstab from the VM's root directory and
         tries to mount all clearly identified (by UUID, label, or path)
         filesystems. Returns the list of the new directories which were
@@ -415,7 +416,7 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
 
         return new_mountpoints
 
-    def _get_symlink_target(self, symlink):
+    def _get_symlink_target(self, symlink: str) -> str:
         target = symlink
         try:
             target = self._exec_cmd('readlink -en %s' % symlink)
@@ -428,7 +429,7 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
 
         return target
 
-    def _get_device_file_paths(self, symlink_list):
+    def _get_device_file_paths(self, symlink_list: list[Any]) -> list[Any]:
         """Reads a list of symlink paths, such as `/dev/GROUP/VOLUME0` or
         `/dev/mapper/GROUP-VOLUME0` and returns a list of respective links'
         target device file paths, such as `/dev/dm0`
@@ -441,7 +442,7 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
             dev_file_paths.append(dev_file)
         return dev_file_paths
 
-    def _get_mounted_devices(self):
+    def _get_mounted_devices(self) -> list[Any]:
         mounts = self._exec_cmd("cat /proc/mounts").splitlines()
         ret = []
         mounted_device_numbers = []
@@ -482,7 +483,7 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
             ret.add(colls[1])
         return ret
 
-    def _get_volume_block_devices(self):
+    def _get_volume_block_devices(self) -> list[str]:
         # NOTE: depending on the version of the worker OS, scanning for just
         # the device NAME may lead to LVM volumes getting displayed as:
         # "<VG-name>-<LV-name> (dm-N)",
@@ -515,7 +516,12 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
         LOG.info("Volume block devices: %s", volume_devs)
         return volume_devs
 
-    def _find_dev_with_contents(self, devices, all_files=None, one_of_files=None):
+    def _find_dev_with_contents(
+        self,
+        devices: list[str],
+        all_files: list | None = None,
+        one_of_files: list | None = None,
+    ) -> str | None:
         if all_files and one_of_files:
             raise exception.CoriolisException(
                 "all_files and one_of_files are mutually exclusive"
@@ -563,7 +569,7 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
 
         return dev_name
 
-    def _mask_minion_efi_firmware(self, os_root_dir):
+    def _mask_minion_efi_firmware(self, os_root_dir: str) -> None:
         firmware_type = self._osmorphing_info.get("firmware_type")
         if firmware_type is None:
             firmware_type = self._osmorphing_info.get("osmorphing_parameters", {}).get(
@@ -584,7 +590,7 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
             "sudo mount -t tmpfs tmpfs %s" % os.path.join(os_root_dir, "sys/firmware")
         )
 
-    def _find_and_mount_root(self, devices):
+    def _find_and_mount_root(self, devices: list[str]) -> tuple[str, str]:
         files = ["etc", "bin", "sbin", "boot"]
         os_root_dir = None
         os_root_device = self._find_dev_with_contents(devices, all_files=files)
@@ -654,7 +660,7 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
 
         return os_root_dir, os_root_device
 
-    def mount_os(self):
+    def mount_os(self) -> tuple[str, str]:
         # Prevent Coriolis mounts from being propagated to other namespaces
         # belonging to Systemd services. These would be leaked when running
         # "unmount -R" in this namespace, being especially troublesome if the
@@ -753,7 +759,7 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
 
         return os_root_dir, os_root_device
 
-    def dismount_os(self, root_dir):
+    def dismount_os(self, root_dir: str) -> None:
         # Flush dirty pages to replica volumes before unmount.
         # Later volume detach would otherwise drop in-memory writes.
         self._exec_cmd("sudo sync")
@@ -772,7 +778,7 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
 
         self._close_luks_devices()
 
-    def set_proxy(self, proxy_settings):
+    def set_proxy(self, proxy_settings: dict) -> None:
         url = proxy_settings.get('url')
         if not url:
             return
@@ -793,7 +799,7 @@ class BaseLinuxOSMountTools(luks_mixin.LinuxLUKSMixin, BaseSSHOSMountTools):
             LOG.debug("Proxy exclusions: %s", no_proxy)
             self._environment["no_proxy"] = '.'.join(no_proxy)
 
-    def run_user_script(self, user_script):
+    def run_user_script(self, user_script: str) -> None:
         if len(user_script) == 0:
             return
 

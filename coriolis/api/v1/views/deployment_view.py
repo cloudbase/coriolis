@@ -5,7 +5,7 @@ from coriolis.api.v1.views import transfer_tasks_execution_view as view
 from coriolis.api.v1.views import utils as view_utils
 
 
-def _format_deployment(deployment, keys=None):
+def _format_deployment(deployment: dict, keys=None) -> dict:
     deployment_dict = view_utils.format_opt(deployment, keys)
 
     if len(deployment_dict.get("executions", [])):
@@ -23,10 +23,10 @@ def _format_deployment(deployment, keys=None):
     return deployment_dict
 
 
-def single(deployment, keys=None):
+def single(deployment: dict, keys=None) -> dict[str, dict]:
     return {"deployment": _format_deployment(deployment, keys)}
 
 
-def collection(deployments, keys=None):
+def collection(deployments: list, keys=None) -> dict[str, list]:
     formatted_deployments = [_format_deployment(m, keys) for m in deployments]
     return {'deployments': formatted_deployments}

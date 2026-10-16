@@ -8,10 +8,15 @@ class API(object):
     def __init__(self):
         self._rpc_client = rpc_client.ConductorClient()
 
-    def get_available_providers(self, ctxt):
+    def get_available_providers(self, ctxt) -> dict[str, dict]:
         return self._rpc_client.get_available_providers(ctxt)
 
-    def get_provider_schemas(self, ctxt, platform_name, provider_type):
+    def get_provider_schemas(
+        self,
+        ctxt,
+        platform_name: str,
+        provider_type: str,
+    ) -> dict[str, dict]:
         return self._rpc_client.get_provider_schemas(
             ctxt, platform_name, int(provider_type)
         )

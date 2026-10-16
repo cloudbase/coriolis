@@ -9,7 +9,7 @@ PROVIDERS_POLICY_PREFIX = "%s:providers" % base.CORIOLIS_POLICIES_PREFIX
 PROVIDERS_POLICY_DEFAULT_RULE = "rule:admin_or_owner"
 
 
-def get_providers_policy_label(rule_label):
+def get_providers_policy_label(rule_label: str) -> str:
     return "%s:%s" % (PROVIDERS_POLICY_PREFIX, rule_label)
 
 
@@ -23,5 +23,5 @@ PROVIDERS_POLICY_DEFAULT_RULES = [
 ]
 
 
-def list_rules():
+def list_rules() -> list[policy.DocumentedRuleDefault]:
     return PROVIDERS_POLICY_DEFAULT_RULES

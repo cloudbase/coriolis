@@ -4,6 +4,7 @@
 import os
 import re
 from io import StringIO
+from typing import Any
 
 import yaml
 from oslo_log import log as logging
@@ -33,14 +34,14 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
     def __init__(
         self,
         conn,
-        os_root_dir,
-        os_root_dev,
+        os_root_dir: str,
+        os_root_dev: str,
         hypervisor,
         event_manager,
-        detected_os_info,
-        osmorphing_parameters,
+        detected_os_info: dict[str, str],
+        osmorphing_parameters: dict[Any, Any],
         operation_timeout=None,
-        nics_set_dhcp=True,
+        nics_set_dhcp: bool = True,
     ):
         super(BaseDebianMorphingTools, self).__init__(
             conn,
@@ -70,7 +71,7 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
             detected_os_info['release_version'], minimum=8
         )
 
-    def disable_predictable_nic_names(self):
+    def disable_predictable_nic_names(self) -> None:
         self._update_kernel_cmdline_args(args_to_add=["net.ifnames=0", "biosdevname=0"])
 
     def get_update_grub2_command(self):
@@ -138,7 +139,7 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
         )
         self._schedule_grub2_update()
 
-    def set_net_config(self, nics_info, dhcp):
+    def set_net_config(self, nics_info: list | None, dhcp: bool) -> None:
         if not dhcp:
             LOG.info("Setting static IP configuration")
             self._setup_network_preservation(nics_info)
@@ -162,7 +163,7 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
             cfg_name = "%s/coriolis_netplan.yaml" % self.netplan_base
             self._write_file_sudo(cfg_name, new_cfg)
 
-    def _run_update_initramfs(self):
+    def _run_update_initramfs(self) -> None:
         # env LC_ALL=C suppresses Perl/shell locale warnings that would
         # otherwise appear in stdout and get mixed into the version list.
         # Using 'env' rather than a shell assignment prefix because
@@ -191,14 +192,14 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
         for version in kernel_versions:
             self._exec_cmd_chroot(f"update-initramfs -k {version} -u")
 
-    def get_installed_packages(self):
+    def get_installed_packages(self) -> None:
         cmd = "dpkg-query -f '${binary:Package}\\n' -W"
         try:
             self.installed_packages = self._exec_cmd_chroot(cmd).splitlines()
         except exception.CoriolisException:
             self.installed_packages = []
 
-    def pre_packages_install(self, package_names):
+    def pre_packages_install(self, package_names: list[str]) -> None:
         super(BaseDebianMorphingTools, self).pre_packages_install(package_names)
         try:
             if package_names:
@@ -223,7 +224,7 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
                 "error was: %s" % str(err)
             ) from err
 
-    def post_packages_install(self, package_names):
+    def post_packages_install(self, package_names: list[str]) -> None:
         self._configure_cloud_init()
         self._run_update_initramfs()
         if (
@@ -233,7 +234,7 @@ class BaseDebianMorphingTools(base.BaseLinuxOSMorphingTools):
             self._install_uefi_fallback_bootloader()
         super(BaseDebianMorphingTools, self).post_packages_install(package_names)
 
-    def install_packages(self, package_names):
+    def install_packages(self, package_names: list[str]) -> None:
         try:
             # NOTE(aznashwan): in the rare event that a replica sync occurs
             # while the source machine was midway through installing or

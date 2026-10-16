@@ -16,7 +16,7 @@ UBUNTU_DISTRO_IDENTIFIER = "Ubuntu"
 
 class BaseUbuntuMorphingTools(debian.BaseDebianMorphingTools):
     @classmethod
-    def check_os_supported(cls, detected_os_info):
+    def check_os_supported(cls, detected_os_info: dict[str, str]) -> bool:
         if detected_os_info['distribution_name'] != (UBUNTU_DISTRO_IDENTIFIER):
             return False
 

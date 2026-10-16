@@ -19,7 +19,7 @@ class EndpointInstanceController(api_wsgi.Controller):
         self._instance_api = api.API()
         super(EndpointInstanceController, self).__init__()
 
-    def index(self, req, endpoint_id):
+    def index(self, req: api_wsgi.Request, endpoint_id: str) -> dict[str, list]:
         context = req.environ['coriolis.context']
         context.can("%s:list_instances" % (endpoint_policies.ENDPOINTS_POLICY_PREFIX))
         marker, limit = common.get_paging_params(req)
@@ -44,7 +44,7 @@ class EndpointInstanceController(api_wsgi.Controller):
             )
         )
 
-    def show(self, req, endpoint_id, id):
+    def show(self, req: api_wsgi.Request, endpoint_id: str, id: str) -> dict[str, dict]:
         context = req.environ['coriolis.context']
         context.can("%s:get_instance" % (endpoint_policies.ENDPOINTS_POLICY_PREFIX))
 
@@ -65,5 +65,5 @@ class EndpointInstanceController(api_wsgi.Controller):
         )
 
 
-def create_resource():
+def create_resource() -> api_wsgi.Resource:
     return api_wsgi.Resource(EndpointInstanceController())

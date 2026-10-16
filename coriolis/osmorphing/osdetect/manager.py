@@ -37,12 +37,12 @@ def _check_custom_os_detect_tools(custom_os_detect_tools):
 
 def detect_os(
     conn,
-    os_type,
-    os_root_dir,
+    os_type: str,
+    os_root_dir: str,
     operation_timeout,
-    tools_environment=None,
-    custom_os_detect_tools=None,
-):
+    tools_environment: dict | None = None,
+    custom_os_detect_tools: list | None = None,
+) -> dict[str, str]:
     """Iterates through all of the OS detection tools until one successfully
     identifies the OS/release and returns the release info from it.
 

@@ -20,13 +20,13 @@ LEGACY_VERSION_TABLE = "migrate_version"
 LEGACY_FINAL_VERSION = 24
 
 
-def _get_alembic_config():
+def _get_alembic_config() -> alembic_config.Config:
     config = alembic_config.Config(ALEMBIC_INI_PATH)
     config.set_main_option("script_location", ALEMBIC_DIR)
     return config
 
 
-def _stamp_legacy_database_if_needed(engine, config):
+def _stamp_legacy_database_if_needed(engine, config: alembic_config.Config) -> None:
     """Transition a sqlalchemy-migrate managed database to alembic.
 
     If this database was previously managed by the old sqlalchemy-migrate
@@ -57,7 +57,7 @@ def _stamp_legacy_database_if_needed(engine, config):
     command.stamp(config, "%03d" % legacy_version)
 
 
-def db_sync(engine, version=None):
+def db_sync(engine, version=None) -> None:
     config = _get_alembic_config()
     _stamp_legacy_database_if_needed(engine, config)
     config.attributes["connection"] = engine.connect()

@@ -170,7 +170,14 @@ class WSGIService(service.ServiceBase):
 
 
 class MessagingService(service.ServiceBase):
-    def __init__(self, topic, endpoints, version, worker_count=None, init_rpc=True):
+    def __init__(
+        self,
+        topic: str,
+        endpoints: list,
+        version: str,
+        worker_count: int = None,
+        init_rpc: bool = True,
+    ):
         if init_rpc:
             rpc.init()
         target = messaging.Target(
@@ -189,7 +196,7 @@ class MessagingService(service.ServiceBase):
     def get_workers_count(self):
         return self._workers
 
-    def start(self):
+    def start(self) -> None:
         self._server.start()
 
     def stop(self):

@@ -1,6 +1,8 @@
 # Copyright 2020 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from typing import Any, Callable
+
 from oslo_log import log as logging
 
 from coriolis import constants, events, exception
@@ -26,7 +28,9 @@ OSMOPRHING_MINION_TASK_INFO_FIELD_MAPPINGS = {
 }
 
 
-def _get_required_minion_pool_provider_types_for_platform(platform_type):
+def _get_required_minion_pool_provider_types_for_platform(
+    platform_type: str,
+) -> dict[str, list]:
     provider_type = None
     if platform_type == constants.PROVIDER_PLATFORM_SOURCE:
         provider_type = constants.PROVIDER_TYPE_SOURCE_MINION_POOL
@@ -40,7 +44,9 @@ def _get_required_minion_pool_provider_types_for_platform(platform_type):
     return {platform_type: [provider_type]}
 
 
-def _get_platform_to_target(required_platform, origin, destination):
+def _get_platform_to_target(
+    required_platform: str, origin: dict, destination: dict
+) -> dict:
     platform_to_target = None
     if required_platform == constants.TASK_PLATFORM_SOURCE:
         platform_to_target = origin
@@ -54,8 +60,8 @@ def _get_platform_to_target(required_platform, origin, destination):
 
 
 def _check_missing_minion_properties(
-    provider_type, minion_properties, properties_to_check=None
-):
+    provider_type: int, minion_properties: dict, properties_to_check: list | None = None
+) -> None:
     if properties_to_check is None:
         properties_to_check = []
     missing = [key for key in properties_to_check if key not in minion_properties]
@@ -69,7 +75,7 @@ def _check_missing_minion_properties(
         )
 
 
-def _get_minion_conn_info(minion_properties):
+def _get_minion_conn_info(minion_properties: dict) -> dict:
     minion_connection_info = {}
     if 'connection_info' in minion_properties:
         minion_connection_info = base.marshal_migr_conn_info(
@@ -78,7 +84,7 @@ def _get_minion_conn_info(minion_properties):
     return minion_connection_info
 
 
-def _get_minion_backup_writer_conn_info(minion_properties):
+def _get_minion_backup_writer_conn_info(minion_properties: dict) -> dict:
     minion_backup_writer_conn = {}
     if 'backup_writer_connection_info' in minion_properties:
         minion_backup_writer_conn = minion_properties['backup_writer_connection_info']
@@ -99,15 +105,15 @@ class _BaseValidateMinionPoolOptionsTask(base.TaskRunner):
         )
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["pool_environment_options"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list:
         return []
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return _get_required_minion_pool_provider_types_for_platform(
             cls.get_required_platform()
         )
@@ -115,12 +121,12 @@ class _BaseValidateMinionPoolOptionsTask(base.TaskRunner):
     def _run(
         self,
         ctxt,
-        minion_pool_machine_id,
-        origin,
-        destination,
-        task_info,
+        minion_pool_machine_id: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
         event_handler,
-    ):
+    ) -> dict[Any, Any]:
 
         # NOTE: both origin or target endpoints would work:
         connection_info = base.get_connection_info(ctxt, destination)
@@ -141,13 +147,13 @@ class _BaseValidateMinionPoolOptionsTask(base.TaskRunner):
 
 class ValidateSourceMinionPoolOptionsTask(_BaseValidateMinionPoolOptionsTask):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.PROVIDER_PLATFORM_SOURCE
 
 
 class ValidateDestinationMinionPoolOptionsTask(_BaseValidateMinionPoolOptionsTask):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.PROVIDER_PLATFORM_DESTINATION
 
 
@@ -159,7 +165,7 @@ class _BaseCreateMinionMachineTask(base.TaskRunner):
         )
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return [
             "pool_environment_options",
             "pool_shared_resources",
@@ -168,7 +174,7 @@ class _BaseCreateMinionMachineTask(base.TaskRunner):
         ]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[str]:
         return [
             "minion_provider_properties",
             "minion_connection_info",
@@ -176,7 +182,7 @@ class _BaseCreateMinionMachineTask(base.TaskRunner):
         ]
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return _get_required_minion_pool_provider_types_for_platform(
             cls.get_required_platform()
         )
@@ -184,12 +190,12 @@ class _BaseCreateMinionMachineTask(base.TaskRunner):
     def _run(
         self,
         ctxt,
-        minion_pool_machine_id,
-        origin,
-        destination,
-        task_info,
+        minion_pool_machine_id: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
         event_handler,
-    ):
+    ) -> dict:
 
         # NOTE: both origin or target endpoints would work:
         connection_info = base.get_connection_info(ctxt, destination)
@@ -236,13 +242,13 @@ class _BaseCreateMinionMachineTask(base.TaskRunner):
 
 class CreateSourceMinionMachineTask(_BaseCreateMinionMachineTask):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.PROVIDER_PLATFORM_SOURCE
 
 
 class CreateDestinationMinionMachineTask(_BaseCreateMinionMachineTask):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.PROVIDER_PLATFORM_DESTINATION
 
 
@@ -252,15 +258,15 @@ class _BaseDeleteMinionMachineTask(base.TaskRunner):
         raise NotImplementedError("No minion deletion required platform specified.")
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["minion_provider_properties"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list:
         return []
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return _get_required_minion_pool_provider_types_for_platform(
             cls.get_required_platform()
         )
@@ -268,12 +274,12 @@ class _BaseDeleteMinionMachineTask(base.TaskRunner):
     def _run(
         self,
         ctxt,
-        minion_pool_machine_id,
-        origin,
-        destination,
-        task_info,
+        minion_pool_machine_id: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
         event_handler,
-    ):
+    ) -> dict[Any, Any]:
 
         # NOTE: both origin or target endpoints would work:
         connection_info = base.get_connection_info(ctxt, destination)
@@ -292,13 +298,13 @@ class _BaseDeleteMinionMachineTask(base.TaskRunner):
 
 class DeleteSourceMinionMachineTask(_BaseDeleteMinionMachineTask):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.PROVIDER_PLATFORM_SOURCE
 
 
 class DeleteDestinationMinionMachineTask(_BaseDeleteMinionMachineTask):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.PROVIDER_PLATFORM_DESTINATION
 
 
@@ -310,15 +316,15 @@ class _BaseSetUpPoolSupportingResourcesTask(base.TaskRunner):
         )
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["pool_environment_options", "pool_identifier"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[str]:
         return ["pool_shared_resources"]
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return _get_required_minion_pool_provider_types_for_platform(
             cls.get_required_platform()
         )
@@ -326,12 +332,12 @@ class _BaseSetUpPoolSupportingResourcesTask(base.TaskRunner):
     def _run(
         self,
         ctxt,
-        minion_pool_machine_id,
-        origin,
-        destination,
-        task_info,
+        minion_pool_machine_id: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
         event_handler,
-    ):
+    ) -> dict[str, dict]:
 
         # NOTE: both origin or target endpoints would work:
         connection_info = base.get_connection_info(ctxt, destination)
@@ -353,13 +359,13 @@ class _BaseSetUpPoolSupportingResourcesTask(base.TaskRunner):
 
 class SetUpSourcePoolSupportingResourcesTask(_BaseSetUpPoolSupportingResourcesTask):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.PROVIDER_PLATFORM_SOURCE
 
 
 class SetUpDestinationPoolSupportingResources(_BaseSetUpPoolSupportingResourcesTask):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.PROVIDER_PLATFORM_DESTINATION
 
 
@@ -371,15 +377,15 @@ class _BaseTearDownPoolSupportingResourcesTask(base.TaskRunner):
         )
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["pool_environment_options", "pool_shared_resources"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[str]:
         return ["pool_shared_resources"]
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return _get_required_minion_pool_provider_types_for_platform(
             cls.get_required_platform()
         )
@@ -387,12 +393,12 @@ class _BaseTearDownPoolSupportingResourcesTask(base.TaskRunner):
     def _run(
         self,
         ctxt,
-        minion_pool_machine_id,
-        origin,
-        destination,
-        task_info,
+        minion_pool_machine_id: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
         event_handler,
-    ):
+    ) -> dict[str, None]:
 
         # NOTE: both origin or target endpoints would work:
         connection_info = base.get_connection_info(ctxt, destination)
@@ -416,7 +422,7 @@ class TearDownSourcePoolSupportingResourcesTask(
     _BaseTearDownPoolSupportingResourcesTask
 ):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.PROVIDER_PLATFORM_SOURCE
 
 
@@ -424,7 +430,7 @@ class TearDownDestinationPoolSupportingResources(
     _BaseTearDownPoolSupportingResourcesTask
 ):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.PROVIDER_PLATFORM_DESTINATION
 
 
@@ -439,18 +445,18 @@ class _BaseVolumesMinionMachineAttachmentTask(base.TaskRunner):
         raise NotImplementedError("No minion disk attachment platform specified")
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         fields = list(cls._get_minion_task_info_field_mappings().keys())
         return fields
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[str]:
         fields = list(cls._get_minion_task_info_field_mappings().values())
         fields.append(cls._get_minion_properties_task_info_field())
         return fields
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return _get_required_minion_pool_provider_types_for_platform(
             cls.get_required_platform()
         )
@@ -481,7 +487,9 @@ class _BaseVolumesMinionMachineAttachmentTask(base.TaskRunner):
     def _get_minion_task_info_field_mappings(cls):
         raise NotImplementedError("No minion task info field mappings provided.")
 
-    def _check_missing_disk_op_result_keys(self, platform_to_target, disk_op_res):
+    def _check_missing_disk_op_result_keys(
+        self, platform_to_target: dict, disk_op_res: dict
+    ) -> None:
         missing_result_props = [
             prop
             for prop in ["volumes_info", "minion_properties"]
@@ -498,7 +506,15 @@ class _BaseVolumesMinionMachineAttachmentTask(base.TaskRunner):
                 )
             )
 
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict:
 
         platform_to_target = _get_platform_to_target(
             self.get_required_platform(), origin, destination
@@ -548,11 +564,11 @@ class _BaseVolumesMinionMachineAttachmentTask(base.TaskRunner):
 
 class _BaseAttachVolumesToTransferMinionTask(_BaseVolumesMinionMachineAttachmentTask):
     @classmethod
-    def _get_volumes_info_from_task_info(cls, task_info):
+    def _get_volumes_info_from_task_info(cls, task_info: dict) -> list[dict]:
         return task_info["volumes_info"]
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         fields = super(
             _BaseAttachVolumesToTransferMinionTask, cls
         ).get_required_task_info_properties()
@@ -560,7 +576,7 @@ class _BaseAttachVolumesToTransferMinionTask(_BaseVolumesMinionMachineAttachment
         return fields
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[str]:
         fields = super(
             _BaseAttachVolumesToTransferMinionTask, cls
         ).get_returned_task_info_properties()
@@ -602,15 +618,15 @@ class DetachVolumesFromSourceMinionTask(AttachVolumesToSourceMinionTask):
 
 class AttachVolumesToDestinationMinionTask(_BaseAttachVolumesToTransferMinionTask):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.TASK_PLATFORM_DESTINATION
 
     @classmethod
-    def _get_minion_properties_task_info_field(cls):
+    def _get_minion_properties_task_info_field(cls) -> str:
         return "destination_minion_provider_properties"
 
     @classmethod
-    def _get_minion_connection_info_task_info_field(cls):
+    def _get_minion_connection_info_task_info_field(cls) -> str:
         return "destination_minion_connection_info"
 
     @classmethod
@@ -618,19 +634,19 @@ class AttachVolumesToDestinationMinionTask(_BaseAttachVolumesToTransferMinionTas
         return provider.attach_volumes_to_minion
 
     @classmethod
-    def _get_minion_task_info_field_mappings(cls):
+    def _get_minion_task_info_field_mappings(cls) -> dict[str, str]:
         return TARGET_MINION_TASK_INFO_FIELD_MAPPINGS
 
 
 class DetachVolumesFromDestinationMinionTask(AttachVolumesToDestinationMinionTask):
     @classmethod
-    def _get_provider_disk_operation(cls, provider):
+    def _get_provider_disk_operation(cls, provider) -> Callable:
         return provider.detach_volumes_from_minion
 
 
 class AttachVolumesToOSMorphingMinionTask(_BaseVolumesMinionMachineAttachmentTask):
     @classmethod
-    def _get_volumes_info_from_task_info(cls, task_info):
+    def _get_volumes_info_from_task_info(cls, task_info: dict) -> list[dict]:
         # Similar to _BaseAttachVolumesToTransferMinionTask.
         if "volumes_info" in task_info["instance_deployment_info"]:
             # Use the updated volumes info reported by the provider.
@@ -640,7 +656,7 @@ class AttachVolumesToOSMorphingMinionTask(_BaseVolumesMinionMachineAttachmentTas
         return task_info["volumes_info"]
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         fields = super(
             AttachVolumesToOSMorphingMinionTask, cls
         ).get_required_task_info_properties()
@@ -649,7 +665,7 @@ class AttachVolumesToOSMorphingMinionTask(_BaseVolumesMinionMachineAttachmentTas
         return fields
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[str]:
         fields = super(
             AttachVolumesToOSMorphingMinionTask, cls
         ).get_returned_task_info_properties()
@@ -657,30 +673,38 @@ class AttachVolumesToOSMorphingMinionTask(_BaseVolumesMinionMachineAttachmentTas
         return fields
 
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.TASK_PLATFORM_DESTINATION
 
     @classmethod
-    def _get_minion_properties_task_info_field(cls):
+    def _get_minion_properties_task_info_field(cls) -> str:
         return "osmorphing_minion_provider_properties"
 
     @classmethod
-    def _get_minion_connection_info_task_info_field(cls):
+    def _get_minion_connection_info_task_info_field(cls) -> str:
         return "osmorphing_minion_connection_info"
 
     @classmethod
-    def _get_provider_disk_operation(cls, provider):
+    def _get_provider_disk_operation(cls, provider) -> Callable:
         return provider.attach_volumes_to_minion
 
     @classmethod
-    def _get_minion_task_info_field_mappings(cls):
+    def _get_minion_task_info_field_mappings(cls) -> dict[str, str]:
         return OSMOPRHING_MINION_TASK_INFO_FIELD_MAPPINGS
 
     @classmethod
     def _clear_mapped_minion_task_info_field(cls):
         return False
 
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict:
         res = super(AttachVolumesToOSMorphingMinionTask, self)._run(
             ctxt, instance, origin, destination, task_info, event_handler
         )
@@ -696,7 +720,7 @@ class AttachVolumesToOSMorphingMinionTask(_BaseVolumesMinionMachineAttachmentTas
 
 class DetachVolumesFromOSMorphingMinionTask(AttachVolumesToOSMorphingMinionTask):
     @classmethod
-    def _get_provider_disk_operation(cls, provider):
+    def _get_provider_disk_operation(cls, provider) -> Callable:
         return provider.detach_volumes_from_minion
 
     @classmethod
@@ -717,7 +741,7 @@ class _BaseValidateMinionCompatibilityTask(base.TaskRunner):
         raise NotImplementedError("No minion validation platform specified")
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         base_props = set(
             [
                 "export_info",
@@ -731,11 +755,11 @@ class _BaseValidateMinionCompatibilityTask(base.TaskRunner):
         return list(base_props)
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[str]:
         return list(cls._get_minion_task_info_field_mappings().values())
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return _get_required_minion_pool_provider_types_for_platform(
             cls.get_required_platform()
         )
@@ -747,7 +771,7 @@ class _BaseValidateMinionCompatibilityTask(base.TaskRunner):
         )
 
     @classmethod
-    def _get_transfer_properties_task_info_field(cls):
+    def _get_transfer_properties_task_info_field(cls) -> str:
         platform = cls.get_required_platform()
         if platform == constants.PROVIDER_PLATFORM_SOURCE:
             return "source_environment"
@@ -765,7 +789,15 @@ class _BaseValidateMinionCompatibilityTask(base.TaskRunner):
     def _get_minion_task_info_field_mappings(cls):
         raise NotImplementedError("No minion task info field mappings provided.")
 
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict:
 
         platform_to_target = _get_platform_to_target(
             self.get_required_platform(), origin, destination
@@ -792,55 +824,55 @@ class _BaseValidateMinionCompatibilityTask(base.TaskRunner):
 
 class ValidateSourceMinionCompatibilityTask(_BaseValidateMinionCompatibilityTask):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.PROVIDER_PLATFORM_SOURCE
 
     @classmethod
-    def _get_minion_properties_task_info_field(cls):
+    def _get_minion_properties_task_info_field(cls) -> str:
         return "origin_minion_provider_properties"
 
     @classmethod
-    def _get_provider_pool_validation_operation(cls, provider):
+    def _get_provider_pool_validation_operation(cls, provider) -> Callable:
         return provider.validate_minion_compatibility_for_transfer
 
     @classmethod
-    def _get_minion_task_info_field_mappings(cls):
+    def _get_minion_task_info_field_mappings(cls) -> dict[str, str]:
         return SOURCE_MINION_TASK_INFO_FIELD_MAPPINGS
 
 
 class ValidateDestinationMinionCompatibilityTask(_BaseValidateMinionCompatibilityTask):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.PROVIDER_PLATFORM_DESTINATION
 
     @classmethod
-    def _get_minion_properties_task_info_field(cls):
+    def _get_minion_properties_task_info_field(cls) -> str:
         return "destination_minion_provider_properties"
 
     @classmethod
-    def _get_provider_pool_validation_operation(cls, provider):
+    def _get_provider_pool_validation_operation(cls, provider) -> Callable:
         return provider.validate_minion_compatibility_for_transfer
 
     @classmethod
-    def _get_minion_task_info_field_mappings(cls):
+    def _get_minion_task_info_field_mappings(cls) -> dict[str, str]:
         return TARGET_MINION_TASK_INFO_FIELD_MAPPINGS
 
 
 class ValidateOSMorphingMinionCompatibilityTask(_BaseValidateMinionCompatibilityTask):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.PROVIDER_PLATFORM_DESTINATION
 
     @classmethod
-    def _get_minion_properties_task_info_field(cls):
+    def _get_minion_properties_task_info_field(cls) -> str:
         return "osmorphing_minion_provider_properties"
 
     @classmethod
-    def _get_provider_pool_validation_operation(cls, provider):
+    def _get_provider_pool_validation_operation(cls, provider) -> Callable:
         return provider.validate_osmorphing_minion_compatibility_for_transfer
 
     @classmethod
-    def _get_minion_task_info_field_mappings(cls):
+    def _get_minion_task_info_field_mappings(cls) -> dict[str, str]:
         return OSMOPRHING_MINION_TASK_INFO_FIELD_MAPPINGS
 
 
@@ -854,16 +886,16 @@ class _BaseReleaseMinionTask(base.TaskRunner):
         raise NotImplementedError("No minion releasing platform specified")
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         prop_mappings = cls._get_minion_task_info_field_mappings()
         return list(set(prop_mappings.keys()).union(prop_mappings.values()))
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[str]:
         return cls.get_required_task_info_properties()
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return _get_required_minion_pool_provider_types_for_platform(
             cls.get_required_platform()
         )
@@ -872,7 +904,15 @@ class _BaseReleaseMinionTask(base.TaskRunner):
     def _get_minion_task_info_field_mappings(cls):
         raise NotImplementedError("No minion task info field mappings provided.")
 
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict[str, None]:
         event_manager = events.EventManager(event_handler)
         event_manager.progress_update("Releasing minion machine")
         return {field: None for field in self.get_returned_task_info_properties()}
@@ -880,54 +920,62 @@ class _BaseReleaseMinionTask(base.TaskRunner):
 
 class ReleaseSourceMinionTask(_BaseReleaseMinionTask):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.PROVIDER_PLATFORM_SOURCE
 
     @classmethod
-    def _get_minion_task_info_field_mappings(cls):
+    def _get_minion_task_info_field_mappings(cls) -> dict[str, str]:
         return SOURCE_MINION_TASK_INFO_FIELD_MAPPINGS
 
 
 class ReleaseDestinationMinionTask(_BaseReleaseMinionTask):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.PROVIDER_PLATFORM_DESTINATION
 
     @classmethod
-    def _get_minion_task_info_field_mappings(cls):
+    def _get_minion_task_info_field_mappings(cls) -> dict[str, str]:
         return TARGET_MINION_TASK_INFO_FIELD_MAPPINGS
 
 
 class ReleaseOSMorphingMinionTask(_BaseReleaseMinionTask):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.PROVIDER_PLATFORM_DESTINATION
 
     @classmethod
-    def _get_minion_task_info_field_mappings(cls):
+    def _get_minion_task_info_field_mappings(cls) -> dict[str, str]:
         return OSMOPRHING_MINION_TASK_INFO_FIELD_MAPPINGS
 
 
 class CollectOSMorphingInfoTask(base.TaskRunner):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.TASK_PLATFORM_DESTINATION
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return _get_required_minion_pool_provider_types_for_platform(
             cls.get_required_platform()
         )
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["target_environment", "instance_deployment_info"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[str]:
         return ["osmorphing_info"]
 
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict[str, dict]:
         provider_type = self.get_required_provider_types()[
             self.get_required_platform()
         ][0]
@@ -959,20 +1007,28 @@ class _BaseHealthcheckMinionMachineTask(base.TaskRunner):
         raise NotImplementedError("No minion healthcheck platform specified")
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["minion_provider_properties", "minion_connection_info"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list:
         return []
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return _get_required_minion_pool_provider_types_for_platform(
             cls.get_required_platform()
         )
 
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict[Any, Any]:
 
         platform_to_target = _get_platform_to_target(
             self.get_required_platform(), origin, destination
@@ -1005,7 +1061,7 @@ class HealthcheckSourceMinionMachineTask(_BaseHealthcheckMinionMachineTask):
 
 class HealthcheckDestinationMinionTask(_BaseHealthcheckMinionMachineTask):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.TASK_PLATFORM_DESTINATION
 
 
@@ -1015,24 +1071,32 @@ class _BasePowerCycleMinionTask(base.TaskRunner):
         raise NotImplementedError("No minion power cycle platform specified")
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return _get_required_minion_pool_provider_types_for_platform(
             cls.get_required_platform()
         )
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["minion_provider_properties"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list:
         return []
 
     @classmethod
     def _get_minion_power_cycle_op(cls, provider):
         raise NotImplementedError("No minion power cycle operation implemented.")
 
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict[Any, Any]:
 
         platform_to_target = _get_platform_to_target(
             self.get_required_platform(), origin, destination
@@ -1053,35 +1117,35 @@ class _BasePowerCycleMinionTask(base.TaskRunner):
 
 class _BasePowerOnMinionTask(_BasePowerCycleMinionTask):
     @classmethod
-    def _get_minion_power_cycle_op(cls, provider):
+    def _get_minion_power_cycle_op(cls, provider) -> Callable:
         return provider.start_minion
 
 
 class PowerOnSourceMinionTask(_BasePowerOnMinionTask):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.TASK_PLATFORM_SOURCE
 
 
 class PowerOnDestinationMinionTask(_BasePowerOnMinionTask):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.TASK_PLATFORM_DESTINATION
 
 
 class _BasePowerOffMinionTask(_BasePowerCycleMinionTask):
     @classmethod
-    def _get_minion_power_cycle_op(cls, provider):
+    def _get_minion_power_cycle_op(cls, provider) -> Callable:
         return provider.shutdown_minion
 
 
 class PowerOffSourceMinionTask(_BasePowerOffMinionTask):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.TASK_PLATFORM_SOURCE
 
 
 class PowerOffDestinationMinionTask(_BasePowerOffMinionTask):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.TASK_PLATFORM_DESTINATION

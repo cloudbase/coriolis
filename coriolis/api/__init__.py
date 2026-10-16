@@ -35,13 +35,13 @@ def root_app_factory(loader, global_conf, **local_conf):
 
 
 class APIMapper(routes.Mapper):
-    def routematch(self, url=None, environ=None):
+    def routematch(self, url: str | None = None, environ=None):
         if url is "":
             result = self._match("", environ)
             return result[0], result[1]
         return routes.Mapper.routematch(self, url, environ)
 
-    def connect(self, *args, **kwargs):
+    def connect(self, *args, **kwargs) -> None:
         # NOTE(inhye): Default the format part of a route to only accept json
         #             and xml so it doesn't eat all characters after a '.'
         #             in the url.
@@ -88,7 +88,7 @@ class APIRouter(base_wsgi.Router):
         self._setup_extensions(ext_mgr)
         super(APIRouter, self).__init__(mapper)
 
-    def _setup_ext_routes(self, mapper, ext_mgr):
+    def _setup_ext_routes(self, mapper: APIMapper, ext_mgr) -> None:
         for resource in ext_mgr.get_resources():
             LOG.debug('Extended resource: %s', resource.collection)
 
@@ -108,7 +108,7 @@ class APIRouter(base_wsgi.Router):
             if resource.custom_routes_fn:
                 resource.custom_routes_fn(mapper, wsgi_resource)
 
-    def _setup_extensions(self, ext_mgr):
+    def _setup_extensions(self, ext_mgr) -> None:
         for extension in ext_mgr.get_controller_extensions():
             collection = extension.collection
             controller = extension.controller
@@ -132,5 +132,5 @@ class APIRouter(base_wsgi.Router):
             resource.register_actions(controller)
             resource.register_extensions(controller)
 
-    def _setup_routes(self, mapper, ext_mgr):
+    def _setup_routes(self, mapper: APIMapper, ext_mgr):
         raise NotImplementedError

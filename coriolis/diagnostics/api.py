@@ -13,7 +13,7 @@ class API(object):
         self._cron_cli = cron_rpc.TransferCronClient()
         self._worker_cli = worker_rpc.WorkerClient()
 
-    def get(self, ctxt):
+    def get(self, ctxt) -> list[dict]:
         diag = self._conductor_cli.get_all_diagnostics(ctxt)
         api = utils.get_diagnostics_info()
         diag.append(api)

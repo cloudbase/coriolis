@@ -1,6 +1,8 @@
 # Copyright 2020 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from typing import Any
+
 from coriolis import constants
 from coriolis.osmorphing.osdetect import base
 
@@ -8,7 +10,7 @@ DEBIAN_DISTRO_IDENTIFIER = "Debian"
 
 
 class DebianOSDetectTools(base.BaseLinuxOSDetectTools):
-    def detect_os(self):
+    def detect_os(self) -> dict[Any, Any]:
         release = None
         base_info = {
             "os_type": constants.OS_TYPE_LINUX,

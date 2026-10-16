@@ -1,6 +1,8 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from typing import Any
+
 import oslo_messaging as messaging
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -22,14 +24,22 @@ CONF.register_opts(conductor_opts, 'conductor')
 
 
 class ConductorClient(rpc.BaseRPCClient):
-    def __init__(self, timeout=None, topic=constants.CONDUCTOR_MAIN_MESSAGING_TOPIC):
+    def __init__(
+        self, timeout=None, topic: str = constants.CONDUCTOR_MAIN_MESSAGING_TOPIC
+    ):
         target = messaging.Target(topic=topic, version=VERSION)
         if timeout is None:
             timeout = CONF.conductor.conductor_rpc_timeout
         super(ConductorClient, self).__init__(target, timeout=timeout)
 
     def create_endpoint(
-        self, ctxt, name, endpoint_type, description, connection_info, mapped_regions
+        self,
+        ctxt,
+        name: str,
+        endpoint_type: str,
+        description: str,
+        connection_info: dict[str, str],
+        mapped_regions: list[str],
     ):
         return self._call(
             ctxt,
@@ -41,7 +51,12 @@ class ConductorClient(rpc.BaseRPCClient):
             mapped_regions=mapped_regions,
         )
 
-    def update_endpoint(self, ctxt, endpoint_id, updated_values):
+    def update_endpoint(
+        self,
+        ctxt,
+        endpoint_id: str,
+        updated_values: dict,
+    ):
         return self._call(
             ctxt,
             'update_endpoint',
@@ -49,25 +64,25 @@ class ConductorClient(rpc.BaseRPCClient):
             updated_values=updated_values,
         )
 
-    def get_endpoints(self, ctxt):
+    def get_endpoints(self, ctxt) -> list[Any]:
         return self._call(ctxt, 'get_endpoints')
 
-    def get_endpoint(self, ctxt, endpoint_id):
+    def get_endpoint(self, ctxt, endpoint_id: str):
         return self._call(ctxt, 'get_endpoint', endpoint_id=endpoint_id)
 
-    def delete_endpoint(self, ctxt, endpoint_id):
+    def delete_endpoint(self, ctxt, endpoint_id: str) -> None:
         return self._call(ctxt, 'delete_endpoint', endpoint_id=endpoint_id)
 
     def get_endpoint_instances(
         self,
         ctxt,
-        endpoint_id,
-        source_environment,
+        endpoint_id: str,
+        source_environment: dict[Any, Any],
         marker=None,
         limit=None,
-        instance_name_pattern=None,
-        refresh=False,
-    ):
+        instance_name_pattern: str | None = None,
+        refresh: bool = False,
+    ) -> list[dict]:
         return self._call(
             ctxt,
             'get_endpoint_instances',
@@ -80,8 +95,12 @@ class ConductorClient(rpc.BaseRPCClient):
         )
 
     def get_endpoint_instance(
-        self, ctxt, endpoint_id, source_environment, instance_name
-    ):
+        self,
+        ctxt,
+        endpoint_id: str,
+        source_environment: dict[Any, Any],
+        instance_name: str,
+    ) -> dict:
         return self._call(
             ctxt,
             'get_endpoint_instance',
@@ -90,7 +109,13 @@ class ConductorClient(rpc.BaseRPCClient):
             instance_name=instance_name,
         )
 
-    def get_endpoint_source_options(self, ctxt, endpoint_id, env, option_names):
+    def get_endpoint_source_options(
+        self,
+        ctxt,
+        endpoint_id: str,
+        env: dict[Any, Any],
+        option_names: dict[Any, Any],
+    ) -> list[dict]:
         return self._call(
             ctxt,
             'get_endpoint_source_options',
@@ -99,7 +124,13 @@ class ConductorClient(rpc.BaseRPCClient):
             option_names=option_names,
         )
 
-    def get_endpoint_destination_options(self, ctxt, endpoint_id, env, option_names):
+    def get_endpoint_destination_options(
+        self,
+        ctxt,
+        endpoint_id: str,
+        env: dict[Any, Any],
+        option_names: dict[Any, Any],
+    ) -> list[dict]:
         return self._call(
             ctxt,
             'get_endpoint_destination_options',
@@ -108,17 +139,32 @@ class ConductorClient(rpc.BaseRPCClient):
             option_names=option_names,
         )
 
-    def get_endpoint_networks(self, ctxt, endpoint_id, env):
+    def get_endpoint_networks(
+        self,
+        ctxt,
+        endpoint_id: str,
+        env: dict[Any, Any],
+    ) -> list[dict]:
         return self._call(
             ctxt, 'get_endpoint_networks', endpoint_id=endpoint_id, env=env
         )
 
-    def get_endpoint_storage(self, ctxt, endpoint_id, env):
+    def get_endpoint_storage(
+        self,
+        ctxt,
+        endpoint_id: str,
+        env: dict[Any, Any],
+    ) -> dict[str, list]:
         return self._call(
             ctxt, 'get_endpoint_storage', endpoint_id=endpoint_id, env=env
         )
 
-    def get_endpoint_inventory_csv(self, ctxt, endpoint_id, source_environment):
+    def get_endpoint_inventory_csv(
+        self,
+        ctxt,
+        endpoint_id: str,
+        source_environment: dict[Any, Any],
+    ) -> str:
         return self._call(
             ctxt,
             'get_endpoint_inventory_csv',
@@ -126,10 +172,15 @@ class ConductorClient(rpc.BaseRPCClient):
             source_environment=source_environment,
         )
 
-    def validate_endpoint_connection(self, ctxt, endpoint_id):
+    def validate_endpoint_connection(self, ctxt, endpoint_id: str) -> tuple:
         return self._call(ctxt, 'validate_endpoint_connection', endpoint_id=endpoint_id)
 
-    def validate_endpoint_target_environment(self, ctxt, endpoint_id, target_env):
+    def validate_endpoint_target_environment(
+        self,
+        ctxt,
+        endpoint_id: str,
+        target_env: dict,
+    ) -> tuple[bool, None]:
         return self._call(
             ctxt,
             'validate_endpoint_target_environment',
@@ -137,7 +188,12 @@ class ConductorClient(rpc.BaseRPCClient):
             target_env=target_env,
         )
 
-    def validate_endpoint_source_environment(self, ctxt, endpoint_id, source_env):
+    def validate_endpoint_source_environment(
+        self,
+        ctxt,
+        endpoint_id: str,
+        source_env: dict,
+    ) -> tuple[bool, None]:
         return self._call(
             ctxt,
             'validate_endpoint_source_environment',
@@ -145,10 +201,15 @@ class ConductorClient(rpc.BaseRPCClient):
             source_env=source_env,
         )
 
-    def get_available_providers(self, ctxt):
+    def get_available_providers(self, ctxt) -> dict[str, dict]:
         return self._call(ctxt, 'get_available_providers')
 
-    def get_provider_schemas(self, ctxt, platform_name, provider_type):
+    def get_provider_schemas(
+        self,
+        ctxt,
+        platform_name: str,
+        provider_type: int,
+    ) -> dict[str, dict]:
         return self._call(
             ctxt,
             'get_provider_schemas',
@@ -157,8 +218,12 @@ class ConductorClient(rpc.BaseRPCClient):
         )
 
     def execute_transfer_tasks(
-        self, ctxt, transfer_id, shutdown_instances=False, auto_deploy=False
-    ):
+        self,
+        ctxt,
+        transfer_id: str,
+        shutdown_instances: bool = False,
+        auto_deploy: bool = False,
+    ) -> dict:
         return self._call(
             ctxt,
             'execute_transfer_tasks',
@@ -170,14 +235,14 @@ class ConductorClient(rpc.BaseRPCClient):
     def get_transfer_tasks_executions(
         self,
         ctxt,
-        transfer_id,
-        include_tasks=False,
-        marker=None,
-        limit=None,
-        sort_keys=None,
-        sort_dirs=None,
-        filters=None,
-    ):
+        transfer_id: str,
+        include_tasks: bool = False,
+        marker: str | None = None,
+        limit: int | None = None,
+        sort_keys: list | None = None,
+        sort_dirs: list | None = None,
+        filters: dict | None = None,
+    ) -> list:
         return self._call(
             ctxt,
             'get_transfer_tasks_executions',
@@ -191,8 +256,12 @@ class ConductorClient(rpc.BaseRPCClient):
         )
 
     def get_transfer_tasks_execution(
-        self, ctxt, transfer_id, execution_id, include_task_info=False
-    ):
+        self,
+        ctxt,
+        transfer_id: str,
+        execution_id: str,
+        include_task_info: bool = False,
+    ) -> dict:
         return self._call(
             ctxt,
             'get_transfer_tasks_execution',
@@ -201,7 +270,12 @@ class ConductorClient(rpc.BaseRPCClient):
             include_task_info=include_task_info,
         )
 
-    def delete_transfer_tasks_execution(self, ctxt, transfer_id, execution_id):
+    def delete_transfer_tasks_execution(
+        self,
+        ctxt,
+        transfer_id: str,
+        execution_id: str,
+    ) -> None:
         return self._call(
             ctxt,
             'delete_transfer_tasks_execution',
@@ -209,7 +283,13 @@ class ConductorClient(rpc.BaseRPCClient):
             execution_id=execution_id,
         )
 
-    def cancel_transfer_tasks_execution(self, ctxt, transfer_id, execution_id, force):
+    def cancel_transfer_tasks_execution(
+        self,
+        ctxt,
+        transfer_id: str,
+        execution_id: str,
+        force: bool,
+    ) -> None:
         return self._call(
             ctxt,
             'cancel_transfer_tasks_execution',
@@ -221,22 +301,22 @@ class ConductorClient(rpc.BaseRPCClient):
     def create_instances_transfer(
         self,
         ctxt,
-        transfer_scenario,
-        origin_endpoint_id,
-        destination_endpoint_id,
-        origin_minion_pool_id,
-        destination_minion_pool_id,
-        instance_osmorphing_minion_pool_mappings,
-        source_environment,
-        destination_environment,
-        instances,
-        network_map,
-        storage_mappings,
-        notes=None,
+        transfer_scenario: str,
+        origin_endpoint_id: str,
+        destination_endpoint_id: str,
+        origin_minion_pool_id: str | None,
+        destination_minion_pool_id: str | None,
+        instance_osmorphing_minion_pool_mappings: dict[Any, Any],
+        source_environment: dict,
+        destination_environment: dict[str, dict],
+        instances: list[str],
+        network_map: dict[Any, Any],
+        storage_mappings: dict[Any, Any],
+        notes: str | None = None,
         user_scripts=None,
-        clone_disks=True,
-        skip_os_morphing=False,
-    ):
+        clone_disks: bool = True,
+        skip_os_morphing: bool = False,
+    ) -> dict:
         return self._call(
             ctxt,
             'create_instances_transfer',
@@ -262,14 +342,14 @@ class ConductorClient(rpc.BaseRPCClient):
     def get_transfers(
         self,
         ctxt,
-        include_tasks_executions=False,
-        include_task_info=False,
-        marker=None,
-        limit=None,
-        sort_keys=None,
-        sort_dirs=None,
-        filters=None,
-    ):
+        include_tasks_executions: bool = False,
+        include_task_info: bool = False,
+        marker: str | None = None,
+        limit: int | None = None,
+        sort_keys: list | None = None,
+        sort_dirs: list | None = None,
+        filters: dict | None = None,
+    ) -> list[dict]:
         return self._call(
             ctxt,
             'get_transfers',
@@ -282,7 +362,12 @@ class ConductorClient(rpc.BaseRPCClient):
             filters=filters,
         )
 
-    def get_transfer(self, ctxt, transfer_id, include_task_info=False):
+    def get_transfer(
+        self,
+        ctxt,
+        transfer_id: str,
+        include_task_info: bool = False,
+    ) -> dict:
         return self._call(
             ctxt,
             'get_transfer',
@@ -290,23 +375,23 @@ class ConductorClient(rpc.BaseRPCClient):
             include_task_info=include_task_info,
         )
 
-    def delete_transfer(self, ctxt, transfer_id):
+    def delete_transfer(self, ctxt, transfer_id: str) -> None:
         self._call(ctxt, 'delete_transfer', transfer_id=transfer_id)
 
-    def delete_transfer_disks(self, ctxt, transfer_id):
+    def delete_transfer_disks(self, ctxt, transfer_id: str) -> dict:
         return self._call(ctxt, 'delete_transfer_disks', transfer_id=transfer_id)
 
     def get_deployments(
         self,
         ctxt,
-        include_tasks=False,
-        include_task_info=False,
+        include_tasks: bool = False,
+        include_task_info: bool = False,
         marker=None,
         limit=None,
-        sort_keys=None,
-        sort_dirs=None,
-        filters=None,
-    ):
+        sort_keys: list | None = None,
+        sort_dirs: list | None = None,
+        filters: dict | None = None,
+    ) -> list:
         return self._call(
             ctxt,
             'get_deployments',
@@ -319,7 +404,12 @@ class ConductorClient(rpc.BaseRPCClient):
             filters=filters,
         )
 
-    def get_deployment(self, ctxt, deployment_id, include_task_info=False):
+    def get_deployment(
+        self,
+        ctxt,
+        deployment_id: str,
+        include_task_info: bool = False,
+    ) -> dict:
         return self._call(
             ctxt,
             'get_deployment',
@@ -327,12 +417,22 @@ class ConductorClient(rpc.BaseRPCClient):
             include_task_info=include_task_info,
         )
 
-    def confirm_deployer_completed(self, ctxt, deployment_id, force=False):
+    def confirm_deployer_completed(
+        self,
+        ctxt,
+        deployment_id: str,
+        force: bool = False,
+    ) -> None:
         return self._cast(
             ctxt, 'confirm_deployer_completed', deployment_id=deployment_id, force=force
         )
 
-    def report_deployer_failure(self, ctxt, deployemnt_id, deployer_error_details):
+    def report_deployer_failure(
+        self,
+        ctxt,
+        deployemnt_id: str,
+        deployer_error_details: str,
+    ) -> None:
         return self._cast(
             ctxt,
             'report_deployer_failure',
@@ -343,15 +443,15 @@ class ConductorClient(rpc.BaseRPCClient):
     def deploy_transfer_instances(
         self,
         ctxt,
-        transfer_id,
-        force,
-        wait_for_execution=None,
-        instance_osmorphing_minion_pool_mappings=None,
-        clone_disks=None,
-        skip_os_morphing=None,
-        user_scripts=None,
-        trust_id=None,
-    ):
+        transfer_id: str,
+        force: bool,
+        wait_for_execution: str | None = None,
+        instance_osmorphing_minion_pool_mappings: dict | None = None,
+        clone_disks: bool | None = None,
+        skip_os_morphing: bool | None = None,
+        user_scripts: dict | None = None,
+        trust_id: str | None = None,
+    ) -> dict:
         return self._call(
             ctxt,
             'deploy_transfer_instances',
@@ -367,19 +467,19 @@ class ConductorClient(rpc.BaseRPCClient):
             trust_id=trust_id,
         )
 
-    def delete_deployment(self, ctxt, deployment_id):
+    def delete_deployment(self, ctxt, deployment_id: str) -> None:
         self._call(ctxt, 'delete_deployment', deployment_id=deployment_id)
 
-    def cancel_deployment(self, ctxt, deployment_id, force):
+    def cancel_deployment(self, ctxt, deployment_id: str, force: bool) -> None:
         self._call(ctxt, 'cancel_deployment', deployment_id=deployment_id, force=force)
 
-    def set_task_host(self, ctxt, task_id, host):
+    def set_task_host(self, ctxt, task_id: str, host: str) -> None:
         self._call(ctxt, 'set_task_host', task_id=task_id, host=host)
 
-    def set_task_process(self, ctxt, task_id, process_id):
+    def set_task_process(self, ctxt, task_id: str, process_id: int) -> None:
         self._call(ctxt, 'set_task_process', task_id=task_id, process_id=process_id)
 
-    def task_completed(self, ctxt, task_id, task_result):
+    def task_completed(self, ctxt, task_id: str, task_result: dict) -> None:
         self._call(ctxt, 'task_completed', task_id=task_id, task_result=task_result)
 
     def confirm_task_cancellation(self, ctxt, task_id, cancellation_details):
@@ -390,7 +490,12 @@ class ConductorClient(rpc.BaseRPCClient):
             cancellation_details=cancellation_details,
         )
 
-    def set_task_error(self, ctxt, task_id, exception_details):
+    def set_task_error(
+        self,
+        ctxt,
+        task_id: str,
+        exception_details: str,
+    ) -> None:
         self._call(
             ctxt, 'set_task_error', task_id=task_id, exception_details=exception_details
         )
@@ -401,7 +506,13 @@ class ConductorClient(rpc.BaseRPCClient):
         )
 
     def add_task_progress_update(
-        self, ctxt, task_id, message, initial_step=0, total_steps=0, return_event=False
+        self,
+        ctxt,
+        task_id: str,
+        message: str,
+        initial_step: int = 0,
+        total_steps: int = 0,
+        return_event: bool = False,
     ):
         operation = self._cast
         if return_event:
@@ -418,13 +529,13 @@ class ConductorClient(rpc.BaseRPCClient):
     def update_task_progress_update(
         self,
         ctxt,
-        task_id,
-        progress_update_index,
-        new_current_step,
+        task_id: str,
+        progress_update_index: int,
+        new_current_step: int,
         new_total_steps=None,
         new_message=None,
-        sync=False,
-    ):
+        sync: bool = False,
+    ) -> None:
         # Use _call on the last step to make sure the DB is updated
         # and the UI is showing the correct progress.
         # Intermediate steps use cast to avoid blocking on every tick.
@@ -451,12 +562,12 @@ class ConductorClient(rpc.BaseRPCClient):
     def create_transfer_schedule(
         self,
         ctxt,
-        transfer_id,
-        schedule,
-        enabled,
+        transfer_id: str,
+        schedule: dict[str, int],
+        enabled: bool,
         exp_date,
-        shutdown_instance,
-        auto_deploy,
+        shutdown_instance: bool,
+        auto_deploy: bool,
     ):
         return self._call(
             ctxt,
@@ -469,7 +580,13 @@ class ConductorClient(rpc.BaseRPCClient):
             auto_deploy=auto_deploy,
         )
 
-    def update_transfer_schedule(self, ctxt, transfer_id, schedule_id, updated_values):
+    def update_transfer_schedule(
+        self,
+        ctxt,
+        transfer_id: str,
+        schedule_id: str,
+        updated_values: dict,
+    ):
         return self._call(
             ctxt,
             'update_transfer_schedule',
@@ -478,7 +595,12 @@ class ConductorClient(rpc.BaseRPCClient):
             updated_values=updated_values,
         )
 
-    def delete_transfer_schedule(self, ctxt, transfer_id, schedule_id):
+    def delete_transfer_schedule(
+        self,
+        ctxt,
+        transfer_id: str,
+        schedule_id: str,
+    ) -> None:
         return self._call(
             ctxt,
             'delete_transfer_schedule',
@@ -486,12 +608,23 @@ class ConductorClient(rpc.BaseRPCClient):
             schedule_id=schedule_id,
         )
 
-    def get_transfer_schedules(self, ctxt, transfer_id=None, expired=True):
+    def get_transfer_schedules(
+        self,
+        ctxt,
+        transfer_id: str | None = None,
+        expired: bool = True,
+    ):
         return self._call(
             ctxt, 'get_transfer_schedules', transfer_id=transfer_id, expired=expired
         )
 
-    def get_transfer_schedule(self, ctxt, transfer_id, schedule_id, expired=True):
+    def get_transfer_schedule(
+        self,
+        ctxt,
+        transfer_id: str,
+        schedule_id: str,
+        expired: bool = True,
+    ):
         return self._call(
             ctxt,
             'get_transfer_schedule',
@@ -500,7 +633,12 @@ class ConductorClient(rpc.BaseRPCClient):
             expired=expired,
         )
 
-    def update_transfer(self, ctxt, transfer_id, updated_properties):
+    def update_transfer(
+        self,
+        ctxt,
+        transfer_id: str,
+        updated_properties: dict,
+    ) -> dict:
         return self._call(
             ctxt,
             'update_transfer',
@@ -511,10 +649,16 @@ class ConductorClient(rpc.BaseRPCClient):
     def get_diagnostics(self, ctxt):
         return self._call(ctxt, 'get_diagnostics')
 
-    def get_all_diagnostics(self, ctxt):
+    def get_all_diagnostics(self, ctxt) -> list[dict]:
         return self._call(ctxt, 'get_all_diagnostics')
 
-    def create_region(self, ctxt, region_name, description="", enabled=True):
+    def create_region(
+        self,
+        ctxt,
+        region_name: str,
+        description: str = "",
+        enabled: bool = True,
+    ):
         return self._call(
             ctxt,
             'create_region',
@@ -526,27 +670,32 @@ class ConductorClient(rpc.BaseRPCClient):
     def get_regions(self, ctxt):
         return self._call(ctxt, 'get_regions')
 
-    def get_region(self, ctxt, region_id):
+    def get_region(self, ctxt, region_id: str):
         return self._call(ctxt, 'get_region', region_id=region_id)
 
-    def update_region(self, ctxt, region_id, updated_values):
+    def update_region(
+        self,
+        ctxt,
+        region_id: str,
+        updated_values: dict[str, str],
+    ):
         return self._call(
             ctxt, 'update_region', region_id=region_id, updated_values=updated_values
         )
 
-    def delete_region(self, ctxt, region_id):
+    def delete_region(self, ctxt, region_id: str) -> None:
         return self._call(ctxt, 'delete_region', region_id=region_id)
 
     def register_service(
         self,
         ctxt,
-        host,
-        binary,
-        topic,
-        enabled,
-        mapped_regions,
-        providers=None,
-        specs=None,
+        host: str,
+        binary: str,
+        topic: str,
+        enabled: bool,
+        mapped_regions: list | None,
+        providers: dict | None = None,
+        specs: dict | None = None,
     ):
         return self._call(
             ctxt,
@@ -560,7 +709,13 @@ class ConductorClient(rpc.BaseRPCClient):
             specs=specs,
         )
 
-    def check_service_registered(self, ctxt, host, binary, topic):
+    def check_service_registered(
+        self,
+        ctxt,
+        host: str,
+        binary: str,
+        topic: str,
+    ) -> None:
         return self._call(
             ctxt, 'check_service_registered', host=host, binary=binary, topic=topic
         )
@@ -568,20 +723,28 @@ class ConductorClient(rpc.BaseRPCClient):
     def get_services(self, ctxt):
         return self._call(ctxt, 'get_services')
 
-    def get_service(self, ctxt, service_id):
+    def get_service(self, ctxt, service_id: str):
         return self._call(ctxt, 'get_service', service_id=service_id)
 
-    def update_service(self, ctxt, service_id, updated_values):
+    def update_service(
+        self,
+        ctxt,
+        service_id: str,
+        updated_values: dict,
+    ):
         return self._call(
             ctxt, 'update_service', service_id=service_id, updated_values=updated_values
         )
 
-    def delete_service(self, ctxt, service_id):
+    def delete_service(self, ctxt, service_id: str) -> None:
         return self._call(ctxt, 'delete_service', service_id=service_id)
 
     def confirm_transfer_minions_allocation(
-        self, ctxt, transfer_id, minion_machine_allocations
-    ):
+        self,
+        ctxt,
+        transfer_id: str,
+        minion_machine_allocations: dict[str, dict],
+    ) -> None:
         self._call(
             ctxt,
             'confirm_transfer_minions_allocation',
@@ -590,8 +753,11 @@ class ConductorClient(rpc.BaseRPCClient):
         )
 
     def report_transfer_minions_allocation_error(
-        self, ctxt, transfer_id, minion_allocation_error_details
-    ):
+        self,
+        ctxt,
+        transfer_id: str,
+        minion_allocation_error_details: str,
+    ) -> None:
         self._call(
             ctxt,
             'report_transfer_minions_allocation_error',
@@ -600,8 +766,11 @@ class ConductorClient(rpc.BaseRPCClient):
         )
 
     def confirm_deployment_minions_allocation(
-        self, ctxt, deployment_id, minion_machine_allocations
-    ):
+        self,
+        ctxt,
+        deployment_id: str,
+        minion_machine_allocations: dict[str, dict],
+    ) -> None:
         self._call(
             ctxt,
             'confirm_deployment_minions_allocation',
@@ -610,8 +779,11 @@ class ConductorClient(rpc.BaseRPCClient):
         )
 
     def report_deployment_minions_allocation_error(
-        self, ctxt, deployment_id, minion_allocation_error_details
-    ):
+        self,
+        ctxt,
+        deployment_id: str,
+        minion_allocation_error_details: str,
+    ) -> None:
         self._call(
             ctxt,
             'report_deployment_minions_allocation_error',
@@ -621,13 +793,13 @@ class ConductorClient(rpc.BaseRPCClient):
 
 
 class ConductorTaskRpcEventHandler(events.BaseEventHandler):
-    def __init__(self, ctxt, task_id):
+    def __init__(self, ctxt, task_id: str):
         self._ctxt = ctxt
         self._task_id = task_id
         self._rpc_conductor_client_instance = None
 
     @property
-    def _rpc_conductor_client(self):
+    def _rpc_conductor_client(self) -> ConductorClient:
         # NOTE(aznashwan): it is unsafe to fork processes with pre-instantiated
         # oslo_messaging clients as the underlying thread queues will
         # be invalidated.
@@ -636,11 +808,15 @@ class ConductorTaskRpcEventHandler(events.BaseEventHandler):
         return self._rpc_conductor_client_instance
 
     @classmethod
-    def get_progress_update_identifier(cls, progress_update):
+    def get_progress_update_identifier(cls, progress_update) -> int:
         return progress_update['index']
 
     def add_progress_update(
-        self, message, initial_step=0, total_steps=0, return_event=False
+        self,
+        message: str,
+        initial_step: int = 0,
+        total_steps: int = 0,
+        return_event: bool = False,
     ):
         LOG.info(
             "Sending progress update for task '%s' to conductor: %s",
@@ -658,12 +834,12 @@ class ConductorTaskRpcEventHandler(events.BaseEventHandler):
 
     def update_progress_update(
         self,
-        update_identifier,
-        new_current_step,
+        update_identifier: int,
+        new_current_step: int,
         new_total_steps=None,
         new_message=None,
-        sync=False,
-    ):
+        sync: bool = False,
+    ) -> None:
         LOG.info(
             "Updating progress update '%s' for task '%s' with new step %s",
             update_identifier,

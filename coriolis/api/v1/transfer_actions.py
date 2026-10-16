@@ -16,7 +16,9 @@ class TransferActionsController(api_wsgi.Controller):
         super(TransferActionsController, self).__init__()
 
     @api_wsgi.action('delete-disks')
-    def _delete_disks(self, req, id, body):
+    def _delete_disks(
+        self, req: api_wsgi.Request, id: str, body: dict[str, None]
+    ) -> dict[str, dict]:
         context = req.environ['coriolis.context']
         context.can(transfer_policies.get_transfers_policy_label("delete_disks"))
         try:
@@ -29,5 +31,5 @@ class TransferActionsController(api_wsgi.Controller):
             raise exc.HTTPNotFound(explanation=ex.msg)
 
 
-def create_resource():
+def create_resource() -> api_wsgi.Resource:
     return api_wsgi.Resource(TransferActionsController())

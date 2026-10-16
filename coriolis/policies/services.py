@@ -10,7 +10,7 @@ SERVICES_POLICY_PREFIX = "%s:services" % base.CORIOLIS_POLICIES_PREFIX
 SERVICES_POLICY_DEFAULT_RULE = "rule:admin_or_owner"
 
 
-def get_services_policy_label(rule_label):
+def get_services_policy_label(rule_label: str) -> str:
     return "%s:%s" % (SERVICES_POLICY_PREFIX, rule_label)
 
 
@@ -48,5 +48,5 @@ SERVICES_POLICY_DEFAULT_RULES = [
 ]
 
 
-def list_rules():
+def list_rules() -> list[policy.DocumentedRuleDefault]:
     return SERVICES_POLICY_DEFAULT_RULES

@@ -24,7 +24,7 @@ from sqlalchemy.dialects import mysql
 class LongText(types.TypeDecorator):
     impl = types.Text
 
-    def load_dialect_impl(self, dialect):
+    def load_dialect_impl(self, dialect) -> mysql.LONGTEXT:
         if dialect.name == 'mysql':
             return dialect.type_descriptor(mysql.LONGTEXT())
         else:
@@ -42,20 +42,36 @@ class Blob(types.TypeDecorator):
 
 
 class Json(LongText):
-    def process_bind_param(self, value, dialect):
+    def process_bind_param(
+        self,
+        value: dict | None,
+        dialect,
+    ) -> str:
         return jsonutils.dumps(value)
 
-    def process_result_value(self, value, dialect):
+    def process_result_value(
+        self,
+        value: str,
+        dialect,
+    ) -> dict | None:
         if value is None:
             return None
         return jsonutils.loads(value)
 
 
 class Bson(Blob):
-    def process_bind_param(self, value, dialect):
+    def process_bind_param(
+        self,
+        value: dict | None,
+        dialect,
+    ) -> bytes:
         return zlib.compress(jsonutils.dumps(value).encode('utf-8'))
 
-    def process_result_value(self, value, dialect):
+    def process_result_value(
+        self,
+        value: bytes,
+        dialect,
+    ) -> dict:
         if value is None:
             return None
         data = None
@@ -69,16 +85,24 @@ class Bson(Blob):
 class List(types.TypeDecorator):
     impl = types.Text
 
-    def load_dialect_impl(self, dialect):
+    def load_dialect_impl(self, dialect) -> mysql.LONGTEXT:
         if dialect.name == 'mysql':
             return dialect.type_descriptor(mysql.LONGTEXT())
         else:
             return self.impl
 
-    def process_bind_param(self, value, dialect):
+    def process_bind_param(
+        self,
+        value: list | None,
+        dialect,
+    ) -> str:
         return jsonutils.dumps(value)
 
-    def process_result_value(self, value, dialect):
+    def process_result_value(
+        self,
+        value: str,
+        dialect,
+    ) -> list | None:
         if value is None:
             return None
         return jsonutils.loads(value)

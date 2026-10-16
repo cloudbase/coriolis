@@ -10,12 +10,12 @@ LOG = logging.getLogger(__name__)
 
 
 class UbuntuOSMountTools(base.BaseLinuxOSMountTools):
-    def check_os(self):
+    def check_os(self) -> bool:
         os_info = utils.get_linux_os_info(self._ssh)
         if os_info and os_info[0] in ('Ubuntu', 'ubuntu'):
             return True
 
-    def setup(self):
+    def setup(self) -> None:
         super(UbuntuOSMountTools, self).setup()
 
         # NOTE(aznashwan): it's possible that if the Ubuntu minion has

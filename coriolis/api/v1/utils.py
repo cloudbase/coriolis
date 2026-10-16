@@ -2,6 +2,7 @@
 # All Rights Reserved.
 
 import functools
+from typing import Any, Callable
 
 from oslo_log import log as logging
 from oslo_utils import strutils
@@ -12,7 +13,7 @@ from coriolis import constants, exception, schemas
 LOG = logging.getLogger(__name__)
 
 
-def get_bool_url_arg(req, arg_name, default=False):
+def get_bool_url_arg(req, arg_name: str, default: bool = False) -> bool:
     val = req.GET.get(arg_name, default)
     try:
         return strutils.bool_from_string(str(val), strict=True)
@@ -21,7 +22,7 @@ def get_bool_url_arg(req, arg_name, default=False):
     return default
 
 
-def validate_network_map(network_map):
+def validate_network_map(network_map: dict[Any, Any]) -> None:
     """Validates the JSON schema for the network_map."""
     try:
         schemas.validate_value(network_map, schemas.CORIOLIS_NETWORK_MAP_SCHEMA)
@@ -29,7 +30,7 @@ def validate_network_map(network_map):
         raise exc.HTTPBadRequest(explanation="Invalid network_map: %s" % str(ex))
 
 
-def validate_storage_mappings(storage_mappings):
+def validate_storage_mappings(storage_mappings: dict[str, list]) -> None:
     """Validates the JSON schema for the storage_mappings."""
     try:
         schemas.validate_value(
@@ -39,8 +40,8 @@ def validate_storage_mappings(storage_mappings):
         raise exc.HTTPBadRequest(explanation="Invalid storage_mappings: %s" % str(ex))
 
 
-def format_keyerror_message(resource='', method=''):
-    def _format_keyerror_message(func):
+def format_keyerror_message(resource: str = '', method: str = '') -> Callable:
+    def _format_keyerror_message(func: Callable) -> Callable:
         @functools.wraps(func)
         def _wrapper(*args, **kwargs):
             try:
@@ -165,7 +166,7 @@ def _process_user_scripts(
         )
 
 
-def validate_user_scripts(user_scripts):
+def validate_user_scripts(user_scripts: dict | None) -> dict:
     # Validate the top level user scripts dict.
     # Example:
     # {
@@ -242,7 +243,7 @@ def validate_user_scripts(user_scripts):
     return user_scripts
 
 
-def validate_instances_list_for_transfer(instances):
+def validate_instances_list_for_transfer(instances: list[str]) -> list[str]:
     if not instances:
         raise exception.InvalidInput(
             "No instance identifiers provided for transfer action."

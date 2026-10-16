@@ -29,7 +29,7 @@ class LicensingClient(object):
         self._appliance_id = appliance_id
 
     @classmethod
-    def from_env(cls):
+    def from_env(cls) -> None:
         """Retuns a `LicensingClient` object instatiated using the
         following env vars:
         LICENSING_SERVER_BASE_URL="https://10.7.2.3:37667/v1"

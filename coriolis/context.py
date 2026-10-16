@@ -14,25 +14,25 @@ from coriolis import exception, policy
 class RequestContext(context.RequestContext):
     def __init__(
         self,
-        user,
-        project_id,
-        is_admin=None,
-        roles=None,
+        user: str | None,
+        project_id: str | None,
+        is_admin: bool | None = None,
+        roles: list | None = None,
         project_name=None,
         remote_address=None,
         timestamp=None,
-        request_id=None,
+        request_id: str | None = None,
         auth_token=None,
-        overwrite=True,
+        overwrite: bool = True,
         domain_name=None,
         domain_id=None,
         user_domain_name=None,
         user_domain_id=None,
         project_domain_name=None,
         project_domain_id=None,
-        show_deleted=None,
-        trust_id=None,
-        delete_trust_id=False,
+        show_deleted: bool | None = None,
+        trust_id: str | None = None,
+        delete_trust_id: bool = False,
         **kwargs,
     ):
 
@@ -62,7 +62,7 @@ class RequestContext(context.RequestContext):
         self.trust_id = trust_id
         self.delete_trust_id = delete_trust_id
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         result = super(RequestContext, self).to_dict()
         result['user'] = self.user
         result['project_id'] = self.project_id
@@ -83,16 +83,16 @@ class RequestContext(context.RequestContext):
         return result
 
     @classmethod
-    def from_dict(cls, values):
+    def from_dict(cls, values: dict) -> "RequestContext":
         return cls(**values)
 
-    def to_policy_values(self):
+    def to_policy_values(self) -> context._DeprecatedPolicyValues:
         policy = super(RequestContext, self).to_policy_values()
         # TODO(aznashwan): determine if there are any other custom
         # context params we'd like to be used for policy validation:
         return policy
 
-    def can(self, action, target=None, fatal=True):
+    def can(self, action: str, target: dict | None = None, fatal: bool = True) -> bool:
         """Validates policies allow the requested action to be
         perfomed in the given context, and raises otherwise.
         """
@@ -113,5 +113,5 @@ class RequestContext(context.RequestContext):
         return result
 
 
-def get_admin_context(trust_id=None):
+def get_admin_context(trust_id: str | None = None) -> RequestContext:
     return RequestContext(user=None, project_id=None, is_admin=True, trust_id=trust_id)

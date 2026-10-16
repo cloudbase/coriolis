@@ -13,14 +13,14 @@ LOG = logging.getLogger(__name__)
 def check_create_registration_for_service(
     conductor_rpc,
     request_context,
-    host,
-    binary,
-    topic,
-    enabled=False,
+    host: str,
+    binary: str,
+    topic: str,
+    enabled: bool = False,
     mapped_regions=None,
-    providers=None,
-    specs=None,
-    retry_period=30,
+    providers: dict | None = None,
+    specs: dict | None = None,
+    retry_period: int = 30,
 ):
     """Checks with the conductor whether or not a service has already been
     registered for this host and topic and creates one if not.

@@ -5,6 +5,7 @@ import copy
 import functools
 import itertools
 import uuid
+from typing import Any, Callable
 
 from oslo_concurrency import lockutils
 from oslo_config import cfg
@@ -58,7 +59,7 @@ ENDPOINT_TYPE_TO_LICENSING_RESERVATION_OVERRIDES = {
 }
 
 
-def _get_reservation_type(destination_endpoint, scenario):
+def _get_reservation_type(destination_endpoint: models.Endpoint, scenario: str) -> str:
     """Returns the licensing reservation type for the given transfer
     scenario, taking into account any provider-specific overrides for
     the given destination endpoint's type (e.g. SAP transfers require
@@ -71,13 +72,13 @@ def _get_reservation_type(destination_endpoint, scenario):
     )
 
 
-def endpoint_synchronized(func):
+def endpoint_synchronized(func: Callable) -> Callable:
     @functools.wraps(func)
     def wrapper(self, ctxt, endpoint_id, *args, **kwargs):
         @lockutils.synchronized(
             constants.ENDPOINT_LOCK_NAME_FORMAT % endpoint_id, external=True
         )
-        def inner():
+        def inner() -> models.Endpoint | None:
             return func(self, ctxt, endpoint_id, *args, **kwargs)
 
         return inner()
@@ -85,13 +86,13 @@ def endpoint_synchronized(func):
     return wrapper
 
 
-def transfer_synchronized(func):
+def transfer_synchronized(func: Callable) -> Callable:
     @functools.wraps(func)
     def wrapper(self, ctxt, transfer_id, *args, **kwargs):
         @lockutils.synchronized(
             constants.TRANSFER_LOCK_NAME_FORMAT % transfer_id, external=True
         )
-        def inner():
+        def inner() -> dict | list | None:
             return func(self, ctxt, transfer_id, *args, **kwargs)
 
         return inner()
@@ -99,13 +100,13 @@ def transfer_synchronized(func):
     return wrapper
 
 
-def schedule_synchronized(func):
+def schedule_synchronized(func: Callable) -> Callable:
     @functools.wraps(func)
     def wrapper(self, ctxt, transfer_id, schedule_id, *args, **kwargs):
         @lockutils.synchronized(
             constants.SCHEDULE_LOCK_NAME_FORMAT % schedule_id, external=True
         )
-        def inner():
+        def inner() -> models.TransferSchedule | None:
             return func(self, ctxt, transfer_id, schedule_id, *args, **kwargs)
 
         return inner()
@@ -113,13 +114,15 @@ def schedule_synchronized(func):
     return wrapper
 
 
-def task_synchronized(func):
+def task_synchronized(func: Callable) -> Callable:
     @functools.wraps(func)
-    def wrapper(self, ctxt, task_id, *args, **kwargs):
+    def wrapper(
+        self, ctxt: context.RequestContext, task_id: str, *args, **kwargs
+    ) -> models.TaskProgressUpdate | None:
         @lockutils.synchronized(
             constants.TASK_LOCK_NAME_FORMAT % task_id, external=True
         )
-        def inner():
+        def inner() -> models.TaskProgressUpdate | None:
             return func(self, ctxt, task_id, *args, **kwargs)
 
         return inner()
@@ -127,9 +130,11 @@ def task_synchronized(func):
     return wrapper
 
 
-def parent_tasks_execution_synchronized(func):
+def parent_tasks_execution_synchronized(func: Callable) -> Callable:
     @functools.wraps(func)
-    def wrapper(self, ctxt, task_id, *args, **kwargs):
+    def wrapper(
+        self, ctxt: context.RequestContext, task_id: str, *args, **kwargs
+    ) -> None:
         task = db_api.get_task(ctxt, task_id)
 
         @lockutils.synchronized(
@@ -138,7 +143,7 @@ def parent_tasks_execution_synchronized(func):
         @lockutils.synchronized(
             constants.TASK_LOCK_NAME_FORMAT % task_id, external=True
         )
-        def inner():
+        def inner() -> None:
             return func(self, ctxt, task_id, *args, **kwargs)
 
         return inner()
@@ -146,13 +151,13 @@ def parent_tasks_execution_synchronized(func):
     return wrapper
 
 
-def deployment_synchronized(func):
+def deployment_synchronized(func: Callable) -> Callable:
     @functools.wraps(func)
     def wrapper(self, ctxt, deployment_id, *args, **kwargs):
         @lockutils.synchronized(
             constants.DEPLOYMENT_LOCK_NAME_FORMAT % deployment_id, external=True
         )
-        def inner():
+        def inner() -> dict | None:
             return func(self, ctxt, deployment_id, *args, **kwargs)
 
         return inner()
@@ -160,13 +165,13 @@ def deployment_synchronized(func):
     return wrapper
 
 
-def tasks_execution_synchronized(func):
+def tasks_execution_synchronized(func: Callable) -> Callable:
     @functools.wraps(func)
     def wrapper(self, ctxt, transfer_id, execution_id, *args, **kwargs):
         @lockutils.synchronized(
             constants.EXECUTION_LOCK_NAME_FORMAT % execution_id, external=True
         )
-        def inner():
+        def inner() -> dict | None:
             return func(self, ctxt, transfer_id, execution_id, *args, **kwargs)
 
         return inner()
@@ -174,13 +179,13 @@ def tasks_execution_synchronized(func):
     return wrapper
 
 
-def region_synchronized(func):
+def region_synchronized(func: Callable) -> Callable:
     @functools.wraps(func)
     def wrapper(self, ctxt, region_id, *args, **kwargs):
         @lockutils.synchronized(
             constants.REGION_LOCK_NAME_FORMAT % region_id, external=True
         )
-        def inner():
+        def inner() -> models.Region | None:
             return func(self, ctxt, region_id, *args, **kwargs)
 
         return inner()
@@ -188,13 +193,13 @@ def region_synchronized(func):
     return wrapper
 
 
-def service_synchronized(func):
+def service_synchronized(func: Callable) -> Callable:
     @functools.wraps(func)
     def wrapper(self, ctxt, service_id, *args, **kwargs):
         @lockutils.synchronized(
             constants.SERVICE_LOCK_NAME_FORMAT % service_id, external=True
         )
-        def inner():
+        def inner() -> models.Service:
             return func(self, ctxt, service_id, *args, **kwargs)
 
         return inner()
@@ -223,19 +228,19 @@ class ConductorServerEndpoint(object):
         return self._worker_client_instance
 
     @property
-    def _scheduler_client(self):
+    def _scheduler_client(self) -> rpc_scheduler_client.SchedulerClient:
         if not self._scheduler_client_instance:
             self._scheduler_client_instance = rpc_scheduler_client.SchedulerClient()
         return self._scheduler_client_instance
 
     @property
-    def _transfer_cron_client(self):
+    def _transfer_cron_client(self) -> rpc_cron_client.TransferCronClient:
         if not self._transfer_cron_client_instance:
             self._transfer_cron_client_instance = rpc_cron_client.TransferCronClient()
         return self._transfer_cron_client_instance
 
     @property
-    def _minion_manager_client(self):
+    def _minion_manager_client(self) -> rpc_minion_manager_client.MinionManagerClient:
         if not self._minion_manager_client_instance:
             self._minion_manager_client_instance = (
                 rpc_minion_manager_client.MinionManagerClient()
@@ -243,14 +248,16 @@ class ConductorServerEndpoint(object):
         return self._minion_manager_client_instance
 
     @property
-    def _deployer_manager_client(self):
+    def _deployer_manager_client(
+        self,
+    ) -> rpc_deployer_manager_client.DeployerManagerClient:
         if not self._deployer_manager_client_instance:
             self._deployer_manager_client_instance = (
                 rpc_deployer_manager_client.DeployerManagerClient()
             )
         return self._deployer_manager_client_instance
 
-    def get_all_diagnostics(self, ctxt):
+    def get_all_diagnostics(self, ctxt: context.RequestContext) -> list[dict]:
         client_objects = {
             "conductor": self,
             "transfer_cron": self._transfer_cron_client,
@@ -309,13 +316,13 @@ class ConductorServerEndpoint(object):
 
     def _get_worker_service_rpc_for_specs(
         self,
-        ctxt,
-        provider_requirements=None,
-        region_sets=None,
-        enabled=True,
-        random_choice=False,
-        raise_on_no_matches=True,
-    ):
+        ctxt: context.RequestContext,
+        provider_requirements: dict | None = None,
+        region_sets: list | None = None,
+        enabled: bool = True,
+        random_choice: bool = False,
+        raise_on_no_matches: bool = True,
+    ) -> rpc_worker_client.WorkerClient:
         selected_service = self._scheduler_client.get_worker_service_for_specs(
             ctxt,
             provider_requirements=provider_requirements,
@@ -327,7 +334,9 @@ class ConductorServerEndpoint(object):
         service = db_api.get_service(ctxt, selected_service["id"])
         return rpc_worker_client.WorkerClient.from_service_definition(service)
 
-    def _check_delete_reservation_for_transfer(self, transfer_action):
+    def _check_delete_reservation_for_transfer(
+        self, transfer_action: models.Transfer
+    ) -> None:
         action_id = transfer_action.base_id
         if not self._licensing_client:
             LOG.warn(
@@ -350,7 +359,9 @@ class ConductorServerEndpoint(object):
                     utils.get_exception_details(),
                 )
 
-    def _create_reservation_for_transfer(self, transfer, destination_endpoint):
+    def _create_reservation_for_transfer(
+        self, transfer: models.Transfer, destination_endpoint: models.Endpoint
+    ) -> None:
         action_id = transfer.base_id
         scenario = transfer.scenario
         reservation_type = _get_reservation_type(destination_endpoint, scenario)
@@ -387,7 +398,9 @@ class ConductorServerEndpoint(object):
 
         return reservation
 
-    def _get_licensing_reservation_for_action(self, transfer_action):
+    def _get_licensing_reservation_for_action(
+        self, transfer_action: models.Transfer
+    ) -> None:
         action_id = transfer_action.base_id
         if not self._licensing_client:
             LOG.warn(
@@ -404,8 +417,10 @@ class ConductorServerEndpoint(object):
         return self._licensing_client.get_reservation(reservation_id)
 
     def _check_mark_reservation_fulfilled(
-        self, transfer_action, must_unfulfilled=False
-    ):
+        self,
+        transfer_action: models.Transfer,
+        must_unfulfilled: bool = False,
+    ) -> None:
         action_id = transfer_action.id
         reservation = self._get_licensing_reservation_for_action(transfer_action)
         if not reservation:
@@ -438,7 +453,9 @@ class ConductorServerEndpoint(object):
                 f"for transfer action '{action_id}' as fulfilled"
             )
 
-    def _check_reservation_for_transfer(self, ctxt, transfer):
+    def _check_reservation_for_transfer(
+        self, ctxt: context.RequestContext, transfer: models.Transfer
+    ) -> None:
         scenario = transfer.scenario
         destination_endpoint = self.get_endpoint(ctxt, transfer.destination_endpoint_id)
         reservation_type = _get_reservation_type(destination_endpoint, scenario)
@@ -524,13 +541,13 @@ class ConductorServerEndpoint(object):
 
     def create_endpoint(
         self,
-        ctxt,
-        name,
-        endpoint_type,
-        description,
-        connection_info,
-        mapped_regions=None,
-    ):
+        ctxt: context.RequestContext,
+        name: str,
+        endpoint_type: str,
+        description: str,
+        connection_info: dict[str, str],
+        mapped_regions: list[str] = None,
+    ) -> models.Endpoint:
         endpoint = models.Endpoint()
         endpoint.id = str(uuid.uuid4())
         endpoint.name = name
@@ -561,7 +578,9 @@ class ConductorServerEndpoint(object):
         return self.get_endpoint(ctxt, endpoint.id)
 
     @endpoint_synchronized
-    def update_endpoint(self, ctxt, endpoint_id, updated_values):
+    def update_endpoint(
+        self, ctxt: context.RequestContext, endpoint_id: str, updated_values: dict
+    ) -> models.Endpoint:
         LOG.info(
             "Attempting to update endpoint '%s' with payload: %s",
             endpoint_id,
@@ -571,18 +590,20 @@ class ConductorServerEndpoint(object):
         LOG.info("Endpoint updated: %s", endpoint_id)
         return db_api.get_endpoint(ctxt, endpoint_id)
 
-    def get_endpoints(self, ctxt):
+    def get_endpoints(self, ctxt: context.RequestContext) -> list[Any]:
         return db_api.get_endpoints(ctxt)
 
     @endpoint_synchronized
-    def get_endpoint(self, ctxt, endpoint_id):
+    def get_endpoint(
+        self, ctxt: context.RequestContext, endpoint_id: str
+    ) -> models.Endpoint | None:
         endpoint = db_api.get_endpoint(ctxt, endpoint_id)
         if not endpoint:
             raise exception.NotFound("Endpoint with ID '%s' not found." % endpoint_id)
         return endpoint
 
     @endpoint_synchronized
-    def delete_endpoint(self, ctxt, endpoint_id):
+    def delete_endpoint(self, ctxt: context.RequestContext, endpoint_id: str) -> None:
         q_transfers_count = db_api.get_endpoint_transfers_count(ctxt, endpoint_id)
         if q_transfers_count != 0:
             raise exception.NotAuthorized(
@@ -592,14 +613,14 @@ class ConductorServerEndpoint(object):
 
     def get_endpoint_instances(
         self,
-        ctxt,
-        endpoint_id,
-        source_environment,
+        ctxt: context.RequestContext,
+        endpoint_id: str,
+        source_environment: dict[Any, Any],
         marker,
         limit,
-        instance_name_pattern,
-        refresh=False,
-    ):
+        instance_name_pattern: str | None,
+        refresh: bool = False,
+    ) -> list[dict]:
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
         worker_rpc = self._get_worker_service_rpc_for_specs(
@@ -622,8 +643,12 @@ class ConductorServerEndpoint(object):
         )
 
     def get_endpoint_instance(
-        self, ctxt, endpoint_id, source_environment, instance_name
-    ):
+        self,
+        ctxt: context.RequestContext,
+        endpoint_id: str,
+        source_environment: dict[Any, Any],
+        instance_name: str,
+    ) -> dict:
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
         worker_rpc = self._get_worker_service_rpc_for_specs(
@@ -643,7 +668,13 @@ class ConductorServerEndpoint(object):
             instance_name,
         )
 
-    def get_endpoint_source_options(self, ctxt, endpoint_id, env, option_names):
+    def get_endpoint_source_options(
+        self,
+        ctxt: context.RequestContext,
+        endpoint_id: str,
+        env: dict[Any, Any],
+        option_names: dict[Any, Any],
+    ) -> list[dict]:
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
         worker_rpc = self._get_worker_service_rpc_for_specs(
@@ -659,7 +690,13 @@ class ConductorServerEndpoint(object):
             ctxt, endpoint.type, endpoint.connection_info, env, option_names
         )
 
-    def get_endpoint_destination_options(self, ctxt, endpoint_id, env, option_names):
+    def get_endpoint_destination_options(
+        self,
+        ctxt: context.RequestContext,
+        endpoint_id: str,
+        env: dict[Any, Any],
+        option_names: dict[Any, Any],
+    ) -> list[dict]:
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
         worker_rpc = self._get_worker_service_rpc_for_specs(
@@ -674,7 +711,9 @@ class ConductorServerEndpoint(object):
             ctxt, endpoint.type, endpoint.connection_info, env, option_names
         )
 
-    def get_endpoint_networks(self, ctxt, endpoint_id, env):
+    def get_endpoint_networks(
+        self, ctxt: context.RequestContext, endpoint_id: str, env: dict[Any, Any]
+    ) -> list[dict]:
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
         worker_rpc = self._get_worker_service_rpc_for_specs(
@@ -690,7 +729,9 @@ class ConductorServerEndpoint(object):
             ctxt, endpoint.type, endpoint.connection_info, env
         )
 
-    def get_endpoint_storage(self, ctxt, endpoint_id, env):
+    def get_endpoint_storage(
+        self, ctxt: context.RequestContext, endpoint_id: str, env: dict[Any, Any]
+    ) -> dict[str, list]:
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
         worker_rpc = self._get_worker_service_rpc_for_specs(
@@ -706,7 +747,12 @@ class ConductorServerEndpoint(object):
             ctxt, endpoint.type, endpoint.connection_info, env
         )
 
-    def get_endpoint_inventory_csv(self, ctxt, endpoint_id, source_environment):
+    def get_endpoint_inventory_csv(
+        self,
+        ctxt: context.RequestContext,
+        endpoint_id: str,
+        source_environment: dict[Any, Any],
+    ) -> str:
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
         worker_rpc = self._get_worker_service_rpc_for_specs(
@@ -722,7 +768,9 @@ class ConductorServerEndpoint(object):
             ctxt, endpoint.type, endpoint.connection_info, source_environment
         )
 
-    def validate_endpoint_connection(self, ctxt, endpoint_id):
+    def validate_endpoint_connection(
+        self, ctxt: context.RequestContext, endpoint_id: str
+    ) -> tuple:
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
         worker_rpc = self._get_worker_service_rpc_for_specs(
@@ -736,7 +784,9 @@ class ConductorServerEndpoint(object):
             ctxt, endpoint.type, endpoint.connection_info
         )
 
-    def validate_endpoint_target_environment(self, ctxt, endpoint_id, target_env):
+    def validate_endpoint_target_environment(
+        self, ctxt: context.RequestContext, endpoint_id: str, target_env: dict
+    ) -> tuple[bool, None]:
         endpoint = self.get_endpoint(ctxt, endpoint_id)
         worker_rpc = self._get_worker_service_rpc_for_specs(
             ctxt,
@@ -749,7 +799,9 @@ class ConductorServerEndpoint(object):
             ctxt, endpoint.type, target_env
         )
 
-    def validate_endpoint_source_environment(self, ctxt, endpoint_id, source_env):
+    def validate_endpoint_source_environment(
+        self, ctxt: context.RequestContext, endpoint_id: str, source_env: dict
+    ) -> tuple[bool, None]:
         endpoint = self.get_endpoint(ctxt, endpoint_id)
 
         worker_rpc = self._get_worker_service_rpc_for_specs(
@@ -763,13 +815,15 @@ class ConductorServerEndpoint(object):
             ctxt, endpoint.type, source_env
         )
 
-    def get_available_providers(self, ctxt):
+    def get_available_providers(self, ctxt: context.RequestContext) -> dict[str, dict]:
         worker_rpc = rpc_worker_client.WorkerClient.from_service_definition(
             self._scheduler_client.get_any_worker_service(ctxt)
         )
         return worker_rpc.get_available_providers(ctxt)
 
-    def get_provider_schemas(self, ctxt, platform_name, provider_type):
+    def get_provider_schemas(
+        self, ctxt: context.RequestContext, platform_name: str, provider_type: int
+    ) -> dict[str, dict]:
         # TODO(aznashwan): merge or version/namespace schemas for each worker?
         worker_rpc = rpc_worker_client.WorkerClient.from_service_definition(
             self._scheduler_client.get_any_worker_service(ctxt)
@@ -778,13 +832,13 @@ class ConductorServerEndpoint(object):
 
     @staticmethod
     def _create_task(
-        instance,
-        task_type,
-        execution,
-        depends_on=None,
-        on_error=False,
-        on_error_only=False,
-    ):
+        instance: str,
+        task_type: str,
+        execution: models.TasksExecution,
+        depends_on: list | None = None,
+        on_error: bool = False,
+        on_error_only: bool = False,
+    ) -> models.Task:
         """Creates a task with the given properties.
 
         NOTE: for on_error and on_error_only tasks, the parent dependencies who
@@ -828,7 +882,9 @@ class ConductorServerEndpoint(object):
 
         return task
 
-    def _get_task_origin(self, ctxt, action):
+    def _get_task_origin(
+        self, ctxt: context.RequestContext, action: models.Deployment | models.Transfer
+    ) -> dict:
         endpoint = self.get_endpoint(ctxt, action.origin_endpoint_id)
         return {
             "connection_info": endpoint.connection_info,
@@ -836,7 +892,9 @@ class ConductorServerEndpoint(object):
             "source_environment": action.source_environment,
         }
 
-    def _get_task_destination(self, ctxt, action):
+    def _get_task_destination(
+        self, ctxt: context.RequestContext, action: models.Deployment | models.Transfer
+    ) -> dict:
         endpoint = self.get_endpoint(ctxt, action.destination_endpoint_id)
         return {
             "connection_info": endpoint.connection_info,
@@ -846,14 +904,14 @@ class ConductorServerEndpoint(object):
 
     def _get_worker_service_rpc_for_task(
         self,
-        ctxt,
-        task,
-        origin_endpoint,
-        destination_endpoint,
-        retry_count=5,
-        retry_period=2,
-        random_choice=True,
-    ):
+        ctxt: context.RequestContext,
+        task: models.Task,
+        origin_endpoint: models.Endpoint,
+        destination_endpoint: models.Endpoint,
+        retry_count: int = 5,
+        retry_period: int = 2,
+        random_choice: bool = True,
+    ) -> rpc_worker_client.WorkerClient:
         worker_service = None
         try:
             worker_service = self._scheduler_client.get_worker_service_for_task(
@@ -884,14 +942,14 @@ class ConductorServerEndpoint(object):
 
     def _begin_tasks(
         self,
-        ctxt,
-        action,
-        execution,
+        ctxt: context.RequestContext,
+        action: models.Deployment | models.Transfer,
+        execution: models.TasksExecution,
         task_info_override=None,
-        scheduling_retry_count=5,
-        scheduling_retry_period=2,
-        delete_trust_id=True,
-    ):
+        scheduling_retry_count: int = 5,
+        scheduling_retry_period: int = 2,
+        delete_trust_id: bool = True,
+    ) -> None:
         """Starts all non-error-only tasks which have no depencies."""
         if not ctxt.trust_id:
             keystone.create_trust(ctxt)
@@ -962,7 +1020,9 @@ class ConductorServerEndpoint(object):
                 % (execution.id)
             )
 
-    def _check_execution_tasks_sanity(self, execution, initial_task_info):
+    def _check_execution_tasks_sanity(
+        self, execution: models.TasksExecution, initial_task_info: dict
+    ) -> None:
         """Checks whether the given execution's tasks are:
         - properly odered and not set to deadlock off the bat
         - properly manipulate the task_info in the right order
@@ -973,7 +1033,9 @@ class ConductorServerEndpoint(object):
         if initial_task_info is None:
             initial_task_info = {}
 
-        def _check_task_cls_param_requirements(task, instance_task_info_keys):
+        def _check_task_cls_param_requirements(
+            task: models.Task, instance_task_info_keys: set[str]
+        ) -> list[str]:
             task_cls = tasks_factory.get_task_runner_class(task.task_type)
             missing_params = [
                 p
@@ -1083,8 +1145,12 @@ class ConductorServerEndpoint(object):
 
     @transfer_synchronized
     def execute_transfer_tasks(
-        self, ctxt, transfer_id, shutdown_instances, auto_deploy=False
-    ):
+        self,
+        ctxt: context.RequestContext,
+        transfer_id: str,
+        shutdown_instances: bool,
+        auto_deploy: bool = False,
+    ) -> dict:
         transfer = self._get_transfer(ctxt, transfer_id, include_task_info=True)
         self._check_transfer_running_executions(ctxt, transfer)
         self._check_minion_pools_for_action(ctxt, transfer)
@@ -1353,16 +1419,16 @@ class ConductorServerEndpoint(object):
     @transfer_synchronized
     def get_transfer_tasks_executions(
         self,
-        ctxt,
-        transfer_id,
-        include_tasks=False,
-        include_task_info=False,
-        marker=None,
-        limit=None,
-        sort_keys=None,
-        sort_dirs=None,
-        filters=None,
-    ):
+        ctxt: context.RequestContext,
+        transfer_id: str,
+        include_tasks: bool = False,
+        include_task_info: bool = False,
+        marker: str | None = None,
+        limit: int | None = None,
+        sort_keys: list[str] = None,
+        sort_dirs: list[str] = None,
+        filters: dict[str, str] = None,
+    ) -> list:
         return db_api.get_transfer_tasks_executions(
             ctxt,
             transfer_id,
@@ -1378,8 +1444,12 @@ class ConductorServerEndpoint(object):
 
     @tasks_execution_synchronized
     def get_transfer_tasks_execution(
-        self, ctxt, transfer_id, execution_id, include_task_info=False
-    ):
+        self,
+        ctxt: context.RequestContext,
+        transfer_id: str,
+        execution_id: str,
+        include_task_info: bool = False,
+    ) -> dict | None:
         return self._get_transfer_tasks_execution(
             ctxt,
             transfer_id,
@@ -1389,7 +1459,9 @@ class ConductorServerEndpoint(object):
         )
 
     @tasks_execution_synchronized
-    def delete_transfer_tasks_execution(self, ctxt, transfer_id, execution_id):
+    def delete_transfer_tasks_execution(
+        self, ctxt: context.RequestContext, transfer_id: str, execution_id: str
+    ) -> None:
         execution = self._get_transfer_tasks_execution(ctxt, transfer_id, execution_id)
         if execution.status in constants.ACTIVE_EXECUTION_STATUSES:
             raise exception.InvalidActionTasksExecutionState(
@@ -1400,7 +1472,13 @@ class ConductorServerEndpoint(object):
         db_api.delete_transfer_tasks_execution(ctxt, execution_id)
 
     @tasks_execution_synchronized
-    def cancel_transfer_tasks_execution(self, ctxt, transfer_id, execution_id, force):
+    def cancel_transfer_tasks_execution(
+        self,
+        ctxt: context.RequestContext,
+        transfer_id: str,
+        execution_id: str,
+        force: bool,
+    ) -> None:
         execution = self._get_transfer_tasks_execution(ctxt, transfer_id, execution_id)
         if execution.status not in constants.ACTIVE_EXECUTION_STATUSES:
             raise exception.InvalidTransferState(
@@ -1415,8 +1493,12 @@ class ConductorServerEndpoint(object):
 
     @staticmethod
     def _get_transfer_tasks_execution(
-        ctxt, transfer_id, execution_id, include_task_info=False, to_dict=False
-    ):
+        ctxt: context.RequestContext,
+        transfer_id: str,
+        execution_id: str,
+        include_task_info: bool = False,
+        to_dict: bool = False,
+    ) -> models.TasksExecution | dict:
         execution = db_api.get_transfer_tasks_execution(
             ctxt,
             transfer_id,
@@ -1433,15 +1515,15 @@ class ConductorServerEndpoint(object):
 
     @staticmethod
     def get_transfers(
-        ctxt,
-        include_tasks_executions=False,
-        include_task_info=False,
-        marker=None,
-        limit=None,
-        sort_keys=None,
-        sort_dirs=None,
-        filters=None,
-    ):
+        ctxt: context.RequestContext,
+        include_tasks_executions: bool = False,
+        include_task_info: bool = False,
+        marker: str | None = None,
+        limit: int | None = None,
+        sort_keys: list[str] = None,
+        sort_dirs: list[str] = None,
+        filters: dict[str, str] = None,
+    ) -> list[dict]:
         return db_api.get_transfers(
             ctxt,
             include_tasks_executions=include_tasks_executions,
@@ -1455,7 +1537,12 @@ class ConductorServerEndpoint(object):
         )
 
     @transfer_synchronized
-    def get_transfer(self, ctxt, transfer_id, include_task_info=False):
+    def get_transfer(
+        self,
+        ctxt: context.RequestContext,
+        transfer_id: str,
+        include_task_info: bool = False,
+    ) -> dict | None:
         transfer = self._get_transfer(
             ctxt, transfer_id, include_task_info=include_task_info, to_dict=True
         )
@@ -1470,14 +1557,16 @@ class ConductorServerEndpoint(object):
         return transfer
 
     @transfer_synchronized
-    def delete_transfer(self, ctxt, transfer_id):
+    def delete_transfer(self, ctxt: context.RequestContext, transfer_id: str) -> None:
         transfer = self._get_transfer(ctxt, transfer_id)
         self._check_transfer_running_executions(ctxt, transfer)
         self._check_delete_reservation_for_transfer(transfer)
         self._delete_transfer_schedules(ctxt, transfer_id)
         db_api.delete_transfer(ctxt, transfer_id)
 
-    def _delete_transfer_schedules(self, ctxt, transfer_id):
+    def _delete_transfer_schedules(
+        self, ctxt: context.RequestContext, transfer_id: str
+    ) -> None:
         for schedule in db_api.get_transfer_schedules(ctxt, transfer_id=transfer_id):
             try:
                 db_api.delete_transfer_schedule(
@@ -1495,7 +1584,9 @@ class ConductorServerEndpoint(object):
                 )
 
     @transfer_synchronized
-    def delete_transfer_disks(self, ctxt, transfer_id):
+    def delete_transfer_disks(
+        self, ctxt: context.RequestContext, transfer_id: str
+    ) -> dict:
         transfer = self._get_transfer(ctxt, transfer_id, include_task_info=True)
         self._check_transfer_running_executions(ctxt, transfer)
 
@@ -1552,7 +1643,11 @@ class ConductorServerEndpoint(object):
         return self.get_transfer_tasks_execution(ctxt, transfer_id, execution.id)
 
     @staticmethod
-    def _check_endpoints(ctxt, origin_endpoint, destination_endpoint):
+    def _check_endpoints(
+        ctxt: context.RequestContext,
+        origin_endpoint: models.Endpoint,
+        destination_endpoint: models.Endpoint,
+    ) -> None:
         if origin_endpoint.id == destination_endpoint.id:
             raise exception.SameDestination(
                 "The origin and destination endpoints cannot be the same. "
@@ -1566,23 +1661,23 @@ class ConductorServerEndpoint(object):
 
     def create_instances_transfer(
         self,
-        ctxt,
-        transfer_scenario,
-        origin_endpoint_id,
-        destination_endpoint_id,
-        origin_minion_pool_id,
-        destination_minion_pool_id,
-        instance_osmorphing_minion_pool_mappings,
-        source_environment,
-        destination_environment,
-        instances,
-        network_map,
-        storage_mappings,
-        notes=None,
+        ctxt: context.RequestContext,
+        transfer_scenario: str,
+        origin_endpoint_id: str,
+        destination_endpoint_id: str,
+        origin_minion_pool_id: str | None,
+        destination_minion_pool_id: str | None,
+        instance_osmorphing_minion_pool_mappings: dict[Any, Any],
+        source_environment: dict,
+        destination_environment: dict[str, dict],
+        instances: list[str],
+        network_map: dict[Any, Any],
+        storage_mappings: dict[Any, Any],
+        notes: str = None,
         user_scripts=None,
-        clone_disks=True,
-        skip_os_morphing=False,
-    ):
+        clone_disks: bool = True,
+        skip_os_morphing: bool = False,
+    ) -> dict:
         clustered = len(instances) > 1
         supported_scenarios = [
             constants.TRANSFER_SCENARIO_REPLICA,
@@ -1631,7 +1726,13 @@ class ConductorServerEndpoint(object):
         LOG.info("Transfer created: %s", transfer.id)
         return self.get_transfer(ctxt, transfer.id)
 
-    def _get_transfer(self, ctxt, transfer_id, include_task_info=False, to_dict=False):
+    def _get_transfer(
+        self,
+        ctxt: context.RequestContext,
+        transfer_id: str,
+        include_task_info: bool = False,
+        to_dict: bool = False,
+    ) -> models.Transfer | dict:
         transfer = db_api.get_transfer(
             ctxt, transfer_id, include_task_info=include_task_info, to_dict=to_dict
         )
@@ -1641,15 +1742,15 @@ class ConductorServerEndpoint(object):
 
     @staticmethod
     def get_deployments(
-        ctxt,
-        include_tasks,
-        include_task_info=False,
+        ctxt: context.RequestContext,
+        include_tasks: bool,
+        include_task_info: bool = False,
         marker=None,
         limit=None,
-        sort_keys=None,
-        sort_dirs=None,
-        filters=None,
-    ):
+        sort_keys: list | None = None,
+        sort_dirs: list | None = None,
+        filters: dict | None = None,
+    ) -> list:
         return db_api.get_deployments(
             ctxt,
             include_tasks,
@@ -1663,12 +1764,19 @@ class ConductorServerEndpoint(object):
         )
 
     @deployment_synchronized
-    def get_deployment(self, ctxt, deployment_id, include_task_info=False):
+    def get_deployment(
+        self,
+        ctxt: context.RequestContext,
+        deployment_id: str,
+        include_task_info: bool = False,
+    ) -> dict | None:
         return self._get_deployment(
             ctxt, deployment_id, include_task_info=include_task_info, to_dict=True
         )
 
-    def _check_running_transfer_deployments(self, ctxt, transfer_id):
+    def _check_running_transfer_deployments(
+        self, ctxt: context.RequestContext, transfer_id: str
+    ) -> None:
         deployments = db_api.get_transfer_deployments(ctxt, transfer_id)
         for d in deployments:
             execution = self._get_execution_for_deployment(
@@ -1680,7 +1788,9 @@ class ConductorServerEndpoint(object):
                 )
 
     @staticmethod
-    def _check_running_executions(ctxt, transfer):
+    def _check_running_executions(
+        ctxt: context.RequestContext, transfer: models.Transfer
+    ) -> None:
         running_executions = db_api.get_transfer_tasks_executions(
             ctxt, transfer.id, filters={"status": constants.ACTIVE_EXECUTION_STATUSES}
         )
@@ -1690,14 +1800,19 @@ class ConductorServerEndpoint(object):
                 % ([e.id for e in running_executions])
             )
 
-    def _check_transfer_running_executions(self, ctxt, transfer):
+    def _check_transfer_running_executions(
+        self, ctxt: context.RequestContext, transfer: models.Transfer
+    ) -> None:
         self._check_running_executions(ctxt, transfer)
         self._check_running_transfer_deployments(ctxt, transfer.id)
 
     @staticmethod
     def _get_last_transfer_execution(
-        ctxt, transfer_id, status=None, execution_type=None
-    ):
+        ctxt: context.RequestContext,
+        transfer_id: str,
+        status: str | None = None,
+        execution_type: str | None = None,
+    ) -> models.TasksExecution:
         filters = {}
         if status is not None:
             filters["status"] = status
@@ -1713,7 +1828,12 @@ class ConductorServerEndpoint(object):
         )
         return executions[0] if executions else None
 
-    def _check_transfer_deploy_ability(self, ctxt, transfer, force=False):
+    def _check_transfer_deploy_ability(
+        self,
+        ctxt: context.RequestContext,
+        transfer: models.Transfer,
+        force: bool = False,
+    ) -> None:
         if force:
             return
 
@@ -1729,13 +1849,21 @@ class ConductorServerEndpoint(object):
                 "once in order to be deployed"
             )
 
-    def _get_provider_types(self, ctxt, endpoint):
+    def _get_provider_types(
+        self, ctxt: context.RequestContext, endpoint: models.Endpoint
+    ) -> list[int]:
         provider_types = self.get_available_providers(ctxt).get(endpoint.type)
         if provider_types is None:
             raise exception.NotFound("No provider found for: %s" % endpoint.type)
         return provider_types["types"]
 
-    def _validate_deployment_inputs(self, ctxt, deployment, transfer, force):
+    def _validate_deployment_inputs(
+        self,
+        ctxt: context.RequestContext,
+        deployment: models.Deployment,
+        transfer: models.Transfer,
+        force: bool,
+    ) -> None:
         self._check_transfer_running_executions(ctxt, transfer)
         self._check_transfer_deploy_ability(ctxt, transfer, force)
         for instance, info in transfer.info.items():
@@ -1749,7 +1877,9 @@ class ConductorServerEndpoint(object):
         self._check_minion_pools_for_action(ctxt, deployment)
         self._check_reservation_for_transfer(ctxt, transfer)
 
-    def _execute_deployment(self, ctxt, deployment, force):
+    def _execute_deployment(
+        self, ctxt: context.RequestContext, deployment: models.Deployment, force: bool
+    ) -> None:
         transfer = self._get_transfer(
             ctxt, deployment.transfer_id, include_task_info=True
         )
@@ -1992,7 +2122,9 @@ class ConductorServerEndpoint(object):
         else:
             self._begin_tasks(ctxt, deployment, execution)
 
-    def confirm_deployer_completed(self, ctxt, deployment_id, force=False):
+    def confirm_deployer_completed(
+        self, ctxt: context.RequestContext, deployment_id: str, force: bool = False
+    ) -> None:
         try:
             with lockutils.lock(
                 constants.DEPLOYMENT_LOCK_NAME_FORMAT % deployment_id, external=True
@@ -2017,7 +2149,12 @@ class ConductorServerEndpoint(object):
             raise
 
     @deployment_synchronized
-    def report_deployer_failure(self, ctxt, deployment_id, deployer_error_details):
+    def report_deployer_failure(
+        self,
+        ctxt: context.RequestContext,
+        deployment_id: str,
+        deployer_error_details: str,
+    ) -> None:
         error_status = constants.EXECUTION_STATUS_ERROR
         expected_status = constants.EXECUTION_STATUS_PENDING
         try:
@@ -2044,7 +2181,7 @@ class ConductorServerEndpoint(object):
         finally:
             db_api.set_action_last_execution_status(ctxt, deployment_id, error_status)
 
-    def _normalize_user_scripts(self, user_scripts, instances):
+    def _normalize_user_scripts(self, user_scripts: dict, instances: list[str]) -> dict:
         """Removes instance user_scripts if said instance is not one of the
         selected instances for the replica/migration"""
         if user_scripts is None:
@@ -2065,16 +2202,16 @@ class ConductorServerEndpoint(object):
     @transfer_synchronized
     def deploy_transfer_instances(
         self,
-        ctxt,
-        transfer_id,
-        force=False,
-        wait_for_execution=None,
-        clone_disks=None,
-        instance_osmorphing_minion_pool_mappings=None,
-        skip_os_morphing=None,
-        user_scripts=None,
-        trust_id=None,
-    ):
+        ctxt: context.RequestContext,
+        transfer_id: str,
+        force: bool = False,
+        wait_for_execution: str | None = None,
+        clone_disks: bool = None,
+        instance_osmorphing_minion_pool_mappings: dict | None = None,
+        skip_os_morphing: bool = None,
+        user_scripts: dict | None = None,
+        trust_id: str | None = None,
+    ) -> dict:
         transfer = self._get_transfer(ctxt, transfer_id, include_task_info=True)
 
         if user_scripts is None:
@@ -2137,7 +2274,9 @@ class ConductorServerEndpoint(object):
 
         return self.get_deployment(ctxt, deployment.id)
 
-    def _get_instance_scripts(self, user_scripts, instance):
+    def _get_instance_scripts(
+        self, user_scripts: dict, instance: str
+    ) -> dict[str, dict]:
         user_scripts = user_scripts or {}
         ret = {
             "global": user_scripts.get("global", {}),
@@ -2149,12 +2288,16 @@ class ConductorServerEndpoint(object):
                 ret["instances"][instance] = instance_script
         return ret
 
-    def _deallocate_minion_machines_for_action(self, ctxt, action):
+    def _deallocate_minion_machines_for_action(
+        self, ctxt: context.RequestContext, action: models.Deployment | models.Transfer
+    ) -> None:
         return self._minion_manager_client.deallocate_minion_machines_for_action(
             ctxt, action.base_id
         )
 
-    def _check_minion_pools_for_action(self, ctxt, action):
+    def _check_minion_pools_for_action(
+        self, ctxt: context.RequestContext, action: models.Deployment | models.Transfer
+    ) -> None:
         self._minion_manager_client.validate_minion_pool_selections_for_action(
             ctxt, action
         )
@@ -2163,8 +2306,11 @@ class ConductorServerEndpoint(object):
         )
 
     def _update_task_info_for_minion_allocations(
-        self, ctxt, action, minion_machine_allocations
-    ):
+        self,
+        ctxt: context.RequestContext,
+        action: models.Deployment | models.Transfer,
+        minion_machine_allocations: dict[str, dict],
+    ) -> None:
 
         for instance in action.instances:
             instance_minion_machines = minion_machine_allocations.get(instance, {})
@@ -2228,8 +2374,12 @@ class ConductorServerEndpoint(object):
             )
 
     def _get_execution_for_deployment(
-        self, ctxt, deployment, requery=False, raise_on_executions_empty=True
-    ):
+        self,
+        ctxt: context.RequestContext,
+        deployment: models.Deployment,
+        requery: bool = False,
+        raise_on_executions_empty: bool = True,
+    ) -> models.TasksExecution | None:
         if requery:
             deployment = self._get_deployment(ctxt, deployment.id)
 
@@ -2249,8 +2399,11 @@ class ConductorServerEndpoint(object):
 
     @transfer_synchronized
     def confirm_transfer_minions_allocation(
-        self, ctxt, transfer_id, minion_machine_allocations
-    ):
+        self,
+        ctxt: context.RequestContext,
+        transfer_id: str,
+        minion_machine_allocations: dict[str, dict],
+    ) -> None:
         transfer = self._get_transfer(ctxt, transfer_id, include_task_info=True)
 
         awaiting_minions_status = constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS
@@ -2278,8 +2431,11 @@ class ConductorServerEndpoint(object):
 
     @transfer_synchronized
     def report_transfer_minions_allocation_error(
-        self, ctxt, transfer_id, minion_allocation_error_details
-    ):
+        self,
+        ctxt: context.RequestContext,
+        transfer_id: str,
+        minion_allocation_error_details: str,
+    ) -> None:
         transfer = self._get_transfer(ctxt, transfer_id)
         awaiting_minions_status = constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS
         if transfer.last_execution_status != awaiting_minions_status:
@@ -2312,8 +2468,11 @@ class ConductorServerEndpoint(object):
 
     @deployment_synchronized
     def confirm_deployment_minions_allocation(
-        self, ctxt, deployment_id, minion_machine_allocations
-    ):
+        self,
+        ctxt: context.RequestContext,
+        deployment_id: str,
+        minion_machine_allocations: dict[str, dict],
+    ) -> None:
         deployment = self._get_deployment(ctxt, deployment_id, include_task_info=True)
 
         awaiting_minions_status = constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS
@@ -2332,8 +2491,11 @@ class ConductorServerEndpoint(object):
 
     @deployment_synchronized
     def report_deployment_minions_allocation_error(
-        self, ctxt, deployment_id, minion_allocation_error_details
-    ):
+        self,
+        ctxt: context.RequestContext,
+        deployment_id: str,
+        minion_allocation_error_details: str,
+    ) -> None:
         deployment = self._get_deployment(ctxt, deployment_id)
         awaiting_minions_status = constants.EXECUTION_STATUS_AWAITING_MINION_ALLOCATIONS
         if deployment.last_execution_status != awaiting_minions_status:
@@ -2358,8 +2520,12 @@ class ConductorServerEndpoint(object):
         )
 
     def _get_deployment(
-        self, ctxt, deployment_id, include_task_info=False, to_dict=False
-    ):
+        self,
+        ctxt: context.RequestContext,
+        deployment_id: str,
+        include_task_info: bool = False,
+        to_dict: bool = False,
+    ) -> models.Deployment | dict:
         deployment = db_api.get_deployment(
             ctxt, deployment_id, include_task_info=include_task_info, to_dict=to_dict
         )
@@ -2369,7 +2535,9 @@ class ConductorServerEndpoint(object):
             )
         return deployment
 
-    def _delete_deployment(self, ctxt, deployment_id):
+    def _delete_deployment(
+        self, ctxt: context.RequestContext, deployment_id: str
+    ) -> None:
         deployment = self._get_deployment(ctxt, deployment_id)
         execution = self._get_execution_for_deployment(
             ctxt, deployment, raise_on_executions_empty=False
@@ -2383,10 +2551,14 @@ class ConductorServerEndpoint(object):
         db_api.delete_deployment(ctxt, deployment_id)
 
     @deployment_synchronized
-    def delete_deployment(self, ctxt, deployment_id):
+    def delete_deployment(
+        self, ctxt: context.RequestContext, deployment_id: str
+    ) -> None:
         self._delete_deployment(ctxt, deployment_id)
 
-    def _cancel_deployment(self, ctxt, deployment_id, force):
+    def _cancel_deployment(
+        self, ctxt: context.RequestContext, deployment_id: str, force: bool
+    ) -> None:
         deployment = self._get_deployment(ctxt, deployment_id)
         if len(deployment.executions) != 1:
             raise exception.InvalidDeploymentState(
@@ -2415,10 +2587,18 @@ class ConductorServerEndpoint(object):
             self._cancel_tasks_execution(ctxt, execution, force=force)
 
     @deployment_synchronized
-    def cancel_deployment(self, ctxt, deployment_id, force):
+    def cancel_deployment(
+        self, ctxt: context.RequestContext, deployment_id: str, force: bool
+    ) -> None:
         self._cancel_deployment(ctxt, deployment_id, force)
 
-    def _cancel_tasks_execution(self, ctxt, execution, requery=True, force=False):
+    def _cancel_tasks_execution(
+        self,
+        ctxt: context.RequestContext,
+        execution: models.TasksExecution,
+        requery: bool = True,
+        force: bool = False,
+    ) -> None:
         """Cancels a running Execution by:
         - telling workers to kill any already running non-on-error tasks
         - cancelling any non-on-error tasks which are pending
@@ -2641,8 +2821,12 @@ class ConductorServerEndpoint(object):
             )
 
     def _abort_peer_sync_barrier_tasks_on_error(
-        self, ctxt, execution, errored_task, error_message
-    ):
+        self,
+        ctxt: context.RequestContext,
+        execution: models.TasksExecution,
+        errored_task: models.Task,
+        error_message: str,
+    ) -> None:
         """Mark peer tasks stuck in SYNCING on the same barrier as failed."""
         if errored_task.task_type not in constants.TASK_TYPES_TO_SYNC:
             return
@@ -2667,7 +2851,9 @@ class ConductorServerEndpoint(object):
                 ),
             )
 
-    def _update_reservation_fulfillment_for_execution(self, ctxt, execution):
+    def _update_reservation_fulfillment_for_execution(
+        self, ctxt: context.RequestContext, execution: models.TasksExecution
+    ) -> None:
         """Updates the reservation fulfillment status for the parent
         transfer action of the given execution based on its type.
 
@@ -2730,7 +2916,12 @@ class ConductorServerEndpoint(object):
                 f"{transfer_action.scenario}."
             )
 
-    def _set_tasks_execution_status(self, ctxt, execution, new_execution_status):
+    def _set_tasks_execution_status(
+        self,
+        ctxt: context.RequestContext,
+        execution: models.TasksExecution,
+        new_execution_status: str,
+    ) -> None:
         previous_execution_status = execution.status
         LOG.info(
             "Tasks execution %(id)s (action %(action)s) status updated "
@@ -2817,7 +3008,9 @@ class ConductorServerEndpoint(object):
         )
 
     @parent_tasks_execution_synchronized
-    def set_task_host(self, ctxt, task_id, host):
+    def set_task_host(
+        self, ctxt: context.RequestContext, task_id: str, host: str
+    ) -> None:
         """Saves the ID of the worker host which has accepted
         the task to the DB and marks the task as STARTING."""
         task = db_api.get_task(ctxt, task_id)
@@ -2858,7 +3051,9 @@ class ConductorServerEndpoint(object):
         LOG.info("Successfully set host for task with ID '%s' to '%s'", task_id, host)
 
     @parent_tasks_execution_synchronized
-    def set_task_process(self, ctxt, task_id, process_id):
+    def set_task_process(
+        self, ctxt: context.RequestContext, task_id: str, process_id: int
+    ) -> None:
         """Sets the ID of the Worker-side process for the given task,
         and marks the task as actually 'RUNNING'."""
         task = db_api.get_task(ctxt, task_id)
@@ -2896,8 +3091,12 @@ class ConductorServerEndpoint(object):
         )
 
     def _check_clean_execution_deadlock(
-        self, ctxt, execution, task_statuses=None, requery=True
-    ):
+        self,
+        ctxt: context.RequestContext,
+        execution: models.TasksExecution,
+        task_statuses: dict | None = None,
+        requery: bool = True,
+    ) -> str:
         """Checks whether an execution is deadlocked.
         Deadlocked executions have no currently running/pending tasks
         but some remaining scheduled tasks.
@@ -2952,7 +3151,12 @@ class ConductorServerEndpoint(object):
             determined_state = constants.EXECUTION_STATUS_DEADLOCKED
         return determined_state
 
-    def _get_execution_status(self, ctxt, execution, requery=False):
+    def _get_execution_status(
+        self,
+        ctxt: context.RequestContext,
+        execution: models.TasksExecution,
+        requery: bool = False,
+    ) -> str:
         """Returns the global status of an execution.
         RUNNING - at least one task is RUNNING, STARTING, PENDING or CANCELLING
         COMPLETED - all non-error-only tasks are COMPLETED
@@ -3016,7 +3220,13 @@ class ConductorServerEndpoint(object):
         )
         return status
 
-    def _advance_execution_state(self, ctxt, execution, requery=True, instance=None):
+    def _advance_execution_state(
+        self,
+        ctxt: context.RequestContext,
+        execution: models.TasksExecution,
+        requery: bool = True,
+        instance: str | None = None,
+    ) -> list[str]:
         """Advances the state of the execution by starting/refreshing
         the state of all child tasks.
         If the execution has finalized (either completed or error'd),
@@ -3085,7 +3295,7 @@ class ConductorServerEndpoint(object):
 
         started_tasks = []
 
-        def _start_task(task):
+        def _start_task(task: models.Task) -> str:
             task_info = None
             if task.instance not in action.info:
                 LOG.error(
@@ -3371,15 +3581,24 @@ class ConductorServerEndpoint(object):
         return started_tasks
 
     @staticmethod
-    def _update_transfer_volumes_info(ctxt, transfer_id, instance, updated_task_info):
+    def _update_transfer_volumes_info(
+        ctxt: context.RequestContext,
+        transfer_id: str,
+        instance: str,
+        updated_task_info: dict[str, list],
+    ) -> None:
         """WARN: the lock for the Transfer must be pre-acquired."""
         db_api.update_transfer_action_info_for_instance(
             ctxt, transfer_id, instance, updated_task_info
         )
 
     def _update_volumes_info_for_deployment_parent_transfer(
-        self, ctxt, deployment_id, instance, updated_task_info
-    ):
+        self,
+        ctxt: context.RequestContext,
+        deployment_id: str,
+        instance: str,
+        updated_task_info: dict[str, list],
+    ) -> None:
         deployment = db_api.get_deployment(ctxt, deployment_id)
         transfer_id = deployment.transfer_id
 
@@ -3395,7 +3614,13 @@ class ConductorServerEndpoint(object):
                 ctxt, transfer_id, instance, updated_task_info
             )
 
-    def _handle_task_sync_barrier(self, ctxt, task, execution, action):
+    def _handle_task_sync_barrier(
+        self,
+        ctxt: context.RequestContext,
+        task: models.Task,
+        execution: models.TasksExecution,
+        action: models.Deployment | models.Transfer,
+    ) -> bool:
         """Implements a cross-instance sync barrier for clustered actions.
 
         If the completed task's type is in TASK_TYPES_TO_SYNC and the
@@ -3463,7 +3688,12 @@ class ConductorServerEndpoint(object):
 
         return True
 
-    def _assign_clustered_export_disk_owners(self, ctxt, execution, action):
+    def _assign_clustered_export_disk_owners(
+        self,
+        ctxt: context.RequestContext,
+        execution: models.TasksExecution,
+        action: models.Transfer,
+    ) -> None:
         """Assign an ``owner`` to every disk in each instance's export_info.
 
         The owner of a disk is the first instance (in ``action.instances``
@@ -3520,7 +3750,13 @@ class ConductorServerEndpoint(object):
                     {d.get("id"): d.get("owner") for d in disks},
                 )
 
-    def _handle_synced_tasks(self, ctxt, task_type, execution, action):
+    def _handle_synced_tasks(
+        self,
+        ctxt: context.RequestContext,
+        task_type: str,
+        execution: models.TasksExecution,
+        action: models.Transfer,
+    ) -> None:
         """Runs type-specific logic after all instances reach a sync barrier.
 
         Called once all tasks of a given type across all instances have
@@ -3536,10 +3772,18 @@ class ConductorServerEndpoint(object):
                 execution.id,
             )
 
-    def _handle_post_task_actions(self, ctxt, task, execution, task_info):
+    def _handle_post_task_actions(
+        self,
+        ctxt: context.RequestContext,
+        task: models.Task,
+        execution: models.TasksExecution,
+        task_info: dict,
+    ) -> None:
         task_type = task.task_type
 
-        def _check_other_tasks_running(execution, current_task):
+        def _check_other_tasks_running(
+            execution: models.TasksExecution, current_task: models.Task
+        ) -> bool:
             still_running = False
             for other_task in execution.tasks:
                 if other_task.id == current_task.id:
@@ -3783,7 +4027,9 @@ class ConductorServerEndpoint(object):
             )
 
     @parent_tasks_execution_synchronized
-    def task_completed(self, ctxt, task_id, task_result):
+    def task_completed(
+        self, ctxt: context.RequestContext, task_id: str, task_result: dict
+    ) -> None:
         LOG.info("Task completed: %s", task_id)
 
         task = db_api.get_task(ctxt, task_id)
@@ -4082,7 +4328,9 @@ class ConductorServerEndpoint(object):
             self._advance_execution_state(ctxt, execution, requery=False)
 
     @parent_tasks_execution_synchronized
-    def set_task_error(self, ctxt, task_id, exception_details):
+    def set_task_error(
+        self, ctxt: context.RequestContext, task_id: str, exception_details: str
+    ) -> None:
         LOG.error(
             "Received error confirmation for task: %(task_id)s - %(ex)s",
             {"task_id": task_id, "ex": exception_details},
@@ -4258,8 +4506,13 @@ class ConductorServerEndpoint(object):
 
     @task_synchronized
     def add_task_progress_update(
-        self, ctxt, task_id, message, initial_step=0, total_steps=0
-    ):
+        self,
+        ctxt: context.RequestContext,
+        task_id: str,
+        message: str,
+        initial_step: int = 0,
+        total_steps: int = 0,
+    ) -> models.TaskProgressUpdate:
         LOG.info("Adding task progress update: %s", task_id)
         task = db_api.get_task(ctxt, task_id)
         if task.status not in constants.ACTIVE_TASK_STATUSES:
@@ -4276,13 +4529,13 @@ class ConductorServerEndpoint(object):
     @task_synchronized
     def update_task_progress_update(
         self,
-        ctxt,
-        task_id,
-        progress_update_index,
-        new_current_step,
+        ctxt: context.RequestContext,
+        task_id: str,
+        progress_update_index: int,
+        new_current_step: int,
         new_total_steps=None,
         new_message=None,
-    ):
+    ) -> None:
         LOG.info(
             "Updating progress update with index '%s' for task %s: %s",
             progress_update_index,
@@ -4299,7 +4552,12 @@ class ConductorServerEndpoint(object):
         )
 
     @staticmethod
-    def _get_transfer_schedule(ctxt, transfer_id, schedule_id, expired=True):
+    def _get_transfer_schedule(
+        ctxt: context.RequestContext,
+        transfer_id: str,
+        schedule_id: str,
+        expired: bool = True,
+    ) -> models.TransferSchedule:
         schedule = db_api.get_transfer_schedule(
             ctxt, transfer_id, schedule_id, expired=expired
         )
@@ -4312,14 +4570,14 @@ class ConductorServerEndpoint(object):
 
     def create_transfer_schedule(
         self,
-        ctxt,
-        transfer_id,
-        schedule,
-        enabled,
+        ctxt: context.RequestContext,
+        transfer_id: str,
+        schedule: dict[str, int],
+        enabled: bool,
         exp_date,
-        shutdown_instance,
-        auto_deploy,
-    ):
+        shutdown_instance: bool,
+        auto_deploy: bool,
+    ) -> models.TransferSchedule:
         keystone.create_trust(ctxt)
         transfer = self._get_transfer(ctxt, transfer_id)
         transfer_schedule = models.TransferSchedule()
@@ -4341,7 +4599,13 @@ class ConductorServerEndpoint(object):
         return self.get_transfer_schedule(ctxt, transfer_id, transfer_schedule.id)
 
     @schedule_synchronized
-    def update_transfer_schedule(self, ctxt, transfer_id, schedule_id, updated_values):
+    def update_transfer_schedule(
+        self,
+        ctxt: context.RequestContext,
+        transfer_id: str,
+        schedule_id: str,
+        updated_values: dict,
+    ) -> models.TransferSchedule:
         db_api.update_transfer_schedule(
             ctxt,
             transfer_id,
@@ -4352,7 +4616,9 @@ class ConductorServerEndpoint(object):
         )
         return self._get_transfer_schedule(ctxt, transfer_id, schedule_id)
 
-    def _cleanup_schedule_resources(self, ctxt, schedule):
+    def _cleanup_schedule_resources(
+        self, ctxt: context.RequestContext, schedule: models.TransferSchedule
+    ) -> None:
         self._transfer_cron_client.unregister(ctxt, schedule)
         if schedule.trust_id:
             tmp_trust = context.get_admin_context(trust_id=schedule.trust_id)
@@ -4366,7 +4632,9 @@ class ConductorServerEndpoint(object):
                 )
 
     @schedule_synchronized
-    def delete_transfer_schedule(self, ctxt, transfer_id, schedule_id):
+    def delete_transfer_schedule(
+        self, ctxt: context.RequestContext, transfer_id: str, schedule_id: str
+    ) -> None:
         transfer = self._get_transfer(ctxt, transfer_id)
         transfer_status = transfer.last_execution_status
         valid_statuses = list(
@@ -4390,19 +4658,32 @@ class ConductorServerEndpoint(object):
         )
 
     @transfer_synchronized
-    def get_transfer_schedules(self, ctxt, transfer_id=None, expired=True):
+    def get_transfer_schedules(
+        self,
+        ctxt: context.RequestContext,
+        transfer_id: str | None = None,
+        expired: bool = True,
+    ) -> list[models.TransferSchedule]:
         return db_api.get_transfer_schedules(
             ctxt, transfer_id=transfer_id, expired=expired
         )
 
     @schedule_synchronized
-    def get_transfer_schedule(self, ctxt, transfer_id, schedule_id, expired=True):
+    def get_transfer_schedule(
+        self,
+        ctxt: context.RequestContext,
+        transfer_id: str,
+        schedule_id: str,
+        expired: bool = True,
+    ) -> models.TransferSchedule | None:
         return self._get_transfer_schedule(
             ctxt, transfer_id, schedule_id, expired=expired
         )
 
     @transfer_synchronized
-    def update_transfer(self, ctxt, transfer_id, updated_properties):
+    def update_transfer(
+        self, ctxt: context.RequestContext, transfer_id: str, updated_properties: dict
+    ) -> dict:
         transfer = self._get_transfer(ctxt, transfer_id, include_task_info=True)
 
         minion_pool_fields = [
@@ -4514,7 +4795,7 @@ class ConductorServerEndpoint(object):
 
         return self.get_transfer_tasks_execution(ctxt, transfer_id, execution.id)
 
-    def get_diagnostics(self, ctxt):
+    def get_diagnostics(self, ctxt: context.RequestContext) -> dict:
         diagnostics = utils.get_diagnostics_info()
         if self._licensing_client:
             diagnostics['licensing_status'] = (
@@ -4529,7 +4810,13 @@ class ConductorServerEndpoint(object):
             )
         return diagnostics
 
-    def create_region(self, ctxt, region_name, description="", enabled=True):
+    def create_region(
+        self,
+        ctxt: context.RequestContext,
+        region_name: str,
+        description: str = "",
+        enabled: bool = True,
+    ) -> models.Region:
         region = models.Region()
         region.id = str(uuid.uuid4())
         region.name = region_name
@@ -4538,18 +4825,25 @@ class ConductorServerEndpoint(object):
         db_api.add_region(ctxt, region)
         return self.get_region(ctxt, region.id)
 
-    def get_regions(self, ctxt):
+    def get_regions(self, ctxt: context.RequestContext) -> list[models.Region]:
         return db_api.get_regions(ctxt)
 
     @region_synchronized
-    def get_region(self, ctxt, region_id):
+    def get_region(
+        self, ctxt: context.RequestContext, region_id: str
+    ) -> models.Region | None:
         region = db_api.get_region(ctxt, region_id)
         if not region:
             raise exception.NotFound("Region with ID '%s' not found." % region_id)
         return region
 
     @region_synchronized
-    def update_region(self, ctxt, region_id, updated_values):
+    def update_region(
+        self,
+        ctxt: context.RequestContext,
+        region_id: str,
+        updated_values: dict[str, str],
+    ) -> models.Region:
         LOG.info(
             "Attempting to update region '%s' with payload: %s",
             region_id,
@@ -4560,22 +4854,22 @@ class ConductorServerEndpoint(object):
         return db_api.get_region(ctxt, region_id)
 
     @region_synchronized
-    def delete_region(self, ctxt, region_id):
+    def delete_region(self, ctxt: context.RequestContext, region_id: str) -> None:
         # TODO(aznashwan): add checks for endpoints/services
         # associated to the region before deletion:
         db_api.delete_region(ctxt, region_id)
 
     def register_service(
         self,
-        ctxt,
-        host,
-        binary,
-        topic,
-        enabled,
-        mapped_regions=None,
-        providers=None,
-        specs=None,
-    ):
+        ctxt: context.RequestContext,
+        host: str,
+        binary: str,
+        topic: str,
+        enabled: bool,
+        mapped_regions: list | None = None,
+        providers: dict | None = None,
+        specs: dict | None = None,
+    ) -> models.Service:
         service = db_api.find_service(ctxt, host, binary, topic=topic)
         if service:
             raise exception.Conflict(
@@ -4631,7 +4925,9 @@ class ConductorServerEndpoint(object):
 
         return self.get_service(ctxt, service.id)
 
-    def check_service_registered(self, ctxt, host, binary, topic):
+    def check_service_registered(
+        self, ctxt: context.RequestContext, host: str, binary: str, topic: str
+    ) -> None:
         props = "host='%s', binary='%s', topic='%s'" % (host, binary, topic)
         LOG.debug("Checking for existence of service with properties: %s", props)
         service = db_api.find_service(ctxt, host, binary, topic=topic)
@@ -4643,18 +4939,22 @@ class ConductorServerEndpoint(object):
             )
         return service
 
-    def get_services(self, ctxt):
+    def get_services(self, ctxt: context.RequestContext) -> list[models.Service]:
         return db_api.get_services(ctxt)
 
     @service_synchronized
-    def get_service(self, ctxt, service_id):
+    def get_service(
+        self, ctxt: context.RequestContext, service_id: str
+    ) -> models.Service:
         service = db_api.get_service(ctxt, service_id)
         if not service:
             raise exception.NotFound("Service with ID '%s' not found." % service_id)
         return service
 
     @service_synchronized
-    def update_service(self, ctxt, service_id, updated_values):
+    def update_service(
+        self, ctxt: context.RequestContext, service_id: str, updated_values: dict
+    ) -> models.Service:
         LOG.info(
             "Attempting to update service '%s' with payload: %s",
             service_id,
@@ -4665,5 +4965,5 @@ class ConductorServerEndpoint(object):
         return db_api.get_service(ctxt, service_id)
 
     @service_synchronized
-    def delete_service(self, ctxt, service_id):
+    def delete_service(self, ctxt: context.RequestContext, service_id: str) -> None:
         db_api.delete_service(ctxt, service_id)

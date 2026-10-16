@@ -24,7 +24,7 @@ class SchedulerServerEndpoint(object):
     def __init__(self):
         self._rpc_conductor_client = rpc_conductor_client.ConductorClient()
 
-    def get_diagnostics(self, ctxt):
+    def get_diagnostics(self, ctxt) -> dict:
         return utils.get_diagnostics_info()
 
     def _get_all_worker_services(self, ctxt):
@@ -38,8 +38,11 @@ class SchedulerServerEndpoint(object):
         return services
 
     def _get_weighted_filtered_services(
-        self, services, filters, minimum_per_filter_rating=1
-    ):
+        self,
+        services,
+        filters: list,
+        minimum_per_filter_rating: int = 1,
+    ) -> list[tuple]:
         """Returns list of services and their scores for the given filters.
         Services which are rejected by any filter will be excluded.
         """
@@ -92,7 +95,12 @@ class SchedulerServerEndpoint(object):
         return sorted(scores, key=lambda s: s[1], reverse=True)
 
     def _filter_regions(
-        self, ctxt, region_ids, enabled=True, check_all_exist=True, regions_cache=None
+        self,
+        ctxt,
+        region_ids: list[str],
+        enabled: bool = True,
+        check_all_exist: bool = True,
+        regions_cache=None,
     ):
         found_regions = []
         filtered_regions = []
@@ -120,10 +128,10 @@ class SchedulerServerEndpoint(object):
     def get_workers_for_specs(
         self,
         ctxt,
-        provider_requirements=None,
-        region_sets=None,
-        enabled=None,
-        filter_disabled_regions=True,
+        provider_requirements: dict | None = None,
+        region_sets: list | None = None,
+        enabled: bool | None = None,
+        filter_disabled_regions: bool = True,
     ):
         """Returns a list of enabled Worker Services with the specified
         parameters.

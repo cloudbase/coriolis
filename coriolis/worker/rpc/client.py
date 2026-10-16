@@ -1,6 +1,8 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from typing import Any
+
 import oslo_messaging as messaging
 from oslo_config import cfg
 
@@ -23,9 +25,9 @@ CONF.register_opts(worker_opts, 'worker')
 class WorkerClient(rpc.BaseRPCClient):
     def __init__(
         self,
-        timeout=None,
-        host=None,
-        base_worker_topic=constants.WORKER_MAIN_MESSAGING_TOPIC,
+        timeout: int | None = None,
+        host: str | None = None,
+        base_worker_topic: str = constants.WORKER_MAIN_MESSAGING_TOPIC,
     ):
         topic = base_worker_topic
         if host is not None:
@@ -38,7 +40,12 @@ class WorkerClient(rpc.BaseRPCClient):
         super(WorkerClient, self).__init__(target, timeout=timeout)
 
     @classmethod
-    def from_service_definition(cls, service, timeout=None, topic_override=None):
+    def from_service_definition(
+        cls,
+        service,
+        timeout: int | None = None,
+        topic_override=None,
+    ) -> "WorkerClient":
         if service.get('topic') != constants.WORKER_MAIN_MESSAGING_TOPIC:
             raise ValueError(
                 "Unknown topic '%s' for worker service client. Only "
@@ -51,8 +58,15 @@ class WorkerClient(rpc.BaseRPCClient):
         return cls(timeout=timeout, base_worker_topic=topic, host=service.get('host'))
 
     def begin_task(
-        self, ctxt, task_id, task_type, origin, destination, instance, task_info
-    ):
+        self,
+        ctxt,
+        task_id: str,
+        task_type: str,
+        origin: dict,
+        destination: dict,
+        instance: str,
+        task_info: dict,
+    ) -> None:
         self._cast(
             ctxt,
             'exec_task',
@@ -66,8 +80,15 @@ class WorkerClient(rpc.BaseRPCClient):
         )
 
     def run_task(
-        self, ctxt, task_id, task_type, origin, destination, instance, task_info
-    ):
+        self,
+        ctxt,
+        task_id: str,
+        task_type: str,
+        origin: dict,
+        destination: dict,
+        instance: str,
+        task_info: dict,
+    ) -> dict:
         return self._call(
             ctxt,
             'exec_task',
@@ -80,7 +101,13 @@ class WorkerClient(rpc.BaseRPCClient):
             report_to_conductor=False,
         )
 
-    def cancel_task(self, ctxt, task_id, process_id, force):
+    def cancel_task(
+        self,
+        ctxt,
+        task_id: str,
+        process_id: int,
+        force: bool,
+    ) -> None:
         return self._call(
             ctxt, 'cancel_task', task_id=task_id, process_id=process_id, force=force
         )
@@ -88,14 +115,14 @@ class WorkerClient(rpc.BaseRPCClient):
     def get_endpoint_instances(
         self,
         ctxt,
-        platform_name,
-        connection_info,
-        source_environment,
+        platform_name: str,
+        connection_info: dict[str, str],
+        source_environment: dict[Any, Any],
         marker=None,
         limit=None,
-        instance_name_pattern=None,
-        refresh=False,
-    ):
+        instance_name_pattern: str | None = None,
+        refresh: bool = False,
+    ) -> list[dict]:
         return self._call(
             ctxt,
             'get_endpoint_instances',
@@ -109,8 +136,13 @@ class WorkerClient(rpc.BaseRPCClient):
         )
 
     def get_endpoint_instance(
-        self, ctxt, platform_name, connection_info, source_environment, instance_name
-    ):
+        self,
+        ctxt,
+        platform_name: str,
+        connection_info: dict[str, str],
+        source_environment: dict[Any, Any],
+        instance_name: str,
+    ) -> dict:
         return self._call(
             ctxt,
             'get_endpoint_instance',
@@ -121,8 +153,13 @@ class WorkerClient(rpc.BaseRPCClient):
         )
 
     def get_endpoint_destination_options(
-        self, ctxt, platform_name, connection_info, env, option_names
-    ):
+        self,
+        ctxt,
+        platform_name: str,
+        connection_info: dict[str, str],
+        env: dict[Any, Any],
+        option_names: dict[Any, Any],
+    ) -> list[dict]:
         return self._call(
             ctxt,
             'get_endpoint_destination_options',
@@ -133,8 +170,13 @@ class WorkerClient(rpc.BaseRPCClient):
         )
 
     def get_endpoint_source_options(
-        self, ctxt, platform_name, connection_info, env, option_names
-    ):
+        self,
+        ctxt,
+        platform_name: str,
+        connection_info: dict[str, str],
+        env: dict[Any, Any],
+        option_names: dict[Any, Any],
+    ) -> list[dict]:
         return self._call(
             ctxt,
             'get_endpoint_source_options',
@@ -144,7 +186,13 @@ class WorkerClient(rpc.BaseRPCClient):
             option_names=option_names,
         )
 
-    def get_endpoint_networks(self, ctxt, platform_name, connection_info, env):
+    def get_endpoint_networks(
+        self,
+        ctxt,
+        platform_name: str,
+        connection_info: dict[str, str],
+        env: dict[Any, Any],
+    ) -> list[dict]:
         return self._call(
             ctxt,
             'get_endpoint_networks',
@@ -153,7 +201,12 @@ class WorkerClient(rpc.BaseRPCClient):
             env=env,
         )
 
-    def validate_endpoint_connection(self, ctxt, platform_name, connection_info):
+    def validate_endpoint_connection(
+        self,
+        ctxt,
+        platform_name: str,
+        connection_info: dict[str, str],
+    ) -> tuple:
         return self._call(
             ctxt,
             'validate_endpoint_connection',
@@ -161,7 +214,12 @@ class WorkerClient(rpc.BaseRPCClient):
             connection_info=connection_info,
         )
 
-    def validate_endpoint_target_environment(self, ctxt, platform_name, target_env):
+    def validate_endpoint_target_environment(
+        self,
+        ctxt,
+        platform_name: str,
+        target_env: dict,
+    ) -> tuple[bool, None]:
         return self._call(
             ctxt,
             'validate_endpoint_target_environment',
@@ -169,7 +227,12 @@ class WorkerClient(rpc.BaseRPCClient):
             target_env=target_env,
         )
 
-    def validate_endpoint_source_environment(self, ctxt, platform_name, source_env):
+    def validate_endpoint_source_environment(
+        self,
+        ctxt,
+        platform_name: str,
+        source_env: dict,
+    ) -> tuple[bool, None]:
         return self._call(
             ctxt,
             'validate_endpoint_source_environment',
@@ -177,7 +240,13 @@ class WorkerClient(rpc.BaseRPCClient):
             source_env=source_env,
         )
 
-    def get_endpoint_storage(self, ctxt, platform_name, connection_info, env):
+    def get_endpoint_storage(
+        self,
+        ctxt,
+        platform_name: str,
+        connection_info: dict[str, str],
+        env: dict[Any, Any],
+    ) -> dict[str, list]:
         return self._call(
             ctxt,
             'get_endpoint_storage',
@@ -187,8 +256,12 @@ class WorkerClient(rpc.BaseRPCClient):
         )
 
     def get_endpoint_inventory_csv(
-        self, ctxt, platform_name, connection_info, source_environment
-    ):
+        self,
+        ctxt,
+        platform_name: str,
+        connection_info: dict[str, str],
+        source_environment: dict[Any, Any],
+    ) -> str:
         return self._call(
             ctxt,
             'get_endpoint_inventory_csv',
@@ -197,10 +270,15 @@ class WorkerClient(rpc.BaseRPCClient):
             source_environment=source_environment,
         )
 
-    def get_available_providers(self, ctxt):
+    def get_available_providers(self, ctxt) -> dict[str, dict]:
         return self._call(ctxt, 'get_available_providers')
 
-    def get_provider_schemas(self, ctxt, platform_name, provider_type):
+    def get_provider_schemas(
+        self,
+        ctxt,
+        platform_name: str,
+        provider_type: int,
+    ) -> dict[str, dict]:
         return self._call(
             ctxt,
             'get_provider_schemas',
@@ -208,15 +286,20 @@ class WorkerClient(rpc.BaseRPCClient):
             provider_type=provider_type,
         )
 
-    def get_diagnostics(self, ctxt):
+    def get_diagnostics(self, ctxt) -> dict:
         return self._call(ctxt, 'get_diagnostics')
 
-    def get_service_status(self, ctxt):
+    def get_service_status(self, ctxt) -> dict:
         return self._call(ctxt, 'get_service_status')
 
     def get_endpoint_source_minion_pool_options(
-        self, ctxt, platform_name, connection_info, env, option_names
-    ):
+        self,
+        ctxt,
+        platform_name: str,
+        connection_info: dict[str, str],
+        env: dict[Any, Any],
+        option_names: dict[Any, Any],
+    ) -> list[dict]:
         return self._call(
             ctxt,
             'get_endpoint_source_minion_pool_options',
@@ -227,8 +310,13 @@ class WorkerClient(rpc.BaseRPCClient):
         )
 
     def get_endpoint_destination_minion_pool_options(
-        self, ctxt, platform_name, connection_info, env, option_names
-    ):
+        self,
+        ctxt,
+        platform_name: str,
+        connection_info: dict[str, str],
+        env: dict[Any, Any],
+        option_names: dict[Any, Any],
+    ) -> list[dict]:
         return self._call(
             ctxt,
             'get_endpoint_destination_minion_pool_options',
@@ -239,8 +327,11 @@ class WorkerClient(rpc.BaseRPCClient):
         )
 
     def validate_endpoint_source_minion_pool_options(
-        self, ctxt, platform_name, pool_environment
-    ):
+        self,
+        ctxt,
+        platform_name: str,
+        pool_environment: dict[Any, Any],
+    ) -> tuple[bool, None]:
         return self._call(
             ctxt,
             'validate_endpoint_source_minion_pool_options',
@@ -249,8 +340,11 @@ class WorkerClient(rpc.BaseRPCClient):
         )
 
     def validate_endpoint_destination_minion_pool_options(
-        self, ctxt, platform_name, pool_environment
-    ):
+        self,
+        ctxt,
+        platform_name: str,
+        pool_environment: dict[Any, Any],
+    ) -> tuple[bool, None]:
         return self._call(
             ctxt,
             'validate_endpoint_destination_minion_pool_options',

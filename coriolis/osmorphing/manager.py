@@ -2,6 +2,7 @@
 # All Rights Reserved.
 
 import itertools
+from typing import Any
 
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -34,7 +35,7 @@ CONF.register_opts(proxy_opts, 'proxy')
 LOG = logging.getLogger(__name__)
 
 
-def _get_proxy_settings():
+def _get_proxy_settings() -> dict:
     return {
         "url": CONF.proxy.url,
         "username": CONF.proxy.username,
@@ -47,11 +48,11 @@ def run_os_detect(
     origin_provider,
     destination_provider,
     worker_connection,
-    os_type,
-    os_root_dir,
-    osmorphing_info,
-    tools_environment={},
-):
+    os_type: str,
+    os_root_dir: str,
+    osmorphing_info: dict,
+    tools_environment: dict[str, str] = {},
+) -> dict[str, str]:
     custom_export_os_detect_tools = origin_provider.get_custom_os_detect_tools(
         os_type, osmorphing_info
     )
@@ -80,8 +81,8 @@ def run_os_detect(
 
 
 def get_osmorphing_tools_class_for_provider(
-    provider, detected_os_info, os_type, osmorphing_info
-):
+    provider, detected_os_info: dict[str, str], os_type: str, osmorphing_info: dict
+) -> type[Any] | None:
     available_tools_cls = provider.get_os_morphing_tools(os_type, osmorphing_info)
     LOG.debug(
         "OSMorphing tools classes returned by provider '%s' for os_type '%s' "
@@ -144,11 +145,11 @@ def get_osmorphing_tools_class_for_provider(
 def morph_image(
     origin_provider,
     destination_provider,
-    connection_info,
-    osmorphing_info,
-    user_scripts,
+    connection_info: dict,
+    osmorphing_info: dict,
+    user_scripts: list | None,
     event_handler,
-):
+) -> None:
     event_manager = events.EventManager(event_handler)
 
     os_type = osmorphing_info.get('os_type')
@@ -229,12 +230,12 @@ def morph_image(
 def _morph_image(
     origin_provider,
     destination_provider,
-    connection_info,
-    osmorphing_info,
-    user_scripts,
+    connection_info: dict,
+    osmorphing_info: dict,
+    user_scripts: list[dict],
     event_handler,
     os_mount_tools,
-):
+) -> None:
     event_manager = events.EventManager(event_handler)
 
     os_type = osmorphing_info.get('os_type')

@@ -4,10 +4,10 @@
 from coriolis.api.v1.views import utils as view_utils
 
 
-def single(schedule, keys=None):
+def single(schedule, keys=None) -> dict[str, dict]:
     return {"schedule": view_utils.format_opt(schedule, keys)}
 
 
-def collection(schedules, keys=None):
+def collection(schedules, keys=None) -> dict[str, list]:
     formatted_schedules = [view_utils.format_opt(m, keys) for m in schedules]
     return {'schedules': formatted_schedules}

@@ -3,6 +3,7 @@
 
 import copy
 import uuid
+from typing import Any, Callable, Collection
 
 from oslo_config import cfg
 from oslo_db import api as db_api
@@ -48,7 +49,7 @@ def _session(context):
     return (context and context.session) or get_session()
 
 
-def is_user_context(context):
+def is_user_context(context) -> bool:
     """Indicates if the request context is a normal user."""
     if not context:
         return False
@@ -64,7 +65,11 @@ def _model_query(context, *args):
     return session.query(*args)
 
 
-def _update_sqlalchemy_object_fields(obj, updateable_fields, values_to_update):
+def _update_sqlalchemy_object_fields(
+    obj: models.Endpoint | models.MinionMachine | models.Service,
+    updateable_fields: list[str],
+    values_to_update: dict,
+) -> None:
     """Updates the given 'values_to_update' on the provided sqlalchemy object
     as long as they are included as 'updateable_fields'.
     :param obj: object: sqlalchemy object
@@ -101,7 +106,10 @@ def _update_sqlalchemy_object_fields(obj, updateable_fields, values_to_update):
 
 
 def _get_transfer_schedules_filter(
-    context, transfer_id=None, schedule_id=None, expired=True
+    context,
+    transfer_id: str | None = None,
+    schedule_id: str | None = None,
+    expired: bool = True,
 ):
     now = timeutils.utcnow()
     q = _soft_delete_aware_query(context, models.TransferSchedule)
@@ -146,7 +154,7 @@ def _soft_delete_aware_query(context, *args, **kwargs):
 
 
 @enginefacade.reader
-def get_endpoints(context):
+def get_endpoints(context) -> list[Any]:
     q = _soft_delete_aware_query(context, models.Endpoint).options(
         orm.joinedload('mapped_regions')
     )
@@ -156,7 +164,7 @@ def get_endpoints(context):
 
 
 @enginefacade.reader
-def get_endpoint(context, endpoint_id):
+def get_endpoint(context, endpoint_id: str) -> models.Endpoint:
     q = _soft_delete_aware_query(context, models.Endpoint).options(
         orm.joinedload('mapped_regions')
     )
@@ -166,14 +174,14 @@ def get_endpoint(context, endpoint_id):
 
 
 @enginefacade.writer
-def add_endpoint(context, endpoint):
+def add_endpoint(context, endpoint: models.Endpoint) -> None:
     endpoint.user_id = context.user
     endpoint.project_id = context.project_id
     _session(context).add(endpoint)
 
 
 @enginefacade.writer
-def update_endpoint(context, endpoint_id, updated_values):
+def update_endpoint(context, endpoint_id: str, updated_values: dict) -> None:
     endpoint = get_endpoint(context, endpoint_id)
     if not endpoint:
         raise exception.NotFound("Endpoint with ID '%s' found" % endpoint_id)
@@ -184,7 +192,7 @@ def update_endpoint(context, endpoint_id, updated_values):
             "(type: %s): %s" % (type(updated_values), updated_values)
         )
 
-    def _try_unmap_regions(region_ids):
+    def _try_unmap_regions(region_ids: Collection[Any]) -> None:
         for region_to_unmap in region_ids:
             try:
                 LOG.debug(
@@ -282,7 +290,7 @@ def update_endpoint(context, endpoint_id, updated_values):
 
 
 @enginefacade.writer
-def delete_endpoint(context, endpoint_id):
+def delete_endpoint(context, endpoint_id: str) -> None:
     endpoint = get_endpoint(context, endpoint_id)
     args = {"id": endpoint_id}
     if is_user_context(context):
@@ -304,16 +312,16 @@ def delete_endpoint(context, endpoint_id):
 @enginefacade.reader
 def get_transfer_tasks_executions(
     context,
-    transfer_id,
-    include_tasks=False,
-    include_task_info=False,
+    transfer_id: str,
+    include_tasks: bool = False,
+    include_task_info: bool = False,
     marker=None,
-    limit=None,
+    limit: int | None = None,
     sort_keys: list[str] | None = None,
     sort_dirs: list[str] | None = None,
     filters: dict | None = None,
-    to_dict=False,
-):
+    to_dict: bool = False,
+) -> list:
     q = _soft_delete_aware_query(context, models.TasksExecution)
     q = q.join(models.Transfer)
     if include_task_info:
@@ -367,8 +375,12 @@ def get_transfer_tasks_executions(
 
 @enginefacade.reader
 def get_transfer_tasks_execution(
-    context, transfer_id, execution_id, include_task_info=False, to_dict=False
-):
+    context,
+    transfer_id: str,
+    execution_id: str,
+    include_task_info: bool = False,
+    to_dict: bool = False,
+) -> models.TasksExecution | dict:
     q = _soft_delete_aware_query(context, models.TasksExecution).join(models.Transfer)
     if include_task_info:
         q = q.options(orm.joinedload('action').undefer('info'))
@@ -385,7 +397,7 @@ def get_transfer_tasks_execution(
 
 
 @enginefacade.writer
-def add_transfer_tasks_execution(context, execution):
+def add_transfer_tasks_execution(context, execution: models.TasksExecution) -> None:
     if is_user_context(context):
         if execution.action.project_id != context.project_id:
             raise exception.NotAuthorized()
@@ -403,7 +415,7 @@ def add_transfer_tasks_execution(context, execution):
 
 
 @enginefacade.writer
-def delete_transfer_tasks_execution(context, execution_id):
+def delete_transfer_tasks_execution(context, execution_id: str) -> None:
     q = _soft_delete_aware_query(context, models.TasksExecution).filter(
         models.TasksExecution.id == execution_id
     )
@@ -420,7 +432,11 @@ def delete_transfer_tasks_execution(context, execution_id):
 
 
 @enginefacade.reader
-def get_transfer_schedules(context, transfer_id=None, expired=True):
+def get_transfer_schedules(
+    context,
+    transfer_id: str | None = None,
+    expired: bool = True,
+) -> list[models.TransferSchedule]:
     sched_filter = _get_transfer_schedules_filter(
         context, transfer_id=transfer_id, expired=expired
     )
@@ -428,7 +444,12 @@ def get_transfer_schedules(context, transfer_id=None, expired=True):
 
 
 @enginefacade.reader
-def get_transfer_schedule(context, transfer_id, schedule_id, expired=True):
+def get_transfer_schedule(
+    context,
+    transfer_id: str,
+    schedule_id: str,
+    expired: bool = True,
+) -> models.TransferSchedule:
     sched_filter = _get_transfer_schedules_filter(
         context, transfer_id=transfer_id, schedule_id=schedule_id, expired=expired
     )
@@ -438,12 +459,12 @@ def get_transfer_schedule(context, transfer_id, schedule_id, expired=True):
 @enginefacade.writer
 def update_transfer_schedule(
     context,
-    transfer_id,
-    schedule_id,
-    updated_values,
+    transfer_id: str,
+    schedule_id: str,
+    updated_values: dict,
     pre_update_callable=None,
-    post_update_callable=None,
-):
+    post_update_callable: Callable | None = None,
+) -> None:
     # NOTE(gsamfira): we need to refactor the DB layer a bit to allow
     # two-phase transactions or at least allow running these functions
     # inside a single transaction block.
@@ -470,11 +491,11 @@ def update_transfer_schedule(
 @enginefacade.writer
 def delete_transfer_schedule(
     context,
-    transfer_id,
-    schedule_id,
+    transfer_id: str,
+    schedule_id: str,
     pre_delete_callable=None,
-    post_delete_callable=None,
-):
+    post_delete_callable: Callable | None = None,
+) -> None:
     # NOTE(gsamfira): we need to refactor the DB layer a bit to allow
     # two-phase transactions or at least allow running these functions
     # inside a single transaction block.
@@ -503,7 +524,11 @@ def delete_transfer_schedule(
 
 
 @enginefacade.writer
-def add_transfer_schedule(context, schedule, post_create_callable=None):
+def add_transfer_schedule(
+    context,
+    schedule: models.TransferSchedule,
+    post_create_callable: Callable | None = None,
+) -> None:
     # NOTE(gsamfira): we need to refactor the DB layer a bit to allow
     # two-phase transactions or at least allow running these functions
     # inside a single transaction block.
@@ -523,15 +548,15 @@ def _get_transfer_with_tasks_executions_options(q):
 def get_transfers(
     context,
     transfer_scenario=None,
-    include_tasks_executions=False,
-    include_task_info=False,
-    marker=None,
-    limit=None,
+    include_tasks_executions: bool = False,
+    include_task_info: bool = False,
+    marker: models.Transfer | str | None = None,
+    limit: int | None = None,
     sort_keys: list[str] | None = None,
     sort_dirs: list[str] | None = None,
     filters: dict | None = None,
-    to_dict=False,
-):
+    to_dict: bool = False,
+) -> list[dict]:
     q = _soft_delete_aware_query(context, models.Transfer)
     if include_tasks_executions:
         q = _get_transfer_with_tasks_executions_options(q)
@@ -582,8 +607,12 @@ def get_transfers(
 
 @enginefacade.reader
 def get_transfer(
-    context, transfer_id, transfer_scenario=None, include_task_info=False, to_dict=False
-):
+    context,
+    transfer_id: str,
+    transfer_scenario=None,
+    include_task_info: bool = False,
+    to_dict: bool = False,
+) -> models.Transfer | dict:
     q = _soft_delete_aware_query(context, models.Transfer)
     if include_task_info:
         q = q.options(orm.undefer('info'))
@@ -602,7 +631,9 @@ def get_transfer(
 
 
 @enginefacade.reader
-def get_endpoint_transfers_count(context, endpoint_id, transfer_scenario=None):
+def get_endpoint_transfers_count(
+    context, endpoint_id: str, transfer_scenario=None
+) -> int:
 
     scenario_filter_kwargs = {}
     if transfer_scenario:
@@ -628,14 +659,14 @@ def get_endpoint_transfers_count(context, endpoint_id, transfer_scenario=None):
 
 
 @enginefacade.writer
-def add_transfer(context, transfer):
+def add_transfer(context, transfer: models.Transfer) -> None:
     transfer.user_id = context.user
     transfer.project_id = context.project_id
     _session(context).add(transfer)
 
 
 @enginefacade.writer
-def _delete_transfer_action(context, cls, id):
+def _delete_transfer_action(context, cls, id: str) -> None:
     args = {"base_id": id}
     if is_user_context(context):
         args["project_id"] = context.project_id
@@ -649,12 +680,12 @@ def _delete_transfer_action(context, cls, id):
 
 
 @enginefacade.writer
-def delete_transfer(context, transfer_id):
+def delete_transfer(context, transfer_id: str) -> None:
     _delete_transfer_action(context, models.Transfer, transfer_id)
 
 
 @enginefacade.reader
-def get_transfer_deployments(context, transfer_id):
+def get_transfer_deployments(context, transfer_id: str) -> list[models.Deployment]:
     q = _soft_delete_aware_query(context, models.Deployment)
     q = q.join("transfer")
     q = q.options(orm.joinedload("executions"))
@@ -666,15 +697,15 @@ def get_transfer_deployments(context, transfer_id):
 @enginefacade.reader
 def get_deployments(
     context,
-    include_tasks=False,
-    include_task_info=False,
+    include_tasks: bool = False,
+    include_task_info: bool = False,
     marker=None,
     limit=None,
     sort_keys: list[str] | None = None,
     sort_dirs: list[str] | None = None,
     filters: dict | None = None,
-    to_dict=False,
-):
+    to_dict: bool = False,
+) -> list:
     q = _soft_delete_aware_query(context, models.Deployment)
     if include_tasks:
         q = _get_deployment_task_query_options(q)
@@ -720,7 +751,9 @@ def get_deployments(
     return result
 
 
-def _get_tasks_with_details_options(query):
+def _get_tasks_with_details_options(
+    query,
+):
     return (
         query.options(orm.joinedload("action"))
         .options(orm.joinedload("tasks").joinedload("progress_updates"))
@@ -728,7 +761,9 @@ def _get_tasks_with_details_options(query):
     )
 
 
-def _get_deployment_task_query_options(query):
+def _get_deployment_task_query_options(
+    query,
+):
     return (
         query.options(
             orm.joinedload("executions")
@@ -741,7 +776,12 @@ def _get_deployment_task_query_options(query):
 
 
 @enginefacade.reader
-def get_deployment(context, deployment_id, include_task_info=False, to_dict=False):
+def get_deployment(
+    context,
+    deployment_id: str,
+    include_task_info: bool = False,
+    to_dict: bool = False,
+) -> models.Deployment | dict | None:
     q = _soft_delete_aware_query(context, models.Deployment)
     q = _get_deployment_task_query_options(q)
     if include_task_info:
@@ -757,19 +797,24 @@ def get_deployment(context, deployment_id, include_task_info=False, to_dict=Fals
 
 
 @enginefacade.writer
-def add_deployment(context, deployment):
+def add_deployment(context, deployment: models.Deployment) -> None:
     deployment.user_id = context.user or deployment.transfer.user_id
     deployment.project_id = context.project_id or deployment.transfer.project_id
     _session(context).add(deployment)
 
 
 @enginefacade.writer
-def delete_deployment(context, deployment_id):
+def delete_deployment(context, deployment_id: str) -> None:
     _delete_transfer_action(context, models.Deployment, deployment_id)
 
 
 @enginefacade.writer
-def set_execution_status(context, execution_id, status, update_action_status=True):
+def set_execution_status(
+    context,
+    execution_id: str,
+    status: str,
+    update_action_status: bool = True,
+) -> models.TasksExecution:
     execution = _soft_delete_aware_query(context, models.TasksExecution).join(
         models.TasksExecution.action
     )
@@ -788,7 +833,11 @@ def set_execution_status(context, execution_id, status, update_action_status=Tru
 
 
 @enginefacade.reader
-def get_action(context, action_id, include_task_info=False):
+def get_action(
+    context,
+    action_id: str,
+    include_task_info: bool = False,
+) -> models.Deployment | models.Transfer:
     action = _soft_delete_aware_query(context, models.BaseTransferAction)
     if include_task_info:
         action = action.options(orm.undefer('info'))
@@ -803,15 +852,22 @@ def get_action(context, action_id, include_task_info=False):
 
 
 @enginefacade.writer
-def set_action_last_execution_status(context, action_id, last_execution_status):
+def set_action_last_execution_status(
+    context,
+    action_id: str,
+    last_execution_status: str,
+) -> None:
     action = get_action(context, action_id)
     action.last_execution_status = last_execution_status
 
 
 @enginefacade.writer
 def update_transfer_action_info_for_instance(
-    context, action_id, instance, new_instance_info
-):
+    context,
+    action_id: str,
+    instance: str,
+    new_instance_info: dict,
+) -> dict:
     """Updates the info for the given action with the provided dict.
     Returns the updated value.
     Sub-fields of the dict already in the info will get overwritten entirely!
@@ -862,7 +918,12 @@ def update_transfer_action_info_for_instance(
 
 
 @enginefacade.writer
-def set_transfer_action_result(context, action_id, instance, result):
+def set_transfer_action_result(
+    context,
+    action_id: str,
+    instance: str,
+    result: dict,
+) -> dict:
     """Adds the result for the given 'instance' in the 'transfer_result'
     JSON in the 'base_transfer_action' table.
     """
@@ -878,7 +939,7 @@ def set_transfer_action_result(context, action_id, instance, result):
 
 
 @enginefacade.reader
-def get_tasks_execution(context, execution_id):
+def get_tasks_execution(context, execution_id: str) -> models.TasksExecution:
     q = _soft_delete_aware_query(context, models.TasksExecution)
     q = q.join(models.BaseTransferAction)
     q = q.options(orm.joinedload("action"))
@@ -891,7 +952,7 @@ def get_tasks_execution(context, execution_id):
     return execution
 
 
-def _get_task(context, task_id):
+def _get_task(context, task_id: str) -> models.Task:
     task = _soft_delete_aware_query(context, models.Task).filter_by(id=task_id).first()
     if not task:
         raise exception.NotFound("Task not found: %s" % task_id)
@@ -899,14 +960,24 @@ def _get_task(context, task_id):
 
 
 @enginefacade.writer
-def set_task_status(context, task_id, status, exception_details=None):
+def set_task_status(
+    context,
+    task_id: str,
+    status: str,
+    exception_details: str | None = None,
+) -> None:
     task = _get_task(context, task_id)
     task.status = status
     task.exception_details = exception_details
 
 
 @enginefacade.writer
-def set_task_host_properties(context, task_id, host=None, process_id=None):
+def set_task_host_properties(
+    context,
+    task_id: str,
+    host: str | None = None,
+    process_id: int | None = None,
+) -> None:
     task = _get_task(context, task_id)
     if host:
         task.host = host
@@ -915,7 +986,7 @@ def set_task_host_properties(context, task_id, host=None, process_id=None):
 
 
 @enginefacade.reader
-def get_task(context, task_id):
+def get_task(context, task_id: str) -> models.Task:
     q = _soft_delete_aware_query(context, models.Task)
     return q.filter_by(id=task_id).first()
 
@@ -947,7 +1018,9 @@ def _get_last_task_event(context, task_id):
 
 
 @enginefacade.reader
-def _get_last_task_progress_update(context, task_id):
+def _get_last_task_progress_update(
+    context, task_id: str
+) -> models.TaskProgressUpdate | None:
     q = _soft_delete_aware_query(context, models.TaskProgressUpdate)
     last_update = (
         q.filter(models.TaskProgressUpdate.task_id == task_id)
@@ -958,7 +1031,7 @@ def _get_last_task_progress_update(context, task_id):
 
 
 @enginefacade.reader
-def _get_last_minion_pool_event(context, pool_id):
+def _get_last_minion_pool_event(context, pool_id: str) -> models.MinionPoolEvent | None:
     q = _soft_delete_aware_query(context, models.MinionPoolEvent)
     last_event = (
         q.filter(models.MinionPoolEvent.pool_id == pool_id)
@@ -980,7 +1053,9 @@ def _get_last_minion_pool_progress_update(context, pool_id):
 
 
 @enginefacade.writer
-def add_minion_pool_event(context, pool_id, level, message):
+def add_minion_pool_event(
+    context, pool_id: str, level: str, message: str
+) -> models.MinionPoolEvent:
     pool_event = models.MinionPoolEvent()
     pool_event.id = str(uuid.uuid4())
     pool_event.pool_id = pool_id
@@ -1049,7 +1124,9 @@ def update_minion_pool_progress_update(
     return pool_progress_update
 
 
-def _get_progress_update(context, task_id, index):
+def _get_progress_update(
+    context, task_id: str, index: int
+) -> models.TaskProgressUpdate:
     q = _soft_delete_aware_query(context, models.TaskProgressUpdate)
     return q.filter(
         models.TaskProgressUpdate.task_id == task_id,
@@ -1058,7 +1135,13 @@ def _get_progress_update(context, task_id, index):
 
 
 @enginefacade.writer
-def add_task_progress_update(context, task_id, message, initial_step=0, total_steps=0):
+def add_task_progress_update(
+    context,
+    task_id: str,
+    message: str,
+    initial_step: int = 0,
+    total_steps: int = 0,
+) -> models.TaskProgressUpdate:
     task_progress_update = models.TaskProgressUpdate()
     task_event_id = str(uuid.uuid4())
     task_progress_update.id = task_event_id
@@ -1087,12 +1170,12 @@ def add_task_progress_update(context, task_id, message, initial_step=0, total_st
 @enginefacade.writer
 def update_task_progress_update(
     context,
-    task_id,
-    update_index,
-    new_current_step,
+    task_id: str,
+    update_index: int,
+    new_current_step: int,
     new_total_steps=None,
     new_message=None,
-):
+) -> None:
     task_progress_update = _get_progress_update(context, task_id, update_index)
     if not task_progress_update:
         raise exception.NotFound(
@@ -1135,7 +1218,7 @@ def update_task_progress_update(
 
 
 @enginefacade.writer
-def update_transfer(context, transfer_id, updated_values):
+def update_transfer(context, transfer_id: str, updated_values: dict) -> None:
     transfer = get_transfer(context, transfer_id)
     if not transfer:
         raise exception.NotFound("Transfer not found")
@@ -1181,12 +1264,12 @@ def update_transfer(context, transfer_id, updated_values):
 
 
 @enginefacade.writer
-def add_region(context, region):
+def add_region(context, region: models.Region) -> None:
     _session(context).add(region)
 
 
 @enginefacade.reader
-def get_regions(context):
+def get_regions(context) -> list[models.Region]:
     q = _soft_delete_aware_query(context, models.Region)
     q = q.options(orm.joinedload('mapped_endpoints'))
     q = q.options(orm.joinedload('mapped_services'))
@@ -1194,7 +1277,7 @@ def get_regions(context):
 
 
 @enginefacade.reader
-def get_region(context, region_id):
+def get_region(context, region_id: str) -> models.Region | None:
     q = _soft_delete_aware_query(context, models.Region)
     q = q.options(orm.joinedload('mapped_endpoints'))
     q = q.options(orm.joinedload('mapped_services'))
@@ -1202,7 +1285,11 @@ def get_region(context, region_id):
 
 
 @enginefacade.writer
-def update_region(context, region_id, updated_values):
+def update_region(
+    context,
+    region_id: str,
+    updated_values: dict[str, str],
+) -> None:
     if not region_id:
         raise exception.InvalidInput("No region ID specified for updating.")
     region = get_region(context, region_id)
@@ -1214,7 +1301,7 @@ def update_region(context, region_id, updated_values):
 
 
 @enginefacade.writer
-def delete_region(context, region_id):
+def delete_region(context, region_id: str) -> None:
     region = get_region(context, region_id)
     count = (
         _soft_delete_aware_query(context, models.Region)
@@ -1233,7 +1320,10 @@ def delete_region(context, region_id):
 
 
 @enginefacade.writer
-def add_endpoint_region_mapping(context, endpoint_region_mapping):
+def add_endpoint_region_mapping(
+    context,
+    endpoint_region_mapping: models.EndpointRegionMapping,
+) -> None:
     region_id = endpoint_region_mapping.region_id
     endpoint_id = endpoint_region_mapping.endpoint_id
 
@@ -1256,7 +1346,7 @@ def get_endpoint_region_mapping(context, endpoint_id, region_id):
 
 
 @enginefacade.writer
-def delete_endpoint_region_mapping(context, endpoint_id, region_id):
+def delete_endpoint_region_mapping(context, endpoint_id: str, region_id: str) -> None:
     args = {"endpoint_id": endpoint_id, "region_id": region_id}
     # TODO(aznashwan): many-to-many realtionships have no sane way of
     # supporting soft deletion from the sqlalchemy layer wihout
@@ -1280,7 +1370,11 @@ def delete_endpoint_region_mapping(context, endpoint_id, region_id):
 
 
 @enginefacade.reader
-def get_region_mappings_for_endpoint(context, endpoint_id, enabled_regions_only=False):
+def get_region_mappings_for_endpoint(
+    context,
+    endpoint_id: str,
+    enabled_regions_only: bool = False,
+) -> list[Any]:
     q = _soft_delete_aware_query(context, models.EndpointRegionMapping)
     q = q.join(models.Region)
     q = q.filter(models.EndpointRegionMapping.endpoint_id == endpoint_id)
@@ -1298,12 +1392,12 @@ def get_mapped_endpoints_for_region(context, region_id):
 
 
 @enginefacade.writer
-def add_service(context, service):
+def add_service(context, service: models.Service) -> None:
     _session(context).add(service)
 
 
 @enginefacade.reader
-def get_services(context):
+def get_services(context) -> list[models.Service]:
     q = _soft_delete_aware_query(context, models.Service).options(
         orm.joinedload('mapped_regions')
     )
@@ -1311,7 +1405,7 @@ def get_services(context):
 
 
 @enginefacade.reader
-def get_service(context, service_id):
+def get_service(context, service_id: str) -> models.Service | None:
     q = _soft_delete_aware_query(context, models.Service).options(
         orm.joinedload('mapped_regions')
     )
@@ -1319,7 +1413,12 @@ def get_service(context, service_id):
 
 
 @enginefacade.reader
-def find_service(context, host, binary, topic=None):
+def find_service(
+    context,
+    host: str,
+    binary: str,
+    topic: str | None = None,
+) -> models.Service | None:
     args = {"host": host, "binary": binary}
     if topic:
         args["topic"] = topic
@@ -1332,7 +1431,7 @@ def find_service(context, host, binary, topic=None):
 
 
 @enginefacade.writer
-def update_service(context, service_id, updated_values):
+def update_service(context, service_id: str, updated_values: dict) -> None:
     if not service_id:
         raise exception.InvalidInput("No service ID specified for updating.")
     service = get_service(context, service_id)
@@ -1345,7 +1444,7 @@ def update_service(context, service_id, updated_values):
             "(type: %s): %s" % (type(updated_values), updated_values)
         )
 
-    def _try_unmap_regions(region_ids):
+    def _try_unmap_regions(region_ids: Collection[str]) -> None:
         for region_to_unmap in region_ids:
             try:
                 LOG.debug(
@@ -1442,7 +1541,7 @@ def update_service(context, service_id, updated_values):
 
 
 @enginefacade.writer
-def delete_service(context, service_id):
+def delete_service(context, service_id: str) -> None:
     service = get_service(context, service_id)
     count = (
         _soft_delete_aware_query(context, models.Service)
@@ -1459,7 +1558,10 @@ def delete_service(context, service_id):
 
 
 @enginefacade.writer
-def add_service_region_mapping(context, service_region_mapping):
+def add_service_region_mapping(
+    context,
+    service_region_mapping: models.ServiceRegionMapping,
+) -> None:
     region_id = service_region_mapping.region_id
     service_id = service_region_mapping.service_id
 
@@ -1482,7 +1584,7 @@ def get_service_region_mapping(context, service_id, region_id):
 
 
 @enginefacade.writer
-def delete_service_region_mapping(context, service_id, region_id):
+def delete_service_region_mapping(context, service_id: str, region_id: str) -> None:
     args = {"service_id": service_id, "region_id": region_id}
     # TODO(aznashwan): many-to-many realtionships have no sane way of
     # supporting soft deletion from the sqlalchemy layer wihout
@@ -1501,7 +1603,11 @@ def delete_service_region_mapping(context, service_id, region_id):
 
 
 @enginefacade.reader
-def get_region_mappings_for_service(context, service_id, enabled_regions_only=False):
+def get_region_mappings_for_service(
+    context,
+    service_id: str,
+    enabled_regions_only: bool = False,
+) -> list[models.ServiceRegionMapping]:
     q = _soft_delete_aware_query(context, models.ServiceRegionMapping)
     q = q.join(models.Region)
     q = q.filter(models.ServiceRegionMapping.service_id == service_id)
@@ -1519,7 +1625,7 @@ def get_mapped_services_for_region(context, region_id):
 
 
 @enginefacade.writer
-def add_minion_machine(context, minion_machine):
+def add_minion_machine(context, minion_machine: models.MinionMachine) -> None:
     minion_machine.user_id = context.user
     minion_machine.project_id = context.project_id
     # inherit pool user/tenant if none are given:
@@ -1533,7 +1639,9 @@ def add_minion_machine(context, minion_machine):
 
 
 @enginefacade.reader
-def get_minion_machines(context, allocated_action_id=None):
+def get_minion_machines(
+    context, allocated_action_id: str | None = None
+) -> list[models.MinionMachine]:
     q = _soft_delete_aware_query(context, models.MinionMachine)
     if allocated_action_id:
         q = q.filter(models.MinionMachine.allocated_action == allocated_action_id)
@@ -1541,13 +1649,17 @@ def get_minion_machines(context, allocated_action_id=None):
 
 
 @enginefacade.reader
-def get_minion_machine(context, minion_machine_id):
+def get_minion_machine(context, minion_machine_id: str) -> models.MinionMachine | None:
     q = _soft_delete_aware_query(context, models.MinionMachine)
     return q.filter(models.MinionMachine.id == minion_machine_id).first()
 
 
 @enginefacade.writer
-def update_minion_machine(context, minion_machine_id, updated_values):
+def update_minion_machine(
+    context,
+    minion_machine_id: str,
+    updated_values: dict,
+) -> None:
     if not minion_machine_id:
         raise exception.InvalidInput("No minion_machine ID specified for updating.")
     minion_machine = get_minion_machine(context, minion_machine_id)
@@ -1569,7 +1681,9 @@ def update_minion_machine(context, minion_machine_id, updated_values):
 
 
 @enginefacade.writer
-def set_minion_machine_allocation_status(context, minion_machine_id, status):
+def set_minion_machine_allocation_status(
+    context, minion_machine_id: str, status: str
+) -> None:
     machine = get_minion_machine(context, minion_machine_id)
     if not machine:
         raise exception.NotFound(
@@ -1590,11 +1704,11 @@ def set_minion_machine_allocation_status(context, minion_machine_id, status):
 @enginefacade.writer
 def set_minion_machines_allocation_statuses(
     context,
-    minion_machine_ids,
-    action_id,
-    allocation_status,
-    refresh_allocation_time=True,
-):
+    minion_machine_ids: list[str],
+    action_id: str | None,
+    allocation_status: str,
+    refresh_allocation_time: bool = True,
+) -> None:
     machines = get_minion_machines(context)
     existing_machine_id_mappings = {machine.id: machine for machine in machines}
     missing = [
@@ -1625,7 +1739,7 @@ def set_minion_machines_allocation_statuses(
 
 
 @enginefacade.writer
-def delete_minion_machine(context, minion_machine_id):
+def delete_minion_machine(context, minion_machine_id: str) -> None:
     # TODO(aznashwan): update models to be soft-delete-aware to
     # avoid needing to hard-delete here:
     count = (
@@ -1638,14 +1752,14 @@ def delete_minion_machine(context, minion_machine_id):
 
 
 @enginefacade.writer
-def add_minion_pool(context, minion_pool):
+def add_minion_pool(context, minion_pool: models.MinionPool) -> None:
     minion_pool.user_id = context.user
     minion_pool.project_id = context.project_id
     _session(context).add(minion_pool)
 
 
 @enginefacade.writer
-def delete_minion_pool(context, minion_pool_id):
+def delete_minion_pool(context, minion_pool_id: str) -> None:
     args = {"id": minion_pool_id}
     if is_user_context(context):
         args["project_id"] = context.project_id
@@ -1661,11 +1775,11 @@ def delete_minion_pool(context, minion_pool_id):
 @enginefacade.reader
 def get_minion_pool(
     context,
-    minion_pool_id,
-    include_machines=False,
-    include_events=False,
-    include_progress_updates=False,
-):
+    minion_pool_id: str,
+    include_machines: bool = False,
+    include_events: bool = False,
+    include_progress_updates: bool = False,
+) -> models.MinionPool | None:
     q = _soft_delete_aware_query(context, models.MinionPool)
     if include_machines:
         q = q.options(orm.selectinload('minion_machines'))
@@ -1681,11 +1795,11 @@ def get_minion_pool(
 @enginefacade.reader
 def get_minion_pools(
     context,
-    include_machines=False,
-    include_events=False,
-    include_progress_updates=False,
-    to_dict=True,
-):
+    include_machines: bool = False,
+    include_events: bool = False,
+    include_progress_updates: bool = False,
+    to_dict: bool = True,
+) -> list:
     q = _soft_delete_aware_query(context, models.MinionPool)
     q = q.filter()
     if is_user_context(context):
@@ -1710,7 +1824,7 @@ def get_minion_pools(
 
 
 @enginefacade.writer
-def set_minion_pool_status(context, minion_pool_id, status):
+def set_minion_pool_status(context, minion_pool_id: str, status: str) -> None:
     pool = get_minion_pool(context, minion_pool_id, include_machines=False)
     if not pool:
         raise exception.NotFound("Minion pool '%s' not found" % minion_pool_id)
@@ -1725,7 +1839,11 @@ def set_minion_pool_status(context, minion_pool_id, status):
 
 
 @enginefacade.writer
-def update_minion_pool(context, minion_pool_id, updated_values):
+def update_minion_pool(
+    context,
+    minion_pool_id: str,
+    updated_values: dict,
+) -> None:
     lifecycle = get_minion_pool(context, minion_pool_id, include_machines=False)
     if not lifecycle:
         raise exception.NotFound("Minion pool '%s' not found" % minion_pool_id)
@@ -1764,11 +1882,11 @@ def update_minion_pool(context, minion_pool_id, updated_values):
 
 
 def process_sort_params(
-    sort_keys,
-    sort_dirs,
-    default_keys=None,
-    default_dir='desc',
-):
+    sort_keys: list | None,
+    sort_dirs: list | None,
+    default_keys: list | None = None,
+    default_dir: str = 'desc',
+) -> tuple[list, list]:
     """Process the sort parameters to include default keys.
 
     Creates a list of sort keys and a list of sort directions. Adds the default

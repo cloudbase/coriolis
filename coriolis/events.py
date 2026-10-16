@@ -18,11 +18,14 @@ _PercStepData = collections.namedtuple(
 
 
 class EventManager(object, with_metaclass(abc.ABCMeta)):
-    def __init__(self, event_handler):
+    def __init__(
+        self,
+        event_handler,
+    ):
         self._event_handler = event_handler
         self._perc_steps = {}
 
-    def _call_event_handler(self, method_name, *args, **kwargs):
+    def _call_event_handler(self, method_name: str, *args, **kwargs):
         if self._event_handler:
             method_obj = getattr(self._event_handler, str(method_name), None)
             if not method_obj:
@@ -32,7 +35,9 @@ class EventManager(object, with_metaclass(abc.ABCMeta)):
                 )
             return method_obj(*args, **kwargs)
 
-    def add_percentage_step(self, message, total_steps, initial_step=0):
+    def add_percentage_step(
+        self, message: str, total_steps: int, initial_step: int = 0
+    ) -> _PercStepData:
         if total_steps < 0:
             LOG.warn("Max percentage value was negative (%s). Reset to 0", total_steps)
             total_steps = 0
@@ -64,7 +69,7 @@ class EventManager(object, with_metaclass(abc.ABCMeta)):
 
         return self._perc_steps[progress_update_id]
 
-    def set_percentage_step(self, step, new_current_step):
+    def set_percentage_step(self, step: _PercStepData, new_current_step: int) -> None:
         perc_step = self._perc_steps.get(step.progress_update_id, None)
         if perc_step is None:
             return
@@ -95,7 +100,7 @@ class EventManager(object, with_metaclass(abc.ABCMeta)):
             del perc_step
             self._perc_steps[perc_id] = _PercStepData(perc_id, perc, 0, total_steps)
 
-    def progress_update(self, message):
+    def progress_update(self, message: str) -> None:
         self._call_event_handler('add_progress_update', message, return_event=False)
 
     def info(self, message):
@@ -113,19 +118,23 @@ class EventManager(object, with_metaclass(abc.ABCMeta)):
 class BaseEventHandler(object, with_metaclass(abc.ABCMeta)):
     @abc.abstractmethod
     def add_progress_update(
-        self, message, initial_step=0, total_steps=0, return_event=False
+        self,
+        message: str,
+        initial_step: int = 0,
+        total_steps: int = 0,
+        return_event: bool = False,
     ):
         pass
 
     @abc.abstractmethod
     def update_progress_update(
         self,
-        update_identifier,
-        new_current_step,
+        update_identifier: int,
+        new_current_step: int,
         new_total_steps=None,
         new_message=None,
-        sync=False,
-    ):
+        sync: bool = False,
+    ) -> None:
         pass
 
     @classmethod

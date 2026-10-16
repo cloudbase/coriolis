@@ -12,13 +12,13 @@ LOG = logging.getLogger(__name__)
 
 
 def get_os_mount_tools(
-    os_type,
-    connection_info,
+    os_type: str,
+    connection_info: dict,
     event_manager,
-    ignore_devices,
+    ignore_devices: list[str],
     operation_timeout,
-    osmorphing_info=None,
-):
+    osmorphing_info: dict | None = None,
+) -> ubuntu.UbuntuOSMountTools:
     os_mount_tools = {
         constants.OS_TYPE_LINUX: [
             ubuntu.UbuntuOSMountTools,

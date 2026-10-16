@@ -33,7 +33,7 @@ TASK_ALREADY_CANCELLING_EXCEPTION_FMT = "Task %(task_id)s is in CANCELLING statu
 
 
 class ConvertedException(webob.exc.WSGIHTTPException):
-    def __init__(self, code=500, title="", explanation=""):
+    def __init__(self, code: int = 500, title: str = "", explanation: str = ""):
         self.code = code
         # There is a strict rule about constructing status line for HTTP:
         # '...Status-Line, consisting of the protocol version followed by a
@@ -72,7 +72,7 @@ class CoriolisException(Exception):
     headers = {}
     safe = False
 
-    def __init__(self, message=None, **kwargs):
+    def __init__(self, message: str | None = None, **kwargs):
         self.kwargs = kwargs
 
         if 'code' not in self.kwargs:
@@ -111,7 +111,7 @@ class CoriolisException(Exception):
         self.msg = message
         super(CoriolisException, self).__init__(message)
 
-    def _should_format(self, message):
+    def _should_format(self, message: str) -> bool:
         return message is None or '%(message)' in self.message
 
     def __unicode__(self):
@@ -509,7 +509,7 @@ class MinionMachineCommandTimeout(CoriolisException):
 
 
 class SSHCommandFailed(CoriolisException):
-    def __init__(self, message=None, exit_code=None, **kwargs):
+    def __init__(self, message: str = None, exit_code: int = None, **kwargs):
         super(SSHCommandFailed, self).__init__(message, **kwargs)
         self.exit_code = exit_code
 

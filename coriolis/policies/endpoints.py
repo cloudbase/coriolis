@@ -10,7 +10,7 @@ ENDPOINTS_POLICY_PREFIX = "%s:endpoints" % base.CORIOLIS_POLICIES_PREFIX
 ENDPOINTS_POLICY_DEFAULT_RULE = "rule:admin_or_owner"
 
 
-def get_endpoints_policy_label(rule_label):
+def get_endpoints_policy_label(rule_label: str) -> str:
     return "%s:%s" % (ENDPOINTS_POLICY_PREFIX, rule_label)
 
 
@@ -124,5 +124,5 @@ ENDPOINTS_POLICY_DEFAULT_RULES = [
 ]
 
 
-def list_rules():
+def list_rules() -> list[policy.DocumentedRuleDefault]:
     return ENDPOINTS_POLICY_DEFAULT_RULES
