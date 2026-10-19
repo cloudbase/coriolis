@@ -350,7 +350,6 @@ class TestExportProvider(
         repl_state = _extract_repl_state(volumes_info) if incremental else None
 
         disk_mappings = source_resources.get("disk_mappings")
-        reused_minion = disk_mappings is None
         if disk_mappings is None:
             # Minion pool case: "source_resources" only carries the pool minion's
             # container_id. the block devices were never attached to the container,
@@ -369,11 +368,13 @@ class TestExportProvider(
             source_conn_info, self._event_manager(), volumes_info, repl_state
         )
         replicator.init_replicator()
-        if reused_minion and incremental:
-            # The pool minion's replicator process persists across executions and it
-            # only computes whole-disk checksums once, at process startup. Without
-            # restarting it, "verify_disk_integrity" would keep comparing against that
-            # stale, pre-sync checksum on every subsequent execution against the minion.
+        if incremental:
+            # The replicator process is already running, either started by
+            # deploy_replica_source_resources() or persisting on a pool minion across
+            # executions, and it only loads the state file and computes whole-disk
+            # checksums at startup. Without restarting it, the previous replica state
+            # would be ignored (resulting in full syncs), and "verify_disk_integrity"
+            # would compare against a stale, pre-sync checksum on a pool minion.
             replicator.update_state(repl_state or [], restart=True)
         replicator.wait_for_chunks()
 
