@@ -40,10 +40,11 @@ devices.
 | `dd`, `sync`, `cmp` | Test-pattern writes and device comparison |
 | `docker` | MariaDB database container; data-minion container image |
 | `ssh-keygen` | Generates the ephemeral SSH key pair used by the test provider |
+| `busybox` (statically linked) | Minimal root filesystem of the core test provider's instances, which `exec_test_vm` chroots into |
 
 On Ubuntu / Debian:
 ```bash
-sudo apt-get install util-linux coreutils
+sudo apt-get install util-linux coreutils busybox-static
 ```
 
 ### Docker image - data-minion
