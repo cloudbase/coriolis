@@ -119,7 +119,10 @@ pointing at the built-in test provider.
 4. Uses `destination.environment` as `destination_environment` and
    `destination.storage_mappings` as `storage_mappings` for each transfer, and
    `destination.minion_pool_environment` as the `environment_options` when
-   creating a destination minion pool.
+   creating a destination minion pool. The optional
+   `destination.windows_minion_pool_environment` is used the same way for
+   Windows destination minion pools; the Windows minion pool lifecycle tests
+   are skipped if it is not set.
 
 ### Running
 
