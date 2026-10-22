@@ -123,6 +123,13 @@ class APIRouter(api.APIRouter):
             action='action',
             conditions={'method': 'POST'},
         )
+        mapper.connect(
+            'endpoint_collection_actions',
+            '/{project_id}/endpoints/actions',
+            controller=self.resources['endpoint_actions'],
+            action='action',
+            conditions={'method': 'POST'},
+        )
 
         self.resources['endpoint_instances'] = endpoint_instances.create_resource()
         mapper.resource(

@@ -213,6 +213,13 @@ class APIRouterTestCase(test_base.CoriolisBaseTestCase):
                 conditions={'method': 'POST'},
             ),
             mock.call(
+                'endpoint_collection_actions',
+                '/{project_id}/endpoints/actions',
+                controller=mock_endpoint_actions_create_resource.return_value,
+                action='action',
+                conditions={'method': 'POST'},
+            ),
+            mock.call(
                 'transfer_actions',
                 '/{project_id}/transfers/{id}/actions',
                 controller=mock_transfer_actions_create_resource.return_value,

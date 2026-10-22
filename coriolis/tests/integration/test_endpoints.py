@@ -5,6 +5,7 @@
 
 Exercises endpoint-related operations via the Coriolis REST API:
 - validate_connection (success and failure)
+- validate_connection_info, without an existing endpoint
 - endpoint update
 - get_networks
 - get_storage (list and default)
@@ -59,6 +60,46 @@ class EndpointCapabilitiesTest(base.CoriolisIntegrationTestBase):
         valid, message = self._client.endpoints.validate_connection(bad_endpoint.id)
         self.assertFalse(valid)
         self.assertIsNotNone(message)
+
+    def _validate_connection_info(self, platform, connection_info):
+        body = {
+            "validate-connection-info": {
+                "platform": platform,
+                "connection_info": connection_info,
+                "mapped_regions": [],
+            }
+        }
+        response = self._client.endpoints.client.post(
+            "/endpoints/actions", json=body
+        ).json()
+        result = response["validate-connection-info"]
+
+        return result.get("valid"), result.get("message")
+
+    def test_validate_connection_info(self):
+        valid, message = self._validate_connection_info(
+            self._exp_platform, self._exp_conn_info
+        )
+        self.assertTrue(valid, f"source: {message}")
+
+        valid, message = self._validate_connection_info(
+            self._imp_platform, self._imp_conn_info
+        )
+        self.assertTrue(valid, f"destination: {message}")
+
+    def test_validate_connection_info_failure(self):
+        endpoints_count = len(self._client.endpoints.list())
+
+        valid, message = self._validate_connection_info(
+            self._exp_platform,
+            {
+                "pkey_path": "/root/.ssh/coriolis-no-such-key",
+            },
+        )
+        self.assertFalse(valid)
+        self.assertIsNotNone(message)
+        # Nothing was persisted for the connection info that failed.
+        self.assertEqual(endpoints_count, len(self._client.endpoints.list()))
 
     def test_endpoint_update(self):
         updated = self._client.endpoints.update(

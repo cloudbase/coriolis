@@ -37,6 +37,13 @@ class API(object):
             ctxt, endpoint_id
         )
 
+    def validate_connection_info(
+        self, ctxt, platform, connection_info, mapped_regions=None
+    ):
+        return self._rpc_conductor_client.validate_endpoint_connection_info(
+            ctxt, platform, connection_info, mapped_regions
+        )
+
     @utils.bad_request_on_error("Invalid destination environment: %s")
     def validate_target_environment(self, ctxt, endpoint_id, target_env):
         return self._rpc_conductor_client.validate_endpoint_target_environment(
