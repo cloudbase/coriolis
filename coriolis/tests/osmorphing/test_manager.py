@@ -7,6 +7,7 @@ from unittest import mock
 from coriolis import constants, exception
 from coriolis.osmorphing import base as base_osmorphing
 from coriolis.osmorphing import manager
+from coriolis.providers import conf as provider_conf
 from coriolis.tests import test_base
 
 
@@ -420,3 +421,364 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
             self._mock_user_scripts,
             self.event_handler,
         )
+
+    def test_apply_core_destination_overrides_plugins_from_target_env(self):
+        osmorphing_info = {
+            "os_type": "windows",
+            "nics_set_dhcp": True,
+        }
+        target_environment = {
+            "cloudbase_init_plugins": ["cloudbaseinit.plugins.common.mtu.MTUPlugin"]
+        }
+        result = provider_conf.apply_core_destination_overrides(
+            osmorphing_info, target_environment
+        )
+        self.assertEqual(
+            result["osmorphing_parameters"]["cloudbase_init_plugins"],
+            target_environment["cloudbase_init_plugins"],
+        )
+        self.assertTrue(result["nics_set_dhcp"])
+        self.assertNotIn("set_dhcp", result["osmorphing_parameters"])
+        self.assertNotIn(
+            "cloudbase_init_plugins", osmorphing_info.get("osmorphing_parameters") or {}
+        )
+
+    def test_apply_core_destination_overrides_plugins_empty_list(self):
+        osmorphing_info = {"os_type": "windows"}
+        result = provider_conf.apply_core_destination_overrides(
+            osmorphing_info, {"cloudbase_init_plugins": []}
+        )
+        self.assertEqual(result["osmorphing_parameters"]["cloudbase_init_plugins"], [])
+
+    def test_apply_core_destination_overrides_plugins_keeps_provider(self):
+        plugins = ["cloudbaseinit.plugins.common.mtu.MTUPlugin"]
+        osmorphing_info = {
+            "os_type": "windows",
+            "osmorphing_parameters": {"cloudbase_init_plugins": plugins},
+        }
+        provider_conf.CONF.set_override(
+            "cloudbase_init_plugins",
+            ["other.Plugin"],
+            group=provider_conf.COMMON_TARGET_OPTION_GROUP,
+        )
+        self.addCleanup(
+            provider_conf.CONF.clear_override,
+            "cloudbase_init_plugins",
+            group=provider_conf.COMMON_TARGET_OPTION_GROUP,
+        )
+        result = provider_conf.apply_core_destination_overrides(
+            osmorphing_info, {"zone": "zone1"}
+        )
+        self.assertEqual(
+            result["osmorphing_parameters"]["cloudbase_init_plugins"], plugins
+        )
+
+    def test_apply_core_destination_overrides_rejects_non_dict(self):
+        self.assertRaises(
+            exception.InvalidInput,
+            provider_conf.apply_core_destination_overrides,
+            "not-a-dict",
+            {"set_dhcp": False},
+        )
+        self.assertRaises(
+            exception.InvalidInput,
+            provider_conf.apply_core_destination_overrides,
+            {"os_type": "windows", "osmorphing_parameters": "bad"},
+            {"zone": "zone1"},
+        )
+
+    def test_apply_core_destination_overrides_plugins_omitted(self):
+        osmorphing_info = {"os_type": "windows"}
+        result = provider_conf.apply_core_destination_overrides(
+            osmorphing_info, {"zone": "zone1"}
+        )
+        self.assertNotIn(
+            "cloudbase_init_plugins", result.get("osmorphing_parameters") or {}
+        )
+        self.assertTrue(result["nics_set_dhcp"])
+        self.assertNotIn("set_dhcp", result.get("osmorphing_parameters") or {})
+        self.assertFalse(result["osmorphing_parameters"]["retain_user_credentials"])
+
+    def test_inject_core_target_environment_schema_simple(self):
+        schema = {
+            "type": "object",
+            "properties": {"zone": {"type": "string"}},
+            "additionalProperties": False,
+        }
+        result = provider_conf.inject_core_target_environment_schema(schema)
+        self.assertIn("cloudbase_init_plugins", result["properties"])
+        self.assertIn("data_transfer_mechanism", result["properties"])
+        self.assertIn("set_dhcp", result["properties"])
+        self.assertIn("retain_user_credentials", result["properties"])
+        self.assertEqual(
+            ["SSH", "HTTPS"], result["properties"]["data_transfer_mechanism"]["enum"]
+        )
+        self.assertEqual("boolean", result["properties"]["set_dhcp"]["type"])
+        self.assertEqual(
+            "boolean", result["properties"]["retain_user_credentials"]["type"]
+        )
+        self.assertNotIn("cloudbase_init_plugins", schema["properties"])
+        self.assertNotIn("data_transfer_mechanism", schema["properties"])
+        self.assertNotIn("set_dhcp", schema["properties"])
+        self.assertNotIn("retain_user_credentials", schema["properties"])
+
+    def test_inject_core_target_environment_schema_keeps_provider(self):
+        schema = {
+            "type": "object",
+            "properties": {
+                "set_dhcp": {
+                    "type": "string",
+                    "title": "provider",
+                },
+            },
+        }
+        result = provider_conf.inject_core_target_environment_schema(schema)
+        self.assertEqual("string", result["properties"]["set_dhcp"]["type"])
+        self.assertEqual("provider", result["properties"]["set_dhcp"]["title"])
+        self.assertIn("cloudbase_init_plugins", result["properties"])
+        self.assertEqual("string", schema["properties"]["set_dhcp"]["type"])
+
+    def test_inject_core_target_environment_schema_oneof(self):
+        schema = {
+            "oneOf": [
+                {"properties": {"migr_network": {"type": "string"}}},
+                {"properties": {"network_map": {"type": "object"}}},
+            ]
+        }
+        result = provider_conf.inject_core_target_environment_schema(schema)
+        for alt in result["oneOf"]:
+            self.assertIn("cloudbase_init_plugins", alt["properties"])
+            self.assertIn("data_transfer_mechanism", alt["properties"])
+            self.assertIn("set_dhcp", alt["properties"])
+            self.assertIn("retain_user_credentials", alt["properties"])
+
+    def _row_by_name(self, options, name):
+        for opt in options:
+            if opt.get("name") == name:
+                return opt
+        self.fail("Missing destination option %s" % name)
+
+    def test_merge_core_destination_options_appends(self):
+        options = [{"name": "zone", "values": []}]
+        result = provider_conf.merge_core_destination_options(options)
+        names = [opt["name"] for opt in result]
+        self.assertIn("cloudbase_init_plugins", names)
+        self.assertIn("data_transfer_mechanism", names)
+        self.assertIn("set_dhcp", names)
+        self.assertIn("retain_user_credentials", names)
+        self.assertEqual(options, [{"name": "zone", "values": []}])
+
+    def test_merge_core_destination_options_provider_overwrites(self):
+        provider_options = [
+            {
+                "name": "cloudbase_init_plugins",
+                "values": ["already-set"],
+            }
+        ]
+        merged = provider_conf.merge_core_destination_options(provider_options)
+        self.assertEqual(
+            ["already-set"],
+            self._row_by_name(merged, "cloudbase_init_plugins")["values"],
+        )
+        self.assertEqual(
+            "HTTPS",
+            self._row_by_name(merged, "data_transfer_mechanism")["config_default"],
+        )
+        self.assertEqual(True, self._row_by_name(merged, "set_dhcp")["config_default"])
+        self.assertEqual(
+            False,
+            self._row_by_name(merged, "retain_user_credentials")["config_default"],
+        )
+
+    def test_merge_core_destination_options_nested_row_fields(self):
+        provider_options = [
+            {
+                "name": "set_dhcp",
+                "config_default": False,
+            }
+        ]
+        merged = provider_conf.merge_core_destination_options(provider_options)
+        row = self._row_by_name(merged, "set_dhcp")
+        self.assertFalse(row["config_default"])
+        self.assertEqual([], row["values"])
+
+    def test_merge_dest_opts_list_respects_names(self):
+        options = [{"name": "zone", "values": []}]
+        result = provider_conf.merge_core_destination_options(
+            options, option_names=["zone"]
+        )
+        self.assertEqual(options, result)
+
+    def test_merge_dest_opts_list_empty_dict(self):
+        options = [{"name": "zone", "values": []}]
+        result = provider_conf.merge_core_destination_options(options, option_names={})
+        names = [opt["name"] for opt in result]
+        self.assertIn("cloudbase_init_plugins", names)
+        self.assertIn("data_transfer_mechanism", names)
+        self.assertIn("set_dhcp", names)
+        self.assertIn("retain_user_credentials", names)
+
+    def test_merge_core_names_only(self):
+        result = provider_conf.merge_core_destination_options(
+            [],
+            option_names=["set_dhcp", "retain_user_credentials"],
+        )
+        self.assertEqual(
+            ["set_dhcp", "retain_user_credentials"],
+            [opt["name"] for opt in result],
+        )
+
+    def test_filter_core_option_names(self):
+        result = provider_conf.filter_core_option_names(
+            [
+                "zone",
+                "cloudbase_init_plugins",
+                "data_transfer_mechanism",
+                "set_dhcp",
+                "retain_user_credentials",
+                "import_node",
+            ]
+        )
+        self.assertEqual(["zone", "import_node"], result)
+        self.assertEqual({}, provider_conf.filter_core_option_names({}))
+        self.assertIsNone(provider_conf.filter_core_option_names(None))
+        self.assertRaises(
+            exception.InvalidInput,
+            provider_conf.filter_core_option_names,
+            "zone",
+        )
+
+    def test_get_data_transfer_mechanism_destination_option(self):
+        result = provider_conf.CORE_DESTINATION_OPTIONS["data_transfer_mechanism"]
+        self.assertEqual("data_transfer_mechanism", result["name"])
+        self.assertEqual(["SSH", "HTTPS"], result["values"])
+        self.assertEqual("HTTPS", result["config_default"])
+
+    def test_get_cloudbase_init_plugins_destination_option(self):
+        result = provider_conf.CORE_DESTINATION_OPTIONS["cloudbase_init_plugins"]
+        self.assertEqual("cloudbase_init_plugins", result["name"])
+        self.assertTrue(result["values"])
+        self.assertIn("id", result["values"][0])
+        self.assertIn("name", result["values"][0])
+        self.assertEqual(
+            [item["id"] for item in result["values"]], result["config_default"]
+        )
+
+    def test_apply_core_destination_overrides_set_dhcp(self):
+        osmorphing_info = {
+            "os_type": "linux",
+            "osmorphing_parameters": {},
+        }
+        result = provider_conf.apply_core_destination_overrides(
+            osmorphing_info, {"set_dhcp": False}
+        )
+        self.assertFalse(result["nics_set_dhcp"])
+        self.assertNotIn("set_dhcp", result.get("osmorphing_parameters") or {})
+        self.assertNotIn("nics_set_dhcp", osmorphing_info)
+
+    def test_apply_core_destination_overrides_set_dhcp_conf_fallback(self):
+        osmorphing_info = {
+            "os_type": "linux",
+            "osmorphing_parameters": {},
+        }
+        provider_conf.CONF.set_override(
+            "set_dhcp",
+            False,
+            group=provider_conf.COMMON_TARGET_OPTION_GROUP,
+        )
+        self.addCleanup(
+            provider_conf.CONF.clear_override,
+            "set_dhcp",
+            group=provider_conf.COMMON_TARGET_OPTION_GROUP,
+        )
+        result = provider_conf.apply_core_destination_overrides(
+            osmorphing_info, {"zone": "zone1"}
+        )
+        self.assertFalse(result["nics_set_dhcp"])
+        self.assertNotIn("set_dhcp", result.get("osmorphing_parameters") or {})
+
+    def test_apply_core_destination_overrides_set_dhcp_keeps_provider(self):
+        osmorphing_info = {
+            "os_type": "linux",
+            "nics_set_dhcp": True,
+        }
+        provider_conf.CONF.set_override(
+            "set_dhcp",
+            False,
+            group=provider_conf.COMMON_TARGET_OPTION_GROUP,
+        )
+        self.addCleanup(
+            provider_conf.CONF.clear_override,
+            "set_dhcp",
+            group=provider_conf.COMMON_TARGET_OPTION_GROUP,
+        )
+        result = provider_conf.apply_core_destination_overrides(
+            osmorphing_info, {"zone": "zone1"}
+        )
+        self.assertTrue(result["nics_set_dhcp"])
+        self.assertNotIn("set_dhcp", result.get("osmorphing_parameters") or {})
+
+    def test_apply_core_destination_overrides_set_dhcp_from_dest_env(self):
+        provider_conf.CONF.set_override(
+            "set_dhcp",
+            True,
+            group=provider_conf.COMMON_TARGET_OPTION_GROUP,
+        )
+        self.addCleanup(
+            provider_conf.CONF.clear_override,
+            "set_dhcp",
+            group=provider_conf.COMMON_TARGET_OPTION_GROUP,
+        )
+        result = provider_conf.apply_core_destination_overrides(
+            {
+                "os_type": "linux",
+                "nics_set_dhcp": True,
+            },
+            {"set_dhcp": False},
+        )
+        self.assertFalse(result["nics_set_dhcp"])
+        self.assertNotIn("set_dhcp", result.get("osmorphing_parameters") or {})
+
+    def test_apply_core_destination_overrides_retain_user_credentials(self):
+        osmorphing_info = {
+            "os_type": "linux",
+            "osmorphing_parameters": {},
+        }
+        result = provider_conf.apply_core_destination_overrides(
+            osmorphing_info, {"retain_user_credentials": True}
+        )
+        self.assertTrue(result["osmorphing_parameters"]["retain_user_credentials"])
+
+    def test_apply_core_destination_overrides_retain_user_credentials_keeps_provider(
+        self,
+    ):
+        osmorphing_info = {
+            "os_type": "linux",
+            "osmorphing_parameters": {"retain_user_credentials": True},
+        }
+        provider_conf.CONF.set_override(
+            "retain_user_credentials",
+            False,
+            group=provider_conf.COMMON_TARGET_OPTION_GROUP,
+        )
+        self.addCleanup(
+            provider_conf.CONF.clear_override,
+            "retain_user_credentials",
+            group=provider_conf.COMMON_TARGET_OPTION_GROUP,
+        )
+        result = provider_conf.apply_core_destination_overrides(
+            osmorphing_info, {"zone": "zone1"}
+        )
+        self.assertTrue(result["osmorphing_parameters"]["retain_user_credentials"])
+
+    def test_apply_core_destination_overrides_retain_user_credentials_from_dest_env(
+        self,
+    ):
+        osmorphing_info = {
+            "os_type": "linux",
+            "osmorphing_parameters": {"retain_user_credentials": True},
+        }
+        result = provider_conf.apply_core_destination_overrides(
+            osmorphing_info, {"retain_user_credentials": False}
+        )
+        self.assertFalse(result["osmorphing_parameters"]["retain_user_credentials"])
