@@ -26,6 +26,7 @@ from oslo_log import log as logging
 
 from coriolis import constants, context, exception
 from coriolis.db import api as db_api
+from coriolis.providers import backup_writers
 from coriolis.providers import factory as providers_factory
 from coriolis.tests import test_base
 from coriolis.tests.integration import harness
@@ -414,6 +415,17 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
 
         return None
 
+    @property
+    def _transfer_disk_ids(self):
+        """The "disk_id" of every disk in the transfer's volumes_info."""
+        ctxt = self._get_db_context()
+
+        transfer = db_api.get_transfer(ctxt, self._transfer.id, include_task_info=True)
+        info = transfer.get("info", {}).get(self._instance_name, {})
+        return [
+            vol["disk_id"] for vol in info.get("volumes_info", []) if vol.get("disk_id")
+        ]
+
     def _cleanup_provider_dst_devices(self, transfer_id):
         """Remove any devices the provider allocated for this transfer."""
         ctxt = self._get_db_context()
@@ -443,6 +455,35 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
             transfer_id, shutdown_instances=False
         )
         self.assertExecutionCompleted(execution.id, timeout=timeout)
+
+    def _execute_and_spy_on_writer(self, transfer_id):
+        """Execute *transfer_id*, recording what the HTTP backup writer did.
+
+        Returns a ``(checksummed_disk_ids, bytes_written)`` tuple.
+        """
+        checksummed_disks = []
+        written = []
+        writer_cls = backup_writers.HTTPBackupWriterImpl
+        original_get_disk_checksum = writer_cls.get_disk_checksum
+        original_write = writer_cls.write
+
+        def _record_get_disk_checksum(writer, *args, **kwargs):
+            checksummed_disks.append(writer._disk_id)
+            return original_get_disk_checksum(writer, *args, **kwargs)
+
+        def _record_write(writer, data, encoding=None, uncompressed_size=None):
+            written.append(uncompressed_size or len(data))
+            return original_write(writer, data, encoding, uncompressed_size)
+
+        with (
+            mock.patch.object(
+                writer_cls, "get_disk_checksum", _record_get_disk_checksum
+            ),
+            mock.patch.object(writer_cls, "write", _record_write),
+        ):
+            self._execute_and_wait(transfer_id)
+
+        return checksummed_disks, sum(written)
 
     def _start_executions(self, transfer_ids):
         """Start one execution per transfer id without waiting on any."""
