@@ -19,10 +19,12 @@ from oslo_config import cfg
 from oslo_log import log as logging
 
 from coriolis import exception
+from coriolis.osmorphing import conf as osmorphing_conf
 
-COMMON_TARGET_OPTION_GROUP = "common_target_options"
+COMMON_TARGET_OPTION_GROUP = osmorphing_conf.COMMON_TARGET_OPTION_GROUP
 
 CORE_SCHEMA_PROPERTIES = {
+    **osmorphing_conf.SCHEMA_PROPERTIES,
     "data_transfer_mechanism": {
         "type": "string",
         "title": "Data Transfer Mechanism",
@@ -62,6 +64,7 @@ CORE_SCHEMA_PROPERTIES = {
 }
 
 CORE_DESTINATION_OPTIONS = {
+    **osmorphing_conf.DESTINATION_OPTIONS,
     "data_transfer_mechanism": {
         "name": "data_transfer_mechanism",
         "values": ["SSH", "HTTPS"],
@@ -84,6 +87,7 @@ CORE_DESTINATION_OPTIONS = {
 # target "parameters": write the field on osmorphing_parameters.
 # target "info": write the field on osmorphing_info.
 OSMORPHING_OVERRIDES = (
+    *osmorphing_conf.OVERRIDES,
     {
         "option": "set_dhcp",
         "field": "nics_set_dhcp",

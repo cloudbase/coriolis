@@ -157,6 +157,58 @@ class DeployOSMorphingResourcesTaskTestCase(test_base.CoriolisBaseTestCase):
                 import_info.get('osmorphing_connection_info')
             )
 
+    @mock.patch('coriolis.providers.factory.get_provider')
+    @mock.patch('coriolis.tasks.base.get_connection_info')
+    @mock.patch('coriolis.schemas.validate_value')
+    @mock.patch('coriolis.tasks.base.marshal_migr_conn_info')
+    def test__run_applies_cloudbase_init_plugins_from_target_environment(
+        self,
+        mock_marshal_conn_info,
+        mock_validate_value,
+        mock_get_conn_info,
+        mock_get_provider,
+    ):
+        plugins = ['cloudbaseinit.plugins.common.mtu.MTUPlugin']
+        import_info = {
+            "os_morphing_resources": {"res1": "id1"},
+            "osmorphing_connection_info": {"info1": "secret1"},
+            "osmorphing_info": {
+                "os_type": "windows",
+                "nics_set_dhcp": True,
+            },
+        }
+        prov_fun = mock_get_provider.return_value.deploy_os_morphing_resources
+        prov_fun.return_value = import_info
+        task_info = {
+            "target_environment": {
+                "cloudbase_init_plugins": plugins,
+                "set_dhcp": False,
+            },
+            "instance_deployment_info": {},
+        }
+        destination = mock.MagicMock()
+
+        result = self.task_runner._run(
+            mock.sentinel.ctxt,
+            mock.sentinel.instance,
+            mock.sentinel.origin,
+            destination,
+            task_info,
+            mock.sentinel.event_handler,
+        )
+
+        self.assertEqual(
+            result["osmorphing_info"]["osmorphing_parameters"][
+                "cloudbase_init_plugins"
+            ],
+            plugins,
+        )
+        self.assertFalse(result["osmorphing_info"]["nics_set_dhcp"])
+        self.assertNotIn(
+            "set_dhcp",
+            result["osmorphing_info"].get("osmorphing_parameters") or {},
+        )
+
 
 class DeleteOSMorphingResourcesTaskTestCase(test_base.CoriolisBaseTestCase):
     def setUp(self):

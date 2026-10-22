@@ -422,6 +422,57 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
             self.event_handler,
         )
 
+    def test_apply_core_destination_overrides_plugins_from_target_env(self):
+        osmorphing_info = {
+            "os_type": "windows",
+            "nics_set_dhcp": True,
+        }
+        target_environment = {
+            "cloudbase_init_plugins": ["cloudbaseinit.plugins.common.mtu.MTUPlugin"]
+        }
+        result = provider_conf.apply_core_destination_overrides(
+            osmorphing_info, target_environment
+        )
+        self.assertEqual(
+            result["osmorphing_parameters"]["cloudbase_init_plugins"],
+            target_environment["cloudbase_init_plugins"],
+        )
+        self.assertTrue(result["nics_set_dhcp"])
+        self.assertNotIn("set_dhcp", result["osmorphing_parameters"])
+        self.assertNotIn(
+            "cloudbase_init_plugins", osmorphing_info.get("osmorphing_parameters") or {}
+        )
+
+    def test_apply_core_destination_overrides_plugins_empty_list(self):
+        osmorphing_info = {"os_type": "windows"}
+        result = provider_conf.apply_core_destination_overrides(
+            osmorphing_info, {"cloudbase_init_plugins": []}
+        )
+        self.assertEqual(result["osmorphing_parameters"]["cloudbase_init_plugins"], [])
+
+    def test_apply_core_destination_overrides_plugins_keeps_provider(self):
+        plugins = ["cloudbaseinit.plugins.common.mtu.MTUPlugin"]
+        osmorphing_info = {
+            "os_type": "windows",
+            "osmorphing_parameters": {"cloudbase_init_plugins": plugins},
+        }
+        provider_conf.CONF.set_override(
+            "cloudbase_init_plugins",
+            ["other.Plugin"],
+            group=provider_conf.COMMON_TARGET_OPTION_GROUP,
+        )
+        self.addCleanup(
+            provider_conf.CONF.clear_override,
+            "cloudbase_init_plugins",
+            group=provider_conf.COMMON_TARGET_OPTION_GROUP,
+        )
+        result = provider_conf.apply_core_destination_overrides(
+            osmorphing_info, {"zone": "zone1"}
+        )
+        self.assertEqual(
+            result["osmorphing_parameters"]["cloudbase_init_plugins"], plugins
+        )
+
     def test_apply_core_destination_overrides_rejects_non_dict(self):
         self.assertRaises(
             exception.InvalidInput,
@@ -441,6 +492,9 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
         result = provider_conf.apply_core_destination_overrides(
             osmorphing_info, {"zone": "zone1"}
         )
+        self.assertNotIn(
+            "cloudbase_init_plugins", result.get("osmorphing_parameters") or {}
+        )
         self.assertTrue(result["nics_set_dhcp"])
         self.assertNotIn("set_dhcp", result.get("osmorphing_parameters") or {})
         self.assertFalse(result["osmorphing_parameters"]["retain_user_credentials"])
@@ -452,6 +506,7 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
             "additionalProperties": False,
         }
         result = provider_conf.inject_core_target_environment_schema(schema)
+        self.assertIn("cloudbase_init_plugins", result["properties"])
         self.assertIn("data_transfer_mechanism", result["properties"])
         self.assertIn("set_dhcp", result["properties"])
         self.assertIn("retain_user_credentials", result["properties"])
@@ -462,6 +517,7 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
         self.assertEqual(
             "boolean", result["properties"]["retain_user_credentials"]["type"]
         )
+        self.assertNotIn("cloudbase_init_plugins", schema["properties"])
         self.assertNotIn("data_transfer_mechanism", schema["properties"])
         self.assertNotIn("set_dhcp", schema["properties"])
         self.assertNotIn("retain_user_credentials", schema["properties"])
@@ -479,6 +535,7 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
         result = provider_conf.inject_core_target_environment_schema(schema)
         self.assertEqual("string", result["properties"]["set_dhcp"]["type"])
         self.assertEqual("provider", result["properties"]["set_dhcp"]["title"])
+        self.assertIn("cloudbase_init_plugins", result["properties"])
         self.assertEqual("string", schema["properties"]["set_dhcp"]["type"])
 
     def test_inject_core_target_environment_schema_oneof(self):
@@ -490,6 +547,7 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
         }
         result = provider_conf.inject_core_target_environment_schema(schema)
         for alt in result["oneOf"]:
+            self.assertIn("cloudbase_init_plugins", alt["properties"])
             self.assertIn("data_transfer_mechanism", alt["properties"])
             self.assertIn("set_dhcp", alt["properties"])
             self.assertIn("retain_user_credentials", alt["properties"])
@@ -504,6 +562,7 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
         options = [{"name": "zone", "values": []}]
         result = provider_conf.merge_core_destination_options(options)
         names = [opt["name"] for opt in result]
+        self.assertIn("cloudbase_init_plugins", names)
         self.assertIn("data_transfer_mechanism", names)
         self.assertIn("set_dhcp", names)
         self.assertIn("retain_user_credentials", names)
@@ -554,6 +613,7 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
         options = [{"name": "zone", "values": []}]
         result = provider_conf.merge_core_destination_options(options, option_names={})
         names = [opt["name"] for opt in result]
+        self.assertIn("cloudbase_init_plugins", names)
         self.assertIn("data_transfer_mechanism", names)
         self.assertIn("set_dhcp", names)
         self.assertIn("retain_user_credentials", names)
@@ -572,6 +632,7 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
         result = provider_conf.filter_core_option_names(
             [
                 "zone",
+                "cloudbase_init_plugins",
                 "data_transfer_mechanism",
                 "set_dhcp",
                 "retain_user_credentials",
@@ -592,6 +653,16 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
         self.assertEqual("data_transfer_mechanism", result["name"])
         self.assertEqual(["SSH", "HTTPS"], result["values"])
         self.assertEqual("HTTPS", result["config_default"])
+
+    def test_get_cloudbase_init_plugins_destination_option(self):
+        result = provider_conf.CORE_DESTINATION_OPTIONS["cloudbase_init_plugins"]
+        self.assertEqual("cloudbase_init_plugins", result["name"])
+        self.assertTrue(result["values"])
+        self.assertIn("id", result["values"][0])
+        self.assertIn("name", result["values"][0])
+        self.assertEqual(
+            [item["id"] for item in result["values"]], result["config_default"]
+        )
 
     def test_apply_core_destination_overrides_set_dhcp(self):
         osmorphing_info = {

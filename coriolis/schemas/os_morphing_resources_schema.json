@@ -59,6 +59,13 @@
               "type": "boolean",
               "default": false,
               "description": "Prevents the destination cloud provisioning from resetting the pre-existing credentials. When disabled, the destination platform may also create a provisioned cloud guest user."
+            },
+            "cloudbase_init_plugins": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Custom Cloudbase-Init plugin class names for Windows guests. This overrides the destination provider's list of cloudbase-init plugins that get enabled after migrating Windows guests."
             }
           }
         }
