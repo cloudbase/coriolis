@@ -950,8 +950,11 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
         """Installs the drivers located at the given paths into the offline
         Windows image via DISM.
 
-        Temporarily grants permissions on the DriverStore FileRepository
+        Attempts to grant permissions on the DriverStore FileRepository
         (required on Nano Server) for the duration of the installation.
+        A failure to grant permissions is logged and ignored, since driver
+        installation usually succeeds without the extra permissions.
+        Permissions are revoked only when the grant succeeded.
         Paths which do not exist are skipped with a warning.
         """
         sid = self._get_sid()
@@ -959,7 +962,16 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
         file_repo_path = (
             "%sWindows\\System32\\DriverStore\\FileRepository" % self._os_root_dir
         )
-        self._grant_permissions(file_repo_path, "*%s" % sid)
+        user = "*%s" % sid
+        permissions_granted = False
+        try:
+            self._grant_permissions(file_repo_path, user)
+            permissions_granted = True
+        except Exception as err:
+            LOG.warning(
+                f"Failed to grant permissions on '{file_repo_path}' for "
+                f"'{user}'. Continuing with driver installation: {err}"
+            )
         try:
             for driver_path in driver_paths:
                 if self._conn.test_path(driver_path):
@@ -969,7 +981,8 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
                         "Could not locate driver dir '%s', skipping.", driver_path
                     )
         finally:
-            self._revoke_permissions(file_repo_path, "*%s" % sid)
+            if permissions_granted:
+                self._revoke_permissions(file_repo_path, user)
 
     def _setup_qemu_agent_installation_local_script(
         self, msi_source_path=None, msi_url=None, qemu_ga_source_dir=None
