@@ -2085,6 +2085,50 @@ class BaseLinuxOSMorphingToolsTestBase(test_base.CoriolisBaseTestCase):
                 "eth0": "ff:aa:11:22:33:44",
             },
         ),
+        # An ifcfg IP alias is listed before the parent and its address is on
+        # the source NIC. The alias name must be ignored; the parent is used.
+        (
+            [
+                {
+                    "name": "Network adapter 1",
+                    "mac_address": "00:50:56:8e:74:51",
+                    "ip_addresses": ["10.203.180.156", "10.203.181.192"],
+                },
+            ],
+            {
+                "ens192:SAB": {
+                    "mac_address": None,
+                    "ip_addresses": ["10.203.181.192"],
+                },
+                "ens192": {
+                    "mac_address": "00:50:56:8e:74:51",
+                    "ip_addresses": ["10.203.180.156"],
+                },
+            },
+            {"ens192": "00:50:56:8e:74:51"},
+        ),
+        # Same layout when the guest ifcfg files have no HWADDR. The IP match
+        # must still select the name without ':'.
+        (
+            [
+                {
+                    "name": "Network adapter 1",
+                    "mac_address": "00:50:56:8e:74:51",
+                    "ip_addresses": ["10.203.180.156", "10.203.181.192"],
+                },
+            ],
+            {
+                "ens192:SAB": {
+                    "mac_address": None,
+                    "ip_addresses": ["10.203.181.192"],
+                },
+                "ens192": {
+                    "mac_address": None,
+                    "ip_addresses": ["10.203.180.156"],
+                },
+            },
+            {"ens192": "00:50:56:8e:74:51"},
+        ),
     )
     @ddt.unpack
     def test__setup_network_preservation(
