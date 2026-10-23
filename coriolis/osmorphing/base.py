@@ -1149,6 +1149,14 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
                     break
                 if ip_addresses and nic_ips:
                     if set(ip_addresses) & set(nic_ips):
+                        # A ':' in the name marks an address label on the parent
+                        # device. udev can only rename the parent.
+                        if ":" in iface:
+                            LOG.info(
+                                "Skipping IP alias interface '%s' for the udev rule.",
+                                iface,
+                            )
+                            continue
                         LOG.info(
                             "Found matching interface for NIC '%s' "
                             "with new MAC '%s', identified by IP.",
