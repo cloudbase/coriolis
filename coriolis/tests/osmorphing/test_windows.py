@@ -1402,6 +1402,29 @@ class BaseWindowsMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         # Permissions must be revoked even if driver installation fails:
         mock_revoke_permissions.assert_called_once_with(exp_repo_path, f"*{null_sid}")
 
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_get_sid")
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_grant_permissions")
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_add_dism_driver")
+    @mock.patch.object(windows.BaseWindowsMorphingTools, "_revoke_permissions")
+    def test_install_dism_drivers_ignores_grant_failure(
+        self,
+        mock_revoke_permissions,
+        mock_add_dism_driver,
+        mock_grant_permissions,
+        mock_get_sid,
+    ):
+        null_sid = "S-1-0-0"
+        mock_get_sid.return_value = null_sid
+        mock_grant_permissions.side_effect = IOError("access denied")
+        self.conn.test_path.return_value = True
+
+        self.morphing_tools._install_dism_drivers(["e:\\NetKVM"])
+
+        exp_repo_path = "C:\\Windows\\System32\\DriverStore\\FileRepository"
+        mock_grant_permissions.assert_called_once_with(exp_repo_path, f"*{null_sid}")
+        mock_add_dism_driver.assert_called_once_with("e:\\NetKVM")
+        mock_revoke_permissions.assert_not_called()
+
     @mock.patch.object(windows.BaseWindowsMorphingTools, "register_firstboot_script")
     def test_setup_qemu_agent_installation_local_script_from_url(
         self, mock_register_firstboot_script
