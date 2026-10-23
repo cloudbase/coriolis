@@ -1384,3 +1384,259 @@ class BaseTransferActionDBAPITestCase(BaseDBAPITestCase):
             self.context, self.user_transfer.id, include_task_info=True
         )
         self.assertEqual(result.info, self.user_transfer.info)
+
+
+class ProgressUpdateDBAPITestCase(BaseDBAPITestCase):
+    """Progress updates must not move current_step backwards."""
+
+    def _task_id(self):
+        return self.valid_data['user_scope']['task'].id
+
+    def _reload(self, model, row_id):
+        self.session.expire_all()
+        return self.session.query(model).filter_by(id=row_id).one()
+
+    def _add_task_progress(self, initial_step=0, total_steps=10, message="start"):
+        row = api.add_task_progress_update(
+            self.context,
+            self._task_id(),
+            message,
+            initial_step=initial_step,
+            total_steps=total_steps,
+        )
+        self.session.flush()
+        return row
+
+    def _add_pool_progress(self, initial_step=0, total_steps=10, message="start"):
+        endpoint = self.valid_data['user_scope']['source_endpoint']
+        pool = models.MinionPool()
+        pool.id = str(uuid.uuid4())
+        pool.user_id = DEFAULT_USER_ID
+        pool.project_id = DEFAULT_PROJECT_ID
+        pool.name = "progress-pool-%s" % pool.id
+        pool.endpoint_id = endpoint.id
+        pool.os_type = "linux"
+        pool.platform = "openstack"
+        pool.minimum_minions = 1
+        pool.maximum_minions = 1
+        pool.minion_max_idle_time = 60
+        pool.minion_retention_strategy = (
+            constants.MINION_POOL_MACHINE_RETENTION_STRATEGY_DELETE
+        )
+        pool.status = constants.MINION_POOL_STATUS_ALLOCATED
+        self.session.add(pool)
+        self.session.flush()
+        row = api.add_minion_pool_progress_update(
+            self.context,
+            pool.id,
+            message,
+            initial_step=initial_step,
+            total_steps=total_steps,
+        )
+        self.session.flush()
+        return pool, row
+
+    def _set_step_without_refreshing_session(self, model, row, current_step, message):
+        """Write a newer step the way a concurrent transaction would.
+
+        ``synchronize_session=False`` leaves the already-loaded ORM object
+        on its previous ``current_step``, which is the stale read the
+        compare-and-update has to tolerate.
+        """
+        self.session.query(model).filter_by(id=row.id).update(
+            {"current_step": current_step, "message": message},
+            synchronize_session=False,
+        )
+
+    def test_update_task_progress_update_advances_step(self):
+        row = self._add_task_progress(initial_step=2, message="copying")
+
+        api.update_task_progress_update(
+            self.context,
+            self._task_id(),
+            row.index,
+            8,
+            new_total_steps=20,
+            new_message="almost done",
+        )
+
+        stored = self._reload(models.TaskProgressUpdate, row.id)
+        self.assertEqual(stored.current_step, 8)
+        self.assertEqual(stored.total_steps, 20)
+        self.assertEqual(stored.message, "almost done")
+
+    def test_update_task_progress_update_same_step_updates_message(self):
+        row = self._add_task_progress(initial_step=4, total_steps=10, message="copying")
+
+        api.update_task_progress_update(
+            self.context,
+            self._task_id(),
+            row.index,
+            4,
+            new_total_steps=12,
+            new_message="still copying",
+        )
+
+        stored = self._reload(models.TaskProgressUpdate, row.id)
+        self.assertEqual(stored.current_step, 4)
+        self.assertEqual(stored.total_steps, 12)
+        self.assertEqual(stored.message, "still copying")
+
+    def test_update_task_progress_update_ignores_older_step(self):
+        row = self._add_task_progress(initial_step=4, total_steps=10, message="copying")
+
+        result = api.update_task_progress_update(
+            self.context,
+            self._task_id(),
+            row.index,
+            3,
+            new_total_steps=99,
+            new_message="stale",
+        )
+
+        self.assertIsNone(result)
+        stored = self._reload(models.TaskProgressUpdate, row.id)
+        self.assertEqual(stored.current_step, 4)
+        self.assertEqual(stored.total_steps, 10)
+        self.assertEqual(stored.message, "copying")
+
+    def test_update_task_progress_update_stale_read_cannot_rewind(self):
+        row = self._add_task_progress(initial_step=2, total_steps=10, message="copying")
+        self._set_step_without_refreshing_session(
+            models.TaskProgressUpdate, row, 9, "later"
+        )
+        self.assertEqual(row.current_step, 2)
+
+        api.update_task_progress_update(
+            self.context,
+            self._task_id(),
+            row.index,
+            4,
+            new_total_steps=99,
+            new_message="stale",
+        )
+
+        stored = self._reload(models.TaskProgressUpdate, row.id)
+        self.assertEqual(stored.current_step, 9)
+        self.assertEqual(stored.total_steps, 10)
+        self.assertEqual(stored.message, "later")
+
+    def test_update_task_progress_update_stale_read_still_advances(self):
+        row = self._add_task_progress(initial_step=2, total_steps=10, message="copying")
+        self._set_step_without_refreshing_session(
+            models.TaskProgressUpdate, row, 5, "midway"
+        )
+        self.assertEqual(row.current_step, 2)
+
+        api.update_task_progress_update(
+            self.context,
+            self._task_id(),
+            row.index,
+            8,
+            new_message="almost done",
+        )
+
+        stored = self._reload(models.TaskProgressUpdate, row.id)
+        self.assertEqual(stored.current_step, 8)
+        self.assertEqual(stored.message, "almost done")
+
+    def test_update_task_progress_update_not_found(self):
+        self.assertRaises(
+            exception.NotFound,
+            api.update_task_progress_update,
+            self.context,
+            self._task_id(),
+            99999,
+            1,
+        )
+
+    def test_update_task_progress_update_truncates_message(self):
+        row = self._add_task_progress(initial_step=1, message="start")
+        message = "x" * (models.MAX_EVENT_MESSAGE_LENGHT + 50)
+        expected = "x" * (models.MAX_EVENT_MESSAGE_LENGHT - len("...")) + "..."
+
+        api.update_task_progress_update(
+            self.context,
+            self._task_id(),
+            row.index,
+            2,
+            new_message=message,
+        )
+
+        stored = self._reload(models.TaskProgressUpdate, row.id)
+        self.assertEqual(stored.message, expected)
+        self.assertEqual(stored.current_step, 2)
+
+    def test_update_minion_pool_progress_update_advances_step(self):
+        pool, row = self._add_pool_progress(initial_step=2, message="allocating")
+
+        result = api.update_minion_pool_progress_update(
+            self.context,
+            pool.id,
+            row.index,
+            6,
+            new_total_steps=8,
+            new_message="booting",
+        )
+
+        self.assertEqual(result.current_step, 6)
+        self.assertEqual(result.message, "booting")
+        stored = self._reload(models.MinionPoolProgressUpdate, row.id)
+        self.assertEqual(stored.current_step, 6)
+        self.assertEqual(stored.total_steps, 8)
+        self.assertEqual(stored.message, "booting")
+
+    def test_update_minion_pool_progress_update_ignores_older_step(self):
+        pool, row = self._add_pool_progress(
+            initial_step=6, total_steps=8, message="booting"
+        )
+
+        result = api.update_minion_pool_progress_update(
+            self.context,
+            pool.id,
+            row.index,
+            3,
+            new_total_steps=99,
+            new_message="stale",
+        )
+
+        self.assertEqual(result.current_step, 6)
+        self.assertEqual(result.message, "booting")
+        stored = self._reload(models.MinionPoolProgressUpdate, row.id)
+        self.assertEqual(stored.current_step, 6)
+        self.assertEqual(stored.total_steps, 8)
+        self.assertEqual(stored.message, "booting")
+
+    def test_update_minion_pool_progress_update_stale_read_cannot_rewind(self):
+        pool, row = self._add_pool_progress(
+            initial_step=2, total_steps=8, message="allocating"
+        )
+        self._set_step_without_refreshing_session(
+            models.MinionPoolProgressUpdate, row, 7, "later"
+        )
+        self.assertEqual(row.current_step, 2)
+
+        result = api.update_minion_pool_progress_update(
+            self.context,
+            pool.id,
+            row.index,
+            4,
+            new_message="stale",
+        )
+
+        self.assertEqual(result.current_step, 7)
+        self.assertEqual(result.message, "later")
+        stored = self._reload(models.MinionPoolProgressUpdate, row.id)
+        self.assertEqual(stored.current_step, 7)
+        self.assertEqual(stored.message, "later")
+
+    def test_update_minion_pool_progress_update_not_found(self):
+        pool, _row = self._add_pool_progress()
+        self.assertRaises(
+            exception.NotFound,
+            api.update_minion_pool_progress_update,
+            self.context,
+            pool.id,
+            99999,
+            1,
+        )
