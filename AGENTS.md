@@ -24,6 +24,8 @@ Users configure source/destination **endpoints** (credentials) and
 - Use `.tox/py3/bin/` (`stestr`, `ruff`); it has project deps. Ignore
   `.mypy_cache`, `.ruff_cache`, `.tox`.
 - Follow ruff (`tox.ini`, `ruff.toml`).
+- Prefer f-strings over `%` formatting and `str.format` in new or
+  touched code.
 - Public methods need docstrings (subclasses may inherit). Use type
   hints when the type is known.
 - Do not add helpers for trivial checks such as
