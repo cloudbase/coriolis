@@ -9,7 +9,7 @@ DEPLOYMENTS_POLICY_PREFIX = "%s:deployments" % base.CORIOLIS_POLICIES_PREFIX
 DEPLOYMENTS_POLICY_DEFAULT_RULE = "rule:admin_or_owner"
 
 
-def get_deployments_policy_label(rule_label):
+def get_deployments_policy_label(rule_label: str) -> str:
     return "%s:%s" % (DEPLOYMENTS_POLICY_PREFIX, rule_label)
 
 
@@ -49,5 +49,5 @@ DEPLOYMENTS_POLICY_DEFAULT_RULES = [
 ]
 
 
-def list_rules():
+def list_rules() -> list[policy.DocumentedRuleDefault]:
     return DEPLOYMENTS_POLICY_DEFAULT_RULES

@@ -6,5 +6,5 @@ def single(diag):
     return {"diagnostic": diag}
 
 
-def collection(diag):
+def collection(diag: list[dict]) -> dict[str, list]:
     return {'diagnostics': diag}

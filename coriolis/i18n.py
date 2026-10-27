@@ -42,7 +42,7 @@ def enable_lazy(enable=True):
     return i18n.enable_lazy(enable)
 
 
-def translate(value, user_locale=None):
+def translate(value: str, user_locale=None) -> str:
     return i18n.translate(value, user_locale)
 
 

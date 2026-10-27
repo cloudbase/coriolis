@@ -1,6 +1,8 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from typing import NoReturn
+
 from webob import exc
 
 from coriolis import constants, exception
@@ -16,7 +18,7 @@ class TransferTasksExecutionController(api_wsgi.Controller):
         self._transfer_tasks_execution_api = api.API()
         super(TransferTasksExecutionController, self).__init__()
 
-    def show(self, req, transfer_id, id):
+    def show(self, req: api_wsgi.Request, transfer_id: str, id: str) -> dict[str, dict]:
         context = req.environ["coriolis.context"]
         context.can(executions_policies.get_transfer_executions_policy_label("show"))
         execution = self._transfer_tasks_execution_api.get_execution(
@@ -27,7 +29,7 @@ class TransferTasksExecutionController(api_wsgi.Controller):
 
         return transfer_tasks_execution_view.single(execution)
 
-    def _get_filters(self, req) -> dict:
+    def _get_filters(self, req: api_wsgi.Request) -> dict:
         filters = {}
         status = req.GET.get("status")
         if status is not None:
@@ -38,7 +40,7 @@ class TransferTasksExecutionController(api_wsgi.Controller):
             filters["status"] = status
         return filters
 
-    def index(self, req, transfer_id):
+    def index(self, req: api_wsgi.Request, transfer_id: str) -> dict:
         context = req.environ["coriolis.context"]
         context.can(executions_policies.get_transfer_executions_policy_label("list"))
 
@@ -69,7 +71,9 @@ class TransferTasksExecutionController(api_wsgi.Controller):
             )
         )
 
-    def create(self, req, transfer_id, body):
+    def create(
+        self, req: api_wsgi.Request, transfer_id: str, body: dict[str, dict]
+    ) -> dict[str, dict]:
         context = req.environ["coriolis.context"]
         context.can(executions_policies.get_transfer_executions_policy_label("create"))
 
@@ -85,7 +89,7 @@ class TransferTasksExecutionController(api_wsgi.Controller):
             )
         )
 
-    def delete(self, req, transfer_id, id):
+    def delete(self, req: api_wsgi.Request, transfer_id: str, id: str) -> NoReturn:
         context = req.environ["coriolis.context"]
         context.can(executions_policies.get_transfer_executions_policy_label("delete"))
 
@@ -96,5 +100,5 @@ class TransferTasksExecutionController(api_wsgi.Controller):
             raise exc.HTTPNotFound(explanation=ex.msg)
 
 
-def create_resource():
+def create_resource() -> api_wsgi.Resource:
     return api_wsgi.Resource(TransferTasksExecutionController())

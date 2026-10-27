@@ -9,7 +9,7 @@ TRANSFERS_POLICY_PREFIX = "%s:transfers" % base.CORIOLIS_POLICIES_PREFIX
 TRANSFERS_POLICY_DEFAULT_RULE = "rule:admin_or_owner"
 
 
-def get_transfers_policy_label(rule_label):
+def get_transfers_policy_label(rule_label: str) -> str:
     return "%s:%s" % (TRANSFERS_POLICY_PREFIX, rule_label)
 
 
@@ -55,5 +55,5 @@ TRANSFERS_POLICY_DEFAULT_RULES = [
 ]
 
 
-def list_rules():
+def list_rules() -> list[policy.DocumentedRuleDefault]:
     return TRANSFERS_POLICY_DEFAULT_RULES

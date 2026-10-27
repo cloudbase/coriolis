@@ -16,7 +16,9 @@ class MinionPoolActionsController(api_wsgi.Controller):
         super(MinionPoolActionsController, self).__init__()
 
     @api_wsgi.action('allocate')
-    def _allocate_pool(self, req, id, body):
+    def _allocate_pool(
+        self, req: api_wsgi.Request, id: str, body: dict[str, None]
+    ) -> dict[str, dict]:
         context = req.environ['coriolis.context']
         context.can(minion_pool_policies.get_minion_pools_policy_label("allocate"))
         try:
@@ -29,7 +31,9 @@ class MinionPoolActionsController(api_wsgi.Controller):
             raise exc.HTTPNotFound(explanation=ex.msg)
 
     @api_wsgi.action('refresh')
-    def _refresh_pool(self, req, id, body):
+    def _refresh_pool(
+        self, req: api_wsgi.Request, id: str, body: dict[str, None]
+    ) -> dict[str, dict]:
         context = req.environ['coriolis.context']
         context.can(minion_pool_policies.get_minion_pools_policy_label("refresh"))
         try:
@@ -42,7 +46,9 @@ class MinionPoolActionsController(api_wsgi.Controller):
             raise exc.HTTPNotFound(explanation=ex.msg)
 
     @api_wsgi.action('deallocate')
-    def _deallocate_pool(self, req, id, body):
+    def _deallocate_pool(
+        self, req: api_wsgi.Request, id: str, body: dict[str, dict]
+    ) -> dict[str, dict]:
         context = req.environ['coriolis.context']
         context.can(minion_pool_policies.get_minion_pools_policy_label("deallocate"))
         force = (body["deallocate"] or {}).get("force", False)
@@ -56,5 +62,5 @@ class MinionPoolActionsController(api_wsgi.Controller):
             raise exc.HTTPNotFound(explanation=ex.msg)
 
 
-def create_resource():
+def create_resource() -> api_wsgi.Resource:
     return api_wsgi.Resource(MinionPoolActionsController())

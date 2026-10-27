@@ -10,7 +10,7 @@ MINION_POOLS_POLICY_PREFIX = "%s:minion_pools" % base.CORIOLIS_POLICIES_PREFIX
 MINION_POOLS_DEFAULT_RULE = "rule:admin_or_owner"
 
 
-def get_minion_pools_policy_label(rule_label):
+def get_minion_pools_policy_label(rule_label: str) -> str:
     return "%s:%s" % (MINION_POOLS_POLICY_PREFIX, rule_label)
 
 
@@ -66,5 +66,5 @@ MINION_POOLS_DEFAULT_RULES = [
 ]
 
 
-def list_rules():
+def list_rules() -> list[policy.DocumentedRuleDefault]:
     return MINION_POOLS_DEFAULT_RULES

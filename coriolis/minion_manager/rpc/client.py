@@ -1,6 +1,8 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from typing import Any
+
 import oslo_messaging as messaging
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -77,15 +79,23 @@ class MinionManagerClient(rpc.BaseRPCClient):
             message=message,
         )
 
-    def get_diagnostics(self, ctxt):
+    def get_diagnostics(self, ctxt) -> dict:
         return self._call(ctxt, 'get_diagnostics')
 
-    def validate_minion_pool_selections_for_action(self, ctxt, action):
+    def validate_minion_pool_selections_for_action(
+        self,
+        ctxt,
+        action,
+    ) -> None:
         return self._call(
             ctxt, 'validate_minion_pool_selections_for_action', action=action
         )
 
-    def allocate_minion_machines_for_transfer(self, ctxt, transfer):
+    def allocate_minion_machines_for_transfer(
+        self,
+        ctxt,
+        transfer,
+    ) -> None:
         return self._cast(
             ctxt, 'allocate_minion_machines_for_transfer', transfer=transfer
         )
@@ -94,9 +104,9 @@ class MinionManagerClient(rpc.BaseRPCClient):
         self,
         ctxt,
         deployment,
-        include_transfer_minions=True,
-        include_osmorphing_minions=True,
-    ):
+        include_transfer_minions: bool = True,
+        include_osmorphing_minions: bool = True,
+    ) -> None:
         return self._cast(
             ctxt,
             'allocate_minion_machines_for_deployment',
@@ -105,12 +115,12 @@ class MinionManagerClient(rpc.BaseRPCClient):
             include_osmorphing_minions=include_osmorphing_minions,
         )
 
-    def deallocate_minion_machine(self, ctxt, minion_machine_id):
+    def deallocate_minion_machine(self, ctxt, minion_machine_id: str) -> None:
         return self._cast(
             ctxt, 'deallocate_minion_machine', minion_machine_id=minion_machine_id
         )
 
-    def deallocate_minion_machines_for_action(self, ctxt, action_id):
+    def deallocate_minion_machines_for_action(self, ctxt, action_id: str) -> None:
         return self._cast(
             ctxt, 'deallocate_minion_machines_for_action', action_id=action_id
         )
@@ -118,17 +128,17 @@ class MinionManagerClient(rpc.BaseRPCClient):
     def create_minion_pool(
         self,
         ctxt,
-        name,
-        endpoint_id,
-        pool_platform,
-        pool_os_type,
-        environment_options,
-        minimum_minions,
-        maximum_minions,
-        minion_max_idle_time,
-        minion_retention_strategy,
+        name: str,
+        endpoint_id: str,
+        pool_platform: str,
+        pool_os_type: str,
+        environment_options: dict[Any, Any],
+        minimum_minions: int,
+        maximum_minions: int,
+        minion_max_idle_time: int,
+        minion_retention_strategy: str,
         notes=None,
-        skip_allocation=False,
+        skip_allocation: bool = False,
     ):
         return self._call(
             ctxt,
@@ -146,24 +156,34 @@ class MinionManagerClient(rpc.BaseRPCClient):
             skip_allocation=skip_allocation,
         )
 
-    def allocate_minion_pool(self, ctxt, minion_pool_id):
+    def allocate_minion_pool(self, ctxt, minion_pool_id: str):
         return self._call(ctxt, "allocate_minion_pool", minion_pool_id=minion_pool_id)
 
-    def refresh_minion_pool(self, ctxt, minion_pool_id):
+    def refresh_minion_pool(self, ctxt, minion_pool_id: str):
         return self._call(ctxt, "refresh_minion_pool", minion_pool_id=minion_pool_id)
 
-    def deallocate_minion_pool(self, ctxt, minion_pool_id, force=False):
+    def deallocate_minion_pool(
+        self,
+        ctxt,
+        minion_pool_id: str,
+        force: bool = False,
+    ):
         return self._call(
             ctxt, "deallocate_minion_pool", minion_pool_id=minion_pool_id, force=force
         )
 
-    def get_minion_pools(self, ctxt):
+    def get_minion_pools(self, ctxt) -> list:
         return self._call(ctxt, 'get_minion_pools')
 
-    def get_minion_pool(self, ctxt, minion_pool_id):
+    def get_minion_pool(self, ctxt, minion_pool_id: str):
         return self._call(ctxt, 'get_minion_pool', minion_pool_id=minion_pool_id)
 
-    def update_minion_pool(self, ctxt, minion_pool_id, updated_values):
+    def update_minion_pool(
+        self,
+        ctxt,
+        minion_pool_id: str,
+        updated_values: dict,
+    ):
         return self._call(
             ctxt,
             'update_minion_pool',
@@ -171,12 +191,16 @@ class MinionManagerClient(rpc.BaseRPCClient):
             updated_values=updated_values,
         )
 
-    def delete_minion_pool(self, ctxt, minion_pool_id):
+    def delete_minion_pool(self, ctxt, minion_pool_id: str) -> None:
         return self._call(ctxt, 'delete_minion_pool', minion_pool_id=minion_pool_id)
 
     def get_endpoint_source_minion_pool_options(
-        self, ctxt, endpoint_id, env, option_names
-    ):
+        self,
+        ctxt,
+        endpoint_id: str,
+        env: dict[Any, Any],
+        option_names: dict[Any, Any],
+    ) -> list[dict]:
         return self._call(
             ctxt,
             'get_endpoint_source_minion_pool_options',
@@ -186,8 +210,12 @@ class MinionManagerClient(rpc.BaseRPCClient):
         )
 
     def get_endpoint_destination_minion_pool_options(
-        self, ctxt, endpoint_id, env, option_names
-    ):
+        self,
+        ctxt,
+        endpoint_id: str,
+        env: dict[Any, Any],
+        option_names: dict[Any, Any],
+    ) -> list[dict]:
         return self._call(
             ctxt,
             'get_endpoint_destination_minion_pool_options',
@@ -197,8 +225,11 @@ class MinionManagerClient(rpc.BaseRPCClient):
         )
 
     def validate_endpoint_source_minion_pool_options(
-        self, ctxt, endpoint_id, pool_environment
-    ):
+        self,
+        ctxt,
+        endpoint_id: str,
+        pool_environment: dict[Any, Any],
+    ) -> tuple[bool, None]:
         return self._call(
             ctxt,
             'validate_endpoint_source_minion_pool_options',
@@ -207,8 +238,11 @@ class MinionManagerClient(rpc.BaseRPCClient):
         )
 
     def validate_endpoint_destination_minion_pool_options(
-        self, ctxt, endpoint_id, pool_environment
-    ):
+        self,
+        ctxt,
+        endpoint_id: str,
+        pool_environment: dict[Any, Any],
+    ) -> tuple[bool, None]:
         return self._call(
             ctxt,
             'validate_endpoint_destination_minion_pool_options',
@@ -218,7 +252,7 @@ class MinionManagerClient(rpc.BaseRPCClient):
 
 
 class MinionManagerPoolRpcEventHandler(events.BaseEventHandler):
-    def __init__(self, ctxt, pool_id):
+    def __init__(self, ctxt, pool_id: str):
         self._ctxt = ctxt
         self._pool_id = pool_id
         self._rpc_minion_manager_client_instance = None

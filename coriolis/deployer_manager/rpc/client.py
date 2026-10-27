@@ -27,7 +27,13 @@ class DeployerManagerClient(rpc.BaseRPCClient):
             timeout = CONF.deployer_manager.deployer_manager_rpc_timeout
         super(DeployerManagerClient, self).__init__(target, timeout=timeout)
 
-    def execute_auto_deployment(self, ctxt, transfer_id, deployer_id, **kwargs):
+    def execute_auto_deployment(
+        self,
+        ctxt,
+        transfer_id: str,
+        deployer_id: str,
+        **kwargs,
+    ) -> None:
         self._cast(
             ctxt,
             'execute_auto_deployment',

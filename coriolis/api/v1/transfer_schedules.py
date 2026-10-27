@@ -1,6 +1,8 @@
 # Copyright 2017 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from typing import NoReturn
+
 import jsonschema
 from oslo_log import log as logging
 from oslo_utils import strutils, timeutils
@@ -20,7 +22,7 @@ class TransferScheduleController(api_wsgi.Controller):
         self._schedule_api = api.API()
         super(TransferScheduleController, self).__init__()
 
-    def show(self, req, transfer_id, id):
+    def show(self, req: api_wsgi.Request, transfer_id: str, id: str) -> dict[str, dict]:
         context = req.environ["coriolis.context"]
         context.can(schedules_policies.get_transfer_schedules_policy_label("show"))
         schedule = self._schedule_api.get_schedule(context, transfer_id, id)
@@ -29,7 +31,7 @@ class TransferScheduleController(api_wsgi.Controller):
 
         return transfer_schedule_view.single(schedule)
 
-    def index(self, req, transfer_id):
+    def index(self, req: api_wsgi.Request, transfer_id: str) -> dict[str, list]:
         context = req.environ["coriolis.context"]
         context.can(schedules_policies.get_transfer_schedules_policy_label("list"))
 
@@ -40,7 +42,7 @@ class TransferScheduleController(api_wsgi.Controller):
             self._schedule_api.get_schedules(context, transfer_id, expired=show_expired)
         )
 
-    def _validate_schedule(self, schedule):
+    def _validate_schedule(self, schedule: dict[str, int]) -> dict[str, int]:
         schema = schemas.SCHEDULE_API_BODY_SCHEMA["properties"]["schedule"]
         schemas.validate_value(schedule, schema)
         return schedule
@@ -54,7 +56,7 @@ class TransferScheduleController(api_wsgi.Controller):
             raise exception.InvalidInput("expiration_date is in the past")
         return exp
 
-    def _validate_create_body(self, body):
+    def _validate_create_body(self, body: dict) -> tuple[dict, bool, None, bool, bool]:
         schedule = body.get("schedule")
         if schedule is None:
             raise exception.InvalidInput("schedule is required")
@@ -73,7 +75,7 @@ class TransferScheduleController(api_wsgi.Controller):
         auto_deploy = body.get('auto_deploy', False)
         return schedule, enabled, exp, shutdown, auto_deploy
 
-    def _validate_update_body(self, update_body):
+    def _validate_update_body(self, update_body: dict) -> dict:
         body = {}
         schedule = update_body.get("schedule")
         if schedule is not None:
@@ -100,7 +102,9 @@ class TransferScheduleController(api_wsgi.Controller):
             body["expiration_date"] = exp
         return body
 
-    def create(self, req, transfer_id, body):
+    def create(
+        self, req: api_wsgi.Request, transfer_id: str, body: dict
+    ) -> dict[str, dict]:
         context = req.environ["coriolis.context"]
         context.can(schedules_policies.get_transfer_schedules_policy_label("create"))
 
@@ -118,7 +122,9 @@ class TransferScheduleController(api_wsgi.Controller):
             )
         )
 
-    def update(self, req, transfer_id, id, body):
+    def update(
+        self, req: api_wsgi.Request, transfer_id: str, id: str, body: dict
+    ) -> dict[str, dict]:
         context = req.environ["coriolis.context"]
         context.can(schedules_policies.get_transfer_schedules_policy_label("update"))
 
@@ -133,7 +139,7 @@ class TransferScheduleController(api_wsgi.Controller):
             self._schedule_api.update(context, transfer_id, id, update_values)
         )
 
-    def delete(self, req, transfer_id, id):
+    def delete(self, req: api_wsgi.Request, transfer_id: str, id: str) -> NoReturn:
         context = req.environ["coriolis.context"]
         context.can(schedules_policies.get_transfer_schedules_policy_label("delete"))
 
@@ -141,5 +147,5 @@ class TransferScheduleController(api_wsgi.Controller):
         raise exc.HTTPNoContent()
 
 
-def create_resource():
+def create_resource() -> api_wsgi.Resource:
     return api_wsgi.Resource(TransferScheduleController())

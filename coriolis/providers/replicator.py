@@ -9,6 +9,7 @@ import socket
 import tempfile
 import threading
 import time
+from typing import Any
 
 import paramiko
 from oslo_config import cfg
@@ -52,13 +53,13 @@ class _SSHTunnel(object):
 
     def __init__(
         self,
-        ssh_host,
-        ssh_port,
-        ssh_username,
-        ssh_pkey,
+        ssh_host: str,
+        ssh_port: int,
+        ssh_username: str,
+        ssh_pkey: paramiko.RSAKey,
         ssh_password,
-        remote_bind_address,
-        local_bind_address=None,
+        remote_bind_address: tuple[str, int],
+        local_bind_address: tuple[str, int] = None,
     ):
         self._ssh_host = ssh_host
         self._ssh_port = ssh_port
@@ -71,7 +72,7 @@ class _SSHTunnel(object):
         self._listen_sock = None
         self.local_bind_address = None
 
-    def start(self):
+    def start(self) -> None:
         client = utils.connect_ssh(
             self._ssh_host,
             self._ssh_port,
@@ -104,7 +105,7 @@ class _SSHTunnel(object):
             t = threading.Thread(target=self._forward, args=(sock,), daemon=True)
             t.start()
 
-    def _forward(self, local_sock):
+    def _forward(self, local_sock) -> None:
         try:
             chan = self._transport.open_channel(
                 'direct-tcpip',
@@ -161,13 +162,13 @@ class _SSHTunnel(object):
 class Client(object):
     def __init__(
         self,
-        ip,
-        port,
-        credentials,
-        ssh_conn_info,
+        ip: str,
+        port: int,
+        credentials: dict[str, str],
+        ssh_conn_info: dict,
         event_handler,
-        use_compression=False,
-        use_tunnel=False,
+        use_compression: bool = False,
+        use_tunnel: bool = False,
     ):
         self._ip = ip
         self._use_tunnel = use_tunnel
@@ -183,29 +184,29 @@ class Client(object):
         self._test_connection()
 
     @property
-    def repl_host(self):
+    def repl_host(self) -> str:
         if self._ip_via_tunnel is not None:
             return self._ip_via_tunnel
         return self._ip
 
     @property
-    def repl_port(self):
+    def repl_port(self) -> int:
         if self._port_via_tunnel is not None:
             return self._port_via_tunnel
         return self._port
 
     @property
-    def _base_uri(self):
+    def _base_uri(self) -> str:
         return "https://%s:%s" % (self.repl_host, self.repl_port)
 
-    def _setup_tunnel_connection(self):
+    def _setup_tunnel_connection(self) -> None:
         self._tunnel = self._get_ssh_tunnel()
         self._tunnel.start()
         host, port = self._tunnel.local_bind_address
         self._ip_via_tunnel = host
         self._port_via_tunnel = port
 
-    def _test_connection(self):
+    def _test_connection(self) -> None:
         """
         Attempt to connect to the IP/port pair. If direct connection
         fails, set up a SSH tunnel and attempt a connection through that.
@@ -244,7 +245,7 @@ class Client(object):
             LOG.warning("failed to connect to replicator: %s" % err)
             raise
 
-    def _get_ssh_tunnel(self):
+    def _get_ssh_tunnel(self) -> _SSHTunnel:
         """
         gets a SSH tunnel object. Note, this does not start the tunnel,
         it simply creates the object, without actually connecting.
@@ -272,18 +273,20 @@ class Client(object):
         )
         return server
 
-    def raw_disk_uri(self, disk_name):
+    def raw_disk_uri(self, disk_name: str) -> str:
         diskUri = "%s/device/%s" % (self._base_uri, disk_name)
         return diskUri
 
-    def _get_session(self):
+    def _get_session(self) -> provider_utils.ProviderSession:
         sess = provider_utils.ProviderSession()
         sess.cert = (self._creds["client_cert"], self._creds["client_key"])
         sess.verify = self._creds["ca_cert"]
         return sess
 
     @utils.retry_on_error(sleep_seconds=5)
-    def get_status(self, device=None, brief=True):
+    def get_status(
+        self, device: dict | None = None, brief: bool = True
+    ) -> list | paramiko.SSHClient:
         uri = "%s/api/v1/dev" % (self._base_uri)
         if device is not None:
             uri = "%s/%s/" % (uri, device)
@@ -309,21 +312,21 @@ class Client(object):
         return chunks.json()
 
     @utils.retry_on_error()
-    def get_changes(self, device):
+    def get_changes(self, device: str) -> list[dict]:
         uri = "%s/api/v1/dev/%s/chunks/changes/" % (self._base_uri, device)
         chunks = self._cli.get(uri, timeout=CONF.replicator.default_requests_timeout)
         chunks.raise_for_status()
         return chunks.json()
 
     @utils.retry_on_error()
-    def get_disk_size(self, disk):
+    def get_disk_size(self, disk) -> int | paramiko.SSHClient | None:
         diskUri = self.raw_disk_uri(disk)
         info = self._cli.head(diskUri, timeout=CONF.replicator.default_requests_timeout)
         info.raise_for_status()
         return int(info.headers["Content-Length"])
 
     @utils.retry_on_error()
-    def get_disk_checksum(self, device):
+    def get_disk_checksum(self, device: str) -> dict[str, str]:
         """Returns the total checksum of the given disk.
 
         :raises HTTPError: with HTTP 409 status if checksumming has not
@@ -338,7 +341,7 @@ class Client(object):
         return resp.json()
 
     @utils.retry_on_error()
-    def download_chunk(self, disk, chunk):
+    def download_chunk(self, disk: str, chunk: dict) -> bytes:
         diskUri = self.raw_disk_uri(disk)
 
         offset = int(chunk["offset"])
@@ -360,18 +363,18 @@ class Client(object):
 class Replicator(object):
     def __init__(
         self,
-        conn_info,
+        conn_info: dict,
         event_manager,
-        volumes_info,
-        replica_state,
+        volumes_info: list,
+        replica_state: list | None,
         use_compression=None,
-        ignore_mounted=True,
-        hash_method=HASH_METHOD_SHA256,
-        watch_devices=True,
-        chunk_size=10485760,
-        use_tunnel=False,
-        disable_chunking=False,
-        _allow_loop_devices=False,
+        ignore_mounted: bool = True,
+        hash_method: str = HASH_METHOD_SHA256,
+        watch_devices: bool = True,
+        chunk_size: int = 10485760,
+        use_tunnel: bool = False,
+        disable_chunking: bool = False,
+        _allow_loop_devices: bool = False,
     ):
         self._event_manager = event_manager
         self._repl_state = replica_state
@@ -395,11 +398,11 @@ class Replicator(object):
         self._cli = None
         self._use_tunnel = use_tunnel
 
-    def __del__(self):
+    def __del__(self) -> None:
         if self._cert_dir is not None:
             utils.ignore_exceptions(shutil.rmtree)(self._cert_dir)
 
-    def _init_replicator_client(self, credentials):
+    def _init_replicator_client(self, credentials: dict[str, str]) -> None:
         """
         Helper function to create an instance of the replicator
         client.
@@ -416,19 +419,19 @@ class Replicator(object):
             use_tunnel=self._use_tunnel,
         )
 
-    def _setup_ssh(self):
+    def _setup_ssh(self) -> paramiko.SSHClient:
         args = self._parse_source_ssh_conn_info(self._conn_info)
         ssh = self._get_ssh_client(args)
         return ssh
 
-    def _reconnect_ssh(self):
+    def _reconnect_ssh(self) -> paramiko.SSHClient:
         if self._ssh:
             utils.ignore_exceptions(self._ssh.close)()
 
         self._ssh = self._setup_ssh()
         return self._ssh
 
-    def init_replicator(self):
+    def init_replicator(self) -> None:
         try:
             self._credentials = utils.retry_on_error(sleep_seconds=5)(
                 self._setup_replicator
@@ -604,7 +607,7 @@ class Replicator(object):
 
         return vol_info
 
-    def wait_for_chunks(self):
+    def wait_for_chunks(self) -> None:
         if self._cli is None:
             raise exception.CoriolisException(
                 "replicator not initialized. Run init_replicator()"
@@ -639,10 +642,10 @@ class Replicator(object):
     def stop(self):
         utils.stop_service(self._ssh, REPLICATOR_SVC_NAME)
 
-    def restart(self):
+    def restart(self) -> None:
         utils.restart_service(self._ssh, REPLICATOR_SVC_NAME)
 
-    def update_state(self, state, restart=False):
+    def update_state(self, state: list[Any], restart: bool = False) -> None:
         fd, state_file = tempfile.mkstemp()
         try:
             os.close(fd)
@@ -657,7 +660,7 @@ class Replicator(object):
             utils.ignore_exceptions(os.remove)(state_file)
 
     @utils.retry_on_error(sleep_seconds=5)
-    def _get_ssh_client(self, args):
+    def _get_ssh_client(self, args: dict) -> paramiko.SSHClient:
         """
         gets a paramiko SSH client
         """
@@ -670,7 +673,7 @@ class Replicator(object):
             banner_timeout=args.get("banner_timeout"),
         )
 
-    def _parse_source_ssh_conn_info(self, conn_info):
+    def _parse_source_ssh_conn_info(self, conn_info: dict) -> dict:
         # if we get valid SSH connection info we can
         # use it to copy the binary, and potentially
         # create a SSH tunnel through which we will
@@ -707,7 +710,7 @@ class Replicator(object):
         }
         return args
 
-    def _get_replicator_state_file(self):
+    def _get_replicator_state_file(self) -> str:
         """
         Looks for replicator state in volumes_info. If none
         is found, replicator will be initialized without it.
@@ -721,7 +724,7 @@ class Replicator(object):
             json.dump(state, fp)
         return filename
 
-    def _parse_replicator_conn_info(self, conn_info):
+    def _parse_replicator_conn_info(self, conn_info: dict) -> dict:
         # The IP should be the same one as the SSH IP.
         # Only the port will differ, and that is configurable.
         ip = conn_info.get("ip", None)
@@ -731,7 +734,9 @@ class Replicator(object):
         }
 
     @utils.retry_on_error()
-    def _copy_file(self, ssh, localPath, remotePath):
+    def _copy_file(
+        self, ssh, localPath, remotePath
+    ) -> bool | bytes | list | paramiko.SSHClient | None:
         tmp = tempfile.mktemp(dir="/tmp")
 
         sftp = paramiko.SFTPClient.from_transport(ssh.get_transport())
@@ -739,12 +744,14 @@ class Replicator(object):
         utils.exec_ssh_cmd(ssh, "sudo mv %s %s" % (tmp, remotePath), get_pty=False)
         sftp.close()
 
-    def _copy_replicator_cmd(self, ssh):
+    def _copy_replicator_cmd(self, ssh: paramiko.SSHClient) -> None:
         local_path = os.path.join(utils.get_resources_bin_dir(), 'replicator')
         self._copy_file(ssh, local_path, REPLICATOR_PATH)
         utils.exec_ssh_cmd(ssh, "sudo chmod +x %s" % REPLICATOR_PATH, get_pty=False)
 
-    def _setup_replicator_group(self, ssh, group_name=REPLICATOR_GROUP_NAME):
+    def _setup_replicator_group(
+        self, ssh: paramiko.SSHClient, group_name: str = REPLICATOR_GROUP_NAME
+    ) -> bool:
         """Sets up a group with the given name and adds the
         user we're connected as to it.
 
@@ -769,7 +776,7 @@ class Replicator(object):
 
         return int(group_exists) == 1
 
-    def _setup_replicator_user(self, ssh):
+    def _setup_replicator_user(self, ssh: paramiko.SSHClient) -> None:
         # check for and create replicator user:
         user_exists = utils.exec_ssh_cmd(
             ssh,
@@ -787,7 +794,9 @@ class Replicator(object):
                 ssh, "sudo usermod -aG disk %s" % REPLICATOR_USERNAME, get_pty=False
             )
 
-    def _exec_replicator(self, ssh, port, certs, state_file):
+    def _exec_replicator(
+        self, ssh: paramiko.SSHClient, port: int, certs: dict[str, str], state_file: str
+    ) -> None:
         cmdline = (
             "%(replicator_path)s run -hash-method=%(hash_method)s "
             "-ignore-mounted-disks=%(ignore_mounted)s "
@@ -818,14 +827,18 @@ class Replicator(object):
             ssh, cmdline, REPLICATOR_SVC_NAME, run_as=REPLICATOR_USERNAME, start=True
         )
 
-    def _fetch_remote_file(self, ssh, remote_file, local_file):
+    def _fetch_remote_file(
+        self, ssh: paramiko.SSHClient, remote_file: str, local_file: str
+    ) -> None:
         # TODO(gsamfira): make this re-usable
         with open(local_file, 'wb') as fd:
             data = utils.retry_on_error()(utils.read_ssh_file)(ssh, remote_file)
             fd.write(data)
 
     @utils.retry_on_error(sleep_seconds=5)
-    def _setup_certificates(self, ssh, args):
+    def _setup_certificates(
+        self, ssh: paramiko.SSHClient, args: dict
+    ) -> dict[str, dict]:
         # TODO(gsamfira): coriolis-replicator and coriolis-writer share
         # the functionality of being able to generate certificates
         # This will either be replaced with proper certificate management
@@ -920,7 +933,7 @@ class Replicator(object):
             },
         }
 
-    def _change_binary_se_context(self, ssh):
+    def _change_binary_se_context(self, ssh: paramiko.SSHClient) -> None:
         cmd = "sudo chcon -t bin_t %s" % REPLICATOR_PATH
         try:
             utils.exec_ssh_cmd(ssh, cmd, get_pty=False)
@@ -930,7 +943,7 @@ class Replicator(object):
                 utils.get_exception_details(),
             )
 
-    def _setup_replicator(self, ssh):
+    def _setup_replicator(self, ssh: paramiko.SSHClient) -> dict[str, str]:
         # copy the binary, set up the service, generate certificates,
         # start service
         state_file = self._get_replicator_state_file()
@@ -953,19 +966,23 @@ class Replicator(object):
         self._exec_replicator(ssh, args["port"], certs["remote"], REPLICATOR_STATE)
         return certs["local"]
 
-    def _get_size_from_chunks(self, chunks):
+    def _get_size_from_chunks(self, chunks: list[dict]) -> float:
         ret = 0
         for chunk in chunks:
             ret += chunk["length"]
         return ret / units.Mi
 
-    def _find_vol_state(self, name, state):
+    def _find_vol_state(self, name: str, state: list[dict]) -> dict:
         for vol in state:
             if vol["device-name"] == name:
                 return vol
         return None
 
-    def _verify_disk_checksum(self, dev_name, destination):
+    def _verify_disk_checksum(
+        self,
+        dev_name: str,
+        destination,
+    ) -> None:
         """Compares source and destination checksums for a transferred disk.
 
         Must be called while the device is still acquired on the writer side.
@@ -1008,8 +1025,11 @@ class Replicator(object):
         )
 
     def replicate_disks(
-        self, source_volumes_info, backup_writer, verify_checksum=False
-    ):
+        self,
+        source_volumes_info: list[dict],
+        backup_writer,
+        verify_checksum: bool = False,
+    ) -> list[dict]:
         """
         Fetch the block diff and send it to the backup_writer.
         If the target_is_zeroed parameter is set to True, on initial

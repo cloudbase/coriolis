@@ -17,6 +17,7 @@
 import inspect
 import math
 import time
+from typing import Any, Callable, Iterator
 
 import six
 import webob
@@ -269,7 +270,7 @@ class Request(webob.Request):
     def get_db_backup(self, backup_id):
         return self.get_db_item('backups', backup_id)
 
-    def best_match_content_type(self):
+    def best_match_content_type(self) -> str:
         """Determine the requested response content-type."""
         if 'coriolis.best_content_type' not in self.environ:
             # Calculate the best MIME type
@@ -291,7 +292,7 @@ class Request(webob.Request):
 
         return self.environ['coriolis.best_content_type']
 
-    def get_content_type(self):
+    def get_content_type(self) -> str:
         """Determine content type of the request body.
 
         Does not do any body introspection, only checks header
@@ -307,7 +308,7 @@ class Request(webob.Request):
 
         return content_type
 
-    def best_match_language(self):
+    def best_match_language(self) -> None:
         """Determines best available locale from the Accept-Language header.
 
         :returns: the best language match or None if the 'Accept-Language'
@@ -379,59 +380,61 @@ class Middleware(Application):
 class ActionDispatcher(object):
     """Maps method name to local methods through action name."""
 
-    def dispatch(self, *args, **kwargs):
+    def dispatch(self, *args, **kwargs) -> dict | str:
         """Find and call local method."""
         action = kwargs.pop('action', 'default')
         action_method = getattr(self, str(action), self.default)
         return action_method(*args, **kwargs)
 
-    def default(self, data):
+    def default(self, data: bytes | dict):
         raise NotImplementedError()
 
 
 class TextDeserializer(ActionDispatcher):
     """Default request body deserialization."""
 
-    def deserialize(self, datastring, action='default'):
+    def deserialize(
+        self, datastring: bytes, action: str = 'default'
+    ) -> dict[str, dict]:
         return self.dispatch(datastring, action=action)
 
-    def default(self, datastring):
+    def default(self, datastring: bytes):
         return {}
 
 
 class JSONDeserializer(TextDeserializer):
-    def _from_json(self, datastring):
+    def _from_json(self, datastring: bytes) -> dict:
         try:
             return jsonutils.loads(datastring)
         except ValueError:
             msg = _("cannot understand JSON")
             raise exception.MalformedRequestBody(reason=msg)
 
-    def default(self, datastring):
+    def default(self, datastring: bytes | dict) -> dict[str, dict]:
         return {'body': self._from_json(datastring)}
 
 
 class DictSerializer(ActionDispatcher):
     """Default request body serialization."""
 
-    def serialize(self, data, action='default'):
+    def serialize(self, data: dict | str, action: str = 'default') -> str:
         return self.dispatch(data, action=action)
 
-    def default(self, data):
+    def default(self, data: dict | str):
         return ""
 
 
 class JSONDictSerializer(DictSerializer):
     """Default JSON request body serialization."""
 
-    def default(self, data):
+    def default(self, data: bytes | dict | str) -> str:
         return jsonutils.dumps(data)
 
 
 class CSVSerializer(DictSerializer):
     """Serializer for CSV responses. Expects pre-formatted CSV string."""
 
-    def default(self, data):
+    def default(self, data: dict | str) -> str:
         return str(data)
 
 
@@ -492,7 +495,7 @@ class ResponseObject(object):
     optional.
     """
 
-    def __init__(self, obj, code=None, **serializers):
+    def __init__(self, obj: dict | str, code=None, **serializers):
         """Binds serializers with an object.
 
         Takes keyword arguments akin to the @serializer() decorator
@@ -514,7 +517,7 @@ class ResponseObject(object):
 
         return self._headers[key.lower()]
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: str, value: str) -> None:
         """Sets a header with the given name to the given value."""
 
         self._headers[key.lower()] = value
@@ -524,7 +527,7 @@ class ResponseObject(object):
 
         del self._headers[key.lower()]
 
-    def _bind_method_serializers(self, meth_serializers):
+    def _bind_method_serializers(self, meth_serializers: dict[Any, Any]) -> None:
         """Binds method serializers with the response object.
 
         Binds the method serializers with the response object.
@@ -541,7 +544,9 @@ class ResponseObject(object):
         for mtype, serializer in meth_serializers.items():
             self.serializers.setdefault(mtype, serializer)
 
-    def get_serializer(self, content_type, default_serializers=None):
+    def get_serializer(
+        self, content_type: str, default_serializers: dict | None = None
+    ) -> tuple:
         """Returns the serializer for the wrapped object.
 
         Returns the serializer for the wrapped object subject to the
@@ -562,7 +567,9 @@ class ResponseObject(object):
         except (KeyError, TypeError):
             raise exception.InvalidContentType(content_type=content_type)
 
-    def preserialize(self, content_type, default_serializers=None):
+    def preserialize(
+        self, content_type: str, default_serializers: dict | None = None
+    ) -> None:
         """Prepares the serializer that will be used to serialize.
 
         Determines the serializer that will be used and prepares an
@@ -580,7 +587,12 @@ class ResponseObject(object):
         if self.media_type in kwargs:
             self.serializer.attach(kwargs[self.media_type])
 
-    def serialize(self, request, content_type, default_serializers=None):
+    def serialize(
+        self,
+        request: Request,
+        content_type: str,
+        default_serializers: dict | None = None,
+    ) -> webob.Response:
         """Serializes the wrapped object.
 
         Utility method for serializing the wrapped object.  Returns a
@@ -607,7 +619,7 @@ class ResponseObject(object):
         return response
 
     @property
-    def code(self):
+    def code(self) -> int:
         """Retrieve the response status."""
 
         return self._code or self._default_code
@@ -619,7 +631,7 @@ class ResponseObject(object):
         return self._headers.copy()
 
 
-def action_peek_json(body):
+def action_peek_json(body: bytes) -> str:
     """Determine action to invoke."""
 
     try:
@@ -645,10 +657,15 @@ class ResourceExceptionHandler(object):
     exceptions, with the appropriate logging.
     """
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         return None
 
-    def __exit__(self, ex_type, ex_value, ex_traceback):
+    def __exit__(
+        self,
+        ex_type,
+        ex_value,
+        ex_traceback,
+    ) -> bool:
         if not ex_value:
             return True
 
@@ -701,7 +718,12 @@ class Resource(Application):
     wrapped in Fault() to provide API friendly error responses.
     """
 
-    def __init__(self, controller, action_peek=None, **deserializers):
+    def __init__(
+        self,
+        controller,
+        action_peek=None,
+        **deserializers,
+    ):
         """Initialize Resource.
 
         :param controller: object that implement methods created by routes lib
@@ -729,7 +751,10 @@ class Resource(Application):
         self.wsgi_extensions = {}
         self.wsgi_action_extensions = {}
 
-    def register_actions(self, controller):
+    def register_actions(
+        self,
+        controller,
+    ) -> None:
         """Registers controller actions with this resource."""
 
         actions = getattr(controller, 'wsgi_actions', {})
@@ -755,7 +780,7 @@ class Resource(Application):
                     self.wsgi_extensions[method_name] = []
                 self.wsgi_extensions[method_name].append(extension)
 
-    def get_action_args(self, request_environment):
+    def get_action_args(self, request_environment: dict) -> dict[str, str]:
         """Parse dictionary created by routes library."""
 
         # NOTE(Vek): Check for get_action_args() override in the
@@ -780,7 +805,7 @@ class Resource(Application):
 
         return args
 
-    def get_body(self, request):
+    def get_body(self, request: Request) -> tuple:
 
         if len(request.body) == 0:
             LOG.debug("Empty body provided in request")
@@ -798,7 +823,9 @@ class Resource(Application):
 
         return content_type, request.body
 
-    def deserialize(self, meth, content_type, body):
+    def deserialize(
+        self, meth: Callable, content_type: str, body: bytes
+    ) -> dict[str, dict]:
         meth_deserializers = getattr(meth, 'wsgi_deserializers', {})
         try:
             mtype = _MEDIA_TYPE_MAP.get(content_type, content_type)
@@ -811,7 +838,9 @@ class Resource(Application):
 
         return deserializer().deserialize(body)
 
-    def pre_process_extensions(self, extensions, request, action_args):
+    def pre_process_extensions(
+        self, extensions: list[Any], request: Request, action_args: dict
+    ) -> tuple:
         # List of callables for post-processing extensions
         post = []
 
@@ -841,7 +870,13 @@ class Resource(Application):
         # Run post-processing in the reverse order
         return None, reversed(post)
 
-    def post_process_extensions(self, extensions, resp_obj, request, action_args):
+    def post_process_extensions(
+        self,
+        extensions: Iterator,
+        resp_obj: ResponseObject,
+        request: Request,
+        action_args: dict,
+    ) -> None:
         for ext in extensions:
             response = None
             if inspect.isgenerator(ext):
@@ -870,7 +905,7 @@ class Resource(Application):
         return None
 
     @webob.dec.wsgify(RequestClass=Request)
-    def __call__(self, request):
+    def __call__(self, request: Request) -> "Fault|webob.Response":
         """WSGI method that controls (de)serialization and method dispatch."""
 
         LOG.info(
@@ -893,7 +928,15 @@ class Resource(Application):
             request, action, action_args, content_type, body, accept
         )
 
-    def _process_stack(self, request, action, action_args, content_type, body, accept):
+    def _process_stack(
+        self,
+        request: Request,
+        action: str,
+        action_args: dict,
+        content_type: str | None,
+        body: bytes | str,
+        accept: str,
+    ) -> "Fault|webob.Response":
         """Implement the processing stack."""
 
         # Get the implementing method
@@ -980,7 +1023,9 @@ class Resource(Application):
 
         return response
 
-    def get_method(self, request, action, content_type, body):
+    def get_method(
+        self, request: Request, action: str, content_type: str | None, body: bytes | str
+    ) -> tuple[Callable, list]:
         """Look up the action-specific method and its extensions."""
 
         # Look up the method
@@ -1017,13 +1062,13 @@ class Resource(Application):
             self.wsgi_action_extensions.get(action_name, []),
         )
 
-    def dispatch(self, method, request, action_args):
+    def dispatch(self, method: Callable, request: Request, action_args: dict) -> dict:
         """Dispatch a call to the action-specific method."""
 
         return method(req=request, **action_args)
 
 
-def action(name):
+def action(name: str) -> Callable[[Callable], Callable]:
     """Mark a function as an action.
 
     The given name will be taken as the action key in the body.
@@ -1032,7 +1077,7 @@ def action(name):
     non-extending definitions of create and delete operations.
     """
 
-    def decorator(func):
+    def decorator(func: Callable) -> Callable:
         func.wsgi_action = name
         return func
 
@@ -1075,7 +1120,9 @@ class ControllerMetaclass(type):
     mapping action keys to method names.
     """
 
-    def __new__(mcs, name, bases, cls_dict):
+    def __new__(
+        mcs: "type[ControllerMetaclass]", name: str, bases: tuple, cls_dict: dict
+    ):
         """Adds the wsgi_actions dictionary to the class."""
 
         # Find all actions
@@ -1244,7 +1291,7 @@ class Fault(webob.exc.HTTPException):
         self.status_int = exception.status_int
 
     @webob.dec.wsgify(RequestClass=Request)
-    def __call__(self, req):
+    def __call__(self, req: Request):
         """Generate a WSGI response based on the exception passed to ctor."""
         # Replace the body with fault details.
         locale = req.best_match_language()
@@ -1281,7 +1328,7 @@ class Fault(webob.exc.HTTPException):
         return self.wrapped_exc.__str__()
 
 
-def _set_request_id_header(req, headers):
+def _set_request_id_header(req: Request, headers) -> None:
     context = req.environ.get('coriolis.context')
     if context:
         headers['x-compute-request-id'] = context.request_id

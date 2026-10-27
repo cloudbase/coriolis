@@ -32,11 +32,15 @@ class SchedulerClient(rpc.BaseRPCClient):
             timeout = CONF.scheduler.scheduler_rpc_timeout
         super(SchedulerClient, self).__init__(target, timeout=timeout)
 
-    def get_diagnostics(self, ctxt):
+    def get_diagnostics(self, ctxt) -> dict:
         return self._call(ctxt, 'get_diagnostics')
 
     def get_workers_for_specs(
-        self, ctxt, provider_requirements=None, region_sets=None, enabled=None
+        self,
+        ctxt,
+        provider_requirements: dict | None = None,
+        region_sets: list | None = None,
+        enabled: bool | None = None,
     ):
         return self._call(
             ctxt,
@@ -46,7 +50,12 @@ class SchedulerClient(rpc.BaseRPCClient):
             provider_requirements=provider_requirements,
         )
 
-    def get_any_worker_service(self, ctxt, random_choice=False, raise_if_none=True):
+    def get_any_worker_service(
+        self,
+        ctxt,
+        random_choice: bool = False,
+        raise_if_none: bool = True,
+    ):
         services = self.get_workers_for_specs(ctxt)
         if not services:
             if raise_if_none:
@@ -63,11 +72,11 @@ class SchedulerClient(rpc.BaseRPCClient):
     def get_worker_service_for_specs(
         self,
         ctxt,
-        provider_requirements=None,
-        region_sets=None,
-        enabled=True,
-        random_choice=False,
-        raise_on_no_matches=True,
+        provider_requirements: dict | None = None,
+        region_sets: list | None = None,
+        enabled: bool = True,
+        random_choice: bool = False,
+        raise_on_no_matches: bool = True,
     ):
         """Utility method which ensures at least one service matching
         the provided requirements exists and is usable.
@@ -113,12 +122,12 @@ class SchedulerClient(rpc.BaseRPCClient):
     def get_worker_service_for_task(
         self,
         ctxt,
-        task,
+        task: dict[str, str],
         origin_endpoint,
         destination_endpoint,
-        retry_count=5,
-        retry_period=2,
-        random_choice=True,
+        retry_count: int = 5,
+        retry_period: int = 2,
+        random_choice: bool = True,
     ):
         """Gets a worker service for the task with the given properties
         and source/target endpoints.

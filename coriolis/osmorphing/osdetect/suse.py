@@ -2,6 +2,7 @@
 # All Rights Reserved.
 
 import copy
+from typing import Any
 
 from coriolis import constants
 from coriolis.osmorphing.osdetect import base
@@ -20,7 +21,7 @@ class SUSEOSDetectTools(base.BaseLinuxOSDetectTools):
         fields.append(DETECTED_SUSE_RELEASE_FIELD_NAME)
         return fields
 
-    def detect_os(self):
+    def detect_os(self) -> dict[Any, Any]:
         # TODO(aznashwan): implement separate detection for
         # SLES and openSUSE when the tools for them are separated.
         info = {}

@@ -2,10 +2,14 @@
 # All Rights Reserved.
 
 import itertools
+from typing import Iterator
 
 
-def format_opt(option, keys=None):
-    def transform(key, value):
+def format_opt(
+    option,
+    keys=None,
+) -> dict:
+    def transform(key: str, value) -> Iterator[tuple]:
         if keys and key not in keys:
             return
         yield (key, value)

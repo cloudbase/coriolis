@@ -26,10 +26,10 @@ TASKFLOW_EXECUTOR_GREENTHREADED = "greenthreaded"
 class TaskFlowRunner(object):
     def __init__(
         self,
-        service_name,
-        execution_order=TASKFLOW_EXECUTION_ORDER_PARALLEL,
-        executor=TASKFLOW_EXECUTOR_THREADED,
-        max_workers=1,
+        service_name: str,
+        execution_order: str = TASKFLOW_EXECUTION_ORDER_PARALLEL,
+        executor: str = TASKFLOW_EXECUTOR_THREADED,
+        max_workers: int = 1,
     ):
 
         self._service_name = service_name
@@ -37,7 +37,7 @@ class TaskFlowRunner(object):
         self._executor = executor
         self._max_workers = max_workers
 
-    def _log_flow_transition(self, state, details):
+    def _log_flow_transition(self, state: str, details: dict) -> None:
         LOG.debug(
             "[TaskFlowRunner(%s)] Flow '%s' (internal UUID '%s') transitioned"
             " from '%s' state to '%s'",
@@ -48,7 +48,7 @@ class TaskFlowRunner(object):
             state,
         )
 
-    def _log_task_transition(self, state, details):
+    def _log_task_transition(self, state: str, details: dict) -> None:
         LOG.debug(
             "[TaskFlowRunner(%s)] Task '%s' (internal UUID '%s') transitioned"
             " from '%s' state to '%s'",
@@ -59,7 +59,7 @@ class TaskFlowRunner(object):
             state,
         )
 
-    def _setup_engine_for_flow(self, flow, store=None):
+    def _setup_engine_for_flow(self, flow, store: dict | None = None):
         engine = engines.load(
             flow,
             store,
@@ -71,7 +71,7 @@ class TaskFlowRunner(object):
         engine.atom_notifier.register(notifier.Notifier.ANY, self._log_task_transition)
         return engine
 
-    def _run_flow(self, flow, store=None):
+    def _run_flow(self, flow, store: dict = None) -> None:
         LOG.debug("Ramping up to run flow with name '%s'", flow.name)
         engine = self._setup_engine_for_flow(flow, store=store)
 

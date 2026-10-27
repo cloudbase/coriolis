@@ -1,6 +1,8 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from typing import Any
+
 from oslo_log import log as logging
 
 from coriolis import constants, exception, schemas
@@ -13,19 +15,19 @@ LOG = logging.getLogger(__name__)
 
 class OSMorphingTask(base.TaskRunner):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.TASK_PLATFORM_DESTINATION
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["osmorphing_info", "osmorphing_connection_info", "user_scripts"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[Any]:
         return []
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return {
             constants.PROVIDER_PLATFORM_SOURCE: [
                 constants.PROVIDER_TYPE_TRANSFER_EXPORT
@@ -35,7 +37,15 @@ class OSMorphingTask(base.TaskRunner):
             ],
         }
 
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict[Any, Any]:
 
         origin_provider = providers_factory.get_provider(
             origin["type"], constants.PROVIDER_TYPE_TRANSFER_EXPORT, event_handler
@@ -82,15 +92,15 @@ class OSMorphingTask(base.TaskRunner):
 
 class DeployOSMorphingResourcesTask(base.TaskRunner):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.TASK_PLATFORM_DESTINATION
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["target_environment", "instance_deployment_info"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[str]:
         return [
             "os_morphing_resources",
             "osmorphing_info",
@@ -98,14 +108,22 @@ class DeployOSMorphingResourcesTask(base.TaskRunner):
         ]
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return {
             constants.PROVIDER_PLATFORM_DESTINATION: [
                 constants.PROVIDER_TYPE_OS_MORPHING
             ]
         }
 
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict:
         provider = providers_factory.get_provider(
             destination["type"], constants.PROVIDER_TYPE_OS_MORPHING, event_handler
         )
@@ -160,26 +178,34 @@ class DeployOSMorphingResourcesTask(base.TaskRunner):
 
 class DeleteOSMorphingResourcesTask(base.TaskRunner):
     @classmethod
-    def get_required_platform(cls):
+    def get_required_platform(cls) -> str:
         return constants.TASK_PLATFORM_DESTINATION
 
     @classmethod
-    def get_required_task_info_properties(cls):
+    def get_required_task_info_properties(cls) -> list[str]:
         return ["target_environment", "os_morphing_resources"]
 
     @classmethod
-    def get_returned_task_info_properties(cls):
+    def get_returned_task_info_properties(cls) -> list[str]:
         return ["os_morphing_resources", "osmorphing_connection_info"]
 
     @classmethod
-    def get_required_provider_types(cls):
+    def get_required_provider_types(cls) -> dict[str, list]:
         return {
             constants.PROVIDER_PLATFORM_DESTINATION: [
                 constants.PROVIDER_TYPE_OS_MORPHING
             ]
         }
 
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict[str, None]:
         provider = providers_factory.get_provider(
             destination["type"], constants.PROVIDER_TYPE_OS_MORPHING, event_handler
         )

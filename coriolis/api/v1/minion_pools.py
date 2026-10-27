@@ -1,6 +1,8 @@
 # Copyright 2020 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from typing import Any, NoReturn
+
 from oslo_log import log as logging
 from webob import exc
 
@@ -21,7 +23,7 @@ class MinionPoolController(api_wsgi.Controller):
         self._endpoints_api = endpoints_api.API()
         super(MinionPoolController, self).__init__()
 
-    def show(self, req, id):
+    def show(self, req: api_wsgi.Request, id: str) -> dict[str, dict]:
         context = req.environ["coriolis.context"]
         context.can(pools_policies.get_minion_pools_policy_label("show"))
         minion_pool = self._minion_pool_api.get_minion_pool(context, id)
@@ -30,14 +32,14 @@ class MinionPoolController(api_wsgi.Controller):
 
         return minion_pool_view.single(minion_pool)
 
-    def index(self, req):
+    def index(self, req: api_wsgi.Request) -> dict[str, list]:
         context = req.environ["coriolis.context"]
         context.can(pools_policies.get_minion_pools_policy_label("list"))
         return minion_pool_view.collection(
             self._minion_pool_api.get_minion_pools(context)
         )
 
-    def _check_pool_retention_strategy(self, pool_retention_strategy):
+    def _check_pool_retention_strategy(self, pool_retention_strategy: str) -> None:
         if not pool_retention_strategy:
             LOG.debug(
                 "Ignoring void minion pool retention strategy '%s'",
@@ -54,8 +56,11 @@ class MinionPoolController(api_wsgi.Controller):
             )
 
     def _check_pool_numeric_values(
-        self, minimum_minions, maximum_minions, minion_max_idle_time
-    ):
+        self,
+        minimum_minions: int,
+        maximum_minions: int,
+        minion_max_idle_time: int | None,
+    ) -> None:
         if minimum_minions is not None:
             if minimum_minions <= 0:
                 raise Exception(
@@ -82,7 +87,9 @@ class MinionPoolController(api_wsgi.Controller):
                 )
 
     @api_utils.format_keyerror_message(resource='minion_pool', method='create')
-    def _validate_create_body(self, ctxt, body):
+    def _validate_create_body(
+        self, ctxt, body: dict[str, dict]
+    ) -> tuple[str, str, str, str, dict, int, int, int, str, None, bool]:
         minion_pool = body["minion_pool"]
         name = minion_pool["name"]
         endpoint_id = minion_pool["endpoint_id"]
@@ -147,7 +154,7 @@ class MinionPoolController(api_wsgi.Controller):
             skip_allocation,
         )
 
-    def create(self, req, body):
+    def create(self, req: api_wsgi.Request, body: dict[str, dict]) -> dict[str, dict]:
         context = req.environ["coriolis.context"]
         context.can(pools_policies.get_minion_pools_policy_label("create"))
         (
@@ -181,8 +188,11 @@ class MinionPoolController(api_wsgi.Controller):
         )
 
     def _validate_updated_environment_options(
-        self, context, minion_pool, environment_options
-    ):
+        self,
+        context,
+        minion_pool,
+        environment_options: dict[Any, Any],
+    ) -> None:
         if minion_pool['platform'] == (constants.PROVIDER_PLATFORM_SOURCE):
             (self._endpoints_api.validate_endpoint_source_minion_pool_options)(
                 context, minion_pool['endpoint_id'], environment_options
@@ -195,7 +205,7 @@ class MinionPoolController(api_wsgi.Controller):
             raise Exception("Unknown pool platform: %s" % minion_pool['platform'])
 
     @api_utils.format_keyerror_message(resource='minion_pool', method='update')
-    def _validate_update_body(self, id, context, body):
+    def _validate_update_body(self, id, context, body) -> dict | tuple:
         minion_pool = body["minion_pool"]
         if 'endpoint_id' in minion_pool:
             raise Exception("The 'endpoint_id' of a minion pool cannot be updated.")
@@ -241,7 +251,9 @@ class MinionPoolController(api_wsgi.Controller):
                 )
         return vals
 
-    def update(self, req, id, body):
+    def update(
+        self, req: api_wsgi.Request, id: str, body: dict[str, dict]
+    ) -> dict[str, dict]:
         context = req.environ["coriolis.context"]
         context.can(pools_policies.get_minion_pools_policy_label("update"))
         updated_values = self._validate_update_body(id, context, body)
@@ -251,7 +263,7 @@ class MinionPoolController(api_wsgi.Controller):
             )
         )
 
-    def delete(self, req, id):
+    def delete(self, req: api_wsgi.Request, id: str) -> NoReturn:
         context = req.environ["coriolis.context"]
         context.can(pools_policies.get_minion_pools_policy_label("delete"))
         try:
@@ -261,5 +273,5 @@ class MinionPoolController(api_wsgi.Controller):
             raise exc.HTTPNotFound(explanation=ex.msg)
 
 
-def create_resource():
+def create_resource() -> api_wsgi.Resource:
     return api_wsgi.Resource(MinionPoolController())

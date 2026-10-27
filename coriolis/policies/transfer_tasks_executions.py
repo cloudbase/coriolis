@@ -11,7 +11,7 @@ TRANSFER_EXECUTIONS_POLICY_PREFIX = "%s:transfer_executions" % (
 TRANSFER_EXECUTIONS_POLICY_DEFAULT_RULE = "rule:admin_or_owner"
 
 
-def get_transfer_executions_policy_label(rule_label):
+def get_transfer_executions_policy_label(rule_label: str) -> str:
     return "%s:%s" % (TRANSFER_EXECUTIONS_POLICY_PREFIX, rule_label)
 
 
@@ -66,5 +66,5 @@ TRANSFER_EXECUTIONS_POLICY_DEFAULT_RULES = [
 ]
 
 
-def list_rules():
+def list_rules() -> list[policy.DocumentedRuleDefault]:
     return TRANSFER_EXECUTIONS_POLICY_DEFAULT_RULES

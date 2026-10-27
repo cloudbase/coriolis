@@ -7,6 +7,7 @@ import os
 import re
 import shlex
 import uuid
+from typing import Any
 
 import yaml
 from oslo_log import log as logging
@@ -135,14 +136,14 @@ class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
     def __init__(
         self,
         conn,
-        os_root_dir,
-        os_root_device,
+        os_root_dir: str,
+        os_root_device: str,
         hypervisor,
         event_manager,
-        detected_os_info,
-        osmorphing_parameters,
+        detected_os_info: dict[str, str],
+        osmorphing_parameters: dict[Any, Any],
         operation_timeout,
-        nics_set_dhcp=True,
+        nics_set_dhcp: bool = True,
     ):
 
         self.check_detected_os_info_parameters(detected_os_info)
@@ -166,7 +167,9 @@ class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
         raise NotImplementedError("Required OS params not defined.")
 
     @classmethod
-    def check_detected_os_info_parameters(cls, detected_os_info):
+    def check_detected_os_info_parameters(
+        cls, detected_os_info: dict[str, str]
+    ) -> bool:
         required_fields = cls.get_required_detected_os_info_fields()
         missing_os_info_fields = [
             field for field in required_fields if field not in detected_os_info
@@ -197,19 +200,19 @@ class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
         )
 
     @abc.abstractmethod
-    def get_installed_packages(self):
+    def get_installed_packages(self) -> None:
         pass
 
     @abc.abstractmethod
-    def set_net_config(self, nics_info, dhcp):
+    def set_net_config(self, nics_info: list | None, dhcp: bool) -> None:
         pass
 
     @abc.abstractmethod
-    def get_packages(self):
+    def get_packages(self) -> tuple[list, list]:
         return [], []
 
     @abc.abstractmethod
-    def run_user_script(self, user_script):
+    def run_user_script(self, user_script: str) -> None:
         pass
 
     @abc.abstractmethod
@@ -219,7 +222,7 @@ class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
         index: int = 0,
         user_provided: bool = True,
         script_filename: str | None = None,
-    ):
+    ) -> None:
         """Register a script to be executed during the first replica boot.
 
         :param script: the script content
@@ -237,15 +240,15 @@ class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
         pass
 
     @abc.abstractmethod
-    def pre_packages_install(self, package_names):
+    def pre_packages_install(self, package_names: list[str]) -> None:
         pass
 
     @abc.abstractmethod
-    def install_packages(self, package_names):
+    def install_packages(self, package_names: list[str]) -> None:
         pass
 
     @abc.abstractmethod
-    def post_packages_install(self, package_names):
+    def post_packages_install(self, package_names: list[str]) -> None:
         pass
 
     @abc.abstractmethod
@@ -260,7 +263,7 @@ class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
     def post_packages_uninstall(self, package_names):
         pass
 
-    def set_environment(self, environment):
+    def set_environment(self, environment: dict[str, str]) -> None:
         """Merges the given environment into the tools' own environment.
 
         The variables declared by the tools' constructor (such as
@@ -289,14 +292,14 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
     def __init__(
         self,
         conn,
-        os_root_dir,
-        os_root_dev,
+        os_root_dir: str,
+        os_root_dev: str,
         hypervisor,
         event_manager,
-        detected_os_info,
-        osmorphing_parameters,
+        detected_os_info: dict[str, str],
+        osmorphing_parameters: dict[Any, Any],
         operation_timeout=None,
-        nics_set_dhcp=True,
+        nics_set_dhcp: bool = True,
     ):
         super(BaseLinuxOSMorphingTools, self).__init__(
             conn,
@@ -317,11 +320,13 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         return []
 
     @classmethod
-    def get_required_detected_os_info_fields(cls):
+    def get_required_detected_os_info_fields(cls) -> list[str]:
         return REQUIRED_DETECTED_OS_FIELDS
 
     @classmethod
-    def _version_supported_util(cls, version, minimum, maximum=None):
+    def _version_supported_util(
+        cls, version: str, minimum: float, maximum=None
+    ) -> bool:
         """Parses version strings which are prefixed with a floating point and
         checks whether the value is between the provided minimum and maximum
         (excluding the maximum).
@@ -395,7 +400,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
                 f"Could not parse version from release string: {version!r}"
             ) from exc
 
-    def get_packages(self):
+    def get_packages(self) -> tuple[list, list]:
         k_add = [h for h in self._packages.keys() if h is None or h == self._hypervisor]
 
         add = [
@@ -417,7 +422,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
 
         return add, remove
 
-    def run_user_script(self, user_script):
+    def run_user_script(self, user_script: str) -> None:
         if len(user_script) == 0:
             return
 
@@ -442,10 +447,10 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         except Exception as err:
             raise exception.CoriolisException("Failed to run user script.") from err
 
-    def pre_packages_install(self, package_names):
+    def pre_packages_install(self, package_names: list[str]) -> None:
         self._copy_resolv_conf()
 
-    def post_packages_install(self, package_names):
+    def post_packages_install(self, package_names: list[str]) -> None:
         self._run_scheduled_grub2_update()
         self._restore_resolv_conf()
 
@@ -458,7 +463,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
     def get_update_grub2_command(self):
         raise NotImplementedError()
 
-    def _test_path(self, chroot_path):
+    def _test_path(self, chroot_path: str) -> bool:
         chroot_path = chroot_path.lstrip('/')
         path = os.path.join(self._os_root_dir, chroot_path)
         return utils.test_ssh_path(self._ssh, path)
@@ -468,7 +473,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         path = os.path.join(self._os_root_dir, chroot_path)
         return utils.read_ssh_file(self._ssh, path)
 
-    def _write_file(self, chroot_path, content):
+    def _write_file(self, chroot_path: str, content: str) -> None:
         chroot_path = chroot_path.lstrip('/')
         path = os.path.join(self._os_root_dir, chroot_path)
         utils.write_ssh_file(self._ssh, path, content)
@@ -478,7 +483,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         path = os.path.join(self._os_root_dir, chroot_path)
         return utils.list_ssh_dir(self._ssh, path)
 
-    def _exec_cmd(self, cmd, timeout=None):
+    def _exec_cmd(self, cmd: str, timeout=None) -> str:
         if not timeout:
             timeout = self._osmorphing_operation_timeout
         try:
@@ -494,7 +499,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
                 cmd=cmd, timeout=timeout
             ) from ex
 
-    def _exec_cmd_chroot(self, cmd, timeout=None):
+    def _exec_cmd_chroot(self, cmd: str, timeout=None) -> str:
         if not timeout:
             timeout = self._osmorphing_operation_timeout
         try:
@@ -518,7 +523,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         except Exception:
             return False
 
-    def _write_file_sudo(self, chroot_path, content):
+    def _write_file_sudo(self, chroot_path: str, content: str) -> None:
         # NOTE: writes the file to a temp location due to permission issues
         tmp_file = 'tmp/%s' % str(uuid.uuid4())
         self._write_file(tmp_file, content)
@@ -670,7 +675,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             )
             self._exec_cmd_chroot("chmod 600 /%s" % cfg_path)
 
-    def _copy_resolv_conf(self):
+    def _copy_resolv_conf(self) -> None:
         resolv_conf = "etc/resolv.conf"
         resolv_conf_path = os.path.join(self._os_root_dir, resolv_conf)
         resolv_conf_path_old = "%s.old" % resolv_conf_path
@@ -683,7 +688,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             'sudo cp -L --remove-destination /etc/resolv.conf %s' % resolv_conf_path
         )
 
-    def _restore_resolv_conf(self):
+    def _restore_resolv_conf(self) -> None:
         resolv_conf = "etc/resolv.conf"
         resolv_conf_old = "%s.old" % resolv_conf
         resolv_conf_path = os.path.join(self._os_root_dir, resolv_conf)
@@ -722,7 +727,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             )
             self._write_file(fstab_chroot_path, "\n".join(fstab_contents_lines))
 
-    def _set_selinux_autorelabel(self):
+    def _set_selinux_autorelabel(self) -> None:
         LOG.debug("setting autorelabel on /")
         try:
             self._exec_cmd_chroot("touch /.autorelabel")
@@ -796,7 +801,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
     def _has_systemd_chroot(self):
         return self._test_path("/lib/systemd/system")
 
-    def _configure_cloud_init(self):
+    def _configure_cloud_init(self) -> None:
         cloud_cfg_mods = {}
         if "cloud-init" not in self.get_packages()[0]:
             return
@@ -843,7 +848,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
                 # unit service name renamed.
                 self._enable_systemd_service(CLOUD_INIT_SERVICE_UNIT_NAME_FALLBACK)
 
-    def _test_path_chroot(self, path):
+    def _test_path_chroot(self, path: str) -> bool:
         # This method uses _exec_cmd_chroot() instead of SFTP stat()
         # because in some situations, the SSH user used may not have
         # execute rights on one or more of the folders that lead up
@@ -933,7 +938,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         LOG.warning("TEMP CONFIG IS: %r" % cfg)
 
     @staticmethod
-    def _normalize_kernel_cmdline_args(args):
+    def _normalize_kernel_cmdline_args(args: list | None) -> list[str]:
         """Returns the given kernel command line arguments as a list."""
 
         if isinstance(args, str):
@@ -949,7 +954,9 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
             return {"opt_type": "single", "opt_val": key}
         return {"opt_type": "key_val", "opt_key": key, "opt_val": value}
 
-    def _update_kernel_cmdline_args(self, args_to_add=None, args_to_remove=None):
+    def _update_kernel_cmdline_args(
+        self, args_to_add: list | None = None, args_to_remove: list | None = None
+    ) -> bool:
         """Updates the kernel command line arguments in the GRUB2 defaults.
 
         The arguments are edited in '/etc/default/grub' and the GRUB2 config
@@ -983,7 +990,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
 
         return True
 
-    def _get_grub_default_conf(self):
+    def _get_grub_default_conf(self) -> None:
         grub_conf = "/etc/default/grub"
         if self._test_path_chroot(grub_conf):
             return grub_conf
@@ -1029,7 +1036,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         """
         self._grub2_update_scheduled = True
 
-    def _run_scheduled_grub2_update(self):
+    def _run_scheduled_grub2_update(self) -> None:
         """Runs the deferred GRUB2 config regeneration, if one was scheduled.
 
         The pending flag is cleared so that a subsequent call is a no-op
@@ -1185,7 +1192,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
         index: int = 0,
         user_provided: bool = True,
         script_filename: str | None = None,
-    ):
+    ) -> None:
 
         if not script:
             LOG.debug("Empty first-boot script, skipping...")

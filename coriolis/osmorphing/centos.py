@@ -1,6 +1,8 @@
 # Copyright 2020 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+from typing import Any
+
 from oslo_log import log as logging
 
 from coriolis import exception, utils
@@ -31,7 +33,7 @@ class BaseCentOSMorphingTools(redhat.BaseRedHatMorphingTools):
             detected_os_info['release_version'], minimum=7
         )
 
-    def enable_repos(self, repo_names):
+    def enable_repos(self, repo_names: list[Any]):
         """Enable repositories for CentOS.
 
         Uses yum-config-manager for CentOS 7 and earlier,

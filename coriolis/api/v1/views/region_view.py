@@ -4,7 +4,7 @@
 from coriolis.api.v1.views import utils as view_utils
 
 
-def _format_region(region, keys=None):
+def _format_region(region, keys=None) -> dict:
     region_dict = view_utils.format_opt(region, keys)
 
     mapped_endpoints = region_dict.get('mapped_endpoints', [])
@@ -16,10 +16,10 @@ def _format_region(region, keys=None):
     return region_dict
 
 
-def single(region, keys=None):
+def single(region, keys=None) -> dict[str, dict]:
     return {"region": _format_region(region, keys)}
 
 
-def collection(regions, keys=None):
+def collection(regions, keys=None) -> dict[str, list]:
     formatted_regions = [_format_region(r, keys) for r in regions]
     return {'regions': formatted_regions}

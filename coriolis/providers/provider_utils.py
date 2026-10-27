@@ -1,6 +1,7 @@
 # Copyright 2018 Cloudbase Solutions Srl
 # All Rights Reserved.
 import time
+from typing import Any
 
 import paramiko
 import requests
@@ -158,7 +159,15 @@ def check_changed_storage_mappings(
 
 
 class ProviderSession(requests.Session):
-    def merge_environment_settings(self, url, proxies, stream, verify, *args, **kwargs):
+    def merge_environment_settings(
+        self,
+        url: str,
+        proxies: dict[Any, Any],
+        stream,
+        verify: str | None,
+        *args,
+        **kwargs,
+    ) -> dict:
         verify = self.verify
         return super(ProviderSession, self).merge_environment_settings(
             url, proxies, stream, verify, *args, **kwargs

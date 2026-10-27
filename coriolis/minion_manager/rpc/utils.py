@@ -2,19 +2,20 @@
 # All Rights Reserved.
 
 import functools
+from typing import Callable
 
 from oslo_concurrency import lockutils
 
 from coriolis import constants
 
 
-def get_minion_pool_lock(minion_pool_id, external=True):
+def get_minion_pool_lock(minion_pool_id: str, external: bool = True):
     return lockutils.lock(
         constants.MINION_POOL_LOCK_NAME_FORMAT % minion_pool_id, external=external
     )
 
 
-def minion_pool_synchronized(minion_pool_id, func):
+def minion_pool_synchronized(minion_pool_id: str, func: Callable) -> Callable:
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         @lockutils.synchronized(
@@ -28,7 +29,7 @@ def minion_pool_synchronized(minion_pool_id, func):
     return wrapper
 
 
-def minion_pool_synchronized_op(func):
+def minion_pool_synchronized_op(func: Callable) -> Callable:
     @functools.wraps(func)
     def wrapper(self, ctxt, minion_pool_id, *args, **kwargs):
         return minion_pool_synchronized(minion_pool_id, func)(

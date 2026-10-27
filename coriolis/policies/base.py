@@ -20,5 +20,5 @@ POLICY_DEFAULT_RULES = [
 ]
 
 
-def list_rules():
+def list_rules() -> list:
     return POLICY_DEFAULT_RULES

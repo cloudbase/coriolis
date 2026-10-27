@@ -1,13 +1,14 @@
 # Copyright 2020 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+
 from coriolis.api.v1.views import utils as view_utils
 
 
-def _format_minion_pool(minion_pool, keys=None):
+def _format_minion_pool(minion_pool, keys=None) -> dict:
     minion_pool_dict = view_utils.format_opt(minion_pool, keys)
 
-    def _hide_minion_creds(minion_conn):
+    def _hide_minion_creds(minion_conn: dict) -> None:
         if not minion_conn:
             return minion_conn
         if minion_conn.get('pkey'):
@@ -33,10 +34,10 @@ def _format_minion_pool(minion_pool, keys=None):
     return minion_pool_dict
 
 
-def single(minion_pool, keys=None):
+def single(minion_pool, keys=None) -> dict[str, dict]:
     return {"minion_pool": _format_minion_pool(minion_pool, keys)}
 
 
-def collection(minion_pools, keys=None):
+def collection(minion_pools: list, keys=None) -> dict[str, list]:
     formatted_minion_pools = [_format_minion_pool(r, keys) for r in minion_pools]
     return {'minion_pools': formatted_minion_pools}

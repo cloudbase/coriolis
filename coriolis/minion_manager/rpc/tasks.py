@@ -74,24 +74,34 @@ class MinionManagerTaskEventMixin(object):
     # process" as well as forking child processes, it is safest to
     # re-instantiate the clients every time:
     @property
-    def _conductor_client(self):
+    def _conductor_client(self) -> rpc_conductor_client.ConductorClient:
         if not getattr(self, '_conductor_client_instance', None):
             self._conductor_client_instance = rpc_conductor_client.ConductorClient()
         return self._conductor_client_instance
 
     @property
-    def _minion_manager_client(self):
+    def _minion_manager_client(self) -> rpc_minion_manager_client.MinionManagerClient:
         if not getattr(self, '_minion_manager_client_instance', None):
             self._minion_manager_client_instance = (
                 rpc_minion_manager_client.MinionManagerClient()
             )
         return self._minion_manager_client_instance
 
-    def _add_minion_pool_event(self, context, message, level=constants.TASK_EVENT_INFO):
+    def _add_minion_pool_event(
+        self,
+        context,
+        message: str,
+        level: str = constants.TASK_EVENT_INFO,
+    ) -> None:
         LOG.debug("Minion pool '%s' event: %s", self._minion_pool_id, message)
         db_api.add_minion_pool_event(context, self._minion_pool_id, level, message)
 
-    def _get_minion_machine(self, context, minion_machine_id, raise_if_not_found=False):
+    def _get_minion_machine(
+        self,
+        context,
+        minion_machine_id: str,
+        raise_if_not_found: bool = False,
+    ) -> models.MinionMachine | None:
         machine = db_api.get_minion_machine(context, minion_machine_id)
         if not machine and raise_if_not_found:
             raise exception.NotFound(
@@ -99,27 +109,44 @@ class MinionManagerTaskEventMixin(object):
             )
         return machine
 
-    def _set_minion_pool_status(self, ctxt, minion_pool_id, new_status):
+    def _set_minion_pool_status(
+        self,
+        ctxt,
+        minion_pool_id: str,
+        new_status: str,
+    ) -> None:
         with minion_manager_utils.get_minion_pool_lock(minion_pool_id, external=True):
             db_api.set_minion_pool_status(ctxt, minion_pool_id, new_status)
 
     def _update_minion_machine(
-        self, ctxt, minion_pool_id, minion_machine_id, updated_values
-    ):
+        self,
+        ctxt,
+        minion_pool_id: str,
+        minion_machine_id: str,
+        updated_values: dict,
+    ) -> None:
         with minion_manager_utils.get_minion_pool_lock(minion_pool_id, external=True):
             db_api.update_minion_machine(ctxt, minion_machine_id, updated_values)
 
     def _set_minion_machine_allocation_status(
-        self, ctxt, minion_pool_id, minion_machine_id, new_status
-    ):
+        self,
+        ctxt,
+        minion_pool_id: str,
+        minion_machine_id: str,
+        new_status: str,
+    ) -> None:
         with minion_manager_utils.get_minion_pool_lock(minion_pool_id, external=True):
             db_api.set_minion_machine_allocation_status(
                 ctxt, minion_machine_id, new_status
             )
 
     def _set_minion_machine_power_status(
-        self, ctxt, minion_pool_id, minion_machine_id, new_status
-    ):
+        self,
+        ctxt,
+        minion_pool_id: str,
+        minion_machine_id: str,
+        new_status: str,
+    ) -> None:
         self._update_minion_machine(
             ctxt, minion_pool_id, minion_machine_id, {"power_status": new_status}
         )
@@ -132,7 +159,7 @@ class _BaseReportMinionAllocationFailureForActionTask(
     reports a minion allocation failure to the conductor for the afferent
     transfer action."""
 
-    def __init__(self, action_id, **kwargs):
+    def __init__(self, action_id: str, **kwargs):
         self._action_id = action_id
         self._task_name = self._get_task_name(action_id)
         super(_BaseReportMinionAllocationFailureForActionTask, self).__init__(
@@ -140,18 +167,23 @@ class _BaseReportMinionAllocationFailureForActionTask(
         )
 
     @abc.abstractmethod
-    def _get_task_name(self, action_id):
+    def _get_task_name(self, action_id: str) -> str:
         raise NotImplementedError("No allocation failure task name provided")
 
     @abc.abstractmethod
-    def _report_machine_allocation_failure(self, context, action_id, failure_str):
+    def _report_machine_allocation_failure(
+        self,
+        context,
+        action_id: str,
+        failure_str: str,
+    ) -> None:
         raise NotImplementedError("No allocation failure operation defined")
 
-    def execute(self, context):
+    def execute(self, context) -> None:
         super(_BaseReportMinionAllocationFailureForActionTask, self).execute()
         LOG.debug("Nothing to execute for task '%s'", self._task_name)
 
-    def revert(self, context, *args, **kwargs):
+    def revert(self, context, *args, **kwargs) -> None:
         super(_BaseReportMinionAllocationFailureForActionTask, self).revert(
             *args, **kwargs
         )
@@ -175,12 +207,17 @@ class _BaseReportMinionAllocationFailureForActionTask(
 class ReportMinionAllocationFailureForMigrationTask(
     _BaseReportMinionAllocationFailureForActionTask
 ):
-    def _get_task_name(self, action_id):
+    def _get_task_name(self, action_id: str) -> str:
         return MINION_POOL_REPORT_MIGRATION_ALLOCATION_FAILURE_TASK_NAME_FORMAT % (
             action_id
         )
 
-    def _report_machine_allocation_failure(self, context, action_id, failure_str):
+    def _report_machine_allocation_failure(
+        self,
+        context,
+        action_id: str,
+        failure_str: str,
+    ) -> None:
         self._conductor_client.report_deployment_minions_allocation_error(
             context, action_id, failure_str
         )
@@ -189,12 +226,17 @@ class ReportMinionAllocationFailureForMigrationTask(
 class ReportMinionAllocationFailureForReplicaTask(
     _BaseReportMinionAllocationFailureForActionTask
 ):
-    def _get_task_name(self, action_id):
+    def _get_task_name(self, action_id: str) -> str:
         return MINION_POOL_REPORT_REPLICA_ALLOCATION_FAILURE_TASK_NAME_FORMAT % (
             action_id
         )
 
-    def _report_machine_allocation_failure(self, context, action_id, failure_str):
+    def _report_machine_allocation_failure(
+        self,
+        context,
+        action_id: str,
+        failure_str: str,
+    ) -> None:
         self._conductor_client.report_transfer_minions_allocation_error(
             context, action_id, failure_str
         )
@@ -207,7 +249,9 @@ class _BaseConfirmMinionAllocationForActionTask(
     to the conductor.
     """
 
-    def __init__(self, action_id, allocated_machine_id_mappings, **kwargs):
+    def __init__(
+        self, action_id: str, allocated_machine_id_mappings: dict[str, dict], **kwargs
+    ):
         """
         param allocated_machine_id_mappings: dict of the form:
         {
@@ -230,22 +274,27 @@ class _BaseConfirmMinionAllocationForActionTask(
         )
 
     @abc.abstractmethod
-    def _get_task_name(self, action_id):
+    def _get_task_name(self, action_id: str) -> str:
         raise NotImplementedError("No minion allocation confirmation task name defined")
 
     @abc.abstractmethod
     def _confirm_machine_allocation_for_action(
-        self, context, action_id, machine_allocations
-    ):
+        self,
+        context,
+        action_id: str,
+        machine_allocations: dict[str, dict],
+    ) -> None:
         raise NotImplementedError("No minion allocation confirmation operation defined")
 
-    def execute(self, context):
+    def execute(self, context) -> None:
         machines_cache = {}
         machine_allocations = {}
 
         def _check_minion_properties(
-            minion_machine, instance, minion_purpose="unknown"
-        ):
+            minion_machine: models.MinionMachine,
+            instance: str,
+            minion_purpose: str = "unknown",
+        ) -> None:
             if minion_machine.allocation_status != (
                 constants.MINION_MACHINE_STATUS_IN_USE
             ):
@@ -434,14 +483,17 @@ class ConfirmMinionAllocationForMigrationTask(
     def _get_action_label(self):
         return "migration"
 
-    def _get_task_name(self, action_id):
+    def _get_task_name(self, action_id: str) -> str:
         return MINION_POOL_CONFIRM_MIGRATION_MINION_ALLOCATION_TASK_NAME_FORMAT % (
             action_id
         )
 
     def _confirm_machine_allocation_for_action(
-        self, context, action_id, machine_allocations
-    ):
+        self,
+        context,
+        action_id: str,
+        machine_allocations: dict[str, dict],
+    ) -> None:
         self._conductor_client.confirm_deployment_minions_allocation(
             context, action_id, machine_allocations
         )
@@ -451,14 +503,17 @@ class ConfirmMinionAllocationForReplicaTask(_BaseConfirmMinionAllocationForActio
     def _get_action_label(self):
         return "replica"
 
-    def _get_task_name(self, action_id):
+    def _get_task_name(self, action_id: str) -> str:
         return MINION_POOL_CONFIRM_REPLICA_MINION_ALLOCATION_TASK_NAME_FORMAT % (
             action_id
         )
 
     def _confirm_machine_allocation_for_action(
-        self, context, action_id, machine_allocations
-    ):
+        self,
+        context,
+        action_id: str,
+        machine_allocations: dict[str, dict],
+    ) -> None:
         self._conductor_client.confirm_transfer_minions_allocation(
             context, action_id, machine_allocations
         )
@@ -474,7 +529,11 @@ class UpdateMinionPoolStatusTask(
     default_provides = ["latest_status"]
 
     def __init__(
-        self, minion_pool_id, target_status, status_to_revert_to=None, **kwargs
+        self,
+        minion_pool_id: str,
+        target_status: str,
+        status_to_revert_to: str | None = None,
+        **kwargs,
     ):
 
         self._target_status = target_status
@@ -488,7 +547,7 @@ class UpdateMinionPoolStatusTask(
 
         super(UpdateMinionPoolStatusTask, self).__init__(name=self._task_name, **kwargs)
 
-    def execute(self, context, *args):
+    def execute(self, context, *args) -> str:
         super(UpdateMinionPoolStatusTask, self).execute(*args)
 
         if not self._previous_status:
@@ -603,7 +662,11 @@ class BaseMinionManangerTask(
     default_provides = 'task_info'
 
     def __init__(
-        self, minion_pool_id, minion_machine_id, main_task_runner_type, **kwargs
+        self,
+        minion_pool_id: str,
+        minion_machine_id: str,
+        main_task_runner_type: str,
+        **kwargs,
     ):
         self._minion_pool_id = minion_pool_id
         self._minion_machine_id = minion_machine_id
@@ -620,10 +683,16 @@ class BaseMinionManangerTask(
         )
 
     @abc.abstractmethod
-    def _get_task_name(self, minion_pool_id, minion_machine_id):
+    def _get_task_name(self, minion_pool_id: str, minion_machine_id: str) -> str:
         raise NotImplementedError("No task name providable")
 
-    def execute(self, context, origin, destination, task_info):
+    def execute(
+        self,
+        context,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+    ) -> dict | None:
         LOG.info(
             "Starting minion pool task '%s' (runner type '%s')",
             self._task_name,
@@ -639,7 +708,14 @@ class BaseMinionManangerTask(
         )
         return res
 
-    def revert(self, context, origin, destination, task_info, **kwargs):
+    def revert(
+        self,
+        context,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        **kwargs,
+    ) -> None:
         flow_failures = kwargs.get('flow_failures', {})
         self._add_minion_pool_event(
             context,
@@ -660,7 +736,13 @@ class BaseMinionManangerTask(
 
 
 class ValidateMinionPoolOptionsTask(BaseMinionManangerTask):
-    def __init__(self, minion_pool_id, minion_machine_id, minion_pool_type, **kwargs):
+    def __init__(
+        self,
+        minion_pool_id: str,
+        minion_machine_id: str,
+        minion_pool_type: str,
+        **kwargs,
+    ):
         task_type = constants.TASK_TYPE_VALIDATE_SOURCE_MINION_POOL_OPTIONS
         if minion_pool_type != constants.PROVIDER_PLATFORM_SOURCE:
             task_type = constants.TASK_TYPE_VALIDATE_DESTINATION_MINION_POOL_OPTIONS
@@ -668,10 +750,16 @@ class ValidateMinionPoolOptionsTask(BaseMinionManangerTask):
             minion_pool_id, minion_machine_id, task_type, **kwargs
         )
 
-    def _get_task_name(self, minion_pool_id, minion_machine_id):
+    def _get_task_name(self, minion_pool_id: str, minion_machine_id: str) -> str:
         return MINION_POOL_VALIDATION_TASK_NAME_FORMAT % minion_pool_id
 
-    def execute(self, context, origin, destination, task_info):
+    def execute(
+        self,
+        context,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+    ) -> None:
         self._add_minion_pool_event(context, "Validating minion pool options")
         _ = super(ValidateMinionPoolOptionsTask, self).execute(
             context, origin, destination, task_info
@@ -688,7 +776,13 @@ class ValidateMinionPoolOptionsTask(BaseMinionManangerTask):
 
 
 class AllocateSharedPoolResourcesTask(BaseMinionManangerTask):
-    def __init__(self, minion_pool_id, minion_machine_id, minion_pool_type, **kwargs):
+    def __init__(
+        self,
+        minion_pool_id: str,
+        minion_machine_id: str,
+        minion_pool_type: str,
+        **kwargs,
+    ):
 
         resource_deployment_task_type = (
             constants.TASK_TYPE_SET_UP_SOURCE_POOL_SHARED_RESOURCES
@@ -711,10 +805,16 @@ class AllocateSharedPoolResourcesTask(BaseMinionManangerTask):
             **kwargs,
         )
 
-    def _get_task_name(self, minion_pool_id, minion_machine_id):
+    def _get_task_name(self, minion_pool_id: str, minion_machine_id: str) -> str:
         return MINION_POOL_ALLOCATE_SHARED_RESOURCES_TASK_NAME_FORMAT % (minion_pool_id)
 
-    def execute(self, context, origin, destination, task_info):
+    def execute(
+        self,
+        context,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+    ) -> dict:
         with minion_manager_utils.get_minion_pool_lock(
             self._minion_pool_id, external=True
         ):
@@ -774,7 +874,13 @@ class AllocateSharedPoolResourcesTask(BaseMinionManangerTask):
 
 
 class DeallocateSharedPoolResourcesTask(BaseMinionManangerTask):
-    def __init__(self, minion_pool_id, minion_machine_id, minion_pool_type, **kwargs):
+    def __init__(
+        self,
+        minion_pool_id: str,
+        minion_machine_id: str,
+        minion_pool_type: str,
+        **kwargs,
+    ):
 
         resource_deallocation_task = (
             constants.TASK_TYPE_TEAR_DOWN_SOURCE_POOL_SHARED_RESOURCES
@@ -787,12 +893,18 @@ class DeallocateSharedPoolResourcesTask(BaseMinionManangerTask):
             minion_pool_id, minion_machine_id, resource_deallocation_task, **kwargs
         )
 
-    def _get_task_name(self, minion_pool_id, minion_machine_id):
+    def _get_task_name(self, minion_pool_id: str, minion_machine_id: str) -> str:
         return MINION_POOL_DEALLOCATE_SHARED_RESOURCES_TASK_NAME_FORMAT % (
             minion_pool_id
         )
 
-    def execute(self, context, origin, destination, task_info):
+    def execute(
+        self,
+        context,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+    ) -> dict:
         self._add_minion_pool_event(context, "Deallocating shared pool resources")
         if 'pool_shared_resources' not in task_info:
             raise exception.InvalidInput(
@@ -823,11 +935,11 @@ class DeallocateSharedPoolResourcesTask(BaseMinionManangerTask):
 class AllocateMinionMachineTask(BaseMinionManangerTask):
     def __init__(
         self,
-        minion_pool_id,
-        minion_machine_id,
-        minion_pool_type,
-        raise_on_cleanup_failure=True,
-        allocate_to_action=None,
+        minion_pool_id: str,
+        minion_machine_id: str,
+        minion_pool_type: str,
+        raise_on_cleanup_failure: bool = True,
+        allocate_to_action: str | None = None,
         **kwargs,
     ):
         resource_deployment_task_type = constants.TASK_TYPE_CREATE_SOURCE_MINION_MACHINE
@@ -850,13 +962,19 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
             **kwargs,
         )
 
-    def _get_task_name(self, minion_pool_id, minion_machine_id):
+    def _get_task_name(self, minion_pool_id: str, minion_machine_id: str) -> str:
         return MINION_POOL_ALLOCATE_MACHINE_TASK_NAME_FORMAT % (
             minion_pool_id,
             minion_machine_id,
         )
 
-    def execute(self, context, origin, destination, task_info):
+    def execute(
+        self,
+        context,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+    ) -> dict:
         minion_machine = self._get_minion_machine(
             context, self._minion_machine_id, raise_if_not_found=False
         )
@@ -990,7 +1108,14 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
 
         return task_info
 
-    def revert(self, context, origin, destination, task_info, **kwargs):
+    def revert(
+        self,
+        context,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        **kwargs,
+    ) -> None:
 
         minion_provider_properties = None
         task_info_minion_provider_properties = task_info.get(
@@ -1135,10 +1260,10 @@ class AllocateMinionMachineTask(BaseMinionManangerTask):
 class DeallocateMinionMachineTask(BaseMinionManangerTask):
     def __init__(
         self,
-        minion_pool_id,
-        minion_machine_id,
-        minion_pool_type,
-        raise_on_cleanup_failure=True,
+        minion_pool_id: str,
+        minion_machine_id: str,
+        minion_pool_type: str,
+        raise_on_cleanup_failure: bool = True,
         **kwargs,
     ):
         resource_deletion_task_type = constants.TASK_TYPE_DELETE_SOURCE_MINION_MACHINE
@@ -1155,13 +1280,19 @@ class DeallocateMinionMachineTask(BaseMinionManangerTask):
             **kwargs,
         )
 
-    def _get_task_name(self, minion_pool_id, minion_machine_id):
+    def _get_task_name(self, minion_pool_id: str, minion_machine_id: str) -> str:
         return MINION_POOL_DEALLOCATE_MACHINE_TASK_NAME_FORMAT % (
             minion_pool_id,
             minion_machine_id,
         )
 
-    def execute(self, context, origin, destination, task_info):
+    def execute(
+        self,
+        context,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+    ) -> dict:
         machine = self._get_minion_machine(context, self._minion_machine_id)
         if not machine:
             LOG.info(
@@ -1240,11 +1371,11 @@ class HealthcheckMinionMachineTask(BaseMinionManangerTask):
 
     def __init__(
         self,
-        minion_pool_id,
-        minion_machine_id,
-        minion_pool_type,
-        fail_on_error=False,
-        machine_status_on_success=constants.MINION_MACHINE_STATUS_AVAILABLE,  # noqa: E501
+        minion_pool_id: str,
+        minion_machine_id: str,
+        minion_pool_type: str,
+        fail_on_error: bool = False,
+        machine_status_on_success: str = constants.MINION_MACHINE_STATUS_AVAILABLE,  # noqa: E501
         **kwargs,
     ):
         self._fail_on_error = fail_on_error
@@ -1258,7 +1389,13 @@ class HealthcheckMinionMachineTask(BaseMinionManangerTask):
             minion_pool_id, minion_machine_id, resource_healthcheck_task, **kwargs
         )
 
-    def execute(self, context, origin, destination, task_info):
+    def execute(
+        self,
+        context,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+    ) -> dict:
         res = {"healthy": True, "error": None}
 
         machine = self._get_minion_machine(
@@ -1359,11 +1496,13 @@ class HealthcheckMinionMachineTask(BaseMinionManangerTask):
 
         return res
 
-    def _get_task_name(self, minion_pool_id, minion_machine_id):
+    def _get_task_name(self, minion_pool_id: str, minion_machine_id: str) -> str:
         return self.get_healthcheck_task_name(minion_pool_id, minion_machine_id)
 
     @classmethod
-    def get_healthcheck_task_name(cls, minion_pool_id, minion_machine_id):
+    def get_healthcheck_task_name(
+        cls, minion_pool_id: str, minion_machine_id: str
+    ) -> str:
         return MINION_POOL_HEALTHCHECK_MACHINE_TASK_NAME_FORMAT % (
             minion_pool_id,
             minion_machine_id,
@@ -1374,13 +1513,16 @@ class MinionMachineHealtchcheckDecider(object):
     """A callable to green/redlight further execution based on the result."""
 
     def __init__(
-        self, minion_pool_id, minion_machine_id, on_successful_healthcheck=True
+        self,
+        minion_pool_id: str,
+        minion_machine_id: str,
+        on_successful_healthcheck: bool = True,
     ):
         self._minion_pool_id = minion_pool_id
         self._minion_machine_id = minion_machine_id
         self._on_success = on_successful_healthcheck
 
-    def __call__(self, history):
+    def __call__(self, history: dict[str, dict]) -> bool:
         healthcheck_task_name = HealthcheckMinionMachineTask.get_healthcheck_task_name(
             self._minion_pool_id, self._minion_machine_id
         )
@@ -1418,10 +1560,10 @@ class MinionMachineHealtchcheckDecider(object):
 class PowerOnMinionMachineTask(BaseMinionManangerTask):
     def __init__(
         self,
-        minion_pool_id,
-        minion_machine_id,
-        minion_pool_type,
-        fail_on_error=True,
+        minion_pool_id: str,
+        minion_machine_id: str,
+        minion_pool_type: str,
+        fail_on_error: bool = True,
         **kwargs,
     ):
         self._fail_on_error = fail_on_error
@@ -1432,13 +1574,19 @@ class PowerOnMinionMachineTask(BaseMinionManangerTask):
             minion_pool_id, minion_machine_id, power_on_task_type, **kwargs
         )
 
-    def _get_task_name(self, minion_pool_id, minion_machine_id):
+    def _get_task_name(self, minion_pool_id: str, minion_machine_id: str) -> str:
         return MINION_POOL_POWER_ON_MACHINE_TASK_NAME_FORMAT % (
             minion_pool_id,
             minion_machine_id,
         )
 
-    def execute(self, context, origin, destination, task_info):
+    def execute(
+        self,
+        context,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+    ) -> dict:
         machine = self._get_minion_machine(
             context, self._minion_machine_id, raise_if_not_found=True
         )
@@ -1518,11 +1666,11 @@ class PowerOnMinionMachineTask(BaseMinionManangerTask):
 class PowerOffMinionMachineTask(BaseMinionManangerTask):
     def __init__(
         self,
-        minion_pool_id,
-        minion_machine_id,
-        minion_pool_type,
-        fail_on_error=True,
-        status_once_powered_off=constants.MINION_MACHINE_STATUS_AVAILABLE,
+        minion_pool_id: str,
+        minion_machine_id: str,
+        minion_pool_type: str,
+        fail_on_error: bool = True,
+        status_once_powered_off: str = constants.MINION_MACHINE_STATUS_AVAILABLE,
         **kwargs,
     ):
         self._fail_on_error = fail_on_error
@@ -1534,13 +1682,19 @@ class PowerOffMinionMachineTask(BaseMinionManangerTask):
             minion_pool_id, minion_machine_id, power_on_task_type, **kwargs
         )
 
-    def _get_task_name(self, minion_pool_id, minion_machine_id):
+    def _get_task_name(self, minion_pool_id: str, minion_machine_id: str) -> str:
         return MINION_POOL_POWER_OFF_MACHINE_TASK_NAME_FORMAT % (
             minion_pool_id,
             minion_machine_id,
         )
 
-    def execute(self, context, origin, destination, task_info):
+    def execute(
+        self,
+        context,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+    ) -> dict:
         machine = self._get_minion_machine(
             context, self._minion_machine_id, raise_if_not_found=True
         )

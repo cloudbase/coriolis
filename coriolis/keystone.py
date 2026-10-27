@@ -1,6 +1,7 @@
 # Copyright 2016 Cloudbase Solutions Srl
 # All Rights Reserved.
 
+
 from keystoneauth1 import exceptions as ks_exceptions
 from keystoneauth1 import loading
 from keystoneauth1 import session as ks_session
@@ -62,7 +63,7 @@ def _get_verify_option():
     return verify
 
 
-def create_trust(ctxt):
+def create_trust(ctxt) -> None:
     if ctxt.trust_id:
         return
 

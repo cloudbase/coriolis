@@ -32,7 +32,7 @@ class FaultWrapper(wsgi.Middleware):
     _status_to_type = {}
 
     @staticmethod
-    def status_to_type(status):
+    def status_to_type(status: int) -> webob.exc.HTTPNotFound:
         if not FaultWrapper._status_to_type:
             for clazz in utils.walk_class_hierarchy(webob.exc.HTTPError):
                 FaultWrapper._status_to_type[clazz.code] = clazz
@@ -40,7 +40,7 @@ class FaultWrapper(wsgi.Middleware):
             status, webob.exc.HTTPInternalServerError
         )()
 
-    def _error(self, inner, req):
+    def _error(self, inner: exception.NotFound, req: wsgi.Request) -> wsgi.Fault:
         LOG.exception(
             _LE("Caught error: %(type)s %(error)s"),
             {'type': type(inner), 'error': inner},
@@ -67,7 +67,7 @@ class FaultWrapper(wsgi.Middleware):
         return wsgi.Fault(outer)
 
     @webob.dec.wsgify(RequestClass=wsgi.Request)
-    def __call__(self, req):
+    def __call__(self, req: wsgi.Request) -> wsgi.Fault | webob.Response:
         try:
             return req.get_response(self.application)
         except Exception as ex:

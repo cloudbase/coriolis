@@ -34,20 +34,28 @@ class RequestContextSerializer(messaging.Serializer):
     def __init__(self, base):
         self._base = base
 
-    def serialize_entity(self, ctxt, entity):
+    def serialize_entity(
+        self,
+        ctxt: context.RequestContext,
+        entity,
+    ):
         if not self._base:
             return entity
         return self._base.serialize_entity(ctxt, entity)
 
-    def deserialize_entity(self, ctxt, entity):
+    def deserialize_entity(
+        self,
+        ctxt: context.RequestContext,
+        entity,
+    ):
         if not self._base:
             return entity
         return self._base.deserialize_entity(ctxt, entity)
 
-    def serialize_context(self, ctxt):
+    def serialize_context(self, ctxt: context.RequestContext) -> dict:
         return ctxt.to_dict()
 
-    def deserialize_context(self, ctxt):
+    def deserialize_context(self, ctxt: dict) -> context.RequestContext:
         return context.RequestContext.from_dict(ctxt)
 
 
@@ -57,7 +65,11 @@ def _get_transport():
     )
 
 
-def get_server(target, endpoints, serializer=None):
+def get_server(
+    target: messaging.Target,
+    endpoints: list,
+    serializer: RequestContextSerializer | None = None,
+):
     serializer = RequestContextSerializer(serializer)
     return messaging.get_rpc_server(
         _get_transport(), target, endpoints, executor='threading', serializer=serializer
@@ -76,7 +88,9 @@ class BaseRPCClient(object):
     instantiates and cleans up transports for each call.
     """
 
-    def __init__(self, target, timeout=None, serializer=None):
+    def __init__(
+        self, target: messaging.Target, timeout: int | None = None, serializer=None
+    ):
         self._target = target
         self._timeout = timeout
         if self._timeout is None:
@@ -97,7 +111,7 @@ class BaseRPCClient(object):
         else:
             return _TRANSPORT
 
-    def _rpc_client(self):
+    def _rpc_client(self) -> messaging.RPCClient:
         return messaging.RPCClient(
             self._transport,
             self._target,
@@ -105,7 +119,7 @@ class BaseRPCClient(object):
             timeout=self._timeout,
         )
 
-    def _call(self, ctxt, method, **kwargs):
+    def _call(self, ctxt: context.RequestContext, method: str, **kwargs):
         client = self._rpc_client()
         return client.call(ctxt, method, **kwargs)
 
@@ -114,7 +128,7 @@ class BaseRPCClient(object):
         cctxt = client.prepare(server=host)
         return cctxt.call(ctxt, method, **kwargs)
 
-    def _cast(self, ctxt, method, **kwargs):
+    def _cast(self, ctxt: context.RequestContext, method: str, **kwargs) -> None:
         client = self._rpc_client()
         client.cast(ctxt, method, **kwargs)
 

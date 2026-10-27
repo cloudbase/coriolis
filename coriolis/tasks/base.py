@@ -92,7 +92,15 @@ class TaskRunner(with_metaclass(abc.ABCMeta)):
         )
 
     @abc.abstractmethod
-    def _run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def _run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict:
         """The actual logic run by the task.
         Should return a dict with all the fields declared by
         'self.get_returned_task_info_properties'.
@@ -103,7 +111,15 @@ class TaskRunner(with_metaclass(abc.ABCMeta)):
             % (self.__class__)
         )
 
-    def run(self, ctxt, instance, origin, destination, task_info, event_handler):
+    def run(
+        self,
+        ctxt,
+        instance: str,
+        origin: dict,
+        destination: dict,
+        task_info: dict,
+        event_handler,
+    ) -> dict:
         """Runs the task with the given params and returns
         a dict with the results.
         NOTE: This should NOT modify the existing task_info in any way.
@@ -169,12 +185,14 @@ def get_shared_lib_dirs_for_provider(ctxt, endpoint, event_handler):
     return []
 
 
-def get_connection_info(ctxt, data):
+def get_connection_info(ctxt, data: dict) -> dict[str, str]:
     connection_info = data.get("connection_info") or {}
     return utils.get_secret_connection_info(ctxt, connection_info)
 
 
-def marshal_migr_conn_info(migr_connection_info, private_key_field_name="pkey"):
+def marshal_migr_conn_info(
+    migr_connection_info: dict, private_key_field_name: str = "pkey"
+) -> dict:
     if migr_connection_info and (private_key_field_name in migr_connection_info):
         migr_connection_info = migr_connection_info.copy()
         pkey = migr_connection_info[private_key_field_name]
@@ -185,7 +203,9 @@ def marshal_migr_conn_info(migr_connection_info, private_key_field_name="pkey"):
     return migr_connection_info
 
 
-def unmarshal_migr_conn_info(migr_connection_info, private_key_field_name="pkey"):
+def unmarshal_migr_conn_info(
+    migr_connection_info: dict, private_key_field_name: str = "pkey"
+) -> dict:
     if migr_connection_info and (private_key_field_name in migr_connection_info):
         migr_connection_info = migr_connection_info.copy()
         pkey_str = migr_connection_info[private_key_field_name]
