@@ -229,14 +229,6 @@ def _poll_instance_until_reachable_winrm(
     )
 
 
-def _protocol_from_connection_info(connection_info, protocol):
-    if protocol:
-        return protocol
-    if windows_conn.uses_winrm(connection_info):
-        return constants.PROTOCOL_WINRM
-    return constants.PROTOCOL_SSH
-
-
 def poll_instance_until_reachable(
     connection_info: dict,
     protocol: str = None,
@@ -252,26 +244,22 @@ def poll_instance_until_reachable(
         * password
         * pkey - Paramiko keypair
     :param protocol: connection protocol, "ssh" or "winrm". If omitted,
-        port 5986 selects WinRM. Any other port selects SSH.
+        connection_info["protocol"] selects SSH or WinRM. A missing
+        protocol uses WinRM. The port does not select the protocol.
     :param timeout: the maximum amount of time to wait
     :param poll_interval: the amount of time to wait between retries
     """
-    resolved = _protocol_from_connection_info(connection_info, protocol)
+    resolved = windows_conn._protocol_from_connection_info(connection_info, protocol)
     if resolved == constants.PROTOCOL_SSH:
-        ssh_connection_info = dict(connection_info)
-        if ssh_connection_info.get("port") is None:
-            ssh_connection_info["port"] = 22
-        return _poll_instance_until_reachable_ssh(
-            connection_info=ssh_connection_info,
-            timeout=timeout,
-            poll_interval=poll_interval,
+        helper = _poll_instance_until_reachable_ssh
+    elif resolved == constants.PROTOCOL_WINRM:
+        helper = _poll_instance_until_reachable_winrm
+    else:
+        raise exception.InvalidInput(
+            f"Unsupported instance connection protocol: {resolved}"
         )
-    if resolved == constants.PROTOCOL_WINRM:
-        return _poll_instance_until_reachable_winrm(
-            connection_info=connection_info,
-            timeout=timeout,
-            poll_interval=poll_interval,
-        )
-    raise exception.InvalidInput(
-        f"Unsupported instance connection protocol: {resolved}"
+    return helper(
+        connection_info=connection_info,
+        timeout=timeout,
+        poll_interval=poll_interval,
     )

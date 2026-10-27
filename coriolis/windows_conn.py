@@ -1,14 +1,14 @@
 # Copyright 2026 Cloudbase Solutions Srl
 # All Rights Reserved.
 
-"""Pick a Windows minion connection from connection_info port.
+"""Pick a Windows minion connection.
 
-Port 5986 uses WinRM. Any other port, including 22, uses SSH.
-A missing port uses WinRM, which matches the old os-mount default.
-
-New Windows minions use [windows_minion] connection_type. ssh is port 22.
-winrm is port 5986. A minion that is already deployed keeps the port
-saved in connection_info.
+The provider writes protocol and port on connection_info.
+The core reads that dict.
+A missing protocol uses WinRM.
+The port does not select the protocol.
+[windows_minion] protocol and port are for the provider.
+An unset protocol option keeps WinRM.
 """
 
 from oslo_config import cfg
@@ -22,14 +22,27 @@ CONNECTION_WINRM = "winrm"
 
 windows_minion_opts = [
     cfg.StrOpt(
-        "connection_type",
-        default=CONNECTION_SSH,
+        "protocol",
+        default=None,
         choices=[CONNECTION_SSH, CONNECTION_WINRM],
         help=(
-            "Connection used for a new Windows minion. ssh starts OpenSSH "
-            "and uses port 22. winrm uses port 5986. The Windows template "
-            "must already accept WinRM when this is winrm. A minion that "
-            "is already deployed keeps the port in its connection_info."
+            "Protocol for a new Windows minion. The provider reads this "
+            "value and sets connection_info['protocol']. Leave this unset "
+            "to use WinRM. ssh selects SSH on a provider that supports it. "
+            "winrm selects WinRM. The core reads connection_info and uses "
+            "WinRM when protocol is missing."
+        ),
+    ),
+    cfg.IntOpt(
+        "port",
+        default=None,
+        min=1,
+        max=65535,
+        help=(
+            "TCP port for a new Windows minion. The provider reads this "
+            "value when it builds connection_info. Leave this unset to use "
+            "port 22 for ssh and port 5986 for winrm. A set value is used "
+            "for either protocol. The core uses the port on connection_info."
         ),
     ),
 ]
@@ -39,8 +52,15 @@ CONF.register_opts(windows_minion_opts, "windows_minion")
 
 
 def minion_connection():
-    """Return ssh or winrm for a new Windows minion."""
-    return CONF.windows_minion.connection_type
+    """Return ssh or winrm for a new Windows minion.
+
+    An unset protocol uses WinRM.
+    The provider writes this value on connection_info.
+    """
+    protocol = CONF.windows_minion.protocol
+    if protocol in (None, ""):
+        return CONNECTION_WINRM
+    return protocol
 
 
 def minion_uses_ssh():
@@ -49,17 +69,49 @@ def minion_uses_ssh():
 
 
 def minion_port():
-    """Return 22 for ssh and 5986 for winrm."""
+    """Return the TCP port for a new Windows minion.
+
+    An explicit port option wins. An unset port uses 22 for ssh and
+    5986 for winrm.
+    """
+    port = CONF.windows_minion.port
+    if port:
+        return port
     if minion_uses_ssh():
         return SSH_PORT
     return WINRM_HTTPS_PORT
 
 
+def connection_port(connection_info):
+    """Return the TCP port on connection_info.
+
+    A missing port uses 5986 for WinRM and 22 for SSH.
+    """
+    raw = (connection_info or {}).get("port")
+    if raw not in (None, ""):
+        return int(raw)
+    if uses_winrm(connection_info):
+        return WINRM_HTTPS_PORT
+    return SSH_PORT
+
+
+def _protocol_from_connection_info(connection_info, protocol=None):
+    """Return ssh or winrm for this connection.
+
+    An explicit protocol wins. A missing protocol uses WinRM.
+    The port does not select the protocol.
+    """
+    if protocol:
+        return protocol
+    raw = (connection_info or {}).get("protocol")
+    if raw in (None, ""):
+        return CONNECTION_WINRM
+    return raw
+
+
 def uses_winrm(connection_info):
-    port = (connection_info or {}).get("port")
-    if port is None or port == "":
-        return True
-    return int(port) == WINRM_HTTPS_PORT
+    """Return True when this connection uses WinRM."""
+    return _protocol_from_connection_info(connection_info) == CONNECTION_WINRM
 
 
 def from_connection_info(connection_info, timeout=None):

@@ -24,7 +24,7 @@ class WindowsMountTools(base.BaseOSMountTools):
         connection_info = self._connection_info
         host = connection_info["ip"]
         if windows_conn.uses_winrm(connection_info):
-            port = connection_info.get("port", windows_conn.WINRM_HTTPS_PORT)
+            port = windows_conn.connection_port(connection_info)
             self._event_manager.progress_update(
                 "Connecting to WinRM host: %(host)s:%(port)s"
                 % {"host": host, "port": port}
