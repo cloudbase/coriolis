@@ -11,8 +11,9 @@ The rule must use every profile.
 This module only returns the guest script.
 The provider must run the script.
 The provider must open TCP 22 on the platform firewall.
-Core uses SSH when connection_info port is not 5986.
-Port 5986, or a missing port, still uses WinRM.
+Core uses [windows_minion] protocol.
+An explicit value selects SSH or WinRM.
+An unset value uses WinRM on port 5986 and SSH on any other port.
 
 Providers that call this module
 -------------------------------
@@ -35,15 +36,24 @@ The template needs the guest agent.
 powershell.exe must be on the agent PATH.
 The provider sets the password with a separate net user command.
 
+LXD.
+The provider calls minion_port().
+SSH sends this script with #ps1_sysnative.
+The provider appends net user commands.
+Those commands create the user cloudbase and add it to Administrators.
+WinRM sends #cloud-config and uses port 5986.
+The image needs UserDataPlugin and a config drive.
+WinRM also needs the WinRM listener on the image.
+
+KubeVirt.
+NoCloud user data carries this script.
+The script starts with #ps1_sysnative.
+The image needs UserDataPlugin.
+The guest firewall rule is opened by the script.
+WinRM sends #cloud-config and uses port 5986.
+
 Providers that can call this module
 ------------------------------------
-LXD.
-The worker already sets cloud-init user data.
-The current text is #cloud-config with ssh_authorized_keys.
-That text does not start sshd.
-That text does not change the firewall profile.
-Replace that text with this script.
-
 libvirt.
 The minion config drive already carries user data.
 The current text is #cloud-config.
@@ -64,6 +74,13 @@ The current Windows user data opens WinRM on port 5986.
 
 oVirt.
 Use this script only when the Windows template runs cloudbase-init.
+oVirt prefixes config-drive user data with #cloud-config.
+It appends custom_script after that header.
+Send one cloud-config runcmd.
+Use powershell.exe -EncodedCommand.
+Do not send write_files before that runcmd.
+A write_files error stops later cloud-config keys.
+Do not send a #ps1_sysnative script as custom_script.
 The provider already allows that initialization path.
 windows_openssh_agent_command() does not apply.
 The oVirt guest agent reports the IP.

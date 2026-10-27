@@ -4,7 +4,8 @@
 """SSH connection for Windows OS morphing minions.
 
 The Coriolis worker connects to the minion over OpenSSH when
-connection_info port is not 5986. Port 5986 still uses WinRM.
+[windows_minion] protocol is ssh. winrm uses WinRM.
+The port does not select the protocol.
 
 Morphing commands stay in WinRM argv form. SSH runs them in one open
 PowerShell process. The process is started with -Command -.
@@ -28,7 +29,7 @@ The Windows morphing minion must provide all of the following:
 
 Not required for the SSH path
 -----------------------------
-* WinRM, HTTPS port 5986, or a WinRM listener (used only when port is 5986).
+* WinRM or a WinRM listener. Those are used when protocol is not ssh.
 * PowerShell 7, pwsh.exe, or an OpenSSH Subsystem powershell line.
 * PSRP remoting (Enter-PSSession -HostName, pypsrp SSH).
 """

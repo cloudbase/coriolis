@@ -252,17 +252,16 @@ def poll_instance_until_reachable(
         * password
         * pkey - Paramiko keypair
     :param protocol: connection protocol, "ssh" or "winrm". If omitted,
-        port 5986 selects WinRM. Any other port selects SSH.
+        [windows_minion] protocol selects SSH or WinRM. The port does not
+        select the protocol.
     :param timeout: the maximum amount of time to wait
     :param poll_interval: the amount of time to wait between retries
     """
     resolved = _protocol_from_connection_info(connection_info, protocol)
+    connection_info = windows_conn.with_provider_port(connection_info)
     if resolved == constants.PROTOCOL_SSH:
-        ssh_connection_info = dict(connection_info)
-        if ssh_connection_info.get("port") is None:
-            ssh_connection_info["port"] = 22
         return _poll_instance_until_reachable_ssh(
-            connection_info=ssh_connection_info,
+            connection_info=connection_info,
             timeout=timeout,
             poll_interval=poll_interval,
         )
