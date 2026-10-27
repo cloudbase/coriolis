@@ -103,14 +103,20 @@ class TransferCronServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         self.assertTrue(self.server._cron_started)
 
     @mock.patch.object(server.time, 'sleep')
-    def test_load_schedules_retries_after_conductor_timeout(self, mock_sleep):
+    @mock.patch.object(
+        server.TransferCronServerEndpoint,
+        '_init_cron',
+        side_effect=[Exception('timeout'), None],
+    )
+    def test_load_schedules_retries_after_conductor_timeout(
+        self, mock_init_cron, mock_sleep
+    ):
         self.server._cron_started = False
-        self.server._init_cron = mock.Mock(side_effect=[Exception('timeout'), None])
 
         with self.assertLogs('coriolis.transfer_cron.rpc.server', level=logging.ERROR):
             self.server._load_schedules_until_started()
 
-        self.assertEqual(self.server._init_cron.call_count, 2)
+        self.assertEqual(mock_init_cron.call_count, 2)
         mock_sleep.assert_called_once_with(60)
         self.assertTrue(self.server._cron_started)
 
