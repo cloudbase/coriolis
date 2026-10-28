@@ -58,6 +58,18 @@ class BaseRedHatMorphingToolsTestCase(test_base.CoriolisBaseTestCase):
         )
         self.assertEqual(expected, result)
 
+    def test_check_os_supported_rhel7_server_name(self):
+        self.detected_os_info['distribution_name'] = (
+            redhat.RED_HAT_SERVER_DISTRO_IDENTIFIER
+        )
+        self.detected_os_info['release_version'] = '7.9'
+
+        result = redhat.BaseRedHatMorphingTools.check_os_supported(
+            self.detected_os_info
+        )
+
+        self.assertTrue(result)
+
     def test_check_os_not_supported(self):
         self.detected_os_info['distribution_name'] = 'unsupported'
 
