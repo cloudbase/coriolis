@@ -12,6 +12,8 @@ from coriolis import exception, utils
 from coriolis.osmorphing import base
 
 RED_HAT_DISTRO_IDENTIFIER = "Red Hat Enterprise Linux"
+# RHEL 7 os-release NAME includes the "Server" variant. RHEL 8+ does not.
+RED_HAT_SERVER_DISTRO_IDENTIFIER = "Red Hat Enterprise Linux Server"
 
 LOG = logging.getLogger(__name__)
 
@@ -28,7 +30,10 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
 
     @classmethod
     def check_os_supported(cls, detected_os_info):
-        if detected_os_info['distribution_name'] != (RED_HAT_DISTRO_IDENTIFIER):
+        if detected_os_info['distribution_name'] not in (
+            RED_HAT_DISTRO_IDENTIFIER,
+            RED_HAT_SERVER_DISTRO_IDENTIFIER,
+        ):
             return False
         return cls._version_supported_util(
             detected_os_info['release_version'], minimum=7
