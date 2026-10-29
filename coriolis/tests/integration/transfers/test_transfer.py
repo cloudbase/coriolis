@@ -63,45 +63,27 @@ class _ReplicaTransferTestsMixin:
     def test_incremental_replica_transfer(self):
         """Full transfer followed by incremental after source modification.
 
-        - Write a known byte pattern to the source loop device.
         - Create source / destination endpoints and a Replica transfer via the
           Coriolis REST API (using coriolisclient).
-        - Execute the transfer and wait for it to complete.
-        - Overwrite a single chunk on the source device.
         - Update the transfer to enable disk integrity verification.
+        - Execute the transfer and wait for it to complete.
+        - Mutate some data on the source instance's primary disk.
         - Execute a second transfer run (incremental=True).
-        - Assert that the destination disk checksum was computed.
+        - Assert that the disk checksums were verified on both runs, and that
+          the second run wrote less data than the first one.
 
-        The content is verified only if the test import provider is being used.
+        The execution fails if the source and destination checksums differ, so the
+        content is verified for any provider pair. The devices are also compared
+        directly if the test import provider is being used. Requires a source provider
+        that implements ``can_exec_test_vm()``, and which supports disk checksumming.
         """
-        if not self._harness.uses_core_test_export_provider():
+        if not self._exp_provider.can_exec_test_vm():
             self.skipTest(
-                "Incremental transfer verification requires direct access "
-                "to the source device"
+                "%s does not support incremental transfer verification"
+                % type(self._exp_provider).__name__
             )
 
-        # First run: full transfer
-        self._execute_and_wait(self._transfer.id)
-
-        if self._harness.uses_core_test_import_provider():
-            self.assertTrue(
-                test_utils.devices_match(self._src_device, self._dst_device),
-                "Devices do not match after initial full transfer",
-            )
-
-        # Mutate source: write a different pattern at the second chunk
-        test_utils.write_bytes_at_offset(
-            self._src_device,
-            offset=4096,
-            data=b"\xff\xfe\xfd\xfc" * 1024,
-        )
-        if self._harness.uses_core_test_import_provider():
-            self.assertFalse(
-                test_utils.devices_match(self._src_device, self._dst_device),
-                "Devices should differ after mutating the source",
-            )
-
-        # Enable disk integrity verification for the incremental run.
+        # Enable disk integrity verification for both runs.
         # Note that the HTTP backup writer is the only one implementing
         # get_disk_checksum().
         execution = self._client.transfers.update(
@@ -117,25 +99,48 @@ class _ReplicaTransferTestsMixin:
         )
         self.assertExecutionCompleted(execution.id)
 
-        checksummed_disks = []
-        original = backup_writers.HTTPBackupWriterImpl.get_disk_checksum
-
-        def _recording_get_disk_checksum(writer, *args, **kwargs):
-            checksummed_disks.append(writer._disk_id)
-            return original(writer, *args, **kwargs)
-
-        # Second run: incremental
-        with mock.patch.object(
-            backup_writers.HTTPBackupWriterImpl,
-            "get_disk_checksum",
-            _recording_get_disk_checksum,
-        ):
-            self._execute_and_wait(self._transfer.id)
+        # First run: full transfer
+        checksummed_disks, full_bytes = self._execute_and_spy_on_writer(
+            self._transfer.id
+        )
 
         self.assertEqual(
-            [os.path.basename(self._src_device)],
+            self._transfer_disk_ids,
             checksummed_disks,
-            "The checksum was not computed for the transferred disk",
+            "The checksum was not computed after the initial full transfer",
+        )
+        if self._harness.uses_core_test_import_provider():
+            self.assertTrue(
+                test_utils.devices_match(self._src_device, self._dst_device),
+                "Devices do not match after initial full transfer",
+            )
+
+        # Mutate source.
+        self._exp_provider.mutate_test_instance_data(self._instance_name)
+
+        if self._harness.uses_core_test_import_provider():
+            self.assertFalse(
+                test_utils.devices_match(self._src_device, self._dst_device),
+                "Devices should differ after mutating the source",
+            )
+
+        # Second run: incremental
+        checksummed_disks, incremental_bytes = self._execute_and_spy_on_writer(
+            self._transfer.id
+        )
+
+        self.assertEqual(
+            self._transfer_disk_ids,
+            checksummed_disks,
+            "The checksum was not computed after the incremental transfer",
+        )
+        self.assertGreater(
+            incremental_bytes, 0, "The incremental transfer wrote no data"
+        )
+        self.assertLess(
+            incremental_bytes,
+            full_bytes,
+            "The incremental transfer wrote as much data as the full one",
         )
 
         if self._harness.uses_core_test_import_provider():
@@ -492,3 +497,126 @@ class ReplicaTransferViaSSHTunnelTest(base.ReplicaIntegrationTestBase):
                 test_utils.devices_match(self._src_device, self._dst_device),
                 "Devices do not match after transfer via SSH tunnel",
             )
+
+
+class MultiDiskTransferIntegrationTest(base.ReplicaIntegrationTestBase):
+    """Replica transfer tests for an instance with more than one disk."""
+
+    @classmethod
+    def setUpClass(cls):
+        h = integration_harness._IntegrationHarness.get()
+        if not h.uses_core_test_export_provider():
+            raise unittest.SkipTest(
+                "Multi-disk instances require the core test export provider"
+            )
+        super().setUpClass()
+
+    def setUp(self):
+        super().setUp()
+
+        self._root_device = self._src_device
+        self._data_device = test_utils.create_loop_device(
+            self._SRC_DEVICE_SIZE_MB * 1024 * 1024
+        )
+        self.addCleanup(test_utils.remove_loop_device, self._data_device)
+        test_utils.write_test_pattern(self._data_device, 4096)
+
+        self._multi_disk_instance = "%s-%s-multidisk" % (
+            os.path.basename(self._root_device),
+            uuid.uuid4().hex[:8],
+        )
+        # NOTE: the HTTP backup writer is the only one implementing
+        # get_disk_checksum().
+        self._multi_disk_transfer = self._create_transfer(
+            self._src_endpoint.id,
+            self._dst_endpoint.id,
+            instances=[self._multi_disk_instance],
+            source_environment={
+                **self._exp_env_options,
+                "instance_block_devices": {
+                    self._multi_disk_instance: [
+                        self._root_device,
+                        self._data_device,
+                    ],
+                },
+                "verify_disk_integrity": True,
+            },
+            destination_environment={
+                **self._imp_env_options,
+                "data_transfer_mechanism": (
+                    backup_writers.DATA_TRANSFER_MECHANISM_HTTPS
+                ),
+            },
+        )
+        self.addCleanup(
+            self._cleanup_provider_dst_devices, self._multi_disk_transfer.id
+        )
+
+    def _dst_devices_by_disk_id(self):
+        ctxt = self._get_db_context()
+        transfer = db_api.get_transfer(
+            ctxt, self._multi_disk_transfer.id, include_task_info=True
+        )
+        info = transfer.get("info", {}).get(self._multi_disk_instance, {})
+        return {
+            vol["disk_id"]: vol["volume_dev"]
+            for vol in info.get("volumes_info", [])
+            if vol.get("volume_dev")
+        }
+
+    def test_incremental_transfer_with_unchanged_first_disk(self):
+        """Incremental transfer in which only the second disk changed.
+
+        Disks are replicated in order, so an unchanged first disk (e.g. a
+        mostly idle root disk) must not prevent the following disks from
+        being replicated.
+        """
+        root_disk_id = os.path.basename(self._root_device)
+        data_disk_id = os.path.basename(self._data_device)
+
+        # First run: full transfer
+        checksummed_disks, _ = self._execute_and_spy_on_writer(
+            self._multi_disk_transfer.id
+        )
+
+        self.assertEqual(
+            [root_disk_id, data_disk_id],
+            checksummed_disks,
+            "Both disks should have been replicated in order by the initial "
+            "full transfer",
+        )
+
+        # Mutate only the second disk.
+        test_utils.write_bytes_at_offset(
+            self._data_device, offset=4096, data=b"\xff\xfe\xfd\xfc" * 1024
+        )
+
+        # Second run: incremental
+        checksummed_disks, incremental_bytes = self._execute_and_spy_on_writer(
+            self._multi_disk_transfer.id
+        )
+
+        self.assertIn(
+            data_disk_id,
+            checksummed_disks,
+            "The changed data disk was not replicated by the incremental transfer",
+        )
+        self.assertGreater(
+            incremental_bytes, 0, "The incremental transfer wrote no data"
+        )
+
+        if not self._harness.uses_core_test_import_provider():
+            # "volume_dev" is only a host-readable device path with the in-tree
+            # test provider.
+            return
+
+        dst_devices = self._dst_devices_by_disk_id()
+        self.assertTrue(
+            test_utils.devices_match(self._root_device, dst_devices[root_disk_id]),
+            "Root disk destination does not match its source",
+        )
+        self.assertTrue(
+            test_utils.devices_match(self._data_device, dst_devices[data_disk_id]),
+            "Data disk destination does not match its source after the "
+            "incremental transfer",
+        )
