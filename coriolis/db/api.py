@@ -1004,6 +1004,63 @@ def _get_minion_pool_progress_update(context, pool_id, index):
     ).first()
 
 
+def _compare_and_update_progress(
+    context,
+    progress_update,
+    parent_id,
+    update_index,
+    new_current_step,
+    new_total_steps=None,
+    new_message=None,
+    resource_name="task",
+):
+    """Advance a progress row only when ``new_current_step`` is not behind.
+
+    The step check is part of the UPDATE predicate (``current_step <=
+    new_current_step``). Comparing the value loaded on ``progress_update``
+    is not enough: that value can be stale, and a later flush would overwrite
+    a newer step stored by a concurrent writer.
+
+    Returns True when this update was stored. A rejected update leaves the
+    row unchanged. ``progress_update`` is refreshed from the database either
+    way.
+    """
+    values = {
+        "current_step": new_current_step,
+        "updated_at": timeutils.utcnow(),
+    }
+    if new_total_steps is not None:
+        values["total_steps"] = new_total_steps
+    if new_message is not None:
+        values["message"] = new_message
+
+    model = progress_update.__class__
+    session = _session(context)
+    # synchronize_session=False keeps a stale identity-map object from being
+    # rewritten in Python and flushed back over the conditional UPDATE.
+    updated = (
+        session.query(model)
+        .filter(
+            model.id == progress_update.id,
+            model.current_step <= new_current_step,
+        )
+        .update(values, synchronize_session=False)
+    )
+    session.refresh(progress_update)
+    if updated == 0:
+        LOG.debug(
+            "Ignoring out-of-order progress update for %s '%s' "
+            "index %s: new_current_step=%s is behind stored current_step=%s",
+            resource_name,
+            parent_id,
+            update_index,
+            new_current_step,
+            progress_update.current_step,
+        )
+        return False
+    return True
+
+
 @enginefacade.writer
 def add_minion_pool_progress_update(
     context, pool_id, message, initial_step=0, total_steps=0
@@ -1041,11 +1098,16 @@ def update_minion_pool_progress_update(
             "index %s in the DB for updating." % (pool_id, update_index)
         )
 
-    pool_progress_update.current_step = new_current_step
-    if new_total_steps is not None:
-        pool_progress_update.total_steps = new_total_steps
-    if new_message is not None:
-        pool_progress_update.message = new_message
+    _compare_and_update_progress(
+        context,
+        pool_progress_update,
+        pool_id,
+        update_index,
+        new_current_step,
+        new_total_steps=new_total_steps,
+        new_message=new_message,
+        resource_name="minion pool",
+    )
     return pool_progress_update
 
 
@@ -1100,27 +1162,9 @@ def update_task_progress_update(
             "index %s in the DB for updating." % (task_id, update_index)
         )
 
-    # Quick progress updates may be processed out of order.
-    # We're trying to mitigate this by checking the current step.
-    #
-    # TODO(ffulga): the current approach is still prone to race conditions
-    # since `task_progress_update.current_step` may be out of date.
-    # The safest approach would be to use a db-level `compare-and-update`
-    # sql operation.
-    if new_current_step < task_progress_update.current_step:
-        LOG.debug(
-            "Ignoring out-of-order progress update for task '%s' "
-            "index %s: new_current_step=%s is behind stored current_step=%s",
-            task_id,
-            update_index,
-            new_current_step,
-            task_progress_update.current_step,
-        )
-        return
-
-    task_progress_update.current_step = new_current_step
-    if new_total_steps is not None:
-        task_progress_update.total_steps = new_total_steps
+    # Quick progress updates may be processed out of order. Reject a step
+    # that would move the bar backwards with a compare-and-update so a stale
+    # read of current_step cannot overwrite a newer value.
     if new_message is not None:
         max_msg_len = models.MAX_EVENT_MESSAGE_LENGHT
         if len(new_message) > max_msg_len:
@@ -1131,7 +1175,16 @@ def update_task_progress_update(
                 f" Original message was: '{new_message}'"
             )
             new_message = f"{new_message[: max_msg_len - len('...')]}..."  # noqa
-        task_progress_update.message = new_message
+
+    _compare_and_update_progress(
+        context,
+        task_progress_update,
+        task_id,
+        update_index,
+        new_current_step,
+        new_total_steps=new_total_steps,
+        new_message=new_message,
+    )
 
 
 @enginefacade.writer
