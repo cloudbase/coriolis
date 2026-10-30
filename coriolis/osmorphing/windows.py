@@ -14,6 +14,7 @@ from packaging import version
 
 from coriolis import constants, exception, utils
 from coriolis.osmorphing import base
+from coriolis.osmorphing import conf as osmorphing_conf
 from coriolis.osmorphing.osdetect import windows as windows_osdetect
 
 LOG = logging.getLogger(__name__)
@@ -30,21 +31,6 @@ SERVICE_PATH_FORMAT = "HKLM:\\%s\\ControlSet001\\Services\\%s"
 RUN_PATH_FORMAT = "HKLM:\\%s\\\Microsoft\\Windows\\CurrentVersion\\Run"
 UNINSTALL_PATH_FORMAT = "HKLM:\\%s\\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*"
 CLOUDBASEINIT_SERVICE_NAME = "cloudbase-init"
-CLOUDBASE_INIT_DEFAULT_PLUGINS = [
-    'cloudbaseinit.plugins.common.mtu.MTUPlugin',
-    'cloudbaseinit.plugins.windows.ntpclient.NTPClientPlugin',
-    'cloudbaseinit.plugins.common.sethostname.SetHostNamePlugin',
-    'cloudbaseinit.plugins.common.networkconfig.NetworkConfigPlugin',
-    'cloudbaseinit.plugins.windows.licensing.WindowsLicensingPlugin',
-    'cloudbaseinit.plugins.windows.extendvolumes.ExtendVolumesPlugin',
-    'cloudbaseinit.plugins.common.userdata.UserDataPlugin',
-    'cloudbaseinit.plugins.common.setuserpassword.SetUserPasswordPlugin',
-    'cloudbaseinit.plugins.windows.winrmlistener.ConfigWinRMListenerPlugin',
-    'cloudbaseinit.plugins.windows.winrmcertificateauth.'
-    'ConfigWinRMCertificateAuthPlugin',
-    'cloudbaseinit.plugins.common.localscripts.LocalScriptsPlugin',
-]
-
 CLOUDBASE_INIT_DEFAULT_METADATA_SVCS = [
     'cloudbaseinit.metadata.services.httpservice.HttpService',
     'cloudbaseinit.metadata.services.configdrive.ConfigDriveService',
@@ -543,12 +529,9 @@ class BaseWindowsMorphingTools(base.BaseOSMorphingTools):
         if metadata_services is None:
             metadata_services = CLOUDBASE_INIT_DEFAULT_METADATA_SVCS
 
-        if plugins is None:
-            plugins = CLOUDBASE_INIT_DEFAULT_PLUGINS
-        elif type(plugins) is not list:
-            raise exception.CoriolisException(
-                "Invalid plugins parameter. Must be list."
-            )
+        plugins = osmorphing_conf.resolve_cloudbase_init_plugins(
+            self._osmorphing_parameters, plugins
+        )
 
         LOG.info("Writing Cloudbase-Init configuration files")
         conf_dir = "%s\\conf" % cloudbaseinit_base_dir
