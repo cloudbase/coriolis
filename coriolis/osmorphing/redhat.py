@@ -224,11 +224,16 @@ class BaseRedHatMorphingTools(base.BaseLinuxOSMorphingTools):
     def _yum_uninstall(self, package_names):
         try:
             for package_name in package_names:
-                # NOTE: '--noautoremove' prevents yum/dnf from also removing
-                # generic system packages (tar, pciutils, fuse, libxslt, etc.)
-                # which it considers unused dependencies of the package being
-                # removed, but which must be kept on the migrated VM.
-                yum_cmd = 'yum remove %s -y --noautoremove' % package_name
+                # NOTE: 'clean_requirements_on_remove=0' prevents yum/dnf from
+                # also removing generic system packages (tar, pciutils, fuse,
+                # libxslt, etc.) which it considers unused dependencies of the
+                # package being removed, but which must be kept on the migrated
+                # VM. This is set through '--setopt' as '--noautoremove' is
+                # DNF-only and is rejected by YUM 3 (RHEL 7 and derivatives).
+                yum_cmd = (
+                    f'yum remove {package_name} -y '
+                    '--setopt=clean_requirements_on_remove=0'
+                )
                 self._exec_cmd_chroot(yum_cmd)
         except exception.CoriolisException as err:
             raise exception.FailedPackageUninstallationException(
