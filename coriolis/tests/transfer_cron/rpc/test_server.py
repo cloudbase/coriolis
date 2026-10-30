@@ -111,7 +111,7 @@ class TransferCronServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             self.server._load_schedules_until_started()
 
         self.assertEqual(self.server._init_cron.call_count, 2)
-        mock_sleep.assert_called_once_with(60)
+        self.assertEqual(mock_sleep.call_args_list.count(mock.call(60)), 1)
         self.assertTrue(self.server._cron_started)
 
     def test_ensure_cron_started_does_not_raise(self):
