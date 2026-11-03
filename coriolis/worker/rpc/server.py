@@ -19,6 +19,7 @@ from coriolis import constants, context, exception, schemas, service, utils
 from coriolis.conductor.rpc import client as rpc_conductor_client
 from coriolis.conductor.rpc import utils as conductor_rpc_utils
 from coriolis.minion_manager.rpc import client as rpc_minion_manager_client
+from coriolis.providers import conf as provider_conf
 from coriolis.providers import factory as providers_factory
 from coriolis.tasks import factory as task_runners_factory
 
@@ -456,10 +457,27 @@ class WorkerServerEndpoint(object):
                 "destination environment options." % platform_name
             )
 
-        secret_connection_info = utils.get_secret_connection_info(ctxt, connection_info)
-
-        options = provider.get_target_environment_options(
-            ctxt, secret_connection_info, env=env, option_names=option_names
+        provider_option_names = provider_conf.filter_core_option_names(option_names)
+        # Providers treat [] as every option. A request that names only
+        # core options must not be sent that way.
+        if (
+            isinstance(option_names, list)
+            and option_names
+            and provider_option_names == []
+        ):
+            options = []
+        else:
+            secret_connection_info = utils.get_secret_connection_info(
+                ctxt, connection_info
+            )
+            options = provider.get_target_environment_options(
+                ctxt,
+                secret_connection_info,
+                env=env,
+                option_names=provider_option_names,
+            )
+        options = provider_conf.merge_core_destination_options(
+            options, option_names=option_names
         )
 
         schemas.validate_value(
@@ -604,6 +622,9 @@ class WorkerServerEndpoint(object):
             platform_name, constants.PROVIDER_TYPE_OS_MORPHING, None
         )
         target_env_schema = provider.get_target_environment_schema()
+        target_env_schema = provider_conf.inject_core_target_environment_schema(
+            target_env_schema
+        )
 
         is_valid = True
         message = None
@@ -718,6 +739,7 @@ class WorkerServerEndpoint(object):
 
         if provider_type == constants.PROVIDER_TYPE_TRANSFER_IMPORT:
             schema = provider.get_target_environment_schema()
+            schema = provider_conf.inject_core_target_environment_schema(schema)
             schemas["destination_environment_schema"] = schema
 
         if provider_type == constants.PROVIDER_TYPE_TRANSFER_EXPORT:
