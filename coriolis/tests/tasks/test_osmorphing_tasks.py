@@ -6,6 +6,7 @@ from unittest import mock
 import ddt
 
 from coriolis import constants, exception, schemas
+from coriolis.providers import conf as provider_conf
 from coriolis.tasks import osmorphing_tasks
 from coriolis.tests import test_base
 
@@ -98,7 +99,10 @@ class DeployOSMorphingResourcesTaskTestCase(test_base.CoriolisBaseTestCase):
         prov_fun = mock_get_provider.return_value.deploy_os_morphing_resources
         prov_fun.return_value = import_info
         destination = mock.MagicMock()
-        task_info = mock.MagicMock()
+        task_info = {
+            "target_environment": {},
+            "instance_deployment_info": {},
+        }
         method_args = [
             mock.sentinel.ctxt,
             mock.sentinel.instance,
@@ -126,7 +130,10 @@ class DeployOSMorphingResourcesTaskTestCase(test_base.CoriolisBaseTestCase):
             expected_result = {
                 "os_morphing_resources": import_info.get('os_morphing_resources'),
                 "osmorphing_connection_info": (mock_marshal_conn_info.return_value),
-                "osmorphing_info": import_info.get('osmorphing_info', {}),
+                "osmorphing_info": provider_conf.apply_core_destination_overrides(
+                    dict(import_info.get('osmorphing_info') or {}),
+                    {},
+                ),
             }
             self.assertEqual(expected_result, _get_result(*method_args))
             mock_get_provider.assert_called_once_with(
