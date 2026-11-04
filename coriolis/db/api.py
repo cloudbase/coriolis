@@ -2,6 +2,7 @@
 # All Rights Reserved.
 
 import copy
+import re
 import uuid
 
 from oslo_config import cfg
@@ -898,11 +899,58 @@ def _get_task(context, task_id):
     return task
 
 
+# utf8 stores BMP characters only, and rejects UTF-16 surrogates.
+_DB_UNSAFE_CHARACTERS = re.compile(r"[^\u0000-\uD7FF\uE000-\uFFFF]")
+
+
+def _normalize_exception_details(task_id, exception_details):
+    """Normalize exception details for the task.exception_details column.
+
+    Command output embedded in a task error, such as a yum progress bar,
+    can exceed the MySQL TEXT limit. The status UPDATE then fails and the
+    task stays in a non-terminal state. The beginning and the end are kept:
+    Coriolis describes the failure first, and the underlying command reports
+    the actual error last. A character outside the utf8 character set is
+    replaced so the status update is not rejected.
+    """
+    if not exception_details:
+        return exception_details
+
+    max_length = models.MAX_EXCEPTION_DETAILS_LENGTH
+    original_length = len(exception_details)
+    if original_length > max_length:
+        LOG.warn(
+            f"Exception details for task '{task_id}' are too long "
+            f"({original_length} characters) to store in the database. "
+            f"Truncating to {max_length} characters so the task status can "
+            f"be recorded."
+        )
+
+        # Only the beginning and the end of the exception details are important.
+        # The rest can be seen in the coriolis-worker logs.
+        marker = "\n... (truncated) ...\n"
+        keep = max_length - len(marker)
+        head_length = keep // 2
+        tail_length = keep - head_length
+        exception_details = (
+            f"{exception_details[:head_length]}{marker}"
+            f"{exception_details[-tail_length:]}"
+        )
+
+    return _DB_UNSAFE_CHARACTERS.sub("?", exception_details)
+
+
 @enginefacade.writer
 def set_task_status(context, task_id, status, exception_details=None):
+    """Set a task's status and, when given, its exception details.
+
+    Exception details are shortened to fit the database column. A value
+    that exceeds the column makes the status update fail and leaves the
+    task stuck.
+    """
     task = _get_task(context, task_id)
     task.status = status
-    task.exception_details = exception_details
+    task.exception_details = _normalize_exception_details(task_id, exception_details)
 
 
 @enginefacade.writer
