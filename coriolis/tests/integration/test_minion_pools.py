@@ -11,13 +11,14 @@ Exercises minion-pool operations via the Coriolis REST API:
 """
 
 import time
+import unittest
 
 from oslo_config import cfg
 
 from coriolis import constants
 from coriolis.db import api as db_api
 from coriolis.minion_manager.rpc import server as minion_manager_rpc_server
-from coriolis.tests.integration import base
+from coriolis.tests.integration import base, harness
 
 CONF = cfg.CONF
 
@@ -320,7 +321,32 @@ class MinionPoolPowerCycleTransferTest(
         return self._dst_pool_id
 
 
+class _BuiltInSourcePoolTransferSkipMixin:
+    """Skip built-in source pool transfers against a real destination.
+
+    The built-in export provider's pool behavior is covered with the built-in
+    import provider.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        # Check before super(), so that a source pool and a transfer are not
+        # created for this skip.
+        h = harness._IntegrationHarness.get()
+        if (
+            h.uses_core_test_export_provider()
+            and not h.uses_core_test_import_provider()
+        ):
+            raise unittest.SkipTest(
+                "Built-in source minion pool transfer tests run only with "
+                "the built-in import provider"
+            )
+
+        super().setUpClass()
+
+
 class SourceMinionPoolPowerCycleTransferTest(
+    _BuiltInSourcePoolTransferSkipMixin,
     _MinionPoolPowerCycleTestMixin,
     base.SourceMinionPoolTestBase,
     base.ReplicaIntegrationTestBase,
@@ -421,6 +447,7 @@ class MinionPoolRefreshDeallocationTransferTest(
 
 
 class SourceMinionPoolRefreshDeallocationTransferTest(
+    _BuiltInSourcePoolTransferSkipMixin,
     _MinionPoolRefreshDeallocationTestMixin,
     base.SourceMinionPoolTestBase,
     base.ReplicaIntegrationTestBase,
