@@ -125,6 +125,9 @@ def _load_providers_config():
             "minion_pool_environment": (
                 dest_config.get("minion_pool_environment") or {}
             ),
+            "windows_minion_pool_environment": (
+                dest_config.get("windows_minion_pool_environment") or {}
+            ),
         },
     }
 
@@ -417,6 +420,9 @@ class _IntegrationHarness:
         self.imp_storage_mappings = providers_config["destination"]["storage_mappings"]
         self.imp_minion_pool_environment = providers_config["destination"][
             "minion_pool_environment"
+        ]
+        self.imp_windows_minion_pool_environment = providers_config["destination"][
+            "windows_minion_pool_environment"
         ]
 
         self._wsgi_server = None

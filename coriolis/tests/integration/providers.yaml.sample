@@ -41,3 +41,7 @@ destination:
 
   # environment options forwarded to destination minion pools.
   minion_pool_environment: {}
+
+  # environment options forwarded to Windows destination minion pools. Optional:
+  # the Windows minion pool lifecycle tests are skipped if this is empty.
+  windows_minion_pool_environment: {}

@@ -11,6 +11,7 @@ Exercises minion-pool operations via the Coriolis REST API:
 """
 
 import time
+import unittest
 
 from oslo_config import cfg
 
@@ -24,6 +25,7 @@ CONF = cfg.CONF
 
 class MinionPoolLifecycleTestMixin:
     _MINION_PLATFORM = None
+    _POOL_ALLOCATION_TIMEOUT = 600
 
     def _wait_for_machine_status(self, pool_id, status, timeout=120):
         """Poll the DB until the pool's single machine reaches *status*."""
@@ -86,7 +88,11 @@ class MinionPoolLifecycleTestMixin:
         # Allocate
         self._client.minion_pools.allocate_minion_pool(pool.id)
 
-        final = self._wait_for_pool(pool.id, base.MINION_ALLOCATED_TERMINAL)
+        final = self._wait_for_pool(
+            pool.id,
+            base.MINION_ALLOCATED_TERMINAL,
+            timeout=self._POOL_ALLOCATION_TIMEOUT,
+        )
         self.assertEqual(
             constants.MINION_POOL_STATUS_ALLOCATED,
             final.status,
@@ -173,6 +179,46 @@ class MinionPoolLifecycleTests(
             refreshed,
             "Minion pool machine '%s' was not refreshed by the automatic "
             "cron job in time" % pool.id,
+        )
+
+
+class WindowsMinionPoolLifecycleTests(
+    MinionPoolLifecycleTestMixin, base.DestinationMinionPoolTestBase
+):
+    """Lifecycle of a Windows destination pool, e.g.: the WinRM healthcheck.
+
+    Covers Windows minions, as used for OSMorphing. Skipped unless providers.yaml
+    has a ``destination.windows_minion_pool_environment``.
+    """
+
+    _MINION_PLATFORM = constants.PROVIDER_PLATFORM_DESTINATION
+    # Windows guests are slow to boot:
+    _POOL_ALLOCATION_TIMEOUT = 1200
+
+    @classmethod
+    def setUpClass(cls):
+        h = base.harness._IntegrationHarness.get()
+        if not h.imp_windows_minion_pool_environment:
+            raise unittest.SkipTest(
+                "No 'destination.windows_minion_pool_environment' configured in "
+                "CORIOLIS_PROVIDERS_YAML; skipping Windows minion pool tests"
+            )
+
+        super().setUpClass()
+
+    def setUp(self):
+        super().setUp()
+
+        self._endpoint = self._create_endpoint(
+            name="pool-dst-windows",
+            endpoint_type=self._imp_platform,
+            connection_info=self._imp_conn_info,
+        )
+        self._pool_env = self._imp_windows_pool_env
+
+    def _create_pool(self, endpoint_id, **kwargs):
+        return super()._create_pool(
+            endpoint_id, os_type=constants.OS_TYPE_WINDOWS, **kwargs
         )
 
 
