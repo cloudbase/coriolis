@@ -898,11 +898,62 @@ def _get_task(context, task_id):
     return task
 
 
+def _fit_exception_details(task_id, exception_details):
+    """Fit exception details into the task.exception_details column.
+
+    Command output embedded in a task error, such as a yum progress bar,
+    can exceed the MySQL TEXT limit. The status UPDATE then fails and the
+    task stays in a non-terminal state. The beginning and the end are kept:
+    Coriolis describes the failure first, and the underlying command reports
+    the actual error last.
+    """
+    if not exception_details:
+        return exception_details
+
+    max_length = models.MAX_EXCEPTION_DETAILS_LENGTH
+    original_length = len(exception_details)
+    if original_length <= max_length:
+        return exception_details
+
+    LOG.warn(
+        f"Exception details for task '{task_id}' are too long "
+        f"({original_length} characters) to store in the database. "
+        f"Truncating to {max_length} characters so the task status can "
+        f"be recorded."
+    )
+
+    # The marker states how many characters were removed, and that count
+    # depends on the marker's own length. Grow the omitted count until the
+    # marker and the kept text fit together.
+    omitted = original_length - max_length
+    while True:
+        marker = f"\n... ({omitted} characters truncated) ...\n"
+        keep = max_length - len(marker)
+        if keep < 1:
+            return exception_details[:max_length]
+        required_omitted = original_length - keep
+        if omitted >= required_omitted:
+            break
+        omitted = required_omitted
+
+    head_length = keep // 2
+    tail_length = keep - head_length
+    return (
+        f"{exception_details[:head_length]}{marker}{exception_details[-tail_length:]}"
+    )
+
+
 @enginefacade.writer
 def set_task_status(context, task_id, status, exception_details=None):
+    """Set a task's status and, when given, its exception details.
+
+    Exception details are shortened to fit the database column. A value
+    that exceeds the column makes the status update fail and leaves the
+    task stuck.
+    """
     task = _get_task(context, task_id)
     task.status = status
-    task.exception_details = exception_details
+    task.exception_details = _fit_exception_details(task_id, exception_details)
 
 
 @enginefacade.writer

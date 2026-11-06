@@ -15,6 +15,11 @@ BASE = declarative.declarative_base()
 
 MAX_EVENT_MESSAGE_LENGHT = 1024
 
+# MySQL TEXT holds at most 65,535 bytes. utf8mb4 can use 4 bytes per
+# character, so this is the longest exception_details value guaranteed
+# to fit in the column.
+MAX_EXCEPTION_DETAILS_LENGTH = 65535 // 4
+
 
 class TaskEvent(BASE, models.TimestampMixin, models.SoftDeleteMixin, models.ModelBase):
     __tablename__ = 'task_event'
