@@ -4197,6 +4197,71 @@ class ConductorServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_update_transfer_action_info.assert_not_called()
         self.assertEqual(2, mock_get_action.call_count)
 
+    @mock.patch.object(server.ConductorServerEndpoint, "_advance_execution_state")
+    @mock.patch.object(server.ConductorServerEndpoint, "_handle_post_task_actions")
+    @mock.patch.object(
+        server.ConductorServerEndpoint, "_handle_task_sync_barrier", return_value=False
+    )
+    @mock.patch.object(utils, "sanitize_task_info")
+    @mock.patch.object(db_api, "get_task")
+    @mock.patch.object(db_api, "set_task_status")
+    @mock.patch.object(db_api, "get_tasks_execution")
+    @mock.patch.object(db_api, "get_action")
+    @mock.patch.object(db_api, "set_action_destination_environment")
+    @mock.patch.object(db_api, "update_transfer_action_info_for_instance")
+    @mock.patch.object(lockutils, "lock")
+    def test_task_completed_saves_normalized_environment(
+        self,
+        mock_lock,
+        mock_update_transfer_action_info,
+        mock_set_destination_environment,
+        mock_get_action,
+        mock_get_tasks_execution,
+        mock_set_task_status,
+        mock_get_task,
+        mock_sanitize_task_info,
+        mock_sync_barrier,
+        mock_post_task_actions,
+        mock_advance_execution_state,
+    ):
+        saved = {"zone": "zone1", "migr_worker_linux_template": "linux-id"}
+        task_result = {
+            "volumes_info": [],
+            "target_environment": saved,
+            constants.SAVE_NORMALIZED_TARGET_ENVIRONMENT: True,
+        }
+        mock_get_task.return_value = mock.Mock(
+            status=constants.TASK_STATUS_RUNNING,
+            instance=mock.sentinel.instance,
+            id=mock.sentinel.task_id,
+            on_error=False,
+            host=mock.sentinel.host,
+        )
+        mock_get_tasks_execution.return_value = mock.Mock(
+            id=mock.sentinel.execution_id,
+            type=constants.EXECUTION_TYPE_DEPLOYMENT,
+            action_id=mock.sentinel.action_id,
+        )
+        mock_update_transfer_action_info.return_value = {
+            "target_environment": saved,
+            "volumes_info": [],
+        }
+
+        self.server.task_completed(
+            mock.sentinel.context, mock.sentinel.task_id, task_result
+        )
+
+        self.assertNotIn(constants.SAVE_NORMALIZED_TARGET_ENVIRONMENT, task_result)
+        mock_update_transfer_action_info.assert_called_once_with(
+            mock.sentinel.context,
+            mock.sentinel.action_id,
+            mock.sentinel.instance,
+            task_result,
+        )
+        mock_set_destination_environment.assert_called_once_with(
+            mock.sentinel.context, mock.sentinel.action_id, saved
+        )
+
     @mock.patch.object(db_api, 'set_task_status')
     def test_cancel_execution_for_osmorphing_debugging(self, mock_set_task_status):
         subtask = mock.Mock()

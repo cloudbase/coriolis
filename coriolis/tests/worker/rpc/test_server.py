@@ -1424,6 +1424,12 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         provider = mock_get_provider.return_value
         provider.target_environment_key_renames = ()
         provider.deprecated_target_environment_keys = ("use_config_drive",)
+        provider.normalize_target_environment.side_effect = (
+            lambda environment: server.provider_utils.normalize_environment(
+                environment,
+                deprecated_keys=("use_config_drive",),
+            )
+        )
         original = {"zone": "zone1", "use_config_drive": True}
         task_info = {"target_environment": original}
         destination = {
@@ -1453,7 +1459,9 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         result = mp_q.put.call_args[0][0]
         seen = runner.run.call_args[0][4]["target_environment"]
         self.assertIs(seen, original)
-        self.assertIs(result["target_environment"], original)
+        self.assertEqual({"zone": "zone1"}, result["target_environment"])
+        self.assertTrue(result[constants.SAVE_NORMALIZED_TARGET_ENVIRONMENT])
+        self.assertEqual({"zone": "zone1", "use_config_drive": True}, original)
         self.assertEqual({"zone": "zone1"}, destination["target_environment"])
         message = (
             "These target environment options are deprecated.\nRemove use_config_drive."

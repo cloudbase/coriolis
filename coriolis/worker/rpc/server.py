@@ -760,17 +760,16 @@ def _setup_task_process(mp_log_q):
     log_root.addHandler(handlers.QueueHandler(mp_log_q))
 
 
-def _target_environment_deprecation_message(destination, task_info):
-    """Return the deprecation warning for this task.
+def _provider_target_environment(destination, task_info):
+    """Return the OS morphing provider and the environment it should read.
 
-    Load the OS morphing provider for ``destination["type"]``.
-    Return None when that provider is absent.
+    Return ``(None, None)`` when the provider is absent.
     Use the task info environment when that key is present.
     Otherwise use the destination environment.
     """
     platform_name = destination.get("type")
     if not platform_name:
-        return None
+        return None, None
 
     provider = providers_factory.get_provider(
         platform_name,
@@ -779,12 +778,20 @@ def _target_environment_deprecation_message(destination, task_info):
         raise_if_not_found=False,
     )
     if provider is None:
-        return None
+        return None, None
 
     if "target_environment" in task_info:
         environment = task_info.get("target_environment")
     else:
         environment = destination.get("target_environment")
+    return provider, environment
+
+
+def _target_environment_deprecation_message(destination, task_info):
+    """Return the deprecation warning for this task."""
+    provider, environment = _provider_target_environment(destination, task_info)
+    if provider is None:
+        return None
     return provider_utils.deprecated_environment_message(
         environment,
         key_renames=getattr(provider, "target_environment_key_renames", ()),
@@ -801,11 +808,17 @@ def _task_process(
             destination, task_info
         )
         event_handler = _get_event_handler_for_task_type(task_type, ctxt, task_id)
+        normalized = None
         if deprecation_message:
             LOG.warn(deprecation_message)
             event_manager = events.EventManager(event_handler)
             event_manager.warn(deprecation_message)
             event_manager.progress_update(deprecation_message)
+            provider, environment = _provider_target_environment(
+                destination, task_info
+            )
+            if isinstance(environment, dict):
+                normalized = provider.normalize_target_environment(environment)
 
         task_runner = task_runners_factory.get_task_runner_class(task_type)()
 
@@ -826,6 +839,10 @@ def _task_process(
         task_result = task_runner.run(
             ctxt, instance, origin, destination, task_info, event_handler
         )
+        if normalized is not None and isinstance(task_result, dict):
+            task_result = dict(task_result)
+            task_result["target_environment"] = normalized
+            task_result[constants.SAVE_NORMALIZED_TARGET_ENVIRONMENT] = True
         # mq_p.put() doesn't raise if new_task_info is not serializable
         utils.is_serializable(task_result)
         mp_q.put(task_result)
