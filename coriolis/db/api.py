@@ -862,6 +862,25 @@ def update_transfer_action_info_for_instance(
 
 
 @enginefacade.writer
+def set_action_destination_environment(context, action_id, destination_environment):
+    """Store the normalized destination environment on the action.
+
+    A deployment also updates its parent transfer. The next deployment
+    copies that transfer environment.
+    """
+    action = get_action(context, action_id)
+    if not action:
+        raise exception.NotFound("Transfer action not found: %s" % action_id)
+    action.destination_environment = destination_environment
+    transfer_id = getattr(action, "transfer_id", None)
+    if transfer_id and transfer_id != action.base_id:
+        transfer = get_transfer(context, transfer_id)
+        if transfer is not None:
+            transfer.destination_environment = destination_environment
+    return destination_environment
+
+
+@enginefacade.writer
 def set_transfer_action_result(context, action_id, instance, result):
     """Adds the result for the given 'instance' in the 'transfer_result'
     JSON in the 'base_transfer_action' table.

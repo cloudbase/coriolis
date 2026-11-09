@@ -10,6 +10,7 @@ from six import with_metaclass
 from coriolis import context, exception
 from coriolis.osmorphing import base as base_osmorphing
 from coriolis.osmorphing.osdetect import base as base_osdetect
+from coriolis.providers import provider_utils
 
 LOG = logging.getLogger(__name__)
 
@@ -36,6 +37,24 @@ class BaseProvider(object, with_metaclass(abc.ABCMeta)):
         owner instance.
         """
         return False
+
+    # (old_key, new_key). The first old value fills the new key when it is empty.
+    target_environment_key_renames = ()
+    # Keys removed with no replacement.
+    deprecated_target_environment_keys = ()
+
+    def normalize_target_environment(self, target_environment) -> dict:
+        """Return a copy of a target environment with old keys rewritten.
+
+        Uses ``target_environment_key_renames`` and
+        ``deprecated_target_environment_keys``.
+        The default lists are empty. The copy keeps every key.
+        """
+        return provider_utils.normalize_environment(
+            target_environment,
+            key_renames=self.target_environment_key_renames,
+            deprecated_keys=self.deprecated_target_environment_keys,
+        )
 
 
 class BaseEndpointProvider(BaseProvider):

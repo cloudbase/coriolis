@@ -3910,6 +3910,13 @@ class ConductorServerEndpoint(object):
             action = db_api.get_action(ctxt, action_id, include_task_info=True)
 
             updated_task_info = None
+            save_normalized_environment = False
+            if isinstance(task_result, dict):
+                save_normalized_environment = bool(
+                    task_result.pop(
+                        constants.SAVE_NORMALIZED_TARGET_ENVIRONMENT, False
+                    )
+                )
             if task_result:
                 LOG.info(
                     "Setting task %(task_id)s (type %(task_type)s)result for "
@@ -3926,6 +3933,12 @@ class ConductorServerEndpoint(object):
                 updated_task_info = db_api.update_transfer_action_info_for_instance(
                     ctxt, action_id, task.instance, task_result
                 )
+                if save_normalized_environment:
+                    db_api.set_action_destination_environment(
+                        ctxt,
+                        action_id,
+                        updated_task_info.get("target_environment"),
+                    )
             else:
                 action = db_api.get_action(ctxt, action_id, include_task_info=True)
                 updated_task_info = action.info[task.instance]
