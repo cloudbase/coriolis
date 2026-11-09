@@ -889,7 +889,6 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     def test_get_endpoint_storage(
         self, mock_get_provider, mock_get_secret, mock_validate
     ):
-
         storage = self.server.get_endpoint_storage(
             mock.sentinel.context,
             mock.sentinel.platform_name,
@@ -1008,6 +1007,9 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     def test_validate_endpoint_target_environment(
         self, mock_get_provider, mock_validate
     ):
+        mock_get_provider.return_value.normalize_target_environment.return_value = (
+            mock.sentinel.normalized_target_environment
+        )
         result = self.server.validate_endpoint_target_environment(
             mock.sentinel.context,
             mock.sentinel.target_platform_name,
@@ -1019,8 +1021,11 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             constants.PROVIDER_TYPE_OS_MORPHING,
             None,
         )
+        mock_get_provider.return_value.normalize_target_environment.assert_called_once_with(
+            mock.sentinel.target_environment
+        )
         mock_validate.assert_called_once_with(
-            mock.sentinel.target_environment,
+            mock.sentinel.normalized_target_environment,
             mock_get_provider.return_value.get_target_environment_schema.return_value,
         )
 
@@ -1035,6 +1040,45 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         )
 
         self.assertEqual(result, (False, "test"))
+
+    @mock.patch.object(schemas, "validate_value")
+    @mock.patch.object(providers_factory, "get_provider")
+    def test_validate_endpoint_target_environment_warns_for_deprecated_keys(
+        self, mock_get_provider, mock_validate
+    ):
+        provider = mock_get_provider.return_value
+        provider.target_environment_key_renames = (
+            ("service_offering", "migr_worker_service_offering"),
+        )
+        provider.deprecated_target_environment_keys = ("use_config_drive",)
+        provider.normalize_target_environment.return_value = {
+            "zone": "zone1",
+            "migr_worker_service_offering": "legacy-offering",
+        }
+        target_env = {
+            "zone": "zone1",
+            "service_offering": "legacy-offering",
+            "use_config_drive": True,
+        }
+
+        with self.assertLogs("coriolis.worker.rpc.server", level="WARNING") as logs:
+            result = self.server.validate_endpoint_target_environment(
+                mock.sentinel.context,
+                mock.sentinel.target_platform_name,
+                target_env,
+            )
+
+        message = (
+            "These target environment options are deprecated.\n"
+            "Use migr_worker_service_offering instead of service_offering.\n"
+            "Remove use_config_drive."
+        )
+        self.assertEqual((True, message), result)
+        self.assertIn(message, logs.output[0])
+        mock_validate.assert_called_once_with(
+            provider.normalize_target_environment.return_value,
+            provider.get_target_environment_schema.return_value,
+        )
 
     @mock.patch.object(schemas, "validate_value")
     @mock.patch.object(providers_factory, "get_provider")
@@ -1260,6 +1304,170 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         mock_is_serializable.assert_called_once_with(mock_task_result)
         mp_q.put.assert_called_once_with(mock_task_result)
         mp_log_q.put.assert_called_once_with(None)
+
+    @mock.patch.object(providers_factory, "get_provider")
+    def test_deprecation_message_uses_task_info_environment(self, mock_get_provider):
+        provider = mock_get_provider.return_value
+        provider.target_environment_key_renames = ()
+        provider.deprecated_target_environment_keys = (
+            "use_config_drive",
+            "minion_network",
+        )
+        destination = {
+            "type": "cloudstack",
+            "target_environment": {"zone": "zone1", "minion_network": "old-net"},
+        }
+        task_info = {
+            "target_environment": {"zone": "zone1", "use_config_drive": True},
+            "volumes_info": [],
+        }
+        original_destination_env = destination["target_environment"]
+        original_task_env = task_info["target_environment"]
+
+        message = server._target_environment_deprecation_message(destination, task_info)
+
+        self.assertEqual(
+            "These target environment options are deprecated.\nRemove use_config_drive.",
+            message,
+        )
+        self.assertIs(destination["target_environment"], original_destination_env)
+        self.assertIs(task_info["target_environment"], original_task_env)
+        self.assertEqual([], task_info["volumes_info"])
+        mock_get_provider.assert_called_once_with(
+            "cloudstack",
+            constants.PROVIDER_TYPE_OS_MORPHING,
+            None,
+            raise_if_not_found=False,
+        )
+
+    @mock.patch.object(providers_factory, "get_provider")
+    def test_deprecation_message_uses_destination_when_task_info_has_no_environment(
+        self, mock_get_provider
+    ):
+        provider = mock_get_provider.return_value
+        provider.target_environment_key_renames = ()
+        provider.deprecated_target_environment_keys = ("use_config_drive",)
+        destination = {
+            "type": "cloudstack",
+            "target_environment": {"zone": "zone1", "use_config_drive": True},
+        }
+
+        message = server._target_environment_deprecation_message(destination, {})
+
+        self.assertEqual(
+            "These target environment options are deprecated.\nRemove use_config_drive.",
+            message,
+        )
+
+    @mock.patch.object(providers_factory, "get_provider")
+    def test_deprecation_message_skips_missing_provider(self, mock_get_provider):
+        mock_get_provider.return_value = None
+        destination = {"type": "cloudstack", "target_environment": {"zone": "zone1"}}
+        task_info = {"target_environment": {"zone": "zone1", "use_config_drive": True}}
+
+        message = server._target_environment_deprecation_message(destination, task_info)
+
+        self.assertIsNone(message)
+
+    @mock.patch.object(server.events, "EventManager")
+    @mock.patch.object(server, "_target_environment_deprecation_message")
+    @mock.patch.object(server, "_setup_task_process")
+    @mock.patch.object(task_runners_factory, "get_task_runner_class")
+    @mock.patch.object(server, "_get_event_handler_for_task_type")
+    @mock.patch("coriolis.utils.is_serializable")
+    def test__task_process_records_deprecation_event(
+        self,
+        mock_is_serializable,
+        mock_get_event_handler,
+        mock_get_task_runner_class,
+        mock_setup_task_process,
+        mock_deprecation_message,
+        mock_event_manager,
+    ):
+        message = (
+            "These target environment options are deprecated.\nRemove use_config_drive."
+        )
+        mock_deprecation_message.return_value = message
+        mp_q = mock.MagicMock()
+        mp_log_q = mock.MagicMock()
+
+        server._task_process(
+            mock.sentinel.ctxt,
+            mock.sentinel.task_id,
+            mock.sentinel.task_type,
+            mock.sentinel.origin,
+            {"type": "cloudstack"},
+            mock.sentinel.instance,
+            {},
+            mp_q,
+            mp_log_q,
+        )
+
+        mock_event_manager.assert_called_once_with(mock_get_event_handler.return_value)
+        mock_event_manager.return_value.warn.assert_called_once_with(message)
+        mock_event_manager.return_value.progress_update.assert_called_once_with(message)
+        mock_is_serializable.assert_called_once()
+
+    @mock.patch.object(providers_factory, "get_provider")
+    @mock.patch.object(server, "_setup_task_process")
+    @mock.patch.object(task_runners_factory, "get_task_runner_class")
+    @mock.patch.object(server, "_get_event_handler_for_task_type")
+    @mock.patch("coriolis.utils.is_serializable")
+    def test__task_process_keeps_original_target_environment(
+        self,
+        mock_is_serializable,
+        mock_get_event_handler,
+        mock_get_task_runner_class,
+        mock_setup_task_process,
+        mock_get_provider,
+    ):
+        provider = mock_get_provider.return_value
+        provider.target_environment_key_renames = ()
+        provider.deprecated_target_environment_keys = ("use_config_drive",)
+        original = {"zone": "zone1", "use_config_drive": True}
+        task_info = {"target_environment": original}
+        destination = {
+            "type": "cloudstack",
+            "target_environment": {"zone": "zone1"},
+        }
+        runner = mock_get_task_runner_class.return_value.return_value
+
+        def _run(_ctxt, _instance, _origin, _destination, info, _event_handler):
+            return {"target_environment": info["target_environment"]}
+
+        runner.run.side_effect = _run
+        mp_q = mock.MagicMock()
+
+        server._task_process(
+            mock.sentinel.ctxt,
+            mock.sentinel.task_id,
+            mock.sentinel.task_type,
+            mock.sentinel.origin,
+            destination,
+            mock.sentinel.instance,
+            task_info,
+            mp_q,
+            mock.MagicMock(),
+        )
+
+        result = mp_q.put.call_args[0][0]
+        seen = runner.run.call_args[0][4]["target_environment"]
+        self.assertIs(seen, original)
+        self.assertIs(result["target_environment"], original)
+        self.assertEqual({"zone": "zone1"}, destination["target_environment"])
+        message = (
+            "These target environment options are deprecated.\nRemove use_config_drive."
+        )
+        mock_get_event_handler.return_value.add_event.assert_called_once_with(
+            message,
+            level=constants.TASK_EVENT_WARNING,
+        )
+        mock_get_event_handler.return_value.add_progress_update.assert_called_once_with(
+            message,
+            return_event=False,
+        )
+        mock_is_serializable.assert_called_once_with(result)
+        mock_setup_task_process.assert_called_once()
 
     @mock.patch.object(server, '_setup_task_process')
     def test__task_process_raise(self, mock_setup_task_process):

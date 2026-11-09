@@ -15,11 +15,12 @@ from oslo_log import log as logging
 from oslo_utils import strutils
 from six.moves import queue
 
-from coriolis import constants, context, exception, schemas, service, utils
+from coriolis import constants, context, events, exception, schemas, service, utils
 from coriolis.conductor.rpc import client as rpc_conductor_client
 from coriolis.conductor.rpc import utils as conductor_rpc_utils
 from coriolis.minion_manager.rpc import client as rpc_minion_manager_client
 from coriolis.providers import factory as providers_factory
+from coriolis.providers import provider_utils
 from coriolis.tasks import factory as task_runners_factory
 
 CONF = cfg.CONF
@@ -603,10 +604,17 @@ class WorkerServerEndpoint(object):
         provider = providers_factory.get_provider(
             platform_name, constants.PROVIDER_TYPE_OS_MORPHING, None
         )
+        message = provider_utils.deprecated_environment_message(
+            target_env,
+            key_renames=getattr(provider, "target_environment_key_renames", ()),
+            deprecated_keys=getattr(provider, "deprecated_target_environment_keys", ()),
+        )
+        if message:
+            LOG.warn(message)
+        target_env = provider.normalize_target_environment(target_env)
         target_env_schema = provider.get_target_environment_schema()
 
         is_valid = True
-        message = None
         try:
             schemas.validate_value(target_env, target_env_schema)
         except exception.SchemaValidationException as ex:
@@ -752,14 +760,54 @@ def _setup_task_process(mp_log_q):
     log_root.addHandler(handlers.QueueHandler(mp_log_q))
 
 
+def _target_environment_deprecation_message(destination, task_info):
+    """Return the deprecation warning for this task.
+
+    Load the OS morphing provider for ``destination["type"]``.
+    Return None when that provider is absent.
+    Use the task info environment when that key is present.
+    Otherwise use the destination environment.
+    """
+    platform_name = destination.get("type")
+    if not platform_name:
+        return None
+
+    provider = providers_factory.get_provider(
+        platform_name,
+        constants.PROVIDER_TYPE_OS_MORPHING,
+        None,
+        raise_if_not_found=False,
+    )
+    if provider is None:
+        return None
+
+    if "target_environment" in task_info:
+        environment = task_info.get("target_environment")
+    else:
+        environment = destination.get("target_environment")
+    return provider_utils.deprecated_environment_message(
+        environment,
+        key_renames=getattr(provider, "target_environment_key_renames", ()),
+        deprecated_keys=getattr(provider, "deprecated_target_environment_keys", ()),
+    )
+
+
 def _task_process(
     ctxt, task_id, task_type, origin, destination, instance, task_info, mp_q, mp_log_q
 ):
     try:
         _setup_task_process(mp_log_q)
+        deprecation_message = _target_environment_deprecation_message(
+            destination, task_info
+        )
+        event_handler = _get_event_handler_for_task_type(task_type, ctxt, task_id)
+        if deprecation_message:
+            LOG.warn(deprecation_message)
+            event_manager = events.EventManager(event_handler)
+            event_manager.warn(deprecation_message)
+            event_manager.progress_update(deprecation_message)
 
         task_runner = task_runners_factory.get_task_runner_class(task_type)()
-        event_handler = _get_event_handler_for_task_type(task_type, ctxt, task_id)
 
         LOG.debug(
             "Executing task: %(task_id)s, type: %(task_type)s, "
