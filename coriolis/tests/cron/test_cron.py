@@ -408,3 +408,12 @@ class CronTestCase(test_base.CoriolisBaseTestCase):
         self.cron._should_stop = False
         self.cron.stop()
         self.assertEqual(True, self.cron._should_stop)
+
+    @mock.patch.object(schedule, 'cancel_job')
+    def test_stop_cancels_schedule_job(self, mock_cancel):
+        self.cron._schedule_job = mock.sentinel.job
+        self.cron.stop()
+        mock_cancel.assert_called_once_with(mock.sentinel.job)
+        self.assertIsNone(self.cron._schedule_job)
+        self.cron.stop()
+        mock_cancel.assert_called_once_with(mock.sentinel.job)
