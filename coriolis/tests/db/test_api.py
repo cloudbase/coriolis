@@ -880,6 +880,82 @@ class TransferTasksExecutionDBAPITestCase(BaseDBAPITestCase):
         )
         self.assertEqual(self.valid_transfer.last_execution_status, new_status)
 
+    def test_set_task_status_stores_short_exception_details(self):
+        task = self._new_task()
+        details = "Failed to install required packages."
+
+        api.set_task_status(self.context, task.id, constants.TASK_STATUS_ERROR, details)
+
+        stored = api.get_task(self.context, task.id)
+        self.assertEqual(constants.TASK_STATUS_ERROR, stored.status)
+        self.assertEqual(details, stored.exception_details)
+
+    def test_set_task_status_records_status_when_exception_details_are_too_long(self):
+        task = self._new_task()
+        max_length = models.MAX_EXCEPTION_DETAILS_LENGTH
+        details = "start-" + ("x" * (max_length * 3)) + "-end"
+
+        api.set_task_status(self.context, task.id, constants.TASK_STATUS_ERROR, details)
+
+        stored = api.get_task(self.context, task.id)
+        self.assertEqual(constants.TASK_STATUS_ERROR, stored.status)
+        self.assertLessEqual(len(stored.exception_details), max_length)
+        self.assertLessEqual(len(stored.exception_details.encode("utf-8")), 65535)
+        self.assertTrue(stored.exception_details.startswith("start-"))
+        self.assertTrue(stored.exception_details.endswith("-end"))
+        self.assertIn("\n... (truncated) ...\n", stored.exception_details)
+
+    def _new_task(self):
+        task = models.Task()
+        task.id = str(uuid.uuid4())
+        task.execution = self.valid_tasks_execution
+        task.instance = DEFAULT_INSTANCE
+        task.status = constants.TASK_STATUS_RUNNING
+        task.task_type = constants.TASK_TYPE_VALIDATE_TRANSFER_SOURCE_INPUTS
+        task.index = 1000 + len(self.valid_tasks_execution.tasks)
+        task.on_error = False
+        self.session.add(task)
+        self.session.commit()
+        return task
+
+
+class ExceptionDetailsFitTestCase(test_base.CoriolisBaseTestCase):
+    def test_normalize_exception_details_leaves_short_values_unchanged(self):
+        self.assertIsNone(api._normalize_exception_details("task-id", None))
+        self.assertEqual("", api._normalize_exception_details("task-id", ""))
+        details = "a" * models.MAX_EXCEPTION_DETAILS_LENGTH
+        self.assertEqual(details, api._normalize_exception_details("task-id", details))
+
+    @mock.patch.object(api.models, "MAX_EXCEPTION_DETAILS_LENGTH", 80)
+    def test_normalize_exception_details_keeps_head_and_tail(self):
+        details = ("HEAD-" * 20) + ("x" * 200) + ("-TAIL" * 20)
+
+        fitted = api._normalize_exception_details("task-id", details)
+
+        self.assertEqual(80, len(fitted))
+        self.assertTrue(fitted.startswith("HEAD-"))
+        self.assertTrue(fitted.endswith("-TAIL"))
+        marker = "\n... (truncated) ...\n"
+        head, tail = fitted.split(marker)
+        self.assertEqual(details[: len(head)], head)
+        self.assertEqual(details[-len(tail) :], tail)
+        self.assertLessEqual(len(fitted.encode("utf-8")), 65535)
+
+    def test_normalize_exception_details_stays_within_mysql_text_for_multibyte_text(
+        self,
+    ):
+        # U+4F60 encodes to 3 bytes in UTF-8, the utf8 worst case.
+        three_byte_char = "\u4f60"
+        details = three_byte_char * (models.MAX_EXCEPTION_DETAILS_LENGTH + 500)
+
+        fitted = api._normalize_exception_details("task-id", details)
+
+        self.assertLessEqual(len(fitted), models.MAX_EXCEPTION_DETAILS_LENGTH)
+        self.assertLessEqual(len(fitted.encode("utf-8")), 65535)
+        self.assertTrue(fitted.startswith(three_byte_char))
+        self.assertTrue(fitted.endswith(three_byte_char))
+        self.assertEqual("?", api._normalize_exception_details("task-id", "\U00010000"))
+
 
 class TransferSchedulesDBAPITestCase(BaseDBAPITestCase):
     @classmethod
