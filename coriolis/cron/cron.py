@@ -155,6 +155,7 @@ class Cron(object):
         self._jobs = {}
         self._threads = []
         self._semaphore = threading.Semaphore(value=1)
+        self._schedule_job = None
 
     def register(self, job):
         if not isinstance(job, CronJob):
@@ -249,7 +250,7 @@ class Cron(object):
             time.sleep(60)
 
     def start(self):
-        schedule.every().minute.do(self._check_jobs)
+        self._schedule_job = schedule.every().minute.do(self._check_jobs)
         self._threads.append(utils.start_thread(self._loop))
         # TODO(lpetrut): consider using "schedule" for the janitor job to avoid
         # spawning an additional thread.
@@ -258,3 +259,8 @@ class Cron(object):
 
     def stop(self):
         self._should_stop = True
+        # The schedule library stores jobs on one process-wide scheduler.
+        # Cancel this job so another Cron does not run it.
+        if self._schedule_job is not None:
+            schedule.cancel_job(self._schedule_job)
+            self._schedule_job = None

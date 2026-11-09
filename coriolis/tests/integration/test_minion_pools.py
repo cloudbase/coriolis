@@ -136,9 +136,11 @@ class MinionPoolLifecycleTests(
         CONF.set_override(
             "minion_pool_default_refresh_period_minutes", 1, group="minion_manager"
         )
+        # The harness sets this option to 0. Restore that value after the test.
         self.addCleanup(
-            CONF.clear_override,
+            CONF.set_override,
             "minion_pool_default_refresh_period_minutes",
+            0,
             group="minion_manager",
         )
 
@@ -459,9 +461,11 @@ class MinionPoolRefreshCronStartupTest(base.DestinationMinionPoolTestBase):
         CONF.set_override(
             "minion_pool_default_refresh_period_minutes", 1, group="minion_manager"
         )
+        # The harness sets this option to 0. Restore that value after the test.
         self.addCleanup(
-            CONF.clear_override,
+            CONF.set_override,
             "minion_pool_default_refresh_period_minutes",
+            0,
             group="minion_manager",
         )
 
