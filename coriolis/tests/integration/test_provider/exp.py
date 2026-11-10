@@ -11,6 +11,7 @@ manage the coriolis-replicator service and perform disk replication.
 import csv
 import io
 import os
+import shutil
 import unittest
 import uuid
 
@@ -29,7 +30,7 @@ from coriolis.providers.base import (
     BaseSourceMinionPoolProvider,
     BaseUpdateSourceReplicaProvider,
 )
-from coriolis.tests.integration import provider_test_base
+from coriolis.tests.integration import osmorphing_utils, provider_test_base, ssh_utils
 from coriolis.tests.integration import utils as test_utils
 from coriolis.tests.integration.test_provider import common
 
@@ -103,6 +104,12 @@ class TestExportProvider(
         )
 
     def check_prerequisites(self):
+        if not shutil.which("busybox"):
+            raise unittest.SkipTest(
+                "A statically linked 'busybox' binary is required on the host "
+                "(e.g.: the busybox-static package)"
+            )
+
         if not test_utils.container_image_exists(test_utils.DATA_MINION_IMAGE):
             raise unittest.SkipTest(
                 "Docker image '%s' not found; build it with: "
@@ -113,7 +120,7 @@ class TestExportProvider(
 
     def get_test_instance(self, size_mb: int):
         device = test_utils.create_loop_device(size_mb * 1024 * 1024)
-        test_utils.write_test_pattern(device, 8192)
+        osmorphing_utils.write_busybox_rootfs_to_device(device)
 
         instance_name = "%s-%s" % (os.path.basename(device), uuid.uuid4().hex[:8])
         self._test_devices[instance_name] = device
@@ -129,6 +136,18 @@ class TestExportProvider(
 
     def get_test_instance_device(self, instance_name: str):
         return self._test_devices.get(instance_name)
+
+    def can_exec_test_vm(self):
+        return True
+
+    def exec_test_vm(self, instance_name: str, command: str):
+        """Run *command* chrooted in the instance's busybox rootfs."""
+        result = osmorphing_utils.chroot_exec(
+            self._test_devices[instance_name], command
+        )
+        return ssh_utils.ExecResult(
+            result.returncode, result.stdout.decode(), result.stderr.decode()
+        )
 
     def _event_manager(self):
         return events.EventManager(self._event_handler)
@@ -350,7 +369,6 @@ class TestExportProvider(
         repl_state = _extract_repl_state(volumes_info) if incremental else None
 
         disk_mappings = source_resources.get("disk_mappings")
-        reused_minion = disk_mappings is None
         if disk_mappings is None:
             # Minion pool case: "source_resources" only carries the pool minion's
             # container_id. the block devices were never attached to the container,
@@ -369,11 +387,13 @@ class TestExportProvider(
             source_conn_info, self._event_manager(), volumes_info, repl_state
         )
         replicator.init_replicator()
-        if reused_minion and incremental:
-            # The pool minion's replicator process persists across executions and it
-            # only computes whole-disk checksums once, at process startup. Without
-            # restarting it, "verify_disk_integrity" would keep comparing against that
-            # stale, pre-sync checksum on every subsequent execution against the minion.
+        if incremental:
+            # The replicator process is already running, either started by
+            # deploy_replica_source_resources() or persisting on a pool minion across
+            # executions, and it only loads the state file and computes whole-disk
+            # checksums at startup. Without restarting it, the previous replica state
+            # would be ignored (resulting in full syncs), and "verify_disk_integrity"
+            # would compare against a stale, pre-sync checksum on a pool minion.
             replicator.update_state(repl_state or [], restart=True)
         replicator.wait_for_chunks()
 
