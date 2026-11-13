@@ -160,11 +160,21 @@ class TestImportProvider(
         export_info,
         volumes_info,
     ):
-        """Allocate disks and return volumes_info."""
+        """Allocate disks and return volumes_info.
+
+        Disks allocated by a previous execution are reused, along with their
+        "replica_state", so that subsequent executions are incremental.
+        """
         src_disks = export_info.get("devices", {}).get("disks", [])
+        existing_vols = {vol["disk_id"]: vol for vol in volumes_info or []}
 
         result = []
         for disk in src_disks:
+            existing_vol = existing_vols.get(disk["id"])
+            if existing_vol and existing_vol.get("volume_dev"):
+                result.append(existing_vol)
+                continue
+
             owner = disk.get("owner")
             if owner and owner != instance_name:
                 # Shared disk owned by another instance of a clustered

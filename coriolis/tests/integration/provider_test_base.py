@@ -19,8 +19,12 @@ import unittest
 from oslo_log import log as logging
 
 from coriolis import context as coriolis_context
+from coriolis import exception
 
 LOG = logging.getLogger(__name__)
+
+# Writes random data to a file in the current (home) directory, and flushes it.
+_MUTATE_DATA_COMMAND = "dd if=/dev/urandom of=coriolis-marker bs=512 count=8 && sync"
 
 
 class BaseTestExportProvider(abc.ABC):
@@ -106,6 +110,41 @@ class BaseTestExportProvider(abc.ABC):
         device (the core test provider); other providers return ``None``.
         """
         return None
+
+    def can_exec_test_vm(self) -> bool:
+        """Whether ``exec_test_vm`` is implemented.
+
+        The default is False; tests that need to run commands inside the source
+        instance (e.g.: to change its data) are skipped when this is False.
+        """
+        return False
+
+    def exec_test_vm(self, instance_name: str, command: str):
+        """Run the shell *command* inside *instance_name*.
+
+        Returns an ``ssh_utils.ExecResult`` (``returncode``, ``stdout``, ``stderr``).
+        Only called when ``can_exec_test_vm()`` is True. Providers are expected to
+        SSH into the instance, or to otherwise enter its filesystem if it is not
+        reachable (e.g.: chroot for the core test provider).
+        """
+        raise NotImplementedError(
+            "%s does not support executing commands in test instances"
+            % type(self).__name__
+        )
+
+    def mutate_test_instance_data(self, instance_name: str):
+        """Change some data on *instance_name*'s primary disk.
+
+        Called between two executions of the same transfer to force a detectable
+        difference for an incremental sync to pick up. Only called when
+        ``can_exec_test_vm()`` is True.
+        """
+        result = self.exec_test_vm(instance_name, _MUTATE_DATA_COMMAND)
+        if result.returncode != 0:
+            raise exception.CoriolisException(
+                "Failed to mutate the data of instance '%s' (exit code %s): %s"
+                % (instance_name, result.returncode, result.stderr)
+            )
 
 
 class BaseTestImportProvider(abc.ABC):

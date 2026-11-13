@@ -1065,8 +1065,10 @@ class Replicator(object):
                     "No new chunks to replicate for disk \"%s\" (%s)"
                     % (volume['disk_id'], devName)
                 )
-                self._repl_state = curr_state
-                return self._repl_state
+                # NOTE: the remaining disks must still be processed, as they may
+                # have changed even if this one did not.
+                dst_vol["replica_state"] = state_for_vol
+                continue
 
             size = self._get_size_from_chunks(chunks)
 

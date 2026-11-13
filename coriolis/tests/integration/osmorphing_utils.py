@@ -10,6 +10,8 @@ LUKS / OS morphing helpers (loopback, LUKS, bootable VM disk setup)
 import contextlib
 import json
 import os
+import shutil
+import stat
 import subprocess
 import tempfile
 from typing import Iterator
@@ -68,6 +70,60 @@ def write_os_image_to_disk(device_path, container_image):
 
     finally:
         _run(["docker", "rm", "-f", container_id], check=False)
+
+
+def write_busybox_rootfs_to_device(device_path):
+    """Write a minimal, chroot-able busybox rootfs to *device_path*.
+
+    Much smaller than a full OS image: a tiny ext4 filesystem holding only the
+    statically linked ``busybox`` of the host, and its applet links.
+    """
+    busybox = shutil.which("busybox")
+    _run(
+        [
+            "mkfs.ext4",
+            "-F",
+            "-q",
+            "-m",
+            "0",
+            "-N",
+            "1024",
+            "-O",
+            "^has_journal",
+            device_path,
+        ]
+    )
+
+    with mounted(device_path) as mount_point:
+        bin_dir = os.path.join(mount_point, "bin")
+        os.makedirs(bin_dir)
+        shutil.copy(busybox, os.path.join(bin_dir, "busybox"))
+
+        # Relative links, as "busybox --install -s" would point them at the
+        # host's mount point, which does not exist inside the chroot.
+        applets = _run([busybox, "--list"]).stdout.decode().split()
+        for applet in applets:
+            if applet != "busybox":
+                os.symlink("busybox", os.path.join(bin_dir, applet))
+
+        for name in ("dev", "proc", "tmp", "etc"):
+            os.makedirs(os.path.join(mount_point, name))
+
+        for name, minor in (("null", 3), ("zero", 5), ("urandom", 9)):
+            os.mknod(
+                os.path.join(mount_point, "dev", name),
+                0o666 | stat.S_IFCHR,
+                os.makedev(1, minor),
+            )
+
+
+def chroot_exec(device_path, command):
+    """Run the shell *command* chrooted in the filesystem of *device_path*.
+
+    Returns the ``subprocess.CompletedProcess``, without raising on failure.
+    """
+    with mounted(device_path) as mount_point:
+        return _run(["chroot", mount_point, "/bin/sh", "-c", command], check=False)
 
 
 def _fixup_luks_inner_os(mapper_path, luks_uuid):
