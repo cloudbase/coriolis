@@ -65,6 +65,22 @@ REQUIRED_DETECTED_OS_FIELDS = [
 DEFAULT_CLOUD_USER = "cloud-user"
 CLOUD_INIT_SERVICE_UNIT_NAME = "cloud-init"
 CLOUD_INIT_SERVICE_UNIT_NAME_FALLBACK = "cloud-init-main"
+# cloud-init stage units hooked into 'cloud-init.target' through their
+# '[Install] WantedBy=cloud-init.target'. The network stage is not listed:
+# 'cloud-config.target' pulls it in ('cloud-init.service', renamed to
+# 'cloud-init-network.service' in newer cloud-init), and some packages (e.g.
+# openSUSE 16) ship 'cloud-init.service' with an empty '[Install]' section,
+# so it cannot be enabled. 'cloud-init-main.service' (single-process
+# cloud-init) is handled by the CLOUD_INIT_SERVICE_UNIT_NAME_FALLBACK path.
+CLOUD_INIT_TARGET_UNIT_PATHS = (
+    "usr/lib/systemd/system/cloud-init.target",
+    "lib/systemd/system/cloud-init.target",
+)
+CLOUD_INIT_TARGET_STAGE_UNIT_NAMES = (
+    "cloud-init-local",
+    "cloud-config",
+    "cloud-final",
+)
 
 FIRST_BOOT_SCRIPT_RUNNER = """#!/bin/bash
 
@@ -842,6 +858,59 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
                 # NOTE(dvincze): New versions of cloud-init (>26) got its
                 # unit service name renamed.
                 self._enable_systemd_service(CLOUD_INIT_SERVICE_UNIT_NAME_FALLBACK)
+            self._enable_cloud_init_target_stages()
+
+    def _enable_cloud_init_target_stages(self) -> None:
+        """Enable disabled cloud-init stage units wanted by cloud-init.target.
+
+        cloud-init-generator only links 'cloud-init.target' into
+        'multi-user.target' at boot; the stages run only if they are enabled
+        into 'cloud-init.target.wants'. Some packages (e.g. openSUSE 16's
+        cloud-init 25.1) neither enable them on install nor give
+        'cloud-init.service' an '[Install]' section, so enabling it is a
+        silent no-op and no stage runs.
+        """
+        try:
+            has_target = any(self._test_path(p) for p in CLOUD_INIT_TARGET_UNIT_PATHS)
+        except Exception:
+            LOG.warning(
+                "Failed to check for cloud-init.target in the guest. Skipping "
+                "cloud-init stage units enablement. Error was: "
+                f"{utils.get_exception_details()}"
+            )
+            return
+        if not has_target:
+            LOG.debug(
+                "cloud-init.target not found in the guest. Skipping cloud-init "
+                "stage units enablement."
+            )
+            return
+
+        for unit_name in CLOUD_INIT_TARGET_STAGE_UNIT_NAMES:
+            try:
+                # NOTE: 'systemctl is-enabled' exits non-zero for disabled or
+                # missing units, so its output is used instead of its exit
+                # code.
+                state = self._exec_cmd_chroot(
+                    f"systemctl is-enabled {unit_name}.service 2>/dev/null || true"
+                ).strip()
+                if state != "disabled":
+                    LOG.debug(
+                        f"cloud-init stage unit '{unit_name}.service' state "
+                        f"is '{state or 'not-found'}'. Leaving it unchanged."
+                    )
+                    continue
+                LOG.info(
+                    f"cloud-init stage unit '{unit_name}.service' is "
+                    "disabled. Enabling it for cloud-init.target."
+                )
+                self._enable_systemd_service(unit_name)
+            except Exception:
+                LOG.warning(
+                    "Failed to enable cloud-init stage unit "
+                    f"'{unit_name}.service'. Continuing. Error was: "
+                    f"{utils.get_exception_details()}"
+                )
 
     def _test_path_chroot(self, path):
         # This method uses _exec_cmd_chroot() instead of SFTP stat()
