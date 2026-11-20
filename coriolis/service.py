@@ -13,11 +13,16 @@ from oslo_concurrency import processutils
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_service import service
-from oslo_service import wsgi as oslo_wsgi
+from paste import deploy
 
-from coriolis import rpc, utils
+from coriolis import exception, rpc, utils
 
 service_opts = [
+    cfg.StrOpt(
+        'api_paste_config',
+        default='api-paste.ini',
+        help='File name for the paste.deploy config for api service',
+    ),
     cfg.StrOpt(
         'api_migration_listen',
         default="0.0.0.0",
@@ -112,13 +117,38 @@ def check_locks_dir_empty():
     )
 
 
+def _get_api_paste_config_path(conf):
+    config_path = conf.api_paste_config
+    if not os.path.isabs(config_path):
+        config_path = conf.find_file(config_path)
+    elif not os.path.exists(config_path):
+        config_path = None
+
+    if not config_path:
+        raise exception.ConfigNotFound(path=conf.api_paste_config)
+    return config_path
+
+
+def load_app(conf, name):
+    """Load the WSGI application with the given name from the paste config."""
+    # NOTE: oslo_service.wsgi imports eventlet at module load time, so load
+    # the paste application directly instead of using its Loader.
+    # TODO(claudiub): use oslo_service.wsgi.Loader again once it no longer
+    # imports eventlet at module load time.
+    config_path = _get_api_paste_config_path(conf)
+    try:
+        return deploy.loadapp(f"config:{config_path}", name=name)
+    except LookupError:
+        LOG.exception("Couldn't lookup app: %s", name)
+        raise exception.PasteAppNotFound(name=name, path=config_path)
+
+
 def get_application():
     worker_count, args = get_worker_count_from_args(sys.argv)
     CONF(args[1:], project='coriolis', version="1.0.0")
     utils.setup_logging()
 
-    loader = oslo_wsgi.Loader(CONF)
-    return loader.load_app("coriolis-api")
+    return load_app(CONF, "coriolis-api")
 
 
 class WSGIService(service.ServiceBase):
@@ -138,8 +168,7 @@ class WSGIService(service.ServiceBase):
                 CONF.api_migration_workers or processutils.get_worker_count()
             )
 
-        self._loader = oslo_wsgi.Loader(CONF)
-        self._app = self._loader.load_app(name)
+        self._app = load_app(CONF, name)
 
         bind_addr = (self._host, self._port)
         self._server = wsgi.Server(

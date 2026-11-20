@@ -20,7 +20,6 @@ WSGI middleware for OpenStack API controllers.
 
 import routes
 from oslo_log import log as logging
-from oslo_service import wsgi as base_wsgi
 from paste import urlmap
 
 from coriolis import exception
@@ -63,7 +62,7 @@ class ProjectMapper(APIMapper):
         routes.Mapper.resource(self, member_name, collection_name, **kwargs)
 
 
-class APIRouter(base_wsgi.Router):
+class APIRouter(wsgi.Router):
     """Routes requests on the API to the appropriate controller and method."""
 
     ExtensionManager = None  # override in subclasses

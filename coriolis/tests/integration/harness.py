@@ -9,7 +9,7 @@ oslo.messaging's fake:// transport and a temporary SQLite database. Serves
 the Coriolis REST API via cheroot on a random local port, a keystonemiddleware
 auth_token + CoriolisKeystoneContext pipeline. No RabbitMQ or Barbican are required.
 
-Tasks are executed in-process as greenlets rather than subprocesses. The
+Tasks are executed in-process as threads rather than subprocesses. The
 fake:// oslo.messaging transport is in-memory and process-local; subprocess
 tasks would initialise their own isolated transport with no conductor listener,
 causing every event-handler RPC call from the task to block indefinitely.
@@ -35,7 +35,6 @@ from keystonemiddleware import auth_token as ks_auth_token
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_middleware import request_id as request_id_middleware
-from oslo_service import wsgi as base_wsgi
 
 from coriolis import api as api_module
 from coriolis import conf as coriolis_conf
@@ -43,6 +42,7 @@ from coriolis import constants, exception, service
 from coriolis import policy as policy_module
 from coriolis import rpc as rpc_module
 from coriolis import utils as coriolis_utils
+from coriolis.api import wsgi as api_wsgi
 from coriolis.api.middleware import auth as keystone_context_middleware
 from coriolis.api.middleware import fault as fault_middleware
 from coriolis.api.v1 import router as api_v1_router
@@ -189,7 +189,7 @@ class _TestAPIRouter(api_v1_router.APIRouter):
         self._setup_routes(mapper, ext_mgr)
         self._setup_ext_routes(mapper, ext_mgr)
         self._setup_extensions(ext_mgr)
-        base_wsgi.Router.__init__(self, mapper)
+        api_wsgi.Router.__init__(self, mapper)
 
     def _setup_routes(self, mapper, ext_mgr):
         super()._setup_routes(mapper, ext_mgr)
@@ -221,7 +221,7 @@ class _TestAPIRouter(api_v1_router.APIRouter):
 
 
 class _InProcessWorkerServerEndpoint(worker_rpc_server.WorkerServerEndpoint):
-    """Worker endpoint that runs tasks as greenlets instead of subprocesses.
+    """Worker endpoint that runs tasks as threads instead of subprocesses.
 
     The fake:// transport is in-memory and process-local. A subprocess would
     initialise its own isolated fake:// instance with no conductor listener, so
