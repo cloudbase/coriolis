@@ -4,7 +4,9 @@ keystoneauth1
 keystonemiddleware
 Jinja2
 jsonschema
-kombu
+# kombu 5.2.4 includes the per-connection memory-usage fixes and pulls
+# amqp>=5.0.9, which fixes a TLS socket leak.
+kombu>=5.2.4
 PyMySQL
 netifaces
 oslo.cache
