@@ -14,6 +14,7 @@ from coriolis import constants, context, exception, schemas, utils
 from coriolis.conductor.rpc import client as conductor_client
 from coriolis.conductor.rpc import utils as cond_rpc_utils
 from coriolis.minion_manager.rpc import client as minion_client
+from coriolis.providers import conf as provider_conf
 from coriolis.providers import factory as providers_factory
 from coriolis.tasks import factory as task_runners_factory
 from coriolis.tests import test_base
@@ -638,16 +639,24 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     def test_get_endpoint_destination_options(
         self, mock_get_provider, mock_get_secret, mock_validate
     ):
+        provider_options = [{"name": "zone", "values": []}]
+        mock_get_provider.return_value.get_target_environment_options.return_value = (
+            provider_options
+        )
+
         def call_get_endpoint_destination_options():
             return self.server.get_endpoint_destination_options(
                 mock.sentinel.context,
                 mock.sentinel.platform_name,
                 mock.sentinel.connection_info,
                 mock.sentinel.environment,
-                mock.sentinel.option_names,
+                {},
             )
 
         options = call_get_endpoint_destination_options()
+        expected = provider_conf.merge_core_destination_options(
+            provider_options, option_names={}
+        )
 
         mock_get_provider.assert_called_once_with(
             mock.sentinel.platform_name,
@@ -662,21 +671,47 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.context,
             mock_get_secret.return_value,
             env=mock.sentinel.environment,
-            option_names=mock.sentinel.option_names,
+            option_names={},
         )
         mock_validate.assert_called_once_with(
-            mock_get_provider.return_value.get_target_environment_options.return_value,
+            expected,
             schemas.CORIOLIS_DESTINATION_ENVIRONMENT_OPTIONS_SCHEMA,
         )
 
-        self.assertEqual(
-            options,
-            mock_get_provider.return_value.get_target_environment_options.return_value,
-        )
+        self.assertEqual(options, expected)
 
         # if the provider is not found, raise InvalidInput
         mock_get_provider.return_value = None
         self.assertRaises(exception.InvalidInput, call_get_endpoint_destination_options)
+
+    @mock.patch.object(schemas, "validate_value")
+    @mock.patch.object(utils, "get_secret_connection_info")
+    @mock.patch.object(providers_factory, "get_provider")
+    def test_get_endpoint_destination_options_core_names_only(
+        self, mock_get_provider, mock_get_secret, mock_validate
+    ):
+        option_names = ["set_dhcp", "retain_user_credentials"]
+        options = self.server.get_endpoint_destination_options(
+            mock.sentinel.context,
+            mock.sentinel.platform_name,
+            mock.sentinel.connection_info,
+            mock.sentinel.environment,
+            option_names,
+        )
+        expected = provider_conf.merge_core_destination_options(
+            [], option_names=option_names
+        )
+
+        mock_get_secret.assert_not_called()
+        mock_get_provider.return_value.get_target_environment_options.assert_not_called()
+        mock_validate.assert_called_once_with(
+            expected,
+            schemas.CORIOLIS_DESTINATION_ENVIRONMENT_OPTIONS_SCHEMA,
+        )
+        self.assertEqual(
+            ["set_dhcp", "retain_user_credentials"],
+            [opt["name"] for opt in options],
+        )
 
     @mock.patch.object(schemas, "validate_value")
     @mock.patch.object(utils, "get_secret_connection_info")
@@ -1008,6 +1043,10 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
     def test_validate_endpoint_target_environment(
         self, mock_get_provider, mock_validate
     ):
+        schema = {"type": "object", "properties": {"zone": {"type": "string"}}}
+        mock_get_provider.return_value.get_target_environment_schema.return_value = (
+            schema
+        )
         result = self.server.validate_endpoint_target_environment(
             mock.sentinel.context,
             mock.sentinel.target_platform_name,
@@ -1021,7 +1060,7 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         )
         mock_validate.assert_called_once_with(
             mock.sentinel.target_environment,
-            mock_get_provider.return_value.get_target_environment_schema.return_value,
+            provider_conf.inject_core_target_environment_schema(schema),
         )
 
         self.assertEqual(result, (True, None))
@@ -1167,6 +1206,10 @@ class WorkerServerEndpointTestCase(test_base.CoriolisBaseTestCase):
         ),
     )
     def test_get_provider_schemas(self, schema_type, mock_get_provider):
+        mock_get_provider.return_value.get_target_environment_schema.return_value = {
+            "type": "object",
+            "properties": {},
+        }
         provider_schemas = self.server.get_provider_schemas(
             mock.sentinel.context, mock.sentinel.platform_name, schema_type[0]
         )
