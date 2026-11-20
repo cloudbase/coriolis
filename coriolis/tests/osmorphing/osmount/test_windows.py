@@ -24,8 +24,8 @@ class CoriolisTestException(Exception):
 class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
     """Test suite for the WindowsMountTools class."""
 
-    @mock.patch.object(windows.wsman, 'WSManConnection')
-    def setUp(self, mock_wsman_connection):
+    @mock.patch.object(windows.windows_conn, 'from_connection_info')
+    def setUp(self, mock_from_connection_info):
         super(WindowsMountToolsTestCase, self).setUp()
         self.event_manager = mock.MagicMock()
         self.ssh = mock.MagicMock()
@@ -43,9 +43,9 @@ class WindowsMountToolsTestCase(test_base.CoriolisBaseTestCase):
             mock.sentinel.ignore_devices,
             mock.sentinel.operation_timeout,
         )
-        self.tools._conn = mock_wsman_connection
+        self.tools._conn = mock.MagicMock()
 
-    @mock.patch.object(windows.wsman.WSManConnection, 'from_connection_info')
+    @mock.patch.object(windows.windows_conn, 'from_connection_info')
     def test__connect(self, mock_from_connection_info):
         result = self.tools._connect()
         self.assertIsNone(result)

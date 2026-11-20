@@ -6,7 +6,7 @@ import paramiko
 import requests
 from oslo_log import log as logging
 
-from coriolis import constants, exception, utils, wsman
+from coriolis import constants, exception, utils, windows_conn, wsman
 
 LOG = logging.getLogger(__name__)
 
@@ -170,6 +170,10 @@ def _poll_instance_until_reachable_ssh(
     timeout: int = 600,
     poll_interval: int = 10,
 ):
+    if not connection_info.get("password") and not connection_info.get("pkey"):
+        raise exception.InvalidInput(
+            "SSH connection info must include password or pkey."
+        )
     start = time.time()
     while (time.time() - start) < timeout:
         try:
@@ -177,8 +181,8 @@ def _poll_instance_until_reachable_ssh(
                 hostname=connection_info["ip"],
                 port=connection_info["port"],
                 username=connection_info["username"],
-                password=connection_info["password"],
-                pkey=connection_info["pkey"],
+                password=connection_info.get("password"),
+                pkey=connection_info.get("pkey"),
             )
             try:
                 # "exit 0" should work across platforms.
@@ -227,7 +231,7 @@ def _poll_instance_until_reachable_winrm(
 
 def poll_instance_until_reachable(
     connection_info: dict,
-    protocol: str = constants.PROTOCOL_SSH,
+    protocol: str = None,
     timeout: int = 600,
     poll_interval: int = 10,
 ) -> paramiko.SSHClient:
@@ -239,22 +243,23 @@ def poll_instance_until_reachable(
         * username
         * password
         * pkey - Paramiko keypair
-    :param protocol: connection protocol, "ssh" or "winrm"
+    :param protocol: connection protocol, "ssh" or "winrm". If omitted,
+        connection_info["protocol"] selects SSH or WinRM. A missing
+        protocol uses WinRM. The port does not select the protocol.
     :param timeout: the maximum amount of time to wait
     :param poll_interval: the amount of time to wait between retries
     """
-    # TODO(lpetrut): consider including the connection protocol in the
-    # connection info. We'd have to modify a few schemas used during os
-    # morphing. We currently pick the protocol based on the OS type but
-    # we may want to use SSH on Windows as well.
-    if protocol == constants.PROTOCOL_SSH:
+    resolved = windows_conn._protocol_from_connection_info(connection_info, protocol)
+    if resolved == constants.PROTOCOL_SSH:
         helper = _poll_instance_until_reachable_ssh
-    elif protocol == constants.PROTOCOL_WINRM:
+    elif resolved == constants.PROTOCOL_WINRM:
         helper = _poll_instance_until_reachable_winrm
     else:
         raise exception.InvalidInput(
-            f"Unsupported instance connection protocol: {protocol}"
+            f"Unsupported instance connection protocol: {resolved}"
         )
     return helper(
-        connection_info=connection_info, timeout=timeout, poll_interval=poll_interval
+        connection_info=connection_info,
+        timeout=timeout,
+        poll_interval=poll_interval,
     )
