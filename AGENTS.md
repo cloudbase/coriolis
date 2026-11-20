@@ -30,6 +30,8 @@ Users configure source/destination **endpoints** (credentials) and
   hints when the type is known.
 - Do not add helpers for trivial checks such as
   `server.power_status == "RUNNING"`; keep those inline.
+- When logging a caught exception, use `utils.get_exception_details()`
+  instead of `{err!r}` / `str(err)`, so the original traceback is kept.
 - Do not strip still-relevant inline comments.
 - If regenerating a file, replace its contents; do not append duplicates.
 - Empty `__init__.py` files must not have license headers.
