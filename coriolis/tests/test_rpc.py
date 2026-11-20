@@ -81,7 +81,6 @@ class RpcTestCase(test_base.CoriolisBaseTestCase):
             mock_get_transport.return_value,
             target,
             endpoints,
-            executor='threading',
             serializer=serializer,
         )
         self.assertEqual(result, mock_get_rpc_server.return_value)

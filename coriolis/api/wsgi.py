@@ -18,9 +18,11 @@ import inspect
 import math
 import time
 
+import routes.middleware
 import six
 import webob
 import webob.dec
+import webob.exc
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 from oslo_utils import excutils
@@ -374,6 +376,40 @@ class Middleware(Application):
             return response
         response = req.get_response(self.application)
         return self.process_response(response)
+
+
+# NOTE: oslo_service.wsgi imports eventlet at module load time, so it cannot
+# be used with the threading backend. Keep a local copy of its Router:
+# https://github.com/openstack/oslo.service/blob/4.9.0/oslo_service/wsgi.py#L308-L363
+# TODO(claudiub): switch back to oslo_service.wsgi.Router once it no longer
+# imports eventlet at module load time.
+class Router:
+    """WSGI middleware that maps incoming requests to WSGI apps."""
+
+    def __init__(self, mapper):
+        """Create a router for the given routes.Mapper.
+
+        Each route in `mapper` must specify a 'controller', which is a
+        WSGI app to call. You'll probably want to specify an 'action' as
+        well and have your controller be an object that can route
+        the request to the action-specific method.
+        """
+        self.map = mapper
+        self._router = routes.middleware.RoutesMiddleware(self._dispatch, self.map)
+
+    @webob.dec.wsgify(RequestClass=Request)
+    def __call__(self, req):
+        """Route the incoming request to a controller based on self.map."""
+        return self._router
+
+    @staticmethod
+    @webob.dec.wsgify(RequestClass=Request)
+    def _dispatch(req):
+        """Dispatch the request to the appropriate controller."""
+        match = req.environ['wsgiorg.routing_args'][1]
+        if not match:
+            return webob.exc.HTTPNotFound()
+        return match['controller']
 
 
 class ActionDispatcher(object):

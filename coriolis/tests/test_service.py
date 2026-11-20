@@ -70,10 +70,65 @@ class ServiceTestCase(test_base.CoriolisBaseTestCase):
                 service.check_locks_dir_empty()
 
 
+class LoadAppTestCase(test_base.CoriolisBaseTestCase):
+    """Test suite for loading paste applications."""
+
+    @mock.patch.object(service.deploy, 'loadapp')
+    def test_load_app_absolute_path(self, mock_loadapp):
+        conf = mock.Mock()
+        conf.api_paste_config = os.path.abspath(__file__)
+
+        result = service.load_app(conf, 'coriolis-api')
+
+        mock_loadapp.assert_called_once_with(
+            f"config:{conf.api_paste_config}", name='coriolis-api'
+        )
+        self.assertEqual(mock_loadapp.return_value, result)
+
+    @mock.patch.object(service.deploy, 'loadapp')
+    def test_load_app_relative_path(self, mock_loadapp):
+        conf = mock.Mock()
+        conf.api_paste_config = 'api-paste.ini'
+        conf.find_file.return_value = '/etc/coriolis/api-paste.ini'
+
+        result = service.load_app(conf, 'coriolis-api')
+
+        conf.find_file.assert_called_once_with('api-paste.ini')
+        mock_loadapp.assert_called_once_with(
+            'config:/etc/coriolis/api-paste.ini', name='coriolis-api'
+        )
+        self.assertEqual(mock_loadapp.return_value, result)
+
+    def test_load_app_config_not_found(self):
+        conf = mock.Mock()
+        conf.api_paste_config = 'api-paste.ini'
+        conf.find_file.return_value = None
+
+        self.assertRaises(
+            service.exception.ConfigNotFound,
+            service.load_app,
+            conf,
+            'coriolis-api',
+        )
+
+    @mock.patch.object(service.deploy, 'loadapp')
+    def test_load_app_paste_app_not_found(self, mock_loadapp):
+        conf = mock.Mock()
+        conf.api_paste_config = os.path.abspath(__file__)
+        mock_loadapp.side_effect = LookupError
+
+        self.assertRaises(
+            service.exception.PasteAppNotFound,
+            service.load_app,
+            conf,
+            'coriolis-api',
+        )
+
+
 class WSGIServiceTestCase(test_base.CoriolisBaseTestCase):
     """Test suite for the Coriolis WSGIService class."""
 
-    @mock.patch('oslo_service.wsgi.Loader.load_app')
+    @mock.patch.object(service, 'load_app')
     @mock.patch.object(service, 'rpc')
     @mock.patch.object(service, 'CONF')
     @mock.patch.object(service.wsgi, 'Server')
@@ -89,7 +144,7 @@ class WSGIServiceTestCase(test_base.CoriolisBaseTestCase):
         )
 
         mock_rpc.init.assert_called_once_with()
-        mock_load_app.assert_called_once_with(mock.sentinel.name)
+        mock_load_app.assert_called_once_with(mock_conf, mock.sentinel.name)
         mock_server.assert_called_once_with(
             server_name=mock.sentinel.name,
             wsgi_app=mock_load_app.return_value,
@@ -105,8 +160,8 @@ class WSGIServiceTestCase(test_base.CoriolisBaseTestCase):
         self.assertEqual(wsgi_service._server, mock_server.return_value)
 
     @mock.patch('platform.system')
-    @mock.patch('oslo_service.wsgi.Server')
-    @mock.patch('oslo_service.wsgi.Loader.load_app')
+    @mock.patch.object(service.wsgi, 'Server')
+    @mock.patch.object(service, 'load_app')
     @mock.patch('coriolis.rpc.messaging.get_transport')
     @mock.patch.object(service, 'CONF')
     def test_init_windows(
@@ -123,8 +178,8 @@ class WSGIServiceTestCase(test_base.CoriolisBaseTestCase):
         self.assertEqual(result._workers, 1)
 
     @mock.patch('platform.system')
-    @mock.patch('oslo_service.wsgi.Server')
-    @mock.patch('oslo_service.wsgi.Loader.load_app')
+    @mock.patch.object(service.wsgi, 'Server')
+    @mock.patch.object(service, 'load_app')
     @mock.patch('oslo_concurrency.processutils.get_worker_count')
     @mock.patch('coriolis.rpc.messaging.get_transport')
     @mock.patch.object(service, 'CONF')
@@ -148,7 +203,7 @@ class WSGIServiceTestCase(test_base.CoriolisBaseTestCase):
         self.assertEqual(result._workers, mock_get_worker_count.return_value)
 
     @mock.patch.object(service, 'CONF')
-    @mock.patch('oslo_service.wsgi.Loader.load_app')
+    @mock.patch.object(service, 'load_app')
     @mock.patch('coriolis.rpc.messaging.get_transport')
     def test_service_methods(self, mock_get_transport, mock_load_app, mock_conf):
         mock_conf.api_migration_workers = 10

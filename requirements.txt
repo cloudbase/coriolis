@@ -4,10 +4,7 @@ keystoneauth1
 keystonemiddleware
 Jinja2
 jsonschema
-# NOTE (aznashwan, 21-03-31): kombu>=5 has some weird interactions with
-# oslo_messaging which causes extreme RAM usage in the API service,
-# so we limit its version here.
-kombu==4.6.10
+kombu
 PyMySQL
 netifaces
 oslo.cache
@@ -17,11 +14,15 @@ oslo.context<6.0.0
 oslo.db
 oslo.i18n
 oslo.log
-oslo.messaging==12.2.0
+# oslo.messaging 18.0.0 no longer pulls in or imports eventlet at load time.
+oslo.messaging>=18.0.0
 oslo.middleware
 oslo.policy
 oslo.serialization
-oslo.service>=1.12.0
+# oslo.service 4.9.0 made eventlet optional, but requires Python 3.11+.
+# Python 3.10 falls back to the last release compatible with it.
+oslo.service>=4.9.0; python_version >= "3.11"
+oslo.service>=4.6.0; python_version < "3.11"
 oslo.versionedobjects
 oslo.reports
 paramiko>=2.1.0
