@@ -61,26 +61,24 @@ REQUIRED_DETECTED_WINDOWS_OS_FIELDS = [
     "product_name",
 ]
 
-QEMU_GUEST_AGENT_INSTALL_SCRIPT_FORMAT = (
-    "$msi = '%(agent_msi_path)s'\n"
-    "$log = '%(agent_msi_log_dir)s\\qemu-guest-agent-msiexec.log'\n"
-    "$rebootMarker = '%(agent_msi_log_dir)s\\qemu-ga-install-rebooted'\n"
-    "for ($i = 1; $i -le 2; $i++) {\n"
-    '    $code = (Start-Process msiexec.exe -ArgumentList "/i `"$msi`" '
-    '/qn /L*V+ `"$log`"" -Wait -PassThru).ExitCode\n'
-    '    Write-Output "QEMU guest agent install attempt $i exited with '
-    'code $code, see $log"\n'
-    "    if (Get-Service -Name 'QEMU-GA' -ErrorAction SilentlyContinue) {\n"
-    "        exit 0\n"
-    "    }\n"
-    "    if ($i -lt 2) { Start-Sleep -Seconds 30 }\n"
-    "}\n"
-    "if (-not (Test-Path $rebootMarker)) {\n"
-    "    New-Item -ItemType File -Path $rebootMarker | Out-Null\n"
-    "    exit 1003\n"
-    "}\n"
-    "exit 1\n"
-)
+QEMU_GUEST_AGENT_INSTALL_SCRIPT_FORMAT = """
+$msi = '%(agent_msi_path)s'
+$log = '%(agent_msi_log_dir)s\\qemu-guest-agent-msiexec.log'
+$rebootMarker = '%(agent_msi_log_dir)s\\qemu-ga-install-rebooted'
+for ($i = 1; $i -le 2; $i++) {
+    $code = (Start-Process msiexec.exe -ArgumentList "/i `"$msi`" /qn /L*V+ `"$log`"" -Wait -PassThru).ExitCode
+    Write-Output "QEMU guest agent install attempt $i exited with code $code, see $log"
+    if (Get-Service -Name 'QEMU-GA' -ErrorAction SilentlyContinue) {
+        exit 0
+    }
+    if ($i -lt 2) { Start-Sleep -Seconds 30 }
+}
+if (-not (Test-Path $rebootMarker)) {
+    New-Item -ItemType File -Path $rebootMarker | Out-Null
+    exit 1003
+}
+exit 1
+"""  # noqa
 
 QEMU_GUEST_AGENT_INSTALL_FROM_DIR_SCRIPT_FORMAT = (
     "$dst = 'C:\\Program Files\\Qemu-ga'\n"
