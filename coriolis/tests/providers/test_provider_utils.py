@@ -351,6 +351,21 @@ class ProviderUtilsTestCase(test_base.CoriolisBaseTestCase):
             poll_interval=poll_interval,
         )
 
+    def test_poll_instance_missing_auth(self):
+        connection_info = {
+            "ip": "1.2.3.4",
+            "port": 22,
+            "username": "Administrator",
+        }
+        self.assertRaises(
+            exception.InvalidInput,
+            provider_utils.poll_instance_until_reachable,
+            connection_info=connection_info,
+            protocol=constants.PROTOCOL_SSH,
+            timeout=600,
+            poll_interval=5,
+        )
+
     @mock.patch("coriolis.wsman.WSManConnection", new_callable=mock.Mock)
     @mock.patch("time.sleep")
     def test_poll_instance_winrm(
@@ -399,4 +414,55 @@ class ProviderUtilsTestCase(test_base.CoriolisBaseTestCase):
             protocol=constants.PROTOCOL_WINRM,
             timeout=30,
             poll_interval=poll_interval,
+        )
+
+    @mock.patch("coriolis.wsman.WSManConnection", new_callable=mock.Mock)
+    def test_poll_instance_defaults_to_winrm(self, mock_wsman):
+        mock_conn = mock.Mock()
+        mock_conn.exec_ps_command.return_value = mock.sentinel.stdout
+        mock_wsman.from_connection_info.return_value = mock_conn
+        connection_info = self._get_mock_conn_info()
+
+        provider_utils.poll_instance_until_reachable(
+            connection_info=connection_info,
+            timeout=30,
+            poll_interval=5,
+        )
+
+        mock_wsman.from_connection_info.assert_called_once_with(connection_info)
+        mock_conn.exec_ps_command.assert_called_once_with("whoami")
+
+    @mock.patch.object(utils, "connect_ssh")
+    @mock.patch.object(utils, "exec_ssh_cmd")
+    def test_poll_instance_uses_connection_info_protocol(
+        self, mock_exec_ssh, mock_connect
+    ):
+        mock_ssh_conn = mock.Mock()
+        mock_connect.return_value = mock_ssh_conn
+        mock_exec_ssh.return_value = mock.sentinel.stdout
+        connection_info = self._get_mock_conn_info()
+        connection_info["protocol"] = constants.PROTOCOL_SSH
+
+        provider_utils.poll_instance_until_reachable(
+            connection_info=connection_info,
+            timeout=30,
+            poll_interval=5,
+        )
+
+        mock_connect.assert_called_once_with(
+            hostname=connection_info["ip"],
+            port=connection_info["port"],
+            username=connection_info["username"],
+            password=connection_info["password"],
+            pkey=connection_info["pkey"],
+        )
+        mock_exec_ssh.assert_called_once_with(mock_ssh_conn, "exit 0")
+
+    def test_poll_instance_unsupported_protocol(self):
+        connection_info = self._get_mock_conn_info()
+        self.assertRaises(
+            exception.InvalidInput,
+            provider_utils.poll_instance_until_reachable,
+            connection_info=connection_info,
+            protocol="ftp",
         )
