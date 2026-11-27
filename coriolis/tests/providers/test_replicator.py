@@ -1593,6 +1593,33 @@ class ReplicatorTestCase(test_base.CoriolisBaseTestCase):
         self.backup_writer.open.assert_not_called()
         self.assertEqual(result, self.replicator._repl_state)
 
+    @mock.patch.object(replicator_module, 'Client')
+    def test_replicate_disks_unchanged_disk_does_not_skip_others(self, mock_Client):
+        self.replicator._cli = mock_Client.return_value
+        changes = {"sdb": [], "sdc": [{'length': 100, 'offset': 0}]}
+        self.replicator._cli.get_changes.side_effect = lambda dev: changes[dev]
+        self.replicator._cli.get_status.return_value = [
+            {"device-name": "sdb"},
+            {"device-name": "sdc"},
+        ]
+        self.replicator._volumes_info = [{"disk_id": "disk1"}, {"disk_id": "disk2"}]
+        source_volumes_info = [
+            {"disk_id": "disk1", "disk_path": "/dev/sdb"},
+            {"disk_id": "disk2", "disk_path": "/dev/sdc"},
+        ]
+        self.replicator._repl_state = ['non-empty']
+
+        self.replicator.replicate_disks(source_volumes_info, self.backup_writer)
+
+        self.backup_writer.open.assert_called_once_with("", "disk2")
+        self.replicator._cli.download_chunk.assert_called_once_with(
+            "sdc", {'length': 100, 'offset': 0}
+        )
+        self.assertEqual(
+            [{"device-name": "sdb"}, {"device-name": "sdc"}],
+            [vol["replica_state"] for vol in self.replicator._volumes_info],
+        )
+
     @mock.patch('builtins.open', new_callable=mock.mock_open)
     @mock.patch.object(replicator_module, 'Client')
     def test__download_full_disk(self, mock_Client, mock_open):

@@ -31,6 +31,10 @@ jobs:
       run: |
         sudo apt install tox
 
+    - name: Install busybox for the test instances' root filesystem
+      shell: bash
+      run: sudo apt-get install -y busybox-static
+
     - name: Build write_data resource binary
       shell: bash
       run: |
