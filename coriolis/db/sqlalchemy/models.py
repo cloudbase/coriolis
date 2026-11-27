@@ -15,6 +15,10 @@ BASE = declarative.declarative_base()
 
 MAX_EVENT_MESSAGE_LENGHT = 1024
 
+# MySQL TEXT holds at most 65,535 bytes. The task table uses charset utf8,
+# which stores at most 3 bytes per character.
+MAX_EXCEPTION_DETAILS_LENGTH = 65535 // 3
+
 
 class TaskEvent(BASE, models.TimestampMixin, models.SoftDeleteMixin, models.ModelBase):
     __tablename__ = 'task_event'
