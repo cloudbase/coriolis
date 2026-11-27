@@ -263,6 +263,8 @@ HYPERVISOR_XENSERVER = "xenserver"
 
 TASK_EVENT_INFO = "INFO"
 TASK_EVENT_WARNING = "WARNING"
+# Task result flag. The conductor removes it before it stores the task result.
+SAVE_NORMALIZED_TARGET_ENVIRONMENT = "_save_normalized_target_environment"
 TASK_EVENT_ERROR = "ERROR"
 
 MINION_POOL_EVENT_INFO = "INFO"

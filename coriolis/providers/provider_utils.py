@@ -157,6 +157,107 @@ def check_changed_storage_mappings(
         )
 
 
+def normalize_environment(environment, key_renames=(), deprecated_keys=()):
+    """Return a copy of an options dict with old keys rewritten.
+
+    ``key_renames`` is an ordered sequence of ``(old_key, new_key)``.
+    Copy the old value onto the new key when the new key has no value.
+    The first old key with a value wins.
+    Then remove every old key.
+
+    ``deprecated_keys`` are removed. They are not copied.
+
+    Do not change the input dict.
+    Return an empty dict when ``environment`` is not a dict.
+    """
+    if not isinstance(environment, dict):
+        return {}
+
+    env = dict(environment)
+    remapped = []
+    filled_new_keys = set()
+    for old_key, new_key in key_renames:
+        if new_key in filled_new_keys:
+            continue
+        if env.get(new_key):
+            filled_new_keys.add(new_key)
+            continue
+        value = env.get(old_key)
+        if value:
+            env[new_key] = value
+            filled_new_keys.add(new_key)
+            remapped.append(old_key)
+
+    removed = []
+    for old_key, _new_key in key_renames:
+        if old_key in env:
+            removed.append(old_key)
+            env.pop(old_key, None)
+    for key in deprecated_keys:
+        if key in env:
+            removed.append(key)
+            env.pop(key, None)
+
+    if remapped or removed:
+        LOG.debug(
+            "Normalized environment. Remapped keys: %s. Removed keys: %s.",
+            remapped,
+            removed,
+        )
+    return env
+
+
+def _option_sequence(value):
+    if isinstance(value, (list, tuple)):
+        return value
+    return ()
+
+
+def _english_list(items):
+    if len(items) == 1:
+        return items[0]
+    if len(items) == 2:
+        return "%s and %s" % (items[0], items[1])
+    return "%s, and %s" % (", ".join(items[:-1]), items[-1])
+
+
+def deprecated_environment_message(environment, key_renames=(), deprecated_keys=()):
+    """Return a warning for old keys present in an options dict.
+
+    Each line names one replacement or one key to remove.
+    Return None when no old key is present.
+    """
+    if not isinstance(environment, dict):
+        return None
+
+    groups = []
+    group_index = {}
+    seen = set()
+    for old_key, new_key in _option_sequence(key_renames):
+        if old_key not in environment or old_key in seen:
+            continue
+        seen.add(old_key)
+        if new_key not in group_index:
+            group_index[new_key] = len(groups)
+            groups.append((new_key, []))
+        groups[group_index[new_key]][1].append(old_key)
+
+    removed = []
+    for key in _option_sequence(deprecated_keys):
+        if key in environment and key not in seen:
+            seen.add(key)
+            removed.append(key)
+    if not groups and not removed:
+        return None
+
+    lines = ["These target environment options are deprecated."]
+    for new_key, old_keys in groups:
+        lines.append("Use %s instead of %s." % (new_key, _english_list(old_keys)))
+    for key in removed:
+        lines.append("Remove %s." % key)
+    return "\n".join(lines)
+
+
 class ProviderSession(requests.Session):
     def merge_environment_settings(self, url, proxies, stream, verify, *args, **kwargs):
         verify = self.verify
