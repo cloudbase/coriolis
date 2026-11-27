@@ -6,6 +6,7 @@ import os
 import stat
 import struct
 import zlib
+from collections.abc import Callable
 from urllib import parse
 
 import requests
@@ -31,7 +32,7 @@ CONF.register_opts(compressor_opts)
 
 LOG = logging.getLogger(__name__)
 
-_COMPRESS_FUNC = {
+_COMPRESS_FUNC: dict[str, Callable[..., bytes]] = {
     constants.COMPRESSION_FORMAT_GZIP: gzip.compress,
     constants.COMPRESSION_FORMAT_ZLIB: zlib.compress,
 }

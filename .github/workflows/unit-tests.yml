@@ -28,6 +28,10 @@ jobs:
       shell: bash
       run: |
         python3 -m pip install tox
+    - name: Run type checks with tox
+      shell: bash
+      run: |
+        tox -e mypy -v
     - name: Run unit tests with tox
       shell: bash
       run: |

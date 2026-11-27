@@ -6,7 +6,6 @@ import abc
 import paramiko
 from oslo_config import cfg
 from oslo_log import log as logging
-from six import with_metaclass
 
 from coriolis import constants, exception, utils
 from coriolis.providers import factory as providers_factory
@@ -24,7 +23,7 @@ CONF.register_opts(serialization_opts, 'serialization')
 LOG = logging.getLogger(__name__)
 
 
-class TaskRunner(with_metaclass(abc.ABCMeta)):
+class TaskRunner(metaclass=abc.ABCMeta):
     def get_shared_libs_for_providers(self, ctxt, origin, destination, event_handler):
         """Returns a list of directories containing libraries needed
         for both the source and destination providers."""

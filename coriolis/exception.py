@@ -69,7 +69,7 @@ class CoriolisException(Exception):
 
     message = _("An unknown exception occurred.")
     code = 500
-    headers = {}
+    headers: dict = {}
     safe = False
 
     def __init__(self, message=None, **kwargs):

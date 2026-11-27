@@ -155,7 +155,8 @@ class DaemonCherootWorker(cheroot_threadpool.WorkerThread):
         #       doesn't work with separate processes.
 
 
-cheroot_threadpool.WorkerThread = DaemonCherootWorker
+# Monkey-patch cheroot's thread factory with our daemon variant.
+cheroot_threadpool.WorkerThread = DaemonCherootWorker  # type: ignore[misc]
 
 
 class _AdminRoleMiddleware:

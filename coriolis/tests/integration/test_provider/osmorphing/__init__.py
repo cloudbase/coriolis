@@ -4,12 +4,12 @@
 from coriolis.osmorphing import base
 from coriolis.tests.integration.test_provider.osmorphing import rocky, ubuntu
 
-OS_MORPHERS: list[base.BaseLinuxOSMorphingTools] = [
+OS_MORPHERS: list[type[base.BaseLinuxOSMorphingTools]] = [
     rocky.TestRockyLinuxOSMorphingTools,
     ubuntu.TestUbuntuOSMorphingTools,
 ]
 
-LUKS_OS_MORPHERS: list[base.BaseLinuxOSMorphingTools] = [
+LUKS_OS_MORPHERS: list[type[base.BaseLinuxOSMorphingTools]] = [
     rocky.LUKSTestRockyLinuxOSMorphingTools,
     ubuntu.LUKSTestUbuntuOSMorphingTools,
 ]

@@ -18,7 +18,6 @@ import uuid
 import paramiko
 from oslo_config import cfg
 from oslo_log import log as logging
-from six import with_metaclass
 
 from coriolis import constants, data_transfer, events, exception, utils
 from coriolis.providers import provider_utils
@@ -236,7 +235,7 @@ class BackupWritersFactory(object):
         return writer_conn_info
 
 
-class BaseBackupWriterImpl(with_metaclass(abc.ABCMeta)):
+class BaseBackupWriterImpl(metaclass=abc.ABCMeta):
     def __init__(self, path, disk_id):
         self._path = path
         self._disk_id = disk_id
@@ -286,7 +285,7 @@ class BaseBackupWriterImpl(with_metaclass(abc.ABCMeta)):
         return None
 
 
-class BaseBackupWriter(with_metaclass(abc.ABCMeta)):
+class BaseBackupWriter(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def _get_impl(self, path, disk_id):
         pass

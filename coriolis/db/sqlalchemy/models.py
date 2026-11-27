@@ -2,6 +2,7 @@
 # All Rights Reserved.
 
 import uuid
+from typing import Any
 
 import sqlalchemy
 from oslo_db.sqlalchemy import models
@@ -11,7 +12,7 @@ from sqlalchemy.ext import declarative
 from coriolis import constants
 from coriolis.db.sqlalchemy import types
 
-BASE = declarative.declarative_base()
+BASE: Any = declarative.declarative_base()
 
 MAX_EVENT_MESSAGE_LENGHT = 1024
 
@@ -457,8 +458,8 @@ class Service(BASE, models.TimestampMixin, models.ModelBase, models.SoftDeleteMi
         nullable=False,
         default=lambda: constants.SERVICE_STATUS_UNKNOWN,
     )
-    providers = sqlalchemy.Column(types.Json(), nullable=True)
-    specs = sqlalchemy.Column(types.Json(), nullable=True)
+    providers: Any = sqlalchemy.Column(types.Json(), nullable=True)
+    specs: Any = sqlalchemy.Column(types.Json(), nullable=True)
     mapped_regions = orm.relationship(
         'Region', back_populates='mapped_services', secondary="service_region_mapping"
     )

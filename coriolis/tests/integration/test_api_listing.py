@@ -21,6 +21,9 @@ class APIListingTestBase(base.CoriolisIntegrationTestBase):
     FAKE_USER_ID = "fake-user-id"
     FAKE_PROJECT_ID = "fake-project-id"
 
+    _ctx: coriolis_context.RequestContext
+    _admin_ctx: coriolis_context.RequestContext
+
     TRANSFER_COUNT = 5
     EXECUTIONS_PER_TRANSFER = 5
     DEPLOYMENTS_PER_TRANSFER = 5

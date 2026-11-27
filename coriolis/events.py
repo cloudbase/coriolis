@@ -6,7 +6,6 @@ import collections
 import copy
 
 from oslo_log import log as logging
-from six import with_metaclass
 
 from coriolis import constants
 
@@ -17,7 +16,7 @@ _PercStepData = collections.namedtuple(
 )
 
 
-class EventManager(object, with_metaclass(abc.ABCMeta)):
+class EventManager(metaclass=abc.ABCMeta):
     def __init__(self, event_handler):
         self._event_handler = event_handler
         self._perc_steps = {}
@@ -110,7 +109,7 @@ class EventManager(object, with_metaclass(abc.ABCMeta)):
         self._call_event_handler('add_event', message, level=constants.TASK_EVENT_ERROR)
 
 
-class BaseEventHandler(object, with_metaclass(abc.ABCMeta)):
+class BaseEventHandler(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def add_progress_update(
         self, message, initial_step=0, total_steps=0, return_event=False

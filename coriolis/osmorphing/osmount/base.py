@@ -11,7 +11,6 @@ import re
 import uuid
 
 from oslo_log import log as logging
-from six import with_metaclass
 
 from coriolis import constants, exception, utils
 from coriolis.osmorphing.osmount import luks_mixin
@@ -24,7 +23,7 @@ MAJOR_COLUMN_INDEX = 4
 _VOLUME_BLOCK_DEVICE_TYPES = frozenset({"disk"})
 
 
-class BaseOSMountTools(object, with_metaclass(abc.ABCMeta)):
+class BaseOSMountTools(metaclass=abc.ABCMeta):
     def __init__(
         self,
         connection_info,

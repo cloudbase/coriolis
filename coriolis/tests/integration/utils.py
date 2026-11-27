@@ -27,7 +27,7 @@ DATA_MINION_IMAGE = "coriolis-data-minion:test"
 _LOOPDEV_BACKING_PREFIX = "coriolis-loopdev-%s-" % uuid.uuid4().hex[:8]
 
 # device_path: backing_sparse_file, for devices created by create_loop_device().
-_loop_backing_files = {}
+_loop_backing_files: dict[str, str] = {}
 
 
 def get_host_disk_devices() -> set:

@@ -65,7 +65,7 @@ class ProjectMapper(APIMapper):
 class APIRouter(wsgi.Router):
     """Routes requests on the API to the appropriate controller and method."""
 
-    ExtensionManager = None  # override in subclasses
+    ExtensionManager: type | None = None  # override in subclasses
 
     @classmethod
     def factory(cls, global_config, **local_config):

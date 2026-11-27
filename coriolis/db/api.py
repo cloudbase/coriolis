@@ -317,7 +317,12 @@ def get_transfer_tasks_executions(
     q = _soft_delete_aware_query(context, models.TasksExecution)
     q = q.join(models.Transfer)
     if include_task_info:
-        q = q.options(orm.joinedload('action').undefer('info'))
+        # "action" is a dynamically created relationship backref.
+        q = q.options(
+            orm.joinedload('action').undefer(  # type: ignore[arg-type]
+                models.BaseTransferAction.info
+            )
+        )
     if include_tasks:
         q = _get_tasks_with_details_options(q)
     if is_user_context(context):
@@ -536,7 +541,7 @@ def get_transfers(
     if include_tasks_executions:
         q = _get_transfer_with_tasks_executions_options(q)
     if include_task_info:
-        q = q.options(orm.undefer('info'))
+        q = q.options(orm.undefer(models.BaseTransferAction.info))
     q = q.filter()
     if transfer_scenario:
         q = q.filter(models.Transfer.scenario == transfer_scenario)
@@ -679,9 +684,9 @@ def get_deployments(
     if include_tasks:
         q = _get_deployment_task_query_options(q)
     else:
-        q = q.options(orm.joinedload("executions"))
+        q = q.options(orm.joinedload(models.BaseTransferAction.executions))
     if include_task_info:
-        q = q.options(orm.undefer('info'))
+        q = q.options(orm.undefer(models.BaseTransferAction.info))
 
     if is_user_context(context):
         q = q.filter_by(project_id=context.project_id)
