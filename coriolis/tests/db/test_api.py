@@ -18,7 +18,7 @@ CONTEXT_MOCK = mock.MagicMock()
 DEFAULT_INSTANCE = "instance1"
 DEFAULT_USER_ID = "1"
 DEFAULT_PROJECT_ID = "1"
-DEFAULT_TASK_INFO = {DEFAULT_INSTANCE: {"volumes_info": []}}
+DEFAULT_TASK_INFO: dict[str, dict[str, list]] = {DEFAULT_INSTANCE: {"volumes_info": []}}
 DEFAULT_EXECUTION_STATUS = constants.EXECUTION_STATUS_RUNNING
 
 
@@ -80,7 +80,7 @@ def create_valid_tasks_execution():
 
 
 class BaseDBAPITestCase(test_base.CoriolisBaseTestCase):
-    valid_data = {"user_scope": {}, "outer_scope": {}}
+    valid_data: dict = {"user_scope": {}, "outer_scope": {}}
 
     @classmethod
     def setup_scoped_data(cls, region_id, project_id="1"):

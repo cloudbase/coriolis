@@ -11,7 +11,6 @@ import uuid
 import yaml
 from oslo_log import log as logging
 from packaging.version import InvalidVersion, Version
-from six import with_metaclass
 
 from coriolis import exception, utils
 from coriolis.osmorphing.netpreserver import factory
@@ -131,7 +130,7 @@ FIRST_BOOT_SYSTEMD_UNIT_NAME = "coriolis-firstboot.service"
 FIRST_BOOT_SYSTEMD_UNIT_PATH = f"/etc/systemd/system/{FIRST_BOOT_SYSTEMD_UNIT_NAME}"
 
 
-class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
+class BaseOSMorphingTools(metaclass=abc.ABCMeta):
     def __init__(
         self,
         conn,
@@ -276,7 +275,7 @@ class BaseOSMorphingTools(object, with_metaclass(abc.ABCMeta)):
 
 
 class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
-    _packages = {}
+    _packages: dict = {}
     _NETWORK_SCRIPTS_PATH = "etc/sysconfig/network-scripts"
     _NM_CONNECTIONS_PATH = "etc/NetworkManager/system-connections"
     # ifcfg profile template written for DHCP NICs. Subclasses may override it
@@ -284,7 +283,7 @@ class BaseLinuxOSMorphingTools(BaseOSMorphingTools):
     _IFCFG_TEMPLATE = IFCFG_TEMPLATE
     # Minimum OS major version at which ifcfg profiles should be marked as
     # NetworkManager-controlled (NM_CONTROLLED=yes).
-    _IFCFG_NM_CONTROLLED_MIN_VERSION = None
+    _IFCFG_NM_CONTROLLED_MIN_VERSION: int | None = None
 
     def __init__(
         self,

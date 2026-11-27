@@ -6,7 +6,6 @@ import abc
 import os
 
 from oslo_log import log as logging
-from six import with_metaclass
 
 from coriolis import constants, exception, utils
 
@@ -22,7 +21,7 @@ REQUIRED_DETECTED_OS_FIELDS = [
 ]
 
 
-class BaseOSDetectTools(object, with_metaclass(abc.ABCMeta)):
+class BaseOSDetectTools(metaclass=abc.ABCMeta):
     def __init__(self, conn, os_root_dir, operation_timeout):
         self._conn = conn
         self._os_root_dir = os_root_dir

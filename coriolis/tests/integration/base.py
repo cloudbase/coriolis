@@ -16,6 +16,7 @@ import atexit
 import os
 import time
 import unittest
+from typing import Any
 from unittest import mock
 
 import oslo_messaging as messaging
@@ -59,8 +60,8 @@ _DEFAULT_POOL_MINION_RETENTION_STRATEGY = (
 # Default endpoints / pools, created lazily once per run as needed
 # (_get_shared_endpoint / _get_shared_pool), keyed by provider platform
 # (constants.PROVIDER_PLATFORM_SOURCE / _DESTINATION).
-_SHARED_ENDPOINTS = {}
-_SHARED_POOL_IDS = {}
+_SHARED_ENDPOINTS: dict[str, Any] = {}
+_SHARED_POOL_IDS: dict[str, str] = {}
 
 
 class CoriolisIntegrationTestBase(test_base.CoriolisBaseTestCase):
@@ -450,7 +451,7 @@ class ReplicaIntegrationTestBase(CoriolisIntegrationTestBase):
 
     # Extra source_environment entries merged into the default transfer's
     # source_environment.
-    _EXTRA_SOURCE_ENVIRONMENT = {}
+    _EXTRA_SOURCE_ENVIRONMENT: dict = {}
 
     @classmethod
     def setUpClass(cls):

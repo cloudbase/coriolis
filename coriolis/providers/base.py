@@ -5,7 +5,6 @@ import abc
 import itertools
 
 from oslo_log import log as logging
-from six import with_metaclass
 
 from coriolis import context, exception
 from coriolis.osmorphing import base as base_osmorphing
@@ -14,7 +13,7 @@ from coriolis.osmorphing.osdetect import base as base_osdetect
 LOG = logging.getLogger(__name__)
 
 
-class BaseProvider(object, with_metaclass(abc.ABCMeta)):
+class BaseProvider(metaclass=abc.ABCMeta):
     @property
     def platform(self) -> str:
         """Platform type."""
@@ -113,7 +112,7 @@ class BaseEndpointInstancesProvider(BaseEndpointProvider):
         raise NotImplementedError()
 
 
-class BaseEndpointNetworksProvider(object, with_metaclass(abc.ABCMeta)):
+class BaseEndpointNetworksProvider(metaclass=abc.ABCMeta):
     """Defines operations for endpoint networks."""
 
     @abc.abstractmethod
@@ -133,7 +132,7 @@ class BaseEndpointNetworksProvider(object, with_metaclass(abc.ABCMeta)):
         raise NotImplementedError()
 
 
-class BaseProviderSetupExtraLibsMixin(object, with_metaclass(abc.ABCMeta)):
+class BaseProviderSetupExtraLibsMixin(metaclass=abc.ABCMeta):
     """ABC mix-in for providers which require extra libraries loaded."""
 
     @abc.abstractmethod
@@ -153,7 +152,7 @@ class BaseProviderSetupExtraLibsMixin(object, with_metaclass(abc.ABCMeta)):
         return []
 
 
-class BaseEndpointDestinationOptionsProvider(object, with_metaclass(abc.ABCMeta)):
+class BaseEndpointDestinationOptionsProvider(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def get_target_environment_options(
         self,
@@ -219,7 +218,7 @@ class BaseEndpointDestinationOptionsProvider(object, with_metaclass(abc.ABCMeta)
         pass
 
 
-class BaseEndpointSourceOptionsProvider(object, with_metaclass(abc.ABCMeta)):
+class BaseEndpointSourceOptionsProvider(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def get_source_environment_options(
         self,
@@ -410,7 +409,7 @@ class BaseImportInstanceProvider(BaseInstanceProvider):
         pass
 
 
-class BaseReplicaExportValidationProvider(object, with_metaclass(abc.ABCMeta)):
+class BaseReplicaExportValidationProvider(metaclass=abc.ABCMeta):
     """Validate replica export parameters."""
 
     @abc.abstractmethod
@@ -434,7 +433,7 @@ class BaseReplicaExportValidationProvider(object, with_metaclass(abc.ABCMeta)):
         return {}
 
 
-class BaseReplicaImportValidationProvider(object, with_metaclass(abc.ABCMeta)):
+class BaseReplicaImportValidationProvider(metaclass=abc.ABCMeta):
     """Validate replica import parameters."""
 
     @abc.abstractmethod
@@ -1033,7 +1032,7 @@ def get_os_morphing_tools_helper(
     raise exception.OSMorphingToolsNotFound(os_type=os_type)
 
 
-class BaseEndpointStorageProvider(object, with_metaclass(abc.ABCMeta)):
+class BaseEndpointStorageProvider(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def get_storage(
         self,
@@ -1057,7 +1056,7 @@ class BaseEndpointStorageProvider(object, with_metaclass(abc.ABCMeta)):
         pass
 
 
-class BaseUpdateSourceReplicaProvider(object, with_metaclass(abc.ABCMeta)):
+class BaseUpdateSourceReplicaProvider(metaclass=abc.ABCMeta):
     """Class for replica export providers which offer the functionality
     of updating the parameters for a replica.
     """
@@ -1087,7 +1086,7 @@ class BaseUpdateSourceReplicaProvider(object, with_metaclass(abc.ABCMeta)):
         """
 
 
-class BaseUpdateDestinationReplicaProvider(object, with_metaclass(abc.ABCMeta)):
+class BaseUpdateDestinationReplicaProvider(metaclass=abc.ABCMeta):
     """Class for replica import providers which offer the functionality
     of updating the parameters for a replica.
     """
@@ -1117,7 +1116,7 @@ class BaseUpdateDestinationReplicaProvider(object, with_metaclass(abc.ABCMeta)):
         """
 
 
-class _BaseMinionPoolProvider(object, with_metaclass(abc.ABCMeta)):
+class _BaseMinionPoolProvider(metaclass=abc.ABCMeta):
     """Minion Pool management functionality.
 
     Coriolis users will choose whether minion pools should be used or not.
@@ -1407,7 +1406,7 @@ class _BaseMinionPoolProvider(object, with_metaclass(abc.ABCMeta)):
         pass
 
 
-class BaseEndpointInventoryExportProvider(object, with_metaclass(abc.ABCMeta)):
+class BaseEndpointInventoryExportProvider(metaclass=abc.ABCMeta):
     """Capability class for providers that support VM inventory CSV export.
 
     Providers that implement this class will be offered in the UI as

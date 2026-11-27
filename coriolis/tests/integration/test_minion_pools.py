@@ -23,7 +23,7 @@ CONF = cfg.CONF
 
 
 class MinionPoolLifecycleTestMixin:
-    _MINION_PLATFORM = None
+    _MINION_PLATFORM: str | None = None
 
     def _wait_for_machine_status(self, pool_id, status, timeout=120):
         """Poll the DB until the pool's single machine reaches *status*."""

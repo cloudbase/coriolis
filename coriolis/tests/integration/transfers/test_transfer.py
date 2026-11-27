@@ -18,6 +18,7 @@ import time
 import unittest
 import uuid
 import zlib
+from collections.abc import Callable
 from unittest import mock
 
 from oslo_config import cfg
@@ -32,7 +33,7 @@ from coriolis.tests.integration import utils as test_utils
 
 CONF = cfg.CONF
 
-_COMPRESS_FUNC = {
+_COMPRESS_FUNC: dict[str, Callable[..., bytes]] = {
     "gzip": gzip.compress,
     "zlib": zlib.compress,
 }

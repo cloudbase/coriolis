@@ -181,7 +181,7 @@ class ManagerTestCase(test_base.CoriolisBaseTestCase):
         self.assertIsNone(result)
 
     class MockOSMorphingToolsClass:
-        installed_packages = []
+        installed_packages: list = []
 
         def __init__(self, *args, **kwargs):
             pass

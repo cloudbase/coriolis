@@ -14,7 +14,7 @@ VERSION = "1.0"
 LOG = logging.getLogger(__name__)
 
 
-SCHEDULER_OPTS = []
+SCHEDULER_OPTS: list[cfg.Opt] = []
 
 CONF = cfg.CONF
 CONF.register_opts(SCHEDULER_OPTS, 'scheduler')

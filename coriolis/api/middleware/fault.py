@@ -29,7 +29,7 @@ LOG = logging.getLogger(__name__)
 class FaultWrapper(wsgi.Middleware):
     """Calls down the middleware stack, making exceptions into faults."""
 
-    _status_to_type = {}
+    _status_to_type: dict[int, type[webob.exc.HTTPError]] = {}
 
     @staticmethod
     def status_to_type(status):

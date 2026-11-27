@@ -3,10 +3,8 @@
 
 import abc
 
-from six import with_metaclass
 
-
-class BaseServiceFilter(with_metaclass(abc.ABCMeta)):
+class BaseServiceFilter(metaclass=abc.ABCMeta):
     def is_service_acceptable(self, service):
         return self.rate_service(service) > 0
 
